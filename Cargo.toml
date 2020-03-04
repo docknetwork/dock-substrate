@@ -5,7 +5,7 @@ panic = 'unwind'
 authors = ['Anonymous']
 build = 'build.rs'
 edition = '2018'
-name = 'node-template'
+name = 'dock-testnet'
 version = '2.0.0'
 
 [build-dependencies]
@@ -130,5 +130,5 @@ version = '2.0.0'
 members = ['runtime']
 
 [[bin]]
-name = 'node-template'
+name = 'dock-testnet'
 path = 'src/main.rs'
