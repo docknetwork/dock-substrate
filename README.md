@@ -29,13 +29,13 @@ cargo build --release
 Purge any existing developer chain state:
 
 ```bash
-./target/release/node-template purge-chain --dev
+./target/release/dock-testnet purge-chain --dev
 ```
 
 Start a development chain with:
 
 ```bash
-./target/release/node-template --dev
+./target/release/dock-testnet --dev
 ```
 
 Detailed logs may be shown by running the node with the following environment variables set: `RUST_LOG=debug RUST_BACKTRACE=1 cargo run -- --dev`.
