@@ -1,6 +1,6 @@
 use super::{BlockNumber, DID, DID_BYTE_SIZE};
 use codec::{Decode, Encode};
-use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, traits::Get};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get};
 use sp_std::prelude::Vec;
 
 /// The module's configuration trait.
@@ -10,6 +10,13 @@ pub trait Trait: system::Trait {
     //type DIDByteSize: Get<u8>;
 }
 
+decl_error! {
+	/// Error for the token module.
+	pub enum Error for Module<T: Trait> {
+		/// There is already a DID with same value
+		DIDAlreadyExists,
+	}
+}
 
 /// Cryptographic algorithm of public key
 /// like `Ed25519VerificationKey2018`, `Secp256k1VerificationKey2018` and `Sr25519VerificationKey2018`
@@ -93,17 +100,14 @@ decl_event!(
     where
         AccountId = <T as system::Trait>::AccountId,
     {
-        DIDAdded(Vec<u8>),
-        // TODO: Remove event
-        DIDAlreadyExists(Vec<u8>),
+        DIDAdded(DID),
         DummyEvent(AccountId),
     }
 );
 
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
-        Dids get(did): map DID => (KeyDetail, T::BlockNumber);
-        //Dids: map [u8; 32] => (KeyDetail, T::BlockNumber);
+        DIDs get(did): map DID => (KeyDetail, T::BlockNumber);
     }
 }
 
@@ -116,13 +120,14 @@ decl_module! {
         /// `did` is the new DID to create. The method will throw exception if `did` is already registered.
         /// `detail` is the details of the key like its type, controller and value
         fn new(_origin, did: DID, detail: KeyDetail) -> DispatchResult {
-            if Dids::<T>::exists(did) {
-                Self::deposit_event(RawEvent::DIDAlreadyExists(did.to_vec()));
-            } else {
-                let current_block_no = <system::Module<T>>::block_number();
-                Dids::<T>::insert(did, (detail, current_block_no));
-                Self::deposit_event(RawEvent::DIDAdded(did.to_vec()));
-            }
+            ensure!(
+                !DIDs::<T>::exists(did),
+                Error::<T>::DIDAlreadyExists
+            );
+
+            let current_block_no = <system::Module<T>>::block_number();
+            DIDs::<T>::insert(did, (detail, current_block_no));
+            Self::deposit_event(RawEvent::DIDAdded(did));
             Ok(())
         }
 
@@ -141,6 +146,8 @@ decl_module! {
             // TODO:
             Ok(())
         }
+
+        // TODO: Add sig verification method that can be used by any other module as well.
     }
 }
 
@@ -229,13 +236,36 @@ mod tests {
             let pk = vec![0, 1];
             let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
 
-            assert_ok!(DIDModule::new(
-                Origin::signed(alice),
-                did.clone(),
-                detail.clone()
-            ));
+            // Add a DID
+            assert_ok!(
+                DIDModule::new(
+                    Origin::signed(alice),
+                    did.clone(),
+                    detail.clone()
+                )
+            );
 
-            // TODO
+            // Try to add the same DID and same key detail again and fail
+            assert_err!(
+                DIDModule::new(
+                    Origin::signed(alice),
+                    did.clone(),
+                    detail.clone()
+                ),
+                Error::<Test>::DIDAlreadyExists
+            );
+
+            // Try to add the same DID again but with different key detail and fail
+            let pk = vec![0, 1, 9, 10, 12];
+            let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
+            assert_err!(
+                DIDModule::new(
+                    Origin::signed(alice),
+                    did,
+                    detail
+                ),
+                Error::<Test>::DIDAlreadyExists
+            );
         });
     }
 }
