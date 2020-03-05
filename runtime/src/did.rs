@@ -1,5 +1,6 @@
 use codec::{Encode, Decode};
 use sp_std::prelude::Vec;
+use super::{DID, DID_BYTE_SIZE, BlockNumber};
 use frame_support::{decl_module, decl_storage, decl_event, dispatch::DispatchResult, traits::Get};
 
 /// The module's configuration trait.
@@ -9,7 +10,7 @@ pub trait Trait: system::Trait {
     //type DIDByteSize: Get<u8>;
 }
 
-pub const DID_BYTE_SIZE: usize = 32;
+//pub const DID_BYTE_SIZE: usize = 32;
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub enum PublicKeyType {
@@ -26,7 +27,8 @@ impl Default for PublicKeyType {
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct KeyDetail {
-    controller: [u8; DID_BYTE_SIZE],
+    controller: DID,
+    //controller: [u8; DID_BYTE_SIZE],
     //controller: [u8; 32],
     public_key_type: PublicKeyType,
     public_key: Vec<u8>,
@@ -36,8 +38,9 @@ pub struct KeyDetail {
 impl Default for KeyDetail {
     fn default() -> Self {
         KeyDetail {
-            //controller: [0; DID_BYTE_SIZE],
-            controller: [0; 32],
+            controller: DID::default(),
+            //controller: [0; 32],
+            //controller: DID,
             public_key_type: PublicKeyType::default(),
             public_key: Vec::new()
         }
@@ -54,11 +57,12 @@ impl Default for KeyDetail {
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct KeyUpdate {
     cmd: u8,
-    did: [u8; DID_BYTE_SIZE],
+    //did: [u8; DID_BYTE_SIZE],
+    did: DID,
     public_key_type: PublicKeyType,
     public_key: Vec<u8>,
-    controller: Option<[u8; DID_BYTE_SIZE]>,
-    last_modified_in_block: u64
+    controller: Option<DID>,
+    last_modified_in_block: BlockNumber
 }
 
 /// This struct is passed as an argument while removing the DID
@@ -68,8 +72,8 @@ pub struct KeyUpdate {
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct DIDRemoval {
     cmd: u8,
-    did: [u8; DID_BYTE_SIZE],
-    last_modified_in_block: u64,
+    did: DID,
+    last_modified_in_block: BlockNumber,
 }
 
 decl_event!(
@@ -85,7 +89,7 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as DidModule {
-        Dids get(did): map [u8; DID_BYTE_SIZE] => (KeyDetail, T::BlockNumber);
+        Dids get(did): map DID => (KeyDetail, T::BlockNumber);
         //Dids: map [u8; 32] => (KeyDetail, T::BlockNumber);
     }
 }
@@ -97,7 +101,7 @@ decl_module! {
         //fn new(_origin, did: [u8; DID_BYTE_SIZE], detail: KeyDetail) -> DispatchResult {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will throw exception if `did` is already registered.
-        fn new(_origin, did: [u8; 32], detail: KeyDetail) -> DispatchResult {
+        fn new(_origin, did: DID, detail: KeyDetail) -> DispatchResult {
             if Dids::<T>::exists(did) {
                 Self::deposit_event(RawEvent::DIDAlreadyExists(did.to_vec()));
             } else {

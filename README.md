@@ -100,3 +100,29 @@ git checkout <branch/tag/sha1>
 
 Noted though you will likely get faster and more thorough support if you stick with the releases
 provided in this repository.
+
+## Polkadot-js UI
+To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some structures need to be created in the `Settings > Developer` section. Add the following JSON
+```json
+{
+  "DID": "[u8;32]",
+  "KeyDetail": {
+    "controller": "DID",
+    "public_key_type": "PublicKeyType",
+    "public_key": "Vec<u8>"
+  },
+  "KeyUpdate": {
+    "cmd": "u8",
+    "did": "DID",
+    "public_key_type": "PublicKeyType",
+    "public_key": "Vec<u8>",
+    "controller": "Option<DID>",
+    "last_modified_in_block": "u64"
+  },
+  "DIDRemoval": {
+    "cmd": "u8",
+    "did": "DID",
+    "last_modified_in_block": "u64"
+  }
+}
+```
