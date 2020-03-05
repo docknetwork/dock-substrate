@@ -129,3 +129,85 @@ decl_module! {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use frame_support::{assert_ok, assert_err, impl_outer_origin, parameter_types, weights::Weight};
+    use sp_core::H256;
+    use sp_runtime::{
+        traits::{BlakeTwo256, OnFinalize, OnInitialize, IdentityLookup}, testing::Header, Perbill
+    };
+
+    impl_outer_origin! {
+		pub enum Origin for Test {}
+	}
+
+    #[derive(Clone, Eq, Debug, PartialEq)]
+    pub struct Test;
+
+    parameter_types! {
+		pub const BlockHashCount: u64 = 250;
+		pub const MaximumBlockWeight: Weight = 1024;
+		pub const MaximumBlockLength: u32 = 2 * 1024;
+		pub const AvailableBlockRatio: Perbill = Perbill::one();
+	}
+
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Call = ();
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type MaximumBlockLength = MaximumBlockLength;
+        type Version = ();
+        type ModuleToIndex = ();
+    }
+
+    /*impl balances::Trait for Test {
+        type Balance = u64;
+        type OnNewAccount = ();
+        type OnFreeBalanceZero = ();
+        type Event = ();
+        type TransferPayment = ();
+        type DustRemoval = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type TransferFee = TransferFee;
+        type CreationFee = CreationFee;
+    }*/
+
+    impl super::Trait for Test {
+        type Event = ();
+    }
+
+    // This function basically just builds a genesis storage key/value store according to
+    // our desired mockup.
+    fn new_test_ext() -> sp_io::TestExternalities {
+        system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap()
+            .into()
+    }
+
+    type DidModule = super::Module<Test>;
+
+    #[test]
+    fn new_did_test_case() {
+        new_test_ext().execute_with(|| {
+            let alice = 10u64;
+            let bob = 20u64;
+            let charlie = 30u64;
+
+            // TODO: Write test
+        });
+    }
+}

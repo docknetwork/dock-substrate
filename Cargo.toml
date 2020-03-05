@@ -48,7 +48,7 @@ package = 'sp-finality-grandpa'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 version = '2.0.0'
 
-[dependencies.node-template-runtime]
+[dependencies.dock-testnet-runtime]
 path = 'runtime'
 version = '2.0.0'
 

@@ -1,0 +1,28 @@
+{
+  "DID": "[u8;32]",
+  "PublicKeyType": {
+    "_enum": [
+      "Sr25519",
+      "Ed25519",
+      "Secp256k1"
+    ]
+  },
+  "KeyDetail": {
+    "controller": "DID",
+    "public_key_type": "PublicKeyType",
+    "public_key": "Vec<u8>"
+  },
+  "KeyUpdate": {
+    "cmd": "u8",
+    "did": "DID",
+    "public_key_type": "PublicKeyType",
+    "public_key": "Vec<u8>",
+    "controller": "Option<DID>",
+    "last_modified_in_block": "u64"
+  },
+  "DIDRemoval": {
+    "cmd": "u8",
+    "did": "DID",
+    "last_modified_in_block": "u64"
+  }
+}

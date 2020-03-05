@@ -63,6 +63,7 @@ pub type Hash = sp_core::H256;
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
 
+// explore using `parameter_types!` for DID_BYTE_SIZE. The problem is that its needed for defining DID
 pub const DID_BYTE_SIZE: usize = 32;
 pub type DID = [u8; DID_BYTE_SIZE];
 
