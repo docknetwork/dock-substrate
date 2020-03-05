@@ -10,8 +10,9 @@ pub trait Trait: system::Trait {
     //type DIDByteSize: Get<u8>;
 }
 
-//pub const DID_BYTE_SIZE: usize = 32;
 
+/// Cryptographic algorithm of public key
+/// like `Ed25519VerificationKey2018`, `Secp256k1VerificationKey2018` and `Sr25519VerificationKey2018`
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub enum PublicKeyType {
     Sr25519,
@@ -25,6 +26,9 @@ impl Default for PublicKeyType {
     }
 }
 
+/// `controller` is the controller DID and its value might be same as `did`. When that is the case, pass `controller` as None.
+/// `public_key_type` is the type of the key
+/// `public_key` is the public key and it is accepted and stored as raw bytes.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct KeyDetail {
     controller: DID,
@@ -43,6 +47,14 @@ impl Default for KeyDetail {
             //controller: DID,
             public_key_type: PublicKeyType::default(),
             public_key: Vec::new(),
+        }
+    }
+}
+
+impl KeyDetail {
+    pub fn new(controller: DID, public_key_type: PublicKeyType, public_key: Vec<u8>) -> Self {
+        KeyDetail {
+            controller, public_key, public_key_type
         }
     }
 }
@@ -82,13 +94,14 @@ decl_event!(
         AccountId = <T as system::Trait>::AccountId,
     {
         DIDAdded(Vec<u8>),
+        // TODO: Remove event
         DIDAlreadyExists(Vec<u8>),
         DummyEvent(AccountId),
     }
 );
 
 decl_storage! {
-    trait Store for Module<T: Trait> as DidModule {
+    trait Store for Module<T: Trait> as DIDModule {
         Dids get(did): map DID => (KeyDetail, T::BlockNumber);
         //Dids: map [u8; 32] => (KeyDetail, T::BlockNumber);
     }
@@ -101,6 +114,7 @@ decl_module! {
         //fn new(_origin, did: [u8; DID_BYTE_SIZE], detail: KeyDetail) -> DispatchResult {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will throw exception if `did` is already registered.
+        /// `detail` is the details of the key like its type, controller and value
         fn new(_origin, did: DID, detail: KeyDetail) -> DispatchResult {
             if Dids::<T>::exists(did) {
                 Self::deposit_event(RawEvent::DIDAlreadyExists(did.to_vec()));
@@ -202,16 +216,26 @@ mod tests {
             .into()
     }
 
-    type DidModule = super::Module<Test>;
+    type DIDModule = super::Module<Test>;
+
+    // TODO: Add test for Event DIDAdded
 
     #[test]
     fn new_did_test_case() {
         new_test_ext().execute_with(|| {
             let alice = 10u64;
-            let bob = 20u64;
-            let charlie = 30u64;
 
-            // TODO: Write test
+            let did = [1; DID_BYTE_SIZE];
+            let pk = vec![0, 1];
+            let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
+
+            assert_ok!(DIDModule::new(
+                Origin::signed(alice),
+                did.clone(),
+                detail.clone()
+            ));
+
+            // TODO
         });
     }
 }

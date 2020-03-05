@@ -75,6 +75,10 @@ cargo run -- \
 
 Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
 
+## Polkadot-js UI
+To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some structures need to be created in the `Settings > Developer` section. 
+The structures can be found in [developer.json file](./developer.json).
+
 ## Advanced: Generate Your Own Substrate Node Template
 
 A substrate node template is always based on a certain version of Substrate. You can inspect it by
@@ -100,7 +104,3 @@ git checkout <branch/tag/sha1>
 
 Noted though you will likely get faster and more thorough support if you stick with the releases
 provided in this repository.
-
-## Polkadot-js UI
-To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some structures need to be created in the `Settings > Developer` section. 
-The structures can be found in [developer.json file](./developer.json).
