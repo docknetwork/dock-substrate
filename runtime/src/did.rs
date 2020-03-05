@@ -1,7 +1,7 @@
-use codec::{Encode, Decode};
+use super::{BlockNumber, DID, DID_BYTE_SIZE};
+use codec::{Decode, Encode};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch::DispatchResult, traits::Get};
 use sp_std::prelude::Vec;
-use super::{DID, DID_BYTE_SIZE, BlockNumber};
-use frame_support::{decl_module, decl_storage, decl_event, dispatch::DispatchResult, traits::Get};
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
@@ -16,7 +16,7 @@ pub trait Trait: system::Trait {
 pub enum PublicKeyType {
     Sr25519,
     Ed25519,
-    Secp256k1
+    Secp256k1,
 }
 
 impl Default for PublicKeyType {
@@ -42,7 +42,7 @@ impl Default for KeyDetail {
             //controller: [0; 32],
             //controller: DID,
             public_key_type: PublicKeyType::default(),
-            public_key: Vec::new()
+            public_key: Vec::new(),
         }
     }
 }
@@ -62,7 +62,7 @@ pub struct KeyUpdate {
     public_key_type: PublicKeyType,
     public_key: Vec<u8>,
     controller: Option<DID>,
-    last_modified_in_block: BlockNumber
+    last_modified_in_block: BlockNumber,
 }
 
 /// This struct is passed as an argument while removing the DID
@@ -79,7 +79,7 @@ pub struct DIDRemoval {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId
+        AccountId = <T as system::Trait>::AccountId,
     {
         DIDAdded(Vec<u8>),
         DIDAlreadyExists(Vec<u8>),
@@ -134,25 +134,29 @@ decl_module! {
 mod tests {
     use super::*;
 
-    use frame_support::{assert_ok, assert_err, impl_outer_origin, parameter_types, weights::Weight};
+    use frame_support::{
+        assert_err, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
+    };
     use sp_core::H256;
     use sp_runtime::{
-        traits::{BlakeTwo256, OnFinalize, OnInitialize, IdentityLookup}, testing::Header, Perbill
+        testing::Header,
+        traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
+        Perbill,
     };
 
     impl_outer_origin! {
-		pub enum Origin for Test {}
-	}
+        pub enum Origin for Test {}
+    }
 
     #[derive(Clone, Eq, Debug, PartialEq)]
     pub struct Test;
 
     parameter_types! {
-		pub const BlockHashCount: u64 = 250;
-		pub const MaximumBlockWeight: Weight = 1024;
-		pub const MaximumBlockLength: u32 = 2 * 1024;
-		pub const AvailableBlockRatio: Perbill = Perbill::one();
-	}
+        pub const BlockHashCount: u64 = 250;
+        pub const MaximumBlockWeight: Weight = 1024;
+        pub const MaximumBlockLength: u32 = 2 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::one();
+    }
 
     impl system::Trait for Test {
         type Origin = Origin;
