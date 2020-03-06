@@ -1,4 +1,4 @@
-use super::{BlockNumber, DID, PK_MAX_BYTE_SIZE};
+use super::{BlockNumber, DID, DID_BYTE_SIZE, PK_MAX_BYTE_SIZE};
 use codec::{Decode, Encode};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, dispatch::DispatchResult, ensure, traits::Get};
 use sp_std::prelude::Vec;
@@ -222,10 +222,10 @@ decl_module! {
             // serialize to bytes
             let serz_key_update = key_update.encode();
 
-            let sig_ver = Self::verify_sig(&signature, &serz_key_update, &key_update.public_key_type, &key_update.public_key)?;
+            let sig_ver = Self::verify_sig(&signature, &serz_key_update, &current_key_detail.public_key_type, &current_key_detail.public_key)?;
 
             // Signature should be valid
-            ensure!(sig_ver, Error::<T>::InvalidSigForKeyUpdate);
+            ensure!(sig_ver == true, Error::<T>::InvalidSigForKeyUpdate);
 
             // Key update is safe to do
             let current_block_no = <system::Module<T>>::block_number();
@@ -271,7 +271,7 @@ impl<T: Trait> Module<T> {
                 PublicKeyType::Sr25519 => {
                     // XXX: `&` does not work for taking reference
                     //let signature = sr25519::Signature::try_from(&signature).unwrap();
-                    let signature = sr25519::Signature::try_from(signature).unwrap();
+                    let signature = sr25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSigForKeyUpdate)?;
                     let mut pk_bytes: [u8; 32] = [0; 32];
                     // Fixme: Assuming key has same length
                     pk_bytes.clone_from_slice(public_key);
@@ -279,7 +279,7 @@ impl<T: Trait> Module<T> {
                     signature.verify(message, &pk)
                 }
                 PublicKeyType::Ed25519 => {
-                    let signature = ed25519::Signature::try_from(signature).unwrap();
+                    let signature = ed25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSigForKeyUpdate)?;
                     let mut pk_bytes: [u8; 32] = [0; 32];
                     // Fixme: Assuming key has same length
                     pk_bytes.clone_from_slice(public_key);
@@ -301,7 +301,7 @@ mod tests {
     use frame_support::{
         assert_err, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
     };
-    use sp_core::H256;
+    use sp_core::{H256, Pair};
     use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
@@ -325,6 +325,7 @@ mod tests {
     impl system::Trait for Test {
         type Origin = Origin;
         type Index = u64;
+        // XXX: Why is it u64 when in lib.rs its u32
         type BlockNumber = u64;
         type Call = ();
         type Hash = H256;
@@ -370,7 +371,7 @@ mod tests {
 
     // TODO: Add test for Event DIDAdded
     // TODO: Add test for Event KeyUpdated
-
+    // TODO: Add test for public key len check in KeyUpdate
 
     #[test]
     fn public_key_must_have_acceptable_size() {
@@ -394,7 +395,7 @@ mod tests {
     }
 
     #[test]
-    fn did_creation_tests() {
+    fn did_creation() {
         // DID must be unique. It must have an acceptable public size
         new_test_ext().execute_with(|| {
             let alice = 10u64;
@@ -444,6 +445,63 @@ mod tests {
                     detail
                 ),
                 Error::<Test>::LargePublicKey
+            );
+        });
+    }
+
+    #[test]
+    fn did_key_update() {
+        // DID must be unique. It must have an acceptable public size
+        new_test_ext().execute_with(|| {
+            let alice = 100u64;
+
+            let did = [1; DID_BYTE_SIZE];
+            let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_1 = pair_1.public().0.to_vec();
+
+            let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk_1.clone());
+
+            // Add a DID
+            assert_ok!(
+                DIDModule::new(
+                    Origin::signed(alice),
+                    did.clone(),
+                    detail.clone()
+                )
+            );
+
+            let (_, modified_in_block) = DIDModule::did(did.clone());
+
+            // Correctly update DID's key.
+            // Prepare a key update
+            let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_2 = pair_2.public().0.to_vec();
+            let key_update = KeyUpdate::new(did.clone(), PublicKeyType::Sr25519, pk_2.clone(), None, modified_in_block as u32);
+            let sig = pair_1.sign(&key_update.encode());
+
+            // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
+            assert_ok!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update.clone(),
+                    sig.0.to_vec()
+                )
+            );
+
+            let (_, modified_in_block) = DIDModule::did(did.clone());
+
+            // Maliciously update DID's key.
+            // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
+            let key_update = KeyUpdate::new(did.clone(), PublicKeyType::Sr25519, pk_1.clone(), None, modified_in_block as u32);
+            let sig = pair_1.sign(&key_update.encode());
+
+            assert_err!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update.clone(),
+                    sig.0.to_vec()
+                ),
+                Error::<Test>::InvalidSigForKeyUpdate
             );
         });
     }
