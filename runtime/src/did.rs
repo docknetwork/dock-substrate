@@ -1,8 +1,11 @@
-use super::{BlockNumber, DID, DID_BYTE_SIZE, PK_MAX_BYTE_SIZE};
+use super::{BlockNumber, DID, PK_MAX_BYTE_SIZE};
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, dispatch::DispatchResult, ensure, traits::Get};
 use sp_std::prelude::Vec;
 use system::ensure_signed;
+use sp_std::convert::TryFrom;
+use sp_core::{ed25519, sr25519, ecdsa};
+use sp_runtime::traits::Verify;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
@@ -22,7 +25,11 @@ decl_error! {
 		DIDDoesNotExist,
 		/// For replay protection, an update to state is required to contain the same block number
 		/// in which the last update was performed.
-		DifferentBlockNumber
+		DifferentBlockNumber,
+		/// Signature verification failed while key update
+		InvalidSigForKeyUpdate,
+		/// Signature verification failed while DID removal
+		InvalidSigForDIDRemoval
 	}
 }
 
@@ -32,7 +39,8 @@ decl_error! {
 pub enum PublicKeyType {
     Sr25519,
     Ed25519,
-    Secp256k1,
+    // TODO: Uncomment
+    //Secp256k1,
 }
 
 /// Default is chosen since its Parity's default algo and due to Parity's reasoning.
@@ -41,6 +49,9 @@ impl Default for PublicKeyType {
         PublicKeyType::Sr25519
     }
 }
+
+// TODO: Consider combining the public key and its type in a enum. That way the enum variant can know the public key
+// size as well and i don't have to rely on checking input vector length.
 
 /// `controller` is the controller DID and its value might be same as `did`. When that is the case, pass `controller` as None.
 /// `public_key_type` is the type of the key
@@ -137,6 +148,7 @@ decl_event!(
         AccountId = <T as system::Trait>::AccountId,
     {
         DIDAdded(DID),
+        KeyUpdated(DID),
         DummyEvent(AccountId),
     }
 );
@@ -191,13 +203,15 @@ decl_module! {
                 Error::<T>::LargePublicKey
             );
 
+            // Not checking for signature size as its not stored
+
             // DID must be registered
             ensure!(
                 DIDs::<T>::exists(key_update.did),
                 Error::<T>::DIDAlreadyExists
             );
 
-            let (current_key_detail, last_modified_in_block) = DIDs::<T>::get(key_update.did);
+            let (mut current_key_detail, last_modified_in_block) = DIDs::<T>::get(key_update.did);
 
             // replay protection: the key update should contain the last block in which the key was modified
             ensure!(
@@ -205,8 +219,26 @@ decl_module! {
                 Error::<T>::DifferentBlockNumber
             );
 
-            let serz_key_update: Vec<u8> = key_update.encode();
-            // TODO:
+            // serialize to bytes
+            let serz_key_update = key_update.encode();
+
+            let sig_ver = Self::verify_sig(&signature, &serz_key_update, &key_update.public_key_type, &key_update.public_key)?;
+
+            // Signature should be valid
+            ensure!(sig_ver, Error::<T>::InvalidSigForKeyUpdate);
+
+            // Key update is safe to do
+            let current_block_no = <system::Module<T>>::block_number();
+            current_key_detail.public_key_type = key_update.public_key_type;
+            current_key_detail.public_key = key_update.public_key;
+
+            // If key update specified a controller, then only update the current controller
+            if let Some(ctrl) = key_update.controller {
+                current_key_detail.controller = ctrl;
+            }
+
+            DIDs::<T>::insert(key_update.did, (current_key_detail, current_block_no));
+            Self::deposit_event(RawEvent::KeyUpdated(key_update.did));
             Ok(())
         }
 
@@ -228,6 +260,37 @@ decl_module! {
         }
 
         // TODO: Add sig verification method that can be used by any other module as well.
+    }
+}
+
+impl<T: Trait> Module<T> {
+    pub fn verify_sig(signature: &[u8], message: &[u8], public_key_type: &PublicKeyType, public_key: &[u8]) -> Result<bool, DispatchError> {
+        Ok(
+            match *public_key_type {
+                // Fixme: Remove unwraps
+                PublicKeyType::Sr25519 => {
+                    // XXX: `&` does not work for taking reference
+                    //let signature = sr25519::Signature::try_from(&signature).unwrap();
+                    let signature = sr25519::Signature::try_from(signature).unwrap();
+                    let mut pk_bytes: [u8; 32] = [0; 32];
+                    // Fixme: Assuming key has same length
+                    pk_bytes.clone_from_slice(public_key);
+                    let pk = sr25519::Public(pk_bytes);
+                    signature.verify(message, &pk)
+                }
+                PublicKeyType::Ed25519 => {
+                    let signature = ed25519::Signature::try_from(signature).unwrap();
+                    let mut pk_bytes: [u8; 32] = [0; 32];
+                    // Fixme: Assuming key has same length
+                    pk_bytes.clone_from_slice(public_key);
+                    let pk = ed25519::Public(pk_bytes);
+                    signature.verify(message, &pk)
+                }
+                /*case PublicKeyType::Secp256k1 => {
+
+                }*/
+            }
+        )
     }
 }
 
@@ -306,7 +369,8 @@ mod tests {
     type DIDModule = super::Module<Test>;
 
     // TODO: Add test for Event DIDAdded
-    // TODO: Add test for adding DIDs larger than 32 bytes
+    // TODO: Add test for Event KeyUpdated
+
 
     #[test]
     fn public_key_must_have_acceptable_size() {
