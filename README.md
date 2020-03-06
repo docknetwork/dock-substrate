@@ -79,6 +79,10 @@ Additional CLI usage options are available and may be shown by running `cargo ru
 To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some structures need to be created in the `Settings > Developer` section. 
 The structures can be found in [developer.json file](./developer.json).
 
+## Dev tips
+1. For faster builds during testing use flag `SKIP_WASM_BUILD=1`. This will not generate WASM but only native code. 
+1. To use `println!` like Rust in `decl_module`'s functions, run the test or binary with flag `SKIP_WASM_BUILD=1` 
+
 ## Advanced: Generate Your Own Substrate Node Template
 
 A substrate node template is always based on a certain version of Substrate. You can inspect it by
