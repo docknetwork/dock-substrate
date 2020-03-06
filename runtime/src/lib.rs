@@ -66,8 +66,6 @@ pub type DigestItem = generic::DigestItem<Hash>;
 pub const DID_BYTE_SIZE: usize = 32;
 /// The type of the Dock DID
 pub type DID = [u8; DID_BYTE_SIZE];
-/// Maximum allowed size of a public key in bytes.
-pub const PK_MAX_BYTE_SIZE: usize = 1024;
 
 /// Used for the module template in `./template.rs`
 mod template;

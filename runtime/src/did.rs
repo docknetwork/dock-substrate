@@ -1,4 +1,4 @@
-use super::{BlockNumber, DID, DID_BYTE_SIZE, PK_MAX_BYTE_SIZE};
+use super::{BlockNumber, DID, DID_BYTE_SIZE};
 use codec::{Decode, Encode};
 use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, dispatch::DispatchResult, ensure, traits::Get};
 use sp_std::prelude::Vec;
@@ -17,8 +17,8 @@ pub trait Trait: system::Trait {
 decl_error! {
 	/// Error for the token module.
 	pub enum Error for Module<T: Trait> {
-		/// Given public key is larger than the maximum supported size
-		LargePublicKey,
+		/// Given public key is not of the correct size
+		PublicKeySizeIncorrect,
 		/// There is already a DID with same value
 		DIDAlreadyExists,
 		/// There is no such DID
@@ -50,6 +50,51 @@ impl Default for PublicKeyType {
     }
 }
 
+/// Size of a Sr25519 public key in bytes.
+pub const Sr25519_PK_BYTE_SIZE: usize = 32;
+/// Size of a Ed25519 public key in bytes.
+pub const Ed25519_PK_BYTE_SIZE: usize = 32;
+
+// XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+pub struct Bytes32 {
+    value: [u8; 32]
+}
+
+impl Default for Bytes32 {
+    fn default() -> Self {
+        Self {value: [0; 32]}
+    }
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+pub enum PublicKey {
+    Sr25519(Bytes32),
+    Ed25519(Bytes32)
+}
+
+impl Default for PublicKey {
+    fn default() -> Self {
+        PublicKey::Sr25519(Bytes32::default())
+    }
+}
+
+// XXX: Substrate UI can't parse them. Maybe later versions will fix it.
+/*#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+pub enum PublicKey {
+    Sr25519([u8; 32]),
+    Ed25519([u8; 32])
+}*/
+
+/*#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+pub enum PublicKey {
+    Sr25519(Bytes32),
+    Ed25519(Bytes32)
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+pub struct Bytes32(pub [u8;32]);*/
+
 // TODO: Consider combining the public key and its type in a enum. That way the enum variant can know the public key
 // size as well and i don't have to rely on checking input vector length.
 
@@ -59,10 +104,7 @@ impl Default for PublicKeyType {
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct KeyDetail {
     controller: DID,
-    //controller: [u8; DID_BYTE_SIZE],
-    //controller: [u8; 32],
-    public_key_type: PublicKeyType,
-    public_key: Vec<u8>,
+    public_key: PublicKey
 }
 
 // XXX: Map requires having a default value for DIDDetail
@@ -70,29 +112,29 @@ impl Default for KeyDetail {
     fn default() -> Self {
         KeyDetail {
             controller: DID::default(),
-            //controller: [0; 32],
-            //controller: DID,
-            public_key_type: PublicKeyType::default(),
-            public_key: Vec::new(),
+            public_key: PublicKey::default(),
         }
     }
 }
 
 impl KeyDetail {
     /// Create new key detail
-    pub fn new(controller: DID, public_key_type: PublicKeyType, public_key: Vec<u8>) -> Self {
+    pub fn new(controller: DID, public_key: PublicKey) -> Self {
         // XXX: size of public_key can be checked here as well. But this will require making the return
         // type a result and an attacker can craft a struct without using this method anyway.
         // This can be addressed later
         KeyDetail {
-            controller, public_key, public_key_type
+            controller, public_key
         }
     }
 
-    /// Check if the public key is not bigger than the maximum allowed size
-    pub fn is_public_key_size_acceptable(&self) -> bool {
-        self.public_key.len() <= PK_MAX_BYTE_SIZE
-    }
+    /*/// Check if the public key is of correct size
+    pub fn is_public_key_size_correct(&self) -> bool {
+        match self.public_key_type {
+            PublicKeyType::Sr25519 => self.public_key.len() == Sr25519_PK_BYTE_SIZE,
+            PublicKeyType::Ed25519 => self.public_key.len() == Ed25519_PK_BYTE_SIZE
+        }
+    }*/
 }
 
 /// This struct is passed as an argument while updating the key
@@ -107,10 +149,8 @@ impl KeyDetail {
 /// little more involved as it involves a ">" check
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct KeyUpdate {
-    //did: [u8; DID_BYTE_SIZE],
     did: DID,
-    public_key_type: PublicKeyType,
-    public_key: Vec<u8>,
+    public_key: PublicKey,
     controller: Option<DID>,
     last_modified_in_block: BlockNumber,
 }
@@ -118,19 +158,23 @@ pub struct KeyUpdate {
 impl KeyUpdate {
     /// Create new key update to update key of the `did`.
     /// Pass `controller` as None when not wishing to change the existing controller
-    pub fn new(did: DID, public_key_type: PublicKeyType, public_key: Vec<u8>, controller: Option<DID>, last_modified_in_block: BlockNumber) -> Self {
+    pub fn new(did: DID, public_key: PublicKey, controller: Option<DID>,
+               last_modified_in_block: BlockNumber) -> Self {
         // XXX: size of public_key can be checked here as well. But this will require making the return
         // type a result and an attacker can craft a struct without using this method anyway.
         // This can be addressed later
         KeyUpdate {
-            did, public_key_type, public_key, controller, last_modified_in_block
+            did, public_key, controller, last_modified_in_block
         }
     }
 
-    /// Check if the public key is not bigger than the maximum allowed size
-    pub fn is_public_key_size_acceptable(&self) -> bool {
-        self.public_key.len() <= PK_MAX_BYTE_SIZE
-    }
+    /*/// Check if the public key is of correct size
+    pub fn is_public_key_size_correct(&self) -> bool {
+        match self.public_key_type {
+            PublicKeyType::Sr25519 => self.public_key.len() == Sr25519_PK_BYTE_SIZE,
+            PublicKeyType::Ed25519 => self.public_key.len() == Ed25519_PK_BYTE_SIZE
+        }
+    }*/
 }
 
 /// This struct is passed as an argument while removing the DID
@@ -165,18 +209,17 @@ decl_module! {
 
         type Error = Error<T>;
 
-        //fn new(_origin, did: [u8; DID_BYTE_SIZE], detail: KeyDetail) -> DispatchResult {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will throw exception if `did` is already registered.
         /// `detail` is the details of the key like its type, controller and value
         fn new(origin, did: DID, detail: KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;
 
-            // public key is not huge
+            /*// public key is not huge
             ensure!(
-                detail.is_public_key_size_acceptable(),
-                Error::<T>::LargePublicKey
-            );
+                detail.is_public_key_size_correct(),
+                Error::<T>::PublicKeySizeIncorrect
+            );*/
 
             // DID is not registered already
             ensure!(
@@ -197,11 +240,11 @@ decl_module! {
         pub fn update_key(origin, key_update: KeyUpdate, signature: Vec<u8>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            // public key is not huge
+            /*// public key is not huge
             ensure!(
-                key_update.is_public_key_size_acceptable(),
-                Error::<T>::LargePublicKey
-            );
+                key_update.is_public_key_size_correct(),
+                Error::<T>::PublicKeySizeIncorrect
+            );*/
 
             // Not checking for signature size as its not stored
 
@@ -222,14 +265,13 @@ decl_module! {
             // serialize to bytes
             let serz_key_update = key_update.encode();
 
-            let sig_ver = Self::verify_sig(&signature, &serz_key_update, &current_key_detail.public_key_type, &current_key_detail.public_key)?;
+            let sig_ver = Self::verify_sig(&signature, &serz_key_update, &current_key_detail.public_key)?;
 
             // Signature should be valid
             ensure!(sig_ver == true, Error::<T>::InvalidSigForKeyUpdate);
 
             // Key update is safe to do
             let current_block_no = <system::Module<T>>::block_number();
-            current_key_detail.public_key_type = key_update.public_key_type;
             current_key_detail.public_key = key_update.public_key;
 
             // If key update specified a controller, then only update the current controller
@@ -264,26 +306,26 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn verify_sig(signature: &[u8], message: &[u8], public_key_type: &PublicKeyType, public_key: &[u8]) -> Result<bool, DispatchError> {
+    pub fn verify_sig(signature: &[u8], message: &[u8], public_key: &PublicKey) -> Result<bool, DispatchError> {
         Ok(
-            match *public_key_type {
+            match public_key {
                 // Fixme: Remove unwraps
-                PublicKeyType::Sr25519 => {
+                PublicKey::Sr25519(bytes) => {
                     // XXX: `&` does not work for taking reference
                     //let signature = sr25519::Signature::try_from(&signature).unwrap();
                     let signature = sr25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSigForKeyUpdate)?;
-                    let mut pk_bytes: [u8; 32] = [0; 32];
+                    /*let mut pk_bytes: [u8; 32] = [0; 32];
                     // Fixme: Assuming key has same length
-                    pk_bytes.clone_from_slice(public_key);
-                    let pk = sr25519::Public(pk_bytes);
+                    pk_bytes.clone_from_slice(public_key);*/
+                    let pk = sr25519::Public(bytes.value.clone());
                     signature.verify(message, &pk)
                 }
-                PublicKeyType::Ed25519 => {
+                PublicKey::Ed25519(bytes) => {
                     let signature = ed25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSigForKeyUpdate)?;
-                    let mut pk_bytes: [u8; 32] = [0; 32];
+                    /*let mut pk_bytes: [u8; 32] = [0; 32];
                     // Fixme: Assuming key has same length
-                    pk_bytes.clone_from_slice(public_key);
-                    let pk = ed25519::Public(pk_bytes);
+                    pk_bytes.clone_from_slice(public_key);*/
+                    let pk = ed25519::Public(bytes.value.clone());
                     signature.verify(message, &pk)
                 }
                 /*case PublicKeyType::Secp256k1 => {
@@ -381,17 +423,17 @@ mod tests {
         let did = [1; DID_BYTE_SIZE];
         let pk = vec![2u8; PK_MAX_BYTE_SIZE-1];
         let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
-        assert!(detail.is_public_key_size_acceptable());
+        assert!(detail.is_public_key_size_correct());
 
         // public key with max size is fine
         let pk = vec![2u8; PK_MAX_BYTE_SIZE];
         let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
-        assert!(detail.is_public_key_size_acceptable());
+        assert!(detail.is_public_key_size_correct());
 
         // public key with larger than max size is not fine
         let pk = vec![2u8; PK_MAX_BYTE_SIZE+1];
         let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
-        assert!(!detail.is_public_key_size_acceptable());
+        assert!(!detail.is_public_key_size_correct());
     }
 
     #[test]
