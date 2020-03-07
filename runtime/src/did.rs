@@ -32,22 +32,6 @@ decl_error! {
 	}
 }
 
-/// Cryptographic algorithm of public key
-/// like `Ed25519VerificationKey2018`, `Secp256k1VerificationKey2018` and `Sr25519VerificationKey2018`
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-pub enum PublicKeyType {
-    Sr25519,
-    Ed25519,
-    Secp256k1,
-}
-
-/// Default is chosen since its Parity's default algo and due to Parity's reasoning.
-impl Default for PublicKeyType {
-    fn default() -> Self {
-        PublicKeyType::Sr25519
-    }
-}
-
 /*/// Size of a Sr25519 public key in bytes.
 pub const Sr25519_PK_BYTE_SIZE: usize = 32;
 /// Size of a Ed25519 public key in bytes.
@@ -128,6 +112,8 @@ pub enum PublicKey {
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct Bytes32(pub [u8;32]);*/
 
+// TODO: Update developer.json with the new fields
+
 /// `controller` is the controller DID and its value might be same as `did`. When that is the case, pass `controller` as None.
 /// `public_key_type` is the type of the key
 /// `public_key` is the public key and it is accepted and stored as raw bytes.
@@ -158,7 +144,6 @@ impl KeyDetail {
 
 /// This struct is passed as an argument while updating the key
 /// `did` is the DID whose key is being updated.
-/// `public_key_type` is new public key type
 /// `public_key` the new public key
 /// `controller` If provided None, the controller is unchanged. While serializing, use literal "None" when controller is None
 /// The last_modified_in_block is the block number when this DID was last modified is present to prevent replay attack.
@@ -369,7 +354,6 @@ mod tests {
         traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
         Perbill,
     };
-    use crate::did::PublicKeyType::Sr25519;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
