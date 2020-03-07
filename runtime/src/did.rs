@@ -252,7 +252,7 @@ decl_module! {
             // DID must be registered
             ensure!(
                 DIDs::<T>::exists(key_update.did),
-                Error::<T>::DIDAlreadyExists
+                Error::<T>::DIDDoesNotExist
             );
 
             let (mut current_key_detail, last_modified_in_block) = DIDs::<T>::get(key_update.did);
@@ -343,6 +343,7 @@ mod tests {
         traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
         Perbill,
     };
+    use crate::did::PublicKeyType::Sr25519;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -435,6 +436,30 @@ mod tests {
                     detail
                 ),
                 Error::<Test>::DIDAlreadyExists
+            );
+        });
+    }
+
+    #[test]
+    fn did_key_update_for_unregistered_did() {
+        // Updating a DID that has not been registered yet should fail
+        new_test_ext().execute_with(|| {
+            let alice = 100u64;
+
+            let did = [1; DID_BYTE_SIZE];
+
+            let (pair, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk = pair.public().0;
+            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk }), None, 2u32);
+            let sig = pair.sign(&key_update.encode());
+
+            assert_err!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update.clone(),
+                    sig.0.to_vec()
+                ),
+                Error::<Test>::DIDDoesNotExist
             );
         });
     }
