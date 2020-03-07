@@ -56,6 +56,7 @@ pub const Sr25519_PK_BYTE_SIZE: usize = 32;
 pub const Ed25519_PK_BYTE_SIZE: usize = 32;
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
+/// A wrapper over 32-byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct Bytes32 {
     value: [u8; 32]
@@ -67,6 +68,8 @@ impl Default for Bytes32 {
     }
 }
 
+/// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
+/// byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub enum PublicKey {
     Sr25519(Bytes32),
@@ -127,14 +130,6 @@ impl KeyDetail {
             controller, public_key
         }
     }
-
-    /*/// Check if the public key is of correct size
-    pub fn is_public_key_size_correct(&self) -> bool {
-        match self.public_key_type {
-            PublicKeyType::Sr25519 => self.public_key.len() == Sr25519_PK_BYTE_SIZE,
-            PublicKeyType::Ed25519 => self.public_key.len() == Ed25519_PK_BYTE_SIZE
-        }
-    }*/
 }
 
 /// This struct is passed as an argument while updating the key
@@ -167,14 +162,6 @@ impl KeyUpdate {
             did, public_key, controller, last_modified_in_block
         }
     }
-
-    /*/// Check if the public key is of correct size
-    pub fn is_public_key_size_correct(&self) -> bool {
-        match self.public_key_type {
-            PublicKeyType::Sr25519 => self.public_key.len() == Sr25519_PK_BYTE_SIZE,
-            PublicKeyType::Ed25519 => self.public_key.len() == Ed25519_PK_BYTE_SIZE
-        }
-    }*/
 }
 
 /// This struct is passed as an argument while removing the DID
@@ -215,12 +202,6 @@ decl_module! {
         fn new(origin, did: DID, detail: KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;
 
-            /*// public key is not huge
-            ensure!(
-                detail.is_public_key_size_correct(),
-                Error::<T>::PublicKeySizeIncorrect
-            );*/
-
             // DID is not registered already
             ensure!(
                 !DIDs::<T>::exists(did),
@@ -239,12 +220,6 @@ decl_module! {
         /// using the stored data and try to verify the given signature with the stored key.
         pub fn update_key(origin, key_update: KeyUpdate, signature: Vec<u8>) -> DispatchResult {
             ensure_signed(origin)?;
-
-            /*// public key is not huge
-            ensure!(
-                key_update.is_public_key_size_correct(),
-                Error::<T>::PublicKeySizeIncorrect
-            );*/
 
             // Not checking for signature size as its not stored
 
@@ -300,12 +275,11 @@ decl_module! {
             // TODO:
             Ok(())
         }
-
-        // TODO: Add sig verification method that can be used by any other module as well.
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Verify given signature on the given message with given public key
     pub fn verify_sig(signature: &[u8], message: &[u8], public_key: &PublicKey) -> Result<bool, DispatchError> {
         Ok(
             match public_key {
@@ -314,17 +288,11 @@ impl<T: Trait> Module<T> {
                     // XXX: `&` does not work for taking reference
                     //let signature = sr25519::Signature::try_from(&signature).unwrap();
                     let signature = sr25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSigForKeyUpdate)?;
-                    /*let mut pk_bytes: [u8; 32] = [0; 32];
-                    // Fixme: Assuming key has same length
-                    pk_bytes.clone_from_slice(public_key);*/
                     let pk = sr25519::Public(bytes.value.clone());
                     signature.verify(message, &pk)
                 }
                 PublicKey::Ed25519(bytes) => {
                     let signature = ed25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSigForKeyUpdate)?;
-                    /*let mut pk_bytes: [u8; 32] = [0; 32];
-                    // Fixme: Assuming key has same length
-                    pk_bytes.clone_from_slice(public_key);*/
                     let pk = ed25519::Public(bytes.value.clone());
                     signature.verify(message, &pk)
                 }
@@ -384,18 +352,6 @@ mod tests {
         type ModuleToIndex = ();
     }
 
-    /*impl balances::Trait for Test {
-        type Balance = u64;
-        type OnNewAccount = ();
-        type OnFreeBalanceZero = ();
-        type Event = ();
-        type TransferPayment = ();
-        type DustRemoval = ();
-        type ExistentialDeposit = ExistentialDeposit;
-        type TransferFee = TransferFee;
-        type CreationFee = CreationFee;
-    }*/
-
     impl super::Trait for Test {
         type Event = ();
     }
@@ -413,28 +369,6 @@ mod tests {
 
     // TODO: Add test for Event DIDAdded
     // TODO: Add test for Event KeyUpdated
-    // TODO: Add test for public key len check in KeyUpdate
-
-    #[test]
-    fn public_key_must_have_acceptable_size() {
-        // Public key must not be very large
-
-        // Smaller public key is fine
-        let did = [1; DID_BYTE_SIZE];
-        let pk = vec![2u8; PK_MAX_BYTE_SIZE-1];
-        let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
-        assert!(detail.is_public_key_size_correct());
-
-        // public key with max size is fine
-        let pk = vec![2u8; PK_MAX_BYTE_SIZE];
-        let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
-        assert!(detail.is_public_key_size_correct());
-
-        // public key with larger than max size is not fine
-        let pk = vec![2u8; PK_MAX_BYTE_SIZE+1];
-        let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
-        assert!(!detail.is_public_key_size_correct());
-    }
 
     #[test]
     fn did_creation() {
@@ -443,8 +377,8 @@ mod tests {
             let alice = 10u64;
 
             let did = [1; DID_BYTE_SIZE];
-            let pk = vec![0, 1];
-            let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
+            let pk = PublicKey::default();
+            let detail = KeyDetail::new(did.clone(), pk);
 
             // Add a DID
             assert_ok!(
@@ -466,8 +400,8 @@ mod tests {
             );
 
             // Try to add the same DID again but with different key detail and fail
-            let pk = vec![0, 1, 9, 10, 12];
-            let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
+            let pk = PublicKey::Ed25519(Bytes32::default());
+            let detail = KeyDetail::new(did.clone(), pk);
             assert_err!(
                 DIDModule::new(
                     Origin::signed(alice),
@@ -476,32 +410,20 @@ mod tests {
                 ),
                 Error::<Test>::DIDAlreadyExists
             );
-
-            // public key with larger than max size is not fine
-            let pk = vec![2u8; PK_MAX_BYTE_SIZE+1];
-            let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk);
-            assert_err!(
-                DIDModule::new(
-                    Origin::signed(alice),
-                    did,
-                    detail
-                ),
-                Error::<Test>::LargePublicKey
-            );
         });
     }
 
     #[test]
     fn did_key_update() {
-        // DID must be unique. It must have an acceptable public size
+        // DID's key must be updatable with the authorized key only
         new_test_ext().execute_with(|| {
             let alice = 100u64;
 
             let did = [1; DID_BYTE_SIZE];
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_1 = pair_1.public().0.to_vec();
+            let pk_1 = pair_1.public().0;
 
-            let detail = KeyDetail::new(did.clone(), PublicKeyType::Sr25519, pk_1.clone());
+            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}));
 
             // Add a DID
             assert_ok!(
@@ -517,8 +439,8 @@ mod tests {
             // Correctly update DID's key.
             // Prepare a key update
             let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_2 = pair_2.public().0.to_vec();
-            let key_update = KeyUpdate::new(did.clone(), PublicKeyType::Sr25519, pk_2.clone(), None, modified_in_block as u32);
+            let pk_2 = pair_2.public().0;
+            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_2}), None, modified_in_block as u32);
             let sig = pair_1.sign(&key_update.encode());
 
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
@@ -534,7 +456,7 @@ mod tests {
 
             // Maliciously update DID's key.
             // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
-            let key_update = KeyUpdate::new(did.clone(), PublicKeyType::Sr25519, pk_1.clone(), None, modified_in_block as u32);
+            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}), None, modified_in_block as u32);
             let sig = pair_1.sign(&key_update.encode());
 
             assert_err!(
