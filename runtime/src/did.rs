@@ -6,6 +6,7 @@ use system::ensure_signed;
 use sp_std::convert::TryFrom;
 use sp_core::{ed25519, sr25519, ecdsa};
 use sp_runtime::traits::Verify;
+use sp_std::fmt;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
@@ -39,8 +40,7 @@ decl_error! {
 pub enum PublicKeyType {
     Sr25519,
     Ed25519,
-    // TODO: Uncomment
-    //Secp256k1,
+    Secp256k1,
 }
 
 /// Default is chosen since its Parity's default algo and due to Parity's reasoning.
@@ -68,12 +68,44 @@ impl Default for Bytes32 {
     }
 }
 
+// XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
+/// A wrapper over 33-byte array
+#[derive(Encode, Decode, Clone)]
+pub struct Bytes33 {
+    value: [u8; 33]
+}
+
+impl Default for Bytes33 {
+    fn default() -> Self {
+        Self {value: [0; 33]}
+    }
+}
+
+/// Implementing Debug for Bytes33 as it cannot be automatically derived for arrays of size > 32
+impl fmt::Debug for Bytes33 {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        self.value[..].fmt(f)
+    }
+}
+
+/// Implementing PartialEq for Bytes33 as it cannot be automatically derived for arrays of size > 32
+impl PartialEq for Bytes33 {
+    fn eq(&self, other: &Bytes33) -> bool {
+        self.value[..] == other.value[..]
+    }
+}
+impl Eq for Bytes33 {}
+
 /// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
 /// byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub enum PublicKey {
+    /// Public key for Sr25519 is 32 bytes
     Sr25519(Bytes32),
-    Ed25519(Bytes32)
+    /// Public key for Ed25519 is 32 bytes
+    Ed25519(Bytes32),
+    /// Compressed public key for Secp256k1 is 33 bytes
+    Secp256k1(Bytes33)
 }
 
 impl Default for PublicKey {
@@ -98,9 +130,6 @@ pub enum PublicKey {
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct Bytes32(pub [u8;32]);*/
 
-// TODO: Consider combining the public key and its type in a enum. That way the enum variant can know the public key
-// size as well and i don't have to rely on checking input vector length.
-
 /// `controller` is the controller DID and its value might be same as `did`. When that is the case, pass `controller` as None.
 /// `public_key_type` is the type of the key
 /// `public_key` is the public key and it is accepted and stored as raw bytes.
@@ -123,9 +152,6 @@ impl Default for KeyDetail {
 impl KeyDetail {
     /// Create new key detail
     pub fn new(controller: DID, public_key: PublicKey) -> Self {
-        // XXX: size of public_key can be checked here as well. But this will require making the return
-        // type a result and an attacker can craft a struct without using this method anyway.
-        // This can be addressed later
         KeyDetail {
             controller, public_key
         }
@@ -226,7 +252,7 @@ decl_module! {
             // DID must be registered
             ensure!(
                 DIDs::<T>::exists(key_update.did),
-                Error::<T>::DIDAlreadyExists
+                Error::<T>::DIDDoesNotExist
             );
 
             let (mut current_key_detail, last_modified_in_block) = DIDs::<T>::get(key_update.did);
@@ -237,15 +263,16 @@ decl_module! {
                 Error::<T>::DifferentBlockNumber
             );
 
-            // serialize to bytes
+            // serialize `KeyUpdate` to bytes
             let serz_key_update = key_update.encode();
 
+            // Verify signature on the serialized `KeyUpdate` with the current public key
             let sig_ver = Self::verify_sig(&signature, &serz_key_update, &current_key_detail.public_key)?;
 
-            // Signature should be valid
+            // Throw error if signature is invalid
             ensure!(sig_ver == true, Error::<T>::InvalidSigForKeyUpdate);
 
-            // Key update is safe to do
+            // Key update is safe to do, update the block number as well.
             let current_block_no = <system::Module<T>>::block_number();
             current_key_detail.public_key = key_update.public_key;
 
@@ -283,10 +310,7 @@ impl<T: Trait> Module<T> {
     pub fn verify_sig(signature: &[u8], message: &[u8], public_key: &PublicKey) -> Result<bool, DispatchError> {
         Ok(
             match public_key {
-                // Fixme: Remove unwraps
                 PublicKey::Sr25519(bytes) => {
-                    // XXX: `&` does not work for taking reference
-                    //let signature = sr25519::Signature::try_from(&signature).unwrap();
                     let signature = sr25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSigForKeyUpdate)?;
                     let pk = sr25519::Public(bytes.value.clone());
                     signature.verify(message, &pk)
@@ -296,9 +320,11 @@ impl<T: Trait> Module<T> {
                     let pk = ed25519::Public(bytes.value.clone());
                     signature.verify(message, &pk)
                 }
-                /*case PublicKeyType::Secp256k1 => {
-
-                }*/
+                PublicKey::Secp256k1(bytes) => {
+                    let signature = ecdsa::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSigForKeyUpdate)?;
+                    let pk = ecdsa::Public::Compressed(bytes.value.clone());
+                    signature.verify(message, &pk)
+                }
             }
         )
     }
@@ -317,6 +343,7 @@ mod tests {
         traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
         Perbill,
     };
+    use crate::did::PublicKeyType::Sr25519;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -414,16 +441,140 @@ mod tests {
     }
 
     #[test]
-    fn did_key_update() {
-        // DID's key must be updatable with the authorized key only
+    fn did_key_update_for_unregistered_did() {
+        // Updating a DID that has not been registered yet should fail
         new_test_ext().execute_with(|| {
             let alice = 100u64;
 
             let did = [1; DID_BYTE_SIZE];
-            let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_1 = pair_1.public().0;
 
-            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}));
+            let (pair, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk = pair.public().0;
+            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk }), None, 2u32);
+            let sig = pair.sign(&key_update.encode());
+
+            assert_err!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update.clone(),
+                    sig.0.to_vec()
+                ),
+                Error::<Test>::DIDDoesNotExist
+            );
+        });
+    }
+
+    #[test]
+    fn did_key_update_with_sr25519_ed25519_keys() {
+        // DID's key must be updatable with the authorized key only. Check for sr25519 and ed25519
+        new_test_ext().execute_with(|| {
+            let alice = 100u64;
+
+            /// Macro to check the key update for ed25519 and sr25519
+            macro_rules! check_key_update {
+                ( $did:ident, $module:ident, $pk:expr ) => {{
+                    let (pair_1, _, _) = $module::Pair::generate_with_phrase(None);
+                    let pk_1 = pair_1.public().0;
+
+                    let detail = KeyDetail::new($did.clone(), $pk(Bytes32 {value: pk_1}));
+
+                    // Add a DID
+                    assert_ok!(
+                        DIDModule::new(
+                            Origin::signed(alice),
+                            $did.clone(),
+                            detail.clone()
+                        )
+                    );
+
+                    let (_, modified_in_block) = DIDModule::did($did.clone());
+
+                    // Correctly update DID's key.
+                    // Prepare a key update
+                    let (pair_2, _, _) = $module::Pair::generate_with_phrase(None);
+                    let pk_2 = pair_2.public().0;
+                    let key_update = KeyUpdate::new($did.clone(), $pk(Bytes32 {value: pk_2}), None, modified_in_block as u32);
+                    let sig = pair_1.sign(&key_update.encode());
+
+                    // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
+                    assert_ok!(
+                        DIDModule::update_key(
+                            Origin::signed(alice),
+                            key_update.clone(),
+                            sig.0.to_vec()
+                        )
+                    );
+
+                    let (_, modified_in_block) = DIDModule::did($did.clone());
+
+                    // Maliciously update DID's key.
+                    // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
+                    let key_update = KeyUpdate::new($did.clone(), $pk(Bytes32 {value: pk_1}), None, modified_in_block as u32);
+                    let sig = pair_1.sign(&key_update.encode());
+
+                    assert_err!(
+                        DIDModule::update_key(
+                            Origin::signed(alice),
+                            key_update.clone(),
+                            sig.0.to_vec()
+                        ),
+                        Error::<Test>::InvalidSigForKeyUpdate
+                    );
+
+                    // Check key update with signature of incorrect size
+                    // Use the correct key
+                    let key_update = KeyUpdate::new($did.clone(), $pk(Bytes32 {value: pk_1}), None, modified_in_block as u32);
+                    let sig = pair_2.sign(&key_update.encode());
+
+                    // Truncate the signature to be of shorter size
+                    let mut short_sig = sig.0.to_vec();
+                    short_sig.truncate(10);
+
+                    assert_err!(
+                        DIDModule::update_key(
+                            Origin::signed(alice),
+                            key_update.clone(),
+                            short_sig
+                        ),
+                        Error::<Test>::InvalidSigForKeyUpdate
+                    );
+
+                    // Add extra bytes to the signature to be of longer size
+                    let mut long_sig = sig.0.to_vec();
+                    long_sig.append(&mut vec![0, 1, 2, 0]);
+
+                    assert_err!(
+                        DIDModule::update_key(
+                            Origin::signed(alice),
+                            key_update.clone(),
+                            long_sig
+                        ),
+                        Error::<Test>::InvalidSigForKeyUpdate
+                    );
+                }};
+            }
+
+            let did = [1; DID_BYTE_SIZE];
+            check_key_update!(did, sr25519, PublicKey::Sr25519);
+
+            let did = [2; DID_BYTE_SIZE];
+            check_key_update!(did, ed25519, PublicKey::Ed25519);
+        });
+    }
+
+    #[test]
+    fn did_key_update_with_ecdsa_key() {
+        // DID's key must be updatable with the authorized key only. Check for secp256k1.
+        // The logic is same as above test but the way to generate keys, sig is little different. By creating abstractions
+        // just for testing, above and this test can be merged.
+        new_test_ext().execute_with(|| {
+            let alice = 100u64;
+
+            let did = [1; DID_BYTE_SIZE];
+
+            let (pair_1, _, _) = ecdsa::Pair::generate_with_phrase(None);
+            let pk_1= pair_1.public().as_compressed().unwrap();
+            let detail = KeyDetail::new(did.clone(), PublicKey::Secp256k1(Bytes33 {value: pk_1}));
 
             // Add a DID
             assert_ok!(
@@ -438,17 +589,16 @@ mod tests {
 
             // Correctly update DID's key.
             // Prepare a key update
-            let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_2 = pair_2.public().0;
-            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_2}), None, modified_in_block as u32);
-            let sig = pair_1.sign(&key_update.encode());
-
+            let (pair_2, _, _) = ecdsa::Pair::generate_with_phrase(None);
+            let pk_2= pair_2.public().as_compressed().unwrap();
+            let key_update = KeyUpdate::new(did.clone(), PublicKey::Secp256k1(Bytes33 {value: pk_2}), None, modified_in_block as u32);
+            let sig: [u8; 65] = pair_1.sign(&key_update.encode()).into();
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
             assert_ok!(
                 DIDModule::update_key(
                     Origin::signed(alice),
                     key_update.clone(),
-                    sig.0.to_vec()
+                    sig.to_vec()
                 )
             );
 
@@ -456,14 +606,40 @@ mod tests {
 
             // Maliciously update DID's key.
             // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
-            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}), None, modified_in_block as u32);
-            let sig = pair_1.sign(&key_update.encode());
+            let key_update = KeyUpdate::new(did.clone(), PublicKey::Secp256k1(Bytes33 {value: pk_1}), None, modified_in_block as u32);
+            let sig: [u8; 65] = pair_1.sign(&key_update.encode()).into();
 
             assert_err!(
                 DIDModule::update_key(
                     Origin::signed(alice),
                     key_update.clone(),
-                    sig.0.to_vec()
+                    sig.to_vec()
+                ),
+                Error::<Test>::InvalidSigForKeyUpdate
+            );
+
+            // Truncate the signature to be of shorter size
+            let mut short_sig = sig.to_vec();
+            short_sig.truncate(10);
+
+            assert_err!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update.clone(),
+                    short_sig
+                ),
+                Error::<Test>::InvalidSigForKeyUpdate
+            );
+
+            // Add extra bytes to the signature to be of longer size
+            let mut long_sig = sig.to_vec();
+            long_sig.append(&mut vec![0, 1, 2, 0]);
+
+            assert_err!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update.clone(),
+                    long_sig
                 ),
                 Error::<Test>::InvalidSigForKeyUpdate
             );
