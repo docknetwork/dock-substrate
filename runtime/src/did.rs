@@ -266,6 +266,7 @@ decl_module! {
             // Key update is safe to do, update the block number as well.
             let current_block_no = <system::Module<T>>::block_number();
             current_key_detail.public_key = key_update.public_key;
+            println!("update in block no={}", current_block_no);
 
             // If key update specified a controller, then only update the current controller
             if let Some(ctrl) = key_update.controller {
@@ -351,7 +352,7 @@ mod tests {
     use sp_core::{H256, Pair};
     use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
+        traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
 
@@ -463,7 +464,7 @@ mod tests {
             assert_err!(
                 DIDModule::update_key(
                     Origin::signed(alice),
-                    key_update.clone(),
+                    key_update,
                     sig.0.to_vec()
                 ),
                 Error::<Test>::DIDDoesNotExist
@@ -494,7 +495,8 @@ mod tests {
                         )
                     );
 
-                    let (_, modified_in_block) = DIDModule::did($did.clone());
+                    let (current_detail, modified_in_block) = DIDModule::did($did.clone());
+                    assert_eq!(current_detail.controller, $did);
 
                     // Correctly update DID's key.
                     // Prepare a key update
@@ -507,12 +509,14 @@ mod tests {
                     assert_ok!(
                         DIDModule::update_key(
                             Origin::signed(alice),
-                            key_update.clone(),
+                            key_update,
                             sig.0.to_vec()
                         )
                     );
 
-                    let (_, modified_in_block) = DIDModule::did($did.clone());
+                    let (current_detail, modified_in_block) = DIDModule::did($did.clone());
+                    // Since key update passed None for the controller, it should not change
+                    assert_eq!(current_detail.controller, $did);
 
                     // Maliciously update DID's key.
                     // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
@@ -522,11 +526,27 @@ mod tests {
                     assert_err!(
                         DIDModule::update_key(
                             Origin::signed(alice),
-                            key_update.clone(),
+                            key_update,
                             sig.0.to_vec()
                         ),
                         Error::<Test>::InvalidSig
                     );
+
+                    // Keep the public key same but update the controller
+                    let new_controller = [9; DID_BYTE_SIZE];
+                    let key_update = KeyUpdate::new($did.clone(), $pk(Bytes32 {value: pk_2}), Some(new_controller), modified_in_block as u32);
+                    let sig = pair_2.sign(&key_update.encode());
+                    assert_ok!(
+                        DIDModule::update_key(
+                            Origin::signed(alice),
+                            key_update,
+                            sig.0.to_vec()
+                        )
+                    );
+
+                    // Since key update passed a new controller, it should be reflected
+                    let (current_detail, _) = DIDModule::did($did.clone());
+                    assert_eq!(current_detail.controller, new_controller);
 
                     // Check key update with signature of incorrect size
                     // Use the correct key
@@ -553,7 +573,7 @@ mod tests {
                     assert_err!(
                         DIDModule::update_key(
                             Origin::signed(alice),
-                            key_update.clone(),
+                            key_update,
                             long_sig
                         ),
                         Error::<Test>::InvalidSig
@@ -604,7 +624,7 @@ mod tests {
             assert_ok!(
                 DIDModule::update_key(
                     Origin::signed(alice),
-                    key_update.clone(),
+                    key_update,
                     sig.to_vec()
                 )
             );
@@ -654,6 +674,97 @@ mod tests {
     }
 
     #[test]
+    fn did_key_update_replay_protection() {
+        // FIXME: Block number does not increase with extrinsics. Make them
+        // A `KeyUpdate` payload should not be replayable
+        // Add a DID with `pk_1`.
+        // `pk_1` changes key to `pk_2` and `pk_2` changes key to `pk_3` and `pk_3` changes key back to `pk_1`.
+        // It should not be possible to replay `pk_1`'s original message and change key to `pk_2`.
+
+        new_test_ext().execute_with(|| {
+            let alice = 100u64;
+
+            let did = [1; DID_BYTE_SIZE];
+
+            let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_1 = pair_1.public().0;
+
+            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}));
+
+            // Add a DID with key `pk_1`
+            assert_ok!(
+                DIDModule::new(
+                    Origin::signed(alice),
+                    did.clone(),
+                    detail.clone()
+                )
+            );
+
+            let (_, modified_in_block) = DIDModule::did(did.clone());
+            println!("block number1={}", modified_in_block);
+
+            let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_2 = pair_2.public().0;
+
+            // The following key update and signature will be included in a replay attempt to change key to `pk_2` without `pk_1`'s intent
+            let key_update_to_be_replayed = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_2}), None, modified_in_block as u32);
+            let sig_to_be_replayed = pair_1.sign(&key_update_to_be_replayed.encode());
+            // Update key from `pk_1` to `pk_2` using `pk_1`'s signature
+            assert_ok!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update_to_be_replayed.clone(),
+                    sig_to_be_replayed.0.to_vec()
+                )
+            );
+
+            let (_, modified_in_block) = DIDModule::did(did.clone());
+            println!("block number2={}", modified_in_block);
+
+            let (pair_3, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_3 = pair_3.public().0;
+
+            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_3}), None, modified_in_block as u32);
+            let sig = pair_2.sign(&key_update.encode());
+            // Update key from `pk_2` to `pk_3` using `pk_2`'s signature
+            assert_ok!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update,
+                    sig.0.to_vec()
+                )
+            );
+
+            let (_, modified_in_block) = DIDModule::did(did.clone());
+            println!("block number3={}", modified_in_block);
+
+            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}), None, modified_in_block as u32);
+            let sig = pair_3.sign(&key_update.encode());
+            // Update key from `pk_3` to `pk_1` using `pk_3`'s signature
+            assert_ok!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update,
+                    sig.0.to_vec()
+                )
+            );
+
+            let (_, modified_in_block) = DIDModule::did(did.clone());
+            println!("block number4={}", modified_in_block);
+
+            // Attempt to replay `pk_1`'s older payload for key update to `pk_2`
+            assert_err!(
+                DIDModule::update_key(
+                    Origin::signed(alice),
+                    key_update_to_be_replayed,
+                    sig_to_be_replayed.0.to_vec()
+                ),
+                Error::<Test>::DifferentBlockNumber
+            );
+        });
+    }
+
+    #[test]
     fn did_remove() {
         // Remove DID. Unregistered DIDs cannot be removed.
         // Registered DIDs can only be removed by the authorized key
@@ -673,7 +784,7 @@ mod tests {
             assert_err!(
                 DIDModule::remove(
                     Origin::signed(alice),
-                    to_remove.clone(),
+                    to_remove,
                     sig.0.to_vec()
                 ),
                 Error::<Test>::DIDDoesNotExist
@@ -702,7 +813,7 @@ mod tests {
             assert_err!(
                 DIDModule::remove(
                     Origin::signed(alice),
-                    to_remove.clone(),
+                    to_remove,
                     sig.0.to_vec()
                 ),
                 Error::<Test>::InvalidSig
@@ -714,7 +825,7 @@ mod tests {
             assert_ok!(
                 DIDModule::remove(
                     Origin::signed(alice),
-                    to_remove.clone(),
+                    to_remove,
                     sig.0.to_vec()
                 )
             );
@@ -741,5 +852,4 @@ mod tests {
     }
 
     // TODO: Add test for events DIDAdded, KeyUpdated, DIDRemoval
-    // TODO: Add test for replay protection
 }
