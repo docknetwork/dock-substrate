@@ -158,6 +158,14 @@ package = 'pallet-transaction-payment'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 version = '2.0.0'
 
+# Using base58 library used by Substrate event when there are more popular and more recently libraries present
+[dependencies.base58]
+version = '0.1.0'
+
+# JSON serialization without std
+#[dependencies.serde-json-core]
+#version = '0.1.0'
+
 [features]
 default = ['std']
 std = [

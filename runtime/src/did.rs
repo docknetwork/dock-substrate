@@ -50,6 +50,12 @@ impl Default for Bytes32 {
     }
 }
 
+impl AsRef<[u8]> for Bytes32 {
+    fn as_ref(&self) -> &[u8] {
+        &self.value
+    }
+}
+
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 33-byte array
 #[derive(Encode, Decode, Clone)]
@@ -77,6 +83,12 @@ impl PartialEq for Bytes33 {
     }
 }
 impl Eq for Bytes33 {}
+
+impl AsRef<[u8]> for Bytes33 {
+    fn as_ref(&self) -> &[u8] {
+        &self.value
+    }
+}
 
 /// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
 /// byte array
@@ -194,6 +206,7 @@ decl_event!(
     where
         AccountId = <T as system::Trait>::AccountId,
     {
+        // Think: Do i need more parameters to events
         DIDAdded(DID),
         KeyUpdated(DID),
         DIDRemoved(DID),
@@ -316,6 +329,27 @@ decl_module! {
     }
 }
 
+use serde::{Serialize, Deserialize};
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct DIDPk {
+    pub id: String,
+    #[serde(rename(serialize = "type"))]
+    pub typ: String,
+    pub controller: String,
+    pub publicKeyBase58: String
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Serialize, Deserialize)]
+pub struct DIDDocument {
+    #[serde(rename(serialize = "@context"))]
+    pub context: Vec<String>,
+    pub id: String,
+    pub publicKey: Vec<DIDPk>,
+    // In future, this type can be changed.
+    pub authentication: Vec<String>
+}
+
 impl<T: Trait> Module<T> {
     /// Verify given signature on the given message with given public key
     pub fn verify_sig(signature: &[u8], message: &[u8], public_key: &PublicKey) -> Result<bool, DispatchError> {
@@ -339,6 +373,40 @@ impl<T: Trait> Module<T> {
             }
         )
     }
+
+    /// Get the corresponding DID document if the DID is registered on chain else return None.
+    /// The DID document is serialized using SCALE which can be deserialized with Polkadot-js.
+    pub fn get_DID_document(did: DID) -> Option<Vec<u8>> {
+        use base58::ToBase58;
+
+        let (current_key_detail, last_modified_in_block): (KeyDetail, _) = DIDs::<T>::get(did);
+        if last_modified_in_block == T::BlockNumber::from(0) {
+            None
+        } else {
+            let qualifier = "did:dock";
+            let fully_qualified_did = format!("{}:{}", qualifier, did.to_base58());
+            let (pk_type, pk_base58) = match current_key_detail.public_key {
+                PublicKey::Sr25519(bytes) => (String::from("Sr25519VerificationKey2018"), bytes.as_ref().to_base58()),
+                PublicKey::Ed25519(bytes) => (String::from("Ed25519VerificationKey2018"), bytes.as_ref().to_base58()),
+                PublicKey::Secp256k1(bytes) => (String::from("EcdsaSecp256k1VerificationKey2019"), bytes.as_ref().to_base58())
+            };
+            let controller = format!("{}:{}", qualifier, current_key_detail.controller.to_base58());
+            let did_pk = DIDPk {
+                id: format!("{}#keys-1", fully_qualified_did),
+                typ: pk_type,
+                controller,
+                publicKeyBase58: pk_base58
+            };
+            let authn = did_pk.id.clone();
+            let did_document = DIDDocument {
+                context: vec![String::from("https://www.w3.org/ns/did/v1")],
+                id: fully_qualified_did,
+                publicKey: vec![did_pk],
+                authentication: vec![authn]
+            };
+            Some(did_document.encode())
+        }
+    }
 }
 
 #[cfg(test)]
@@ -347,7 +415,7 @@ mod tests {
     use super::super::DID_BYTE_SIZE;
 
     use frame_support::{
-        assert_err, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
+        assert_err, assert_ok, impl_outer_origin, impl_outer_event, parameter_types, weights::Weight,
     };
     use sp_core::{H256, Pair};
     use sp_runtime::{
@@ -355,6 +423,7 @@ mod tests {
         traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
+    use system::{EventRecord, Phase};
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -382,6 +451,7 @@ mod tests {
         type Lookup = IdentityLookup<Self::AccountId>;
         type Header = Header;
         type Event = ();
+        //type Event = TestEvent;
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
         type AvailableBlockRatio = AvailableBlockRatio;
@@ -390,9 +460,23 @@ mod tests {
         type ModuleToIndex = ();
     }
 
+    /*mod did {
+        pub use crate::Event;
+    }
+
+    impl_outer_event! {
+        pub enum TestEvent for Test {
+            did<T>,
+        }
+    }*/
+
     impl super::Trait for Test {
+        //type Event = TestEvent;
         type Event = ();
     }
+
+    /*pub type System = system::Module<Test>;
+    pub type SimpleEvent = Module<Test>;*/
 
     // This function basically just builds a genesis storage key/value store according to
     // our desired mockup.
@@ -851,5 +935,38 @@ mod tests {
         });
     }
 
+    #[test]
+    fn did_document() {
+        // Get a DID document
+        new_test_ext().execute_with(|| {
+            let alice = 10u64;
+
+            let did = [1; DID_BYTE_SIZE];
+            let pk = PublicKey::default();
+            let detail = KeyDetail::new(did.clone(), pk);
+
+            // Add a DID
+            assert_ok!(
+                DIDModule::new(
+                    Origin::signed(alice),
+                    did.clone(),
+                    detail.clone()
+                )
+            );
+
+            let did_doc_bytes= DIDModule::get_DID_document(did.clone()).unwrap();
+            // XXX: Weird! `&mut did_doc_bytes.as_slice() works` but `did_doc_bytes.as_mut_slice()` does not.
+            let did_doc = DIDDocument::decode(&mut did_doc_bytes.as_slice()).unwrap();
+            println!("Get a DID document: {:?}", did_doc);
+            assert_eq!(did_doc.context, vec!["https://www.w3.org/ns/did/v1"]);
+            assert_eq!(did_doc.id, "did:dock:4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi");
+            assert_eq!(did_doc.publicKey.len(), 1);
+            assert_eq!(did_doc.publicKey[0].id, "did:dock:4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi#keys-1");
+            assert_eq!(did_doc.publicKey[0].typ, "Sr25519VerificationKey2018");
+            assert_eq!(did_doc.publicKey[0].publicKeyBase58, "11111111111111111111111111111111");
+            assert_eq!(did_doc.publicKey[0].controller, "did:dock:4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi");
+            assert_eq!(did_doc.authentication, vec!["did:dock:4vJ9JU1bJJE96FWSJKvHsmmFADCg4gpZQff4P3bkLKi#keys-1"]);
+        });
+    }
     // TODO: Add test for events DIDAdded, KeyUpdated, DIDRemoval
 }
