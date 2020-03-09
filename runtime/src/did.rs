@@ -1,6 +1,6 @@
 use super::{BlockNumber, DID};
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, dispatch::DispatchResult, ensure, traits::Get};
+use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, dispatch::DispatchResult, ensure, traits::Get, fail};
 use sp_std::prelude::Vec;
 use system::ensure_signed;
 use sp_std::convert::TryFrom;
@@ -111,8 +111,6 @@ pub enum PublicKey {
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct Bytes32(pub [u8;32]);*/
-
-// TODO: Update developer.json with the new fields
 
 /// `controller` is the controller DID and its value might be same as `did`. When that is the case, pass `controller` as None.
 /// `public_key_type` is the type of the key
@@ -236,23 +234,10 @@ decl_module! {
         /// The node while processing this extrinsic, should create the above serialized `KeyUpdate`
         /// using the stored data and try to verify the given signature with the stored key.
         pub fn update_key(origin, key_update: KeyUpdate, signature: Vec<u8>) -> DispatchResult {
-            ensure_signed(origin)?;
-
             // Not checking for signature size as its not stored
 
-            // DID must be registered
-            ensure!(
-                DIDs::<T>::exists(key_update.did),
-                Error::<T>::DIDDoesNotExist
-            );
-
-            let (mut current_key_detail, last_modified_in_block) = DIDs::<T>::get(key_update.did);
-
-            // replay protection: the key update should contain the last block in which the key was modified
-            ensure!(
-                last_modified_in_block == T::BlockNumber::from(key_update.last_modified_in_block),
-                Error::<T>::DifferentBlockNumber
-            );
+            // DID is registered and the update is not being replayed
+            let mut current_key_detail = Self::ensure_registered_and_new(origin, &key_update.did, key_update.last_modified_in_block)?;
 
             // serialize `KeyUpdate` to bytes
             let serz_key_update = key_update.encode();
@@ -266,7 +251,6 @@ decl_module! {
             // Key update is safe to do, update the block number as well.
             let current_block_no = <system::Module<T>>::block_number();
             current_key_detail.public_key = key_update.public_key;
-            println!("update in block no={}", current_block_no);
 
             // If key update specified a controller, then only update the current controller
             if let Some(ctrl) = key_update.controller {
@@ -283,21 +267,8 @@ decl_module! {
         /// The node while processing this extrinsic, should create the above serialized `DIDRemoval`
         /// using the stored data and try to verify the given signature with the stored key.
         pub fn remove(origin, to_remove: DIDRemoval, signature: Vec<u8>) -> DispatchResult {
-            ensure_signed(origin)?;
-
-            // DID must be registered
-            ensure!(
-                DIDs::<T>::exists(to_remove.did),
-                Error::<T>::DIDDoesNotExist
-            );
-
-            let (current_key_detail, last_modified_in_block) = DIDs::<T>::get(to_remove.did);
-
-            // replay protection: the removal command should contain the last block in which the key was modified
-            ensure!(
-                last_modified_in_block == T::BlockNumber::from(to_remove.last_modified_in_block),
-                Error::<T>::DifferentBlockNumber
-            );
+            // DID is registered and the removal is not being replayed
+            let current_key_detail = Self::ensure_registered_and_new(origin, &to_remove.did, to_remove.last_modified_in_block)?;
 
             // serialize `DIDRemoval` to bytes
             let serz_rem = to_remove.encode();
@@ -317,6 +288,29 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Ensure that the DID is registered and this is not a replayed payload by checking the equality
+    /// with stored block number when the DID was last modified.
+    pub fn ensure_registered_and_new(origin: T::Origin, did: &DID, last_modified_in_block: BlockNumber) -> Result<KeyDetail, DispatchError> {
+        ensure_signed(origin)?;
+
+        let (current_key_detail, last_modified) = DIDs::<T>::get(did);
+
+        // DID must be registered. If its not the above `get` with return default values making `last_modified` as 0.
+        // Not doing an `exists` call on the map as that will result in 2 calls (1 for `exists`, 1 for `get`) to storage in
+        // the case when the DID is registered.
+        if last_modified == T::BlockNumber::from(0) {
+            fail!(Error::<T>::DIDDoesNotExist)
+        }
+
+        // replay protection: the command should contain the last block in which the DID was modified
+        ensure!(
+            last_modified == T::BlockNumber::from(last_modified_in_block),
+            Error::<T>::DifferentBlockNumber
+        );
+
+        Ok(current_key_detail)
+    }
+
     /// Verify given signature on the given message with given public key
     pub fn verify_sig(signature: &[u8], message: &[u8], public_key: &PublicKey) -> Result<bool, DispatchError> {
         Ok(
@@ -352,7 +346,7 @@ mod tests {
     use sp_core::{H256, Pair};
     use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
+        traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
         Perbill,
     };
 
@@ -404,6 +398,19 @@ mod tests {
     }
 
     type DIDModule = super::Module<Test>;
+
+    pub type System = system::Module<Test>;
+
+    /// Changes the block number. Calls `on_finalize` and `on_initialize`
+    pub fn run_to_block(n: u64) {
+        while System::block_number() < n {
+            if System::block_number() > 1 {
+                System::on_finalize(System::block_number());
+            }
+            System::set_block_number(System::block_number() + 1);
+            System::on_initialize(System::block_number());
+        }
+    }
 
     #[test]
     fn did_creation() {
@@ -675,7 +682,6 @@ mod tests {
 
     #[test]
     fn did_key_update_replay_protection() {
-        // FIXME: Block number does not increase with extrinsics. Make them
         // A `KeyUpdate` payload should not be replayable
         // Add a DID with `pk_1`.
         // `pk_1` changes key to `pk_2` and `pk_2` changes key to `pk_3` and `pk_3` changes key back to `pk_1`.
@@ -700,8 +706,11 @@ mod tests {
                 )
             );
 
+            // Block number should increase to 1 as extrinsic is successful
+            run_to_block(1);
+            assert_eq!(System::block_number(), 1);
+
             let (_, modified_in_block) = DIDModule::did(did.clone());
-            println!("block number1={}", modified_in_block);
 
             let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_2 = pair_2.public().0;
@@ -718,8 +727,11 @@ mod tests {
                 )
             );
 
+            // Block number should increase to 2 as extrinsic is successful
+            run_to_block(2);
+            assert_eq!(System::block_number(), 2);
+
             let (_, modified_in_block) = DIDModule::did(did.clone());
-            println!("block number2={}", modified_in_block);
 
             let (pair_3, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_3 = pair_3.public().0;
@@ -735,8 +747,11 @@ mod tests {
                 )
             );
 
+            // Block number should increase to 3 as extrinsic is successful
+            run_to_block(3);
+            assert_eq!(System::block_number(), 3);
+
             let (_, modified_in_block) = DIDModule::did(did.clone());
-            println!("block number3={}", modified_in_block);
 
             let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}), None, modified_in_block as u32);
             let sig = pair_3.sign(&key_update.encode());
@@ -749,8 +764,11 @@ mod tests {
                 )
             );
 
+            // Block number should increase to 4 as extrinsic is successful
+            run_to_block(4);
+            assert_eq!(System::block_number(), 4);
+
             let (_, modified_in_block) = DIDModule::did(did.clone());
-            println!("block number4={}", modified_in_block);
 
             // Attempt to replay `pk_1`'s older payload for key update to `pk_2`
             assert_err!(
