@@ -1,12 +1,15 @@
 use super::{BlockNumber, DID};
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError, dispatch::DispatchResult, ensure, traits::Get, fail};
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
+    dispatch::DispatchResult, ensure, fail, traits::Get,
+};
+use sp_core::{ecdsa, ed25519, sr25519};
+use sp_runtime::traits::Verify;
+use sp_std::convert::TryFrom;
+use sp_std::fmt;
 use sp_std::prelude::Vec;
 use system::ensure_signed;
-use sp_std::convert::TryFrom;
-use sp_core::{ed25519, sr25519, ecdsa};
-use sp_runtime::traits::Verify;
-use sp_std::fmt;
 
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
@@ -16,20 +19,20 @@ pub trait Trait: system::Trait {
 }
 
 decl_error! {
-	/// Error for the token module.
-	pub enum Error for Module<T: Trait> {
-		/// Given public key is not of the correct size
-		PublicKeySizeIncorrect,
-		/// There is already a DID with same value
-		DIDAlreadyExists,
-		/// There is no such DID
-		DIDDoesNotExist,
-		/// For replay protection, an update to state is required to contain the same block number
-		/// in which the last update was performed.
-		DifferentBlockNumber,
-		/// Signature verification failed while key update or did removal
-		InvalidSig
-	}
+    /// Error for the token module.
+    pub enum Error for Module<T: Trait> {
+        /// Given public key is not of the correct size
+        PublicKeySizeIncorrect,
+        /// There is already a DID with same value
+        DIDAlreadyExists,
+        /// There is no such DID
+        DIDDoesNotExist,
+        /// For replay protection, an update to state is required to contain the same block number
+        /// in which the last update was performed.
+        DifferentBlockNumber,
+        /// Signature verification failed while key update or did removal
+        InvalidSig
+    }
 }
 
 /*/// Size of a Sr25519 public key in bytes.
@@ -41,12 +44,12 @@ pub const Ed25519_PK_BYTE_SIZE: usize = 32;*/
 /// A wrapper over 32-byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct Bytes32 {
-    value: [u8; 32]
+    value: [u8; 32],
 }
 
 impl Default for Bytes32 {
     fn default() -> Self {
-        Self {value: [0; 32]}
+        Self { value: [0; 32] }
     }
 }
 
@@ -54,12 +57,12 @@ impl Default for Bytes32 {
 /// A wrapper over 33-byte array
 #[derive(Encode, Decode, Clone)]
 pub struct Bytes33 {
-    value: [u8; 33]
+    value: [u8; 33],
 }
 
 impl Default for Bytes33 {
     fn default() -> Self {
-        Self {value: [0; 33]}
+        Self { value: [0; 33] }
     }
 }
 
@@ -87,7 +90,7 @@ pub enum PublicKey {
     /// Public key for Ed25519 is 32 bytes
     Ed25519(Bytes32),
     /// Compressed public key for Secp256k1 is 33 bytes
-    Secp256k1(Bytes33)
+    Secp256k1(Bytes33),
 }
 
 impl Default for PublicKey {
@@ -118,7 +121,7 @@ pub struct Bytes32(pub [u8;32]);*/
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct KeyDetail {
     controller: DID,
-    public_key: PublicKey
+    public_key: PublicKey,
 }
 
 // XXX: Map requires having a default value for DIDDetail
@@ -135,7 +138,8 @@ impl KeyDetail {
     /// Create new key detail
     pub fn new(controller: DID, public_key: PublicKey) -> Self {
         KeyDetail {
-            controller, public_key
+            controller,
+            public_key,
         }
     }
 }
@@ -160,13 +164,20 @@ pub struct KeyUpdate {
 impl KeyUpdate {
     /// Create new key update to update key of the `did`.
     /// Pass `controller` as None when not wishing to change the existing controller
-    pub fn new(did: DID, public_key: PublicKey, controller: Option<DID>,
-               last_modified_in_block: BlockNumber) -> Self {
+    pub fn new(
+        did: DID,
+        public_key: PublicKey,
+        controller: Option<DID>,
+        last_modified_in_block: BlockNumber,
+    ) -> Self {
         // XXX: size of public_key can be checked here as well. But this will require making the return
         // type a result and an attacker can craft a struct without using this method anyway.
         // This can be addressed later
         KeyUpdate {
-            did, public_key, controller, last_modified_in_block
+            did,
+            public_key,
+            controller,
+            last_modified_in_block,
         }
     }
 }
@@ -183,7 +194,10 @@ pub struct DIDRemoval {
 impl DIDRemoval {
     /// Remove an existing DID `did`
     pub fn new(did: DID, last_modified_in_block: BlockNumber) -> Self {
-        DIDRemoval {did, last_modified_in_block}
+        DIDRemoval {
+            did,
+            last_modified_in_block,
+        }
     }
 }
 
@@ -243,7 +257,7 @@ decl_module! {
             let serz_key_update = key_update.encode();
 
             // Verify signature on the serialized `KeyUpdate` with the current public key
-            let sig_ver = Self::verify_sig(&signature, &serz_key_update, &current_key_detail.public_key)?;
+            let sig_ver = Self::verify_sig_with_public_key(&signature, &serz_key_update, &current_key_detail.public_key)?;
 
             // Throw error if signature is invalid
             ensure!(sig_ver == true, Error::<T>::InvalidSig);
@@ -274,7 +288,7 @@ decl_module! {
             let serz_rem = to_remove.encode();
 
             // Verify signature on the serialized `KeyUpdate` with the current public key
-            let sig_ver = Self::verify_sig(&signature, &serz_rem, &current_key_detail.public_key)?;
+            let sig_ver = Self::verify_sig_with_public_key(&signature, &serz_rem, &current_key_detail.public_key)?;
 
             // Throw error if signature is invalid
             ensure!(sig_ver == true, Error::<T>::InvalidSig);
@@ -290,17 +304,14 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Ensure that the DID is registered and this is not a replayed payload by checking the equality
     /// with stored block number when the DID was last modified.
-    pub fn ensure_registered_and_new(origin: T::Origin, did: &DID, last_modified_in_block: BlockNumber) -> Result<KeyDetail, DispatchError> {
+    pub fn ensure_registered_and_new(
+        origin: T::Origin,
+        did: &DID,
+        last_modified_in_block: BlockNumber,
+    ) -> Result<KeyDetail, DispatchError> {
         ensure_signed(origin)?;
 
-        let (current_key_detail, last_modified) = DIDs::<T>::get(did);
-
-        // DID must be registered. If its not the above `get` with return default values making `last_modified` as 0.
-        // Not doing an `exists` call on the map as that will result in 2 calls (1 for `exists`, 1 for `get`) to storage in
-        // the case when the DID is registered.
-        if last_modified == T::BlockNumber::from(0) {
-            fail!(Error::<T>::DIDDoesNotExist)
-        }
+        let (current_key_detail, last_modified) = Self::get_key_detail(did)?;
 
         // replay protection: the command should contain the last block in which the DID was modified
         ensure!(
@@ -311,39 +322,73 @@ impl<T: Trait> Module<T> {
         Ok(current_key_detail)
     }
 
+    /// Get the key detail and the block number of last modification of the given DID.
+    /// It assumes that the DID has only 1 public key which is true for now but will change later.
+    /// This function will then be modified to indicate which key(s) of the DID should be used.
+    /// If DID is not registered an error is raised.
+    pub fn get_key_detail(did: &DID) -> Result<(KeyDetail, T::BlockNumber), DispatchError> {
+        let (current_key_detail, last_modified) = DIDs::<T>::get(did);
+        // DID must be registered. If its not the above `get` with return default values making `last_modified` as 0.
+        // Not doing an `exists` call on the map as that will result in 2 calls (1 for `exists`, 1 for `get`) to storage in
+        // the case when the DID is registered.
+        if last_modified == T::BlockNumber::from(0) {
+            fail!(Error::<T>::DIDDoesNotExist)
+        }
+        Ok((current_key_detail, last_modified))
+    }
+
+    /// Verify given signature on the given message with the given DID's only public key.
+    /// It assumes that the DID has only 1 public key which is true for now but will change later.
+    /// This function will then be modified to indicate which key(s) of the DID should be used.
+    /// If DID is not registered an error is raised.
+    /// This function is intended to be used by other modules as well to check the signature from a DID.
+    pub fn verify_sig_from_DID(
+        signature: &[u8],
+        message: &[u8],
+        did: &DID,
+    ) -> Result<bool, DispatchError> {
+        let (current_key_detail, _) = Self::get_key_detail(did)?;
+        Self::verify_sig_with_public_key(signature, message, &current_key_detail.public_key)
+    }
+
     /// Verify given signature on the given message with given public key
-    pub fn verify_sig(signature: &[u8], message: &[u8], public_key: &PublicKey) -> Result<bool, DispatchError> {
-        Ok(
-            match public_key {
-                PublicKey::Sr25519(bytes) => {
-                    let signature = sr25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSig)?;
-                    let pk = sr25519::Public(bytes.value.clone());
-                    signature.verify(message, &pk)
-                }
-                PublicKey::Ed25519(bytes) => {
-                    let signature = ed25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSig)?;
-                    let pk = ed25519::Public(bytes.value.clone());
-                    signature.verify(message, &pk)
-                }
-                PublicKey::Secp256k1(bytes) => {
-                    let signature = ecdsa::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSig)?;
-                    let pk = ecdsa::Public::Compressed(bytes.value.clone());
-                    signature.verify(message, &pk)
-                }
+    pub fn verify_sig_with_public_key(
+        signature: &[u8],
+        message: &[u8],
+        public_key: &PublicKey,
+    ) -> Result<bool, DispatchError> {
+        Ok(match public_key {
+            PublicKey::Sr25519(bytes) => {
+                let signature =
+                    sr25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSig)?;
+                let pk = sr25519::Public(bytes.value.clone());
+                signature.verify(message, &pk)
             }
-        )
+            PublicKey::Ed25519(bytes) => {
+                let signature =
+                    ed25519::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSig)?;
+                let pk = ed25519::Public(bytes.value.clone());
+                signature.verify(message, &pk)
+            }
+            PublicKey::Secp256k1(bytes) => {
+                let signature =
+                    ecdsa::Signature::try_from(signature).map_err(|_| Error::<T>::InvalidSig)?;
+                let pk = ecdsa::Public::Compressed(bytes.value.clone());
+                signature.verify(message, &pk)
+            }
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use super::super::DID_BYTE_SIZE;
+    use super::*;
 
     use frame_support::{
         assert_err, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
     };
-    use sp_core::{H256, Pair};
+    use sp_core::{Pair, H256};
     use sp_runtime::{
         testing::Header,
         traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
@@ -423,21 +468,15 @@ mod tests {
             let detail = KeyDetail::new(did.clone(), pk);
 
             // Add a DID
-            assert_ok!(
-                DIDModule::new(
-                    Origin::signed(alice),
-                    did.clone(),
-                    detail.clone()
-                )
-            );
+            assert_ok!(DIDModule::new(
+                Origin::signed(alice),
+                did.clone(),
+                detail.clone()
+            ));
 
             // Try to add the same DID and same key detail again and fail
             assert_err!(
-                DIDModule::new(
-                    Origin::signed(alice),
-                    did.clone(),
-                    detail.clone()
-                ),
+                DIDModule::new(Origin::signed(alice), did.clone(), detail.clone()),
                 Error::<Test>::DIDAlreadyExists
             );
 
@@ -445,11 +484,7 @@ mod tests {
             let pk = PublicKey::Ed25519(Bytes32::default());
             let detail = KeyDetail::new(did.clone(), pk);
             assert_err!(
-                DIDModule::new(
-                    Origin::signed(alice),
-                    did,
-                    detail
-                ),
+                DIDModule::new(Origin::signed(alice), did, detail),
                 Error::<Test>::DIDAlreadyExists
             );
         });
@@ -465,15 +500,16 @@ mod tests {
 
             let (pair, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk = pair.public().0;
-            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk }), None, 2u32);
+            let key_update = KeyUpdate::new(
+                did.clone(),
+                PublicKey::Sr25519(Bytes32 { value: pk }),
+                None,
+                2u32,
+            );
             let sig = pair.sign(&key_update.encode());
 
             assert_err!(
-                DIDModule::update_key(
-                    Origin::signed(alice),
-                    key_update,
-                    sig.0.to_vec()
-                ),
+                DIDModule::update_key(Origin::signed(alice), key_update, sig.0.to_vec()),
                 Error::<Test>::DIDDoesNotExist
             );
         });
@@ -491,16 +527,14 @@ mod tests {
                     let (pair_1, _, _) = $module::Pair::generate_with_phrase(None);
                     let pk_1 = pair_1.public().0;
 
-                    let detail = KeyDetail::new($did.clone(), $pk(Bytes32 {value: pk_1}));
+                    let detail = KeyDetail::new($did.clone(), $pk(Bytes32 { value: pk_1 }));
 
                     // Add a DID
-                    assert_ok!(
-                        DIDModule::new(
-                            Origin::signed(alice),
-                            $did.clone(),
-                            detail.clone()
-                        )
-                    );
+                    assert_ok!(DIDModule::new(
+                        Origin::signed(alice),
+                        $did.clone(),
+                        detail.clone()
+                    ));
 
                     let (current_detail, modified_in_block) = DIDModule::did($did.clone());
                     assert_eq!(current_detail.controller, $did);
@@ -509,17 +543,20 @@ mod tests {
                     // Prepare a key update
                     let (pair_2, _, _) = $module::Pair::generate_with_phrase(None);
                     let pk_2 = pair_2.public().0;
-                    let key_update = KeyUpdate::new($did.clone(), $pk(Bytes32 {value: pk_2}), None, modified_in_block as u32);
+                    let key_update = KeyUpdate::new(
+                        $did.clone(),
+                        $pk(Bytes32 { value: pk_2 }),
+                        None,
+                        modified_in_block as u32,
+                    );
                     let sig = pair_1.sign(&key_update.encode());
 
                     // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
-                    assert_ok!(
-                        DIDModule::update_key(
-                            Origin::signed(alice),
-                            key_update,
-                            sig.0.to_vec()
-                        )
-                    );
+                    assert_ok!(DIDModule::update_key(
+                        Origin::signed(alice),
+                        key_update,
+                        sig.0.to_vec()
+                    ));
 
                     let (current_detail, modified_in_block) = DIDModule::did($did.clone());
                     // Since key update passed None for the controller, it should not change
@@ -527,29 +564,33 @@ mod tests {
 
                     // Maliciously update DID's key.
                     // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
-                    let key_update = KeyUpdate::new($did.clone(), $pk(Bytes32 {value: pk_1}), None, modified_in_block as u32);
+                    let key_update = KeyUpdate::new(
+                        $did.clone(),
+                        $pk(Bytes32 { value: pk_1 }),
+                        None,
+                        modified_in_block as u32,
+                    );
                     let sig = pair_1.sign(&key_update.encode());
 
                     assert_err!(
-                        DIDModule::update_key(
-                            Origin::signed(alice),
-                            key_update,
-                            sig.0.to_vec()
-                        ),
+                        DIDModule::update_key(Origin::signed(alice), key_update, sig.0.to_vec()),
                         Error::<Test>::InvalidSig
                     );
 
                     // Keep the public key same but update the controller
                     let new_controller = [9; DID_BYTE_SIZE];
-                    let key_update = KeyUpdate::new($did.clone(), $pk(Bytes32 {value: pk_2}), Some(new_controller), modified_in_block as u32);
-                    let sig = pair_2.sign(&key_update.encode());
-                    assert_ok!(
-                        DIDModule::update_key(
-                            Origin::signed(alice),
-                            key_update,
-                            sig.0.to_vec()
-                        )
+                    let key_update = KeyUpdate::new(
+                        $did.clone(),
+                        $pk(Bytes32 { value: pk_2 }),
+                        Some(new_controller),
+                        modified_in_block as u32,
                     );
+                    let sig = pair_2.sign(&key_update.encode());
+                    assert_ok!(DIDModule::update_key(
+                        Origin::signed(alice),
+                        key_update,
+                        sig.0.to_vec()
+                    ));
 
                     // Since key update passed a new controller, it should be reflected
                     let (current_detail, _) = DIDModule::did($did.clone());
@@ -557,7 +598,12 @@ mod tests {
 
                     // Check key update with signature of incorrect size
                     // Use the correct key
-                    let key_update = KeyUpdate::new($did.clone(), $pk(Bytes32 {value: pk_1}), None, modified_in_block as u32);
+                    let key_update = KeyUpdate::new(
+                        $did.clone(),
+                        $pk(Bytes32 { value: pk_1 }),
+                        None,
+                        modified_in_block as u32,
+                    );
                     let sig = pair_2.sign(&key_update.encode());
 
                     // Truncate the signature to be of shorter size
@@ -565,11 +611,7 @@ mod tests {
                     short_sig.truncate(10);
 
                     assert_err!(
-                        DIDModule::update_key(
-                            Origin::signed(alice),
-                            key_update.clone(),
-                            short_sig
-                        ),
+                        DIDModule::update_key(Origin::signed(alice), key_update.clone(), short_sig),
                         Error::<Test>::InvalidSig
                     );
 
@@ -578,11 +620,7 @@ mod tests {
                     long_sig.append(&mut vec![0, 1, 2, 0]);
 
                     assert_err!(
-                        DIDModule::update_key(
-                            Origin::signed(alice),
-                            key_update,
-                            long_sig
-                        ),
+                        DIDModule::update_key(Origin::signed(alice), key_update, long_sig),
                         Error::<Test>::InvalidSig
                     );
                 }};
@@ -607,48 +645,50 @@ mod tests {
             let did = [1; DID_BYTE_SIZE];
 
             let (pair_1, _, _) = ecdsa::Pair::generate_with_phrase(None);
-            let pk_1= pair_1.public().as_compressed().unwrap();
-            let detail = KeyDetail::new(did.clone(), PublicKey::Secp256k1(Bytes33 {value: pk_1}));
+            let pk_1 = pair_1.public().as_compressed().unwrap();
+            let detail = KeyDetail::new(did.clone(), PublicKey::Secp256k1(Bytes33 { value: pk_1 }));
 
             // Add a DID
-            assert_ok!(
-                DIDModule::new(
-                    Origin::signed(alice),
-                    did.clone(),
-                    detail.clone()
-                )
-            );
+            assert_ok!(DIDModule::new(
+                Origin::signed(alice),
+                did.clone(),
+                detail.clone()
+            ));
 
             let (_, modified_in_block) = DIDModule::did(did.clone());
 
             // Correctly update DID's key.
             // Prepare a key update
             let (pair_2, _, _) = ecdsa::Pair::generate_with_phrase(None);
-            let pk_2= pair_2.public().as_compressed().unwrap();
-            let key_update = KeyUpdate::new(did.clone(), PublicKey::Secp256k1(Bytes33 {value: pk_2}), None, modified_in_block as u32);
+            let pk_2 = pair_2.public().as_compressed().unwrap();
+            let key_update = KeyUpdate::new(
+                did.clone(),
+                PublicKey::Secp256k1(Bytes33 { value: pk_2 }),
+                None,
+                modified_in_block as u32,
+            );
             let sig: [u8; 65] = pair_1.sign(&key_update.encode()).into();
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
-            assert_ok!(
-                DIDModule::update_key(
-                    Origin::signed(alice),
-                    key_update,
-                    sig.to_vec()
-                )
-            );
+            assert_ok!(DIDModule::update_key(
+                Origin::signed(alice),
+                key_update,
+                sig.to_vec()
+            ));
 
             let (_, modified_in_block) = DIDModule::did(did.clone());
 
             // Maliciously update DID's key.
             // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
-            let key_update = KeyUpdate::new(did.clone(), PublicKey::Secp256k1(Bytes33 {value: pk_1}), None, modified_in_block as u32);
+            let key_update = KeyUpdate::new(
+                did.clone(),
+                PublicKey::Secp256k1(Bytes33 { value: pk_1 }),
+                None,
+                modified_in_block as u32,
+            );
             let sig: [u8; 65] = pair_1.sign(&key_update.encode()).into();
 
             assert_err!(
-                DIDModule::update_key(
-                    Origin::signed(alice),
-                    key_update.clone(),
-                    sig.to_vec()
-                ),
+                DIDModule::update_key(Origin::signed(alice), key_update.clone(), sig.to_vec()),
                 Error::<Test>::InvalidSig
             );
 
@@ -657,11 +697,7 @@ mod tests {
             short_sig.truncate(10);
 
             assert_err!(
-                DIDModule::update_key(
-                    Origin::signed(alice),
-                    key_update.clone(),
-                    short_sig
-                ),
+                DIDModule::update_key(Origin::signed(alice), key_update.clone(), short_sig),
                 Error::<Test>::InvalidSig
             );
 
@@ -670,11 +706,7 @@ mod tests {
             long_sig.append(&mut vec![0, 1, 2, 0]);
 
             assert_err!(
-                DIDModule::update_key(
-                    Origin::signed(alice),
-                    key_update.clone(),
-                    long_sig
-                ),
+                DIDModule::update_key(Origin::signed(alice), key_update.clone(), long_sig),
                 Error::<Test>::InvalidSig
             );
         });
@@ -695,16 +727,14 @@ mod tests {
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_1 = pair_1.public().0;
 
-            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}));
+            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_1 }));
 
             // Add a DID with key `pk_1`
-            assert_ok!(
-                DIDModule::new(
-                    Origin::signed(alice),
-                    did.clone(),
-                    detail.clone()
-                )
-            );
+            assert_ok!(DIDModule::new(
+                Origin::signed(alice),
+                did.clone(),
+                detail.clone()
+            ));
 
             // Block number should increase to 1 as extrinsic is successful
             run_to_block(1);
@@ -716,16 +746,19 @@ mod tests {
             let pk_2 = pair_2.public().0;
 
             // The following key update and signature will be included in a replay attempt to change key to `pk_2` without `pk_1`'s intent
-            let key_update_to_be_replayed = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_2}), None, modified_in_block as u32);
+            let key_update_to_be_replayed = KeyUpdate::new(
+                did.clone(),
+                PublicKey::Sr25519(Bytes32 { value: pk_2 }),
+                None,
+                modified_in_block as u32,
+            );
             let sig_to_be_replayed = pair_1.sign(&key_update_to_be_replayed.encode());
             // Update key from `pk_1` to `pk_2` using `pk_1`'s signature
-            assert_ok!(
-                DIDModule::update_key(
-                    Origin::signed(alice),
-                    key_update_to_be_replayed.clone(),
-                    sig_to_be_replayed.0.to_vec()
-                )
-            );
+            assert_ok!(DIDModule::update_key(
+                Origin::signed(alice),
+                key_update_to_be_replayed.clone(),
+                sig_to_be_replayed.0.to_vec()
+            ));
 
             // Block number should increase to 2 as extrinsic is successful
             run_to_block(2);
@@ -736,16 +769,19 @@ mod tests {
             let (pair_3, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_3 = pair_3.public().0;
 
-            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_3}), None, modified_in_block as u32);
+            let key_update = KeyUpdate::new(
+                did.clone(),
+                PublicKey::Sr25519(Bytes32 { value: pk_3 }),
+                None,
+                modified_in_block as u32,
+            );
             let sig = pair_2.sign(&key_update.encode());
             // Update key from `pk_2` to `pk_3` using `pk_2`'s signature
-            assert_ok!(
-                DIDModule::update_key(
-                    Origin::signed(alice),
-                    key_update,
-                    sig.0.to_vec()
-                )
-            );
+            assert_ok!(DIDModule::update_key(
+                Origin::signed(alice),
+                key_update,
+                sig.0.to_vec()
+            ));
 
             // Block number should increase to 3 as extrinsic is successful
             run_to_block(3);
@@ -753,22 +789,23 @@ mod tests {
 
             let (_, modified_in_block) = DIDModule::did(did.clone());
 
-            let key_update = KeyUpdate::new(did.clone(), PublicKey::Sr25519(Bytes32 {value: pk_1}), None, modified_in_block as u32);
+            let key_update = KeyUpdate::new(
+                did.clone(),
+                PublicKey::Sr25519(Bytes32 { value: pk_1 }),
+                None,
+                modified_in_block as u32,
+            );
             let sig = pair_3.sign(&key_update.encode());
             // Update key from `pk_3` to `pk_1` using `pk_3`'s signature
-            assert_ok!(
-                DIDModule::update_key(
-                    Origin::signed(alice),
-                    key_update,
-                    sig.0.to_vec()
-                )
-            );
+            assert_ok!(DIDModule::update_key(
+                Origin::signed(alice),
+                key_update,
+                sig.0.to_vec()
+            ));
 
             // Block number should increase to 4 as extrinsic is successful
             run_to_block(4);
             assert_eq!(System::block_number(), 4);
-
-            let (_, modified_in_block) = DIDModule::did(did.clone());
 
             // Attempt to replay `pk_1`'s older payload for key update to `pk_2`
             assert_err!(
@@ -800,23 +837,17 @@ mod tests {
 
             // Trying to remove the DID before it was added will fail
             assert_err!(
-                DIDModule::remove(
-                    Origin::signed(alice),
-                    to_remove,
-                    sig.0.to_vec()
-                ),
+                DIDModule::remove(Origin::signed(alice), to_remove, sig.0.to_vec()),
                 Error::<Test>::DIDDoesNotExist
             );
 
             // Add a DID
-            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_1}));
-            assert_ok!(
-                DIDModule::new(
-                    Origin::signed(alice),
-                    did.clone(),
-                    detail.clone()
-                )
-            );
+            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_1 }));
+            assert_ok!(DIDModule::new(
+                Origin::signed(alice),
+                did.clone(),
+                detail.clone()
+            ));
 
             let (_, modified_in_block) = DIDModule::did(did.clone());
 
@@ -829,24 +860,18 @@ mod tests {
             let to_remove = DIDRemoval::new(did.clone(), modified_in_block as u32);
             let sig = pair_2.sign(&to_remove.encode());
             assert_err!(
-                DIDModule::remove(
-                    Origin::signed(alice),
-                    to_remove,
-                    sig.0.to_vec()
-                ),
+                DIDModule::remove(Origin::signed(alice), to_remove, sig.0.to_vec()),
                 Error::<Test>::InvalidSig
             );
 
             // The key controlling the DID should be able to remove the DID
             let to_remove = DIDRemoval::new(did.clone(), modified_in_block as u32);
             let sig = pair_1.sign(&to_remove.encode());
-            assert_ok!(
-                DIDModule::remove(
-                    Origin::signed(alice),
-                    to_remove,
-                    sig.0.to_vec()
-                )
-            );
+            assert_ok!(DIDModule::remove(
+                Origin::signed(alice),
+                to_remove,
+                sig.0.to_vec()
+            ));
 
             let (_, modified_in_block) = DIDModule::did(did.clone());
             // The block number will be 0 as the did has been removed
@@ -854,14 +879,12 @@ mod tests {
 
             // A different public key than previous owner of the DID should be able to register the DID
             // Add the same DID but with different public key
-            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_2}));
-            assert_ok!(
-                DIDModule::new(
-                    Origin::signed(alice),
-                    did.clone(),
-                    detail.clone()
-                )
-            );
+            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_2 }));
+            assert_ok!(DIDModule::new(
+                Origin::signed(alice),
+                did.clone(),
+                detail.clone()
+            ));
 
             let (_, modified_in_block) = DIDModule::did(did.clone());
             // The block number will be non zero as the did has been written
