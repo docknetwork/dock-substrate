@@ -6,11 +6,24 @@
   "Bytes33": {
     "value": "[u8;33]"
   },
+  "Bytes64": {
+    "value": "[u8;64]"
+  },
+  "Bytes65": {
+    "value": "[u8;65]"
+  },
   "PublicKey": {
     "_enum": {
       "Sr25519": "Bytes32",
       "Ed25519": "Bytes32",
       "Secp256k1": "Bytes33"
+    }
+  },
+  "Signature": {
+    "_enum": {
+      "Sr25519": "Bytes64",
+      "Ed25519": "Bytes64",
+      "Secp256k1": "Bytes65"
     }
   },
   "KeyDetail": {

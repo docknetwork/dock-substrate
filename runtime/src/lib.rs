@@ -21,6 +21,8 @@ use sp_runtime::{
     ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
+use codec::{Decode, Encode};
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -61,16 +63,19 @@ pub type Hash = sp_core::H256;
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
 
-// XXX: explore using `parameter_types!` for DID_BYTE_SIZE. The problem is that its needed for defining DID
-/// Size of the Dock DID in bytes
-pub const DID_BYTE_SIZE: usize = 32;
-/// The type of the Dock DID
-pub type DID = [u8; DID_BYTE_SIZE];
-
 /// Used for the module template in `./template.rs`
 mod template;
 
 mod did;
+
+/// Any command that needs to be signed is first wrapped in this enum and then its serialized.
+/// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
+/// not self describing.
+#[derive(Encode, Decode)]
+pub enum SignableCommand {
+    KeyUpdate(did::KeyUpdate),
+    DIDRemoval(did::DIDRemoval)
+}
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
