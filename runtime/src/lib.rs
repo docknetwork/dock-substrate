@@ -68,13 +68,14 @@ mod template;
 
 mod did;
 
-/// Any command that needs to be signed is first wrapped in this enum and then its serialized.
+/// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
 /// not self describing.
+/// Never change the order of variants in this enum
 #[derive(Encode, Decode)]
-pub enum SignableCommand {
+pub enum StateChange {
     KeyUpdate(did::KeyUpdate),
-    DIDRemoval(did::DIDRemoval)
+    DIDRemoval(did::DidRemoval)
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

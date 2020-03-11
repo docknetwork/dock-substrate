@@ -1,5 +1,5 @@
 {
-  "DID": "[u8;32]",
+  "Did": "[u8;32]",
   "Bytes32": {
     "value": "[u8;32]"
   },
@@ -27,17 +27,17 @@
     }
   },
   "KeyDetail": {
-    "controller": "DID",
+    "controller": "Did",
     "public_key": "PublicKey"
   },
   "KeyUpdate": {
-    "did": "DID",
+    "did": "Did",
     "public_key": "PublicKey",
-    "controller": "Option<DID>",
+    "controller": "Option<Did>",
     "last_modified_in_block": "u64"
   },
-  "DIDRemoval": {
-    "did": "DID",
+  "DidRemoval": {
+    "did": "Did",
     "last_modified_in_block": "u64"
   }
 }
