@@ -35,6 +35,8 @@ decl_error! {
         /// For replay protection, an update to state is required to contain the same block number
         /// in which the last update was performed.
         DifferentBlockNumber,
+        /// Signature type does not match public key type
+        InvalidSigType,
         /// Signature verification failed while key update or did removal
         InvalidSig
     }
@@ -404,19 +406,19 @@ impl<T: Trait> Module<T> {
         Ok(match public_key {
             PublicKey::Sr25519(bytes) => {
                 let signature =
-                    sr25519::Signature::try_from(signature.as_Sr25519_sig_bytes().map_err(|_| Error::<T>::InvalidSig)?).map_err(|_| Error::<T>::InvalidSig)?;
+                    sr25519::Signature::try_from(signature.as_Sr25519_sig_bytes().map_err(|_| Error::<T>::InvalidSigType)?).map_err(|_| Error::<T>::InvalidSig)?;
                 let pk = sr25519::Public(bytes.value.clone());
                 signature.verify(message, &pk)
             }
             PublicKey::Ed25519(bytes) => {
                 let signature =
-                    ed25519::Signature::try_from(signature.as_Ed25519_sig_bytes().map_err(|_| Error::<T>::InvalidSig)?).map_err(|_| Error::<T>::InvalidSig)?;
+                    ed25519::Signature::try_from(signature.as_Ed25519_sig_bytes().map_err(|_| Error::<T>::InvalidSigType)?).map_err(|_| Error::<T>::InvalidSig)?;
                 let pk = ed25519::Public(bytes.value.clone());
                 signature.verify(message, &pk)
             }
             PublicKey::Secp256k1(bytes) => {
                 let signature =
-                    ecdsa::Signature::try_from(signature.as_Secp256k1_sig_bytes().map_err(|_| Error::<T>::InvalidSig)?).map_err(|_| Error::<T>::InvalidSig)?;
+                    ecdsa::Signature::try_from(signature.as_Secp256k1_sig_bytes().map_err(|_| Error::<T>::InvalidSigType)?).map_err(|_| Error::<T>::InvalidSig)?;
                 let pk = ecdsa::Public::Compressed(bytes.value.clone());
                 signature.verify(message, &pk)
             }
@@ -528,7 +530,7 @@ mod tests {
                     let incorrect_sig = $incorrect_sig_type(Bytes64 {value: sig_bytes});
                     assert_err!(
                             DIDModule::verify_sig_with_public_key(&incorrect_sig, &msg, &pk),
-                            Error::<Test>::InvalidSig
+                            Error::<Test>::InvalidSigType
                     );
                 }}
             }
