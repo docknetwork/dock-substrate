@@ -192,17 +192,18 @@ impl KeyDetail {
     }
 }
 
-/// This struct is passed as an argument while updating the key
+/// This struct is passed as an argument while updating the key for a DID.
 /// `did` is the DID whose key is being updated.
 /// `public_key` the new public key
-/// `controller` If provided None, the controller is unchanged. While serializing, use literal "None" when controller is None
-/// The last_modified_in_block is the block number when this DID was last modified is present to prevent replay attack.
-/// This approach allows only 1 update transaction in a block (don't see it as a problem as key updates are rare).
-/// Its possible to submit one txn per block but the sender has to guess and he might guess it right in high block
-/// latency and low traffic network.
+/// `controller` If provided None, the controller is unchanged. While serializing, use literal
+/// "None" when controller is None.
+/// The last_modified_in_block is the block number when this DID was last modified. It is used to
+/// prevent replay attacks. This approach allows easy submission of 1 update transaction in a block.
+/// It's theoretically possible to submit more than one txn per block, but the method is
+/// non-trivial and potentially unreliable.
 /// An alternate approach can be to have a nonce associated to each detail which is incremented on each
-/// successful extrinsic and the chain requiring the extrinsic's nonce to be higher than current. This is
-/// little more involved as it involves a ">" check
+/// successful extrinsic and the chain requiring the extrinsic's nonce to be higher than current.
+/// This is little more involved as it involves a ">" check
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct KeyUpdate {
     did: Did,
