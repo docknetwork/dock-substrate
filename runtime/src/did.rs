@@ -10,7 +10,6 @@ use sp_std::convert::TryFrom;
 use sp_std::fmt;
 use system::ensure_signed;
 
-// XXX: explore using `parameter_types!` for DID_BYTE_SIZE. The problem is that its needed for defining DID
 /// Size of the Dock DID in bytes
 pub const DID_BYTE_SIZE: usize = 32;
 /// The type of the Dock DID
@@ -19,8 +18,7 @@ pub type Did = [u8; DID_BYTE_SIZE];
 /// The module's configuration trait.
 pub trait Trait: system::Trait {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
-    //type DIDByteSize: Get<u8>;
+    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
 }
 
 decl_error! {
@@ -250,14 +248,10 @@ impl DidRemoval {
 }
 
 decl_event!(
-    pub enum Event<T>
-    where
-        AccountId = <T as system::Trait>::AccountId,
-    {
+    pub enum Event {
         DidAdded(Did),
         KeyUpdated(Did),
         DidRemoved(Did),
-        DummyEvent(AccountId),
     }
 );
 
@@ -284,22 +278,25 @@ decl_module! {
 
             let current_block_no = <system::Module<T>>::block_number();
             Dids::<T>::insert(did, (detail, current_block_no));
-            Self::deposit_event(RawEvent::DidAdded(did));
+            Self::deposit_event(Event::DidAdded(did));
             Ok(())
         }
 
+        /// Sets the single publicKey (and possibly its controller) stored in this DID.
+        ///
         /// `key_update` specifies which DID's key needs to be updated
-        /// `signature` is the signature on the serialized `KeyUpdate`.
-        /// The node while processing this extrinsic, should create the above serialized `KeyUpdate`
-        /// using the stored data and try to verify the given signature with the stored key.
+        /// `signature` is the signature on a serialized [StateChange][statechange]
+        ///
+        /// During execution this function checks for a signature over [StateChange][statechange]
+        /// and verifies the given signature with the stored key.
+        ///
+        /// [statechange]: ../enum.StateChange.html
         pub fn update_key(
             origin,
             key_update: KeyUpdate,
             signature: Signature,
         ) -> DispatchResult {
             ensure_signed(origin)?;
-
-            // Not checking for signature size as its not stored
 
             // DID is registered and the update is not being replayed
             let mut current_key_detail = Self::ensure_registered_and_new(
@@ -330,14 +327,20 @@ decl_module! {
             }
 
             Dids::<T>::insert(key_update.did, (current_key_detail, current_block_no));
-            Self::deposit_event(RawEvent::KeyUpdated(key_update.did));
+            Self::deposit_event(Event::KeyUpdated(key_update.did));
             Ok(())
         }
 
+        /// Deletes a DID from chain storage. Once the DID is deleted, anyone can call new to claim
+        /// it for their own.
+        ///
         /// `to_remove` contains the DID to be removed
-        /// `signature` is the signature on the serialized `DIDRemoval`.
-        /// The node while processing this extrinsic, should create the above serialized `DIDRemoval`
-        /// using the stored data and try to verify the given signature with the stored key.
+        /// `signature` is the signature on a serialized [StateChange][statechange]
+        ///
+        /// During execution this function checks for a signature over [StateChange][statechange]
+        /// and verifies the given signature with the stored key.
+        ///
+        /// [statechange]: ../enum.StateChange.html
         pub fn remove(origin, to_remove: DidRemoval, signature: Signature) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -361,7 +364,7 @@ decl_module! {
 
             // Remove DID
             Dids::<T>::remove(did);
-            Self::deposit_event(RawEvent::DidRemoved(did));
+            Self::deposit_event(Event::DidRemoved(did));
             Ok(())
         }
     }
