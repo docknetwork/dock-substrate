@@ -8,6 +8,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use codec::{Decode, Encode};
 use grandpa::fg_primitives;
 use grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_api::impl_runtime_apis;
@@ -21,7 +22,6 @@ use sp_runtime::{
     ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
-use codec::{Decode, Encode};
 
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -75,7 +75,7 @@ mod did;
 #[derive(Encode, Decode)]
 pub enum StateChange {
     KeyUpdate(did::KeyUpdate),
-    DIDRemoval(did::DidRemoval)
+    DIDRemoval(did::DidRemoval),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know

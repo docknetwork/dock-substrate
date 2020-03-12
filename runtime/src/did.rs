@@ -96,9 +96,8 @@ macro_rules! struct_over_byte_array {
                 &self.value
             }
         }
-    }
+    };
 }
-
 
 struct_over_byte_array!(Bytes33, 33);
 struct_over_byte_array!(Bytes64, 64);
@@ -132,7 +131,7 @@ impl Signature {
     pub fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             Signature::Sr25519(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 
@@ -140,7 +139,7 @@ impl Signature {
     pub fn as_ed25519_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             Signature::Ed25519(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 
@@ -148,7 +147,7 @@ impl Signature {
     pub fn as_secp256k1_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             Signature::Secp256k1(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(())
+            _ => Err(()),
         }
     }
 }
@@ -407,20 +406,32 @@ impl<T: Trait> Module<T> {
     ) -> Result<bool, DispatchError> {
         Ok(match public_key {
             PublicKey::Sr25519(bytes) => {
-                let signature =
-                    sr25519::Signature::try_from(signature.as_sr25519_sig_bytes().map_err(|_| Error::<T>::InvalidSigType)?).map_err(|_| Error::<T>::InvalidSig)?;
+                let signature = sr25519::Signature::try_from(
+                    signature
+                        .as_sr25519_sig_bytes()
+                        .map_err(|_| Error::<T>::InvalidSigType)?,
+                )
+                .map_err(|_| Error::<T>::InvalidSig)?;
                 let pk = sr25519::Public(bytes.value.clone());
                 signature.verify(message, &pk)
             }
             PublicKey::Ed25519(bytes) => {
-                let signature =
-                    ed25519::Signature::try_from(signature.as_ed25519_sig_bytes().map_err(|_| Error::<T>::InvalidSigType)?).map_err(|_| Error::<T>::InvalidSig)?;
+                let signature = ed25519::Signature::try_from(
+                    signature
+                        .as_ed25519_sig_bytes()
+                        .map_err(|_| Error::<T>::InvalidSigType)?,
+                )
+                .map_err(|_| Error::<T>::InvalidSig)?;
                 let pk = ed25519::Public(bytes.value.clone());
                 signature.verify(message, &pk)
             }
             PublicKey::Secp256k1(bytes) => {
-                let signature =
-                    ecdsa::Signature::try_from(signature.as_secp256k1_sig_bytes().map_err(|_| Error::<T>::InvalidSigType)?).map_err(|_| Error::<T>::InvalidSig)?;
+                let signature = ecdsa::Signature::try_from(
+                    signature
+                        .as_secp256k1_sig_bytes()
+                        .map_err(|_| Error::<T>::InvalidSigType)?,
+                )
+                .map_err(|_| Error::<T>::InvalidSig)?;
                 let pk = ecdsa::Public::Compressed(bytes.value.clone());
                 signature.verify(message, &pk)
             }
@@ -549,7 +560,7 @@ mod tests {
             let alice = 10u64;
 
             let did = [1; DID_BYTE_SIZE];
-            let pk = PublicKey::Sr25519(Bytes32 {value: [0;32]});
+            let pk = PublicKey::Sr25519(Bytes32 { value: [0; 32] });
             let detail = KeyDetail::new(did.clone(), pk);
 
             // Add a DID
@@ -566,7 +577,7 @@ mod tests {
             );
 
             // Try to add the same DID again but with different key detail and fail
-            let pk = PublicKey::Ed25519(Bytes32 {value: [0;32]});
+            let pk = PublicKey::Ed25519(Bytes32 { value: [0; 32] });
             let detail = KeyDetail::new(did.clone(), pk);
             assert_err!(
                 DIDModule::new(Origin::signed(alice), did, detail),
@@ -591,7 +602,11 @@ mod tests {
                 None,
                 2u32,
             );
-            let sig = Signature::Sr25519(Bytes64 {value: pair.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0});
+            let sig = Signature::Sr25519(Bytes64 {
+                value: pair
+                    .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
+                    .0,
+            });
 
             assert_err!(
                 DIDModule::update_key(Origin::signed(alice), key_update, sig),
@@ -726,8 +741,10 @@ mod tests {
             );
 
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
-            let value: [u8; 65] = pair_1.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).into();
-            let sig = Signature::Secp256k1(Bytes65 {value});
+            let value: [u8; 65] = pair_1
+                .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
+                .into();
+            let sig = Signature::Secp256k1(Bytes65 { value });
             assert_ok!(DIDModule::update_key(
                 Origin::signed(alice),
                 key_update,
@@ -744,8 +761,10 @@ mod tests {
                 None,
                 modified_in_block as u32,
             );
-            let value: [u8; 65] = pair_1.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).into();
-            let sig = Signature::Secp256k1(Bytes65 {value});
+            let value: [u8; 65] = pair_1
+                .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
+                .into();
+            let sig = Signature::Secp256k1(Bytes65 { value });
             assert_err!(
                 DIDModule::update_key(Origin::signed(alice), key_update.clone(), sig),
                 Error::<Test>::InvalidSig
@@ -795,7 +814,11 @@ mod tests {
             );
 
             // Update key from `pk_1` to `pk_2` using `pk_1`'s signature
-            let sig_to_be_replayed = Signature::Sr25519(Bytes64 {value: pair_1.sign(&StateChange::KeyUpdate(key_update_to_be_replayed.clone()).encode()).0});
+            let sig_to_be_replayed = Signature::Sr25519(Bytes64 {
+                value: pair_1
+                    .sign(&StateChange::KeyUpdate(key_update_to_be_replayed.clone()).encode())
+                    .0,
+            });
             assert_ok!(DIDModule::update_key(
                 Origin::signed(alice),
                 key_update_to_be_replayed.clone(),
@@ -819,7 +842,11 @@ mod tests {
             );
 
             // Update key from `pk_2` to `pk_3` using `pk_2`'s signature
-            let sig = Signature::Sr25519(Bytes64 {value: pair_2.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0});
+            let sig = Signature::Sr25519(Bytes64 {
+                value: pair_2
+                    .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
+                    .0,
+            });
             assert_ok!(DIDModule::update_key(
                 Origin::signed(alice),
                 key_update,
@@ -840,7 +867,11 @@ mod tests {
             );
 
             // Update key from `pk_3` to `pk_1` using `pk_3`'s signature
-            let sig = Signature::Sr25519(Bytes64 {value: pair_3.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0});
+            let sig = Signature::Sr25519(Bytes64 {
+                value: pair_3
+                    .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
+                    .0,
+            });
             assert_ok!(DIDModule::update_key(
                 Origin::signed(alice),
                 key_update,
@@ -877,7 +908,11 @@ mod tests {
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_1 = pair_1.public().0;
             let to_remove = DidRemoval::new(did.clone(), 2u32);
-            let sig = Signature::Sr25519(Bytes64 {value: pair_1.sign(&StateChange::DIDRemoval(to_remove.clone()).encode()).0});
+            let sig = Signature::Sr25519(Bytes64 {
+                value: pair_1
+                    .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
+                    .0,
+            });
 
             // Trying to remove the DID before it was added will fail
             assert_err!(
@@ -902,7 +937,11 @@ mod tests {
             let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_2 = pair_2.public().0;
             let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
-            let sig = Signature::Sr25519(Bytes64 {value: pair_2.sign(&StateChange::DIDRemoval(to_remove.clone()).encode()).0});
+            let sig = Signature::Sr25519(Bytes64 {
+                value: pair_2
+                    .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
+                    .0,
+            });
             assert_err!(
                 DIDModule::remove(Origin::signed(alice), to_remove, sig),
                 Error::<Test>::InvalidSig
@@ -910,12 +949,12 @@ mod tests {
 
             // The key controlling the DID should be able to remove the DID
             let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
-            let sig = Signature::Sr25519(Bytes64 {value: pair_1.sign(&StateChange::DIDRemoval(to_remove.clone()).encode()).0});
-            assert_ok!(DIDModule::remove(
-                Origin::signed(alice),
-                to_remove,
-                sig
-            ));
+            let sig = Signature::Sr25519(Bytes64 {
+                value: pair_1
+                    .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
+                    .0,
+            });
+            assert_ok!(DIDModule::remove(Origin::signed(alice), to_remove, sig));
 
             // Error as the did has been removed
             assert!(DIDModule::get_key_detail(&did).is_err());
