@@ -280,10 +280,7 @@ decl_module! {
             ensure_signed(origin)?;
 
             // DID is not registered already
-            ensure!(
-                !Dids::<T>::exists(did),
-                Error::<T>::DidAlreadyExists
-            );
+            ensure!(!Dids::<T>::exists(did), Error::<T>::DidAlreadyExists);
 
             let current_block_no = <system::Module<T>>::block_number();
             Dids::<T>::insert(did, (detail, current_block_no));
@@ -295,19 +292,30 @@ decl_module! {
         /// `signature` is the signature on the serialized `KeyUpdate`.
         /// The node while processing this extrinsic, should create the above serialized `KeyUpdate`
         /// using the stored data and try to verify the given signature with the stored key.
-        pub fn update_key(origin, key_update: KeyUpdate, signature: Signature) -> DispatchResult {
+        pub fn update_key(
+            origin,
+            key_update: KeyUpdate,
+            signature: Signature,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             // Not checking for signature size as its not stored
 
             // DID is registered and the update is not being replayed
-            let mut current_key_detail = Self::ensure_registered_and_new(&key_update.did, key_update.last_modified_in_block)?;
+            let mut current_key_detail = Self::ensure_registered_and_new(
+                &key_update.did,
+                key_update.last_modified_in_block,
+            )?;
 
             // serialize `KeyUpdate` to bytes
             let serz_key_update = StateChange::KeyUpdate(key_update.clone()).encode();
 
             // Verify signature on the serialized `KeyUpdate` with the current public key
-            let sig_ver = Self::verify_sig_with_public_key(&signature, &serz_key_update, &current_key_detail.public_key)?;
+            let sig_ver = Self::verify_sig_with_public_key(
+                &signature,
+                &serz_key_update,
+                &current_key_detail.public_key,
+            )?;
 
             // Throw error if signature is invalid
             ensure!(sig_ver, Error::<T>::InvalidSig);
@@ -334,14 +342,19 @@ decl_module! {
             ensure_signed(origin)?;
 
             // DID is registered and the removal is not being replayed
-            let current_key_detail = Self::ensure_registered_and_new(&to_remove.did, to_remove.last_modified_in_block)?;
+            let current_key_detail =
+                Self::ensure_registered_and_new(&to_remove.did, to_remove.last_modified_in_block)?;
 
             let did = to_remove.did;
             // serialize `DIDRemoval` to bytes
             let serz_rem = StateChange::DIDRemoval(to_remove).encode();
 
             // Verify signature on the serialized `KeyUpdate` with the current public key
-            let sig_ver = Self::verify_sig_with_public_key(&signature, &serz_rem, &current_key_detail.public_key)?;
+            let sig_ver = Self::verify_sig_with_public_key(
+                &signature,
+                &serz_rem,
+                &current_key_detail.public_key,
+            )?;
 
             // Throw error if signature is invalid
             ensure!(sig_ver, Error::<T>::InvalidSig);
@@ -357,7 +370,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Ensure that the DID is registered and this is not a replayed payload by checking the equality
     /// with stored block number when the DID was last modified.
-    pub fn ensure_registered_and_new(
+    fn ensure_registered_and_new(
         did: &Did,
         last_modified_in_block: BlockNumber,
     ) -> Result<KeyDetail, DispatchError> {
