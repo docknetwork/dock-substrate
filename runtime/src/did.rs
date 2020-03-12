@@ -2,7 +2,7 @@ use super::{BlockNumber, StateChange};
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
-    dispatch::DispatchResult, ensure, fail, traits::Get,
+    dispatch::DispatchResult, ensure, fail,
 };
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_runtime::traits::Verify;
@@ -389,7 +389,7 @@ impl<T: Trait> Module<T> {
     /// This function will then be modified to indicate which key(s) of the DID should be used.
     /// If DID is not registered an error is raised.
     /// This function is intended to be used by other modules as well to check the signature from a DID.
-    pub fn verify_sig_from_Did(
+    pub fn verify_sig_from_did(
         signature: &Signature,
         message: &[u8],
         did: &Did,
