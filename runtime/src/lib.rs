@@ -8,6 +8,7 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+use codec::{Decode, Encode};
 use grandpa::fg_primitives;
 use grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_api::impl_runtime_apis;
@@ -21,6 +22,7 @@ use sp_runtime::{
     ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
+
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -61,14 +63,20 @@ pub type Hash = sp_core::H256;
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
 
-// explore using `parameter_types!` for DID_BYTE_SIZE. The problem is that its needed for defining DID
-pub const DID_BYTE_SIZE: usize = 32;
-pub type DID = [u8; DID_BYTE_SIZE];
-
 /// Used for the module template in `./template.rs`
 mod template;
 
 mod did;
+
+/// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
+/// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
+/// not self describing.
+/// Never change the order of variants in this enum
+#[derive(Encode, Decode)]
+pub enum StateChange {
+    KeyUpdate(did::KeyUpdate),
+    DIDRemoval(did::DidRemoval),
+}
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats
@@ -269,7 +277,7 @@ construct_runtime!(
 		Sudo: sudo,
 		// Used for the module template in `./template.rs`
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
-		DidModule: did::{Module, Call, Storage, Event<T>},
+		DIDModule: did::{Module, Call, Storage, Event},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
 	}
 );

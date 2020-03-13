@@ -1,28 +1,43 @@
 {
-  "DID": "[u8;32]",
-  "PublicKeyType": {
-    "_enum": [
-      "Sr25519",
-      "Ed25519",
-      "Secp256k1"
-    ]
+  "Did": "[u8;32]",
+  "Bytes32": {
+    "value": "[u8;32]"
+  },
+  "Bytes33": {
+    "value": "[u8;33]"
+  },
+  "Bytes64": {
+    "value": "[u8;64]"
+  },
+  "Bytes65": {
+    "value": "[u8;65]"
+  },
+  "PublicKey": {
+    "_enum": {
+      "Sr25519": "Bytes32",
+      "Ed25519": "Bytes32",
+      "Secp256k1": "Bytes33"
+    }
+  },
+  "Signature": {
+    "_enum": {
+      "Sr25519": "Bytes64",
+      "Ed25519": "Bytes64",
+      "Secp256k1": "Bytes65"
+    }
   },
   "KeyDetail": {
-    "controller": "DID",
-    "public_key_type": "PublicKeyType",
-    "public_key": "Vec<u8>"
+    "controller": "Did",
+    "public_key": "PublicKey"
   },
   "KeyUpdate": {
-    "cmd": "u8",
-    "did": "DID",
-    "public_key_type": "PublicKeyType",
-    "public_key": "Vec<u8>",
-    "controller": "Option<DID>",
+    "did": "Did",
+    "public_key": "PublicKey",
+    "controller": "Option<Did>",
     "last_modified_in_block": "u64"
   },
-  "DIDRemoval": {
-    "cmd": "u8",
-    "did": "DID",
+  "DidRemoval": {
+    "did": "Did",
     "last_modified_in_block": "u64"
   }
 }
