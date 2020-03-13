@@ -285,12 +285,14 @@ decl_module! {
         /// Sets the single publicKey (and possibly its controller) stored in this DID.
         ///
         /// `key_update` specifies which DID's key needs to be updated
-        /// `signature` is the signature on a serialized [StateChange][statechange]
+        /// `signature` is the signature on a serialized [StateChange][statechange] that wraps the
+        /// [KeyUpdate][keyupdate] struct
         ///
         /// During execution this function checks for a signature over [StateChange][statechange]
         /// and verifies the given signature with the stored key.
         ///
         /// [statechange]: ../enum.StateChange.html
+        /// [keyupdate]: ./struct.KeyUpdate.html
         pub fn update_key(
             origin,
             key_update: KeyUpdate,
@@ -335,12 +337,14 @@ decl_module! {
         /// it for their own.
         ///
         /// `to_remove` contains the DID to be removed
-        /// `signature` is the signature on a serialized [StateChange][statechange]
+        /// `signature` is the signature on a serialized [StateChange][statechange] that wraps the
+        /// [DidRemoval][didremoval] struct
         ///
         /// During execution this function checks for a signature over [StateChange][statechange]
         /// and verifies the given signature with the stored key.
         ///
         /// [statechange]: ../enum.StateChange.html
+        /// [didremoval]: ./struct.DidRemoval.html
         pub fn remove(origin, to_remove: DidRemoval, signature: Signature) -> DispatchResult {
             ensure_signed(origin)?;
 
