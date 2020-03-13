@@ -79,6 +79,42 @@ Additional CLI usage options are available and may be shown by running `cargo ru
 To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some structures need to be created in the `Settings > Developer` section. 
 The structures can be found in [developer.json file](./developer.json).
 
+## Docker image for push to release node.
+The docker image runs the chain with id `remdev`. The chain runs in development mode and has only one authority. 
+Contact the dev team to get the secret phrase for authority and root key. Following is the RPC call for adding keys
+```
+curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d \
+  '{
+    "jsonrpc":"2.0",
+    "id":1,
+    "method":"author_insertKey",
+    "params": [
+      "<aura/gran>",
+      "<mnemonic phrase>",
+      "<public key>"
+    ]
+  }'
+```
+The keys are currently added manually on the machine.
+
+
+To clear the chain state, run
+```
+./target/release/dock-testnet purge-chain --dev --chain remdev -y
+```
+
+To run the `remdev` chain, run
+```
+./target/release/dock-testnet --dev --chain remdev
+```
+
+TODO: The clear state and key storing should be done (conditional) on the run time arguments. The secret phrase should be a runtime arg as well.
+
+Storage directory for node is
+```
+/root/.local/share/node-template/chains/remdev
+``` 
+
 ## Dev tips
 1. For faster builds during testing use flag `SKIP_WASM_BUILD=1`. This will not generate WASM but only native code. 
 1. To use `println!` like Rust in `decl_module`'s functions, run the test or binary with flag `SKIP_WASM_BUILD=1` 
@@ -108,3 +144,4 @@ git checkout <branch/tag/sha1>
 
 Noted though you will likely get faster and more thorough support if you stick with the releases
 provided in this repository.
+

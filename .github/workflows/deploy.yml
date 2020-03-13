@@ -1,0 +1,22 @@
+name: Rust
+
+on:
+  push:
+    branches: [ release ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Install WASM
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly
+      - name: Build
+        run: cargo build --verbose --release
