@@ -108,12 +108,14 @@ To run the `remdev` chain, run
 ./target/release/dock-testnet --dev --chain remdev
 ```
 
-TODO: The clear state and key storing should be done (conditional) on the run time arguments. The secret phrase should be a runtime arg as well.
-
 Storage directory for node is
 ```
-/root/.local/share/node-template/chains/remdev
+/root/.local/share/dock-testnet/chains/remdev
 ``` 
+
+**TODO**: T
+- The clear state and key storing should be done (conditional) on the run time arguments. The secret phrase should be a runtime arg as well.
+- Currently all RPC methods are accessible from anywhere. This is not safe. Fix it and use advice from [here](https://github.com/paritytech/substrate/wiki/Public-RPC)
 
 ## Dev tips
 1. For faster builds during testing use flag `SKIP_WASM_BUILD=1`. This will not generate WASM but only native code. 
