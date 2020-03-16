@@ -139,7 +139,7 @@ impl<T: Trait> Module<T> {
         ensure_signed(origin)?;
         registry.policy.validate()?;
         ensure!(
-            Registries::<T>::get(&id).is_none(),
+            !Registries::<T>::exists(&id),
             "registry already exists with that id"
         );
         Registries::<T>::insert(&id, (registry, system::Module::<T>::block_number()));
@@ -171,10 +171,6 @@ impl<T: Trait> Module<T> {
         for (signer, sig) in sigs {
             let valid = did::Module::<T>::verify_sig_from_did(&sig, &payload, &signer)?;
             ensure!(valid, "invalid signature");
-        }
-        for cred_id in &to_revoke.credential_ids {
-            let current = Revocations::get(&to_revoke.registry_id, cred_id);
-            ensure!(current.is_none(), "credential already revoked");
         }
 
         // execute
@@ -215,10 +211,6 @@ impl<T: Trait> Module<T> {
         for (signer, sig) in sigs {
             let valid = did::Module::<T>::verify_sig_from_did(&sig, &payload, &signer)?;
             ensure!(valid, "invalid signature");
-        }
-        for cred_id in &to_unrevoke.credential_ids {
-            let current = Revocations::get(&to_unrevoke.registry_id, cred_id);
-            ensure!(current.is_some(), "credential not revoked");
         }
 
         // execute
