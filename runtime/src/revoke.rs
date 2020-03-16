@@ -8,6 +8,8 @@ use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, ensure}
 use system::ensure_signed;
 
 type RegistryId = [u8; 32];
+/// Proof of authorization to modify a registry.
+pub type PAuth = BTreeMap<Did, did::Signature>;
 type CredentialId = [u8; 32]; // XXX: Call this something more general. It will be useful to revoke
                               // things that are not credentials.
 
@@ -104,28 +106,16 @@ decl_module! {
             Module::<T>::new_registry_(origin, id, registry)
         }
 
-        pub fn revoke(
-            origin,
-            to_revoke: Revoke,
-            sigs: BTreeMap<Did, did::Signature>,
-        ) -> DispatchResult {
-            Module::<T>::revoke_(origin, to_revoke, sigs)
+        pub fn revoke(origin, revoke: Revoke, proof: PAuth) -> DispatchResult {
+            Module::<T>::revoke_(origin, revoke, proof)
         }
 
-        pub fn unrevoke(
-            origin,
-            to_unrevoke: UnRevoke,
-            sigs: BTreeMap<Did, did::Signature>,
-        ) -> DispatchResult {
-            Module::<T>::unrevoke_(origin, to_unrevoke, sigs)
+        pub fn unrevoke(origin, unrevoke: UnRevoke, proof: PAuth) -> DispatchResult {
+            Module::<T>::unrevoke_(origin, unrevoke, proof)
         }
 
-        pub fn remove_registry(
-            origin,
-            removal: RemoveRegistry,
-            sigs: BTreeMap<Did, did::Signature>,
-        ) -> DispatchResult {
-            Module::<T>::remove_registry_(origin, removal, sigs)
+        pub fn remove_registry( origin, removal: RemoveRegistry, proof: PAuth) -> DispatchResult {
+            Module::<T>::remove_registry_(origin, removal, proof)
         }
     }
 }
@@ -137,87 +127,88 @@ impl<T: Trait> Module<T> {
         registry: Registry,
     ) -> DispatchResult {
         ensure_signed(origin)?;
+
+        // check
         registry.policy.validate()?;
         ensure!(
             !Registries::<T>::exists(&id),
             "registry already exists with that id"
         );
+
+        // execute
         Registries::<T>::insert(&id, (registry, system::Module::<T>::block_number()));
+
         Ok(())
     }
 
     pub fn revoke_(
         origin: <T as system::Trait>::Origin,
-        to_revoke: Revoke,
-        sigs: BTreeMap<Did, did::Signature>,
+        revoke: Revoke,
+        proof: PAuth,
     ) -> DispatchResult {
+        ensure_signed(origin)?;
+
         // setup
-        let signers: Vec<_> = sigs.keys().collect();
-        let payload = super::StateChange::Revoke(to_revoke.clone()).encode();
-        let current_block = system::Module::<T>::block_number();
         let (registry, last_modified_actual) =
-            Registries::<T>::get(&to_revoke.registry_id).ok_or("registry does not exists")?;
+            Registries::<T>::get(&revoke.registry_id).ok_or("registry does not exists")?;
 
         // check
-        ensure_signed(origin)?;
+        Self::ensure_auth(
+            &super::StateChange::Revoke(revoke.clone()),
+            &proof,
+            &registry.policy,
+        )?;
         ensure!(
-            T::BlockNumber::from(to_revoke.last_modified) == last_modified_actual,
+            T::BlockNumber::from(revoke.last_modified) == last_modified_actual,
             "last_modified is incorrect"
         );
-        ensure!(
-            registry.policy.satisfied_by(&signers),
-            "policy requirements not met"
-        );
-        for (signer, sig) in sigs {
-            let valid = did::Module::<T>::verify_sig_from_did(&sig, &payload, &signer)?;
-            ensure!(valid, "invalid signature");
-        }
 
         // execute
-        for cred_id in &to_revoke.credential_ids {
-            Revocations::insert(&to_revoke.registry_id, cred_id, ());
+        for cred_id in &revoke.credential_ids {
+            Revocations::insert(&revoke.registry_id, cred_id, ());
         }
-        Registries::<T>::insert(&to_revoke.registry_id, (registry, current_block));
+        Registries::<T>::insert(
+            &revoke.registry_id,
+            (registry, system::Module::<T>::block_number()),
+        );
 
         Ok(())
     }
 
     pub fn unrevoke_(
         origin: <T as system::Trait>::Origin,
-        to_unrevoke: UnRevoke,
-        sigs: BTreeMap<Did, did::Signature>,
+        unrevoke: UnRevoke,
+        proof: PAuth,
     ) -> DispatchResult {
+        ensure_signed(origin)?;
+
         // setup
-        let signers: Vec<_> = sigs.keys().collect();
-        let payload = super::StateChange::UnRevoke(to_unrevoke.clone()).encode();
-        let current_block = system::Module::<T>::block_number();
         let (registry, last_modified_actual) =
-            Registries::<T>::get(&to_unrevoke.registry_id).ok_or("registry does not exists")?;
+            Registries::<T>::get(&unrevoke.registry_id).ok_or("registry does not exists")?;
 
         // check
-        ensure_signed(origin)?;
-        ensure!(
-            T::BlockNumber::from(to_unrevoke.last_modified) == last_modified_actual,
-            "last_modified is incorrect"
-        );
-        ensure!(
-            registry.policy.satisfied_by(&signers),
-            "policy requirements not met"
-        );
+        Self::ensure_auth(
+            &super::StateChange::UnRevoke(unrevoke.clone()),
+            &proof,
+            &registry.policy,
+        )?;
         ensure!(
             !registry.add_only,
             "revocations in this registry are permanent"
         );
-        for (signer, sig) in sigs {
-            let valid = did::Module::<T>::verify_sig_from_did(&sig, &payload, &signer)?;
-            ensure!(valid, "invalid signature");
-        }
+        ensure!(
+            T::BlockNumber::from(unrevoke.last_modified) == last_modified_actual,
+            "last_modified is incorrect"
+        );
 
         // execute
-        for cred_id in &to_unrevoke.credential_ids {
-            Revocations::remove(&to_unrevoke.registry_id, cred_id);
+        for cred_id in &unrevoke.credential_ids {
+            Revocations::remove(&unrevoke.registry_id, cred_id);
         }
-        Registries::<T>::insert(&to_unrevoke.registry_id, (registry, current_block));
+        Registries::<T>::insert(
+            &unrevoke.registry_id,
+            (registry, system::Module::<T>::block_number()),
+        );
 
         Ok(())
     }
@@ -225,34 +216,41 @@ impl<T: Trait> Module<T> {
     pub fn remove_registry_(
         origin: <T as system::Trait>::Origin,
         removal: RemoveRegistry,
-        sigs: BTreeMap<Did, did::Signature>,
+        proof: PAuth,
     ) -> DispatchResult {
+        ensure_signed(origin)?;
+
         // setup
-        let signers: Vec<_> = sigs.keys().collect();
-        let payload = super::StateChange::RemoveRegisty(removal.clone()).encode();
         let (registry, last_modified_actual) =
             Registries::<T>::get(&removal.registry_id).ok_or("registry does not exists")?;
 
         // check
-        ensure_signed(origin)?;
+        Self::ensure_auth(
+            &super::StateChange::RemoveRegisty(removal.clone()),
+            &proof,
+            &registry.policy,
+        )?;
+        ensure!(!registry.add_only, "this registry is permanent");
         ensure!(
             T::BlockNumber::from(removal.last_modified) == last_modified_actual,
             "last_modified is incorrect"
         );
-        ensure!(
-            registry.policy.satisfied_by(&signers),
-            "policy requirements not met"
-        );
-        ensure!(!registry.add_only, "this registry is permanent");
-        for (signer, sig) in sigs {
-            let valid = did::Module::<T>::verify_sig_from_did(&sig, &payload, &signer)?;
-            ensure!(valid, "invalid signature");
-        }
 
         // execute
         Revocations::remove_prefix(&removal.registry_id);
         Registries::<T>::remove(&removal.registry_id);
 
         Ok(())
+    }
+
+    fn ensure_auth(command: &super::StateChange, proof: &PAuth, policy: &Policy) -> DispatchResult {
+        let signers: Vec<_> = proof.keys().collect();
+        ensure!(policy.satisfied_by(&signers), "policy requirements not met");
+        let payload = command.encode();
+        for (signer, sig) in proof {
+            let valid = did::Module::<T>::verify_sig_from_did(&sig, &payload, &signer)?;
+            ensure!(valid, "invalid signature");
+        }
+        todo!("recheck me")
     }
 }
