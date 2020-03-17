@@ -4,7 +4,7 @@ use alloc::{
     vec::Vec,
 };
 use codec::{Decode, Encode};
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
 use system::ensure_signed;
 
 /// Points to an on-chain revocation registry.
@@ -27,11 +27,10 @@ pub enum Policy {
 
 impl Policy {
     /// Check for user error in the construction of self.
-    /// if self is invalid, return `Err(reason)`, else return `Ok(())`.
-    fn validate(&self) -> Result<(), &'static str> {
+    /// if self is invalid, return `false`, else return `true`.
+    fn valid(&self) -> bool {
         match self {
-            Self::OneOf { controllers } if controllers.len() != 0 => Ok(()),
-            Self::OneOf { .. } => Err("that policy requires at least one controller"),
+            Self::OneOf { controllers } => !controllers.is_empty(),
         }
     }
 
@@ -97,11 +96,31 @@ pub struct RemoveRegistry {
 
 pub trait Trait: system::Trait + did::Trait {}
 
+decl_error! {
+    /// Revocation Error
+    pub enum RevErr for Module<T: Trait> {
+        /// The authorization policy provided was illegal.
+        InvalidPolicy,
+        /// Proof of authorization does not meet policy requirements.
+        NotAuthorized,
+        /// A revocation registry with that name already exists.
+        RegExists,
+        /// A revocation registry with that name does not exist.
+        NoReg,
+        /// `last_modified` is incorrect. This is related to replay protection.
+        WrongNonce,
+        /// This registry is marked as add_only. Deletion of revocations is not allowed. Deletion of
+        /// the registry is not allowed.
+        AddOnly,
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Trait> as TemplateModule {
         /// Registry metadata
         Registries get(get_revocation_registry):
             map RegistryId => Option<(Registry, T::BlockNumber)>;
+
         // double_map requires and explicit hasher specification for the second key. blake2_256 is
         // the default.
         /// The single global revocation set
@@ -112,6 +131,8 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = RevErr<T>;
+
         /// Create a new revocation registry named `id` with `registry` metadata.
         ///
         /// # Errors
@@ -179,11 +200,8 @@ impl<T: Trait> Module<T> {
         ensure_signed(origin)?;
 
         // check
-        registry.policy.validate()?;
-        ensure!(
-            !Registries::<T>::exists(&id),
-            "registry already exists with that id"
-        );
+        ensure!(registry.policy.valid(), RevErr::<T>::InvalidPolicy);
+        ensure!(!Registries::<T>::exists(&id), RevErr::<T>::RegExists);
 
         // execute
         Registries::<T>::insert(&id, (registry, system::Module::<T>::block_number()));
@@ -200,12 +218,12 @@ impl<T: Trait> Module<T> {
 
         // setup
         let (registry, last_modified_actual) =
-            Registries::<T>::get(&revoke.registry_id).ok_or("registry does not exists")?;
+            Registries::<T>::get(&revoke.registry_id).ok_or(RevErr::<T>::NoReg)?;
 
         // check
         ensure!(
             T::BlockNumber::from(revoke.last_modified) == last_modified_actual,
-            "last_modified is incorrect"
+            RevErr::<T>::WrongNonce
         );
         Self::ensure_auth(
             &super::StateChange::Revoke(revoke.clone()),
@@ -234,16 +252,13 @@ impl<T: Trait> Module<T> {
 
         // setup
         let (registry, last_modified_actual) =
-            Registries::<T>::get(&unrevoke.registry_id).ok_or("registry does not exists")?;
+            Registries::<T>::get(&unrevoke.registry_id).ok_or(RevErr::<T>::NoReg)?;
 
         // check
-        ensure!(
-            !registry.add_only,
-            "revocations in this registry are permanent"
-        );
+        ensure!(!registry.add_only, RevErr::<T>::AddOnly);
         ensure!(
             T::BlockNumber::from(unrevoke.last_modified) == last_modified_actual,
-            "last_modified is incorrect"
+            RevErr::<T>::WrongNonce
         );
         Self::ensure_auth(
             &super::StateChange::UnRevoke(unrevoke.clone()),
@@ -272,13 +287,13 @@ impl<T: Trait> Module<T> {
 
         // setup
         let (registry, last_modified_actual) =
-            Registries::<T>::get(&removal.registry_id).ok_or("registry does not exists")?;
+            Registries::<T>::get(&removal.registry_id).ok_or(RevErr::<T>::NoReg)?;
 
         // check
-        ensure!(!registry.add_only, "this registry is permanent");
+        ensure!(!registry.add_only, RevErr::<T>::AddOnly);
         ensure!(
             T::BlockNumber::from(removal.last_modified) == last_modified_actual,
-            "last_modified is incorrect"
+            RevErr::<T>::WrongNonce
         );
         Self::ensure_auth(
             &super::StateChange::RemoveRegisty(removal.clone()),
@@ -297,13 +312,17 @@ impl<T: Trait> Module<T> {
     ///
     /// Returns Ok if command is authorzed, otherwise returns Err.
     fn ensure_auth(command: &super::StateChange, proof: &PAuth, policy: &Policy) -> DispatchResult {
+        // check the signer set satisfies policy
         let signers: Vec<_> = proof.keys().collect();
-        ensure!(policy.satisfied_by(&signers), "policy requirements not met");
+        ensure!(policy.satisfied_by(&signers), RevErr::<T>::NotAuthorized);
+
+        // check each signature is valid over payload and signed by the claimed signer
         let payload = command.encode();
         for (signer, sig) in proof {
             let valid = did::Module::<T>::verify_sig_from_did(&sig, &payload, &signer)?;
-            ensure!(valid, "invalid signature");
+            ensure!(valid, RevErr::<T>::NotAuthorized);
         }
+
         Ok(())
     }
 }
