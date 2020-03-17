@@ -153,15 +153,15 @@ impl<T: Trait> Module<T> {
             Registries::<T>::get(&revoke.registry_id).ok_or("registry does not exists")?;
 
         // check
+        ensure!(
+            T::BlockNumber::from(revoke.last_modified) == last_modified_actual,
+            "last_modified is incorrect"
+        );
         Self::ensure_auth(
             &super::StateChange::Revoke(revoke.clone()),
             &proof,
             &registry.policy,
         )?;
-        ensure!(
-            T::BlockNumber::from(revoke.last_modified) == last_modified_actual,
-            "last_modified is incorrect"
-        );
 
         // execute
         for cred_id in &revoke.credential_ids {
@@ -187,11 +187,6 @@ impl<T: Trait> Module<T> {
             Registries::<T>::get(&unrevoke.registry_id).ok_or("registry does not exists")?;
 
         // check
-        Self::ensure_auth(
-            &super::StateChange::UnRevoke(unrevoke.clone()),
-            &proof,
-            &registry.policy,
-        )?;
         ensure!(
             !registry.add_only,
             "revocations in this registry are permanent"
@@ -200,6 +195,11 @@ impl<T: Trait> Module<T> {
             T::BlockNumber::from(unrevoke.last_modified) == last_modified_actual,
             "last_modified is incorrect"
         );
+        Self::ensure_auth(
+            &super::StateChange::UnRevoke(unrevoke.clone()),
+            &proof,
+            &registry.policy,
+        )?;
 
         // execute
         for cred_id in &unrevoke.credential_ids {
@@ -225,16 +225,16 @@ impl<T: Trait> Module<T> {
             Registries::<T>::get(&removal.registry_id).ok_or("registry does not exists")?;
 
         // check
-        Self::ensure_auth(
-            &super::StateChange::RemoveRegisty(removal.clone()),
-            &proof,
-            &registry.policy,
-        )?;
         ensure!(!registry.add_only, "this registry is permanent");
         ensure!(
             T::BlockNumber::from(removal.last_modified) == last_modified_actual,
             "last_modified is incorrect"
         );
+        Self::ensure_auth(
+            &super::StateChange::RemoveRegisty(removal.clone()),
+            &proof,
+            &registry.policy,
+        )?;
 
         // execute
         Revocations::remove_prefix(&removal.registry_id);
