@@ -300,10 +300,7 @@ impl<T: Trait> Module<T> {
         match policy {
             Policy::OneOf { controllers } => {
                 ensure!(
-                    controllers.len() == 1
-                        && controllers
-                            .iter()
-                            .all(|verifier| controllers.contains(verifier)),
+                    proof.len() == 1 && proof.keys().all(|verifier| controllers.contains(verifier)),
                     RevErr::<T>::NotAuthorized
                 );
             }
@@ -324,15 +321,16 @@ impl<T: Trait> Module<T> {
 mod test {
     use super::*;
 
-    use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+    use frame_support::{
+        dispatch::DispatchError, impl_outer_origin, parameter_types, weights::Weight,
+    };
     use sp_core::{sr25519, Pair, H256};
     use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
+        traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
 
-    type System = system::Module<Test>;
     type TestMod = super::Module<Test>;
 
     impl_outer_origin! {
@@ -377,12 +375,12 @@ mod test {
     const ABBA: u64 = 0;
     const BORL: u64 = 1;
     const CAPN: u64 = 2;
-    const ARG: RegistryId = [0u8; 32];
-    const BRG: RegistryId = [1u8; 32];
-    const CRG: RegistryId = [2u8; 32];
-    const AR: RevokeId = [0u8; 32];
-    const BR: RevokeId = [1u8; 32];
-    const CR: RevokeId = [2u8; 32];
+    const RGA: RegistryId = [0u8; 32];
+    const RGB: RegistryId = [1u8; 32];
+    const RGC: RegistryId = [2u8; 32];
+    const RA: RevokeId = [0u8; 32];
+    const RB: RevokeId = [1u8; 32];
+    const RC: RevokeId = [2u8; 32];
     const DIDA: Did = [0u8; 32];
     const DIDB: Did = [1u8; 32];
     const DIDC: Did = [2u8; 32];
@@ -403,11 +401,6 @@ mod test {
             .build_storage::<Test>()
             .unwrap()
             .into()
-    }
-
-    // increment block number
-    fn incbn() {
-        System::set_block_number(System::block_number() + 1);
     }
 
     // create a OneOf policy
@@ -452,7 +445,7 @@ mod test {
 
             let err = TestMod::new_registry(
                 Origin::signed(ABBA),
-                ARG,
+                RGA,
                 Registry {
                     policy: oneof(&[]),
                     add_only: false,
@@ -462,17 +455,151 @@ mod test {
             assert_eq!(err, RevErr::<Test>::InvalidPolicy.into());
         }
 
+        // this test has caught at least one bug
         #[test]
         fn notauthorized() {
             if !in_ext() {
                 return ext().execute_with(notauthorized);
             }
 
-            let abba = Origin::signed(ABBA);
-            let kpa = create_did(DIDA);
+            fn assert_revoke_err(
+                policy: Policy,
+                signers: &[(Did, &sr25519::Pair)],
+            ) -> DispatchError {
+                let regid: RegistryId = rand::random();
+                TestMod::new_registry(
+                    Origin::signed(ABBA),
+                    regid,
+                    Registry {
+                        policy: policy,
+                        add_only: false,
+                    },
+                )
+                .unwrap();
+
+                let revoke = Revoke {
+                    registry_id: regid,
+                    revoke_ids: rand::random::<[RevokeId; 32]>().iter().cloned().collect(),
+                    last_modified: 1u32,
+                };
+                let proof: BTreeMap<Did, did::Signature> = signers
+                    .iter()
+                    .map(|(did, kp)| {
+                        (
+                            did.clone(),
+                            did::Signature::Sr25519(did::Bytes64 {
+                                value: kp
+                                    .sign(&crate::StateChange::Revoke(revoke.clone()).encode())
+                                    .0,
+                            }),
+                        )
+                    })
+                    .collect();
+                dbg!(&revoke);
+                dbg!(&proof);
+                TestMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap_err()
+            }
+
+            let (a, b, c) = (DIDA, DIDB, DIDC);
+            let (kpa, kpb, kpc) = (create_did(a), create_did(b), create_did(c));
+
+            let cases: &[(Policy, &[(Did, &sr25519::Pair)], &str)] = &[
+                (oneof(&[a]), &[], "provide no signatures"),
+                (oneof(&[a]), &[(b, &kpb)], "wrong account; wrong key"),
+                (oneof(&[a]), &[(a, &kpb)], "correct account; wrong key"),
+                (oneof(&[a]), &[(a, &kpb)], "wrong account; correct key"),
+                (oneof(&[a, b]), &[(c, &kpc)], "account not a controller"),
+                (oneof(&[a, b]), &[(a, &kpa), (b, &kpb)], "two signers"),
+                (oneof(&[a]), &[], "one controller; no sigs"),
+                (oneof(&[a, b]), &[], "two controllers; no sigs"),
+            ];
+
+            for (pol, set, description) in cases {
+                dbg!(description);
+                assert_eq!(
+                    assert_revoke_err(pol.clone(), set),
+                    RevErr::<Test>::NotAuthorized.into(),
+                    "{}",
+                    description
+                );
+            }
+        }
+
+        #[test]
+        fn regexists() {
+            if !in_ext() {
+                return ext().execute_with(regexists);
+            }
+
+            let reg = Registry {
+                policy: oneof(&[DIDA]),
+                add_only: false,
+            };
+            TestMod::new_registry(Origin::signed(ABBA), RGA, reg.clone()).unwrap();
+            let err = TestMod::new_registry(Origin::signed(ABBA), RGA, reg).unwrap_err();
+            assert_eq!(err, RevErr::<Test>::RegExists.into());
+        }
+
+        #[test]
+        fn noreg() {
+            if !in_ext() {
+                return ext().execute_with(noreg);
+            }
+
+            let registry_id = RGA;
+            let last_modified = 1u32;
+            let noreg: Result<(), DispatchError> = Err(RevErr::<Test>::NoReg.into());
+
+            assert_eq!(
+                TestMod::revoke(
+                    Origin::signed(ABBA),
+                    Revoke {
+                        registry_id,
+                        revoke_ids: BTreeSet::new(),
+                        last_modified,
+                    },
+                    BTreeMap::new()
+                ),
+                noreg
+            );
+            assert_eq!(
+                TestMod::unrevoke(
+                    Origin::signed(ABBA),
+                    UnRevoke {
+                        registry_id,
+                        revoke_ids: BTreeSet::new(),
+                        last_modified,
+                    },
+                    BTreeMap::new(),
+                ),
+                noreg
+            );
+            assert_eq!(
+                TestMod::remove_registry(
+                    Origin::signed(ABBA),
+                    RemoveRegistry {
+                        registry_id,
+                        last_modified,
+                    },
+                    BTreeMap::new(),
+                ),
+                noreg
+            );
+        }
+
+        #[test]
+        fn differentblocknumber() {
+            if !in_ext() {
+                return ext().execute_with(differentblocknumber);
+            }
+
+            let registry_id = RGA;
+            let last_modified = 200u32;
+            let err: Result<(), DispatchError> = Err(RevErr::<Test>::DifferentBlockNumber.into());
+
             TestMod::new_registry(
-                abba.clone(),
-                ARG,
+                Origin::signed(ABBA),
+                registry_id,
                 Registry {
                     policy: oneof(&[DIDA]),
                     add_only: false,
@@ -480,63 +607,89 @@ mod test {
             )
             .unwrap();
 
-            let kpb = create_did(DIDB);
-            let revoke = Revoke {
-                registry_id: ARG,
-                revoke_ids: BTreeSet::new(),
-                last_modified: 1u32,
-            };
-            let sig = did::Signature::Sr25519(did::Bytes64 {
-                value: kpb
-                    .sign(&crate::StateChange::Revoke(revoke.clone()).encode())
-                    .0,
-            });
-            let err = TestMod::revoke(abba, revoke, BTreeMap::new()).unwrap_err();
-            assert_eq!(err, RevErr::<Test>::NotAuthorized.into());
-
-            todo!("sign unrelated commands and make sure they fail");
-            todo!("sign with the wrong key");
-            todo!("sign with the wrong algo");
-
-            todo!("try all these cases");
-            let cases: &[(Policy, &[Did], bool)] = &[
-                (oneof(&[]), &[], false),
-                (oneof(&[]), &[DIDA], false),
-                (oneof(&[DIDA]), &[], false),
-                (oneof(&[DIDA]), &[DIDA], true),
-                (oneof(&[DIDA, DIDB]), &[DIDA], true),
-                (oneof(&[DIDA, DIDB]), &[DIDB], true),
-                (oneof(&[DIDA]), &[DIDB], false),
-                (oneof(&[DIDA, DIDB]), &[DIDC], false),
-                (oneof(&[]), &[DIDA, DIDB], false),
-                (oneof(&[DIDA, DIDB]), &[DIDA, DIDB], false),
-            ];
-
-            for (pol, set, result) in cases {
-                let set: Vec<&Did> = set.iter().collect();
-                dbg!((&pol, &set));
-                // assert_eq!(pol.satisfied_by(&set), *result);
-            }
-        }
-
-        #[test]
-        fn regexists() {
-            todo!()
-        }
-
-        #[test]
-        fn noreg() {
-            todo!()
-        }
-
-        #[test]
-        fn wrongnonce() {
-            todo!()
+            assert_eq!(
+                TestMod::revoke(
+                    Origin::signed(ABBA),
+                    Revoke {
+                        registry_id,
+                        revoke_ids: BTreeSet::new(),
+                        last_modified,
+                    },
+                    BTreeMap::new()
+                ),
+                err
+            );
+            assert_eq!(
+                TestMod::unrevoke(
+                    Origin::signed(ABBA),
+                    UnRevoke {
+                        registry_id,
+                        revoke_ids: BTreeSet::new(),
+                        last_modified,
+                    },
+                    BTreeMap::new(),
+                ),
+                err
+            );
+            assert_eq!(
+                TestMod::remove_registry(
+                    Origin::signed(ABBA),
+                    RemoveRegistry {
+                        registry_id,
+                        last_modified,
+                    },
+                    BTreeMap::new(),
+                ),
+                err
+            );
         }
 
         #[test]
         fn addonly() {
-            todo!()
+            if !in_ext() {
+                return ext().execute_with(addonly);
+            }
+
+            let registry_id = RGA;
+            let last_modified = 1u32;
+            let err: Result<(), DispatchError> = Err(RevErr::<Test>::AddOnly.into());
+            let revoke_ids: BTreeSet<_> = [RA, RB, RC].iter().cloned().collect();
+
+            TestMod::new_registry(
+                Origin::signed(ABBA),
+                registry_id,
+                Registry {
+                    policy: oneof(&[DIDA]),
+                    add_only: true,
+                },
+            )
+            .unwrap();
+
+            assert_eq!(
+                TestMod::unrevoke(
+                    Origin::signed(ABBA),
+                    UnRevoke {
+                        registry_id,
+                        revoke_ids,
+                        last_modified,
+                    },
+                    BTreeMap::new()
+                ),
+                err
+            );
+            assert_eq!(
+                TestMod::remove_registry(
+                    Origin::signed(ABBA),
+                    RemoveRegistry {
+                        registry_id,
+                        last_modified,
+                    },
+                    BTreeMap::new()
+                ),
+                err
+            );
+
+            todo!("pass valid auth proofs so calls return Err(AddOnly) not Err(NotAuthorized)");
         }
 
         // Untested variants will be a match error.
@@ -555,9 +708,55 @@ mod test {
     }
 
     mod calls {
-        // new_registry
-        // revoke
-        // unrevoke
-        // remove_registry
+        use super::*;
+
+        #[test]
+        fn new_registry() {
+            if !in_ext() {
+                return ext().execute_with(new_registry);
+            }
+            todo!();
+        }
+
+        #[test]
+        fn revoke() {
+            if !in_ext() {
+                return ext().execute_with(revoke);
+            }
+            todo!();
+        }
+
+        #[test]
+        fn unrevoke() {
+            if !in_ext() {
+                return ext().execute_with(unrevoke);
+            }
+            todo!();
+        }
+
+        #[test]
+        fn remove_registry() {
+            if !in_ext() {
+                return ext().execute_with(remove_registry);
+            }
+            todo!();
+        }
+
+        #[test]
+        fn _all_included() {
+            todo!("maybe it's possible to match on Module::Call like in the errors section");
+        }
+    }
+
+    #[test]
+    fn ensure_auth() {
+        // errs
+        todo!("sign unrelated commands and make sure they fail");
+        todo!("sign with the wrong algo");
+
+        // oks
+        todo!("(oneof(&[A]), &[(A, &kpa)])");
+        todo!("(oneof(&[A, B]), &[(A, &kpa)])");
+        todo!("(oneof(&[A, B]), &[(B, &kpb)])");
     }
 }
