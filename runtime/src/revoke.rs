@@ -108,7 +108,7 @@ decl_error! {
         /// A revocation registry with that name does not exist.
         NoReg,
         /// `last_modified` is incorrect. This is related to replay protection.
-        WrongNonce,
+        DifferentBlockNumber,
         /// This registry is marked as add_only. Deletion of revocations is not allowed. Deletion of
         /// the registry is not allowed.
         AddOnly,
@@ -223,7 +223,7 @@ impl<T: Trait> Module<T> {
         // check
         ensure!(
             T::BlockNumber::from(revoke.last_modified) == last_modified_actual,
-            RevErr::<T>::WrongNonce
+            RevErr::<T>::DifferentBlockNumber
         );
         Self::ensure_auth(
             &super::StateChange::Revoke(revoke.clone()),
@@ -258,7 +258,7 @@ impl<T: Trait> Module<T> {
         ensure!(!registry.add_only, RevErr::<T>::AddOnly);
         ensure!(
             T::BlockNumber::from(unrevoke.last_modified) == last_modified_actual,
-            RevErr::<T>::WrongNonce
+            RevErr::<T>::DifferentBlockNumber
         );
         Self::ensure_auth(
             &super::StateChange::UnRevoke(unrevoke.clone()),
@@ -293,7 +293,7 @@ impl<T: Trait> Module<T> {
         ensure!(!registry.add_only, RevErr::<T>::AddOnly);
         ensure!(
             T::BlockNumber::from(removal.last_modified) == last_modified_actual,
-            RevErr::<T>::WrongNonce
+            RevErr::<T>::DifferentBlockNumber
         );
         Self::ensure_auth(
             &super::StateChange::RemoveRegisty(removal.clone()),
@@ -557,7 +557,7 @@ mod test {
                 | RevErr::NotAuthorized
                 | RevErr::RegExists
                 | RevErr::NoReg
-                | RevErr::WrongNonce
+                | RevErr::DifferentBlockNumber
                 | RevErr::AddOnly => {}
             }
         }
