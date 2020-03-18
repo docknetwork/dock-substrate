@@ -80,32 +80,27 @@ To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some stru
 The structures can be found in [developer.json file](./developer.json).
 
 ## Docker image for push to release node.
-The docker image runs the chain with id `remdev`. The chain runs in development mode and has only one authority. 
-Contact the dev team to get the secret phrase for authority and root key. Following is the RPC call for adding keys
+The docker image runs the chain with id `remdev`. The chain runs in development mode and has only one authority.
+To create and start a container from the image, run
 ```
-curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d \
-  '{
-    "jsonrpc":"2.0",
-    "id":1,
-    "method":"author_insertKey",
-    "params": [
-      "<aura/gran>",
-      "<mnemonic phrase>",
-      "<public key>"
-    ]
-  }'
+sudo docker run -p 30333:30333 -p 9933:9933 -p 9944:9944 -dit <image id> "<secret phrase of authority>" <aura public key> <grandpa public key>
 ```
-The keys are currently added manually on the machine.
+The above command bind the host's ports 30333, 9933 and 9944 to the container's port so that that RPC commands can be sent 
+to the host at those ports. Eg. sending a RPC query for chain head to the container from the host can be done as
+```
+curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "chain_getHead"}' http://localhost:9933/
+```
+When querying the container from outside the host, replace `localhost` with the host's IP.  
+Contact the dev team to get the secret phrase for authority, root key and the endowed accounts. The public keys can be found in the chain spec.   
 
-
-To clear the chain state, run
+To clear the chain state, ssh into the container and run
 ```
 ./target/release/dock-testnet purge-chain --dev --chain remdev -y
 ```
 
 To run the `remdev` chain, run
 ```
-./target/release/dock-testnet --dev --chain remdev
+/dock-testnet/dock-testnet --dev --chain remdev
 ```
 
 Storage directory for node is

@@ -1,4 +1,4 @@
-FROM ubuntu:bionic as chainspec-builder
+FROM ubuntu:bionic AS chainspec-builder
 
 # The node will be built in this directory
 WORKDIR /dock-testnet
@@ -31,11 +31,23 @@ ENV CXX g++
 # Copy code to build directory
 COPY . /dock-testnet
 
-# The following script will run the full node and insert key. Make it executable
-RUN chmod +x ./run_node.sh
-
 # Build node.
 RUN cargo build --release
+
+
+# Final stage. Copy the node executable and the script
+FROM ubuntu:bionic
+
+RUN apt -y update && apt install -y --no-install-recommends curl
+
+WORKDIR /dock-testnet
+
+COPY --from=chainspec-builder /dock-testnet/target/release/dock-testnet .
+
+# This script will be run to start the node and add the keys
+COPY ./run_node.sh .
+# The following script will run the full node and insert key. Make it executable
+RUN chmod +x ./run_node.sh
 
 # expose node ports
 EXPOSE 30333 9933 9944
