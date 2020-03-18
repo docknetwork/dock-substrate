@@ -44,7 +44,7 @@ decl_error! {
 /// A wrapper over 32-byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct Bytes32 {
-    value: [u8; 32],
+    pub value: [u8; 32],
 }
 
 impl Bytes32 {
@@ -62,7 +62,7 @@ macro_rules! struct_over_byte_array {
         /// A wrapper over a byte array
         #[derive(Encode, Decode, Clone)]
         pub struct $name {
-            value: [u8; $size],
+            pub value: [u8; $size],
         }
 
         /// Implementing Default as it cannot be automatically derived for arrays of size > 32
@@ -270,7 +270,7 @@ decl_module! {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will fail if `did` is already registered.
         /// `detail` is the details of the key like its type, controller and value
-        fn new(origin, did: Did, detail: KeyDetail) -> DispatchResult {
+        pub fn new(origin, did: Did, detail: KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;
 
             // DID is not registered already

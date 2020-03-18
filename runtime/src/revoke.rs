@@ -326,3 +326,247 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+    use sp_core::{sr25519, Pair, H256};
+    use sp_runtime::{
+        testing::Header,
+        traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
+        Perbill,
+    };
+
+    type System = system::Module<Test>;
+    type TestMod = super::Module<Test>;
+
+    impl_outer_origin! {
+        pub enum Origin for Test {}
+    }
+
+    #[derive(Clone, Eq, Debug, PartialEq)]
+    pub struct Test;
+
+    parameter_types! {
+        pub const BlockHashCount: u64 = 250;
+        pub const MaximumBlockWeight: Weight = 1024;
+        pub const MaximumBlockLength: u32 = 2 * 1024;
+        pub const AvailableBlockRatio: Perbill = Perbill::one();
+    }
+
+    impl system::Trait for Test {
+        type Origin = Origin;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Call = ();
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type MaximumBlockWeight = MaximumBlockWeight;
+        type AvailableBlockRatio = AvailableBlockRatio;
+        type MaximumBlockLength = MaximumBlockLength;
+        type Version = ();
+        type ModuleToIndex = ();
+    }
+
+    impl did::Trait for Test {
+        type Event = ();
+    }
+
+    impl super::Trait for Test {}
+
+    const ABBA: u64 = 0;
+    const BORL: u64 = 1;
+    const CAPN: u64 = 2;
+    const ARG: RegistryId = [0u8; 32];
+    const BRG: RegistryId = [1u8; 32];
+    const CRG: RegistryId = [2u8; 32];
+    const AR: RevokeId = [0u8; 32];
+    const BR: RevokeId = [1u8; 32];
+    const CR: RevokeId = [2u8; 32];
+    const DIDA: Did = [0u8; 32];
+    const DIDB: Did = [1u8; 32];
+    const DIDC: Did = [2u8; 32];
+
+    /// check whether test externalies are available
+    fn in_ext() -> bool {
+        std::panic::catch_unwind(|| sp_io::storage::exists(&[])).is_ok()
+    }
+
+    #[test]
+    fn meta_in_ext() {
+        assert!(!in_ext());
+        ext().execute_with(|| assert!(in_ext()));
+    }
+
+    fn ext() -> sp_io::TestExternalities {
+        system::GenesisConfig::default()
+            .build_storage::<Test>()
+            .unwrap()
+            .into()
+    }
+
+    // increment block number
+    fn incbn() {
+        System::set_block_number(System::block_number() + 1);
+    }
+
+    // create a OneOf policy
+    fn oneof(dids: &[Did]) -> Policy {
+        Policy::OneOf {
+            controllers: dids.iter().cloned().collect(),
+        }
+    }
+
+    /// generate a random keypair
+    fn gen_kp() -> sr25519::Pair {
+        sr25519::Pair::generate_with_phrase(None).0
+    }
+
+    // Create did for `did`. Return the randomly generated signing key.
+    // The did public key is controlled by some non-existent account (normally a security
+    // concern), but that doesn't matter for our purposes.
+    fn create_did(did: did::Did) -> sr25519::Pair {
+        let kp = gen_kp();
+        did::Module::<Test>::new(
+            Origin::signed(ABBA),
+            did,
+            did::KeyDetail::new(
+                [100; 32],
+                did::PublicKey::Sr25519(did::Bytes32 {
+                    value: kp.public().0,
+                }),
+            ),
+        )
+        .unwrap();
+        kp
+    }
+
+    #[test]
+    fn policy_satisfied_by() {
+        let cases: &[(Policy, &[Did], bool)] = &[
+            (oneof(&[]), &[], false),
+            (oneof(&[]), &[DIDA], false),
+            (oneof(&[DIDA]), &[], false),
+            (oneof(&[DIDA]), &[DIDA], true),
+            (oneof(&[DIDA, DIDB]), &[DIDA], true),
+            (oneof(&[DIDA, DIDB]), &[DIDB], true),
+            (oneof(&[DIDA]), &[DIDB], false),
+            (oneof(&[DIDA, DIDB]), &[DIDC], false),
+            (oneof(&[]), &[DIDA, DIDB], false),
+            (oneof(&[DIDA, DIDB]), &[DIDA, DIDB], false),
+        ];
+
+        for (pol, set, result) in cases {
+            let set: Vec<&Did> = set.iter().collect();
+            dbg!((&pol, &set));
+            assert_eq!(pol.satisfied_by(&set), *result);
+        }
+    }
+
+    mod errors {
+        use super::*;
+
+        #[test]
+        fn invalidpolicy() {
+            if !in_ext() {
+                return ext().execute_with(invalidpolicy);
+            }
+
+            let err = TestMod::new_registry(
+                Origin::signed(ABBA),
+                ARG,
+                Registry {
+                    policy: oneof(&[]),
+                    add_only: false,
+                },
+            )
+            .unwrap_err();
+            assert_eq!(err, RevErr::<Test>::InvalidPolicy.into());
+        }
+
+        #[test]
+        fn notauthorized() {
+            if !in_ext() {
+                return ext().execute_with(notauthorized);
+            }
+
+            let abba = Origin::signed(ABBA);
+            let kpa = create_did(DIDA);
+            TestMod::new_registry(
+                abba.clone(),
+                ARG,
+                Registry {
+                    policy: oneof(&[DIDA]),
+                    add_only: false,
+                },
+            )
+            .unwrap();
+
+            let kpb = create_did(DIDB);
+            let revoke = Revoke {
+                registry_id: ARG,
+                revoke_ids: BTreeSet::new(),
+                last_modified: 1u32,
+            };
+            let sig = did::Signature::Sr25519(did::Bytes64 {
+                value: kpb
+                    .sign(&crate::StateChange::Revoke(revoke.clone()).encode())
+                    .0,
+            });
+            let err = TestMod::revoke(abba, revoke, BTreeMap::new()).unwrap_err();
+            assert_eq!(err, RevErr::<Test>::NotAuthorized.into());
+
+            todo!("sign unrelated commands and make sure they fail");
+            todo!("sign with the wrong key");
+            todo!("sign with the wrong algo");
+        }
+
+        #[test]
+        fn regexists() {
+            todo!()
+        }
+
+        #[test]
+        fn noreg() {
+            todo!()
+        }
+
+        #[test]
+        fn wrongnonce() {
+            todo!()
+        }
+
+        #[test]
+        fn addonly() {
+            todo!()
+        }
+
+        // Untested variants will be a match error.
+        // To fix the match error, write a test for the variant then update the test.
+        fn _all_included(dummy: RevErr<Test>) {
+            match dummy {
+                RevErr::__Ignore(_, _)
+                | RevErr::InvalidPolicy
+                | RevErr::NotAuthorized
+                | RevErr::RegExists
+                | RevErr::NoReg
+                | RevErr::WrongNonce
+                | RevErr::AddOnly => {}
+            }
+        }
+    }
+
+    mod calls {
+        // new_registry
+        // revoke
+        // unrevoke
+        // remove_registry
+    }
+}
