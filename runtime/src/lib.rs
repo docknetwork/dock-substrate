@@ -265,6 +265,8 @@ impl did::Trait for Runtime {
     //type DIDByteSize = DIDByteSize;
 }
 
+impl revoke::Trait for Runtime {}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -283,6 +285,7 @@ construct_runtime!(
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
 		DIDModule: did::{Module, Call, Storage, Event},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
+        Revoke: revoke::{Module, Call, Storage},
 	}
 );
 
