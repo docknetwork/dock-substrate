@@ -115,7 +115,7 @@ pub enum PublicKey {
 
 /// An abstraction for a signature.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-pub enum Signature {
+pub enum DidSignature {
     /// Signature for Sr25519 is 64 bytes
     Sr25519(Bytes64),
     /// Signature for Ed25519 is 64 bytes
@@ -124,11 +124,11 @@ pub enum Signature {
     Secp256k1(Bytes65),
 }
 
-impl Signature {
+impl DidSignature {
     /// Try to get reference to the bytes if its a Sr25519 signature. Return error if its not.
     pub fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
-            Signature::Sr25519(bytes) => Ok(bytes.as_bytes()),
+            DidSignature::Sr25519(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
         }
     }
@@ -136,7 +136,7 @@ impl Signature {
     /// Try to get reference to the bytes if its a Ed25519 signature. Return error if its not.
     pub fn as_ed25519_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
-            Signature::Ed25519(bytes) => Ok(bytes.as_bytes()),
+            DidSignature::Ed25519(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
         }
     }
@@ -144,7 +144,7 @@ impl Signature {
     /// Try to get reference to the bytes if its a Secp256k1 signature. Return error if its not.
     pub fn as_secp256k1_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
-            Signature::Secp256k1(bytes) => Ok(bytes.as_bytes()),
+            DidSignature::Secp256k1(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
         }
     }
@@ -296,12 +296,12 @@ decl_module! {
         pub fn update_key(
             origin,
             key_update: KeyUpdate,
-            signature: Signature,
+            signature: DidSignature,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             // DID is registered and the update is not being replayed
-            let mut current_key_detail = Self::ensure_registered_and_new(
+            let mut current_key_detail = Self::ensure_did_registered_and_payload_fresh(
                 &key_update.did,
                 key_update.last_modified_in_block,
             )?;
@@ -345,12 +345,12 @@ decl_module! {
         ///
         /// [statechange]: ../enum.StateChange.html
         /// [didremoval]: ./struct.DidRemoval.html
-        pub fn remove(origin, to_remove: DidRemoval, signature: Signature) -> DispatchResult {
+        pub fn remove(origin, to_remove: DidRemoval, signature: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
 
             // DID is registered and the removal is not being replayed
             let current_key_detail =
-                Self::ensure_registered_and_new(&to_remove.did, to_remove.last_modified_in_block)?;
+                Self::ensure_did_registered_and_payload_fresh(&to_remove.did, to_remove.last_modified_in_block)?;
 
             let did = to_remove.did;
             // serialize `DIDRemoval` to bytes
@@ -377,7 +377,7 @@ decl_module! {
 impl<T: Trait> Module<T> {
     /// Ensure that the DID is registered and this is not a replayed payload by checking the equality
     /// with stored block number when the DID was last modified.
-    fn ensure_registered_and_new(
+    fn ensure_did_registered_and_payload_fresh(
         did: &Did,
         last_modified_in_block: BlockNumber,
     ) -> Result<KeyDetail, DispatchError> {
@@ -397,7 +397,6 @@ impl<T: Trait> Module<T> {
     /// This function will then be modified to indicate which key(s) of the DID should be used.
     /// If DID is not registered an error is raised.
     pub fn get_key_detail(did: &Did) -> Result<(KeyDetail, T::BlockNumber), DispatchError> {
-        // DID must be registered.
         if let Some((current_key_detail, last_modified)) = Dids::<T>::get(did) {
             Ok((current_key_detail, last_modified))
         } else {
@@ -411,7 +410,7 @@ impl<T: Trait> Module<T> {
     /// If DID is not registered an error is raised.
     /// This function is intended to be used by other modules as well to check the signature from a DID.
     pub fn verify_sig_from_did(
-        signature: &Signature,
+        signature: &DidSignature,
         message: &[u8],
         did: &Did,
     ) -> Result<bool, DispatchError> {
@@ -421,7 +420,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify given signature on the given message with given public key
     pub fn verify_sig_with_public_key(
-        signature: &Signature,
+        signature: &DidSignature,
         message: &[u8],
         public_key: &PublicKey,
     ) -> Result<bool, DispatchError> {
@@ -569,8 +568,8 @@ mod tests {
                 }}
             }
 
-            check_sig_verification!(sr25519, PublicKey::Sr25519, Signature::Sr25519, Signature::Ed25519);
-            check_sig_verification!(ed25519, PublicKey::Ed25519, Signature::Ed25519, Signature::Sr25519);
+            check_sig_verification!(sr25519, PublicKey::Sr25519, DidSignature::Sr25519, DidSignature::Ed25519);
+            check_sig_verification!(ed25519, PublicKey::Ed25519, DidSignature::Ed25519, DidSignature::Sr25519);
         });
     }
 
@@ -623,7 +622,7 @@ mod tests {
                 None,
                 2u32,
             );
-            let sig = Signature::Sr25519(Bytes64 {
+            let sig = DidSignature::Sr25519(Bytes64 {
                 value: pair
                     .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
                     .0,
@@ -720,10 +719,10 @@ mod tests {
             }
 
             let did = [1; DID_BYTE_SIZE];
-            check_key_update!(did, sr25519, PublicKey::Sr25519, Signature::Sr25519, Bytes64);
+            check_key_update!(did, sr25519, PublicKey::Sr25519, DidSignature::Sr25519, Bytes64);
 
             let did = [2; DID_BYTE_SIZE];
-            check_key_update!(did, ed25519, PublicKey::Ed25519, Signature::Ed25519, Bytes64);
+            check_key_update!(did, ed25519, PublicKey::Ed25519, DidSignature::Ed25519, Bytes64);
         });
     }
 
@@ -765,7 +764,7 @@ mod tests {
             let value: [u8; 65] = pair_1
                 .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
                 .into();
-            let sig = Signature::Secp256k1(Bytes65 { value });
+            let sig = DidSignature::Secp256k1(Bytes65 { value });
             assert_ok!(DIDModule::update_key(
                 Origin::signed(alice),
                 key_update,
@@ -785,7 +784,7 @@ mod tests {
             let value: [u8; 65] = pair_1
                 .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
                 .into();
-            let sig = Signature::Secp256k1(Bytes65 { value });
+            let sig = DidSignature::Secp256k1(Bytes65 { value });
             assert_err!(
                 DIDModule::update_key(Origin::signed(alice), key_update.clone(), sig),
                 Error::<Test>::InvalidSig
@@ -835,7 +834,7 @@ mod tests {
             );
 
             // Update key from `pk_1` to `pk_2` using `pk_1`'s signature
-            let sig_to_be_replayed = Signature::Sr25519(Bytes64 {
+            let sig_to_be_replayed = DidSignature::Sr25519(Bytes64 {
                 value: pair_1
                     .sign(&StateChange::KeyUpdate(key_update_to_be_replayed.clone()).encode())
                     .0,
@@ -863,7 +862,7 @@ mod tests {
             );
 
             // Update key from `pk_2` to `pk_3` using `pk_2`'s signature
-            let sig = Signature::Sr25519(Bytes64 {
+            let sig = DidSignature::Sr25519(Bytes64 {
                 value: pair_2
                     .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
                     .0,
@@ -888,7 +887,7 @@ mod tests {
             );
 
             // Update key from `pk_3` to `pk_1` using `pk_3`'s signature
-            let sig = Signature::Sr25519(Bytes64 {
+            let sig = DidSignature::Sr25519(Bytes64 {
                 value: pair_3
                     .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
                     .0,
@@ -929,7 +928,7 @@ mod tests {
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_1 = pair_1.public().0;
             let to_remove = DidRemoval::new(did.clone(), 2u32);
-            let sig = Signature::Sr25519(Bytes64 {
+            let sig = DidSignature::Sr25519(Bytes64 {
                 value: pair_1
                     .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
                     .0,
@@ -958,7 +957,7 @@ mod tests {
             let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_2 = pair_2.public().0;
             let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
-            let sig = Signature::Sr25519(Bytes64 {
+            let sig = DidSignature::Sr25519(Bytes64 {
                 value: pair_2
                     .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
                     .0,
@@ -970,7 +969,7 @@ mod tests {
 
             // The key controlling the DID should be able to remove the DID
             let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
-            let sig = Signature::Sr25519(Bytes64 {
+            let sig = DidSignature::Sr25519(Bytes64 {
                 value: pair_1
                     .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
                     .0,

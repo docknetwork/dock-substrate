@@ -12,13 +12,13 @@ pub use sc_cli::{error, IntoExit, VersionInfo};
 
 fn main() -> Result<(), cli::error::Error> {
     let version = VersionInfo {
-        name: "Substrate Node",
+        name: "Dock Testnet Node",
         commit: env!("VERGEN_SHA_SHORT"),
         version: env!("CARGO_PKG_VERSION"),
-        executable_name: "node-template",
-        author: "Anonymous",
-        description: "Template Node",
-        support_url: "support.anonymous.an",
+        executable_name: "dock-testnet",
+        author: "Dock.io",
+        description: "A full node for Dock testnet",
+        support_url: "dock.io",
     };
 
     cli::run(std::env::args(), cli::Exit, version)
