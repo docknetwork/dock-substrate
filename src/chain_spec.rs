@@ -5,8 +5,8 @@ use dock_testnet_runtime::{
 use grandpa_primitives::AuthorityId as GrandpaId;
 use sc_service;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
-use sp_core::{sr25519, Pair, Public};
 use sp_core::crypto::Ss58Codec;
+use sp_core::{sr25519, Pair, Public};
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 // Note this is the URL for the telemetry server
@@ -58,8 +58,8 @@ fn pubkey_from_ss58<T: Public>(ss58: &str) -> T {
 
 /// Create an account id from a SS58 address
 fn account_id_from_ss58<T: Public>(ss58: &str) -> AccountId
-    where
-        AccountPublic: From<T>,
+where
+    AccountPublic: From<T>,
 {
     AccountPublic::from(pubkey_from_ss58::<T>(ss58)).into_account()
 }
@@ -136,10 +136,16 @@ impl Alternative {
                                 "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh",
                             ),
                         )],
-                        account_id_from_ss58::<sr25519::Public>("5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH"),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
+                        ),
                         vec![
-                            account_id_from_ss58::<sr25519::Public>("5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM"),
-                            account_id_from_ss58::<sr25519::Public>("5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2"),
+                            account_id_from_ss58::<sr25519::Public>(
+                                "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
+                            ),
+                            account_id_from_ss58::<sr25519::Public>(
+                                "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
+                            ),
                         ],
                         true,
                     )

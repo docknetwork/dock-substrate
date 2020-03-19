@@ -10,5 +10,5 @@ sleep 15
 curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d '{"jsonrpc":"2.0","id":1,"method":"author_insertKey","params": ["aura","'"$1"'","'"$2"'"]}'
 curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d '{"jsonrpc":"2.0","id":1,"method":"author_insertKey","params": ["gran","'"$1"'","'"$3"'"]}'
 
-# Making script run forever
-sleep infinity
+# Wait for any child process to end. In this case, the only child process is ./dock-testnet
+wait
