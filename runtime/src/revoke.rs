@@ -210,7 +210,7 @@ impl<T: Trait> Module<T> {
             RevErr::<T>::DifferentBlockNumber
         );
         Self::ensure_auth(
-            &super::StateChange::Revoke(revoke.clone()),
+            &crate::StateChange::Revoke(revoke.clone()),
             &proof,
             &registry.policy,
         )?;
@@ -245,7 +245,7 @@ impl<T: Trait> Module<T> {
             RevErr::<T>::DifferentBlockNumber
         );
         Self::ensure_auth(
-            &super::StateChange::UnRevoke(unrevoke.clone()),
+            &crate::StateChange::UnRevoke(unrevoke.clone()),
             &proof,
             &registry.policy,
         )?;
@@ -280,7 +280,7 @@ impl<T: Trait> Module<T> {
             RevErr::<T>::DifferentBlockNumber
         );
         Self::ensure_auth(
-            &super::StateChange::RemoveRegisty(removal.clone()),
+            &crate::StateChange::RemoveRegisty(removal.clone()),
             &proof,
             &registry.policy,
         )?;
@@ -295,7 +295,7 @@ impl<T: Trait> Module<T> {
     /// Check whether `proof` authorizes `command` according to `policy`.
     ///
     /// Returns Ok if command is authorzed, otherwise returns Err.
-    fn ensure_auth(command: &super::StateChange, proof: &PAuth, policy: &Policy) -> DispatchResult {
+    fn ensure_auth(command: &crate::StateChange, proof: &PAuth, policy: &Policy) -> DispatchResult {
         // check the signer set satisfies policy
         match policy {
             Policy::OneOf { controllers } => {
@@ -328,13 +328,13 @@ mod testcommon {
         Perbill,
     };
 
-    pub use super::*;
+    pub use crate::revoke::*;
     pub use frame_support::dispatch::DispatchError;
     pub use rand::random;
     pub use sp_core::sr25519;
     pub use std::iter::once;
 
-    pub type TestMod = super::Module<Test>;
+    pub type TestMod = crate::revoke::Module<Test>;
 
     impl_outer_origin! {
         pub enum Origin for Test {}
@@ -373,7 +373,7 @@ mod testcommon {
         type Event = ();
     }
 
-    impl super::Trait for Test {}
+    impl crate::revoke::Trait for Test {}
 
     pub const ABBA: u64 = 0;
     pub const RGA: RegistryId = [0u8; 32];
@@ -442,7 +442,7 @@ mod testcommon {
 
 #[cfg(test)]
 mod errors {
-    use super::testcommon::*;
+    use crate::revoke::testcommon::*;
 
     #[test]
     fn invalidpolicy() {
@@ -756,7 +756,7 @@ mod errors {
 
 #[cfg(test)]
 mod calls {
-    use super::testcommon::*;
+    use crate::revoke::testcommon::*;
 
     #[test]
     fn new_registry() {
@@ -960,7 +960,7 @@ mod calls {
 
 #[cfg(test)]
 mod test {
-    use super::testcommon::*;
+    use crate::revoke::testcommon::*;
 
     #[test]
     fn ensure_auth() {
