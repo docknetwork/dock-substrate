@@ -1,0 +1,14 @@
+name: Rust
+
+on:
+  push:
+    branches: [ release ]
+  pull_request:
+    branches: [ release ]
+
+jobs:
+  docker-build:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v1
+        - run: docker build .

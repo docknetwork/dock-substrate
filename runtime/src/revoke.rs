@@ -1,4 +1,4 @@
-use crate::did::{self, Did};
+use crate::did::{self, Did, DidSignature};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
 use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
@@ -11,7 +11,7 @@ pub type RegistryId = [u8; 32];
 pub type RevokeId = [u8; 32];
 
 /// Proof of authorization to modify a registry.
-pub type PAuth = BTreeMap<Did, did::Signature>;
+pub type PAuth = BTreeMap<Did, DidSignature>;
 
 /// Authorization logic for a registry.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
@@ -433,8 +433,8 @@ mod testcommon {
         kp
     }
 
-    pub fn sign(payload: &crate::StateChange, keypair: &sr25519::Pair) -> did::Signature {
-        did::Signature::Sr25519(did::Bytes64 {
+    pub fn sign(payload: &crate::StateChange, keypair: &sr25519::Pair) -> DidSignature {
+        DidSignature::Sr25519(did::Bytes64 {
             value: keypair.sign(&payload.encode()).0,
         })
     }
@@ -486,7 +486,7 @@ mod errors {
                 revoke_ids: random::<[RevokeId; 32]>().iter().cloned().collect(),
                 last_modified: 1u32,
             };
-            let proof: BTreeMap<Did, did::Signature> = signers
+            let proof: BTreeMap<Did, DidSignature> = signers
                 .iter()
                 .map(|(did, kp)| {
                     (
@@ -546,7 +546,7 @@ mod errors {
             revoke_ids: BTreeSet::new(),
             last_modified,
         };
-        let ur_proof: BTreeMap<Did, did::Signature> = once((
+        let ur_proof: BTreeMap<Did, DidSignature> = once((
             DIDA,
             sign(&crate::StateChange::UnRevoke(unrevoke.clone()), &kpa),
         ))
