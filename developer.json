@@ -66,6 +66,7 @@
       "OneOf": {
         "controllers": "BTreeSet<Did>"
       }
+    }
   },
   "StateChange": {
     "_enum": {
@@ -73,7 +74,7 @@
       "DidRemoval": "DidRemoval",
       "Revoke": "Revoke",
       "UnRevoke": "UnRevoke",
-      "RemoveRegistry": "RemoveRegistry",
+      "RemoveRegistry": "RemoveRegistry"
     }
   }
 }
