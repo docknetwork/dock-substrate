@@ -441,6 +441,12 @@ mod testcommon {
 }
 
 #[cfg(test)]
+/// Tests every failure case in the module.
+/// If a failure case is not covered, thats a bug.
+/// If an error varialt from RevErr is not covered, thats a bug.
+///
+/// Tests in this module are named after the errors they check.
+/// For example, `#[test] fn invalidpolicy` exercises the RevErr::InvalidPolicy.
 mod errors {
     use crate::revoke::testcommon::*;
 
@@ -525,8 +531,8 @@ mod errors {
         }
     }
 
-    // sign unrelated commands and ensure they fail
     #[test]
+    /// sign unrelated commands and ensure they fail
     fn notauthorized_wrong_command() {
         if !in_ext() {
             return ext().execute_with(notauthorized_wrong_command);
@@ -755,6 +761,12 @@ mod errors {
 }
 
 #[cfg(test)]
+/// Tests every happy path for every public extrinsic call in the module.
+/// If a happy path is not covered, thats a bug.
+/// If a call is not covered, thats a bug.
+///
+/// Tests in this module are named after the calls they check.
+/// For example, `#[test] fn new_registry` tests the happy path for Module::new_registry.
 mod calls {
     use crate::revoke::testcommon::*;
 
@@ -959,10 +971,12 @@ mod calls {
 }
 
 #[cfg(test)]
+/// Miscellaneous tests
 mod test {
     use crate::revoke::testcommon::*;
 
     #[test]
+    /// Exercises Module::ensure_auth, both success and failure cases.
     fn ensure_auth() {
         if !in_ext() {
             return ext().execute_with(ensure_auth);
@@ -1002,6 +1016,7 @@ mod test {
     }
 
     #[test]
+    /// Exercises the revocation registry convenience getter, get_revocation_registry.
     fn get_revocation_registry() {
         if !in_ext() {
             return ext().execute_with(get_revocation_registry);
@@ -1021,6 +1036,7 @@ mod test {
     }
 
     #[test]
+    /// Exercises the revocation status convenience getter, get_revocation_status.
     fn get_revocation_status() {
         if !in_ext() {
             return ext().execute_with(get_revocation_status);
