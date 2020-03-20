@@ -194,8 +194,12 @@ authors = ['Anonymous']
 edition = '2018'
 name = 'dock-testnet-runtime'
 version = '2.0.0'
+
 [build-dependencies.wasm-builder-runner]
 git = 'https://github.com/paritytech/substrate.git'
 package = 'substrate-wasm-builder-runner'
 rev = '3e651110aa06aa835790df63410a29676243fc54'
 version = '1.0.4'
+
+[dev-dependencies]
+rand = "0.7.3"

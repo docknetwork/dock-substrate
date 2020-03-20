@@ -8,6 +8,12 @@
 #[cfg(feature = "std")]
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
+extern crate alloc;
+
+mod did;
+mod revoke;
+mod template;
+
 use codec::{Decode, Encode};
 use grandpa::fg_primitives;
 use grandpa::AuthorityList as GrandpaAuthorityList;
@@ -63,11 +69,6 @@ pub type Hash = sp_core::H256;
 /// Digest item type.
 pub type DigestItem = generic::DigestItem<Hash>;
 
-/// Used for the module template in `./template.rs`
-mod template;
-
-mod did;
-
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
 /// not self describing.
@@ -76,6 +77,9 @@ mod did;
 pub enum StateChange {
     KeyUpdate(did::KeyUpdate),
     DIDRemoval(did::DidRemoval),
+    Revoke(revoke::Revoke),
+    UnRevoke(revoke::UnRevoke),
+    RemoveRegisty(revoke::RemoveRegistry),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -261,6 +265,8 @@ impl did::Trait for Runtime {
     //type DIDByteSize = DIDByteSize;
 }
 
+impl revoke::Trait for Runtime {}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -279,6 +285,7 @@ construct_runtime!(
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
 		DIDModule: did::{Module, Call, Storage, Event},
 		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
+        Revoke: revoke::{Module, Call, Storage},
 	}
 );
 
