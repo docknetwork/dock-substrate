@@ -1,5 +1,7 @@
+Dockerfile
 .git
 .github
-.idea
+.gitignore
+scripts
 target
-Dockerfile
+tmp
