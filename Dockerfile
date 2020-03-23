@@ -46,9 +46,7 @@ WORKDIR /dock-testnet
 COPY --from=builder /dock-testnet/target/release/dock-testnet .
 
 # This script will be run to start the node and add the keys
-COPY ./run_node.sh .
-# # The following script will run the full node and insert key. Make it executable
-# RUN chmod +x ./run_node.sh
+COPY ./docker/run_node.sh .
 
 # expose node ports
 EXPOSE 30333 9933 9944
