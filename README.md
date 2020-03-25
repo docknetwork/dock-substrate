@@ -75,6 +75,10 @@ cargo run -- \
 
 Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
 
+## Polkadot-js UI
+To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some structures need to be created in the `Settings > Developer` section. 
+The structures can be found in [developer.json file](./developer.json).
+
 ## Docker image for push to release node.
 The docker image runs the chain with id `remdev`. The chain runs in development mode and has only one authority.
 To create and start a container from the image, run
