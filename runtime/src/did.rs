@@ -250,9 +250,9 @@ impl DidRemoval {
 
 decl_event!(
     pub enum Event {
-        DidAdded(Did),
-        KeyUpdated(Did),
-        DidRemoved(Did),
+        DidAdded(dock::did::Did),
+        KeyUpdated(dock::did::Did),
+        DidRemoved(dock::did::Did),
     }
 );
 
