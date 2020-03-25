@@ -1,4 +1,5 @@
 use super::{BlockNumber, StateChange};
+use crate as dock;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
@@ -257,7 +258,7 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
-        Dids get(did): map Did => Option<(KeyDetail, T::BlockNumber)>;
+        Dids get(did): map dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
     }
 }
 
@@ -270,7 +271,7 @@ decl_module! {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will fail if `did` is already registered.
         /// `detail` is the details of the key like its type, controller and value
-        pub fn new(origin, did: Did, detail: KeyDetail) -> DispatchResult {
+        pub fn new(origin, did: dock::did::Did, detail: dock::did::KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;
 
             // DID is not registered already
@@ -295,8 +296,8 @@ decl_module! {
         /// [keyupdate]: ./struct.KeyUpdate.html
         pub fn update_key(
             origin,
-            key_update: KeyUpdate,
-            signature: DidSignature,
+            key_update: dock::did::KeyUpdate,
+            signature: dock::did::DidSignature,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -345,7 +346,11 @@ decl_module! {
         ///
         /// [statechange]: ../enum.StateChange.html
         /// [didremoval]: ./struct.DidRemoval.html
-        pub fn remove(origin, to_remove: DidRemoval, signature: DidSignature) -> DispatchResult {
+        pub fn remove(
+            origin,
+            to_remove: dock::did::DidRemoval,
+            signature: dock::did::DidSignature
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             // DID is registered and the removal is not being replayed
