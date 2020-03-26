@@ -18,7 +18,7 @@ set -uexo pipefail
 cd $(dirname $0)/..
 
 # build the node if it has not already been built. This prints the docker build logs.
-docker build .
+docker build . >&2
 
 # run the node with the random name output by the build command
 docker run -p 9944:9944 -p 9933:9933 -p 30333:30333 --rm $(docker build -q .) $@
