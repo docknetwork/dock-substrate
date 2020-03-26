@@ -2,15 +2,15 @@
 
 set -ueo pipefail
 
-cd $(dirname $0)/..
+root_dir="$(dirname $0)/.."
 
 # prebuild
-docker build .
+docker build $root_dir
 
 container_id=$(
 	docker run --rm -d                                        \
         -p 9944:9944 -p 9933:9933 -p 30333:30333              \
-        $(docker build -q .)                                  \
+        $(docker build -q $root_dir)                          \
         --dev --rpc-external --ws-external --rpc-cors=all
 )
 

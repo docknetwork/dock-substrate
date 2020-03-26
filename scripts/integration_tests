@@ -10,9 +10,12 @@ docker build .
 # with_docker_test_node exits 0 when command exits 0
 ./scripts/with_docker_test_node return 0
 
-# with_docker_test_node exits 0 when command exits 0
-./scripts/with_docker_test_node return 10
-[ $? -eq 10 ]
+# with_docker_test_node exits 10 when command exits 10
+if ./scripts/with_docker_test_node return 10; then
+	exit 1
+else
+	[ $? -eq 10 ]
+fi
 
 # upload_authority_keys doesnt exit with an error
 ./scripts/with_docker_test_node \
