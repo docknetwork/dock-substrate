@@ -15,7 +15,7 @@ container_id=$(
 )
 
 try_with_node() {
-	./scripts/wait_for_node_rpc_http
+	"$root_dir"/scripts/wait_for_node_rpc_http
 	$@
 }
 

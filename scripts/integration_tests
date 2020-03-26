@@ -17,6 +17,11 @@ else
 	[ $? -eq 10 ]
 fi
 
+# with_docker_test_node is position independent
+pushd scripts
+./with_docker_test_node test -e ./with_docker_test_node
+popd
+
 # upload_authority_keys doesnt exit with an error
 ./scripts/with_docker_test_node \
 	./scripts/upload_authority_keys \
