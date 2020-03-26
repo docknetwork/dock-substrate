@@ -2,12 +2,14 @@
 
 set -ueo pipefail
 
+DOCK_NODE_HTTP=${DOCK_NODE_HTTP:-http://localhost:9933}
+
 author_secret_seed=$1
 author_aura_public=$2
 author_grandpa_public=$3
 
 callrpc() {
-    curl http://localhost:9933 -H "Content-Type:application/json;charset=utf-8" -d "$1"
+    curl $DOCK_NODE_HTTP -H "Content-Type:application/json;charset=utf-8" -d "$1"
 }
 
 wait_for_success() {
@@ -50,7 +52,7 @@ quietly() {
 }
 
 upload_keys() {
-    # Wait for node to start
+    # Give node some time to start. This probably belongs in a different script; works for now.
     with_timeout 15 wait_for_success quietly callrpc '[]'
 
     # The node has 1 authority. Create keys for it. The secret phrase, aura public key and grandpa
@@ -74,12 +76,4 @@ upload_keys() {
 	jq -e '.[] | has("result")' >/dev/null <<<$result
 }
 
-# Run the node in background
-./dock-testnet --dev --chain=remdev --rpc-external --ws-external --rpc-cors=all &
-nodeproc=$!
-
-upload_keys &
-uploadproc=$!
-
-wait $uploadproc
-wait $nodeproc
+upload_keys
