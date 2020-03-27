@@ -1,3 +1,4 @@
+use crate as dock;
 use crate::did::{self, Did, DidSignature};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
@@ -103,13 +104,13 @@ decl_storage! {
     trait Store for Module<T: Trait> as TemplateModule {
         /// Registry metadata
         Registries get(get_revocation_registry):
-            map RegistryId => Option<(Registry, T::BlockNumber)>;
+            map dock::revoke::RegistryId => Option<(dock::revoke::Registry, T::BlockNumber)>;
 
         // double_map requires and explicit hasher specification for the second key. blake2_256 is
         // the default.
         /// The single global revocation set
         Revocations get(get_revocation_status):
-            double_map RegistryId, blake2_256(RevokeId) => Option<()>;
+            double_map dock::revoke::RegistryId, blake2_256(dock::revoke::RevokeId) => Option<()>;
     }
 }
 
@@ -124,7 +125,11 @@ decl_module! {
         /// Returns an error if `id` is already in use as a registry id.
         ///
         /// Returns an error if `registry.policy` is invalid.
-        pub fn new_registry(origin, id: RegistryId, registry: Registry) -> DispatchResult {
+        pub fn new_registry(
+            origin,
+            id: dock::revoke::RevokeId,
+            registry: dock::revoke::Registry,
+        ) -> DispatchResult {
             Module::<T>::new_registry_(origin, id, registry)
         }
 
@@ -137,7 +142,11 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `revoke.registry_id`.
-        pub fn revoke(origin, revoke: Revoke, proof: PAuth) -> DispatchResult {
+        pub fn revoke(
+            origin,
+            revoke: dock::revoke::Revoke,
+            proof: dock::revoke::PAuth,
+        ) -> DispatchResult {
             Module::<T>::revoke_(origin, revoke, proof)
         }
 
@@ -152,7 +161,11 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `unrevoke.registry_id`.
-        pub fn unrevoke(origin, unrevoke: UnRevoke, proof: PAuth) -> DispatchResult {
+        pub fn unrevoke(
+            origin,
+            unrevoke: dock::revoke::UnRevoke,
+            proof: dock::revoke::PAuth,
+        ) -> DispatchResult {
             Module::<T>::unrevoke_(origin, unrevoke, proof)
         }
 
@@ -169,7 +182,11 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `removal.registry_id`.
-        pub fn remove_registry(origin, removal: RemoveRegistry, proof: PAuth) -> DispatchResult {
+        pub fn remove_registry(
+            origin,
+            removal: dock::revoke::RemoveRegistry,
+            proof: dock::revoke::PAuth,
+        ) -> DispatchResult {
             Module::<T>::remove_registry_(origin, removal, proof)
         }
     }
