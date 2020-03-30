@@ -1,0 +1,71 @@
+{
+  "dock::did::Did": "[u8;32]",
+  "Bytes32": {
+    "value": "[u8;32]"
+  },
+  "Bytes33": {
+    "value": "[u8;33]"
+  },
+  "Bytes64": {
+    "value": "[u8;64]"
+  },
+  "Bytes65": {
+    "value": "[u8;65]"
+  },
+  "dock::did::PublicKey": {
+    "_enum": {
+      "Sr25519": "Bytes32",
+      "Ed25519": "Bytes32",
+      "Secp256k1": "Bytes33"
+    }
+  },
+  "dock::did::DidSignature": {
+    "_enum": {
+      "Sr25519": "Bytes64",
+      "Ed25519": "Bytes64",
+      "Secp256k1": "Bytes65"
+    }
+  },
+  "dock::did::KeyDetail": {
+    "controller": "dock::did::Did",
+    "public_key": "dock::did::PublicKey"
+  },
+  "dock::did::KeyUpdate": {
+    "did": "dock::did::Did",
+    "public_key": "dock::did::PublicKey",
+    "controller": "Option<dock::revoke::Did>",
+    "last_modified_in_block": "u64"
+  },
+  "dock::did::DidRemoval": {
+    "did": "dock::did::Did",
+    "last_modified_in_block": "u64"
+  },
+  "dock::revoke::RegistryId": "[u8;32]",
+  "dock::revoke::RevokeId": "[u8;32]",
+  "dock::revoke::Registry": {
+    "policy": "dock::revoke::Policy",
+    "add_only": "bool"
+  },
+  "dock::revoke::Revoke": {
+    "registry_id": "dock::revoke::RegistryId",
+    "revoke_ids": "BTreeSet<dock::revoke::RevokeId>",
+    "last_modified": "BlockNumber"
+  },
+  "dock::revoke::UnRevoke": {
+    "registry_id": "dock::revoke::RegistryId",
+    "revoke_ids": "BTreeSet<dock::revoke::RevokeId>",
+    "last_modified": "BlockNumber"
+  },
+  "dock::revoke::RemoveRegistry": {
+    "registry_id": "dock::revoke::RegistryId",
+    "last_modified": "BlockNumber"
+  },
+  "PAuth": "BTreeMap<dock::did::Did, dock::did::DidSignature>",
+  "dock::revoke::Policy": {
+    "_enum": {
+      "OneOf": {
+        "controllers": "BTreeSet<dock::did::Did>"
+      }
+    }
+  }
+}
