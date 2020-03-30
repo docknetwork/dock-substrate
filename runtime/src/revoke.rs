@@ -17,10 +17,8 @@ pub type PAuth = BTreeMap<Did, DidSignature>;
 /// Authorization logic for a registry.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 pub enum Policy {
-    OneOf {
-        /// Set of dids allowed to modify a registry.
-        controllers: BTreeSet<Did>,
-    },
+    /// Set of dids allowed to modify a registry.
+    OneOf(BTreeSet<Did>),
 }
 
 impl Policy {
@@ -28,7 +26,7 @@ impl Policy {
     /// if self is invalid, return `false`, else return `true`.
     fn valid(&self) -> bool {
         match self {
-            Self::OneOf { controllers } => !controllers.is_empty(),
+            Self::OneOf(controllers) => !controllers.is_empty(),
         }
     }
 }
@@ -315,7 +313,7 @@ impl<T: Trait> Module<T> {
     fn ensure_auth(command: &crate::StateChange, proof: &PAuth, policy: &Policy) -> DispatchResult {
         // check the signer set satisfies policy
         match policy {
-            Policy::OneOf { controllers } => {
+            Policy::OneOf(controllers) => {
                 ensure!(
                     proof.len() == 1 && proof.keys().all(|verifier| controllers.contains(verifier)),
                     RevErr::<T>::NotAuthorized
@@ -421,9 +419,7 @@ mod testcommon {
 
     // create a OneOf policy
     pub fn oneof(dids: &[Did]) -> Policy {
-        Policy::OneOf {
-            controllers: dids.iter().cloned().collect(),
-        }
+        Policy::OneOf(dids.iter().cloned().collect())
     }
 
     /// generate a random keypair
