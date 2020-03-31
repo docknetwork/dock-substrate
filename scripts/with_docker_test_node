@@ -1,0 +1,30 @@
+#!/bin/bash
+
+set -ueo pipefail
+
+root_dir="$(dirname $0)/.."
+
+# prebuild
+docker build $root_dir
+
+container_id=$(
+	docker run --rm -d                                        \
+        -p 9944:9944 -p 9933:9933 -p 30333:30333              \
+        $(docker build -q $root_dir)                          \
+        --dev --rpc-external --ws-external --rpc-cors=all
+)
+
+try_with_node() {
+	"$root_dir"/scripts/wait_for_node_rpc_http
+	$@
+}
+
+if try_with_node $@; then
+	exit_code=$?
+else
+	exit_code=$?
+fi
+
+docker kill $container_id
+
+exit $exit_code

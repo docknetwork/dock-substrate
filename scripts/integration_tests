@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -uexo pipefail
+
+cd $(dirname $0)/..
+
+# docker image builds
+docker build .
+
+# with_docker_test_node exits 0 when command exits 0
+./scripts/with_docker_test_node return 0
+
+# with_docker_test_node exits 10 when command exits 10
+if ./scripts/with_docker_test_node return 10; then
+	exit 1
+else
+	[ $? -eq 10 ]
+fi
+
+# with_docker_test_node is position independent
+pushd scripts
+./with_docker_test_node test -e ./with_docker_test_node
+popd
+
+# upload_authority_keys doesnt exit with an error
+./scripts/with_docker_test_node \
+	./scripts/upload_authority_keys \
+	0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+	0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
+	0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+
+# don't have a good way to test run_node_in_docker because that script doesn't exit
+# until the node exits

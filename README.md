@@ -76,37 +76,44 @@ cargo run -- \
 Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
 
 ## Polkadot-js UI
+
 To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some structures need to be created in the `Settings > Developer` section. 
 The structures can be found in [types.json file](https://github.com/docknetwork/client-sdk/blob/master/src/types.json). (No guarantees that file
 will stay up to date though.)
 
 ## Docker image for push to release node.
-The docker image runs the chain with id `remdev`. The chain runs in development mode and has only one authority.
+
+The docker image runs the chain. The chain runs in development mode and has only one authority.
 To create and start a container from the image, run
+
 ```
 sudo docker run -p 30333:30333 -p 9933:9933 -p 9944:9944 -dit <image id> "<secret phrase of authority>" <aura public key> <grandpa public key>
 ```
+
 The above command bind the host's ports 30333, 9933 and 9944 to the container's port so that that RPC commands can be sent 
 to the host at those ports. Eg. sending a RPC query for chain head to the container from the host can be done as
+
 ```
 curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "chain_getHead"}' http://localhost:9933/
 ```
-When querying the container from outside the host, replace `localhost` with the host's IP.  
-Contact the dev team to get the secret phrase for authority, root key and the endowed accounts. The public keys can be found in the chain spec.   
 
-To clear the chain state, ssh into the container and run
+When querying the container from outside the host, replace `localhost` with the host's IP.  
+Contact the dev team to get the secret phrase for authority, root key and the endowed accounts. The public keys can be found in the chain spec.
+
+Authority keys can be uploaded to a listening node using the `./scripts/upload_authority_keys` script.
+
+To clear the chain state, run the following within the container:
+
 ```
 ./target/release/dock-testnet purge-chain --dev --chain remdev -y
 ```
 
-To run the `remdev` chain, run
-```
-/dock-testnet/dock-testnet --dev --chain remdev
-```
+To run the `remdev` chain, use the chain argument: `--chain remdev`
 
-Storage directory for node is
+Storage directory for node is usually
+
 ```
-/root/.local/share/dock-testnet/chains/remdev
+$HOME/.local/share/dock-testnet/chains/remdev
 ``` 
 
 **TODO**: T

@@ -26,7 +26,7 @@ ENV CC gcc
 ENV CXX g++
 
 # Copy code to build directory, instead of only using .dockerignore, we copy elements
-# explicitly. This lets us cache build results while iterating on scripts like `./run_node.sh`
+# explicitly. This lets us cache build results while iterating on scripts.
 COPY runtime runtime
 COPY src src
 COPY Cargo.toml build.rs ./
@@ -39,20 +39,16 @@ RUN cargo build --release
 # Final stage. Copy the node executable and the script
 FROM ubuntu:bionic
 
-RUN apt -y update && apt install -y --no-install-recommends curl jq
+RUN apt -y update && apt install -y --no-install-recommends curl
 
 WORKDIR /dock-testnet
 
 COPY --from=builder /dock-testnet/target/release/dock-testnet .
-
-# This script will be run to start the node and add the keys
-COPY ./docker/run_node.sh .
 
 # expose node ports
 EXPOSE 30333 9933 9944
 
 ENV RUST_BACKTRACE 1
 
-# The sciprt will be given command line arguments as: <secret phrase> <aura public key> <grandpa public key>
-ENTRYPOINT ["./run_node.sh"]
+ENTRYPOINT ["./dock-testnet"]
 CMD []

@@ -1,0 +1,33 @@
+#!/bin/bash
+
+set -ueo pipefail
+
+DOCK_NODE_HTTP=${DOCK_NODE_HTTP:-http://localhost:9933}
+
+author_secret_seed=$1
+author_aura_public=$2
+author_grandpa_public=$3
+
+callrpc() {
+    curl $DOCK_NODE_HTTP -H "Content-Type:application/json;charset=utf-8" -d "$1"
+}
+
+# The node has 1 authority. Create keys for it. The secret phrase, aura public key and grandpa
+# public key are passed as command line argument,
+call='[
+    {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "author_insertKey",
+        "params": ["aura", "'$author_secret_seed'" , "'$author_aura_public'"]
+    },
+    {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "author_insertKey",
+        "params": ["gran", "'$author_secret_seed'", "'$author_grandpa_public'"]
+    }
+]'
+result=$(callrpc "$call")
+jq . <<<$result
+jq -e '.[] | has("result")' >/dev/null <<<$result
