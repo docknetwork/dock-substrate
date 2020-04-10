@@ -81,23 +81,35 @@ To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some stru
 The structures can be found in [types.json file](https://github.com/docknetwork/client-sdk/blob/master/src/types.json). (No guarantees that file
 will stay up to date though.)
 
-## Docker image for push to release node.
+## Running within docker
 
-The docker image runs the chain. The chain runs in development mode and has only one authority.
-To create and start a container from the image, run
-
-```
-sudo docker run -p 30333:30333 -p 9933:9933 -p 9944:9944 -dit <image id> "<secret phrase of authority>" <aura public key> <grandpa public key>
-```
-
-The above command bind the host's ports 30333, 9933 and 9944 to the container's port so that that RPC commands can be sent 
-to the host at those ports. Eg. sending a RPC query for chain head to the container from the host can be done as
+To create and run a development node in docker (may require sudo):
 
 ```
-curl -H "Content-Type: application/json" -d '{"id":1, "jsonrpc":"2.0", "method": "chain_getHead"}' http://localhost:9933/
+./scripts/run_node_in_docker --dev --rpc-external --ws-external
+                               |         |             |
+                       Local test node   |  Expose ws rpc to the host
+                                         |
+                            Expose http rpc to the host
+                                              
 ```
 
-When querying the container from outside the host, replace `localhost` with the host's IP.  
+To view possible command line arguments:
+
+```
+./scripts/run_node_in_docker --help
+```
+
+The above command binds the host's ports 30333, 9933 and 9944 to the container's ports so that that RPC commands can be sent over http or ws on `localhost`. Eg. sending a RPC query for chain head to the container from the host can be done as
+
+```
+# with node running
+curl -H "Content-Type: application/json" \
+    -d '{"id":1, "jsonrpc":"2.0", "method": "chain_getHead"}' \
+    http://localhost:9933
+```
+
+When querying the container from outside the host, replace `localhost` with the host's IP.
 Contact the dev team to get the secret phrase for authority, root key and the endowed accounts. The public keys can be found in the chain spec.
 
 Authority keys can be uploaded to a listening node using the `./scripts/upload_authority_keys` script.
