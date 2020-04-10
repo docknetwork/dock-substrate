@@ -22,3 +22,16 @@ jobs:
         run: rustup target add wasm32-unknown-unknown --toolchain nightly
       - name: Run tests
         run: cargo test --all
+
+  formatting:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          override: true
+          components: rustfmt
+      - name: Ensure Standard Formatting
+        run: cargo fmt -- --check
