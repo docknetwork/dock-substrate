@@ -128,14 +128,24 @@ impl Alternative {
                 "remdev",
                 || {
                     testnet_genesis(
-                        vec![(
-                            pubkey_from_ss58::<AuraId>(
-                                "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                        vec![
+                            (
+                                pubkey_from_ss58::<AuraId>(
+                                    "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                                ),
+                                pubkey_from_ss58::<GrandpaId>(
+                                    "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh",
+                                ),
                             ),
-                            pubkey_from_ss58::<GrandpaId>(
-                                "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh",
+                            (
+                                pubkey_from_ss58::<AuraId>(
+                                    "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
+                                ),
+                                pubkey_from_ss58::<GrandpaId>(
+                                    "5FJir6hEEWvVCt4PHJ95ygtw5MvgD2xoET9xqskTu4MZBC98",
+                                ),
                             ),
-                        )],
+                        ],
                         account_id_from_ss58::<sr25519::Public>(
                             "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
                         ),
