@@ -1,0 +1,16 @@
+#!/bin/bash
+
+set -ueo pipefail
+
+commit_sha=$(git rev-parse HEAD)
+image_name=docknetwork/dock-substrate:$commit_sha
+
+if test -n "$(git status --porcelain)"; then
+	echo Your working tree has changes. Please commit first.
+	exit 1
+fi
+
+docker build -t $image_name .
+docker push $image_name
+
+echo Successfully pushed $image_name to dockerhub.
