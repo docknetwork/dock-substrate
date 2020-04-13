@@ -31,7 +31,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install latest nightly
+      - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
           toolchain: stable
