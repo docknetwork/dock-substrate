@@ -37,9 +37,7 @@ RUN cargo build --release
 
 
 # Final stage. Copy the node executable and the script
-FROM ubuntu:bionic
-
-RUN apt -y update && apt install -y --no-install-recommends curl
+FROM debian:stretch-slim
 
 WORKDIR /dock-testnet
 
