@@ -43,6 +43,15 @@ WORKDIR /dock-testnet
 
 COPY --from=builder /dock-testnet/target/release/dock-testnet .
 
+# curl is required for uploading to keystore
+# note: `subkey insert` is a potential alternarve to curl
+RUN apt -y update \
+	&& apt install -y --no-install-recommends curl \
+	&& rm -rf /var/lib/apt/lists/*
+
+# might need these for uploads to keytore
+COPY scripts scripts
+
 # expose node ports
 EXPOSE 30333 9933 9944
 
