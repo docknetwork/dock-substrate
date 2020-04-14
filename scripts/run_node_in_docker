@@ -20,5 +20,29 @@ cd $(dirname $0)/..
 # build the node if it has not already been built. This prints the docker build logs.
 docker build . >&2
 
-# run the node with the random name output by the build command
-docker run -p 9944:9944 -p 9933:9933 -p 30333:30333 --rm $(docker build -q .) $@
+# Accept arguments for mounting docker volume. Mount parameters are expected to be in the beginning of the arguments. The arguments can specify the mount parameters in 2 ways:
+# `--mount source=chain-data,target=/docknode` where `chain-data` is the name of the docker volume and `/docknode` is the `base-path` of of Substrate node
+# `--mount=source=chain-data,target=/docknode` where `chain-data` is the name of the docker volume and `/docknode` is the `base-path` of of Substrate node
+# Note that while providing target in mount parameters, ensure that the same directory is being used in `base-path` as well
+# The arguments can skip mount parameters entirely as well. However this will lead to the node database being purged when container is removed.
+
+# If no mount parameters are specified, docker run command will not be provided any mount arguments
+MOUNT=''
+
+if [[ $1 == --mount=* ]]
+then
+    # Mount parameters provided as --mount=source=...
+    MOUNT=$1
+    # Get rid of $1, $2 will be $1
+    shift
+elif [[ $1 == --mount ]] && [[ $2 == source=* ]]
+then
+    # Mount parameters provided as --mount source=...
+    MOUNT=$1' '$2
+    # Get rid of $1 and $2, $3 will be $1, $4 will be $2 and so on
+    shift
+    shift
+fi
+
+# run the node with the random name output by the build command and mount parameters if any.
+docker run -p 9944:9944 -p 9933:9933 -p 30333:30333 $MOUNT --rm $(docker build -q .) $@
