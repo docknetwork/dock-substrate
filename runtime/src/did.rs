@@ -258,7 +258,7 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
-        Dids get(did): map dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
+        Dids get(did): map hasher(blake2_128_concat) dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
     }
 }
 
