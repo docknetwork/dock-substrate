@@ -99,16 +99,16 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as TemplateModule {
+    trait Store for Module<T: Trait> as Revoke {
         /// Registry metadata
         Registries get(get_revocation_registry):
-            map dock::revoke::RegistryId => Option<(dock::revoke::Registry, T::BlockNumber)>;
+            map hasher(blake2_128_concat) dock::revoke::RegistryId => Option<(dock::revoke::Registry, T::BlockNumber)>;
 
         // double_map requires and explicit hasher specification for the second key. blake2_256 is
         // the default.
         /// The single global revocation set
         Revocations get(get_revocation_status):
-            double_map dock::revoke::RegistryId, blake2_256(dock::revoke::RevokeId) => Option<()>;
+            double_map hasher(blake2_128_concat) dock::revoke::RegistryId, blake2_256(dock::revoke::RevokeId) => Option<()>;
     }
 }
 
