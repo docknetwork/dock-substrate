@@ -1,3 +1,5 @@
+This readme is out of date. https://github.com/docknetwork/dock-substrate/issues/19
+
 # Substrate Node Template
 
 A new FRAME-based Substrate node, ready for hacking.
