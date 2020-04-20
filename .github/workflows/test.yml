@@ -24,6 +24,8 @@ jobs:
           override: true
       - name: Install WASM
         run: rustup target add wasm32-unknown-unknown --toolchain nightly
+      - name: Ensure docs are buildable
+        run: cargo doc
       - name: Run tests
         run: cargo test --all
 
