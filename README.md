@@ -1,166 +1,69 @@
-This readme is out of date. https://github.com/docknetwork/dock-substrate/issues/19
+# Dock Blockchain Node
 
-# Substrate Node Template
+[Rust Docs](https://docknetwork.github.io/dock-substrate/dock_testnet_runtime).
+[Javascript Client](https://github.com/docknetwork/sdk).
 
-A new FRAME-based Substrate node, ready for hacking.
+The dock blockchain serves as registry for [Decentralized Identifiers](https://www.w3.org/TR/did-core) and for revocations of [Verifiable Credentials](https://www.w3.org/TR/vc-data-model).
 
-## Build
+## Quickstart
 
-Install Rust:
-
-```bash
-curl https://sh.rustup.rs -sSf | sh
-```
-
-Initialize your Wasm Build environment:
-
-```bash
-./scripts/init.sh
-```
-
-Build Wasm and native code:
-
-```bash
-cargo build --release
-```
-
-## Run
-
-### Single Node Development Chain
-
-Purge any existing developer chain state:
-
-```bash
-./target/release/dock-testnet purge-chain --dev
-```
-
-Start a development chain with:
-
-```bash
-./target/release/dock-testnet --dev
-```
-
-Detailed logs may be shown by running the node with the following environment variables set: `RUST_LOG=debug RUST_BACKTRACE=1 cargo run -- --dev`.
-
-### Multi-Node Local Testnet
-
-If you want to see the multi-node consensus algorithm in action locally, then you can create a local testnet with two validator nodes for Alice and Bob, who are the initial authorities of the genesis chain that have been endowed with testnet units.
-
-Optionally, give each node a name and expose them so they are listed on the Polkadot [telemetry site](https://telemetry.polkadot.io/#/Local%20Testnet).
-
-You'll need two terminal windows open.
-
-We'll start Alice's substrate node first on default TCP port 30333 with her chain database stored locally at `/tmp/alice`. The bootnode ID of her node is `QmRpheLN4JWdAnY7HGJfWFNbfkQCb6tFf4vvA6hgjMZKrR`, which is generated from the `--node-key` value that we specify below:
-
-```bash
-cargo run -- \
-  --base-path /tmp/alice \
-  --chain=local \
-  --alice \
-  --node-key 0000000000000000000000000000000000000000000000000000000000000001 \
-  --telemetry-url ws://telemetry.polkadot.io:1024 \
-  --validator
-```
-
-In the second terminal, we'll start Bob's substrate node on a different TCP port of 30334, and with his chain database stored locally at `/tmp/bob`. We'll specify a value for the `--bootnodes` option that will connect his node to Alice's bootnode ID on TCP port 30333:
-
-```bash
-cargo run -- \
-  --base-path /tmp/bob \
-  --bootnodes /ip4/127.0.0.1/tcp/30333/p2p/QmRpheLN4JWdAnY7HGJfWFNbfkQCb6tFf4vvA6hgjMZKrR \
-  --chain=local \
-  --bob \
-  --port 30334 \
-  --telemetry-url ws://telemetry.polkadot.io:1024 \
-  --validator
-```
-
-Additional CLI usage options are available and may be shown by running `cargo run -- --help`.
-
-## Polkadot-js UI
-
-To use this chain from [polkadot-js UI](https://polkadot.js.org/apps), some structures need to be created in the `Settings > Developer` section. 
-The structures can be found in [types.json file](https://github.com/docknetwork/client-sdk/blob/master/src/types.json). (No guarantees that file
-will stay up to date though.)
-
-## Running within docker
-
-To create and run a development node in docker (may require sudo):
+Docker can be used to quickly spin up a node (may require sudo):
 
 ```
-./scripts/run_node_in_docker --dev --rpc-external --ws-external
-                               |         |             |
-                       Local test node   |  Expose ws rpc to the host
-                                         |
-                            Expose http rpc to the host
-                                              
+docker run -p 9933:9933 -p 30333:30333 docknetwork/dock-substrate --chain remdev --ws-external --bootstrap /ip4/3.232.82.207/tcp/30333/p2p/QmPSP1yGiECdm5wVXVDF9stGfvVPSY8QUT4PhYB4Gnk77Q
+             |            |                       |                      |             |                  |
+             |     Expose p2p port                |              Join the testnet      |    Entry point into the p2p network
+             |                                    |                                    |
+    Expose websocket port                         |                        Listen for rpc over websocket
+                                                  |
+                                   Use the node image from dockerhub
 ```
 
 To view possible command line arguments:
 
 ```
-./scripts/run_node_in_docker --help
+docker run docknetwork/dock-substrate --help
 ```
 
-The above command binds the host's ports 30333, 9933 and 9944 to the container's ports so that that RPC commands can be sent over http or ws on `localhost`. Eg. sending a RPC query for chain head to the container from the host can be done as
+## Hacking
 
-```
-# with node running
-curl -H "Content-Type: application/json" \
-    -d '{"id":1, "jsonrpc":"2.0", "method": "chain_getHead"}' \
-    http://localhost:9933
-```
-
-When querying the container from outside the host, replace `localhost` with the host's IP.
-Contact the dev team to get the secret phrase for authority, root key and the endowed accounts. The public keys can be found in the chain spec.
-
-Authority keys can be uploaded to a listening node using the `./scripts/upload_authority_keys` script.
-
-To clear the chain state, run the following within the container:
-
-```
-./target/release/dock-testnet purge-chain --dev --chain remdev -y
-```
-
-To run the `remdev` chain, use the chain argument: `--chain remdev`
-
-Storage directory for node is usually
-
-```
-$HOME/.local/share/dock-testnet/chains/remdev
-``` 
-
-**TODO**: T
-- The clear state and key storing should be done (conditional) on the run time arguments. The secret phrase should be a runtime arg as well.
-- Currently all RPC methods are accessible from anywhere. This is not safe. Fix it and use advice from [here](https://github.com/paritytech/substrate/wiki/Public-RPC)
-
-## Dev tips
-1. For faster builds during testing use flag `SKIP_WASM_BUILD=1`. This will not generate WASM but only native code. 
-1. To use `println!` like Rust in `decl_module`'s functions, run the test or binary with flag `SKIP_WASM_BUILD=1` 
-
-## Advanced: Generate Your Own Substrate Node Template
-
-A substrate node template is always based on a certain version of Substrate. You can inspect it by
-opening [Cargo.toml](Cargo.toml) and see the template referred to a specific Substrate commit(
-`rev` field), branch, or version.
-
-You can generate your own Substrate node-template based on a particular Substrate
-version/commit by running following commands:
+To build the node executable yourself, you'll need to install the following dependencies.
 
 ```bash
-# git clone from the main Substrate repo
-git clone https://github.com/paritytech/substrate.git
-cd substrate
+# Install Rust.
+curl https://sh.rustup.rs -sSf | sh
 
-# Switch to a particular branch or commit of the Substrate repo your node-template based on
-git checkout <branch/tag/sha1>
+# Ensure rust nightly is installed and up to date.
+rustup update nightly
 
-# Run the helper script to generate a node template.
-# This script compiles Substrate and takes a while to complete. It takes a relative file path
-#   from the current dir. to output the compressed node template.
-.maintain/node-template-release.sh ../node-template.tar.gz
+# Ensure nightly can compile to wasm.
+rustup target add wasm32-unknown-unknown --toolchain nightly
 ```
 
-Noted though you will likely get faster and more thorough support if you stick with the releases
-provided in this repository.
+Now you can build the node binary.
 
+```bash
+cargo build --release
+```
+
+See [CONTRIBUTING.md](./contributing) for contribution guidelines.
+
+## Recipes
+
+```
+# Build and run unit tests.
+cargo test --all
+
+# Build and run a node in local development node for testing.
+cargo run -- --dev
+
+# Clear chain state after running the local development node.
+cargo run -- purge-chain --dev
+
+# View available command line options.
+cargo run -- --help
+```
+
+## Polkadot-js UI
+
+The [polkadot-js UI](https://polkadot.js.org/apps) UI can be used to interact with the dock network through a locally running node. Some custom types will need to be specified in the `Settings > Developer` section of the UI. The definitions for these types can currently be found in [types.json file](https://github.com/docknetwork/sdk/blob/master/src/types.json). (No guarantees that file will stay up to date though.)
