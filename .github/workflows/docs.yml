@@ -1,0 +1,30 @@
+name: Rust
+
+on:
+  push:
+    branches:
+      - master
+      - build-for-gh-pages
+
+jobs:
+  update-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install latest nightly
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly
+          override: true
+      - name: Install WASM
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly
+      - name: Build Docs
+        uses: actions-rs/cargo@v1
+        with:
+          command: doc
+      - name: Push To gh-pages
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./target/doc
+          force_orphan: true
