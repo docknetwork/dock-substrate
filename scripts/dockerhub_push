@@ -2,8 +2,17 @@
 
 set -ueo pipefail
 
+# Use:
+#
+# ```
+# ./scripts/dockerhub_push
+# # or
+# dock_substrate_image_tag=latest ./scripts/dockerhub_push
+# ```
+
 commit_sha=$(git rev-parse HEAD)
-image_name=docknetwork/dock-substrate:$commit_sha
+image_tag=${dock_substrate_image_tag:-$commit_sha}
+image_name=docknetwork/dock-substrate:$image_tag
 
 if test -n "$(git status --porcelain)"; then
 	echo Your working tree has changes. Please commit first.
