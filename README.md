@@ -10,13 +10,11 @@ The dock blockchain serves as registry for [Decentralized Identifiers](https://w
 Docker can be used to quickly spin up a node (may require sudo):
 
 ```
-docker run -p 9933:9933 -p 30333:30333 docknetwork/dock-substrate --chain remdev --ws-external --bootnodes /dns4/testnet-bootstrap2.dock.io/tcp/30333/p2p/QmPSP1yGiECdm5wVXVDF9stGfvVPSY8QUT4PhYB4Gnk77Q
-             |            |                       |                      |             |                  |
-             |     Expose p2p port                |              Join the testnet      |    Entry point into the p2p network
-             |                                    |                                    |
-    Expose websocket port                         |                        Listen for rpc over websocket
-                                                  |
-                                   Use the node image from dockerhub
+docker run -p 9933:9933 -p 30333:30333 docknetwork/dock-substrate --chain ./cspec/remdev.json --ws-external
+             |            |                       |                      |                          |
+             |     Expose p2p port                |              Join the testnet                   |
+             |                                    |                                                 |
+    Expose websocket port          Use the node image from dockerhub                   Listen for rpc over websocket
 ```
 
 To view possible command line arguments:
