@@ -12,7 +12,7 @@ use sp_std::fmt;
 use system::ensure_signed;
 
 /// Size of the Dock DID in bytes
-pub const DID_BYTE_SIZE: usize = 32;
+const DID_BYTE_SIZE: usize = 32;
 /// The type of the Dock DID
 pub type Did = [u8; DID_BYTE_SIZE];
 
@@ -127,7 +127,7 @@ pub enum DidSignature {
 
 impl DidSignature {
     /// Try to get reference to the bytes if its a Sr25519 signature. Return error if its not.
-    pub fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
+    fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             DidSignature::Sr25519(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
@@ -135,7 +135,7 @@ impl DidSignature {
     }
 
     /// Try to get reference to the bytes if its a Ed25519 signature. Return error if its not.
-    pub fn as_ed25519_sig_bytes(&self) -> Result<&[u8], ()> {
+    fn as_ed25519_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             DidSignature::Ed25519(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
@@ -143,7 +143,7 @@ impl DidSignature {
     }
 
     /// Try to get reference to the bytes if its a Secp256k1 signature. Return error if its not.
-    pub fn as_secp256k1_sig_bytes(&self) -> Result<&[u8], ()> {
+    fn as_secp256k1_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             DidSignature::Secp256k1(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
