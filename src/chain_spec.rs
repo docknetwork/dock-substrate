@@ -160,7 +160,14 @@ impl Alternative {
                         true,
                     )
                 },
-                vec![],
+                vec![
+                    "/dns4/testnet-bootstrap1.dock.io/tcp/30333/p2p/\
+                     QmaWVer8pXKR8AM6u2B8r9gXivTW9vTitb6gjLM6FYQcXS"
+                        .to_string(),
+                    "/dns4/testnet-bootstrap2.dock.io/tcp/30333/p2p/\
+                     QmPSP1yGiECdm5wVXVDF9stGfvVPSY8QUT4PhYB4Gnk77Q"
+                        .to_string(),
+                ],
                 None,
                 None,
                 None,

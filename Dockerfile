@@ -52,6 +52,9 @@ RUN apt -y update \
 # might need these for uploads to keytore
 COPY scripts scripts
 
+# include official chainspecs
+COPY cspec cspec
+
 # expose node ports
 EXPOSE 30333 9933 9944
 
