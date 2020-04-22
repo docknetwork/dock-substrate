@@ -4,17 +4,24 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-// Make the WASM binary available.
+// Make the WASM_BINARY available, but hide WASM_BINARY_BLOATY.
 #[cfg(feature = "std")]
-include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+mod wasm {
+    include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+    #[allow(dead_code)]
+    const _: &[u8] = &WASM_BINARY_BLOATY;
+}
+#[cfg(feature = "std")]
+pub use wasm::WASM_BINARY;
 
 extern crate alloc;
 
-mod did;
-mod revoke;
+pub mod did;
+pub mod revoke;
 mod template;
 
 use codec::{Decode, Encode};
+use frame_support::{construct_runtime, parameter_types, traits::Randomness, weights::Weight};
 use grandpa::fg_primitives;
 use grandpa::AuthorityList as GrandpaAuthorityList;
 use sp_api::impl_runtime_apis;
@@ -23,51 +30,38 @@ use sp_core::OpaqueMetadata;
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, NumberFor, StaticLookup, Verify,
 };
+use sp_runtime::Perbill;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys, transaction_validity::TransactionValidity,
     ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
-
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
-// A few exports that help ease life for downstream crates.
-pub use balances::Call as BalancesCall;
-pub use frame_support::{
-    construct_runtime, parameter_types, traits::Randomness, weights::Weight, StorageValue,
-};
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
-pub use timestamp::Call as TimestampCall;
-
 /// An index to a block.
-pub type BlockNumber = u32;
+type BlockNumber = u32;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
-pub type Signature = MultiSignature;
+type Signature = MultiSignature;
 
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
-pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// The type for looking up accounts. We don't expect more than 4 billion of them, but you
 /// never know...
-pub type AccountIndex = u32;
+type AccountIndex = u32;
 
 /// Balance of an account.
-pub type Balance = u128;
+type Balance = u128;
 
 /// Index of a transaction in the chain.
-pub type Index = u32;
+type Index = u32;
 
 /// A hash of some data used by the chain.
-pub type Hash = sp_core::H256;
-
-/// Digest item type.
-pub type DigestItem = generic::DigestItem<Hash>;
+type Hash = sp_core::H256;
 
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
@@ -89,14 +83,10 @@ pub enum StateChange {
 pub mod opaque {
     use super::*;
 
-    pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
-
     /// Opaque block header type.
     pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
     /// Opaque block type.
-    pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-    /// Opaque block identifier type.
-    pub type BlockId = generic::BlockId<Block>;
+    pub type Block = generic::Block<Header, sp_runtime::OpaqueExtrinsic>;
 
     impl_opaque_keys! {
         pub struct SessionKeys {
@@ -116,14 +106,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     apis: RUNTIME_API_VERSIONS,
 };
 
-pub const MILLISECS_PER_BLOCK: u64 = 6000;
+const MILLISECS_PER_BLOCK: u64 = 6000;
 
-pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
+const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 /// The version infromation used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -256,10 +241,6 @@ impl template::Trait for Runtime {
     type Event = Event;
 }
 
-/*parameter_types! {
-    pub const DIDByteSize: u8 = 32;
-}*/
-
 impl did::Trait for Runtime {
     type Event = Event;
     //type DIDByteSize = DIDByteSize;
@@ -268,39 +249,35 @@ impl did::Trait for Runtime {
 impl revoke::Trait for Runtime {}
 
 construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = opaque::Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
-	{
-		System: system::{Module, Call, Storage, Config, Event},
-		Timestamp: timestamp::{Module, Call, Storage, Inherent},
-		Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
-		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
-		Indices: indices,
-		Balances: balances,
-		TransactionPayment: transaction_payment::{Module, Storage},
-		Sudo: sudo,
-		// Used for the module template in `./template.rs`
-		TemplateModule: template::{Module, Call, Storage, Event<T>},
-		DIDModule: did::{Module, Call, Storage, Event},
-		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
+    pub enum Runtime where
+        Block = Block,
+        NodeBlock = opaque::Block,
+        UncheckedExtrinsic = UncheckedExtrinsic
+    {
+        System: system::{Module, Call, Storage, Config, Event},
+        Timestamp: timestamp::{Module, Call, Storage, Inherent},
+        Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
+        Grandpa: grandpa::{Module, Call, Storage, Config, Event},
+        Indices: indices,
+        Balances: balances,
+        TransactionPayment: transaction_payment::{Module, Storage},
+        Sudo: sudo,
+        // Used for the module template in `./template.rs`
+        TemplateModule: template::{Module, Call, Storage, Event<T>},
+        DIDModule: did::{Module, Call, Storage, Event},
+        RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
         Revoke: revoke::{Module, Call, Storage},
-	}
+    }
 );
 
 /// The address format for describing accounts.
-pub type Address = <Indices as StaticLookup>::Source;
+type Address = <Indices as StaticLookup>::Source;
 /// Block header type as expected by this runtime.
-pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
-pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-/// A Block signed with a Justification
-pub type SignedBlock = generic::SignedBlock<Block>;
-/// BlockId type as expected by this runtime.
-pub type BlockId = generic::BlockId<Block>;
+type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// The SignedExtension to the basic transaction logic.
-pub type SignedExtra = (
+type SignedExtra = (
     system::CheckVersion<Runtime>,
     system::CheckGenesis<Runtime>,
     system::CheckEra<Runtime>,
@@ -309,11 +286,9 @@ pub type SignedExtra = (
     transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
-pub type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
-/// Extrinsic type that has already been checked.
-pub type CheckedExtrinsic = generic::CheckedExtrinsic<AccountId, Call, SignedExtra>;
+type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
-pub type Executive =
+type Executive =
     frame_executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
 
 impl_runtime_apis! {

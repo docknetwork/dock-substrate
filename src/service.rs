@@ -5,7 +5,6 @@ use grandpa::{self, FinalityProofProvider as GrandpaFinalityProofProvider};
 use sc_basic_authority;
 use sc_client::LongestChain;
 use sc_executor::native_executor_instance;
-pub use sc_executor::NativeExecutor;
 use sc_network::construct_simple_protocol;
 use sc_service::{error::Error as ServiceError, AbstractService, Configuration, ServiceBuilder};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
@@ -15,7 +14,7 @@ use std::time::Duration;
 
 // Our native executor instance.
 native_executor_instance!(
-	pub Executor,
+	pub(crate) Executor,
 	dock_testnet_runtime::api::dispatch,
 	dock_testnet_runtime::native_version,
 );

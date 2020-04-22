@@ -8,7 +8,7 @@ mod chain_spec;
 mod service;
 mod cli;
 
-pub use sc_cli::{error, IntoExit, VersionInfo};
+use sc_cli::VersionInfo;
 
 fn main() -> Result<(), cli::error::Error> {
     let version = VersionInfo {

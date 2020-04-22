@@ -1,13 +1,18 @@
 use dock_testnet_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, IndicesConfig, Signature,
-    SudoConfig, SystemConfig, WASM_BINARY,
+    AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, IndicesConfig, SudoConfig,
+    SystemConfig, WASM_BINARY,
 };
 use grandpa_primitives::AuthorityId as GrandpaId;
 use sc_service;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::{
+    traits::{IdentifyAccount, Verify},
+    MultiSignature,
+};
+
+type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -36,10 +41,10 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
         .public()
 }
 
-type AccountPublic = <Signature as Verify>::Signer;
+type AccountPublic = <MultiSignature as Verify>::Signer;
 
 /// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
     AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
@@ -47,7 +52,7 @@ where
 }
 
 /// Helper function to generate an authority key for Aura
-pub fn get_authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
+fn get_authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
     (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
@@ -66,7 +71,7 @@ where
 
 impl Alternative {
     /// Get an actual chain config from one of the alternatives.
-    pub(crate) fn load(self) -> Result<ChainSpec, String> {
+    pub fn load(self) -> Result<ChainSpec, String> {
         Ok(match self {
             Alternative::Development => ChainSpec::from_genesis(
                 "Development",
