@@ -38,6 +38,7 @@ decl_module! {
         // Just a dummy entry point.
         // function that can be called by the external world as an extrinsics call
         // takes a parameter of the type `AccountId`, stores it and emits an event
+        #[weight = 10_000]
         pub fn do_something(origin, something: u32) -> DispatchResult {
             // TODO: You only need this if you want to check it was signed.
             let who = ensure_signed(origin)?;
@@ -93,6 +94,7 @@ mod tests {
         pub const MaximumBlockLength: u32 = 2 * 1024;
         pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     }
+
     impl system::Trait for Test {
         type Origin = Origin;
         type Call = ();
@@ -108,8 +110,14 @@ mod tests {
         type MaximumBlockWeight = MaximumBlockWeight;
         type MaximumBlockLength = MaximumBlockLength;
         type AvailableBlockRatio = AvailableBlockRatio;
+        type BlockExecutionWeight = ();
+        type DbWeight = ();
+        type ExtrinsicBaseWeight = ();
         type Version = ();
         type ModuleToIndex = ();
+        type AccountData = ();
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
     }
     impl Trait for Test {
         type Event = ();
