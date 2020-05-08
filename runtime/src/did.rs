@@ -271,6 +271,7 @@ decl_module! {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will fail if `did` is already registered.
         /// `detail` is the details of the key like its type, controller and value
+        // TODO: Use correct weight
         #[weight = 10_000]
         pub fn new(origin, did: dock::did::Did, detail: dock::did::KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;

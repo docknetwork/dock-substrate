@@ -101,14 +101,14 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Trait> as Revoke {
         /// Registry metadata
-        Registries get(get_revocation_registry):
+        Registries get(fn get_revocation_registry):
             map hasher(blake2_128_concat) dock::revoke::RegistryId => Option<(dock::revoke::Registry, T::BlockNumber)>;
 
         // double_map requires and explicit hasher specification for the second key. blake2_256 is
         // the default.
         /// The single global revocation set
-        Revocations get(get_revocation_status):
-            double_map hasher(blake2_128_concat) dock::revoke::RegistryId, blake2_256(dock::revoke::RevokeId) => Option<()>;
+        Revocations get(fn get_revocation_status):
+            double_map hasher(blake2_128_concat) dock::revoke::RegistryId, hasher(opaque_blake2_256) dock::revoke::RevokeId => Option<()>;
     }
 }
 
@@ -123,6 +123,8 @@ decl_module! {
         /// Returns an error if `id` is already in use as a registry id.
         ///
         /// Returns an error if `registry.policy` is invalid.
+        // TODO: Use correct weight
+        #[weight = 10_000]
         pub fn new_registry(
             origin,
             id: dock::revoke::RevokeId,
@@ -140,6 +142,8 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `revoke.registry_id`.
+        // TODO: Use correct weight
+        #[weight = 10_000]
         pub fn revoke(
             origin,
             revoke: dock::revoke::Revoke,
@@ -159,6 +163,8 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `unrevoke.registry_id`.
+        // TODO: Use correct weight
+        #[weight = 10_000]
         pub fn unrevoke(
             origin,
             unrevoke: dock::revoke::UnRevoke,
@@ -180,6 +186,8 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `removal.registry_id`.
+        // TODO: Use correct weight
+        #[weight = 10_000]
         pub fn remove_registry(
             origin,
             removal: dock::revoke::RemoveRegistry,
@@ -200,7 +208,7 @@ impl<T: Trait> Module<T> {
 
         // check
         ensure!(registry.policy.valid(), RevErr::<T>::InvalidPolicy);
-        ensure!(!Registries::<T>::exists(&id), RevErr::<T>::RegExists);
+        ensure!(!Registries::<T>::contains_key(&id), RevErr::<T>::RegExists);
 
         // execute
         Registries::<T>::insert(&id, (registry, system::Module::<T>::block_number()));
@@ -295,7 +303,7 @@ impl<T: Trait> Module<T> {
             RevErr::<T>::DifferentBlockNumber
         );
         Self::ensure_auth(
-            &crate::StateChange::RemoveRegisty(removal.clone()),
+            &crate::StateChange::RemoveRegistry(removal.clone()),
             &proof,
             &registry.policy,
         )?;
@@ -367,9 +375,9 @@ mod testcommon {
 
     impl system::Trait for Test {
         type Origin = Origin;
+        type Call = ();
         type Index = u64;
         type BlockNumber = u64;
-        type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = u64;
@@ -378,10 +386,16 @@ mod testcommon {
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
-        type AvailableBlockRatio = AvailableBlockRatio;
+        type DbWeight = ();
+        type BlockExecutionWeight = ();
+        type ExtrinsicBaseWeight = ();
         type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
         type ModuleToIndex = ();
+        type AccountData = ();
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
     }
 
     impl did::Trait for Test {
@@ -503,7 +517,7 @@ mod errors {
             let revoke = Revoke {
                 registry_id: regid,
                 revoke_ids: random::<[RevokeId; 32]>().iter().cloned().collect(),
-                last_modified: 1u32,
+                last_modified: 0u32,
             };
             let proof: BTreeMap<Did, DidSignature> = signers
                 .iter()
@@ -554,7 +568,7 @@ mod errors {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 1u32;
+        let last_modified = 0u32;
         let kpa = create_did(DIDA);
         let reg = Registry { policy, add_only };
 
@@ -606,7 +620,7 @@ mod errors {
         }
 
         let registry_id = RGA;
-        let last_modified = 1u32;
+        let last_modified = 0u32;
         let noreg: Result<(), DispatchError> = Err(RevErr::<Test>::NoReg.into());
 
         assert_eq!(
@@ -747,7 +761,7 @@ mod errors {
         let rr_proof = once((
             DIDA,
             sign(
-                &crate::StateChange::RemoveRegisty(removeregistry.clone()),
+                &crate::StateChange::RemoveRegistry(removeregistry.clone()),
                 &kpa,
             ),
         ))
@@ -798,12 +812,12 @@ mod calls {
         for (policy, add_only) in cases.iter().cloned() {
             let reg_id = random();
             let reg = Registry { policy, add_only };
-            assert!(!Registries::<Test>::exists(reg_id));
+            assert!(!Registries::<Test>::contains_key(reg_id));
             TestMod::new_registry(Origin::signed(ABBA), reg_id, reg.clone()).unwrap();
-            assert!(Registries::<Test>::exists(reg_id));
+            assert!(Registries::<Test>::contains_key(reg_id));
             let (created_reg, created_bloc) = Registries::<Test>::get(reg_id).unwrap();
             assert_eq!(created_reg, reg);
-            assert_eq!(created_bloc, 1);
+            assert_eq!(created_bloc, 0);
         }
     }
 
@@ -816,7 +830,7 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = true;
-        let last_modified = 1u32;
+        let last_modified = 0u32;
         let kpa = create_did(DIDA);
 
         TestMod::new_registry(
@@ -847,7 +861,7 @@ mod calls {
             .collect();
 
             TestMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
-            assert!(ids.iter().all(|id| Revocations::exists(registry_id, id)));
+            assert!(ids.iter().all(|id| Revocations::contains_key(registry_id, id)));
         }
     }
 
@@ -860,7 +874,7 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 1u32;
+        let last_modified = 0u32;
         let kpa = create_did(DIDA);
 
         enum Action {
@@ -927,12 +941,12 @@ mod calls {
                 Action::AsrtRv => {
                     assert!(revoke_ids
                         .iter()
-                        .all(|id| Revocations::exists(registry_id, id)));
+                        .all(|id| Revocations::contains_key(registry_id, id)));
                 }
                 Action::AsrtNR => {
                     assert!(!revoke_ids
                         .iter()
-                        .any(|id| Revocations::exists(registry_id, id)));
+                        .any(|id| Revocations::contains_key(registry_id, id)));
                 }
             }
         }
@@ -947,12 +961,12 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 1u32;
+        let last_modified = 0u32;
         let kpa = create_did(DIDA);
 
         let reg = Registry { policy, add_only };
         TestMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
-        assert!(Registries::<Test>::exists(registry_id));
+        assert!(Registries::<Test>::contains_key(registry_id));
 
         // destroy reg
         let rem = RemoveRegistry {
@@ -961,13 +975,13 @@ mod calls {
         };
         let proof = once((
             DIDA,
-            sign(&crate::StateChange::RemoveRegisty(rem.clone()), &kpa),
+            sign(&crate::StateChange::RemoveRegistry(rem.clone()), &kpa),
         ))
         .collect();
         TestMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
 
         // assert not exists
-        assert!(!Registries::<Test>::exists(registry_id));
+        assert!(!Registries::<Test>::contains_key(registry_id));
     }
 
     // Untested variants will be a match error.
@@ -1000,7 +1014,7 @@ mod test {
         let rev = Revoke {
             registry_id: RGA,
             revoke_ids: BTreeSet::new(),
-            last_modified: 1u32,
+            last_modified: 0u32,
         };
 
         let cases: &[(u32, Policy, &[(Did, &sr25519::Pair)], bool)] = &[
@@ -1044,7 +1058,7 @@ mod test {
         TestMod::new_registry(Origin::signed(ABBA), registry_id, reg.clone()).unwrap();
         assert_eq!(
             TestMod::get_revocation_registry(registry_id),
-            Some((reg, 1u64))
+            Some((reg, 0u64))
         );
     }
 
@@ -1061,7 +1075,7 @@ mod test {
         let reg = Registry { policy, add_only };
         let kpa = create_did(DIDA);
         let revid: RevokeId = random();
-        let last_modified = 1u32;
+        let last_modified = 0u32;
         TestMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
         let revoke = Revoke {
             registry_id,
