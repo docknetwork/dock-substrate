@@ -258,7 +258,7 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
-        Dids get(did): map hasher(blake2_128_concat) dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
+        Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
     }
 }
 
@@ -271,11 +271,12 @@ decl_module! {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will fail if `did` is already registered.
         /// `detail` is the details of the key like its type, controller and value
+        #[weight = 10_000]
         pub fn new(origin, did: dock::did::Did, detail: dock::did::KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;
 
             // DID is not registered already
-            ensure!(!Dids::<T>::exists(did), Error::<T>::DidAlreadyExists);
+            ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
             let current_block_no = <system::Module<T>>::block_number();
             Dids::<T>::insert(did, (detail, current_block_no));
@@ -294,6 +295,7 @@ decl_module! {
         ///
         /// [statechange]: ../enum.StateChange.html
         /// [keyupdate]: ./struct.KeyUpdate.html
+        #[weight = 10_000]
         pub fn update_key(
             origin,
             key_update: dock::did::KeyUpdate,
@@ -346,6 +348,7 @@ decl_module! {
         ///
         /// [statechange]: ../enum.StateChange.html
         /// [didremoval]: ./struct.DidRemoval.html
+        #[weight = 10_000]
         pub fn remove(
             origin,
             to_remove: dock::did::DidRemoval,
@@ -457,7 +460,7 @@ impl<T: Trait> Module<T> {
                         .map_err(|_| Error::<T>::InvalidSigType)?,
                 )
                 .map_err(|_| Error::<T>::InvalidSig)?;
-                let pk = ecdsa::Public::Compressed(bytes.value.clone());
+                let pk = ecdsa::Public::from_raw(bytes.value.clone());
                 signature.verify(message, &pk)
             }
         })
@@ -470,11 +473,12 @@ mod tests {
 
     use frame_support::{
         assert_err, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
+        traits::{OnFinalize, OnInitialize}
     };
     use sp_core::{Pair, H256};
     use sp_runtime::{
         testing::Header,
-        traits::{BlakeTwo256, IdentityLookup, OnFinalize, OnInitialize},
+        traits::{BlakeTwo256, IdentityLookup},
         Perbill,
     };
 
@@ -494,10 +498,10 @@ mod tests {
 
     impl system::Trait for Test {
         type Origin = Origin;
+        type Call = ();
         type Index = u64;
         // XXX: Why is it u64 when in lib.rs its u32
         type BlockNumber = u64;
-        type Call = ();
         type Hash = H256;
         type Hashing = BlakeTwo256;
         type AccountId = u64;
@@ -506,10 +510,16 @@ mod tests {
         type Event = ();
         type BlockHashCount = BlockHashCount;
         type MaximumBlockWeight = MaximumBlockWeight;
-        type AvailableBlockRatio = AvailableBlockRatio;
+        type DbWeight = ();
+        type BlockExecutionWeight = ();
+        type ExtrinsicBaseWeight = ();
         type MaximumBlockLength = MaximumBlockLength;
+        type AvailableBlockRatio = AvailableBlockRatio;
         type Version = ();
         type ModuleToIndex = ();
+        type AccountData = ();
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
     }
 
     impl super::Trait for Test {
@@ -742,7 +752,8 @@ mod tests {
             let did = [1; DID_BYTE_SIZE];
 
             let (pair_1, _, _) = ecdsa::Pair::generate_with_phrase(None);
-            let pk_1 = pair_1.public().as_compressed().unwrap();
+            let mut pk_1: [u8; 33] = [0; 33];
+            pk_1.clone_from_slice(pair_1.public().as_ref());
             let detail = KeyDetail::new(did.clone(), PublicKey::Secp256k1(Bytes33 { value: pk_1 }));
 
             // Add a DID
@@ -757,7 +768,8 @@ mod tests {
             // Correctly update DID's key.
             // Prepare a key update
             let (pair_2, _, _) = ecdsa::Pair::generate_with_phrase(None);
-            let pk_2 = pair_2.public().as_compressed().unwrap();
+            let mut pk_2: [u8; 33] = [0; 33];
+            pk_2.clone_from_slice(pair_2.public().as_ref());
             let key_update = KeyUpdate::new(
                 did.clone(),
                 PublicKey::Secp256k1(Bytes33 { value: pk_2 }),
@@ -954,9 +966,8 @@ mod tests {
             ));
 
             let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
-
             // The block number will be non zero as write was successful and will be 1 since its the first extrinsic
-            assert_eq!(modified_in_block, 1);
+            assert_eq!(modified_in_block, 0);
 
             // A key not controlling the DID but trying to remove the DID should fail
             let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);

@@ -1,0 +1,110 @@
+[package]
+authors = ['Dock.io']
+build = 'build.rs'
+edition = '2018'
+name = 'dock-testnet'
+version = '2.0.0-alpha.7'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+futures = '0.3.1'
+log = '0.4.8'
+structopt = '0.3.8'
+
+[dependencies.dock-testnet-runtime]
+path = '../runtime'
+version = '2.0.0-alpha.7'
+
+[dependencies.sc-basic-authorship]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-cli]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-client-api]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-consensus]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-consensus-aura]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-executor]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-finality-grandpa]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-network]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-service]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sc-transaction-pool]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sp-consensus]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sp-consensus-aura]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-alpha.7'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sp-core]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sp-finality-grandpa]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sp-inherents]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sp-runtime]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-alpha.7'
+
+[dependencies.sp-transaction-pool]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-alpha.7'
+
+# This dependency is not in node template
+[dependencies.sp-io]
+git = 'https://github.com/paritytech/substrate.git'
+rev = '83a6f1add7957160283ac5d7e627da06beb725d9'
+version = '2.0.0-alpha.7'
+
+[build-dependencies.substrate-build-script-utils]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-alpha.7'
+
+[[bin]]
+name = 'dock-testnet'
+path = 'src/main.rs'
