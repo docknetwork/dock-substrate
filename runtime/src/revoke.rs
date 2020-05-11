@@ -142,7 +142,8 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `revoke.registry_id`.
-        // TODO: Use correct weight
+        // TODO: Use weight proportional to number of revoked credentials and in future consider
+        // no. of DIDs in PAuth
         #[weight = 10_000]
         pub fn revoke(
             origin,
@@ -163,7 +164,8 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `unrevoke.registry_id`.
-        // TODO: Use correct weight
+        // TODO: Use weight proportional to number of unrevoked credentials and in future consider
+        // no. of DIDs in PAuth
         #[weight = 10_000]
         pub fn unrevoke(
             origin,

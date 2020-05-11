@@ -18,6 +18,7 @@ extern crate alloc;
 
 pub mod did;
 pub mod revoke;
+mod blob;
 mod template;
 
 use codec::{Decode, Encode};
@@ -90,6 +91,7 @@ pub enum StateChange {
     Revoke(revoke::Revoke),
     UnRevoke(revoke::UnRevoke),
     RemoveRegistry(revoke::RemoveRegistry),
+    Blob(blob::Blob)
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -266,6 +268,8 @@ impl did::Trait for Runtime {
 
 impl revoke::Trait for Runtime {}
 
+impl blob::Trait for Runtime {}
+
 construct_runtime!(
 	pub enum Runtime where
 		Block = Block,
@@ -283,7 +287,8 @@ construct_runtime!(
 		// Used for the module template in `./template.rs`
 		TemplateModule: template::{Module, Call, Storage, Event<T>},
 		DIDModule: did::{Module, Call, Storage, Event},
-		Revoke: revoke::{Module, Call, Storage}
+		Revoke: revoke::{Module, Call, Storage},
+		BlobModule: blob::{Module, Call, Storage}
 	}
 );
 
