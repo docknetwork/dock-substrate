@@ -276,23 +276,23 @@ impl blob::Trait for Runtime {
 }
 
 construct_runtime!(
-	pub enum Runtime where
-		Block = Block,
-		NodeBlock = opaque::Block,
-		UncheckedExtrinsic = UncheckedExtrinsic
-	{
-		System: system::{Module, Call, Config, Storage, Event<T>},
-		RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
-		Timestamp: timestamp::{Module, Call, Storage, Inherent},
-		Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
-		Grandpa: grandpa::{Module, Call, Storage, Config, Event},
-		Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
-		TransactionPayment: transaction_payment::{Module, Storage},
-		Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
-		DIDModule: did::{Module, Call, Storage, Event},
-		Revoke: revoke::{Module, Call, Storage},
-		BlobStore: blob::{Module, Call, Storage}
-	}
+    pub enum Runtime where
+        Block = Block,
+        NodeBlock = opaque::Block,
+        UncheckedExtrinsic = UncheckedExtrinsic
+    {
+        System: system::{Module, Call, Config, Storage, Event<T>},
+        RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
+        Timestamp: timestamp::{Module, Call, Storage, Inherent},
+        Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
+        Grandpa: grandpa::{Module, Call, Storage, Config, Event},
+        Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
+        TransactionPayment: transaction_payment::{Module, Storage},
+        Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
+        DIDModule: did::{Module, Call, Storage, Event},
+        Revoke: revoke::{Module, Call, Storage},
+        BlobStore: blob::{Module, Call, Storage}
+    }
 );
 
 /// The address format for describing accounts.
