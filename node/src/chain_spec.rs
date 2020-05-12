@@ -1,5 +1,5 @@
 use dock_testnet_runtime::{
-    AccountId, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, Signature,
+    AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
     SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -7,7 +7,12 @@ use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{sr25519, Pair, Public};
-use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_runtime::{
+    traits::{IdentifyAccount, Verify},
+    MultiSignature,
+};
+
+type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 // Note this is the URL for the telemetry server
 //const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
@@ -22,7 +27,7 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
         .public()
 }
 
-type AccountPublic = <Signature as Verify>::Signer;
+type AccountPublic = <MultiSignature as Verify>::Signer;
 
 /// Helper function to generate an account ID from seed
 pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
@@ -152,7 +157,14 @@ pub fn remote_testnet_config() -> ChainSpec {
                 true,
             )
         },
-        vec![],
+        vec![
+            "/dns4/testnet-bootstrap1.dock.io/tcp/30333/p2p/\
+                     QmaWVer8pXKR8AM6u2B8r9gXivTW9vTitb6gjLM6FYQcXS"
+                .parse().unwrap(),
+            "/dns4/testnet-bootstrap2.dock.io/tcp/30333/p2p/\
+                     QmPSP1yGiECdm5wVXVDF9stGfvVPSY8QUT4PhYB4Gnk77Q"
+                .parse().unwrap(),
+        ],
         None,
         None,
         None,
