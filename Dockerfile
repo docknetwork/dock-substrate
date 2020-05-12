@@ -28,8 +28,8 @@ ENV CXX g++
 # Copy code to build directory, instead of only using .dockerignore, we copy elements
 # explicitly. This lets us cache build results while iterating on scripts.
 COPY runtime runtime
-COPY node/src src
-COPY Cargo.toml build.rs ./
+COPY node node
+COPY Cargo.toml .
 
 # Build node.
 RUN cargo fetch # cache the result of the fetch in case the build gets interrupted

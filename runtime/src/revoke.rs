@@ -342,133 +342,6 @@ impl<T: Trait> Module<T> {
     }
 }
 
-// utilities for other test module in this file
-#[cfg(test)]
-mod testcommon {
-    use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
-    use sp_core::{Pair, H256};
-    use sp_runtime::{
-        testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
-        Perbill,
-    };
-
-    pub use crate::revoke::*;
-    pub use frame_support::dispatch::DispatchError;
-    pub use rand::random;
-    pub use sp_core::sr25519;
-    pub use std::iter::once;
-
-    pub type TestMod = crate::revoke::Module<Test>;
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
-
-    #[derive(Clone, Eq, Debug, PartialEq)]
-    pub struct Test;
-
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub const MaximumBlockWeight: Weight = 1024;
-        pub const MaximumBlockLength: u32 = 2 * 1024;
-        pub const AvailableBlockRatio: Perbill = Perbill::one();
-    }
-
-    impl system::Trait for Test {
-        type Origin = Origin;
-        type Call = ();
-        type Index = u64;
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type BlockHashCount = BlockHashCount;
-        type MaximumBlockWeight = MaximumBlockWeight;
-        type DbWeight = ();
-        type BlockExecutionWeight = ();
-        type ExtrinsicBaseWeight = ();
-        type MaximumBlockLength = MaximumBlockLength;
-        type AvailableBlockRatio = AvailableBlockRatio;
-        type Version = ();
-        type ModuleToIndex = ();
-        type AccountData = ();
-        type OnNewAccount = ();
-        type OnKilledAccount = ();
-    }
-
-    impl did::Trait for Test {
-        type Event = ();
-    }
-
-    impl crate::revoke::Trait for Test {}
-
-    pub const ABBA: u64 = 0;
-    pub const RGA: RegistryId = [0u8; 32];
-    pub const RA: RevokeId = [0u8; 32];
-    pub const RB: RevokeId = [1u8; 32];
-    pub const RC: RevokeId = [2u8; 32];
-    pub const DIDA: Did = [0u8; 32];
-    pub const DIDB: Did = [1u8; 32];
-    pub const DIDC: Did = [2u8; 32];
-
-    /// check whether test externalies are available
-    pub fn in_ext() -> bool {
-        std::panic::catch_unwind(|| sp_io::storage::exists(&[])).is_ok()
-    }
-
-    #[test]
-    pub fn meta_in_ext() {
-        assert!(!in_ext());
-        ext().execute_with(|| assert!(in_ext()));
-    }
-
-    pub fn ext() -> sp_io::TestExternalities {
-        system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap()
-            .into()
-    }
-
-    // create a OneOf policy
-    pub fn oneof(dids: &[Did]) -> Policy {
-        Policy::OneOf(dids.iter().cloned().collect())
-    }
-
-    /// generate a random keypair
-    pub fn gen_kp() -> sr25519::Pair {
-        sr25519::Pair::generate_with_phrase(None).0
-    }
-
-    // Create did for `did`. Return the randomly generated signing key.
-    // The did public key is controlled by some non-existent account (normally a security
-    // concern), but that doesn't matter for our purposes.
-    pub fn create_did(did: did::Did) -> sr25519::Pair {
-        let kp = gen_kp();
-        did::Module::<Test>::new(
-            Origin::signed(ABBA),
-            did,
-            did::KeyDetail::new(
-                [100; 32],
-                did::PublicKey::Sr25519(did::Bytes32 {
-                    value: kp.public().0,
-                }),
-            ),
-        )
-        .unwrap();
-        kp
-    }
-
-    pub fn sign(payload: &crate::StateChange, keypair: &sr25519::Pair) -> DidSignature {
-        DidSignature::Sr25519(did::Bytes64 {
-            value: keypair.sign(&payload.encode()).0,
-        })
-    }
-}
-
 #[cfg(test)]
 /// Tests every failure case in the module.
 /// If a failure case is not covered, thats a bug.
@@ -477,7 +350,8 @@ mod testcommon {
 /// Tests in this module are named after the errors they check.
 /// For example, `#[test] fn invalidpolicy` exercises the RevErr::InvalidPolicy.
 mod errors {
-    use crate::revoke::testcommon::*;
+    use super::*;
+    use crate::test_common::*;
 
     #[test]
     fn invalidpolicy() {
@@ -485,7 +359,7 @@ mod errors {
             return ext().execute_with(invalidpolicy);
         }
 
-        let err = TestMod::new_registry(
+        let err = RevoMod::new_registry(
             Origin::signed(ABBA),
             RGA,
             Registry {
@@ -506,7 +380,7 @@ mod errors {
 
         fn assert_revoke_err(policy: Policy, signers: &[(Did, &sr25519::Pair)]) -> DispatchError {
             let regid: RegistryId = random();
-            TestMod::new_registry(
+            RevoMod::new_registry(
                 Origin::signed(ABBA),
                 regid,
                 Registry {
@@ -532,7 +406,7 @@ mod errors {
                 .collect();
             dbg!(&revoke);
             dbg!(&proof);
-            TestMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap_err()
+            RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap_err()
         }
 
         let (a, b, c) = (DIDA, DIDB, DIDC);
@@ -574,7 +448,7 @@ mod errors {
         let kpa = create_did(DIDA);
         let reg = Registry { policy, add_only };
 
-        TestMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
+        RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
 
         let unrevoke = UnRevoke {
             registry_id,
@@ -592,12 +466,12 @@ mod errors {
             last_modified,
         };
 
-        TestMod::unrevoke(Origin::signed(ABBA), unrevoke.clone(), ur_proof.clone()).unwrap();
+        RevoMod::unrevoke(Origin::signed(ABBA), unrevoke.clone(), ur_proof.clone()).unwrap();
         assert_eq!(
-            TestMod::revoke(Origin::signed(ABBA), revoke, ur_proof.clone()).unwrap_err(),
+            RevoMod::revoke(Origin::signed(ABBA), revoke, ur_proof.clone()).unwrap_err(),
             RevErr::<Test>::NotAuthorized.into()
         );
-        TestMod::unrevoke(Origin::signed(ABBA), unrevoke, ur_proof).unwrap();
+        RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, ur_proof).unwrap();
     }
 
     #[test]
@@ -610,8 +484,8 @@ mod errors {
             policy: oneof(&[DIDA]),
             add_only: false,
         };
-        TestMod::new_registry(Origin::signed(ABBA), RGA, reg.clone()).unwrap();
-        let err = TestMod::new_registry(Origin::signed(ABBA), RGA, reg).unwrap_err();
+        RevoMod::new_registry(Origin::signed(ABBA), RGA, reg.clone()).unwrap();
+        let err = RevoMod::new_registry(Origin::signed(ABBA), RGA, reg).unwrap_err();
         assert_eq!(err, RevErr::<Test>::RegExists.into());
     }
 
@@ -626,7 +500,7 @@ mod errors {
         let noreg: Result<(), DispatchError> = Err(RevErr::<Test>::NoReg.into());
 
         assert_eq!(
-            TestMod::revoke(
+            RevoMod::revoke(
                 Origin::signed(ABBA),
                 Revoke {
                     registry_id,
@@ -638,7 +512,7 @@ mod errors {
             noreg
         );
         assert_eq!(
-            TestMod::unrevoke(
+            RevoMod::unrevoke(
                 Origin::signed(ABBA),
                 UnRevoke {
                     registry_id,
@@ -650,7 +524,7 @@ mod errors {
             noreg
         );
         assert_eq!(
-            TestMod::remove_registry(
+            RevoMod::remove_registry(
                 Origin::signed(ABBA),
                 RemoveRegistry {
                     registry_id,
@@ -672,7 +546,7 @@ mod errors {
         let last_modified = 200u32;
         let err: Result<(), DispatchError> = Err(RevErr::<Test>::DifferentBlockNumber.into());
 
-        TestMod::new_registry(
+        RevoMod::new_registry(
             Origin::signed(ABBA),
             registry_id,
             Registry {
@@ -683,7 +557,7 @@ mod errors {
         .unwrap();
 
         assert_eq!(
-            TestMod::revoke(
+            RevoMod::revoke(
                 Origin::signed(ABBA),
                 Revoke {
                     registry_id,
@@ -695,7 +569,7 @@ mod errors {
             err
         );
         assert_eq!(
-            TestMod::unrevoke(
+            RevoMod::unrevoke(
                 Origin::signed(ABBA),
                 UnRevoke {
                     registry_id,
@@ -707,7 +581,7 @@ mod errors {
             err
         );
         assert_eq!(
-            TestMod::remove_registry(
+            RevoMod::remove_registry(
                 Origin::signed(ABBA),
                 RemoveRegistry {
                     registry_id,
@@ -731,7 +605,7 @@ mod errors {
         let revoke_ids: BTreeSet<_> = [RA, RB, RC].iter().cloned().collect();
         let kpa = create_did(DIDA);
 
-        TestMod::new_registry(
+        RevoMod::new_registry(
             Origin::signed(ABBA),
             registry_id,
             Registry {
@@ -752,7 +626,7 @@ mod errors {
         ))
         .collect();
         assert_eq!(
-            TestMod::unrevoke(Origin::signed(ABBA), unrevoke, ur_proof),
+            RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, ur_proof),
             err
         );
 
@@ -769,7 +643,7 @@ mod errors {
         ))
         .collect();
         assert_eq!(
-            TestMod::remove_registry(Origin::signed(ABBA), removeregistry, rr_proof),
+            RevoMod::remove_registry(Origin::signed(ABBA), removeregistry, rr_proof),
             err
         );
     }
@@ -797,7 +671,8 @@ mod errors {
 /// Tests in this module are named after the calls they check.
 /// For example, `#[test] fn new_registry` tests the happy path for Module::new_registry.
 mod calls {
-    use crate::revoke::testcommon::*;
+    use super::*;
+    use crate::test_common::*;
 
     #[test]
     fn new_registry() {
@@ -815,7 +690,7 @@ mod calls {
             let reg_id = random();
             let reg = Registry { policy, add_only };
             assert!(!Registries::<Test>::contains_key(reg_id));
-            TestMod::new_registry(Origin::signed(ABBA), reg_id, reg.clone()).unwrap();
+            RevoMod::new_registry(Origin::signed(ABBA), reg_id, reg.clone()).unwrap();
             assert!(Registries::<Test>::contains_key(reg_id));
             let (created_reg, created_bloc) = Registries::<Test>::get(reg_id).unwrap();
             assert_eq!(created_reg, reg);
@@ -835,7 +710,7 @@ mod calls {
         let last_modified = 0u32;
         let kpa = create_did(DIDA);
 
-        TestMod::new_registry(
+        RevoMod::new_registry(
             Origin::signed(ABBA),
             registry_id,
             Registry { policy, add_only },
@@ -862,8 +737,10 @@ mod calls {
             ))
             .collect();
 
-            TestMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
-            assert!(ids.iter().all(|id| Revocations::contains_key(registry_id, id)));
+            RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
+            assert!(ids
+                .iter()
+                .all(|id| Revocations::contains_key(registry_id, id)));
         }
     }
 
@@ -886,7 +763,7 @@ mod calls {
             AsrtNR, // assert not revoked
         }
 
-        TestMod::new_registry(
+        RevoMod::new_registry(
             Origin::signed(ABBA),
             registry_id,
             Registry { policy, add_only },
@@ -925,7 +802,7 @@ mod calls {
                         sign(&crate::StateChange::Revoke(revoke.clone()), &kpa),
                     ))
                     .collect();
-                    TestMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
+                    RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
                 }
                 Action::UnRevo => {
                     let unrevoke = UnRevoke {
@@ -938,7 +815,7 @@ mod calls {
                         sign(&crate::StateChange::UnRevoke(unrevoke.clone()), &kpa),
                     ))
                     .collect();
-                    TestMod::unrevoke(Origin::signed(ABBA), unrevoke, proof).unwrap();
+                    RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, proof).unwrap();
                 }
                 Action::AsrtRv => {
                     assert!(revoke_ids
@@ -967,7 +844,7 @@ mod calls {
         let kpa = create_did(DIDA);
 
         let reg = Registry { policy, add_only };
-        TestMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
+        RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
         assert!(Registries::<Test>::contains_key(registry_id));
 
         // destroy reg
@@ -980,7 +857,7 @@ mod calls {
             sign(&crate::StateChange::RemoveRegistry(rem.clone()), &kpa),
         ))
         .collect();
-        TestMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
+        RevoMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
 
         // assert not exists
         assert!(!Registries::<Test>::contains_key(registry_id));
@@ -1002,7 +879,8 @@ mod calls {
 #[cfg(test)]
 /// Miscellaneous tests
 mod test {
-    use crate::revoke::testcommon::*;
+    use super::*;
+    use crate::test_common::*;
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.
@@ -1039,7 +917,7 @@ mod test {
                 .iter()
                 .map(|(did, kp)| (did.clone(), sign(&command, &kp)))
                 .collect();
-            let res = TestMod::ensure_auth(&command, &proof, &policy);
+            let res = RevoMod::ensure_auth(&command, &proof, &policy);
             assert_eq!(res.is_ok(), *expect_success);
         }
     }
@@ -1056,10 +934,10 @@ mod test {
         let add_only = false;
         let reg = Registry { policy, add_only };
 
-        assert_eq!(TestMod::get_revocation_registry(registry_id), None);
-        TestMod::new_registry(Origin::signed(ABBA), registry_id, reg.clone()).unwrap();
+        assert_eq!(RevoMod::get_revocation_registry(registry_id), None);
+        RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg.clone()).unwrap();
         assert_eq!(
-            TestMod::get_revocation_registry(registry_id),
+            RevoMod::get_revocation_registry(registry_id),
             Some((reg, 0u64))
         );
     }
@@ -1078,7 +956,7 @@ mod test {
         let kpa = create_did(DIDA);
         let revid: RevokeId = random();
         let last_modified = 0u32;
-        TestMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
+        RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
         let revoke = Revoke {
             registry_id,
             revoke_ids: once(revid).collect(),
@@ -1090,8 +968,8 @@ mod test {
         ))
         .collect();
 
-        assert_eq!(TestMod::get_revocation_status(registry_id, revid), None);
-        TestMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
-        assert_eq!(TestMod::get_revocation_status(registry_id, revid), Some(()));
+        assert_eq!(RevoMod::get_revocation_status(registry_id, revid), None);
+        RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
+        assert_eq!(RevoMod::get_revocation_status(registry_id, revid), Some(()));
     }
 }
