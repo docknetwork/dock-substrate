@@ -1,5 +1,5 @@
-use crate as dock;
 use super::{BlockNumber, StateChange};
+use crate as dock;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
@@ -473,8 +473,9 @@ mod tests {
     use super::*;
 
     use frame_support::{
-        assert_err, assert_ok, impl_outer_origin, parameter_types, weights::Weight,
-        traits::{OnFinalize, OnInitialize}
+        assert_err, assert_ok, impl_outer_origin, parameter_types,
+        traits::{OnFinalize, OnInitialize},
+        weights::Weight,
     };
     use sp_core::{Pair, H256};
     use sp_runtime::{

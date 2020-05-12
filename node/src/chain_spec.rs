@@ -1,12 +1,11 @@
 use dock_testnet_runtime::{
-    AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig,
-    SudoConfig, SystemConfig, WASM_BINARY,
+    AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
-use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{sr25519, Pair, Public};
+use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     MultiSignature,
@@ -160,10 +159,12 @@ pub fn remote_testnet_config() -> ChainSpec {
         vec![
             "/dns4/testnet-bootstrap1.dock.io/tcp/30333/p2p/\
                      QmaWVer8pXKR8AM6u2B8r9gXivTW9vTitb6gjLM6FYQcXS"
-                .parse().unwrap(),
+                .parse()
+                .unwrap(),
             "/dns4/testnet-bootstrap2.dock.io/tcp/30333/p2p/\
                      QmPSP1yGiECdm5wVXVDF9stGfvVPSY8QUT4PhYB4Gnk77Q"
-                .parse().unwrap(),
+                .parse()
+                .unwrap(),
         ],
         None,
         None,
@@ -188,7 +189,7 @@ fn testnet_genesis(
                 .iter()
                 .cloned()
                 .map(|k| (k, 1 << 60))
-                .collect()
+                .collect(),
         }),
         sudo: Some(SudoConfig { key: root_key }),
         aura: Some(AuraConfig {
