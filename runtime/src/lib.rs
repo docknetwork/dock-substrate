@@ -16,10 +16,12 @@ pub use wasm::WASM_BINARY;
 
 extern crate alloc;
 
+pub mod blob;
 pub mod did;
 pub mod revoke;
-mod blob;
-mod template;
+
+#[cfg(test)]
+mod test_common;
 
 use codec::{Decode, Encode};
 use grandpa::fg_primitives;
@@ -31,8 +33,9 @@ use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, Verify,
 };
 use sp_runtime::{
-    ApplyExtrinsicResult, generic, create_runtime_str, impl_opaque_keys, MultiSignature,
-    transaction_validity::{TransactionValidity, TransactionSource},
+    create_runtime_str, generic, impl_opaque_keys,
+    transaction_validity::{TransactionSource, TransactionValidity},
+    ApplyExtrinsicResult, MultiSignature,
 };
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -42,12 +45,13 @@ use sp_version::RuntimeVersion;
 // A few exports that help ease life for downstream crates.
 pub use balances::Call as BalancesCall;
 pub use frame_support::{
-    StorageValue, construct_runtime, parameter_types,
+    construct_runtime, parameter_types,
     traits::Randomness,
     weights::{
-        Weight,
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        Weight,
     },
+    StorageValue,
 };
 #[cfg(any(feature = "std", test))]
 pub use sp_runtime::BuildStorage;
@@ -91,7 +95,7 @@ pub enum StateChange {
     Revoke(revoke::Revoke),
     UnRevoke(revoke::UnRevoke),
     RemoveRegistry(revoke::RemoveRegistry),
-    Blob(blob::Blob)
+    Blob(blob::Blob),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -150,7 +154,7 @@ pub fn native_version() -> NativeVersion {
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 250;
     /// We allow for 2 seconds of compute with a 6 second average block time.
-	pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
+    pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
     pub const Version: RuntimeVersion = VERSION;
@@ -184,7 +188,7 @@ impl system::Trait for Runtime {
     /// The weight of database operations that the runtime can invoke.
     type DbWeight = RocksDbWeight;
     /// The weight of the overhead invoked on the block import process, independent of the
-	/// extrinsics included in that block.
+    /// extrinsics included in that block.
     type BlockExecutionWeight = BlockExecutionWeight;
     /// The base weight of any extrinsic processed by the runtime, independent of the
     /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
@@ -256,11 +260,6 @@ impl sudo::Trait for Runtime {
     type Call = Call;
 }
 
-/// Used for the module template in `./template.rs`
-impl template::Trait for Runtime {
-    type Event = Event;
-}
-
 impl did::Trait for Runtime {
     type Event = Event;
     //type DIDByteSize = DIDByteSize;
@@ -268,7 +267,13 @@ impl did::Trait for Runtime {
 
 impl revoke::Trait for Runtime {}
 
-impl blob::Trait for Runtime {}
+parameter_types! {
+    pub const MaxBlobSize: u32 = 1024;
+}
+
+impl blob::Trait for Runtime {
+    type MaxBlobSize = MaxBlobSize;
+}
 
 construct_runtime!(
 	pub enum Runtime where
@@ -284,11 +289,9 @@ construct_runtime!(
 		Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
 		TransactionPayment: transaction_payment::{Module, Storage},
 		Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
-		// Used for the module template in `./template.rs`
-		TemplateModule: template::{Module, Call, Storage, Event<T>},
 		DIDModule: did::{Module, Call, Storage, Event},
 		Revoke: revoke::{Module, Call, Storage},
-		BlobModule: blob::{Module, Call, Storage}
+		BlobStore: blob::{Module, Call, Storage}
 	}
 );
 
@@ -339,44 +342,44 @@ impl_runtime_apis! {
     }
 
     impl sp_block_builder::BlockBuilder<Block> for Runtime {
-		fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
-			Executive::apply_extrinsic(extrinsic)
-		}
+        fn apply_extrinsic(extrinsic: <Block as BlockT>::Extrinsic) -> ApplyExtrinsicResult {
+            Executive::apply_extrinsic(extrinsic)
+        }
 
-		fn finalize_block() -> <Block as BlockT>::Header {
-			Executive::finalize_block()
-		}
+        fn finalize_block() -> <Block as BlockT>::Header {
+            Executive::finalize_block()
+        }
 
-		fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
-			data.create_extrinsics()
-		}
+        fn inherent_extrinsics(data: sp_inherents::InherentData) -> Vec<<Block as BlockT>::Extrinsic> {
+            data.create_extrinsics()
+        }
 
-		fn check_inherents(
-			block: Block,
-			data: sp_inherents::InherentData,
-		) -> sp_inherents::CheckInherentsResult {
-			data.check_extrinsics(&block)
-		}
+        fn check_inherents(
+            block: Block,
+            data: sp_inherents::InherentData,
+        ) -> sp_inherents::CheckInherentsResult {
+            data.check_extrinsics(&block)
+        }
 
-		fn random_seed() -> <Block as BlockT>::Hash {
-			RandomnessCollectiveFlip::random_seed()
-		}
-	}
+        fn random_seed() -> <Block as BlockT>::Hash {
+            RandomnessCollectiveFlip::random_seed()
+        }
+    }
 
     impl sp_transaction_pool::runtime_api::TaggedTransactionQueue<Block> for Runtime {
-		fn validate_transaction(
-			source: TransactionSource,
-			tx: <Block as BlockT>::Extrinsic,
-		) -> TransactionValidity {
-			Executive::validate_transaction(source, tx)
-		}
-	}
+        fn validate_transaction(
+            source: TransactionSource,
+            tx: <Block as BlockT>::Extrinsic,
+        ) -> TransactionValidity {
+            Executive::validate_transaction(source, tx)
+        }
+    }
 
     impl sp_offchain::OffchainWorkerApi<Block> for Runtime {
-		fn offchain_worker(header: &<Block as BlockT>::Header) {
-			Executive::offchain_worker(header)
-		}
-	}
+        fn offchain_worker(header: &<Block as BlockT>::Header) {
+            Executive::offchain_worker(header)
+        }
+    }
 
     impl sp_consensus_aura::AuraApi<Block, AuraId> for Runtime {
         fn slot_duration() -> u64 {
@@ -389,16 +392,16 @@ impl_runtime_apis! {
     }
 
     impl sp_session::SessionKeys<Block> for Runtime {
-		fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
-			opaque::SessionKeys::generate(seed)
-		}
+        fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
+            opaque::SessionKeys::generate(seed)
+        }
 
-		fn decode_session_keys(
-			encoded: Vec<u8>,
-		) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
-			opaque::SessionKeys::decode_into_raw_public_keys(&encoded)
-		}
-	}
+        fn decode_session_keys(
+            encoded: Vec<u8>,
+        ) -> Option<Vec<(Vec<u8>, sp_core::crypto::KeyTypeId)>> {
+            opaque::SessionKeys::decode_into_raw_public_keys(&encoded)
+        }
+    }
 
     impl fg_primitives::GrandpaApi<Block> for Runtime {
         fn grandpa_authorities() -> GrandpaAuthorityList {
