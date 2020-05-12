@@ -6,6 +6,7 @@ use frame_support::{
 };
 use system::ensure_signed;
 use codec::{Decode, Encode};
+use alloc::vec::Vec;
 
 use crate::did::{self, Did, DidSignature};
 
