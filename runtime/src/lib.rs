@@ -30,7 +30,7 @@ use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
-    BlakeTwo256, Block as BlockT, Saturating, IdentifyAccount, IdentityLookup, Verify, NumberFor
+    BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
 };
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
@@ -49,7 +49,7 @@ pub use frame_support::{
     traits::{KeyOwnerProofSystem, Randomness},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-        Weight, IdentityFee
+        IdentityFee, Weight,
     },
     StorageValue,
 };
@@ -196,9 +196,9 @@ impl system::Trait for Runtime {
     /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
-	/// idependent of the logic of that extrinsics. (Roughly max block weight - average on
-	/// initialize cost).
-	type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
+    /// idependent of the logic of that extrinsics. (Roughly max block weight - average on
+    /// initialize cost).
+    type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
     /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
     type MaximumBlockLength = MaximumBlockLength;
     /// Portion of the block weight that is available to all normal transactions.
@@ -225,17 +225,17 @@ impl grandpa::Trait for Runtime {
 
     type Call = Call;
 
-	type KeyOwnerProofSystem = ();
+    type KeyOwnerProofSystem = ();
 
-	type KeyOwnerProof =
-		<Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
+    type KeyOwnerProof =
+        <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
-	type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
-		KeyTypeId,
-		GrandpaId,
-	)>>::IdentificationTuple;
+    type KeyOwnerIdentification = <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(
+        KeyTypeId,
+        GrandpaId,
+    )>>::IdentificationTuple;
 
-	type HandleEquivocation = ();
+    type HandleEquivocation = ();
 }
 
 parameter_types! {
@@ -328,7 +328,7 @@ type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 type SignedExtra = (
     system::CheckSpecVersion<Runtime>,
-	system::CheckTxVersion<Runtime>,
+    system::CheckTxVersion<Runtime>,
     system::CheckGenesis<Runtime>,
     system::CheckEra<Runtime>,
     system::CheckNonce<Runtime>,
@@ -430,23 +430,23 @@ impl_runtime_apis! {
         }
 
         fn submit_report_equivocation_extrinsic(
-			_equivocation_proof: fg_primitives::EquivocationProof<
-				<Block as BlockT>::Hash,
-				NumberFor<Block>,
-			>,
-			_key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
-		) -> Option<()> {
-			None
-		}
+            _equivocation_proof: fg_primitives::EquivocationProof<
+                <Block as BlockT>::Hash,
+                NumberFor<Block>,
+            >,
+            _key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            None
+        }
 
-		fn generate_key_ownership_proof(
-			_set_id: fg_primitives::SetId,
-			_authority_id: GrandpaId,
-		) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
-			// NOTE: this is the only implementation possible since we've
-			// defined our key owner proof type as a bottom type (i.e. a type
-			// with no values).
-			None
-		}
+        fn generate_key_ownership_proof(
+            _set_id: fg_primitives::SetId,
+            _authority_id: GrandpaId,
+        ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
+            // NOTE: this is the only implementation possible since we've
+            // defined our key owner proof type as a bottom type (i.e. a type
+            // with no values).
+            None
+        }
     }
 }
