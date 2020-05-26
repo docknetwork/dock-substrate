@@ -7,11 +7,13 @@ root_dir="$(dirname $0)/.."
 # prebuild
 docker build $root_dir
 
+# `--rpc-methods Unsafe` is to allow RPC method `author_insertKey`. `--unsafe-rpc-external` and `--unsafe-ws-external` do not work.
+# Unsafe methods should usually not be used in production unless there is a different safety net.
 container_id=$(
 	docker run --rm -d                                        \
         -p 9944:9944 -p 9933:9933 -p 30333:30333              \
         $(docker build -q $root_dir)                          \
-        --dev --rpc-external --ws-external --rpc-cors=all
+        --dev --rpc-external --ws-external --rpc-cors=all --rpc-methods Unsafe
 )
 
 try_with_node() {
