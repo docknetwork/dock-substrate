@@ -10,7 +10,7 @@ The dock blockchain serves as registry for [Decentralized Identifiers](https://w
 Docker can be used to quickly spin up a node (may require sudo):
 
 ```
-docker run -p 9933:9933 -p 30333:30333 docknetwork/dock-substrate --chain ./cspec/remdev.json --ws-external
+docker run -p 9933:9933 -p 30333:30333 docknetwork/dock-substrate --chain ./cspec/remdev-rc2.json --ws-external
              |            |                       |                      |                          |
              |     Expose p2p port                |              Join the testnet                   |
              |                                    |                                                 |
