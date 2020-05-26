@@ -13,14 +13,14 @@ jobs:
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2020-05-14
           override: true
       - name: Install WASM
-        run: rustup target add wasm32-unknown-unknown --toolchain nightly
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2020-05-14
       - name: Build Docs
         uses: actions-rs/cargo@v1
         with:
-          command: doc --no-deps
+          command: doc
       - name: Push To gh-pages
         uses: peaceiris/actions-gh-pages@v3
         with:
