@@ -24,6 +24,14 @@ pub mod revoke;
 mod test_common;
 
 use codec::{Decode, Encode};
+use frame_support::{
+    construct_runtime, parameter_types,
+    traits::{KeyOwnerProofSystem, Randomness},
+    weights::{
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        IdentityFee, Weight,
+    },
+};
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
@@ -32,6 +40,7 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
 };
+use sp_runtime::Perbill;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionSource, TransactionValidity},
@@ -41,22 +50,6 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
-// A few exports that help ease life for downstream crates.
-pub use balances::Call as BalancesCall;
-pub use frame_support::{
-    construct_runtime, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness},
-    weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-        IdentityFee, Weight,
-    },
-    StorageValue,
-};
-#[cfg(any(feature = "std", test))]
-pub use sp_runtime::BuildStorage;
-pub use sp_runtime::{Perbill, Permill};
-pub use timestamp::Call as TimestampCall;
 
 /// An index to a block.
 type BlockNumber = u32;
@@ -68,10 +61,6 @@ type Signature = MultiSignature;
 /// to the public key of our transaction signing scheme.
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-/// The type for looking up accounts. We don't expect more than 4 billion of them, but you
-/// never know...
-type AccountIndex = u32;
-
 /// Balance of an account.
 type Balance = u128;
 
@@ -80,9 +69,6 @@ type Index = u32;
 
 /// A hash of some data used by the chain.
 type Hash = sp_core::H256;
-
-/// Digest item type.
-type DigestItem = generic::DigestItem<Hash>;
 
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
@@ -105,14 +91,12 @@ pub enum StateChange {
 pub mod opaque {
     use super::*;
 
-    pub use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
+    use sp_runtime::OpaqueExtrinsic as UncheckedExtrinsic;
 
     /// Opaque block header type.
-    pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
+    type Header = generic::Header<BlockNumber, BlakeTwo256>;
     /// Opaque block type.
     pub type Block = generic::Block<Header, UncheckedExtrinsic>;
-    /// Opaque block identifier type.
-    pub type BlockId = generic::BlockId<Block>;
 
     impl_opaque_keys! {
         pub struct SessionKeys {
@@ -136,11 +120,6 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 const MILLISECS_PER_BLOCK: u64 = 3000;
 
 const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
-
-// These time units are defined in number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -315,16 +294,10 @@ construct_runtime!(
     }
 );
 
-/// The address format for describing accounts.
-type Address = AccountId;
 /// Block header type as expected by this runtime.
 type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
 type Block = generic::Block<Header, UncheckedExtrinsic>;
-/// A Block signed with a Justification
-type SignedBlock = generic::SignedBlock<Block>;
-/// BlockId type as expected by this runtime.
-type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 type SignedExtra = (
     system::CheckSpecVersion<Runtime>,
@@ -336,7 +309,7 @@ type SignedExtra = (
     transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
-type UncheckedExtrinsic = generic::UncheckedExtrinsic<Address, Call, Signature, SignedExtra>;
+type UncheckedExtrinsic = generic::UncheckedExtrinsic<AccountId, Call, Signature, SignedExtra>;
 /// Executive: handles dispatch to the various modules.
 type Executive =
     frame_executive::Executive<Runtime, Block, system::ChainContext<Runtime>, Runtime, AllModules>;
