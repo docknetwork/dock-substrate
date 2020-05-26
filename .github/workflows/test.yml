@@ -20,10 +20,11 @@ jobs:
       - name: Install latest nightly
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2020-05-14
+          toolchain: nightly
           override: true
+          components: rustfmt, clippy
       - name: Install WASM
-        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2020-05-14
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly
       - name: Ensure docs are buildable
         run: cargo doc
       - name: Run tests
