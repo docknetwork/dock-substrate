@@ -28,9 +28,9 @@ native_executor_instance!(
 /// be able to perform chain operations.
 macro_rules! new_full_start {
     ($config:expr) => {{
-        use std::sync::Arc;
         use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
-        
+        use std::sync::Arc;
+
         let mut import_setup = None;
         let inherent_data_providers = sp_inherents::InherentDataProviders::new();
 
@@ -49,7 +49,7 @@ macro_rules! new_full_start {
             ))
         })?
         .with_import_queue(
-            |_config, client, mut select_chain, _transaction_pool, spawn_task_handle, registry | {
+            |_config, client, mut select_chain, _transaction_pool, spawn_task_handle, registry| {
                 let select_chain = select_chain
                     .take()
                     .ok_or_else(|| sc_service::Error::SelectChainRequired)?;
@@ -74,7 +74,7 @@ macro_rules! new_full_start {
                     client,
                     inherent_data_providers.clone(),
                     spawn_task_handle,
-                    registry
+                    registry,
                 )?;
 
                 import_setup = Some((grandpa_block_import, grandpa_link));
@@ -109,8 +109,11 @@ pub fn new_full(config: Configuration) -> Result<impl AbstractService, ServiceEr
         .build()?;
 
     if role.is_authority() {
-        let proposer =
-            sc_basic_authorship::ProposerFactory::new(service.client(), service.transaction_pool(), service.prometheus_registry().as_ref());
+        let proposer = sc_basic_authorship::ProposerFactory::new(
+            service.client(),
+            service.transaction_pool(),
+            service.prometheus_registry().as_ref(),
+        );
 
         let client = service.client();
         let select_chain = service
@@ -212,7 +215,14 @@ pub fn new_light(config: Configuration) -> Result<impl AbstractService, ServiceE
             Ok(pool)
         })?
         .with_import_queue_and_fprb(
-            |_config, client, backend, fetcher, _select_chain, _tx_pool, spawn_task_handle, prometheus_registry,| {
+            |_config,
+             client,
+             backend,
+             fetcher,
+             _select_chain,
+             _tx_pool,
+             spawn_task_handle,
+             prometheus_registry| {
                 let fetch_checker = fetcher
                     .map(|fetcher| fetcher.checker().clone())
                     .ok_or_else(|| {
