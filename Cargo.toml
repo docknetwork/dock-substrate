@@ -4,5 +4,11 @@ members = [
 #    'pallets/template',
     'runtime',
 ]
+
+#[features]
+#runtime-benchmarks = [
+#	"runtime/runtime-benchmarks",
+#]
+
 [profile.release]
 panic = 'unwind'

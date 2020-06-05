@@ -104,10 +104,10 @@ tag = 'v2.0.0-rc2'
 version = '2.0.0-rc2'
 
 # This dependency is not in node template
-[dependencies.sp-io]
-git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc2'
-version = '2.0.0-rc2'
+#[dependencies.sp-io]
+#git = 'https://github.com/paritytech/substrate.git'
+#tag = 'v2.0.0-rc2'
+#version = '2.0.0-rc2'
 
 [build-dependencies.substrate-build-script-utils]
 git = 'https://github.com/paritytech/substrate.git'
