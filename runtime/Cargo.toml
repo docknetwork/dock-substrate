@@ -162,6 +162,17 @@ package = 'substrate-wasm-builder-runner'
 tag = 'v2.0.0-rc3'
 version = '1.0.5'
 
+[dependencies.pallet-session]
+default_features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-rc3'
+version = '2.0.0-rc3'
+
+[dependencies.poa]
+default-features = false
+package = 'poa'
+path = '../pallets/poa'
+version = '0.0.1'
 
 [features]
 default = ['std']
@@ -191,8 +202,12 @@ std = [
     'system/std',
     'timestamp/std',
     'transaction-payment/std',
+    'pallet-session/std',
+    'poa/std'
 ]
-runtime-benchmarks = ["frame-benchmarking"]
+runtime-benchmarks = [
+    'frame-benchmarking',
+]
 
 [dev-dependencies]
 rand = "0.7.3"

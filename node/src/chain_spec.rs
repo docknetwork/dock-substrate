@@ -1,5 +1,6 @@
 use dock_testnet_runtime::{
     AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    SessionConfig, opaque::SessionKeys, PoAModuleConfig
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -9,7 +10,18 @@ use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     MultiSignature,
+    print
 };
+
+fn session_keys(
+    aura: AuraId,
+    grandpa: GrandpaId,
+) -> SessionKeys {
+    SessionKeys { aura, grandpa }
+}
+
+// THIS MUST BE SAME AS WHATS DEFINED IN runtime/lib.rs
+const MinSessionLength: u32 = 5;
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -36,9 +48,14 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Helper function to generate an authority key for Aura
-pub fn get_authority_keys_from_seed(s: &str) -> (AuraId, GrandpaId) {
-    (get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+/// Helper function to generate an authority key for Aura and Grandpa
+pub fn get_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
+    (get_account_id_from_seed::<sr25519::Public>(s), get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+}
+
+/// Helper function to generate an account id and authority key for Aura and Grandpa
+pub fn get_poa_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
+    (get_account_id_from_seed::<sr25519::Public>(s), get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
 }
 
 /// Create a public key from an SS58 address
@@ -117,7 +134,7 @@ pub fn local_testnet_config() -> ChainSpec {
     )
 }
 
-pub fn remote_testnet_config() -> ChainSpec {
+/*pub fn remote_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "RemoteDevelopment",
         "remdev",
@@ -171,9 +188,46 @@ pub fn remote_testnet_config() -> ChainSpec {
         None,
         None,
     )
+}*/
+
+pub fn local_poa_testnet_config() -> ChainSpec {
+    ChainSpec::from_genesis(
+        "Local PoA Testnet",
+        "local_poa_testnet",
+        ChainType::Local,
+        || {
+            testnet_genesis(
+                vec![
+                    get_authority_keys_from_seed("Alice"),
+                    get_authority_keys_from_seed("Bob"),
+                ],
+                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
+                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
+                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
+                ],
+                true,
+            )
+        },
+        vec![],
+        None,
+        None,
+        None,
+        None,
+    )
 }
 
-fn testnet_genesis(
+/*fn testnet_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
@@ -200,6 +254,60 @@ fn testnet_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
+        }),
+    }
+}*/
+
+fn testnet_genesis(
+    initial_authorities: Vec<(AccountId, AuraId, GrandpaId)>,
+    root_key: AccountId,
+    endowed_accounts: Vec<AccountId>,
+    _enable_println: bool,
+) -> GenesisConfig {
+    let num_auth = initial_authorities.len() as u32;
+    let rem = MinSessionLength % num_auth;
+    let session_len = if rem == 0 {
+        MinSessionLength
+    } else {
+        MinSessionLength + num_auth - rem
+    };
+    print("session_len is---");
+    print(session_len);
+    println!("session_len is {}", session_len);
+    // Customize
+    GenesisConfig {
+        system: Some(SystemConfig {
+            code: WASM_BINARY.to_vec(),
+            changes_trie_config: Default::default(),
+        }),
+        pallet_session: Some(SessionConfig {
+            keys: initial_authorities.iter().map(|x| {
+                (x.0.clone(), x.0.clone(), session_keys(x.1.clone(), x.2.clone()))
+            }).collect::<Vec<_>>(),
+        }),
+        poa: Some(PoAModuleConfig {
+            current_validators: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+            next_session_change_at: session_len + 1,    // +1 as first block is genesis and not produced by anyone
+            force_session_change: false,
+        }),
+        balances: Some(BalancesConfig {
+            balances: endowed_accounts
+                .iter()
+                .cloned()
+                .map(|k| (k, 1 << 60))
+                .collect(),
+        }),
+        sudo: Some(SudoConfig { key: root_key }),
+        aura: Some(AuraConfig {
+            //authorities: initial_authorities.iter().map(|x| (x.1.clone())).collect(),
+            authorities:  vec![],
+        }),
+        grandpa: Some(GrandpaConfig {
+            // authorities: initial_authorities
+            //     .iter()
+            //     .map(|x| (x.2.clone(), 1))
+            //     .collect(),
+            authorities: vec![]
         }),
     }
 }

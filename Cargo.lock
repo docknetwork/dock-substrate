@@ -761,10 +761,12 @@ dependencies = [
  "pallet-balances",
  "pallet-grandpa",
  "pallet-randomness-collective-flip",
+ "pallet-session",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
+ "poa",
  "rand 0.7.3",
  "serde",
  "sp-api 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
@@ -3247,6 +3249,21 @@ name = "platforms"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "feb3b2b1033b8a60b4da6ee470325f887758c95d5320f52f9ce0df055a55940e"
+
+[[package]]
+name = "poa"
+version = "0.0.1"
+dependencies = [
+ "frame-support 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "frame-system 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "pallet-session",
+ "parity-scale-codec",
+ "serde",
+ "sp-core 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "sp-io 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "sp-runtime 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "sp-std 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+]
 
 [[package]]
 name = "ppv-lite86"

@@ -22,6 +22,8 @@ pub mod revoke;
 
 mod benchmarking;
 
+pub use poa;
+
 #[cfg(test)]
 mod test_common;
 
@@ -45,6 +47,7 @@ use sp_runtime::traits::{
 use sp_runtime::Perbill;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
+    traits::{OpaqueKeys, ConvertInto},
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature,
 };
@@ -276,6 +279,35 @@ impl blob::Trait for Runtime {
     type MaxBlobSize = MaxBlobSize;
 }
 
+// TODO: Do i need it?
+parameter_types! {
+    /// The fraction of validators set that is safe to be disabled.
+    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(50);
+}
+
+impl pallet_session::Trait for Runtime {
+    type Event = Event;
+    type ValidatorId = <Self as system::Trait>::AccountId;
+    type ValidatorIdOf = ConvertInto;
+    type ShouldEndSession = PoAModule;
+    type NextSessionRotation = ();
+    type SessionManager = PoAModule;
+    type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+    type Keys = opaque::SessionKeys;
+    type DisabledValidatorsThreshold = ();
+}
+
+parameter_types! {
+    pub const MinSessionLength: BlockNumber = 5;
+    pub const MaxActiveValidators: u8 = 4;
+}
+
+impl poa::Trait for Runtime {
+    type Event = Event;
+    type MinSessionLength = MinSessionLength;
+    type MaxActiveValidators = MaxActiveValidators;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -285,6 +317,8 @@ construct_runtime!(
         System: system::{Module, Call, Config, Storage, Event<T>},
         RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
         Timestamp: timestamp::{Module, Call, Storage, Inherent},
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+		PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
         Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
