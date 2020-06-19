@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch,
-                    ensure, fail, traits::Get, sp_runtime::{print, SaturatedConversion} };
+                    fail, traits::Get, sp_runtime::{print, SaturatedConversion} };
 use frame_system::{self as system, ensure_root};
 use sp_std::prelude::Vec;
 
@@ -22,18 +22,33 @@ pub trait Trait: system::Trait + pallet_session::Trait {
 
 // This pallet's storage items.
 decl_storage! {
-	// It is important to update your storage name so that your pallet's
-	// storage items are isolated from other pallets.
+
 	trait Store for Module<T: Trait> as PoAModule {
+	    /// List of active validators. Maximum allowed are `MaxActiveValidators`
 		ActiveValidators get(fn active_validators) config(): Vec<T::AccountId>;
 
-		NextSessionChangeAt get(fn next_session_change_at) config(): T::BlockNumber;
+        /// Next epoch will begin after this block number, i.e. this block number will be the last
+        /// block of the current epoch
+		NextEpochChangeAfter get(fn next_epoch_begins_after) config(): T::BlockNumber;
 
+        /// Boolean flag to force session change. This will disregard block number in NextEpochChangeAfter
         ForceSessionChange get(fn force_session_change) config(): bool;
 
+        /// Queue of validators to become part of the active validators. Validators can be added either
+        /// to the back of the queue or front by passing a flag in the add method.
+        /// On epoch end or immediately if forced, validators from the queue are taken out in FIFO order
+        /// and added to the active validators unless the number of active validators reaches the max allowed.
 		QueuedValidators get(fn validators_to_add): Vec<T::AccountId>;
 
+        /// List to hold validators to remove either on the end of epoch or immediately. If a candidate validator
+        /// is queued for becoming an active validator but also present in the removal list, it will
+        /// not become active as this list takes precedence of queued validators. It is emptied on each
+        /// epoch end
 		RemoveValidators get(fn validators_to_remove): Vec<T::AccountId>;
+
+        /// Set when a hot swap is to be performed, replacing validator id as 1st element of tuple
+        /// with the 2nd one.
+		HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>
 	}
 }
 
@@ -59,11 +74,12 @@ decl_error! {
 	    AlreadyActiveValidator,
 	    AlreadyQueuedForAddition,
 	    AlreadyQueuedForRemoval,
-		NoValidators,
+		NeedAtLeast1Validator,
+		SwapOutFailed,
+		SwapInFailed,
 	}
 }
 
-// The pallet's dispatchable functions.
 decl_module! {
 	/// The module declaration.
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
@@ -79,10 +95,13 @@ decl_module! {
 		// this is needed only if you are using events in your pallet
 		fn deposit_event() = default;
 
-        // Weight can be 0 as its called by Master
-        // TODO: Use signed extension to make it free
+        /// Add a new validator to active validator set unless already a validator and the total number
+        /// of validators don't exceed the max allowed count. The validator is considered for adding at
+        /// the end of this epoch unless `add_now` is true. If a validator is already added to the queue
+        /// an error will be thrown unless `add_now` is true, in which case it swallows the error.
+        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
 		#[weight = 0]
-		pub fn add_validator(origin, validator_id: T::AccountId, force: bool) -> dispatch::DispatchResult {
+		pub fn add_validator(origin, validator_id: T::AccountId, add_now: bool) -> dispatch::DispatchResult {
 		    // TODO: Check the origin is Master
 			ensure_root(origin)?;
 
@@ -93,14 +112,17 @@ decl_module! {
                     fail!(Error::<T>::AlreadyActiveValidator)
                 }
             }
-            if force {
+            if add_now {
                 // The new validator should be added in front of the queue if its not present
                 // in the queue else move it front of the queue
                 let mut validators = Self::validators_to_add();
                 // Remove all occurences of validator_id from queue
                 Self::remove_validator_id(&validator_id, &mut validators);
                 print("Adding a new validator at front");
-                // The new validator should be in front of the queue
+
+                // The new validator should be in front of the queue so that it definitely
+                // gets added to the active validator set (unless already maximum validators present
+                // or the same validator is added for removal)
                 validators.insert(0, validator_id.clone());
                 <QueuedValidators<T>>::put(validators);
                 Self::deposit_event(RawEvent::ValidatorQueuedInFront(validator_id));
@@ -121,21 +143,27 @@ decl_module! {
 			Ok(())
 		}
 
-        // Weight can be 0 as its called by Master
-        // TODO: Use signed extension to make it free
+        /// Remove the given validator from active validator set and the queued validators at the end
+        /// of epoch unless `remove_now` is true. If validator is already queued for removal, an error
+        /// will be thrown unless `remove_now` is true, in which case it swallows the error.
+        /// It will not remove the validator if the removal will cause the active validator set to
+        /// be empty even after considering the queued validators.
+        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
 		#[weight = 0]
-		pub fn remove_validator(origin, validator_id: T::AccountId, force: bool) -> dispatch::DispatchResult {
+		pub fn remove_validator(origin, validator_id: T::AccountId, remove_now: bool) -> dispatch::DispatchResult {
 		    // TODO: Check the origin is Master
 			ensure_root(origin)?;
 
             let mut validators_to_remove: Vec<T::AccountId> = Self::validators_to_remove();
+            // Form a set of validators to remove
             let mut removals = BTreeSet::new();
             for v in validators_to_remove.iter() {
                 removals.insert(v);
             }
 
+            // Check if already queued for removal
             let already_queued_for_rem = if removals.contains(&validator_id) {
-                if force {
+                if remove_now {
                     true
                 } else {
                     // throw error since validator is already queued for removal
@@ -164,7 +192,7 @@ decl_module! {
             let diff: Vec<_> = potential_new_vals.difference(&removals).collect();
             if diff.is_empty() {
                 print("Cannot remove. Need at least 1 active validator");
-                fail!(Error::<T>::NoValidators)
+                fail!(Error::<T>::NeedAtLeast1Validator)
             }
 
             // Add validator
@@ -174,16 +202,49 @@ decl_module! {
                 Self::deposit_event(RawEvent::ValidatorRemoved(validator_id));
             }
 
-            if force {
+            if remove_now {
                 ForceSessionChange::put(true);
             }
 			Ok(())
+		}
+
+        /// Replace an active validator (`old_validator_id`) with a new validator (`new_validator_id`)
+        /// without waiting for epoch to end. Throws error if `old_validator_id` is not active or
+        /// `new_validator_id` is already active. Also useful when a validator wants to rotate his account.
+		// Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
+		#[weight = 0]
+		pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
+		    // TODO: Check the origin is Master
+			ensure_root(origin)?;
+
+            let active_validators: Vec<T::AccountId> = Self::active_validators().into();
+
+            let mut found = false;
+            for v in active_validators.iter() {
+                if *v == new_validator_id {
+                    print("New validator to swap in already present");
+                    fail!(Error::<T>::SwapInFailed)
+                }
+                if *v == old_validator_id {
+                    found = true;
+                    break;
+                }
+            }
+
+            if !found {
+                print("Validator to swap out not present");
+                fail!(Error::<T>::SwapOutFailed)
+            }
+
+            <HotSwap<T>>::put((old_validator_id, new_validator_id));
+            Ok(())
 		}
 	}
 }
 
 impl<T: Trait> Module<T> {
-    /// Returns number of removed occurences
+    /// Takes a validator id and a mutable vector of validator ids and remove any occurrence from
+    /// the mutable vector. Returns number of removed occurrences
     fn remove_validator_id(id: &T::AccountId, validators: &mut Vec<T::AccountId>) -> usize {
         // Collect indices to remove in decreasing order
         let mut indices = Vec::new();
@@ -197,6 +258,104 @@ impl<T: Trait> Module<T> {
         }
         indices.len()
     }
+
+    /// Update active validator set if needed and return if the active validator set changed and the
+    /// count of the new active validators.
+    fn update_active_validators_if_needed() -> (bool, u32) {
+        let mut active_validators = Self::active_validators();
+        let mut validators_to_add = Self::validators_to_add();
+        // Remove any validators that need to be removed.
+        let validators_to_remove = <RemoveValidators<T>>::take();
+
+        let mut active_validator_set_changed = false;
+        let mut queued_validator_set_changed = false;
+
+        // If any validator is to be added or removed
+        if (validators_to_remove.len() > 0 ) || (validators_to_add.len() > 0) {
+            // TODO: Remove debugging variable below
+            let mut count_removed = 0u32;
+
+            // Remove the validators from active validator set or the queue.
+            // The size of the 3 vectors is ~15 so multiple iterations are ok.
+            // If they were bigger, `validators_to_remove` should be turned into a set and then
+            // iterate over `validators_to_add` and `active_validators` only once removing any id
+            // present in the set.
+            for v in validators_to_remove {
+                let removed_active = Self::remove_validator_id(&v, &mut active_validators);
+                if removed_active > 0 {
+                    active_validator_set_changed = true;
+                    count_removed += 1;
+                } else {
+                    // The `add_validator` ensures that a validator id cannot be part of both active
+                    // validator set and queued validators
+                    let removed_queued = Self::remove_validator_id(&v, &mut validators_to_add);
+                    if removed_queued > 0 {
+                        queued_validator_set_changed = true;
+                    }
+                }
+            }
+
+            let max_validators = T::MaxActiveValidators::get() as usize;
+
+            // TODO: Remove debugging variable below
+            let mut count_added = 0u32;
+
+            // Make any queued validators active.
+            while (active_validators.len() < max_validators) && (validators_to_add.len() > 0) {
+                active_validator_set_changed = true;
+                queued_validator_set_changed = true;
+                active_validators.push(validators_to_add.remove(0));
+                count_added += 1;
+            }
+
+            // Only write if queued_validator_set_changed
+            if queued_validator_set_changed {
+                <QueuedValidators<T>>::put(validators_to_add);
+            }
+
+            ForceSessionChange::put(false);
+
+            let active_validator_count = active_validators.len() as u32;
+            if active_validator_set_changed {
+                print("Active validator set changed, rotating session");
+                print(count_added);
+                print(count_removed);
+                <ActiveValidators<T>>::put(active_validators);
+            }
+            (active_validator_set_changed, active_validator_count)
+        } else {
+            (false, active_validators.len() as u32)
+        }
+    }
+
+    /// Set next epoch duration such that it is >= `MinEpochLength` and also a multiple of the
+    /// number of active validators
+    fn set_next_epoch_change(current_block_no: u32, active_validator_count: u32) {
+        let min_session_len = T::MinEpochLength::get();
+        let rem = min_session_len % active_validator_count;
+        let session_len = if rem == 0 {
+            min_session_len
+        } else {
+            min_session_len + active_validator_count - rem
+        };
+        let next_session_at = current_block_no + session_len;
+        print("next session at");
+        print(next_session_at);
+        <NextEpochChangeAfter<T>>::put(T::BlockNumber::from(next_session_at));
+    }
+
+    fn swap(old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> u32 {
+        let mut active_validators = Self::active_validators();
+        let count = active_validators.len() as u32;
+        for (i, v) in active_validators.iter().enumerate() {
+            if *v == old_validator_id {
+                active_validators[i] = new_validator_id;
+                break;
+            }
+        }
+        <ActiveValidators<T>>::put(active_validators);
+        count
+    }
 }
 
 /// Indicates to the session module if the session should be rotated.
@@ -205,73 +364,36 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         print("Called should_end_session");
 
         let current_block_no = <system::Module<T>>::block_number().saturated_into::<u32>();
-        let session_ends_at = Self::next_session_change_at().saturated_into::<u32>();
+        let next_epoch_begins_after = Self::next_epoch_begins_after().saturated_into::<u32>();
         print("current_block_no");
         print(current_block_no.saturated_into::<u32>());
-        print("session_ends_at");
-        print(session_ends_at);
+        print("current_block_no");
+        print(next_epoch_begins_after);
 
         // TODO: Remove once sure the following panic is never triggered
-        if current_block_no > session_ends_at {
-            panic!("Current block number > session_ends_at");
+        if current_block_no > next_epoch_begins_after {
+            panic!("Current block number > current_block_no");
         }
-        if Self::force_session_change() || (current_block_no == session_ends_at) {
-            let mut active_validators = Self::active_validators();
-            let mut validators_to_add = Self::validators_to_add();
-            // Remove any validators that need to be removed.
-            let validators_to_remove = <RemoveValidators<T>>::take();
 
-            let mut active_validator_set_changed = false;
+        // Unless the session is being forcefully ended or epoch has had the required number of blocks,
+        // or hot swap is triggered, continue the session.
+        // TODO: Reduce reads from 2 to 1 by changing the boolean flag to be integer (u8) for different conditions.
+        let force_session_change = Self::force_session_change();
+        let hot_swap = <HotSwap<T>>::take();
+        if force_session_change || (current_block_no == next_epoch_begins_after) || hot_swap.is_some() {
 
-            // If any validator is to be added or removed
-            if (validators_to_remove.len() > 0 ) || (validators_to_add.len() > 0) {
-                // The size of the 3 vectors is ~15 so multiple iterations are ok.
-                // If they were bigger, `validators_to_remove` should be turned into a set and then
-                // iterate over `validators_to_add` and `active_validators` only once removing any id
-                // present in the set.
-                for v in validators_to_remove {
-                    let removed_active = Self::remove_validator_id(&v, &mut active_validators);
-                    if removed_active > 0 {
-                        active_validator_set_changed = true;
-                    } else {
-                        // The `add_validator` ensures that a validator id cannot be part of both active
-                        // validator set and queued validators
-                        Self::remove_validator_id(&v, &mut validators_to_add);
-                    }
-                }
+            let (active_validator_set_changed, active_validator_count) = if hot_swap.is_some() {
+                let (old_validator, new_validator) = hot_swap.unwrap();
+                (true, Self::swap(old_validator, new_validator))
+            } else {
+                Self::update_active_validators_if_needed()
+            };
 
-                let max_validators = T::MaxActiveValidators::get() as usize;
-
-                // TODO: Remove debugging variable below
-                let mut count_added = 0u32;
-
-                while (active_validators.len() < max_validators) && (validators_to_add.len() > 0) {
-                    active_validator_set_changed = true;
-                    active_validators.push(validators_to_add.remove(0));
-                    count_added += 1;
-                }
-
-                <QueuedValidators<T>>::put(validators_to_add);
-                if active_validator_set_changed {
-                    print("Active validator set changed, rotating session");
-                    print(count_added);
-                    <ActiveValidators<T>>::put(active_validators.clone());
-                    <pallet_session::Module<T>>::rotate_session();
-                }
+            if active_validator_set_changed {
+                <pallet_session::Module<T>>::rotate_session();
             }
 
-            let min_session_len = T::MinEpochLength::get();
-            let rem = min_session_len % active_validators.len() as u32;
-            let session_len = if rem == 0 {
-                min_session_len
-            } else {
-                min_session_len + active_validators.len() as u32 - rem
-            };
-            let next_session_at = current_block_no + session_len;
-            print("next session at");
-            print(next_session_at);
-            <NextSessionChangeAt<T>>::put(T::BlockNumber::from(next_session_at));
-            ForceSessionChange::put(false);
+            Self::set_next_epoch_change(current_block_no, active_validator_count);
             true
         } else {
             false
@@ -294,3 +416,5 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
     fn end_session(_: u32) {}
     fn start_session(_: u32) {}
 }
+
+// TODO: Tested with SDK script Write runtime tests if time permits.

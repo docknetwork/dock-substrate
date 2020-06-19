@@ -5,7 +5,7 @@ use dock_testnet_runtime::{
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{sr25519, Pair, Public, ecdsa};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
@@ -20,7 +20,9 @@ fn session_keys(
     SessionKeys { aura, grandpa }
 }
 
-// THIS MUST BE SAME AS WHATS DEFINED IN runtime/lib.rs
+
+/// THIS IS ONLY USED FOR GENESIS
+/// THIS MUST BE SAME AS WHATS DEFINED IN runtime/lib.rs
 const MinEpochLength: u32 = 5;
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
@@ -134,7 +136,7 @@ pub fn local_testnet_config() -> ChainSpec {
     )
 }
 
-/*pub fn remote_testnet_config() -> ChainSpec {
+pub fn remote_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "RemoteDevelopment",
         "remdev",
@@ -143,6 +145,9 @@ pub fn local_testnet_config() -> ChainSpec {
             testnet_genesis(
                 vec![
                     (
+                        account_id_from_ss58::<ecdsa::Public>(
+                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t"
+                        ),
                         pubkey_from_ss58::<AuraId>(
                             "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
                         ),
@@ -151,6 +156,9 @@ pub fn local_testnet_config() -> ChainSpec {
                         ),
                     ),
                     (
+                        account_id_from_ss58::<ecdsa::Public>(
+                            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh"
+                        ),
                         pubkey_from_ss58::<AuraId>(
                             "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
                         ),
@@ -188,7 +196,7 @@ pub fn local_testnet_config() -> ChainSpec {
         None,
         None,
     )
-}*/
+}
 
 pub fn local_poa_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
@@ -266,14 +274,14 @@ fn testnet_genesis(
 ) -> GenesisConfig {
     let num_auth = initial_authorities.len() as u32;
     let rem = MinEpochLength % num_auth;
-    let session_len = if rem == 0 {
+    let epoch_len = if rem == 0 {
         MinEpochLength
     } else {
         MinEpochLength + num_auth - rem
     };
-    print("session_len is---");
-    print(session_len);
-    println!("session_len is {}", session_len);
+    print("epoch_len is---");
+    print(epoch_len);
+    println!("epoch_len is {}", epoch_len);
     // Customize
     GenesisConfig {
         system: Some(SystemConfig {
@@ -287,7 +295,7 @@ fn testnet_genesis(
         }),
         poa: Some(PoAModuleConfig {
             active_validators: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-            next_session_change_at: session_len + 1,    // +1 as first block is genesis and not produced by anyone
+            next_epoch_begins_after: epoch_len + 1,    // +1 as first block is genesis and not produced by anyone
             force_session_change: false,
         }),
         balances: Some(BalancesConfig {
