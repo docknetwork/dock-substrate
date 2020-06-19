@@ -21,7 +21,7 @@ fn session_keys(
 }
 
 // THIS MUST BE SAME AS WHATS DEFINED IN runtime/lib.rs
-const MinSessionLength: u32 = 5;
+const MinEpochLength: u32 = 5;
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -265,11 +265,11 @@ fn testnet_genesis(
     _enable_println: bool,
 ) -> GenesisConfig {
     let num_auth = initial_authorities.len() as u32;
-    let rem = MinSessionLength % num_auth;
+    let rem = MinEpochLength % num_auth;
     let session_len = if rem == 0 {
-        MinSessionLength
+        MinEpochLength
     } else {
-        MinSessionLength + num_auth - rem
+        MinEpochLength + num_auth - rem
     };
     print("session_len is---");
     print(session_len);
@@ -286,7 +286,7 @@ fn testnet_genesis(
             }).collect::<Vec<_>>(),
         }),
         poa: Some(PoAModuleConfig {
-            current_validators: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+            active_validators: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
             next_session_change_at: session_len + 1,    // +1 as first block is genesis and not produced by anyone
             force_session_change: false,
         }),

@@ -298,13 +298,13 @@ impl pallet_session::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MinSessionLength: BlockNumber = 5;
+    pub const MinEpochLength: BlockNumber = 5;
     pub const MaxActiveValidators: u8 = 4;
 }
 
 impl poa::Trait for Runtime {
     type Event = Event;
-    type MinSessionLength = MinSessionLength;
+    type MinEpochLength = MinEpochLength;
     type MaxActiveValidators = MaxActiveValidators;
 }
 

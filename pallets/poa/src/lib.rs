@@ -2,9 +2,11 @@
 
 use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch,
                     ensure, fail, traits::Get, sp_runtime::{print, SaturatedConversion} };
-use frame_system::{self as system, ensure_signed, ensure_root};
+use frame_system::{self as system, ensure_root};
 use sp_std::prelude::Vec;
 
+extern crate alloc;
+use alloc::collections::BTreeSet;
 
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait + pallet_session::Trait {
@@ -13,7 +15,7 @@ pub trait Trait: system::Trait + pallet_session::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
-    type MinSessionLength: Get<u32>;
+    type MinEpochLength: Get<u32>;
 
     type MaxActiveValidators: Get<u8>;
 }
@@ -23,9 +25,8 @@ decl_storage! {
 	// It is important to update your storage name so that your pallet's
 	// storage items are isolated from other pallets.
 	trait Store for Module<T: Trait> as PoAModule {
-		CurrentValidators get(fn current_validators) config(): Vec<T::AccountId>;
+		ActiveValidators get(fn active_validators) config(): Vec<T::AccountId>;
 
-		//NextSessionChangeAt get(fn next_session_change_at) config(): u32;
 		NextSessionChangeAt get(fn next_session_change_at) config(): T::BlockNumber;
 
         ForceSessionChange get(fn force_session_change) config(): bool;
@@ -55,6 +56,7 @@ decl_error! {
 	/// Errors for the module.
 	pub enum Error for Module<T: Trait> {
 	    MaxValidators,
+	    AlreadyActiveValidator,
 	    AlreadyQueuedForAddition,
 	    AlreadyQueuedForRemoval,
 		NoValidators,
@@ -65,6 +67,9 @@ decl_error! {
 decl_module! {
 	/// The module declaration.
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+	    // Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
+	    // `should_end_session` since that it called more frequentily.
+
 		// Initializing errors
 		// this includes information about your errors in the node's metadata.
 		// it is needed only if you are using errors in your pallet
@@ -80,25 +85,28 @@ decl_module! {
 		pub fn add_validator(origin, validator_id: T::AccountId, force: bool) -> dispatch::DispatchResult {
 		    // TODO: Check the origin is Master
 			ensure_root(origin)?;
-            print("add_validator called");
 
-            if force {
-                if (Self::current_validators().len() - Self::validators_to_remove().len()) >= T::MaxActiveValidators::get().into() {
-                    fail!(Error::<T>::MaxValidators)
-                } else {
-                    let mut validators = Self::validators_to_add();
-                    // Remove all occurences of validator_id from queue
-                    Self::remove_validator_id(&validator_id, &mut validators);
-                    print("Adding a new validator at front");
-                    // The new validator should be in front of the queue
-			        validators.insert(0, validator_id.clone());
-			        <QueuedValidators<T>>::put(validators);
-			        Self::deposit_event(RawEvent::ValidatorQueuedInFront(validator_id));
-			        // <pallet_session::Module<T>>::rotate_session();
-			        ForceSessionChange::put(true);
+            // Check if the validator is not already present as an active one
+            let active_validators = Self::active_validators();
+            for v in active_validators.iter() {
+                if *v == validator_id {
+                    fail!(Error::<T>::AlreadyActiveValidator)
                 }
+            }
+            if force {
+                // The new validator should be added in front of the queue if its not present
+                // in the queue else move it front of the queue
+                let mut validators = Self::validators_to_add();
+                // Remove all occurences of validator_id from queue
+                Self::remove_validator_id(&validator_id, &mut validators);
+                print("Adding a new validator at front");
+                // The new validator should be in front of the queue
+                validators.insert(0, validator_id.clone());
+                <QueuedValidators<T>>::put(validators);
+                Self::deposit_event(RawEvent::ValidatorQueuedInFront(validator_id));
+                ForceSessionChange::put(true);
             } else {
-                let mut validators = Self::validators_to_remove();
+                let mut validators = Self::validators_to_add();
                 for v in validators.iter() {
                     if *v == validator_id {
                         fail!(Error::<T>::AlreadyQueuedForAddition)
@@ -120,21 +128,50 @@ decl_module! {
 		    // TODO: Check the origin is Master
 			ensure_root(origin)?;
 
-            let mut already_queued_for_rem = false;
-            let mut validators = Self::validators_to_remove();
-            for v in validators.iter() {
-                if *v == validator_id {
-                    if force {
-                        already_queued_for_rem = true
-                    } else {
-                        fail!(Error::<T>::AlreadyQueuedForRemoval)
-                    }
-                }
+            let mut validators_to_remove: Vec<T::AccountId> = Self::validators_to_remove();
+            let mut removals = BTreeSet::new();
+            for v in validators_to_remove.iter() {
+                removals.insert(v);
             }
 
+            let already_queued_for_rem = if removals.contains(&validator_id) {
+                if force {
+                    true
+                } else {
+                    // throw error since validator is already queued for removal
+                    fail!(Error::<T>::AlreadyQueuedForRemoval)
+                }
+            } else {
+                removals.insert(&validator_id);
+                false
+            };
+
+            let active_validators: Vec<T::AccountId> = Self::active_validators().into();
+            let validators_to_add: Vec<T::AccountId> = Self::validators_to_add().into();
+
+            // Construct a set of potential validators and don't allow all the potential validators
+            // to be removed as that will prevent the node from starting.
+            // This takes away the ability of do a remove before an add but should not matter.
+            let mut potential_new_vals = BTreeSet::new();
+            for v in active_validators.iter() {
+                potential_new_vals.insert(v);
+            }
+            for v in validators_to_add.iter() {
+                potential_new_vals.insert(v);
+            }
+
+            // There should be at least 1 id in potential_new_vals that is not in removals
+            let diff: Vec<_> = potential_new_vals.difference(&removals).collect();
+            if diff.is_empty() {
+                print("Cannot remove. Need at least 1 active validator");
+                fail!(Error::<T>::NoValidators)
+            }
+
+            // Add validator
             if !already_queued_for_rem {
-                validators.push(validator_id.clone());
-                <RemoveValidators<T>>::put(validators);
+                validators_to_remove.push(validator_id.clone());
+                <RemoveValidators<T>>::put(validators_to_remove);
+                Self::deposit_event(RawEvent::ValidatorRemoved(validator_id));
             }
 
             if force {
@@ -163,7 +200,6 @@ impl<T: Trait> Module<T> {
 }
 
 /// Indicates to the session module if the session should be rotated.
-/// We set this flag to true when we add/remove a validator.
 impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
     fn should_end_session(_now: T::BlockNumber) -> bool {
         print("Called should_end_session");
@@ -180,45 +216,56 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
             panic!("Current block number > session_ends_at");
         }
         if Self::force_session_change() || (current_block_no == session_ends_at) {
-            let mut current_validators = Self::current_validators();
+            let mut active_validators = Self::active_validators();
             let mut validators_to_add = Self::validators_to_add();
+            // Remove any validators that need to be removed.
+            let validators_to_remove = <RemoveValidators<T>>::take();
 
-            let mut current_validators_changed = false;
+            let mut active_validator_set_changed = false;
 
-            if (current_validators.len() + validators_to_add.len()) > 0 {
+            // If any validator is to be added or removed
+            if (validators_to_remove.len() > 0 ) || (validators_to_add.len() > 0) {
                 // The size of the 3 vectors is ~15 so multiple iterations are ok.
                 // If they were bigger, `validators_to_remove` should be turned into a set and then
-                // iterate over `validators_to_add` and `current_validators` only once removing any id
+                // iterate over `validators_to_add` and `active_validators` only once removing any id
                 // present in the set.
-                let validators_to_remove = <RemoveValidators<T>>::take();
                 for v in validators_to_remove {
-                    Self::remove_validator_id(&v, &mut validators_to_add);
-                    let removed_active = Self::remove_validator_id(&v, &mut current_validators);
+                    let removed_active = Self::remove_validator_id(&v, &mut active_validators);
                     if removed_active > 0 {
-                        current_validators_changed = true;
+                        active_validator_set_changed = true;
+                    } else {
+                        // The `add_validator` ensures that a validator id cannot be part of both active
+                        // validator set and queued validators
+                        Self::remove_validator_id(&v, &mut validators_to_add);
                     }
                 }
 
                 let max_validators = T::MaxActiveValidators::get() as usize;
-                while (current_validators.len() < max_validators) && (validators_to_add.len() > 0) {
-                    current_validators_changed = true;
-                    current_validators.push(validators_to_add.remove(0));
+
+                // TODO: Remove debugging variable below
+                let mut count_added = 0u32;
+
+                while (active_validators.len() < max_validators) && (validators_to_add.len() > 0) {
+                    active_validator_set_changed = true;
+                    active_validators.push(validators_to_add.remove(0));
+                    count_added += 1;
                 }
 
                 <QueuedValidators<T>>::put(validators_to_add);
-                <CurrentValidators<T>>::put(current_validators.clone());
-                if current_validators_changed {
+                if active_validator_set_changed {
                     print("Active validator set changed, rotating session");
+                    print(count_added);
+                    <ActiveValidators<T>>::put(active_validators.clone());
                     <pallet_session::Module<T>>::rotate_session();
                 }
             }
 
-            let min_session_len = T::MinSessionLength::get();
-            let rem = min_session_len % current_validators.len() as u32;
+            let min_session_len = T::MinEpochLength::get();
+            let rem = min_session_len % active_validators.len() as u32;
             let session_len = if rem == 0 {
                 min_session_len
             } else {
-                min_session_len + current_validators.len() as u32 - rem
+                min_session_len + active_validators.len() as u32 - rem
             };
             let next_session_at = current_block_no + session_len;
             print("next session at");
@@ -238,11 +285,9 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
     // importing the pallet.
 
     fn new_session(_: u32) -> Option<Vec<T::AccountId>> {
-        // Flag is set to false so that the session doesn't keep rotating.
-        //Flag::put(false);
         print("Called new_session");
-        let validators = Self::current_validators();
-        // Check for error on empty validator set
+        let validators = Self::active_validators();
+        // Check for error on empty validator set. On returning None, it loads validator set from genesis
         if validators.len() == 0 { None } else { Some(validators) }
     }
 
