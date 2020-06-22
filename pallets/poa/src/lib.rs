@@ -8,6 +8,8 @@ use sp_std::prelude::Vec;
 extern crate alloc;
 use alloc::collections::BTreeSet;
 
+/// Pallet to add and remove validators.
+
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait + pallet_session::Trait {
     // Add other types and constants required to configure this pallet.

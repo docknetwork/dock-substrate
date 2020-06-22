@@ -758,6 +758,7 @@ dependencies = [
  "frame-support 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
  "frame-system 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
  "pallet-aura",
+ "pallet-authorship",
  "pallet-balances",
  "pallet-grandpa",
  "pallet-randomness-collective-flip",
@@ -2827,6 +2828,21 @@ dependencies = [
  "sp-runtime 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
  "sp-std 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
  "sp-timestamp",
+]
+
+[[package]]
+name = "pallet-authorship"
+version = "2.0.0-rc3"
+source = "git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3#34695a85650b58bcd7d7e2a677cafc2921251d68"
+dependencies = [
+ "frame-support 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "frame-system 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "impl-trait-for-tuples",
+ "parity-scale-codec",
+ "sp-authorship",
+ "sp-inherents 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "sp-runtime 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "sp-std 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
 ]
 
 [[package]]
@@ -5009,6 +5025,17 @@ dependencies = [
  "serde",
  "sp-debug-derive 2.0.0-rc3 (registry+https://github.com/rust-lang/crates.io-index)",
  "sp-std 2.0.0-rc3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "sp-authorship"
+version = "2.0.0-rc3"
+source = "git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3#34695a85650b58bcd7d7e2a677cafc2921251d68"
+dependencies = [
+ "parity-scale-codec",
+ "sp-inherents 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "sp-runtime 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "sp-std 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
 ]
 
 [[package]]

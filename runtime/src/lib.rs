@@ -30,7 +30,7 @@ mod test_common;
 use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness},
+    traits::{KeyOwnerProofSystem, Randomness, Currency, Imbalance, OnUnbalanced},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         IdentityFee, Weight,
@@ -41,16 +41,16 @@ use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::traits::{
-    BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
-};
-use sp_runtime::Perbill;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
-    traits::{OpaqueKeys, ConvertInto},
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    ApplyExtrinsicResult, MultiSignature, Perbill, print, SaturatedConversion
 };
+use sp_runtime::traits::{
+    BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
+    OpaqueKeys, ConvertInto
+};
+
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -74,6 +74,26 @@ type Index = u32;
 
 /// A hash of some data used by the chain.
 type Hash = sp_core::H256;
+
+/// Negative imbalance used to transfer transaction fess to block author
+type NegativeImbalanceOf = <Balances as Currency<AccountId>>::NegativeImbalance;
+
+/// Transfer complete transaction fees (including tip) to the block author
+pub struct FeePayment;
+impl OnUnbalanced<NegativeImbalanceOf> for FeePayment {
+    /// There is only 1 way to have an imbalance in the system right now which is txn fees
+    fn on_nonzero_unbalanced(amount: NegativeImbalanceOf) {
+        // TODO: Remove the next 3 debug lines
+        let current_fees = amount.peek();
+        print("Current txn fees");
+        print(current_fees.saturated_into::<u64>());
+
+        // Get the current block author
+        let author = Authorship::author();
+        // `resolve_creating` will do the re-issuance of tokens burnt during drop of this imbalance
+        Balances::resolve_creating(&author, amount);
+    }
+}
 
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
@@ -209,8 +229,6 @@ impl grandpa::Trait for Runtime {
 
     type Call = Call;
 
-    type KeyOwnerProofSystem = ();
-
     type KeyOwnerProof =
         <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
@@ -218,6 +236,8 @@ impl grandpa::Trait for Runtime {
         KeyTypeId,
         GrandpaId,
     )>>::IdentificationTuple;
+
+    type KeyOwnerProofSystem = ();
 
     type HandleEquivocation = ();
 }
@@ -253,7 +273,7 @@ parameter_types! {
 
 impl transaction_payment::Trait for Runtime {
     type Currency = balances::Module<Runtime>;
-    type OnTransactionPayment = ();
+    type OnTransactionPayment = FeePayment;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -308,6 +328,18 @@ impl poa::Trait for Runtime {
     type MaxActiveValidators = MaxActiveValidators;
 }
 
+parameter_types! {
+    // Not accepting any uncles
+    pub const UncleGenerations: u32 = 0;
+}
+
+impl pallet_authorship::Trait for Runtime {
+    type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
+    type UncleGenerations = UncleGenerations;
+    type FilterUncle = ();
+    type EventHandler = ();
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -322,6 +354,7 @@ construct_runtime!(
         Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
         Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
         DIDModule: did::{Module, Call, Storage, Event},

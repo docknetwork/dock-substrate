@@ -168,6 +168,12 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'v2.0.0-rc3'
 version = '2.0.0-rc3'
 
+[dependencies.pallet-authorship]
+git = 'https://github.com/paritytech/substrate.git'
+default-features = false
+tag = 'v2.0.0-rc3'
+version = '2.0.0-rc3'
+
 [dependencies.poa]
 default-features = false
 package = 'poa'
@@ -203,7 +209,8 @@ std = [
     'timestamp/std',
     'transaction-payment/std',
     'pallet-session/std',
-    'poa/std'
+    'pallet-authorship/std',
+    'poa/std',
 ]
 runtime-benchmarks = [
     'frame-benchmarking',
