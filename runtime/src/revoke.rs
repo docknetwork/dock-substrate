@@ -16,6 +16,7 @@ pub type PAuth = BTreeMap<Did, DidSignature>;
 
 /// Authorization logic for a registry.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Policy {
     /// Set of dids allowed to modify a registry.
     OneOf(BTreeSet<Did>),
@@ -33,6 +34,7 @@ impl Policy {
 
 /// Metadata about a revocation scope.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Registry {
     /// Who is allowed to update this registry.
     pub policy: Policy,
@@ -45,6 +47,7 @@ pub struct Registry {
 /// Creation of revocations is idempotent; creating a revocation that already exists is allowed,
 /// but has no effect.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Revoke {
     /// The registry on which to operate
     pub registry_id: RegistryId,
@@ -58,6 +61,7 @@ pub struct Revoke {
 /// Removal of revocations is idempotent; removing a revocation that doesn't exists is allowed,
 /// but has no effect.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnRevoke {
     /// The registry on which to operate
     pub registry_id: RegistryId,
@@ -70,6 +74,7 @@ pub struct UnRevoke {
 /// Command to remove an entire registy. Removes all revocations in the registry as well as
 /// registry metadata.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemoveRegistry {
     /// The registry on which to operate
     pub registry_id: RegistryId,

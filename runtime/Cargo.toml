@@ -49,6 +49,10 @@ features = ['derive']
 optional = true
 version = '1.0.101'
 
+[dependencies.serde-big-array]
+optional = true
+version = "0.3.0"
+
 [dependencies.sp-api]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
@@ -166,6 +170,7 @@ std = [
     'grandpa/std',
     'randomness-collective-flip/std',
     'serde',
+    'serde-big-array',
     'sp-api/std',
     'sp-block-builder/std',
     'sp-consensus-aura/std',

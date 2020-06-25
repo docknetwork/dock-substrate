@@ -75,6 +75,7 @@ type Hash = sp_core::H256;
 /// not self describing.
 /// Never change the order of variants in this enum
 #[derive(Encode, Decode)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum StateChange {
     KeyUpdate(did::KeyUpdate),
     DIDRemoval(did::DidRemoval),
