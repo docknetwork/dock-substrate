@@ -318,7 +318,7 @@ impl pallet_session::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const MinEpochLength: BlockNumber = 5;
+    pub const MinEpochLength: u64 = 5;
     pub const MaxActiveValidators: u8 = 4;
 }
 

@@ -9,8 +9,7 @@ use sp_core::{sr25519, Pair, Public, ecdsa};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
-    MultiSignature,
-    print
+    MultiSignature
 };
 
 fn session_keys(
@@ -19,11 +18,6 @@ fn session_keys(
 ) -> SessionKeys {
     SessionKeys { aura, grandpa }
 }
-
-
-/// THIS IS ONLY USED FOR GENESIS
-/// THIS MUST BE SAME AS WHATS DEFINED IN runtime/lib.rs
-const MinEpochLength: u32 = 5;
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -272,17 +266,6 @@ fn testnet_genesis(
     endowed_accounts: Vec<AccountId>,
     _enable_println: bool,
 ) -> GenesisConfig {
-    let num_auth = initial_authorities.len() as u32;
-    let rem = MinEpochLength % num_auth;
-    let epoch_len = if rem == 0 {
-        MinEpochLength
-    } else {
-        MinEpochLength + num_auth - rem
-    };
-    print("epoch_len is---");
-    print(epoch_len);
-    println!("epoch_len is {}", epoch_len);
-    // Customize
     GenesisConfig {
         system: Some(SystemConfig {
             code: WASM_BINARY.to_vec(),
@@ -295,7 +278,6 @@ fn testnet_genesis(
         }),
         poa: Some(PoAModuleConfig {
             active_validators: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
-            next_epoch_begins_after: epoch_len + 1,    // +1 as first block is genesis and not produced by anyone
             force_session_change: false,
         }),
         balances: Some(BalancesConfig {
@@ -307,14 +289,9 @@ fn testnet_genesis(
         }),
         sudo: Some(SudoConfig { key: root_key }),
         aura: Some(AuraConfig {
-            //authorities: initial_authorities.iter().map(|x| (x.1.clone())).collect(),
             authorities:  vec![],
         }),
         grandpa: Some(GrandpaConfig {
-            // authorities: initial_authorities
-            //     .iter()
-            //     .map(|x| (x.2.clone(), 1))
-            //     .collect(),
             authorities: vec![]
         }),
     }

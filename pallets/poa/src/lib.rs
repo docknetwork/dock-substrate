@@ -4,6 +4,7 @@ use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch,
                     fail, traits::Get, sp_runtime::{print, SaturatedConversion} };
 use frame_system::{self as system, ensure_root};
 use sp_std::prelude::Vec;
+use codec::Decode;
 
 extern crate alloc;
 use alloc::collections::BTreeSet;
@@ -17,7 +18,8 @@ pub trait Trait: system::Trait + pallet_session::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
-    type MinEpochLength: Get<u32>;
+    /// Epoch length in number of slots
+    type MinEpochLength: Get<u64>;
 
     type MaxActiveValidators: Get<u8>;
 }
@@ -29,11 +31,11 @@ decl_storage! {
 	    /// List of active validators. Maximum allowed are `MaxActiveValidators`
 		ActiveValidators get(fn active_validators) config(): Vec<T::AccountId>;
 
-        /// Next epoch will begin after this block number, i.e. this block number will be the last
-        /// block of the current epoch
-		NextEpochChangeAfter get(fn next_epoch_begins_after) config(): T::BlockNumber;
+        /// Next epoch will begin after this slot number, i.e. this slot number will be the last
+        /// slot of the current epoch
+		EpochEndsAt get(fn epoch_ends_at): u64;
 
-        /// Boolean flag to force session change. This will disregard block number in NextEpochChangeAfter
+        /// Boolean flag to force session change. This will disregard block number in EpochEndsAt
         ForceSessionChange get(fn force_session_change) config(): bool;
 
         /// Queue of validators to become part of the active validators. Validators can be added either
@@ -86,7 +88,7 @@ decl_module! {
 	/// The module declaration.
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 	    // Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
-	    // `should_end_session` since that it called more frequentily.
+	    // `should_end_session` since that it called more frequently.
 
 		// Initializing errors
 		// this includes information about your errors in the node's metadata.
@@ -263,7 +265,7 @@ impl<T: Trait> Module<T> {
 
     /// Update active validator set if needed and return if the active validator set changed and the
     /// count of the new active validators.
-    fn update_active_validators_if_needed() -> (bool, u32) {
+    fn update_active_validators_if_needed() -> (bool, u8) {
         let mut active_validators = Self::active_validators();
         let mut validators_to_add = Self::validators_to_add();
         // Remove any validators that need to be removed.
@@ -317,7 +319,7 @@ impl<T: Trait> Module<T> {
 
             ForceSessionChange::put(false);
 
-            let active_validator_count = active_validators.len() as u32;
+            let active_validator_count = active_validators.len() as u8;
             if active_validator_set_changed {
                 print("Active validator set changed, rotating session");
                 print(count_added);
@@ -326,29 +328,32 @@ impl<T: Trait> Module<T> {
             }
             (active_validator_set_changed, active_validator_count)
         } else {
-            (false, active_validators.len() as u32)
+            (false, active_validators.len() as u8)
         }
     }
 
     /// Set next epoch duration such that it is >= `MinEpochLength` and also a multiple of the
     /// number of active validators
-    fn set_next_epoch_change(current_block_no: u32, active_validator_count: u32) {
-        let min_session_len = T::MinEpochLength::get();
-        let rem = min_session_len % active_validator_count;
-        let session_len = if rem == 0 {
-            min_session_len
+    fn set_current_epoch_end(current_slot_no: u64, active_validator_count: u8) {
+        let min_epoch_len = T::MinEpochLength::get();
+        let active_validator_count = active_validator_count as u64;
+        let rem = min_epoch_len % active_validator_count;
+        let epoch_len = if rem == 0 {
+            min_epoch_len
         } else {
-            min_session_len + active_validator_count - rem
+            min_epoch_len + active_validator_count - rem
         };
-        let next_session_at = current_block_no + session_len;
-        print("next session at");
-        print(next_session_at);
-        <NextEpochChangeAfter<T>>::put(T::BlockNumber::from(next_session_at));
+        let epoch_ends_at = current_slot_no + epoch_len;
+        print("epoch ends at");
+        print(epoch_ends_at);
+        EpochEndsAt::put(epoch_ends_at);
     }
 
-    fn swap(old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> u32 {
+    /// Swap a validator account from active validators. Swap out `old_validator_id` for `new_validator_id`.
+    /// Expects the active validator set to contain `old_validator_id`. This is ensured by the extrinsic.
+    fn swap(old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> u8 {
         let mut active_validators = Self::active_validators();
-        let count = active_validators.len() as u32;
+        let count = active_validators.len() as u8;
         for (i, v) in active_validators.iter().enumerate() {
             if *v == old_validator_id {
                 active_validators[i] = new_validator_id;
@@ -358,6 +363,30 @@ impl<T: Trait> Module<T> {
         <ActiveValidators<T>>::put(active_validators);
         count
     }
+
+    fn current_slot_no() -> Option<u64> {
+        let digest = <system::Module<T>>::digest();
+        let logs = digest.logs();
+        if logs.len() > 0 {
+            // Assumes that the first log is for PreRuntime digest
+            match logs[0].as_pre_runtime() {
+                Some(pre_run) => {
+                    // Assumes that the 2nd element of tuple is for slot no.
+                    let s = u64::decode(&mut &pre_run.1[..]).unwrap();
+                    print("current slot no");
+                    print(s);
+                    Some(s)
+                }
+                None => {
+                    // print("Not as_pre_runtime ");
+                    None
+                }
+            }
+        } else {
+            // print("No logs");
+            None
+        }
+    }
 }
 
 /// Indicates to the session module if the session should be rotated.
@@ -365,24 +394,26 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
     fn should_end_session(_now: T::BlockNumber) -> bool {
         print("Called should_end_session");
 
+        // TODO: Next 3 are debugging lines. Remove them.
         let current_block_no = <system::Module<T>>::block_number().saturated_into::<u32>();
-        let next_epoch_begins_after = Self::next_epoch_begins_after().saturated_into::<u32>();
         print("current_block_no");
         print(current_block_no.saturated_into::<u32>());
-        print("current_block_no");
-        print(next_epoch_begins_after);
 
-        // TODO: Remove once sure the following panic is never triggered
-        if current_block_no > next_epoch_begins_after {
-            panic!("Current block number > current_block_no");
-        }
+        let current_slot_no = match Self::current_slot_no() {
+            Some(s) => s,
+            None => {print("Cannot fetch slot number"); return false}
+        };
+
+        let epoch_ends_at = Self::epoch_ends_at().saturated_into::<u64>();
+        print("epoch ends at");
+        print(epoch_ends_at);
 
         // Unless the session is being forcefully ended or epoch has had the required number of blocks,
         // or hot swap is triggered, continue the session.
         // TODO: Reduce reads from 2 to 1 by changing the boolean flag to be integer (u8) for different conditions.
         let force_session_change = Self::force_session_change();
         let hot_swap = <HotSwap<T>>::take();
-        if force_session_change || (current_block_no == next_epoch_begins_after) || hot_swap.is_some() {
+        if force_session_change || (current_slot_no >= epoch_ends_at) || hot_swap.is_some() {
 
             let (active_validator_set_changed, active_validator_count) = if hot_swap.is_some() {
                 let (old_validator, new_validator) = hot_swap.unwrap();
@@ -392,10 +423,12 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
             };
 
             if active_validator_set_changed {
+                // Manually calling `rotate_session` will make the new validator set change take effect
+                // on next session (as `rotate_session` will be called again once this function returns true)
                 <pallet_session::Module<T>>::rotate_session();
             }
 
-            Self::set_next_epoch_change(current_block_no, active_validator_count);
+            Self::set_current_epoch_end(current_slot_no, active_validator_count);
             true
         } else {
             false
