@@ -18,6 +18,13 @@ features = ['derive']
 package = 'parity-scale-codec'
 version = '1.3.0'
 
+[dependencies.collective]
+git = 'https://github.com/paritytech/substrate.git'
+default-features = false
+package = 'pallet-collective'
+tag = 'v2.0.0-rc2'
+version = '2.0.0-rc2'
+
 [dependencies.frame-executive]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
@@ -165,6 +172,7 @@ std = [
     'aura/std',
     'balances/std',
     'codec/std',
+    'collective/std',
     'frame-executive/std',
     'frame-support/std',
     'grandpa/std',

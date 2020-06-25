@@ -1,5 +1,7 @@
+use core::marker::PhantomData;
 use dock_testnet_runtime::{
-    AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    AuraConfig, BalancesConfig, CollectiveConfig, GenesisConfig, GrandpaConfig, SudoConfig,
+    SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -12,9 +14,6 @@ use sp_runtime::{
 };
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
-
-// Note this is the URL for the telemetry server
-//const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
@@ -62,14 +61,17 @@ pub fn development_config() -> ChainSpec {
         || {
             testnet_genesis(
                 vec![get_authority_keys_from_seed("Alice")],
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
                     get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
                 ],
-                true,
+                vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice//collective"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//collective"),
+                ],
             )
         },
         vec![],
@@ -91,7 +93,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     get_authority_keys_from_seed("Alice"),
                     get_authority_keys_from_seed("Bob"),
                 ],
-                get_account_id_from_seed::<sr25519::Public>("Alice"),
+                Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
                 vec![
                     get_account_id_from_seed::<sr25519::Public>("Alice"),
                     get_account_id_from_seed::<sr25519::Public>("Bob"),
@@ -106,7 +108,10 @@ pub fn local_testnet_config() -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
-                true,
+                vec![
+                    get_account_id_from_seed::<sr25519::Public>("Alice//collective"),
+                    get_account_id_from_seed::<sr25519::Public>("Bob//collective"),
+                ],
             )
         },
         vec![],
@@ -142,9 +147,9 @@ pub fn remote_testnet_config() -> ChainSpec {
                         ),
                     ),
                 ],
-                account_id_from_ss58::<sr25519::Public>(
+                Some(account_id_from_ss58::<sr25519::Public>(
                     "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
-                ),
+                )),
                 vec![
                     account_id_from_ss58::<sr25519::Public>(
                         "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
@@ -153,16 +158,26 @@ pub fn remote_testnet_config() -> ChainSpec {
                         "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
                     ),
                 ],
-                true,
+                vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5Eco112V85Vu7kdCGFRPqg5iz6BzaskTrcorF7k9M4WrLg87",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5Cco11WbbaLcngAzV2MBMn566aksWRvaWorrivJHUJhgZDnN",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5Cco11xaecmWGRuDihk9h85Btsgbevowdt9TgCjV98ALJkor",
+                    ),
+                ],
             )
         },
         vec![
             "/dns4/testnet-bootstrap1.dock.io/tcp/30333/p2p/\
-                     QmaWVer8pXKR8AM6u2B8r9gXivTW9vTitb6gjLM6FYQcXS"
+             QmaWVer8pXKR8AM6u2B8r9gXivTW9vTitb6gjLM6FYQcXS"
                 .parse()
                 .unwrap(),
             "/dns4/testnet-bootstrap2.dock.io/tcp/30333/p2p/\
-                     QmPSP1yGiECdm5wVXVDF9stGfvVPSY8QUT4PhYB4Gnk77Q"
+             QmPSP1yGiECdm5wVXVDF9stGfvVPSY8QUT4PhYB4Gnk77Q"
                 .parse()
                 .unwrap(),
         ],
@@ -175,9 +190,9 @@ pub fn remote_testnet_config() -> ChainSpec {
 
 fn testnet_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
-    root_key: AccountId,
+    root_key: Option<AccountId>,
     endowed_accounts: Vec<AccountId>,
-    _enable_println: bool,
+    collective: Vec<AccountId>,
 ) -> GenesisConfig {
     GenesisConfig {
         system: Some(SystemConfig {
@@ -191,7 +206,7 @@ fn testnet_genesis(
                 .map(|k| (k, 1 << 60))
                 .collect(),
         }),
-        sudo: Some(SudoConfig { key: root_key }),
+        sudo: root_key.map(|key| SudoConfig { key }),
         aura: Some(AuraConfig {
             authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
         }),
@@ -200,6 +215,10 @@ fn testnet_genesis(
                 .iter()
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
+        }),
+        collective: Some(CollectiveConfig {
+            members: collective,
+            phantom: PhantomData,
         }),
     }
 }

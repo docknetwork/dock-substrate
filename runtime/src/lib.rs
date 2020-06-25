@@ -275,6 +275,19 @@ impl blob::Trait for Runtime {
     type MaxBlobSize = MaxBlobSize;
 }
 
+parameter_types! {
+    pub const MotionDuration: u32 = 3;
+    pub const MaxProposals: u32 = 100;
+}
+
+impl collective::Trait for Runtime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+    type MotionDuration = MotionDuration;
+    type MaxProposals = MaxProposals;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -291,7 +304,8 @@ construct_runtime!(
         Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
         DIDModule: did::{Module, Call, Storage, Event},
         Revoke: revoke::{Module, Call, Storage},
-        BlobStore: blob::{Module, Call, Storage}
+        BlobStore: blob::{Module, Call, Storage},
+        Collective: collective::{Module, Call, Event<T>, Origin<T>, Config<T>},
     }
 );
 
