@@ -2,4 +2,4 @@
 
 use super::*;
 
-use frame_benchmarking::{benchmarks, account};
+use frame_benchmarking::{account, benchmarks};

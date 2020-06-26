@@ -2,7 +2,10 @@ use crate as dock;
 use crate::did::{self, Did, DidSignature};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get, weights::Weight};
+use frame_support::{
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
+    weights::Weight,
+};
 use system::ensure_signed;
 
 /// Points to an on-chain revocation registry.

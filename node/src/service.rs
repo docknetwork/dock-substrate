@@ -41,15 +41,13 @@ macro_rules! new_full_start {
         >($config)?
         .with_select_chain(|_config, backend| Ok(sc_consensus::LongestChain::new(backend.clone())))?
         .with_transaction_pool(|builder| {
-            let pool_api = sc_transaction_pool::FullChainApi::new(
-                builder.client().clone(),
-            );
+            let pool_api = sc_transaction_pool::FullChainApi::new(builder.client().clone());
             Ok(sc_transaction_pool::BasicPool::new(
                 builder.config().transaction_pool.clone(),
                 std::sync::Arc::new(pool_api),
                 builder.prometheus_registry(),
             ))
-		})?
+        })?
         .with_import_queue(
             |_config, client, mut select_chain, _transaction_pool, spawn_task_handle, registry| {
                 let select_chain = select_chain
@@ -204,10 +202,12 @@ pub fn new_light(config: Configuration) -> Result<impl AbstractService, ServiceE
     ServiceBuilder::new_light::<Block, RuntimeApi, Executor>(config)?
         .with_select_chain(|_config, backend| Ok(LongestChain::new(backend.clone())))?
         .with_transaction_pool(|builder| {
-            let fetcher = builder.fetcher()
+            let fetcher = builder
+                .fetcher()
                 .ok_or_else(|| "Trying to start light transaction pool without active fetcher")?;
 
-            let pool_api = sc_transaction_pool::LightChainApi::new(builder.client().clone(), fetcher.clone());
+            let pool_api =
+                sc_transaction_pool::LightChainApi::new(builder.client().clone(), fetcher.clone());
             let pool = sc_transaction_pool::BasicPool::with_revalidation_type(
                 builder.config().transaction_pool.clone(),
                 Arc::new(pool_api),
