@@ -17,10 +17,11 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 
 /// When a new blob is being registered, the following object is sent.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Blob {
-    id: BlobId,
-    blob: Vec<u8>,
-    author: did::Did,
+    pub id: BlobId,
+    pub blob: Vec<u8>,
+    pub author: did::Did,
 }
 
 pub trait Trait: system::Trait + did::Trait {

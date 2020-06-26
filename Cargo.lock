@@ -767,6 +767,7 @@ dependencies = [
  "parity-scale-codec",
  "rand 0.7.3",
  "serde",
+ "serde-big-array",
  "sp-api",
  "sp-block-builder",
  "sp-consensus-aura",
@@ -4564,6 +4565,16 @@ version = "1.0.106"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "36df6ac6412072f67cf767ebbde4133a5b2e88e76dc6187fa7104cd16f783399"
 dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde-big-array"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "52309f7932ab258e58bcf73cc89037e307ffef3bcfb7ce7a246580c26f81dc55"
+dependencies = [
+ "serde",
  "serde_derive",
 ]
 
