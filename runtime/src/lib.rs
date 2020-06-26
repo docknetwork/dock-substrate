@@ -18,6 +18,7 @@ extern crate alloc;
 
 pub mod blob;
 pub mod did;
+pub mod master;
 pub mod revoke;
 
 #[cfg(test)]
@@ -280,14 +281,6 @@ parameter_types! {
     pub const MaxProposals: u32 = 100;
 }
 
-impl collective::Trait for Runtime {
-    type Origin = Origin;
-    type Proposal = Call;
-    type Event = Event;
-    type MotionDuration = MotionDuration;
-    type MaxProposals = MaxProposals;
-}
-
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -305,7 +298,7 @@ construct_runtime!(
         DIDModule: did::{Module, Call, Storage, Event},
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
-        Collective: collective::{Module, Call, Event<T>, Origin<T>, Config<T>},
+        Master: master::{Module, Call, Storage},
     }
 );
 
