@@ -30,7 +30,7 @@ mod test_common;
 use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness, Currency, Imbalance, OnUnbalanced},
+    traits::{Currency, Imbalance, KeyOwnerProofSystem, OnUnbalanced, Randomness},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         IdentityFee, Weight,
@@ -41,14 +41,14 @@ use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
-use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys,
-    transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature, Perbill, print, SaturatedConversion
-};
 use sp_runtime::traits::{
-    BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
-    OpaqueKeys, ConvertInto
+    BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, NumberFor,
+    OpaqueKeys, Saturating, Verify,
+};
+use sp_runtime::{
+    create_runtime_str, generic, impl_opaque_keys, print,
+    transaction_validity::{TransactionSource, TransactionValidity},
+    ApplyExtrinsicResult, MultiSignature, Perbill, SaturatedConversion,
 };
 
 use sp_std::prelude::*;
@@ -350,7 +350,7 @@ construct_runtime!(
         RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
         Timestamp: timestamp::{Module, Call, Storage, Inherent},
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-		PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
+        PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
         Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},

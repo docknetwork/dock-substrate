@@ -1,10 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch,
-                    fail, traits::Get, sp_runtime::{print, SaturatedConversion} };
+use codec::Decode;
+use frame_support::{
+    decl_error, decl_event, decl_module, decl_storage, dispatch, fail,
+    sp_runtime::{print, SaturatedConversion},
+    traits::Get,
+};
 use frame_system::{self as system, ensure_root};
 use sp_std::prelude::Vec;
-use codec::Decode;
 
 extern crate alloc;
 use alloc::collections::BTreeSet;
@@ -27,13 +30,13 @@ pub trait Trait: system::Trait + pallet_session::Trait {
 // This pallet's storage items.
 decl_storage! {
 
-	trait Store for Module<T: Trait> as PoAModule {
-	    /// List of active validators. Maximum allowed are `MaxActiveValidators`
-		ActiveValidators get(fn active_validators) config(): Vec<T::AccountId>;
+    trait Store for Module<T: Trait> as PoAModule {
+        /// List of active validators. Maximum allowed are `MaxActiveValidators`
+        ActiveValidators get(fn active_validators) config(): Vec<T::AccountId>;
 
         /// Next epoch will begin after this slot number, i.e. this slot number will be the last
         /// slot of the current epoch
-		EpochEndsAt get(fn epoch_ends_at): u64;
+        EpochEndsAt get(fn epoch_ends_at): u64;
 
         /// Boolean flag to force session change. This will disregard block number in EpochEndsAt
         ForceSessionChange get(fn force_session_change) config(): bool;
@@ -42,72 +45,75 @@ decl_storage! {
         /// to the back of the queue or front by passing a flag in the add method.
         /// On epoch end or immediately if forced, validators from the queue are taken out in FIFO order
         /// and added to the active validators unless the number of active validators reaches the max allowed.
-		QueuedValidators get(fn validators_to_add): Vec<T::AccountId>;
+        QueuedValidators get(fn validators_to_add): Vec<T::AccountId>;
 
         /// List to hold validators to remove either on the end of epoch or immediately. If a candidate validator
         /// is queued for becoming an active validator but also present in the removal list, it will
         /// not become active as this list takes precedence of queued validators. It is emptied on each
         /// epoch end
-		RemoveValidators get(fn validators_to_remove): Vec<T::AccountId>;
+        RemoveValidators get(fn validators_to_remove): Vec<T::AccountId>;
 
         /// Set when a hot swap is to be performed, replacing validator id as 1st element of tuple
         /// with the 2nd one.
-		HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>
-	}
+        HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>
+    }
 }
 
 // The pallet's events
 decl_event!(
-	pub enum Event<T> where AccountId = <T as system::Trait>::AccountId {
-		// New validator added in front of queue.
-		ValidatorQueuedInFront(AccountId),
+    pub enum Event<T>
+    where
+        AccountId = <T as system::Trait>::AccountId,
+    {
+        // New validator added in front of queue.
+        ValidatorQueuedInFront(AccountId),
 
-		// New validator added at back of queue.
-		ValidatorQueued(AccountId),
+        // New validator added at back of queue.
+        ValidatorQueued(AccountId),
 
-		// Validator removed.
-		ValidatorRemoved(AccountId),
-	}
+        // Validator removed.
+        ValidatorRemoved(AccountId),
+    }
 );
 
 // The pallet's errors
 decl_error! {
-	/// Errors for the module.
-	pub enum Error for Module<T: Trait> {
-	    MaxValidators,
-	    AlreadyActiveValidator,
-	    AlreadyQueuedForAddition,
-	    AlreadyQueuedForRemoval,
-		NeedAtLeast1Validator,
-		SwapOutFailed,
-		SwapInFailed,
-	}
+    /// Errors for the module.
+    pub enum Error for Module<T: Trait> {
+        MaxValidators,
+        AlreadyActiveValidator,
+        AlreadyQueuedForAddition,
+        AlreadyQueuedForRemoval,
+        NeedAtLeast1Validator,
+        SwapOutFailed,
+        SwapInFailed,
+    }
 }
 
 decl_module! {
-	/// The module declaration.
-	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-	    // Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
-	    // `should_end_session` since that it called more frequently.
+    /// The module declaration.
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        // Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
+        // `should_end_session` since that it called more frequently.
 
-		// Initializing errors
-		// this includes information about your errors in the node's metadata.
-		// it is needed only if you are using errors in your pallet
-		type Error = Error<T>;
+        // Initializing errors
+        // this includes information about your errors in the node's metadata.
+        // it is needed only if you are using errors in your pallet
+        type Error = Error<T>;
 
-		// Initializing events
-		// this is needed only if you are using events in your pallet
-		fn deposit_event() = default;
+        // Initializing events
+        // this is needed only if you are using events in your pallet
+        fn deposit_event() = default;
 
         /// Add a new validator to active validator set unless already a validator and the total number
         /// of validators don't exceed the max allowed count. The validator is considered for adding at
         /// the end of this epoch unless `add_now` is true. If a validator is already added to the queue
         /// an error will be thrown unless `add_now` is true, in which case it swallows the error.
         // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
-		#[weight = 0]
-		pub fn add_validator(origin, validator_id: T::AccountId, add_now: bool) -> dispatch::DispatchResult {
-		    // TODO: Check the origin is Master
-			ensure_root(origin)?;
+        #[weight = 0]
+        pub fn add_validator(origin, validator_id: T::AccountId, add_now: bool) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
 
             // Check if the validator is not already present as an active one
             let active_validators = Self::active_validators();
@@ -144,8 +150,8 @@ decl_module! {
                 <QueuedValidators<T>>::put(validators);
                 Self::deposit_event(RawEvent::ValidatorQueued(validator_id));
             }
-			Ok(())
-		}
+            Ok(())
+        }
 
         /// Remove the given validator from active validator set and the queued validators at the end
         /// of epoch unless `remove_now` is true. If validator is already queued for removal, an error
@@ -153,10 +159,10 @@ decl_module! {
         /// It will not remove the validator if the removal will cause the active validator set to
         /// be empty even after considering the queued validators.
         // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
-		#[weight = 0]
-		pub fn remove_validator(origin, validator_id: T::AccountId, remove_now: bool) -> dispatch::DispatchResult {
-		    // TODO: Check the origin is Master
-			ensure_root(origin)?;
+        #[weight = 0]
+        pub fn remove_validator(origin, validator_id: T::AccountId, remove_now: bool) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
 
             let mut validators_to_remove: Vec<T::AccountId> = Self::validators_to_remove();
             // Form a set of validators to remove
@@ -209,17 +215,17 @@ decl_module! {
             if remove_now {
                 ForceSessionChange::put(true);
             }
-			Ok(())
-		}
+            Ok(())
+        }
 
         /// Replace an active validator (`old_validator_id`) with a new validator (`new_validator_id`)
         /// without waiting for epoch to end. Throws error if `old_validator_id` is not active or
         /// `new_validator_id` is already active. Also useful when a validator wants to rotate his account.
-		// Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
-		#[weight = 0]
-		pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
-		    // TODO: Check the origin is Master
-			ensure_root(origin)?;
+        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
+        #[weight = 0]
+        pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
 
             let active_validators: Vec<T::AccountId> = Self::active_validators().into();
 
@@ -242,8 +248,8 @@ decl_module! {
 
             <HotSwap<T>>::put((old_validator_id, new_validator_id));
             Ok(())
-		}
-	}
+        }
+    }
 }
 
 impl<T: Trait> Module<T> {
@@ -275,7 +281,7 @@ impl<T: Trait> Module<T> {
         let mut queued_validator_set_changed = false;
 
         // If any validator is to be added or removed
-        if (validators_to_remove.len() > 0 ) || (validators_to_add.len() > 0) {
+        if (validators_to_remove.len() > 0) || (validators_to_add.len() > 0) {
             // TODO: Remove debugging variable below
             let mut count_removed = 0u32;
 
@@ -401,7 +407,10 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
 
         let current_slot_no = match Self::current_slot_no() {
             Some(s) => s,
-            None => {print("Cannot fetch slot number"); return false}
+            None => {
+                print("Cannot fetch slot number");
+                return false;
+            }
         };
 
         let epoch_ends_at = Self::epoch_ends_at().saturated_into::<u64>();
@@ -414,7 +423,6 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         let force_session_change = Self::force_session_change();
         let hot_swap = <HotSwap<T>>::take();
         if force_session_change || (current_slot_no >= epoch_ends_at) || hot_swap.is_some() {
-
             let (active_validator_set_changed, active_validator_count) = if hot_swap.is_some() {
                 let (old_validator, new_validator) = hot_swap.unwrap();
                 (true, Self::swap(old_validator, new_validator))
@@ -445,7 +453,11 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
         print("Called new_session");
         let validators = Self::active_validators();
         // Check for error on empty validator set. On returning None, it loads validator set from genesis
-        if validators.len() == 0 { None } else { Some(validators) }
+        if validators.len() == 0 {
+            None
+        } else {
+            Some(validators)
+        }
     }
 
     fn end_session(_: u32) {}

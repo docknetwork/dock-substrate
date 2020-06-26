@@ -3,7 +3,7 @@ use crate as dock;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
-    dispatch::DispatchResult, ensure, fail, traits::Get, weights::Weight
+    dispatch::DispatchResult, ensure, fail, traits::Get, weights::Weight,
 };
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_runtime::traits::Verify;

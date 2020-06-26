@@ -1,21 +1,18 @@
 use dock_testnet_runtime::{
-    AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SudoConfig, SystemConfig, WASM_BINARY,
-    SessionConfig, opaque::SessionKeys, PoAModuleConfig
+    opaque::SessionKeys, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, PoAModuleConfig,
+    SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{sr25519, Pair, Public, ecdsa};
+use sp_core::{ecdsa, sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
-    MultiSignature
+    MultiSignature,
 };
 
-fn session_keys(
-    aura: AuraId,
-    grandpa: GrandpaId,
-) -> SessionKeys {
+fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
     SessionKeys { aura, grandpa }
 }
 
@@ -46,12 +43,20 @@ where
 
 /// Helper function to generate an authority key for Aura and Grandpa
 pub fn get_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
-    (get_account_id_from_seed::<sr25519::Public>(s), get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+    (
+        get_account_id_from_seed::<sr25519::Public>(s),
+        get_from_seed::<AuraId>(s),
+        get_from_seed::<GrandpaId>(s),
+    )
 }
 
 /// Helper function to generate an account id and authority key for Aura and Grandpa
 pub fn get_poa_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
-    (get_account_id_from_seed::<sr25519::Public>(s), get_from_seed::<AuraId>(s), get_from_seed::<GrandpaId>(s))
+    (
+        get_account_id_from_seed::<sr25519::Public>(s),
+        get_from_seed::<AuraId>(s),
+        get_from_seed::<GrandpaId>(s),
+    )
 }
 
 /// Create a public key from an SS58 address
@@ -140,7 +145,7 @@ pub fn remote_testnet_config() -> ChainSpec {
                 vec![
                     (
                         account_id_from_ss58::<ecdsa::Public>(
-                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t"
+                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
                         ),
                         pubkey_from_ss58::<AuraId>(
                             "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
@@ -151,7 +156,7 @@ pub fn remote_testnet_config() -> ChainSpec {
                     ),
                     (
                         account_id_from_ss58::<ecdsa::Public>(
-                            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh"
+                            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
                         ),
                         pubkey_from_ss58::<AuraId>(
                             "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
@@ -272,12 +277,22 @@ fn testnet_genesis(
             changes_trie_config: Default::default(),
         }),
         pallet_session: Some(SessionConfig {
-            keys: initial_authorities.iter().map(|x| {
-                (x.0.clone(), x.0.clone(), session_keys(x.1.clone(), x.2.clone()))
-            }).collect::<Vec<_>>(),
+            keys: initial_authorities
+                .iter()
+                .map(|x| {
+                    (
+                        x.0.clone(),
+                        x.0.clone(),
+                        session_keys(x.1.clone(), x.2.clone()),
+                    )
+                })
+                .collect::<Vec<_>>(),
         }),
         poa: Some(PoAModuleConfig {
-            active_validators: initial_authorities.iter().map(|x| x.0.clone()).collect::<Vec<_>>(),
+            active_validators: initial_authorities
+                .iter()
+                .map(|x| x.0.clone())
+                .collect::<Vec<_>>(),
             force_session_change: false,
         }),
         balances: Some(BalancesConfig {
@@ -289,10 +304,10 @@ fn testnet_genesis(
         }),
         sudo: Some(SudoConfig { key: root_key }),
         aura: Some(AuraConfig {
-            authorities:  vec![],
+            authorities: vec![],
         }),
         grandpa: Some(GrandpaConfig {
-            authorities: vec![]
+            authorities: vec![],
         }),
     }
 }
