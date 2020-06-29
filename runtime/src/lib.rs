@@ -75,9 +75,9 @@ type Index = u32;
 /// A hash of some data used by the chain.
 type Hash = sp_core::H256;
 
+// TODO: Remove commented code below
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf = <Balances as Currency<AccountId>>::NegativeImbalance;
-
 /// Transfer complete transaction fees (including tip) to the block author
 pub struct FeePayment;
 impl OnUnbalanced<NegativeImbalanceOf> for FeePayment {
@@ -273,6 +273,7 @@ parameter_types! {
 
 impl transaction_payment::Trait for Runtime {
     type Currency = balances::Module<Runtime>;
+    // type OnTransactionPayment = PoAModule;
     type OnTransactionPayment = FeePayment;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
@@ -326,6 +327,8 @@ impl poa::Trait for Runtime {
     type Event = Event;
     type MinEpochLength = MinEpochLength;
     type MaxActiveValidators = MaxActiveValidators;
+    // type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
+    type Currency = balances::Module<Runtime>;
 }
 
 parameter_types! {
@@ -333,6 +336,7 @@ parameter_types! {
     pub const UncleGenerations: u32 = 0;
 }
 
+// TODO: Get rid of this and move fee deduction to poa module
 impl pallet_authorship::Trait for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
     type UncleGenerations = UncleGenerations;

@@ -1,11 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use codec::Decode;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch, fail,
-    sp_runtime::{print, SaturatedConversion},
-    traits::Get,
-};
+use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch,
+                    fail, traits::{Get, FindAuthor, Currency, Imbalance, OnUnbalanced}, sp_runtime::{print, SaturatedConversion} };
 use frame_system::{self as system, ensure_root};
 use sp_std::prelude::Vec;
 
@@ -15,7 +11,7 @@ use alloc::collections::BTreeSet;
 /// Pallet to add and remove validators.
 
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait + pallet_session::Trait {
+pub trait Trait: system::Trait + pallet_session::Trait + pallet_authorship::Trait {
     // Add other types and constants required to configure this pallet.
 
     /// The overarching event type.
@@ -24,7 +20,12 @@ pub trait Trait: system::Trait + pallet_session::Trait {
     /// Epoch length in number of slots
     type MinEpochLength: Get<u64>;
 
+    /// Maximum no. of active validators allowed
     type MaxActiveValidators: Get<u8>;
+
+    // type FindAuthor: FindAuthor<Self::AccountId>;
+
+    type Currency: Currency<Self::AccountId>;
 }
 
 // This pallet's storage items.
@@ -55,8 +56,18 @@ decl_storage! {
 
         /// Set when a hot swap is to be performed, replacing validator id as 1st element of tuple
         /// with the 2nd one.
-        HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>
-    }
+		HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>;
+
+		/// Current epoch
+        Epoch get(fn epoch): u32;
+
+        /// For each epoch, validator count, starting slot, ending slot
+        Epochs get(fn get_epoch_detail): map hasher(identity) u32 => (u8, u64, Option<u64>);
+
+        /// Block produced by each validator per epoch
+        EpochBlockCounts get(fn get_block_count_for_validator):
+            double_map hasher(identity) u32, hasher(opaque_blake2_256) T::AccountId => u64;
+	}
 }
 
 // The pallet's events
@@ -248,8 +259,18 @@ decl_module! {
 
             <HotSwap<T>>::put((old_validator_id, new_validator_id));
             Ok(())
-        }
-    }
+		}
+
+		fn on_finalize() {
+            print("Finalized block");
+            // Get the current block author
+            // let author = Authorship::author();
+            let author = <pallet_authorship::Module<T>>::author();
+            let current_epoch_no = Self::epoch();
+            let block_count = Self::get_block_count_for_validator(current_epoch_no, &author);
+            <EpochBlockCounts<T>>::insert(current_epoch_no, author, block_count+1);
+		}
+	}
 }
 
 impl<T: Trait> Module<T> {
@@ -349,7 +370,8 @@ impl<T: Trait> Module<T> {
         } else {
             min_epoch_len + active_validator_count - rem
         };
-        let epoch_ends_at = current_slot_no + epoch_len;
+        // Current slot no is part of epoch
+        let epoch_ends_at = current_slot_no + epoch_len - 1;
         print("epoch ends at");
         print(epoch_ends_at);
         EpochEndsAt::put(epoch_ends_at);
@@ -403,7 +425,7 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         // TODO: Next 3 are debugging lines. Remove them.
         let current_block_no = <system::Module<T>>::block_number().saturated_into::<u32>();
         print("current_block_no");
-        print(current_block_no.saturated_into::<u32>());
+        print(current_block_no);
 
         let current_slot_no = match Self::current_slot_no() {
             Some(s) => s,
@@ -422,7 +444,8 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         // TODO: Reduce reads from 2 to 1 by changing the boolean flag to be integer (u8) for different conditions.
         let force_session_change = Self::force_session_change();
         let hot_swap = <HotSwap<T>>::take();
-        if force_session_change || (current_slot_no >= epoch_ends_at) || hot_swap.is_some() {
+        if force_session_change || (current_slot_no > epoch_ends_at) || hot_swap.is_some() {
+
             let (active_validator_set_changed, active_validator_count) = if hot_swap.is_some() {
                 let (old_validator, new_validator) = hot_swap.unwrap();
                 (true, Self::swap(old_validator, new_validator))
@@ -456,6 +479,36 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
         if validators.len() == 0 {
             None
         } else {
+            // let current_epoch_no = Epoch::get();
+            // Epoch::put(current_epoch_no + 1);
+            // print("Current epoch no");
+            // print(current_epoch_no);
+
+            print("Current session index");
+            print(session_idx);
+
+            // This slot number should always be available here. If its not then panic.
+            let current_slot_no = Self::current_slot_no().unwrap();
+
+            let current_epoch_no = session_idx - 1;
+
+            if session_idx == 2 {
+                // First working session
+            } else {
+                let prev_epoch = session_idx - 2;
+                let (v, start, _) = Epochs::get(&prev_epoch);
+                if v == 0 {
+                    // This get should never fail. But if it does, let it panic
+                    print("Data for previous epoch not found");
+                    print(prev_epoch);
+                    panic!();
+                }
+                Epochs::insert(prev_epoch, (v, start, Some(current_slot_no - 1)))
+            }
+
+            Epoch::put(current_epoch_no);
+            Epochs::insert(current_epoch_no, (validators.len() as u8, current_slot_no, None as Option<u64>));
+
             Some(validators)
         }
     }
@@ -463,5 +516,24 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
     fn end_session(_: u32) {}
     fn start_session(_: u32) {}
 }
+
+/*/// Negative imbalance used to transfer transaction fess to block author
+type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+
+/// Transfer complete transaction fees (including tip) to the block author
+impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T>{
+    /// There is only 1 way to have an imbalance in the system right now which is txn fees
+    fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
+        // TODO: Remove the next 3 debug lines
+        let current_fees = amount.peek();
+        print("Current txn fees");
+        print(current_fees.saturated_into::<u64>());
+
+        // Get the current block author
+        let author = <pallet_authorship::Module<T>>::author();
+        // `resolve_creating` will do the re-issuance of tokens burnt during drop of this imbalance
+        T::Currency::resolve_creating(&author, amount);
+    }
+}*/
 
 // TODO: Tested with SDK script Write runtime tests if time permits.
