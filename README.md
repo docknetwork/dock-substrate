@@ -44,7 +44,7 @@ Now you can build the node binary.
 cargo build --release
 ```
 
-See [CONTRIBUTING.md](./contributing) for contribution guidelines.
+See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
 
 ## Recipes
 
