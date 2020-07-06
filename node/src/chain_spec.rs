@@ -1,7 +1,5 @@
-use core::marker::PhantomData;
 use dock_testnet_runtime::{
-    AuraConfig, BalancesConfig, CollectiveConfig, GenesisConfig, GrandpaConfig, SudoConfig,
-    SystemConfig, WASM_BINARY,
+    AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -192,9 +190,9 @@ fn testnet_genesis(
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     root_key: Option<AccountId>,
     endowed_accounts: Vec<AccountId>,
-    collective: Vec<AccountId>,
+    _collective: Vec<AccountId>,
 ) -> GenesisConfig {
-    GenesisConfig {
+    let _ = GenesisConfig {
         system: Some(SystemConfig {
             code: WASM_BINARY.to_vec(),
             changes_trie_config: Default::default(),
@@ -216,9 +214,6 @@ fn testnet_genesis(
                 .map(|x| (x.1.clone(), 1))
                 .collect(),
         }),
-        collective: Some(CollectiveConfig {
-            members: collective,
-            phantom: PhantomData,
-        }),
-    }
+    };
+    todo!("configure collective")
 }

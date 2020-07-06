@@ -4,22 +4,23 @@
 
 use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
+use blake2::Digest;
 use codec::{Decode, Encode};
 use core::default::Default;
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, ensure, Parameter};
 use system::{ensure_root, ensure_signed};
 
 /// The output from hashing something with blake2s
-pub type Blake2sHash = sp_core::H256;
+pub type Blake2sHash = [u8; 32];
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Membership<AccountId> {
+pub struct Membership<AccountId: Ord> {
     pub members: BTreeSet<AccountId>,
     pub vote_requirement: u64,
 }
 
-impl Default for Membership {
+impl<T: Ord> Default for Membership<T> {
     fn default() -> Self {
         Membership {
             members: BTreeSet::new(),
@@ -28,7 +29,12 @@ impl Default for Membership {
     }
 }
 
-pub trait Trait: system::Trait + sudo::Trait {}
+pub trait Trait: system::Trait + sudo::Trait
+where
+    <Self as system::Trait>::AccountId: Ord,
+{
+    type Call: Parameter;
+}
 
 decl_storage! {
     trait Store for Module<T: Trait> as Master {
@@ -54,16 +60,23 @@ decl_module! {
         /// The preimage is a serialized runtime Call
         ///
         /// This can be called by anyone, even someone who is not a member of Master.
+        #[weight = 0]
         pub fn execute(
             origin,
-            proposal_preimage: Box<<T as system::Trait>::Call>,
+            proposal_preimage: Box<<T as Trait>::Call>,
         ) -> DispatchResult {
             Module::<T>::execute_(origin, proposal_preimage)
         }
 
         /// A sudo-only call to set the members and vote requirement for master.
-        pub fn set_membership(origin, membership: Membership<T::AccountId>) -> DispatchResult {
-            Module::<T>::set_membership_(origin, proposal_preimage)
+        ///
+        /// This function does not check the membership of a set; rather, it sets the members of the collective.
+        #[weight = 0]
+        pub fn set_members(
+            origin,
+            membership: Membership<T::AccountId>
+        ) -> DispatchResult {
+            Module::<T>::set_members_(origin, membership)
         }
     }
 }
@@ -75,43 +88,45 @@ impl<T: Trait> Module<T> {
         proposal_hash: Blake2sHash,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
-        let mut votes = Votes::get();
-        let members = Members::get();
+        let mut votes = Votes::<T>::get();
+        let members = Members::<T>::get();
         let round = Round::get();
         ensure!(round == current_round, "");
         ensure!(members.members.contains(&who), "");
         ensure!(votes.get(&who) != Some(&proposal_hash), "");
         votes.insert(who, proposal_hash);
-        Votes::set(votes);
+        Votes::<T>::set(votes);
         Ok(())
     }
 
     pub fn execute_(
         origin: T::Origin,
-        proposal_preimage: Box<<T as system::Trait>::Call>,
+        proposal_preimage: Box<<T as Trait>::Call>,
     ) -> DispatchResult {
         ensure_signed(origin)?;
-        let votes = Votes::get();
-        let members = Members::get();
+        let votes = Votes::<T>::get();
+        let members = Members::<T>::get();
         let round = Round::get();
-        let proposal_hash = proposal_preimage.using_encoded(sp_core::Blake2Hasher::hash);
-        let num_votes = votes.values().filter(|h| h.eq(proposal_hash)).count() as u64;
+        let proposal_hash: Blake2sHash = proposal_preimage.as_ref().using_encoded(blake2s_hash);
+        let num_votes = votes.values().filter(|h| proposal_hash.eq(*h)).count() as u64;
         ensure!(num_votes >= members.vote_requirement, "");
-        proposal_preimage.dispatch(system::RawOrigin::Root)?;
-        Votes::set(BTreeMap::default());
-        Round::set(round + 1);
-        Ok(())
+        // proposal_preimage.dispatch(system::RawOrigin::Root)?;
+        todo!();
+        // Votes::<T>::set(BTreeMap::default());
+        // Round::set(round + 1);
+        // Ok(())
     }
 
-    pub fn set_membership_(
-        origin: T::Origin,
-        membership: Membership<T::AccountId>,
-    ) -> DispatchResult {
+    pub fn set_members_(origin: T::Origin, membership: Membership<T::AccountId>) -> DispatchResult {
         ensure_root(origin)?;
         ensure!(membership.vote_requirement != 0, "");
-        Members::set(membership);
+        Members::<T>::set(membership);
         Round::set(Round::get() + 1);
-        Votes::set(BTreeMap::default());
+        Votes::<T>::set(BTreeMap::default());
         Ok(())
     }
+}
+
+fn blake2s_hash(inp: &[u8]) -> [u8; 32] {
+    blake2::Blake2s::new().chain(inp).finalize().into()
 }

@@ -276,9 +276,8 @@ impl blob::Trait for Runtime {
     type MaxBlobSize = MaxBlobSize;
 }
 
-parameter_types! {
-    pub const MotionDuration: u32 = 3;
-    pub const MaxProposals: u32 = 100;
+impl master::Trait for Runtime {
+    type Call = Call;
 }
 
 construct_runtime!(
