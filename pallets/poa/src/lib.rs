@@ -1,9 +1,13 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch,
-                    fail, traits::{Get, FindAuthor, Currency, Imbalance, OnUnbalanced}, sp_runtime::{print, SaturatedConversion} };
+use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, fail,
+                    traits::{Get, Currency, Imbalance, OnUnbalanced},
+                    sp_runtime::{print, SaturatedConversion},
+                    weights::Weight, ensure };
 use frame_system::{self as system, ensure_root};
 use sp_std::prelude::Vec;
+use codec::Decode;
+use log::{debug, warn};
 
 extern crate alloc;
 use alloc::collections::BTreeSet;
@@ -23,8 +27,6 @@ pub trait Trait: system::Trait + pallet_session::Trait + pallet_authorship::Trai
     /// Maximum no. of active validators allowed
     type MaxActiveValidators: Get<u8>;
 
-    // type FindAuthor: FindAuthor<Self::AccountId>;
-
     type Currency: Currency<Self::AccountId>;
 }
 
@@ -40,7 +42,7 @@ decl_storage! {
         EpochEndsAt get(fn epoch_ends_at): u64;
 
         /// Boolean flag to force session change. This will disregard block number in EpochEndsAt
-        ForceSessionChange get(fn force_session_change) config(): bool;
+        // ForceSessionChange get(fn force_session_change): bool;
 
         /// Queue of validators to become part of the active validators. Validators can be added either
         /// to the back of the queue or front by passing a flag in the add method.
@@ -58,6 +60,9 @@ decl_storage! {
         /// with the 2nd one.
 		HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>;
 
+        /// Transaction fees
+        TxnFees get(fn txn_fees): <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+
 		/// Current epoch
         Epoch get(fn epoch): u32;
 
@@ -66,7 +71,7 @@ decl_storage! {
 
         /// Block produced by each validator per epoch
         EpochBlockCounts get(fn get_block_count_for_validator):
-            double_map hasher(identity) u32, hasher(opaque_blake2_256) T::AccountId => u64;
+            double_map hasher(identity) u32, hasher(blake2_128_concat) T::AccountId => u64;
 	}
 }
 
@@ -121,19 +126,22 @@ decl_module! {
         /// the end of this epoch unless `add_now` is true. If a validator is already added to the queue
         /// an error will be thrown unless `add_now` is true, in which case it swallows the error.
         // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
-        #[weight = 0]
-        pub fn add_validator(origin, validator_id: T::AccountId, add_now: bool) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
-            ensure_root(origin)?;
+		#[weight = 0]
+		pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
+		    // TODO: Check the origin is Master
+			ensure_root(origin)?;
+			print("Called add validator");
 
             // Check if the validator is not already present as an active one
             let active_validators = Self::active_validators();
-            for v in active_validators.iter() {
+            /*for v in active_validators.iter() {
                 if *v == validator_id {
                     fail!(Error::<T>::AlreadyActiveValidator)
                 }
-            }
-            if add_now {
+            }*/
+            ensure!(!active_validators.contains(&validator_id), Error::<T>::AlreadyActiveValidator);
+
+            if short_circuit {
                 // The new validator should be added in front of the queue if its not present
                 // in the queue else move it front of the queue
                 let mut validators = Self::validators_to_add();
@@ -146,15 +154,17 @@ decl_module! {
                 // or the same validator is added for removal)
                 validators.insert(0, validator_id.clone());
                 <QueuedValidators<T>>::put(validators);
+                Self::short_circuit_current_epoch();
                 Self::deposit_event(RawEvent::ValidatorQueuedInFront(validator_id));
-                ForceSessionChange::put(true);
+                // ForceSessionChange::put(true);
             } else {
                 let mut validators = Self::validators_to_add();
-                for v in validators.iter() {
+                /*for v in validators.iter() {
                     if *v == validator_id {
                         fail!(Error::<T>::AlreadyQueuedForAddition)
                     }
-                }
+                }*/
+                ensure!(!validators.contains(&validator_id), Error::<T>::AlreadyActiveValidator);
                 print("Adding a new validator at back");
                 // The new validator should be at the back of the queue
                 validators.push(validator_id.clone());
@@ -170,10 +180,10 @@ decl_module! {
         /// It will not remove the validator if the removal will cause the active validator set to
         /// be empty even after considering the queued validators.
         // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
-        #[weight = 0]
-        pub fn remove_validator(origin, validator_id: T::AccountId, remove_now: bool) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
-            ensure_root(origin)?;
+		#[weight = 0]
+		pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
+		    // TODO: Check the origin is Master
+			ensure_root(origin)?;
 
             let mut validators_to_remove: Vec<T::AccountId> = Self::validators_to_remove();
             // Form a set of validators to remove
@@ -184,7 +194,7 @@ decl_module! {
 
             // Check if already queued for removal
             let already_queued_for_rem = if removals.contains(&validator_id) {
-                if remove_now {
+                if short_circuit {
                     true
                 } else {
                     // throw error since validator is already queued for removal
@@ -223,8 +233,8 @@ decl_module! {
                 Self::deposit_event(RawEvent::ValidatorRemoved(validator_id));
             }
 
-            if remove_now {
-                ForceSessionChange::put(true);
+            if short_circuit {
+                Self::short_circuit_current_epoch();
             }
             Ok(())
         }
@@ -263,12 +273,13 @@ decl_module! {
 
 		fn on_finalize() {
             print("Finalized block");
+
             // Get the current block author
-            // let author = Authorship::author();
             let author = <pallet_authorship::Module<T>>::author();
-            let current_epoch_no = Self::epoch();
-            let block_count = Self::get_block_count_for_validator(current_epoch_no, &author);
-            <EpochBlockCounts<T>>::insert(current_epoch_no, author, block_count+1);
+
+            Self::award_txn_fees_if_any(&author);
+
+            Self::update_current_epoch_block_count(author)
 		}
 	}
 }
@@ -344,13 +355,15 @@ impl<T: Trait> Module<T> {
                 <QueuedValidators<T>>::put(validators_to_add);
             }
 
-            ForceSessionChange::put(false);
+            // ForceSessionChange::put(false);
 
             let active_validator_count = active_validators.len() as u8;
             if active_validator_set_changed {
-                print("Active validator set changed, rotating session");
-                print(count_added);
-                print(count_removed);
+                debug!(
+                    target: "runtime",
+                    "Active validator set changed, rotating session. Added {} and removed {}",
+                    count_added, count_removed
+                );
                 <ActiveValidators<T>>::put(active_validators);
             }
             (active_validator_set_changed, active_validator_count)
@@ -361,7 +374,7 @@ impl<T: Trait> Module<T> {
 
     /// Set next epoch duration such that it is >= `MinEpochLength` and also a multiple of the
     /// number of active validators
-    fn set_current_epoch_end(current_slot_no: u64, active_validator_count: u8) {
+    fn set_current_epoch_end(current_slot_no: u64, active_validator_count: u8) -> u64 {
         let min_epoch_len = T::MinEpochLength::get();
         let active_validator_count = active_validator_count as u64;
         let rem = min_epoch_len % active_validator_count;
@@ -372,9 +385,8 @@ impl<T: Trait> Module<T> {
         };
         // Current slot no is part of epoch
         let epoch_ends_at = current_slot_no + epoch_len - 1;
-        print("epoch ends at");
-        print(epoch_ends_at);
         EpochEndsAt::put(epoch_ends_at);
+        epoch_ends_at
     }
 
     /// Swap a validator account from active validators. Swap out `old_validator_id` for `new_validator_id`.
@@ -401,8 +413,7 @@ impl<T: Trait> Module<T> {
                 Some(pre_run) => {
                     // Assumes that the 2nd element of tuple is for slot no.
                     let s = u64::decode(&mut &pre_run.1[..]).unwrap();
-                    print("current slot no");
-                    print(s);
+                    debug!(target: "runtime", "current slo no is {}", s);
                     Some(s)
                 }
                 None => {
@@ -415,6 +426,111 @@ impl<T: Trait> Module<T> {
             None
         }
     }
+
+    fn short_circuit_current_epoch() -> u64 {
+        let current_slot_no = Self::current_slot_no().unwrap();
+        Self::update_current_epoch_end_on_short_circuit(current_slot_no)
+    }
+
+    fn update_current_epoch_end_on_short_circuit(current_slot_no: u64) -> u64 {
+        let current_epoch_no = Self::epoch();
+        let (active_validator_count, starting_slot, _) = Self::get_epoch_detail(current_epoch_no);
+        let active_validator_count = active_validator_count as u64;
+        let current_progress = current_slot_no - starting_slot - 1;
+        let rem = current_progress % active_validator_count;
+        let epoch_ends_at = if rem == 0 {
+            current_slot_no
+        } else {
+            current_slot_no + active_validator_count - rem
+        };
+        EpochEndsAt::put(epoch_ends_at);
+        debug!(
+            target: "runtime",
+            "Epoch {} prematurely ended at slot {}",
+            current_epoch_no, epoch_ends_at
+        );
+        epoch_ends_at
+    }
+
+    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<u64> {
+        // ------------- DEBUG START -------------
+        let current_block_no = <system::Module<T>>::block_number();
+        debug!(
+            target: "runtime",
+            "block author in finalize for {:?} is {:?}",
+            current_block_no, block_author
+        );
+
+        let total_issuance = T::Currency::total_issuance().saturated_into::<u64>();
+        let ab = T::Currency::free_balance(block_author).saturated_into::<u64>();
+        debug!(
+            target: "runtime",
+            "block author's balance is {} and total issuance is {}",
+            ab, total_issuance
+        );
+        // ------------- DEBUG END -------------
+
+        let txn_fees = <TxnFees<T>>::take();
+        let fees_as_u64 = txn_fees.saturated_into::<u64>();
+        if fees_as_u64 > 0 {
+            print("Depositing fees");
+            // `deposit_creating` will do the issuance of tokens burnt during transaction fees
+            T::Currency::deposit_creating(block_author, txn_fees);
+
+        }
+
+        // ------------- DEBUG START -------------
+        let total_issuance = T::Currency::total_issuance().saturated_into::<u64>();
+        let ab = T::Currency::free_balance(block_author).saturated_into::<u64>();
+        debug!(
+            target: "runtime",
+            "block author's balance is {} and total issuance is {}",
+            ab, total_issuance
+        );
+        // ------------- DEBUG END -------------
+
+        if fees_as_u64 > 0 { Some(fees_as_u64) } else { None }
+    }
+
+    fn update_current_epoch_block_count(block_author: T::AccountId) {
+        let current_epoch_no = Self::epoch();
+        let block_count = Self::get_block_count_for_validator(current_epoch_no, &block_author);
+        // Not doing saturating add as its practically impossible to produce 2^64 blocks
+        <EpochBlockCounts<T>>::insert(current_epoch_no, block_author, block_count+1);
+    }
+
+    fn update_epoch_accounting(current_epoch_no: u32, current_slot_no: u64, active_validator_count: u8) {
+        if current_epoch_no == 1 {
+            // First epoch, no no previous epoch to update
+        } else {
+            // Track end of previous epoch
+            let prev_epoch = current_epoch_no - 1;
+            let (v, start, _) = Epochs::get(&prev_epoch);
+            if v == 0 {
+                // This get should never fail. But if it does, let it panic
+                warn!(
+                    target: "runtime",
+                    "Data for previous epoch not found: {}",
+                    prev_epoch
+                );
+                panic!();
+            }
+            debug!(
+                target: "runtime",
+                "Epoch {} ends at slot {}",
+                prev_epoch, current_slot_no - 1
+            );
+            Epochs::insert(prev_epoch, (v, start, Some(current_slot_no - 1)))
+        }
+
+        debug!(
+            target: "runtime",
+            "Epoch {} begins at slot {}",
+            current_epoch_no, current_slot_no
+        );
+        Epoch::put(current_epoch_no);
+        Epochs::insert(current_epoch_no, (active_validator_count, current_slot_no, None as Option<u64>));
+    }
 }
 
 /// Indicates to the session module if the session should be rotated.
@@ -422,10 +538,9 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
     fn should_end_session(_now: T::BlockNumber) -> bool {
         print("Called should_end_session");
 
-        // TODO: Next 3 are debugging lines. Remove them.
+        // TODO: Next 2 are debugging lines. Remove them.
         let current_block_no = <system::Module<T>>::block_number().saturated_into::<u32>();
-        print("current_block_no");
-        print(current_block_no);
+        debug!(target: "runtime", "current_block_no {}", current_block_no);
 
         let current_slot_no = match Self::current_slot_no() {
             Some(s) => s,
@@ -436,15 +551,18 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         };
 
         let epoch_ends_at = Self::epoch_ends_at().saturated_into::<u64>();
-        print("epoch ends at");
-        print(epoch_ends_at);
+        debug!(
+            target: "runtime",
+            "epoch ends at {}",
+            epoch_ends_at
+        );
 
         // Unless the session is being forcefully ended or epoch has had the required number of blocks,
         // or hot swap is triggered, continue the session.
         // TODO: Reduce reads from 2 to 1 by changing the boolean flag to be integer (u8) for different conditions.
-        let force_session_change = Self::force_session_change();
+        // let force_session_change = Self::force_session_change();
         let hot_swap = <HotSwap<T>>::take();
-        if force_session_change || (current_slot_no > epoch_ends_at) || hot_swap.is_some() {
+        if (current_slot_no > epoch_ends_at) || hot_swap.is_some() {
 
             let (active_validator_set_changed, active_validator_count) = if hot_swap.is_some() {
                 let (old_validator, new_validator) = hot_swap.unwrap();
@@ -459,7 +577,12 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
                 <pallet_session::Module<T>>::rotate_session();
             }
 
-            Self::set_current_epoch_end(current_slot_no, active_validator_count);
+            let last_slot = Self::set_current_epoch_end(current_slot_no, active_validator_count);
+            debug!(
+                target: "runtime",
+                "epoch will ends at {}",
+                last_slot
+            );
             true
         } else {
             false
@@ -479,35 +602,19 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
         if validators.len() == 0 {
             None
         } else {
-            // let current_epoch_no = Epoch::get();
-            // Epoch::put(current_epoch_no + 1);
-            // print("Current epoch no");
-            // print(current_epoch_no);
-
-            print("Current session index");
-            print(session_idx);
+            debug!(
+                target: "runtime",
+                "Current session index {}",
+                session_idx
+            );
 
             // This slot number should always be available here. If its not then panic.
             let current_slot_no = Self::current_slot_no().unwrap();
 
+            let active_validator_count = validators.len() as u8;
             let current_epoch_no = session_idx - 1;
 
-            if session_idx == 2 {
-                // First working session
-            } else {
-                let prev_epoch = session_idx - 2;
-                let (v, start, _) = Epochs::get(&prev_epoch);
-                if v == 0 {
-                    // This get should never fail. But if it does, let it panic
-                    print("Data for previous epoch not found");
-                    print(prev_epoch);
-                    panic!();
-                }
-                Epochs::insert(prev_epoch, (v, start, Some(current_slot_no - 1)))
-            }
-
-            Epoch::put(current_epoch_no);
-            Epochs::insert(current_epoch_no, (validators.len() as u8, current_slot_no, None as Option<u64>));
+            Self::update_epoch_accounting(current_epoch_no, current_slot_no, active_validator_count);
 
             Some(validators)
         }
@@ -517,23 +624,42 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
     fn start_session(_: u32) {}
 }
 
-/*/// Negative imbalance used to transfer transaction fess to block author
+/// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 /// Transfer complete transaction fees (including tip) to the block author
 impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T>{
     /// There is only 1 way to have an imbalance in the system right now which is txn fees
+    /// This function will store txn fees for the block in storage which is "taken out" of storage
+    /// in `on_finalize`. Not retrieving block author here as that is unreliable and gives different
+    /// author than the block's.
     fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
         // TODO: Remove the next 3 debug lines
         let current_fees = amount.peek();
-        print("Current txn fees");
-        print(current_fees.saturated_into::<u64>());
+
+        // ------------- DEBUG START -------------
+        let total_issuance = T::Currency::total_issuance().saturated_into::<u64>();
+
+        debug!(
+            target: "runtime",
+            "Current txn fees is {} and total issuance is {}",
+            current_fees.saturated_into::<u64>(), total_issuance
+        );
+
+        let current_block_no = <system::Module<T>>::block_number();
 
         // Get the current block author
         let author = <pallet_authorship::Module<T>>::author();
-        // `resolve_creating` will do the re-issuance of tokens burnt during drop of this imbalance
-        T::Currency::resolve_creating(&author, amount);
+        debug!(
+            target: "runtime",
+            "block author for {:?} is {:?}",
+            current_block_no, author
+        );
+
+        // ------------- DEBUG END -------------
+
+        <TxnFees<T>>::put(current_fees);
     }
-}*/
+}
 
 // TODO: Tested with SDK script Write runtime tests if time permits.

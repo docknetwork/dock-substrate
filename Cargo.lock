@@ -3272,6 +3272,7 @@ version = "0.0.1"
 dependencies = [
  "frame-support 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
  "frame-system 2.0.0-rc3 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc3)",
+ "log",
  "pallet-authorship",
  "pallet-session",
  "parity-scale-codec",

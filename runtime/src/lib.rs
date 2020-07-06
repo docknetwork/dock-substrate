@@ -75,25 +75,6 @@ type Index = u32;
 /// A hash of some data used by the chain.
 type Hash = sp_core::H256;
 
-// TODO: Remove commented code below
-/// Negative imbalance used to transfer transaction fess to block author
-type NegativeImbalanceOf = <Balances as Currency<AccountId>>::NegativeImbalance;
-/// Transfer complete transaction fees (including tip) to the block author
-pub struct FeePayment;
-impl OnUnbalanced<NegativeImbalanceOf> for FeePayment {
-    /// There is only 1 way to have an imbalance in the system right now which is txn fees
-    fn on_nonzero_unbalanced(amount: NegativeImbalanceOf) {
-        // TODO: Remove the next 3 debug lines
-        let current_fees = amount.peek();
-        print("Current txn fees");
-        print(current_fees.saturated_into::<u64>());
-
-        // Get the current block author
-        let author = Authorship::author();
-        // `resolve_creating` will do the re-issuance of tokens burnt during drop of this imbalance
-        Balances::resolve_creating(&author, amount);
-    }
-}
 
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
@@ -273,8 +254,7 @@ parameter_types! {
 
 impl transaction_payment::Trait for Runtime {
     type Currency = balances::Module<Runtime>;
-    // type OnTransactionPayment = PoAModule;
-    type OnTransactionPayment = FeePayment;
+    type OnTransactionPayment = PoAModule;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -327,7 +307,6 @@ impl poa::Trait for Runtime {
     type Event = Event;
     type MinEpochLength = MinEpochLength;
     type MaxActiveValidators = MaxActiveValidators;
-    // type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
     type Currency = balances::Module<Runtime>;
 }
 
