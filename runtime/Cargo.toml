@@ -12,10 +12,6 @@ package = 'pallet-balances'
 tag = 'v2.0.0-rc2'
 version = '2.0.0-rc2'
 
-[dependencies.blake2]
-version = "0.9.0"
-default-features = false
-
 [dependencies.codec]
 default-features = false
 features = ['derive']

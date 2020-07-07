@@ -5,10 +5,12 @@
 //! origin.
 //!
 //! Your node_runtime::Call is an example of a Dispatchable.
+//!
+//! For simplicity, the hashing function used will be the same as what is used in the rest of your
+//! runtime (the one configured in pallet_system::Trait).
 
 use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
-use blake2::Digest;
 use codec::{Decode, Encode};
 use core::default::Default;
 use frame_support::{
@@ -16,10 +18,8 @@ use frame_support::{
     dispatch::{DispatchResult, Dispatchable},
     ensure, Parameter,
 };
+use sp_runtime::traits::Hash;
 use system::{ensure_root, ensure_signed};
-
-/// The output from hashing something with blake2s
-pub type Blake2sHash = [u8; 32];
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -50,7 +50,7 @@ where
 
 decl_storage! {
     trait Store for Module<T: Trait> as Master {
-        pub Votes: BTreeMap<T::AccountId, Blake2sHash>;
+        pub Votes: BTreeMap<T::AccountId, <T as system::Trait>::Hash>;
         pub Members config(members): Membership<T::AccountId>;
         pub Round: u64;
     }
@@ -71,12 +71,16 @@ decl_error! {
 }
 
 decl_event! {
-    pub enum Event<T> where <T as system::Trait>::AccountId {
+    pub enum Event<T>
+    where
+        <T as system::Trait>::AccountId,
+        <T as system::Trait>::Hash
+    {
         /// A member of master submitted a vote.
         /// The account id of the the voter and the hash of the proposal is provided.
-        Vote(AccountId, Blake2sHash),
+        Vote(AccountId, Hash),
         /// A proposal succeeded and was executed. The hash of the proposal is provided.
-        Executed(Blake2sHash),
+        Executed(Hash),
         /// The membership of Master has changed.
         UnderNewOwnership,
     }
@@ -97,7 +101,7 @@ decl_module! {
         pub fn vote(
             origin,
             current_round: u64,
-            proposal_hash: Blake2sHash,
+            proposal_hash: <T as system::Trait>::Hash,
         ) -> DispatchResult {
             Module::<T>::vote_(origin, current_round, proposal_hash)
         }
@@ -148,7 +152,7 @@ impl<T: Trait> Module<T> {
     pub fn vote_(
         origin: T::Origin,
         current_round: u64,
-        proposal_hash: Blake2sHash,
+        proposal_hash: <T as system::Trait>::Hash,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
 
@@ -180,7 +184,7 @@ impl<T: Trait> Module<T> {
         // check
         let votes = Votes::<T>::get();
         let members = Members::<T>::get();
-        let proposal_hash: Blake2sHash = proposal.as_ref().using_encoded(blake2s_hash);
+        let proposal_hash = <T as system::Trait>::Hashing::hash_of(&proposal);
         let num_votes = votes.values().filter(|h| proposal_hash.eq(*h)).count() as u64;
         debug_assert!(votes.keys().all(|k| members.members.contains(k)));
         ensure!(
@@ -220,10 +224,6 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
-}
-
-fn blake2s_hash(inp: &[u8]) -> [u8; 32] {
-    blake2::Blake2s::new().chain(inp).finalize().into()
 }
 
 #[cfg(test)]
