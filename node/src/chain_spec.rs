@@ -63,13 +63,13 @@ pub fn development_config() -> ChainSpec {
                 endowed_accounts: ["Alice", "Bob", "Alice//stash", "Bob//stash"]
                     .iter()
                     .cloned()
-                    .map(account_id_from_ss58::<sr25519::Public>)
+                    .map(get_account_id_from_seed::<sr25519::Public>)
                     .collect(),
                 master: Membership {
                     members: ["Alice//master", "Bob//master", "Charlie//master"]
                         .iter()
                         .cloned()
-                        .map(account_id_from_ss58::<sr25519::Public>)
+                        .map(get_account_id_from_seed::<sr25519::Public>)
                         .collect(),
                     vote_requirement: 2,
                 },
@@ -111,13 +111,13 @@ pub fn local_testnet_config() -> ChainSpec {
                 ]
                 .iter()
                 .cloned()
-                .map(account_id_from_ss58::<sr25519::Public>)
+                .map(get_account_id_from_seed::<sr25519::Public>)
                 .collect(),
                 master: Membership {
                     members: ["Alice//master", "Bob//master", "Charlie//master"]
                         .iter()
                         .cloned()
-                        .map(account_id_from_ss58::<sr25519::Public>)
+                        .map(get_account_id_from_seed::<sr25519::Public>)
                         .collect(),
                     vote_requirement: 2,
                 },
