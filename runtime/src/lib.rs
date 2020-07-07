@@ -277,6 +277,7 @@ impl blob::Trait for Runtime {
 }
 
 impl master::Trait for Runtime {
+    type Event = Event;
     type Call = Call;
 }
 
@@ -297,7 +298,7 @@ construct_runtime!(
         DIDModule: did::{Module, Call, Storage, Event},
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
-        Master: master::{Module, Call, Storage},
+        Master: master::{Module, Call, Storage, Event<T>},
     }
 );
 

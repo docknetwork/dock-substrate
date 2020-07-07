@@ -12,7 +12,7 @@ use blake2::Digest;
 use codec::{Decode, Encode};
 use core::default::Default;
 use frame_support::{
-    decl_module, decl_storage,
+    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Dispatchable},
     ensure, Parameter,
 };
@@ -32,15 +32,17 @@ impl<T: Ord> Default for Membership<T> {
     fn default() -> Self {
         Membership {
             members: BTreeSet::new(),
-            vote_requirement: u64::max_value(),
+            vote_requirement: 1,
         }
     }
 }
 
-pub trait Trait: system::Trait + sudo::Trait
+pub trait Trait: system::Trait
 where
     <Self as system::Trait>::AccountId: Ord,
 {
+    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+
     /// The dispatchable that master may call as Root. It is possible to use another type here, but
     /// its expectected that your runtime::Call will be used.
     type Call: Parameter + Dispatchable<Origin = Self::Origin>;
@@ -48,15 +50,49 @@ where
 
 decl_storage! {
     trait Store for Module<T: Trait> as Master {
-        Votes: BTreeMap<T::AccountId, Blake2sHash>;
-        Members: Membership<T::AccountId>;
-        Round: u64;
+        pub Votes: BTreeMap<T::AccountId, Blake2sHash>;
+        pub Members: Membership<T::AccountId>;
+        pub Round: u64;
+    }
+}
+
+decl_error! {
+    pub enum MasterError for Module<T: Trait> {
+        /// Attempted to submit vote for a voting round that is not current. Hint: you can query the
+        /// current round from chain state.
+        WrongRound,
+        /// The account used to submit this vote is not a member of Master.
+        NotMember,
+        /// This is already the active vote for this account. No need to submit it again this round.
+        RepeatedVote,
+        /// This proposal does not yet have enough votes to be executed.
+        InsufficientVotes,
+    }
+}
+
+decl_event! {
+    pub enum Event<T> where <T as system::Trait>::AccountId {
+        /// A member of master submitted a vote.
+        /// The account id of the the voter and the hash of the proposal is provided.
+        Vote(AccountId, Blake2sHash),
+        /// A proposal succeeded and was executed. The hash of the proposal is provided.
+        Executed(Blake2sHash),
+        /// The membership of Master has changed.
+        UnderNewOwnership,
     }
 }
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = MasterError<T>;
+
+        fn deposit_event() = default;
+
         /// Vote "yes" to some proposal.
+        ///
+        /// `current_round` is a protection against accidendally voting on a proposal after is has
+        /// already been executed. Every time a proposal is executed the round number is increased
+        /// by at least one and the votes for the current round are cleared.
         #[weight = 0]
         pub fn vote(
             origin,
@@ -66,21 +102,38 @@ decl_module! {
             Module::<T>::vote_(origin, current_round, proposal_hash)
         }
 
-        /// Execute a proposal that has received enough votes.
-        /// The preimage is a serialized runtime Call
+        /// Execute a proposal that has received enough votes. The proposal is a serialized Call.
+        /// This function can be freely called by anyone, even someone who is not a member of
+        /// Master.
         ///
-        /// This can be called by anyone, even someone who is not a member of Master.
+        /// After a sucessful execution, the current round of voted is cleared and round number is increased.
         #[weight = 0]
         pub fn execute(
             origin,
-            proposal_preimage: Box<<T as Trait>::Call>,
+            proposal: Box<<T as Trait>::Call>,
         ) -> DispatchResult {
-            Module::<T>::execute_(origin, proposal_preimage)
+            Module::<T>::execute_(origin, proposal)
         }
 
-        /// A sudo-only call to set the members and vote requirement for master.
+        /// Root-only. Sets the members and vote requirement for master. Increases the round number
+        /// and removes the votes for the prevous round.
         ///
-        /// This function does not check the membership of a set; rather, it sets the members of the collective.
+        /// ```
+        /// # use dock_testnet_runtime::master::Membership;
+        /// # extern crate alloc;
+        /// # use alloc::collections::BTreeSet;
+        /// #
+        /// // Setting the following membership will effectively dissolve the master account.
+        /// # let _: Membership<[u8; 32]> =
+        /// Membership {
+        ///     members: BTreeSet::new(),
+        ///     vote_requirement: 1,
+        /// };
+        /// ```
+        ///
+        /// Setting the vote requirement to zero grants free and unrestricted root access to
+        /// all accounts. It is not recomended to set the vote requirement to zero on a
+        /// production chain.
         #[weight = 0]
         pub fn set_members(
             origin,
@@ -98,46 +151,102 @@ impl<T: Trait> Module<T> {
         proposal_hash: Blake2sHash,
     ) -> DispatchResult {
         let who = ensure_signed(origin)?;
+
+        // check
         let mut votes = Votes::<T>::get();
-        let members = Members::<T>::get();
-        let round = Round::get();
-        ensure!(round == current_round, "");
-        ensure!(members.members.contains(&who), "");
-        ensure!(votes.get(&who) != Some(&proposal_hash), "");
-        votes.insert(who, proposal_hash);
+        ensure!(Round::get() == current_round, MasterError::<T>::WrongRound);
+        ensure!(
+            Members::<T>::get().members.contains(&who),
+            MasterError::<T>::NotMember
+        );
+        ensure!(
+            votes.get(&who) != Some(&proposal_hash),
+            MasterError::<T>::RepeatedVote
+        );
+
+        // execute
+        votes.insert(who.clone(), proposal_hash);
         Votes::<T>::set(votes);
+
+        // events
+        Self::deposit_event(RawEvent::Vote(who, proposal_hash));
+
         Ok(())
     }
 
-    pub fn execute_(
-        origin: T::Origin,
-        proposal_preimage: Box<<T as Trait>::Call>,
-    ) -> DispatchResult {
+    pub fn execute_(origin: T::Origin, proposal: Box<<T as Trait>::Call>) -> DispatchResult {
         ensure_signed(origin)?;
+
+        // check
         let votes = Votes::<T>::get();
         let members = Members::<T>::get();
-        let round = Round::get();
-        let proposal_hash: Blake2sHash = proposal_preimage.as_ref().using_encoded(blake2s_hash);
+        let proposal_hash: Blake2sHash = proposal.as_ref().using_encoded(blake2s_hash);
         let num_votes = votes.values().filter(|h| proposal_hash.eq(*h)).count() as u64;
-        ensure!(num_votes >= members.vote_requirement, "");
-        proposal_preimage
+        debug_assert!(votes.keys().all(|k| members.members.contains(k)));
+        ensure!(
+            num_votes >= members.vote_requirement,
+            MasterError::<T>::InsufficientVotes
+        );
+
+        // execute/check
+        proposal
             .dispatch(system::RawOrigin::Root.into())
             .map_err(|e| e.error)?;
+
+        // execute
         Votes::<T>::set(BTreeMap::default());
-        Round::set(round + 1);
+        Round::mutate(|round| {
+            *round += 1;
+        });
+
+        // events
+        Self::deposit_event(RawEvent::Executed(proposal_hash));
+
         Ok(())
     }
 
     pub fn set_members_(origin: T::Origin, membership: Membership<T::AccountId>) -> DispatchResult {
         ensure_root(origin)?;
-        ensure!(membership.vote_requirement != 0, "");
+
+        // execute
         Members::<T>::set(membership);
-        Round::set(Round::get() + 1);
         Votes::<T>::set(BTreeMap::default());
+        Round::mutate(|round| {
+            *round += 1;
+        });
+
+        // events
+        Self::deposit_event(RawEvent::UnderNewOwnership);
+
         Ok(())
     }
 }
 
 fn blake2s_hash(inp: &[u8]) -> [u8; 32] {
     blake2::Blake2s::new().chain(inp).finalize().into()
+}
+
+#[cfg(test)]
+mod test {
+    /// set_members() may be called from within execute()
+    /// that should cause round number to be incremented twice
+    /// the Votes map will be set twice and that's expected
+    #[test]
+    #[ignore]
+    fn execute_set_members() {
+        todo!();
+    }
+
+    /// After a sucessful execution, the current round of voted is cleared and round number is increased.
+    #[test]
+    #[ignore]
+    fn round_inc_votes_cleared() {
+        todo!();
+    }
+
+    #[test]
+    #[ignore]
+    fn test_events() {
+        todo!();
+    }
 }
