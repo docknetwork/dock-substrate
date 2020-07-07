@@ -1,5 +1,6 @@
 use dock_testnet_runtime::{
-    AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    master::Membership, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, MasterConfig,
+    SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -57,20 +58,23 @@ pub fn development_config() -> ChainSpec {
         "dev",
         ChainType::Development,
         || {
-            testnet_genesis(
-                vec![get_authority_keys_from_seed("Alice")],
-                Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-                vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                ],
-                vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice//collective"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//collective"),
-                ],
-            )
+            GenesisBuilder {
+                initial_authorities: vec![get_authority_keys_from_seed("Alice")],
+                endowed_accounts: ["Alice", "Bob", "Alice//stash", "Bob//stash"]
+                    .iter()
+                    .cloned()
+                    .map(account_id_from_ss58::<sr25519::Public>)
+                    .collect(),
+                master: Membership {
+                    members: ["Alice//master", "Bob//master", "Charlie//master"]
+                        .iter()
+                        .cloned()
+                        .map(account_id_from_ss58::<sr25519::Public>)
+                        .collect(),
+                    vote_requirement: 2,
+                },
+            }
+            .build()
         },
         vec![],
         None,
@@ -86,31 +90,39 @@ pub fn local_testnet_config() -> ChainSpec {
         "local_testnet",
         ChainType::Local,
         || {
-            testnet_genesis(
-                vec![
+            GenesisBuilder {
+                initial_authorities: vec![
                     get_authority_keys_from_seed("Alice"),
                     get_authority_keys_from_seed("Bob"),
                 ],
-                Some(get_account_id_from_seed::<sr25519::Public>("Alice")),
-                vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie"),
-                    get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
-                ],
-                vec![
-                    get_account_id_from_seed::<sr25519::Public>("Alice//collective"),
-                    get_account_id_from_seed::<sr25519::Public>("Bob//collective"),
-                ],
-            )
+                endowed_accounts: [
+                    "Alice",
+                    "Bob",
+                    "Charlie",
+                    "Dave",
+                    "Eve",
+                    "Ferdie",
+                    "Alice//stash",
+                    "Bob//stash",
+                    "Charlie//stash",
+                    "Dave//stash",
+                    "Eve//stash",
+                    "Ferdie//stash",
+                ]
+                .iter()
+                .cloned()
+                .map(account_id_from_ss58::<sr25519::Public>)
+                .collect(),
+                master: Membership {
+                    members: ["Alice//master", "Bob//master", "Charlie//master"]
+                        .iter()
+                        .cloned()
+                        .map(account_id_from_ss58::<sr25519::Public>)
+                        .collect(),
+                    vote_requirement: 2,
+                },
+            }
+            .build()
         },
         vec![],
         None,
@@ -126,8 +138,8 @@ pub fn remote_testnet_config() -> ChainSpec {
         "remdev",
         ChainType::Live,
         || {
-            testnet_genesis(
-                vec![
+            GenesisBuilder {
+                initial_authorities: vec![
                     (
                         pubkey_from_ss58::<AuraId>(
                             "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
@@ -145,29 +157,28 @@ pub fn remote_testnet_config() -> ChainSpec {
                         ),
                     ),
                 ],
-                Some(account_id_from_ss58::<sr25519::Public>(
-                    "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
-                )),
-                vec![
-                    account_id_from_ss58::<sr25519::Public>(
-                        "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
-                    ),
-                    account_id_from_ss58::<sr25519::Public>(
-                        "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
-                    ),
-                ],
-                vec![
-                    account_id_from_ss58::<sr25519::Public>(
+                endowed_accounts: [
+                    "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
+                    "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
+                ]
+                .iter()
+                .cloned()
+                .map(account_id_from_ss58::<sr25519::Public>)
+                .collect(),
+                master: Membership {
+                    members: [
                         "5Eco112V85Vu7kdCGFRPqg5iz6BzaskTrcorF7k9M4WrLg87",
-                    ),
-                    account_id_from_ss58::<sr25519::Public>(
                         "5Cco11WbbaLcngAzV2MBMn566aksWRvaWorrivJHUJhgZDnN",
-                    ),
-                    account_id_from_ss58::<sr25519::Public>(
                         "5Cco11xaecmWGRuDihk9h85Btsgbevowdt9TgCjV98ALJkor",
-                    ),
-                ],
-            )
+                    ]
+                    .iter()
+                    .cloned()
+                    .map(account_id_from_ss58::<sr25519::Public>)
+                    .collect(),
+                    vote_requirement: 2,
+                },
+            }
+            .build()
         },
         vec![
             "/dns4/testnet-bootstrap1.dock.io/tcp/30333/p2p/\
@@ -186,34 +197,45 @@ pub fn remote_testnet_config() -> ChainSpec {
     )
 }
 
-fn testnet_genesis(
+struct GenesisBuilder {
     initial_authorities: Vec<(AuraId, GrandpaId)>,
-    root_key: Option<AccountId>,
     endowed_accounts: Vec<AccountId>,
-    _collective: Vec<AccountId>,
-) -> GenesisConfig {
-    let _ = GenesisConfig {
-        system: Some(SystemConfig {
-            code: WASM_BINARY.to_vec(),
-            changes_trie_config: Default::default(),
-        }),
-        balances: Some(BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .cloned()
-                .map(|k| (k, 1 << 60))
-                .collect(),
-        }),
-        sudo: root_key.map(|key| SudoConfig { key }),
-        aura: Some(AuraConfig {
-            authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-        }),
-        grandpa: Some(GrandpaConfig {
-            authorities: initial_authorities
-                .iter()
-                .map(|x| (x.1.clone(), 1))
-                .collect(),
-        }),
-    };
-    todo!("configure collective")
+    master: Membership<AccountId>,
+}
+
+impl GenesisBuilder {
+    fn build(self) -> GenesisConfig {
+        let _ = GenesisConfig {
+            system: Some(SystemConfig {
+                code: WASM_BINARY.to_vec(),
+                changes_trie_config: Default::default(),
+            }),
+            balances: Some(BalancesConfig {
+                balances: self
+                    .endowed_accounts
+                    .iter()
+                    .cloned()
+                    .map(|k| (k, 1 << 60))
+                    .collect(),
+            }),
+            aura: Some(AuraConfig {
+                authorities: self
+                    .initial_authorities
+                    .iter()
+                    .map(|x| (x.0.clone()))
+                    .collect(),
+            }),
+            grandpa: Some(GrandpaConfig {
+                authorities: self
+                    .initial_authorities
+                    .iter()
+                    .map(|x| (x.1.clone(), 1))
+                    .collect(),
+            }),
+            master: Some(MasterConfig {
+                members: self.master,
+            }),
+        };
+        todo!()
+    }
 }

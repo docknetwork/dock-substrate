@@ -1,4 +1,4 @@
-//! Simulates a multisig sudo account. Members cast votes on a sudo call by commiting to a hash.
+//! Simulates a multisig root account. Members cast votes on a Call by commiting to a hash.
 //! When a hash has enough votes, it can be executed by providing the preimage.
 //! The preimage is a Dispatchable (a reified on-chain function call). When a vote
 //! succeeds and its preimage is provided, the preimage is called with system::Origin::Root as the
@@ -44,14 +44,14 @@ where
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     /// The dispatchable that master may call as Root. It is possible to use another type here, but
-    /// its expectected that your runtime::Call will be used.
+    /// it's expectected that your runtime::Call will be used.
     type Call: Parameter + Dispatchable<Origin = Self::Origin>;
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Master {
         pub Votes: BTreeMap<T::AccountId, Blake2sHash>;
-        pub Members: Membership<T::AccountId>;
+        pub Members config(members): Membership<T::AccountId>;
         pub Round: u64;
     }
 }
@@ -249,4 +249,18 @@ mod test {
     fn test_events() {
         todo!();
     }
+
+    #[test]
+    #[ignore]
+    fn no_members() {
+        todo!();
+    }
+
+    #[test]
+    #[ignore]
+    fn call_other_module() {}
+
+    #[test]
+    #[ignore]
+    fn valid_call() {}
 }

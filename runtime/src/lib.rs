@@ -256,14 +256,8 @@ impl transaction_payment::Trait for Runtime {
     type FeeMultiplierUpdate = ();
 }
 
-impl sudo::Trait for Runtime {
-    type Event = Event;
-    type Call = Call;
-}
-
 impl did::Trait for Runtime {
     type Event = Event;
-    //type DIDByteSize = DIDByteSize;
 }
 
 impl revoke::Trait for Runtime {}
@@ -294,11 +288,10 @@ construct_runtime!(
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
         TransactionPayment: transaction_payment::{Module, Storage},
-        Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
         DIDModule: did::{Module, Call, Storage, Event},
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
-        Master: master::{Module, Call, Storage, Event<T>},
+        Master: master::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

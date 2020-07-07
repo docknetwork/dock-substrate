@@ -129,13 +129,6 @@ default-features = false
 tag = 'v2.0.0-rc2'
 version = '2.0.0-rc2'
 
-[dependencies.sudo]
-git = 'https://github.com/paritytech/substrate.git'
-default-features = false
-package = 'pallet-sudo'
-tag = 'v2.0.0-rc2'
-version = '2.0.0-rc2'
-
 [dependencies.system]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
@@ -187,7 +180,6 @@ std = [
     'sp-std/std',
     'sp-transaction-pool/std',
     'sp-version/std',
-    'sudo/std',
     'system/std',
     'timestamp/std',
     'transaction-payment/std',
