@@ -1,13 +1,21 @@
 //! Simulates a multisig sudo account. Members cast votes on a sudo call by commiting to a hash.
-//! When a hash has enough votes, it can be executed by providing the preimage which is a call
-//! to the sudo module.
+//! When a hash has enough votes, it can be executed by providing the preimage.
+//! The preimage is a Dispatchable (a reified on-chain function call). When a vote
+//! succeeds and its preimage is provided, the preimage is called with system::Origin::Root as the
+//! origin.
+//!
+//! Your node_runtime::Call is an example of a Dispatchable.
 
 use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, BTreeSet};
 use blake2::Digest;
 use codec::{Decode, Encode};
 use core::default::Default;
-use frame_support::{decl_module, decl_storage, dispatch::DispatchResult, ensure, Parameter};
+use frame_support::{
+    decl_module, decl_storage,
+    dispatch::{DispatchResult, Dispatchable},
+    ensure, Parameter,
+};
 use system::{ensure_root, ensure_signed};
 
 /// The output from hashing something with blake2s
@@ -33,7 +41,9 @@ pub trait Trait: system::Trait + sudo::Trait
 where
     <Self as system::Trait>::AccountId: Ord,
 {
-    type Call: Parameter;
+    /// The dispatchable that master may call as Root. It is possible to use another type here, but
+    /// its expectected that your runtime::Call will be used.
+    type Call: Parameter + Dispatchable<Origin = Self::Origin>;
 }
 
 decl_storage! {
@@ -110,11 +120,12 @@ impl<T: Trait> Module<T> {
         let proposal_hash: Blake2sHash = proposal_preimage.as_ref().using_encoded(blake2s_hash);
         let num_votes = votes.values().filter(|h| proposal_hash.eq(*h)).count() as u64;
         ensure!(num_votes >= members.vote_requirement, "");
-        // proposal_preimage.dispatch(system::RawOrigin::Root)?;
-        todo!();
-        // Votes::<T>::set(BTreeMap::default());
-        // Round::set(round + 1);
-        // Ok(())
+        proposal_preimage
+            .dispatch(system::RawOrigin::Root.into())
+            .map_err(|e| e.error)?;
+        Votes::<T>::set(BTreeMap::default());
+        Round::set(round + 1);
+        Ok(())
     }
 
     pub fn set_members_(origin: T::Origin, membership: Membership<T::AccountId>) -> DispatchResult {
