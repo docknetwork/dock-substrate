@@ -19,44 +19,44 @@ version = '1.3.0'
 [dependencies.frame-support]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
 
 [dependencies.frame-system]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
 
 [dev-dependencies.sp-core]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
 
 [dev-dependencies.sp-io]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
 
 [dev-dependencies.sp-runtime]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
 
 [dependencies.sp-std]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
 
 [dependencies.pallet-session]
 default_features = false
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
 
 [dependencies.serde]
 features = ['derive']
@@ -66,8 +66,8 @@ version = '1.0.101'
 [dependencies.pallet-authorship]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-rc3'
-version = '2.0.0-rc3'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
 
 [features]
 default = ['std']
