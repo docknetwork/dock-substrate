@@ -153,7 +153,6 @@ version = '2.0.0-rc4'
 optional = true
 default-features = false
 package = 'frame-benchmarking'
-tag = 'v2.0.0-rc4'
 version = '2.0.0-rc4'
 
 [build-dependencies.wasm-builder-runner]

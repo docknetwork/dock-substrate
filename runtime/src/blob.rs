@@ -6,7 +6,6 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
-    weights::Weight,
 };
 use system::ensure_signed;
 

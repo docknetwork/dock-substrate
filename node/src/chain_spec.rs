@@ -18,14 +18,11 @@ fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
-// Note this is the URL for the telemetry server
-//const STAGING_TELEMETRY_URL: &str = "wss://telemetry.polkadot.io/submit/";
-
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Helper function to generate a crypto pair from seed
-pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
+fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
     TPublic::Pair::from_string(&format!("//{}", seed), None)
         .expect("static values are valid; qed")
         .public()
@@ -34,7 +31,7 @@ pub fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Pu
 type AccountPublic = <MultiSignature as Verify>::Signer;
 
 /// Helper function to generate an account ID from seed
-pub fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
+fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
 where
     AccountPublic: From<<TPublic::Pair as Pair>::Public>,
 {
@@ -42,16 +39,7 @@ where
 }
 
 /// Helper function to generate an authority key for Aura and Grandpa
-pub fn get_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
-    (
-        get_account_id_from_seed::<sr25519::Public>(s),
-        get_from_seed::<AuraId>(s),
-        get_from_seed::<GrandpaId>(s),
-    )
-}
-
-/// Helper function to generate an account id and authority key for Aura and Grandpa
-pub fn get_poa_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
+fn get_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
     (
         get_account_id_from_seed::<sr25519::Public>(s),
         get_from_seed::<AuraId>(s),
@@ -87,7 +75,6 @@ pub fn development_config() -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
                 ],
-                true,
             )
         },
         vec![],
@@ -124,7 +111,6 @@ pub fn local_testnet_config() -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
-                true,
             )
         },
         vec![],
@@ -177,7 +163,6 @@ pub fn remote_testnet_config() -> ChainSpec {
                         "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
                     ),
                 ],
-                true,
             )
         },
         vec![
@@ -223,7 +208,6 @@ pub fn local_poa_testnet_config() -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
-                true,
             )
         },
         vec![],
@@ -238,7 +222,6 @@ fn testnet_genesis(
     initial_authorities: Vec<(AccountId, AuraId, GrandpaId)>,
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
-    _enable_println: bool,
 ) -> GenesisConfig {
     GenesisConfig {
         system: Some(SystemConfig {
