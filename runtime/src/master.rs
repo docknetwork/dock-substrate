@@ -228,39 +228,121 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod test {
+    use super::*;
+    use crate::test_common::*;
+    type MasterMod = crate::master::Module<Test>;
+
+    fn standard_setup() {
+        // set members
+        Members::<Test>::set(Membership {
+            members: [1, 2, 3].iter().cloned().collect(),
+            vote_requirement: 2,
+        });
+    }
+
+    fn hash(inp: &impl Encode) -> <Test as system::Trait>::Hash {
+        <Test as system::Trait>::Hashing::hash_of(inp)
+    }
+
     /// set_members() may be called from within execute()
     /// that should cause round number to be incremented twice
     /// the Votes map will be set twice and that's expected
     #[test]
-    #[ignore]
     fn execute_set_members() {
-        todo!();
+        ext().execute_with(|| {
+            standard_setup();
+
+            let old_members = Members::<Test>::get();
+            let new_members = Membership {
+                members: BTreeSet::new(),
+                vote_requirement: 1,
+            };
+            assert_ne!(
+                old_members, new_members,
+                "lets not set members to the same thing it was before"
+            );
+
+            // choose a call
+            let call = TestCall::Master(Call::<Test>::set_members(new_members.clone()));
+
+            // vote on that call
+            MasterMod::vote(Origin::signed(1), 0, hash(&call)).unwrap();
+            MasterMod::vote(Origin::signed(2), 0, hash(&call)).unwrap();
+
+            // execute call
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
+
+            assert_eq!(
+                Members::<Test>::get(),
+                new_members,
+                "execution was successfull"
+            );
+            assert_eq!(Votes::<Test>::get(), BTreeMap::new(), "votes were cleared");
+            assert_eq!(Round::get(), 2, "round number was incremented twice");
+
+            let record = |event: TestEvent| system::EventRecord::<TestEvent, sp_core::H256> {
+                phase: system::Phase::Initialization,
+                event,
+                topics: vec![],
+            };
+            assert_eq!(
+                system::Module::<Test>::events(),
+                vec![
+                    record(TestEvent::Master(Event::<Test>::Vote(1, hash(&call)))),
+                    record(TestEvent::Master(Event::<Test>::Vote(2, hash(&call)))),
+                    record(TestEvent::Master(Event::<Test>::UnderNewOwnership)),
+                    record(TestEvent::Master(Event::<Test>::Executed(hash(&call)))),
+                ]
+            );
+        });
     }
 
     /// After a sucessful execution, the current round of voted is cleared and round number is increased.
     #[test]
     #[ignore]
     fn round_inc_votes_cleared() {
-        todo!();
+        ext().execute_with(|| {
+            todo!();
+        });
     }
 
     #[test]
     #[ignore]
     fn test_events() {
-        todo!();
+        ext().execute_with(|| {
+            todo!();
+        });
     }
 
     #[test]
     #[ignore]
     fn no_members() {
-        todo!();
+        ext().execute_with(|| {
+            todo!();
+        });
     }
 
     #[test]
     #[ignore]
-    fn call_other_module() {}
+    fn call_other_module() {
+        ext().execute_with(|| {
+            todo!();
+        });
+    }
 
     #[test]
     #[ignore]
-    fn valid_call() {}
+    fn valid_call() {
+        ext().execute_with(|| {
+            todo!();
+        });
+    }
+
+    #[test]
+    #[ignore]
+    fn insufficient_votes() {
+        ext().execute_with(|| {
+            todo!();
+        });
+    }
 }

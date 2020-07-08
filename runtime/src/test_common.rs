@@ -1,10 +1,13 @@
 //! Boilerplate for runtime module unit tests
 
-use crate::did;
-use crate::did::{Did, DidSignature};
+use crate::did::{self, Did, DidSignature};
 use crate::revoke::{Policy, RegistryId, RevokeId};
-use codec::Encode;
-use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+use codec::{Decode, Encode};
+use frame_support::{
+    dispatch::{Dispatchable, PostDispatchInfo},
+    impl_outer_origin, parameter_types,
+    weights::Weight,
+};
 use sp_core::{Pair, H256};
 use sp_runtime::{
     testing::Header,
@@ -21,6 +24,49 @@ pub type RevoMod = crate::revoke::Module<Test>;
 
 impl_outer_origin! {
     pub enum Origin for Test {}
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub enum TestCall {
+    Master(crate::master::Call<Test>),
+    System(system::Call<Test>),
+}
+
+impl Dispatchable for TestCall {
+    type Origin = Origin;
+    type Trait = ();
+    type Info = ();
+    type PostInfo = PostDispatchInfo;
+    fn dispatch(self, origin: Self::Origin) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
+        match self {
+            TestCall::Master(mc) => mc.dispatch(origin),
+            TestCall::System(sc) => sc.dispatch(origin),
+        }
+    }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub enum TestEvent {
+    Master(crate::master::Event<Test>),
+    Unknown,
+}
+
+impl From<system::Event<Test>> for TestEvent {
+    fn from(_: system::Event<Test>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl From<()> for TestEvent {
+    fn from((): ()) -> Self {
+        Self::Unknown
+    }
+}
+
+impl From<crate::master::Event<Test>> for TestEvent {
+    fn from(other: crate::master::Event<Test>) -> Self {
+        Self::Master(other)
+    }
 }
 
 #[derive(Clone, Eq, Debug, PartialEq)]
@@ -43,7 +89,7 @@ impl system::Trait for Test {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = ();
+    type Event = TestEvent;
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = ();
@@ -71,6 +117,11 @@ parameter_types! {
 
 impl crate::blob::Trait for Test {
     type MaxBlobSize = MaxBlobSize;
+}
+
+impl crate::master::Trait for Test {
+    type Event = TestEvent;
+    type Call = TestCall;
 }
 
 pub const ABBA: u64 = 0;
