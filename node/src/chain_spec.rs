@@ -234,37 +234,6 @@ pub fn local_poa_testnet_config() -> ChainSpec {
     )
 }
 
-/*fn testnet_genesis(
-    initial_authorities: Vec<(AuraId, GrandpaId)>,
-    root_key: AccountId,
-    endowed_accounts: Vec<AccountId>,
-    _enable_println: bool,
-) -> GenesisConfig {
-    GenesisConfig {
-        system: Some(SystemConfig {
-            code: WASM_BINARY.to_vec(),
-            changes_trie_config: Default::default(),
-        }),
-        balances: Some(BalancesConfig {
-            balances: endowed_accounts
-                .iter()
-                .cloned()
-                .map(|k| (k, 1 << 60))
-                .collect(),
-        }),
-        sudo: Some(SudoConfig { key: root_key }),
-        aura: Some(AuraConfig {
-            authorities: initial_authorities.iter().map(|x| (x.0.clone())).collect(),
-        }),
-        grandpa: Some(GrandpaConfig {
-            authorities: initial_authorities
-                .iter()
-                .map(|x| (x.1.clone(), 1))
-                .collect(),
-        }),
-    }
-}*/
-
 fn testnet_genesis(
     initial_authorities: Vec<(AccountId, AuraId, GrandpaId)>,
     root_key: AccountId,
@@ -293,7 +262,6 @@ fn testnet_genesis(
                 .iter()
                 .map(|x| x.0.clone())
                 .collect::<Vec<_>>(),
-            force_session_change: false,
         }),
         balances: Some(BalancesConfig {
             balances: endowed_accounts

@@ -138,7 +138,9 @@ pub fn new_full(config: Configuration) -> Result<impl AbstractService, ServiceEr
 
         // the AURA authoring task is considered essential, i.e. if it
         // fails we take down the service with it.
-        service.spawn_essential_task_handle().spawn_blocking("aura", aura);
+        service
+            .spawn_essential_task_handle()
+            .spawn_blocking("aura", aura);
     }
 
     // if the node isn't actively participating in consensus then it doesn't

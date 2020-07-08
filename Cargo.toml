@@ -5,10 +5,5 @@ members = [
     'runtime',
 ]
 
-#[features]
-#runtime-benchmarks = [
-#	"runtime/runtime-benchmarks",
-#]
-
 [profile.release]
 panic = 'unwind'
