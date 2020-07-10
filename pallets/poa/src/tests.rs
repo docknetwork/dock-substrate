@@ -81,6 +81,7 @@ pub type ValidatorId = u64;
 
 /// Dummy session handler as the pallet's trait needs the session pallet's trait
 pub struct TestSessionHandler;
+
 impl pallet_session::SessionHandler<ValidatorId> for TestSessionHandler {
     const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
 
@@ -90,8 +91,7 @@ impl pallet_session::SessionHandler<ValidatorId> for TestSessionHandler {
         _changed: bool,
         _validators: &[(ValidatorId, K)],
         _queued_validators: &[(ValidatorId, K)],
-    ) {
-    }
+    ) {}
 
     fn on_disabled(_validator_index: usize) {}
 }
@@ -110,10 +110,11 @@ impl pallet_session::Trait for Test {
 
 /// Dummy author as the pallet's trait needs the authorship pallet's trait
 pub struct TestAuthor;
+
 impl FindAuthor<ValidatorId> for TestAuthor {
     fn find_author<'a, I>(_digests: I) -> Option<ValidatorId>
-    where
-        I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
+        where
+            I: 'a + IntoIterator<Item=(ConsensusEngineId, &'a [u8])>,
     {
         None
     }
@@ -224,7 +225,8 @@ fn short_circuit_epoch() {
         ] {
             Epochs::insert(
                 current_epoch_no,
-                (validator_count, starting_slot, None as Option<u64>),
+                // expected ending slot has a dummy value as its not being tested in here
+                EpochDetail::new(validator_count, starting_slot, 0),
             );
             let epoch_end = PoAModule::update_current_epoch_end_on_short_circuit(current_slot_no);
             assert_eq!(epoch_end, expected_epoch_end);
@@ -655,50 +657,402 @@ fn epoch_details_and_block_count() {
         for id in vec![val_id1, val_id2] {
             PoAModule::add_validator_(id, false).unwrap();
         }
+        PoAModule::update_details_for_ending_epoch(1);
         PoAModule::update_active_validators_if_needed();
+        PoAModule::set_next_epoch_end(1, 2);
 
         PoAModule::update_details_on_new_epoch(1, 1, 2);
 
         // Epoch details, i.e. `Epoch` and `Epochs` should be updated
         assert_eq!(PoAModule::epoch(), 1);
-        assert_eq!(PoAModule::get_epoch_detail(1), (2, 1, None));
+        assert_eq!(PoAModule::get_epoch_detail(1), EpochDetail::new(2, 1, 26));
 
         // No blocks authored
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), 0);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), 0);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), ValidatorStatsPerEpoch { block_count: 0, locked_reward: None, unlocked_reward: None });
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), ValidatorStatsPerEpoch { block_count: 0, locked_reward: None, unlocked_reward: None });
 
         // After val_id1 authors
         PoAModule::increment_current_epoch_block_count(val_id1);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), 1);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), 0);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), ValidatorStatsPerEpoch { block_count: 1, locked_reward: None, unlocked_reward: None });
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), ValidatorStatsPerEpoch { block_count: 0, locked_reward: None, unlocked_reward: None });
 
         // After val_id2 authors
         PoAModule::increment_current_epoch_block_count(val_id2);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), 1);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), 1);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), ValidatorStatsPerEpoch { block_count: 1, locked_reward: None, unlocked_reward: None });
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), ValidatorStatsPerEpoch { block_count: 1, locked_reward: None, unlocked_reward: None });
 
         // They author few more blocks
         PoAModule::increment_current_epoch_block_count(val_id1);
         PoAModule::increment_current_epoch_block_count(val_id2);
         PoAModule::increment_current_epoch_block_count(val_id1);
         PoAModule::increment_current_epoch_block_count(val_id2);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), 3);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), 3);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), ValidatorStatsPerEpoch { block_count: 3, locked_reward: None, unlocked_reward: None });
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), ValidatorStatsPerEpoch { block_count: 3, locked_reward: None, unlocked_reward: None });
 
         // Epoch changes, slot becomes 7
+        PoAModule::update_details_for_ending_epoch(7);
+        PoAModule::set_next_epoch_end(7, 2);
         PoAModule::update_details_on_new_epoch(2, 7, 2);
         // Epoch details, i.e. `Epoch` and `Epochs` should be updated
         assert_eq!(PoAModule::epoch(), 2);
-        assert_eq!(PoAModule::get_epoch_detail(2), (2, 7, None));
+        assert_eq!(PoAModule::get_epoch_detail(2), EpochDetail::new(2, 7, 32));
         // Previous epoch's end marked
-        assert_eq!(PoAModule::get_epoch_detail(1), (2, 1, Some(6)));
+        let epoch_1 = PoAModule::get_epoch_detail(1);
+        assert_eq!(epoch_1.expected_ending_slot, 26);
+        assert_eq!(epoch_1.ending_slot, Some(6));
 
         // They author few more blocks
         PoAModule::increment_current_epoch_block_count(val_id1);
         PoAModule::increment_current_epoch_block_count(val_id2);
         PoAModule::increment_current_epoch_block_count(val_id1);
         PoAModule::increment_current_epoch_block_count(val_id2);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(2, &val_id1), 2);
-        assert_eq!(PoAModule::get_validator_stats_for_epoch(2, &val_id2), 2);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(2, &val_id1), ValidatorStatsPerEpoch { block_count: 2, locked_reward: None, unlocked_reward: None });
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(2, &val_id2), ValidatorStatsPerEpoch { block_count: 2, locked_reward: None, unlocked_reward: None });
+    });
+}
+
+#[test]
+fn slots_per_validator() {
+    new_test_ext().execute_with(|| {
+        let epoch_detail = EpochDetail::new(2, 1, 26);
+
+        // Both validator claimed all given slots
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 26, &BlockCount::SameBlocks(13)), 13);
+        // One validator did not get 1 slot, swap
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 25, &BlockCount::MaxBlocks(13)), 12);
+        // Both validators did not get 1 slot, swap or short circuit
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 24, &BlockCount::SameBlocks(12)), 12);
+        // Only 1 validator got a slot before the swap happened
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 1, &BlockCount::MaxBlocks(1)), 0);
+        // Both validators got 1 slot each before swap or epoch termination
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 2, &BlockCount::SameBlocks(1)), 1);
+
+        // Both validators got a slot before the network stopped
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 27, &BlockCount::SameBlocks(1)), 1);
+        // Only 1 validator got a slot before the network stopped
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 27, &BlockCount::MaxBlocks(1)), 0);
+        // No validator got any slot
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 27, &BlockCount::MaxBlocks(0)), 0);
+
+        let epoch_detail = EpochDetail::new(3, 11, 37);
+
+        // All validator claimed all given slots
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 37, &BlockCount::SameBlocks(9)), 9);
+        // One validator did not get 1 slot, swap
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 36, &BlockCount::MaxBlocks(9)), 8);
+        // 2 validators did not get 1 slot, swap
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 35, &BlockCount::MaxBlocks(9)), 8);
+
+        // All validators did not get 1 slot, swap or short circuit
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 34, &BlockCount::SameBlocks(8)), 8);
+        // Only 1 validator got a slot before the swap happened
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 11, &BlockCount::MaxBlocks(1)), 0);
+        // Only 2 validators got a slot before the swap happened
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 12, &BlockCount::MaxBlocks(1)), 0);
+        // All validators got 1 slot each before swap or epoch termination
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 13, &BlockCount::SameBlocks(1)), 1);
+
+        // All validators got a slot before the network stopped
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 40, &BlockCount::SameBlocks(1)), 1);
+        // Only 1 validator got a slot before the network stopped
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 40, &BlockCount::MaxBlocks(1)), 0);
+        // Only 2 validators got a slot before the network stopped
+        assert_eq!(PoAModule::get_slots_per_validator(&epoch_detail, 40, &BlockCount::MaxBlocks(1)), 0);
+    });
+}
+
+#[test]
+fn validator_block_counts() {
+    new_test_ext().execute_with(|| {
+        let val_id1 = 1;
+        let val_id2 = 2;
+
+        for id in vec![val_id1, val_id2] {
+            PoAModule::add_validator_(id, false).unwrap();
+        }
+        PoAModule::update_active_validators_if_needed();
+        PoAModule::update_details_on_new_epoch(1, 2, 2);
+
+        // No blocks produced yet
+        let (block_count, map) = PoAModule::count_validator_blocks(1);
+        assert!(matches!(block_count, BlockCount::SameBlocks(0)));
+        assert_eq!(map.get(&val_id1), Some(&0));
+        assert_eq!(map.get(&val_id2), Some(&0));
+
+        // Both validator produced 1 block
+        PoAModule::increment_current_epoch_block_count(val_id1);
+        PoAModule::increment_current_epoch_block_count(val_id2);
+
+        let (block_count, map) = PoAModule::count_validator_blocks(1);
+        assert!(matches!(block_count, BlockCount::SameBlocks(1)));
+        assert_eq!(map.get(&val_id1), Some(&1));
+        assert_eq!(map.get(&val_id2), Some(&1));
+
+        // Only 1 validator produced an additional block
+        PoAModule::increment_current_epoch_block_count(val_id1);
+        let (block_count, map) = PoAModule::count_validator_blocks(1);
+        assert!(matches!(block_count, BlockCount::MaxBlocks(2)));
+        assert_eq!(map.get(&val_id1), Some(&2));
+        assert_eq!(map.get(&val_id2), Some(&1));
+
+        // Another validator produced an additional block
+        PoAModule::increment_current_epoch_block_count(val_id2);
+        let (block_count, map) = PoAModule::count_validator_blocks(1);
+        assert!(matches!(block_count, BlockCount::SameBlocks(2)));
+        assert_eq!(map.get(&val_id1), Some(&2));
+        assert_eq!(map.get(&val_id2), Some(&2));
+
+        PoAModule::increment_current_epoch_block_count(val_id1);
+        let (block_count, map) = PoAModule::count_validator_blocks(1);
+        assert!(matches!(block_count, BlockCount::MaxBlocks(3)));
+        assert_eq!(map.get(&val_id1), Some(&3));
+        assert_eq!(map.get(&val_id2), Some(&2));
+    });
+}
+
+#[test]
+fn treasury_emission_reward() {
+    new_test_ext().execute_with(|| {
+        TreasuryRewardsPercent::put(60);
+
+        assert_eq!(PoAModule::calculate_treasury_reward(100), 60);
+        assert_eq!(PoAModule::calculate_treasury_reward(101), 60);
+        assert_eq!(PoAModule::calculate_treasury_reward(102), 61);
+        assert_eq!(PoAModule::calculate_treasury_reward(103), 61);
+        assert_eq!(PoAModule::calculate_treasury_reward(104), 62);
+
+        assert_eq!(PoAModule::calculate_treasury_reward(10000), 6000);
+        assert_eq!(PoAModule::calculate_treasury_reward(10010), 6006);
+        assert_eq!(PoAModule::calculate_treasury_reward(10020), 6012);
+        assert_eq!(PoAModule::calculate_treasury_reward(10050), 6030);
+    });
+}
+
+#[test]
+fn validator_rewards_credit() {
+    new_test_ext().execute_with(|| {
+        let val_id = 1;
+
+        let balance_f_1 = <Test as Trait>::Currency::free_balance(&val_id).saturated_into::<u128>();
+        let balance_r_1 = <Test as Trait>::Currency::reserved_balance(&val_id).saturated_into::<u128>();
+        assert_eq!(balance_f_1, 0);
+        assert_eq!(balance_r_1, 0);
+
+        // Credit some locked and unlocked balance to an account
+        let locked_1 = 100;
+        let unlocked_1 = 1000;
+        PoAModule::credit_emission_rewards_to_validator(&val_id, locked_1, unlocked_1);
+
+        // The locked and unlocked balances should be reflected as reserve and free balances respectively
+        let balance_f_2 = <Test as Trait>::Currency::free_balance(&val_id).saturated_into::<u128>();
+        let balance_r_2 = <Test as Trait>::Currency::reserved_balance(&val_id).saturated_into::<u128>();
+        assert_eq!(balance_f_2, unlocked_1);
+        assert_eq!(balance_r_2, locked_1);
+
+        // Credit some more locked and unlocked balance to an account
+        let locked_2 = 99509;
+        let unlocked_2 = 235;
+        PoAModule::credit_emission_rewards_to_validator(&val_id, locked_2, unlocked_2);
+
+        // The locked and unlocked balances should be reflected as reserve and free balances respectively
+        let balance_f_3 = <Test as Trait>::Currency::free_balance(&val_id).saturated_into::<u128>();
+        let balance_r_3 = <Test as Trait>::Currency::reserved_balance(&val_id).saturated_into::<u128>();
+        assert_eq!(balance_f_3, unlocked_1 + unlocked_2);
+        assert_eq!(balance_r_3, locked_1 + locked_2);
+
+        // Unreserve some funds and check they can be unreserved and free and reserved balances get updated
+        let unreserve = 125;
+        let cannot_unreserve = <Test as Trait>::Currency::unreserve(&val_id, 125).saturated_into::<u128>();
+        assert_eq!(cannot_unreserve, 0);
+
+        let balance_f_4 = <Test as Trait>::Currency::free_balance(&val_id).saturated_into::<u128>();
+        let balance_r_4 = <Test as Trait>::Currency::reserved_balance(&val_id).saturated_into::<u128>();
+        assert_eq!(balance_f_4, unlocked_1 + unlocked_2 + unreserve);
+        assert_eq!(balance_r_4, locked_1 + locked_2 - unreserve);
+    });
+}
+
+#[test]
+fn validator_rewards_for_non_empty_epoch() {
+    new_test_ext().execute_with(|| {
+        let max_emm = 500;
+        let lock_pc = 20;
+        <MaxEmmValidatorEpoch<Test>>::put(max_emm);
+        ValidatorRewardsLockPercent::put(lock_pc);
+
+        let val_id1 = 1;
+        let val_id2 = 2;
+
+        let current_epoch_no = 1;
+
+        for id in vec![val_id1, val_id2] {
+            PoAModule::add_validator_(id, false).unwrap();
+        }
+        PoAModule::update_active_validators_if_needed();
+        PoAModule::update_details_on_new_epoch(current_epoch_no, 1, 2);
+
+        let (_, validator_block_counts) =
+            PoAModule::count_validator_blocks(current_epoch_no);
+
+        // No slots are used by any validators and they both get no reward
+        let slots_per_validator = 10;
+        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        assert_eq!(total_validator_reward, 0);
+        assert_eq!(
+            <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>(),
+            0
+        );
+        assert_eq!(
+            <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>(),
+            0
+        );
+
+        // Both validator produce 10 blocks
+        for _ in 0..10 {
+            PoAModule::increment_current_epoch_block_count(val_id1);
+            PoAModule::increment_current_epoch_block_count(val_id2);
+        }
+        let (_, validator_block_counts) =
+            PoAModule::count_validator_blocks(current_epoch_no);
+
+        // All slots are used by both validators and they both get 100% reward (of `max_emm`)
+        let slots_per_validator = 10;
+        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        assert_eq!(total_validator_reward, 1000);
+        // 20% balance remains reserved, rest is free
+        let bal_id1_f1 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+        let bal_id1_r1 = <Test as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+        let bal_id2_f1 = <Test as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+        let bal_id2_r1 = <Test as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+        assert_eq!(bal_id1_f1, 400);
+        assert_eq!(bal_id1_r1, 100);
+        assert_eq!(bal_id2_f1, 400);
+        assert_eq!(bal_id2_r1, 100);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id1), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(100), unlocked_reward: Some(400)});
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(100), unlocked_reward: Some(400)});
+
+        // ~83% slots are used by both validators and they both get ~83% reward (of `max_emm`)
+        let slots_per_validator = 12;
+        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        assert_eq!(total_validator_reward, 832);
+        // 20% balance remains reserved, rest is free
+        let bal_id1_f2 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+        let bal_id1_r2 = <Test as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+        let bal_id2_f2 = <Test as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+        let bal_id2_r2 = <Test as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+        assert_eq!(bal_id1_f2 - bal_id1_f1, 333);
+        assert_eq!(bal_id1_r2 - bal_id1_r1, 83);
+        assert_eq!(bal_id2_f2 - bal_id2_f1, 333);
+        assert_eq!(bal_id2_r2 - bal_id2_r1, 83);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id1), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(83), unlocked_reward: Some(333)});
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(83), unlocked_reward: Some(333)});
+
+        // ~63% slots are used by both validators and they both get ~63% reward (of `max_emm`)
+        let slots_per_validator = 16;
+        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        assert_eq!(total_validator_reward, 624);
+        // 20% balance remains reserved, rest is free
+        let bal_id1_f3 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+        let bal_id1_r3 = <Test as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+        let bal_id2_f3 = <Test as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+        let bal_id2_r3 = <Test as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+        assert_eq!(bal_id1_f3 - bal_id1_f2, 250);
+        assert_eq!(bal_id1_r3 - bal_id1_r2, 62);
+        assert_eq!(bal_id2_f3 - bal_id2_f2, 250);
+        assert_eq!(bal_id2_r3 - bal_id2_r2, 62);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id1), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(62), unlocked_reward: Some(250)});
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(62), unlocked_reward: Some(250)});
+
+        // One validator produces 5 more blocks
+        for _ in 0..5 {
+            PoAModule::increment_current_epoch_block_count(val_id1);
+        }
+        let (_, validator_block_counts) =
+            PoAModule::count_validator_blocks(current_epoch_no);
+
+        // All slots are used by 1 validator only and it get 100% reward (of `max_emm`) and the other gets less
+        let slots_per_validator = 15;
+        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        assert_eq!(total_validator_reward, 833);
+        // 20% balance remains reserved, rest is free
+        let bal_id1_f4 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+        let bal_id1_r4 = <Test as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+        let bal_id2_f4 = <Test as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+        let bal_id2_r4 = <Test as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+        assert_eq!(bal_id1_f4 - bal_id1_f3, 400);
+        assert_eq!(bal_id1_r4 - bal_id1_r3, 100);
+        assert_eq!(bal_id2_f4 - bal_id2_f3, 267);
+        assert_eq!(bal_id2_r4 - bal_id2_r3, 66);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id1), ValidatorStatsPerEpoch {block_count: 15, locked_reward: Some(100), unlocked_reward: Some(400)});
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(66), unlocked_reward: Some(267)});
+
+        // No validators used all slots and both used different slots
+        let slots_per_validator = 18;
+        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        assert_eq!(total_validator_reward, 693);
+        // 20% balance remains reserved, rest is free
+        let bal_id1_f5 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+        let bal_id1_r5 = <Test as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+        let bal_id2_f5 = <Test as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+        let bal_id2_r5 = <Test as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+        assert_eq!(bal_id1_f5 - bal_id1_f4, 333);
+        assert_eq!(bal_id1_r5 - bal_id1_r4, 83);
+        assert_eq!(bal_id2_f5 - bal_id2_f4, 222);
+        assert_eq!(bal_id2_r5 - bal_id2_r4, 55);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id1), ValidatorStatsPerEpoch {block_count: 15, locked_reward: Some(83), unlocked_reward: Some(333)});
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(55), unlocked_reward: Some(222)});
+    });
+}
+
+#[test]
+fn rewards_for_non_empty_epoch() {
+    new_test_ext().execute_with(|| {
+        let emission_supply = 1_000_000;
+        let max_emm = 500;
+        let v_lock_pc = 20;
+        let t_lock_pc = 60;
+        <EmissionSupply<Test>>::put(emission_supply);
+        <MaxEmmValidatorEpoch<Test>>::put(max_emm);
+        ValidatorRewardsLockPercent::put(v_lock_pc);
+        TreasuryRewardsPercent::put(t_lock_pc);
+
+        let val_id1 = 1;
+        let val_id2 = 2;
+
+        let current_epoch_no = 1;
+        for id in vec![val_id1, val_id2] {
+            PoAModule::add_validator_(id, false).unwrap();
+        }
+        PoAModule::update_active_validators_if_needed();
+        PoAModule::update_details_on_new_epoch(current_epoch_no, 1, 2);
+
+        let (_, validator_block_counts) =
+            PoAModule::count_validator_blocks(current_epoch_no);
+
+        // No slots are used by any validators and they both get no reward and emission supply does not change
+        let slots_per_validator = 10;
+        let mut epoch_detail = EpochDetail::new(2, 1, 26);
+        PoAModule::disburse_rewards_for_non_empty_epoch(&mut epoch_detail, current_epoch_no, slots_per_validator, validator_block_counts);
+        assert_eq!(epoch_detail.total_emission, Some(0));
+        assert_eq!(epoch_detail.emission_for_treasury, Some(0));
+        assert_eq!(epoch_detail.emission_for_validators, Some(0));
+        assert_eq!(PoAModule::emission_supply(), emission_supply);
+
+        // Both validator produce 10 blocks
+        for _ in 0..10 {
+            PoAModule::increment_current_epoch_block_count(val_id1);
+            PoAModule::increment_current_epoch_block_count(val_id2);
+        }
+        let (_, validator_block_counts) =
+            PoAModule::count_validator_blocks(current_epoch_no);
+
+        // All slots are used by both validators and they both get 100% reward (of `max_emm`). Emission supply changes
+        let slots_per_validator = 10;
+        let mut epoch_detail = EpochDetail::new(2, 1, 26);
+        PoAModule::disburse_rewards_for_non_empty_epoch(&mut epoch_detail, current_epoch_no, slots_per_validator, validator_block_counts);
+        assert_eq!(epoch_detail.total_emission, Some(1600));
+        assert_eq!(epoch_detail.emission_for_treasury, Some(600));
+        assert_eq!(epoch_detail.emission_for_validators, Some(1000));
+        assert_eq!(PoAModule::emission_supply(), emission_supply - epoch_detail.total_emission.unwrap() as u64);
     });
 }

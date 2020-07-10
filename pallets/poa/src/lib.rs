@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{print, Percent, SaturatedConversion},
-    traits::{Currency, Get, Imbalance, OnUnbalanced},
+    traits::{Currency, Get, Imbalance, OnUnbalanced, ReservableCurrency},
 };
 use frame_system::{self as system, ensure_root};
 use log::{debug, warn};
@@ -15,6 +15,7 @@ use sp_arithmetic::{FixedPointNumber, FixedU128};
 
 extern crate alloc;
 use alloc::collections::{BTreeMap, BTreeSet};
+
 
 #[cfg(test)]
 mod tests;
@@ -40,6 +41,7 @@ pub struct ValidatorStatsPerEpoch {
 }
 
 impl EpochDetail {
+    /// Create a new epoch detail object. This is called when epoch is starting
     pub fn new(validator_count: u8, starting_slot: u64, expected_ending_slot: u64) -> Self {
         EpochDetail {
             validator_count,
@@ -49,6 +51,24 @@ impl EpochDetail {
             total_emission: None,
             emission_for_treasury: None,
             emission_for_validators: None,
+        }
+    }
+}
+
+/// Enum specifying whether same no of blocks were produced by the validators in an epoch. If not then
+/// what is the maximum number of blocks produced in the epoch.
+enum BlockCount {
+    /// Different no of blocks were produced by different validators, the max is captured
+    MaxBlocks(u64),
+    /// Same no of blocks were produced by all the validators
+    SameBlocks(u64),
+}
+
+impl BlockCount {
+    pub fn to_number(&self) -> u64 {
+        match self {
+            BlockCount::MaxBlocks(n) => *n,
+            BlockCount::SameBlocks(n) => *n
         }
     }
 }
@@ -64,7 +84,7 @@ pub trait Trait: system::Trait + pallet_session::Trait + pallet_authorship::Trai
     /// Maximum no. of active validators allowed
     type MaxActiveValidators: Get<u8>;
 
-    type Currency: Currency<Self::AccountId>;
+    type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 }
 
 // This pallet's storage items.
@@ -573,46 +593,65 @@ impl<T: Trait> Module<T> {
 
     /// Get count of slots reserved for a validator in given epoch
     fn get_slots_per_validator(
-        current_epoch_no: u32,
         epoch_detail: &EpochDetail,
         ending_slot: u64,
-        validator_count: u8,
-        max_blocks: u64,
+        block_count: &BlockCount,
     ) -> u64 {
         if epoch_detail.expected_ending_slot == ending_slot {
-            print("Epoch ending at slot");
-            print(current_epoch_no);
             print(ending_slot);
-            (ending_slot - epoch_detail.starting_slot + 1) / validator_count as u64
+            (ending_slot - epoch_detail.starting_slot + 1) / epoch_detail.validator_count as u64
         } else if epoch_detail.expected_ending_slot > ending_slot {
-            print("Epoch ending early. Either short circuited or swap");
-            (ending_slot - epoch_detail.starting_slot + 1) / validator_count as u64
+            print("Epoch ending early. Swap or network stopped");
+            // This can be slightly disadvantageous for the highest block producer(s) if the following
+            // division leaves a remainder. The disadvantage is loss of emission reward on 1 block.
+            (ending_slot - epoch_detail.starting_slot + 1) / epoch_detail.validator_count as u64
         } else {
             print("Epoch ending late. This means the network stopped in between");
-            if max_blocks > 0 {
-                max_blocks - 1
-            } else {
-                0
+            match block_count {
+                BlockCount::MaxBlocks(max_blocks) => {
+                    // Pick slot as every one should have got max_blocks - 1 slots at least, this is slightly
+                    // disadvantageous for the highest block producer as he does not get paid for one block.
+                    if *max_blocks > 0 {
+                        *max_blocks - 1
+                    } else {
+                        0
+                    }
+                }
+                // All validator produced same no of blocks so that no of slots were taken by each validator
+                BlockCount::SameBlocks(count) => *count
             }
+
         }
     }
 
-    /// Return maximum number of blocks produced by any validator in the epoch and count of blocks
-    /// produced by each validator in a map.
-    fn get_validator_block_counts(current_epoch_no: u32) -> (u64, BTreeMap<T::AccountId, u64>) {
+    /// Return an enum containing either maximum number of blocks produced by any validator if all validators
+    /// did not produce equal blocks in the epoch or the number of blocks if they produced the same number.
+    /// Also return count of blocks produced by each validator in a map.
+    fn count_validator_blocks(current_epoch_no: u32) -> (BlockCount, BTreeMap<T::AccountId, u64>) {
         let mut validator_block_counts = BTreeMap::new();
         let mut max_blocks = 0;
+        // Flag to check if all validators produced same blocks
+        let mut same_block_count = true;
         let validators = Self::active_validators();
-        for v in validators {
+        for (i, v) in validators.into_iter().enumerate() {
             let stats = Self::get_validator_stats_for_epoch(current_epoch_no, &v);
             let block_count = stats.block_count;
-            if block_count > max_blocks {
-                max_blocks = block_count;
+            if i == 0 {
+                // first iteration
+                max_blocks = block_count
+            } else {
+                if max_blocks != block_count {
+                    // Block count of this validator is different from previous, set the flag as false
+                    same_block_count = false;
+                }
+                if block_count > max_blocks {
+                    max_blocks = block_count;
+                }
             }
             debug!(target: "runtime", "Validator {:?} has blocks {}", v, block_count);
             validator_block_counts.insert(v, block_count);
         }
-        (max_blocks, validator_block_counts)
+        (if same_block_count {BlockCount::SameBlocks(max_blocks)} else {BlockCount::MaxBlocks(max_blocks)}, validator_block_counts)
     }
 
     /// Calculate reward for treasury in an epoch given total reward for validators
@@ -621,17 +660,36 @@ impl<T: Trait> Module<T> {
         (total_validator_reward.saturating_mul(treasury_reward_pc)) / 100
     }
 
+    /// Credit locked balance to validator's account as reserved balance
+    fn credit_locked_emission_rewards_to_validator(validator: &T::AccountId, locked: u128) {
+        let locked_bal = locked.saturated_into();
+        // Deposit locked balance
+        T::Currency::deposit_creating(validator, locked_bal);
+        // Reserve the balance.
+        // The following unwrap will never throw error as the balance to reserve was just transferred.
+        T::Currency::reserve(validator, locked_bal).unwrap();
+    }
+
+    /// Credit unlocked and locked balance to validator's account
+    fn credit_emission_rewards_to_validator(validator: &T::AccountId, locked: u128, unlocked: u128) {
+        T::Currency::deposit_creating(validator, unlocked.saturated_into());
+        Self::credit_locked_emission_rewards_to_validator(validator, locked)
+    }
+
     /// Track locked and unlocked reward for each validator in the given epoch and return sum of
     /// emission rewards (locked + unlocked) for all validators
-    fn track_validator_rewards_for_non_empty_epoch(
+    fn disburse_and_track_validator_rewards_for_non_empty_epoch(
         current_epoch_no: u32,
         slots_per_validator: u64,
         validator_block_counts: BTreeMap<T::AccountId, u64>,
     ) -> u128 {
         let mut total_validator_reward = 0u128;
+        // TODO: Reduce the emission for shorter epoch
+        // Maximum emission reward for each validator in an epoch
         let max_em = Self::max_emm_validator_epoch().saturated_into::<u128>();
         let lock_pc = Self::validator_reward_lock_pc() as u128;
         for (v, block_count) in validator_block_counts {
+            // The actual emission rewards depends on the ration of blocks produced to slots available
             let reward = max_em.saturating_mul(block_count.into()) / (slots_per_validator as u128);
 
             /*print(reward as u64);
@@ -639,10 +697,9 @@ impl<T: Trait> Module<T> {
             let locked_reward = FixedU128::from(Percent::from_percent(lock_pc));
             let locked_reward = locked_reward.saturating_mul_int(reward);*/
 
-            // TODO: Deposit locked rewards to validator's `reserve` balance
             let locked_reward = (reward.saturating_mul(lock_pc)) / 100;
-            // TODO: Deposit unlocked rewards to validator's `free` balance
             let unlocked_reward = reward.saturating_sub(locked_reward);
+            Self::credit_emission_rewards_to_validator(&v, locked_reward, unlocked_reward);
             <ValidatorStats<T>>::insert(
                 current_epoch_no,
                 v,
@@ -675,37 +732,45 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    /// Calculate validator and treasury rewards for epoch with non-zero rewards
-    fn calculate_rewards_for_non_empty_epoch(
-        mut epoch_detail: EpochDetail,
+    /// Calculate validator and treasury rewards for epoch with non-zero rewards and reward each
+    /// validator
+    fn disburse_rewards_for_non_empty_epoch(
+        epoch_detail: &mut EpochDetail,
         current_epoch_no: u32,
         slots_per_validator: u64,
         validator_block_counts: BTreeMap<T::AccountId, u64>,
-    ) -> EpochDetail {
-        let total_validator_reward = Self::track_validator_rewards_for_non_empty_epoch(
+    ) {
+        let total_validator_reward = Self::disburse_and_track_validator_rewards_for_non_empty_epoch(
             current_epoch_no,
             slots_per_validator,
             validator_block_counts,
         );
+
+        // Treasury's reward depends on the total reward for validators in the epoch
+        // TODO: This should be given to treasury
         let treasury_reward = Self::calculate_treasury_reward(total_validator_reward);
+
         let total_reward = total_validator_reward.saturating_add(treasury_reward);
+        // Subtract from total supply
+        let mut emission_supply = <EmissionSupply<T>>::take().saturated_into::<u128>();
+        emission_supply = emission_supply.saturating_sub(total_reward);
+        <EmissionSupply<T>>::put(emission_supply.saturated_into::<<<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance>());
+
         epoch_detail.total_emission = Some(total_reward);
         epoch_detail.emission_for_treasury = Some(treasury_reward);
         epoch_detail.emission_for_validators = Some(total_validator_reward);
-        epoch_detail
     }
 
     /// Calculate validator and treasury rewards for epoch with 0 rewards. The tracked rewards will be 0
     fn calculate_rewards_for_empty_epoch(
-        mut epoch_detail: EpochDetail,
+        epoch_detail: &mut EpochDetail,
         current_epoch_no: u32,
         validator_block_counts: BTreeMap<T::AccountId, u64>,
-    ) -> EpochDetail {
+    ) {
         Self::track_validator_rewards_for_empty_epoch(current_epoch_no, validator_block_counts);
         epoch_detail.total_emission = Some(0);
         epoch_detail.emission_for_treasury = Some(0);
         epoch_detail.emission_for_validators = Some(0);
-        epoch_detail
     }
 
     /// Track epoch ending slot and rewards for validators and treasury.
@@ -722,39 +787,44 @@ impl<T: Trait> Module<T> {
             current_epoch_no, ending_slot
         );
 
+        // Get blocks authored by each validator
         let (max_blocks, validator_block_counts) =
-            Self::get_validator_block_counts(current_epoch_no);
+            Self::count_validator_blocks(current_epoch_no);
+
         let mut epoch_detail = Self::get_epoch_detail(current_epoch_no);
+
+        print("Epoch ending at slot");
+        print(current_epoch_no);
+        // Get slots received by each validator
         let slots_per_validator = Self::get_slots_per_validator(
-            current_epoch_no,
             &epoch_detail,
             ending_slot,
-            validator_block_counts.len() as u8,
-            max_blocks,
+            &max_blocks,
         );
         print("slots_per_validator");
         print(slots_per_validator);
 
-        if slots_per_validator > max_blocks {
+        if slots_per_validator > max_blocks.to_number() {
             panic!("This panic should never trigger");
         }
 
         epoch_detail.ending_slot = Some(ending_slot);
 
-        let epoch_detail = if slots_per_validator > 0 {
-            Self::calculate_rewards_for_non_empty_epoch(
-                epoch_detail,
+        if slots_per_validator > 0 {
+            Self::disburse_rewards_for_non_empty_epoch(
+                &mut epoch_detail,
                 current_epoch_no,
                 slots_per_validator,
                 validator_block_counts,
-            )
+            );
         } else {
+            // No slots claimed, 0 rewards for validators and treasury
             Self::calculate_rewards_for_empty_epoch(
-                epoch_detail,
+                &mut epoch_detail,
                 current_epoch_no,
                 validator_block_counts,
-            )
-        };
+            );
+        }
 
         Epochs::insert(current_epoch_no, epoch_detail);
     }
@@ -766,29 +836,6 @@ impl<T: Trait> Module<T> {
         current_slot_no: u64,
         active_validator_count: u8,
     ) {
-        /*if current_epoch_no == 1 {
-            // First epoch, no no previous epoch to update
-        } else {
-            // Track end of previous epoch
-            let prev_epoch = current_epoch_no - 1;
-            let (v, start, _) = Epochs::get(&prev_epoch);
-            if v == 0 {
-                // This get should never fail. But if it does, let it panic
-                warn!(
-                    target: "runtime",
-                    "Data for previous epoch not found: {}",
-                    prev_epoch
-                );
-                panic!();
-            }
-            debug!(
-                target: "runtime",
-                "Epoch {} ends at slot {}",
-                prev_epoch, current_slot_no - 1
-            );
-            Epochs::insert(prev_epoch, (v, start, Some(current_slot_no - 1)))
-        }*/
-
         debug!(
             target: "runtime",
             "Epoch {} begins at slot {}",
@@ -952,6 +999,7 @@ impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
     /// in `on_finalize`. Not retrieving block author here as that is unreliable and gives different
     /// author than the block's.
     fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
+        print("Called on_nonzero_unbalanced. This will be used to track txn fees for validator");
         // TODO: Remove the next 3 debug lines
         let current_fees = amount.peek();
 
