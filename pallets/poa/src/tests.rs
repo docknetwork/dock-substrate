@@ -188,7 +188,7 @@ fn current_epoch_end() {
             (23, 4, 50),
             (39, 4, 66),
         ] {
-            let epoch_end = PoAModule::set_current_epoch_end(starting_slot, validator_count);
+            let epoch_end = PoAModule::set_next_epoch_end(starting_slot, validator_count);
             assert_eq!(epoch_end, ending_slot);
             assert_eq!(PoAModule::epoch_ends_at(), epoch_end);
         }
@@ -657,36 +657,36 @@ fn epoch_details_and_block_count() {
         }
         PoAModule::update_active_validators_if_needed();
 
-        PoAModule::update_details_on_epoch_change(1, 1, 2);
+        PoAModule::update_details_on_new_epoch(1, 1, 2);
 
         // Epoch details, i.e. `Epoch` and `Epochs` should be updated
         assert_eq!(PoAModule::epoch(), 1);
         assert_eq!(PoAModule::get_epoch_detail(1), (2, 1, None));
 
         // No blocks authored
-        assert_eq!(PoAModule::get_block_count_for_validator(1, &val_id1), 0);
-        assert_eq!(PoAModule::get_block_count_for_validator(1, &val_id2), 0);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), 0);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), 0);
 
         // After val_id1 authors
         PoAModule::increment_current_epoch_block_count(val_id1);
-        assert_eq!(PoAModule::get_block_count_for_validator(1, &val_id1), 1);
-        assert_eq!(PoAModule::get_block_count_for_validator(1, &val_id2), 0);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), 1);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), 0);
 
         // After val_id2 authors
         PoAModule::increment_current_epoch_block_count(val_id2);
-        assert_eq!(PoAModule::get_block_count_for_validator(1, &val_id1), 1);
-        assert_eq!(PoAModule::get_block_count_for_validator(1, &val_id2), 1);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), 1);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), 1);
 
         // They author few more blocks
         PoAModule::increment_current_epoch_block_count(val_id1);
         PoAModule::increment_current_epoch_block_count(val_id2);
         PoAModule::increment_current_epoch_block_count(val_id1);
         PoAModule::increment_current_epoch_block_count(val_id2);
-        assert_eq!(PoAModule::get_block_count_for_validator(1, &val_id1), 3);
-        assert_eq!(PoAModule::get_block_count_for_validator(1, &val_id2), 3);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id1), 3);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(1, &val_id2), 3);
 
         // Epoch changes, slot becomes 7
-        PoAModule::update_details_on_epoch_change(2, 7, 2);
+        PoAModule::update_details_on_new_epoch(2, 7, 2);
         // Epoch details, i.e. `Epoch` and `Epochs` should be updated
         assert_eq!(PoAModule::epoch(), 2);
         assert_eq!(PoAModule::get_epoch_detail(2), (2, 7, None));
@@ -698,7 +698,7 @@ fn epoch_details_and_block_count() {
         PoAModule::increment_current_epoch_block_count(val_id2);
         PoAModule::increment_current_epoch_block_count(val_id1);
         PoAModule::increment_current_epoch_block_count(val_id2);
-        assert_eq!(PoAModule::get_block_count_for_validator(2, &val_id1), 2);
-        assert_eq!(PoAModule::get_block_count_for_validator(2, &val_id2), 2);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(2, &val_id1), 2);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(2, &val_id2), 2);
     });
 }

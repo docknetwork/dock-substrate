@@ -65,6 +65,7 @@ type Signature = MultiSignature;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Balance of an account.
+// TODO: u64 should be sufficient
 type Balance = u128;
 
 /// Index of a transaction in the chain.
