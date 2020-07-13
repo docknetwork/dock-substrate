@@ -257,6 +257,7 @@ fn testnet_genesis(
             max_emm_validator_epoch,
             treasury_reward_pc: 60,
             validator_reward_lock_pc: 50,
+            emission_status: true,
         }),
         balances: Some(BalancesConfig {
             balances: endowed_accounts

@@ -4,8 +4,11 @@ use codec::{Decode, Encode};
 /// Pallet to add and remove validators.
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
-    sp_runtime::{print, Percent, SaturatedConversion, traits::AccountIdConversion, ModuleId},
-    traits::{Currency, Get, Imbalance, OnUnbalanced, ReservableCurrency, ExistenceRequirement::AllowDeath},
+    sp_runtime::{print, traits::AccountIdConversion, ModuleId, Percent, SaturatedConversion},
+    traits::{
+        Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
+        ReservableCurrency,
+    },
 };
 use frame_system::{self as system, ensure_root};
 use log::{debug, warn};
@@ -19,7 +22,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> =
-<<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 #[cfg(test)]
 mod tests;
@@ -76,7 +79,7 @@ impl BlockCount {
     pub fn to_number(&self) -> u64 {
         match self {
             BlockCount::MaxBlocks(n) => *n,
-            BlockCount::SameBlocks(n) => *n
+            BlockCount::SameBlocks(n) => *n,
         }
     }
 }
@@ -150,6 +153,9 @@ decl_storage! {
 
         /// Percentage of emission rewards locked per validator
         ValidatorRewardsLockPercent get(fn validator_reward_lock_pc) config(): u8;
+
+        /// Boolean flag determining whether to generate emission rewards or not
+        EmissionStatus get(fn emission_status) config(): bool;
     }
 }
 
@@ -234,11 +240,23 @@ decl_module! {
         }
 
         /// Withdraw from treasury. Only Master is allowed to withdraw
+        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
         #[weight = 0]
         pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
             // TODO: Check the origin is Master
             ensure_root(origin)?;
             Self::withdraw_from_treasury_(recipient, amount)
+        }
+
+        /// Enable/disable emission rewards by calling this function with true or false respectively.
+        /// Only Master can call this.
+        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
+        #[weight = 0]
+        pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
+            EmissionStatus::put(status);
+            Ok(())
         }
 
         /// Awards the complete txn fees to the block author if any and increment block count for
@@ -381,7 +399,10 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    pub fn withdraw_from_treasury_(recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
+    pub fn withdraw_from_treasury_(
+        recipient: T::AccountId,
+        amount: BalanceOf<T>,
+    ) -> dispatch::DispatchResult {
         T::Currency::transfer(&Self::treasury_account(), &recipient, amount, AllowDeath)
             .map_err(|_| dispatch::DispatchError::Other("Can't withdraw from treasury"))
     }
@@ -653,9 +674,8 @@ impl<T: Trait> Module<T> {
                     }
                 }
                 // All validator produced same no of blocks so that no of slots were taken by each validator
-                BlockCount::SameBlocks(count) => *count
+                BlockCount::SameBlocks(count) => *count,
             }
-
         }
     }
 
@@ -686,19 +706,30 @@ impl<T: Trait> Module<T> {
             debug!(target: "runtime", "Validator {:?} has blocks {}", v, block_count);
             validator_block_counts.insert(v, block_count);
         }
-        (if same_block_count {BlockCount::SameBlocks(max_blocks)} else {BlockCount::MaxBlocks(max_blocks)}, validator_block_counts)
+        (
+            if same_block_count {
+                BlockCount::SameBlocks(max_blocks)
+            } else {
+                BlockCount::MaxBlocks(max_blocks)
+            },
+            validator_block_counts,
+        )
     }
 
     /// Emission rewards per epoch are set assuming the epoch is of at least `MinEpochLength` and thus
     /// each validator gets at least `MinEpochLength` / (validator count) number of slots. When this is
     /// not the case, decrease emission rewards proportionally.
     /// Assumes that `slots_per_validator` is not 0 and <= expected_slots_per_validator.
-    fn get_max_emission_reward_per_validator_per_epoch(expected_slots_per_validator: u64, slots_per_validator: u64) -> u128 {
+    fn get_max_emission_reward_per_validator_per_epoch(
+        expected_slots_per_validator: u64,
+        slots_per_validator: u64,
+    ) -> u128 {
         // Maximum emission reward for each validator in an epoch assuming epoch was at least `MinEpochLength`
         let max_em = Self::max_emm_validator_epoch().saturated_into::<u128>();
         if slots_per_validator != expected_slots_per_validator {
             // Reduce the emission for shorter epoch
-            max_em.saturating_mul(slots_per_validator.into()) / (expected_slots_per_validator as u128)
+            max_em.saturating_mul(slots_per_validator.into())
+                / (expected_slots_per_validator as u128)
         } else {
             max_em
         }
@@ -721,7 +752,11 @@ impl<T: Trait> Module<T> {
     }
 
     /// Credit unlocked and locked balance to validator's account
-    fn credit_emission_rewards_to_validator(validator: &T::AccountId, locked: u128, unlocked: u128) {
+    fn credit_emission_rewards_to_validator(
+        validator: &T::AccountId,
+        locked: u128,
+        unlocked: u128,
+    ) {
         T::Currency::deposit_creating(validator, unlocked.saturated_into());
         Self::credit_locked_emission_rewards_to_validator(validator, locked)
     }
@@ -736,7 +771,10 @@ impl<T: Trait> Module<T> {
     ) -> u128 {
         let mut total_validator_reward = 0u128;
         // Maximum emission per validator in this epoch
-        let max_em = Self::get_max_emission_reward_per_validator_per_epoch(expected_slots_per_validator, slots_per_validator);
+        let max_em = Self::get_max_emission_reward_per_validator_per_epoch(
+            expected_slots_per_validator,
+            slots_per_validator,
+        );
         let lock_pc = Self::validator_reward_lock_pc() as u128;
         for (v, block_count) in validator_block_counts {
             // The actual emission rewards depends on the availability, i.e. ratio of blocks produced to slots available
@@ -832,6 +870,61 @@ impl<T: Trait> Module<T> {
         epoch_detail.emission_for_validators = Some(0);
     }
 
+    /// Mint emission rewards and disburse them among validators and treasury. Returns true if emission
+    /// rewards were minted, false otherwise.
+    /// TODO: Use this to allow the Master to enable/disable emission rewards.
+    fn mint_emission_rewards_if_needed(
+        current_epoch_no: u32,
+        ending_slot: u64,
+        epoch_detail: &mut EpochDetail,
+    ) -> bool {
+        // If emission is disabled, return (false) immediately
+        if !Self::emission_status() {
+            return false;
+        }
+        // Emission is enabled, move on
+        let emission_supply = Self::emission_supply().saturated_into::<u128>();
+        // The check below is not accurate as the remaining emission supply might be > 0 but not sufficient
+        // to reward all validators and treasury; we would be over-issuing in that case. This is not a
+        // concern for us as the supply won't go down for the life of the PoA network. A more accurate
+        // check would be to get the maximum emission rewards in the epoch with `count_validatiors * max_emission_per_valdiator * (1 + treasury_share_percent/100)`
+        // and don't mint if remaining emission supply is less than above. This would leave some supply
+        // unminted for some amount of time, maybe indefinitely. Another option is to reduce rewards of
+        // all parties (or maybe some parties) by a certain percentage so that remaining supply is sufficient.
+        if emission_supply == 0 {
+            return false;
+        }
+        // Get blocks authored by each validator
+        let (max_blocks, validator_block_counts) = Self::count_validator_blocks(current_epoch_no);
+        // Get slots received by each validator
+        let slots_per_validator =
+            Self::get_slots_per_validator(&epoch_detail, ending_slot, &max_blocks);
+        print("slots_per_validator");
+        print(slots_per_validator);
+
+        if slots_per_validator > max_blocks.to_number() {
+            panic!("This panic should never trigger");
+        }
+
+        if slots_per_validator > 0 {
+            Self::mint_rewards_for_non_empty_epoch(
+                epoch_detail,
+                current_epoch_no,
+                slots_per_validator,
+                validator_block_counts,
+            );
+            true
+        } else {
+            // No slots claimed, 0 rewards for validators and treasury
+            Self::calculate_rewards_for_empty_epoch(
+                epoch_detail,
+                current_epoch_no,
+                validator_block_counts,
+            );
+            false
+        }
+    }
+
     /// Track epoch ending slot and rewards for validators and treasury and mint and disburse the rewards.
     fn update_details_for_ending_epoch(current_slot_no: u64) {
         let current_epoch_no = Self::epoch();
@@ -852,44 +945,7 @@ impl<T: Trait> Module<T> {
         print(current_epoch_no);
         print(ending_slot);
 
-        // TODO: Abstract the emission supply check logic in a function.
-        let emission_supply = Self::emission_supply().saturated_into::<u128>();
-        if emission_supply > 0 {
-            // TODO: Emission rewards can go above the supply. FIX ME.
-            // Get blocks authored by each validator
-            let (max_blocks, validator_block_counts) =
-                Self::count_validator_blocks(current_epoch_no);
-
-
-            // Get slots received by each validator
-            let slots_per_validator = Self::get_slots_per_validator(
-                &epoch_detail,
-                ending_slot,
-                &max_blocks,
-            );
-            print("slots_per_validator");
-            print(slots_per_validator);
-
-            if slots_per_validator > max_blocks.to_number() {
-                panic!("This panic should never trigger");
-            }
-
-            if slots_per_validator > 0 {
-                Self::mint_rewards_for_non_empty_epoch(
-                    &mut epoch_detail,
-                    current_epoch_no,
-                    slots_per_validator,
-                    validator_block_counts,
-                );
-            } else {
-                // No slots claimed, 0 rewards for validators and treasury
-                Self::calculate_rewards_for_empty_epoch(
-                    &mut epoch_detail,
-                    current_epoch_no,
-                    validator_block_counts,
-                );
-            }
-        }
+        Self::mint_emission_rewards_if_needed(current_epoch_no, ending_slot, &mut epoch_detail);
 
         Epochs::insert(current_epoch_no, epoch_detail);
     }
@@ -918,7 +974,11 @@ impl<T: Trait> Module<T> {
     }
 
     /// The validator set needs to update, either due to swap or epoch end.
-    fn update_validator_set(current_slot_no: u64, epoch_ends_at: u64, swap: Option<(T::AccountId, T::AccountId)>) -> (bool, u8) {
+    fn update_validator_set(
+        current_slot_no: u64,
+        epoch_ends_at: u64,
+        swap: Option<(T::AccountId, T::AccountId)>,
+    ) -> (bool, u8) {
         match Self::swap_if_needed(swap) {
             Some(count) => {
                 // Swap occurred, check if the swap coincided with an epoch end
@@ -936,7 +996,7 @@ impl<T: Trait> Module<T> {
                     // Epoch did not end but swap did happen
                     (true, count)
                 }
-            },
+            }
             None => Self::update_active_validators_if_needed(),
         }
     }
@@ -970,9 +1030,11 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         let swap = <HotSwap<T>>::take();
 
         if (current_slot_no > epoch_ends_at) || swap.is_some() {
+            // Disburse rewards
             Self::update_details_for_ending_epoch(current_slot_no);
 
-            let (active_validator_set_changed, active_validator_count) = Self::update_validator_set(current_slot_no, epoch_ends_at, swap);
+            let (active_validator_set_changed, active_validator_count) =
+                Self::update_validator_set(current_slot_no, epoch_ends_at, swap);
 
             if active_validator_set_changed {
                 // Manually calling `rotate_session` will make the new validator set change take effect
