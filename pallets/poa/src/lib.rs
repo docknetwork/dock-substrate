@@ -25,42 +25,49 @@ pub enum QueuePosition {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 /// UPDATE
 /// One thing to note, ValidatorPlan does implement Default, but the default value is not valid.
-struct ValidatorPlan<T: Trait> {
-    pub planned: BTreeSet<T::AccountId>,
+pub struct ValidatorPlan<T: Trait> {
+    pub next_validator_set: BTreeSet<T::AccountId>,
     pub queued: Vec<T::AccountId>,
 }
 
 impl<T: Trait> ValidatorPlan<T> {
     /// Read the from storage.
     fn load() -> Self {
-        //debug_assert!(ret.valid());
-        todo!()
+        let ret = Module::<T>::plan();
+        debug_assert!(ret.valid());
+        ret
     }
 
     /// write the plan back to storage.
     fn dump(&self) {
         debug_assert!(self.valid());
-        debug_assert!({
-            let mut cp = self.clone();
-            cp.canonicalize();
-            &cp == self
-        });
-        todo!()
+        debug_assert!(
+            {
+                let mut cp = self.clone();
+                cp.canonicalize();
+                &cp == self
+            },
+            "self should be cononicalized"
+        );
+        Plan::<T>::put(self);
     }
 
     /// Process as much of the queue as possible without exceeding MaxActiveValidators.
     fn canonicalize(&mut self) {
         let max_validators = T::MaxActiveValidators::get() as usize;
-        while self.planned.len() < max_validators && !self.queued.is_empty() {
-            self.planned.insert(self.queued.remove(0));
+        while self.next_validator_set.len() < max_validators && !self.queued.is_empty() {
+            self.next_validator_set.insert(self.queued.remove(0));
         }
     }
 
-    /// Add specified account to queue. Rerturns an error if the account is already planned.
+    /// Add specified account to queue.
     /// If the validator is already in the queue, it will be removed, then re-added at pos.
-    /// If the validator is already planned, and Error will be returned.
+    /// If the validator is already in next_validator_set, and Error will be returned.
     fn enqueue(&mut self, account: T::AccountId, pos: QueuePosition) -> Result<(), Error<T>> {
-        ensure!(!self.planned.contains(&account), Error::<T>::AlreadyPlanned);
+        ensure!(
+            !self.next_validator_set.contains(&account),
+            Error::<T>::AlreadyPlanned
+        );
         self.queued.retain(|v| v != &account);
         match pos {
             QueuePosition::Front => self.queued.insert(0, account),
@@ -72,18 +79,18 @@ impl<T: Trait> ValidatorPlan<T> {
     /// Remove specified account from plan and from queue.
     /// Returns Err if account does not exist or if removing the account would result in an
     /// empty validator set.
-    fn remove(&mut self, account: T::AccountId) -> Result<(), Error<T>> {
-        let potential = self.planned.iter().chain(self.queued.iter());
+    fn remove(&mut self, account: &T::AccountId) -> Result<(), Error<T>> {
+        let potential = self.next_validator_set.iter().chain(self.queued.iter());
         ensure!(
-            potential.clone().any(|v| v == &account),
+            potential.clone().any(|v| v == account),
             Error::<T>::NoSuchValidator
         );
         ensure!(
-            potential.clone().any(|v| v != &account),
+            potential.clone().any(|v| v != account),
             Error::<T>::NeedAtLeast1Validator
         );
-        self.planned.remove(&account);
-        self.queued.retain(|v| v != &account);
+        self.next_validator_set.remove(account);
+        self.queued.retain(|v| v != account);
         Ok(())
     }
 
@@ -96,22 +103,22 @@ impl<T: Trait> ValidatorPlan<T> {
         old_account: T::AccountId,
         new_account: T::AccountId,
     ) -> Result<(), Error<T>> {
-        let potential = self.planned.iter().cloned().chain(self.queued);
+        let potential = self.next_validator_set.iter().chain(self.queued.iter());
         ensure!(old_account != new_account, Error::<T>::BadSwap);
         ensure!(
-            potential.clone().any(|v| v == old_account),
+            potential.clone().any(|v| v == &old_account),
             Error::<T>::SwapInFailed
         );
         ensure!(
-            !potential.any(|v| v == new_account),
+            !potential.clone().any(|v| v == &new_account),
             Error::<T>::SwapOutFailed
         );
-        if self.planned.remove(&old_account) {
-            self.planned.insert(new_account);
+        if self.next_validator_set.remove(&old_account) {
+            self.next_validator_set.insert(new_account.clone());
         }
         for v in self.queued.iter_mut() {
             if *v == old_account {
-                *v == new_account;
+                *v = new_account.clone();
             }
         }
         Ok(())
@@ -123,13 +130,14 @@ impl<T: Trait> ValidatorPlan<T> {
     /// Does not check whether the MaxActiveValidators limit is exceeded.
     fn valid(&self) -> bool {
         // non-empty
-        if self.planned.is_empty() && self.queued.is_empty() {
+        if self.next_validator_set.is_empty() && self.queued.is_empty() {
             return false;
         }
 
         // no dupes
-        let deduped: BTreeSet<&T::AccountId> = self.planned.iter().chain(&self.queued).collect();
-        if deduped.len() != self.planned.len() + self.queued.len() {
+        let deduped: BTreeSet<&T::AccountId> =
+            self.next_validator_set.iter().chain(&self.queued).collect();
+        if deduped.len() != self.next_validator_set.len() + self.queued.len() {
             return false;
         }
 
@@ -140,7 +148,7 @@ impl<T: Trait> ValidatorPlan<T> {
 impl<T: Trait> Default for ValidatorPlan<T> {
     fn default() -> Self {
         Self {
-            planned: Default::default(),
+            next_validator_set: Default::default(),
             queued: Default::default(),
         }
     }
@@ -171,10 +179,6 @@ decl_storage! {
         /// Next epoch will begin after this slot number, i.e. this slot number will be the last
         /// slot of the current epoch
         EpochEndsAt get(fn epoch_ends_at): u64;
-
-        /// Set when a hot swap is to be performed, replacing validator id as 1st element of tuple
-        /// with the 2nd one.
-        HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>;
     }
 }
 
@@ -210,9 +214,6 @@ decl_error! {
 decl_module! {
     /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
-        // `should_end_session` since that it called more frequently.
-
         type Error = Error<T>;
 
         fn deposit_event() = default;
@@ -278,7 +279,7 @@ impl<T: Trait> Module<T> {
         position: QueuePosition,
     ) -> dispatch::DispatchResult {
         let mut plan = ValidatorPlan::<T>::load();
-        plan.enqueue(validator_id, position)?;
+        plan.enqueue(validator_id.clone(), position.clone())?;
         plan.canonicalize();
         plan.dump();
         Self::deposit_event(RawEvent::ValidatorQueued(validator_id, position));
@@ -287,7 +288,7 @@ impl<T: Trait> Module<T> {
 
     fn remove_validator_(validator_id: T::AccountId) -> dispatch::DispatchResult {
         let mut plan = ValidatorPlan::<T>::load();
-        plan.remove(validator_id)?;
+        plan.remove(&validator_id)?;
         plan.canonicalize();
         plan.dump();
         Self::deposit_event(RawEvent::ValidatorRemoved(validator_id));
@@ -475,39 +476,23 @@ impl<T: Trait> Module<T> {
     // }
 }
 
-/// Indicates to the session module if the session should be rotated.
 impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
     fn should_end_session(_now: T::BlockNumber) -> bool {
-        let current_slot_no = Self::current_slot_no().expect(
+        Self::current_slot_no().expect(
             "current slot number is inaccessable, can't compute whether the poa session has ended",
-        );
-        (current_slot_no > Self::epoch_ends_at()) || <HotSwap<T>>::get().is_some()
+        ) > Self::epoch_ends_at()
     }
 }
 
 /// Provides the new set of validators to the session module when session is being rotated.
 impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
     fn new_session(_session_idx: u32) -> Option<Vec<T::AccountId>> {
-        todo!()
-        // ValidatorPlan::<T>::load()
-        // let validators = Self::active_validators();
-        // if validators.len() == 0 {
-        //     None
-        // } else {
-        //     // This slot number should always be available here. If its not then panic.
-        //     let current_slot_no = Self::current_slot_no().unwrap();
-
-        //     let active_validator_count = validators.len() as u8;
-        //     let current_epoch_no = session_idx - 1;
-
-        //     Self::update_details_on_epoch_change(
-        //         current_epoch_no,
-        //         current_slot_no,
-        //         active_validator_count,
-        //     );
-
-        //     Some(validators.into_iter().collect())
-        // }
+        Some(
+            ValidatorPlan::<T>::load()
+                .next_validator_set
+                .into_iter()
+                .collect(),
+        )
     }
 
     fn end_session(_: u32) {}
