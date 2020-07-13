@@ -570,7 +570,10 @@ fn add_remove_swap_validator() {
         assert!(changed);
         // Validator swapped in removed
         assert_eq!(count, 2);
-        assert_eq!(PoAModule::active_validators(), vec![val_id1, val_id5]);
+        assert_eq!(
+            PoAModule::active_validators(),
+            vec![val_id1, val_id5]
+        );
 
         // A validator to remove and a swap and remove and swap intersect but validator to remove is swapped out.
         PoAModule::remove_validator_(val_id1, false).unwrap();
@@ -578,14 +581,20 @@ fn add_remove_swap_validator() {
         assert!(changed);
         // Validator swapped in removed
         assert_eq!(count, 2);
-        assert_eq!(PoAModule::active_validators(), vec![val_id2, val_id5]);
+        assert_eq!(
+            PoAModule::active_validators(),
+            vec![val_id2, val_id5]
+        );
 
         PoAModule::add_validator_(val_id3, false).unwrap();
         let (changed, count) = PoAModule::update_validator_set(15, 14, Some((val_id2, val_id3)));
         assert!(changed);
         // Validator swapped in removed
         assert_eq!(count, 2);
-        assert_eq!(PoAModule::active_validators(), vec![val_id3, val_id5]);
+        assert_eq!(
+            PoAModule::active_validators(),
+            vec![val_id3, val_id5]
+        );
     });
 }
 
