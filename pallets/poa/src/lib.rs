@@ -342,10 +342,15 @@ impl<T: Trait> Module<T> {
 
             // Make any queued validators active.
             while (active_validators.len() < max_validators) && (validators_to_add.len() > 0) {
-                active_validator_set_changed = true;
-                queued_validator_set_changed = true;
-                active_validators.push(validators_to_add.remove(0));
-                count_added += 1;
+                let new_val = validators_to_add.remove(0);
+                // Check if the validator to add is not already active. The check is needed as a swap
+                // might make a validator as active which is already present in the queue.
+                if !active_validators.contains(&new_val) {
+                    active_validator_set_changed = true;
+                    queued_validator_set_changed = true;
+                    active_validators.push(new_val);
+                    count_added += 1;
+                }
             }
 
             // Only write if queued_validator_set_changed
@@ -552,6 +557,30 @@ impl<T: Trait> Module<T> {
             (active_validator_count, current_slot_no, None as Option<u64>),
         );
     }
+
+    /// The validator set needs to update, either due to swap or epoch end.
+    fn update_validator_set(current_slot_no: u64, epoch_ends_at: u64, swap: Option<(T::AccountId, T::AccountId)>) -> (bool, u8) {
+        match Self::swap_if_needed(swap) {
+            Some(count) => {
+                // Swap occurred, check if the swap coincided with an epoch end
+                if current_slot_no > epoch_ends_at {
+                    let (changed, new_count) = Self::update_active_validators_if_needed();
+                    // There is a chance that `update_active_validators_if_needed` undoes the swap and in that case
+                    // rotate_session can be avoided.
+                    if changed {
+                        // The epoch end changed the active validator set and count
+                        (changed, new_count)
+                    } else {
+                        (true, count)
+                    }
+                } else {
+                    // Epoch did not end but swap did happen
+                    (true, count)
+                }
+            },
+            None => Self::update_active_validators_if_needed(),
+        }
+    }
 }
 
 /// Indicates to the session module if the session should be rotated.
@@ -579,13 +608,10 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         );
 
         // Unless the epoch has had the required number of blocks, or hot swap is triggered, continue the session.
-        let hot_swap = <HotSwap<T>>::take();
-        if (current_slot_no > epoch_ends_at) || hot_swap.is_some() {
-            let (active_validator_set_changed, active_validator_count) =
-                match Self::swap_if_needed(hot_swap) {
-                    Some(t) => (true, t),
-                    None => Self::update_active_validators_if_needed(),
-                };
+        let swap = <HotSwap<T>>::take();
+
+        if (current_slot_no > epoch_ends_at) || swap.is_some() {
+            let (active_validator_set_changed, active_validator_count) = Self::update_validator_set(current_slot_no, epoch_ends_at, swap);
 
             if active_validator_set_changed {
                 // Manually calling `rotate_session` will make the new validator set change take effect

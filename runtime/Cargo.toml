@@ -149,12 +149,6 @@ package = 'pallet-transaction-payment'
 tag = 'v2.0.0-rc4'
 version = '2.0.0-rc4'
 
-[dependencies.frame-benchmarking]
-optional = true
-default-features = false
-package = 'frame-benchmarking'
-version = '2.0.0-rc4'
-
 [build-dependencies.wasm-builder-runner]
 git = 'https://github.com/paritytech/substrate.git'
 package = 'substrate-wasm-builder-runner'
@@ -196,7 +190,6 @@ std = [
     'sp-core/std',
     'sp-inherents/std',
     'sp-io/std',
-    'frame-benchmarking/std',
     'sp-offchain/std',
     'sp-runtime/std',
     'sp-session/std',
@@ -210,9 +203,6 @@ std = [
     'pallet-session/std',
     'pallet-authorship/std',
     'poa/std',
-]
-runtime-benchmarks = [
-    'frame-benchmarking',
 ]
 
 [dev-dependencies]

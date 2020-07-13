@@ -20,8 +20,6 @@ pub mod blob;
 pub mod did;
 pub mod revoke;
 
-mod benchmarking;
-
 pub use poa;
 
 #[cfg(test)]
