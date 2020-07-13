@@ -811,20 +811,66 @@ fn validator_block_counts() {
 }
 
 #[test]
+fn emission_reward_for_shorter_epoch() {
+    new_test_ext().execute_with(|| {
+        let max_emm = 500;
+        <MaxEmmValidatorEpoch<Test>>::put(max_emm);
+
+        assert_eq!(PoAModule::get_max_emission_reward_per_validator_per_epoch(10, 10) as u64, 500);
+        assert_eq!(PoAModule::get_max_emission_reward_per_validator_per_epoch(10, 0) as u64, 0);
+        assert_eq!(PoAModule::get_max_emission_reward_per_validator_per_epoch(10, 1) as u64, 50);
+        assert_eq!(PoAModule::get_max_emission_reward_per_validator_per_epoch(10, 2) as u64, 100);
+        assert_eq!(PoAModule::get_max_emission_reward_per_validator_per_epoch(10, 3) as u64, 150);
+        assert_eq!(PoAModule::get_max_emission_reward_per_validator_per_epoch(10, 4) as u64, 200);
+    });
+}
+
+#[test]
 fn treasury_emission_reward() {
     new_test_ext().execute_with(|| {
         TreasuryRewardsPercent::put(60);
 
-        assert_eq!(PoAModule::calculate_treasury_reward(100), 60);
-        assert_eq!(PoAModule::calculate_treasury_reward(101), 60);
-        assert_eq!(PoAModule::calculate_treasury_reward(102), 61);
-        assert_eq!(PoAModule::calculate_treasury_reward(103), 61);
-        assert_eq!(PoAModule::calculate_treasury_reward(104), 62);
+        let mut balance_current = PoAModule::treasury_balance().saturated_into::<u128>();
+        assert_eq!(balance_current, 0);
 
-        assert_eq!(PoAModule::calculate_treasury_reward(10000), 6000);
-        assert_eq!(PoAModule::calculate_treasury_reward(10010), 6006);
-        assert_eq!(PoAModule::calculate_treasury_reward(10020), 6012);
-        assert_eq!(PoAModule::calculate_treasury_reward(10050), 6030);
+        for (validator_reward, treasury_reward) in vec![(100, 60), (101, 60), (102, 61),
+                                                        (103, 61), (104, 62), (10000, 6000), (10010, 6006),
+                                                        (10020, 6012), (10050, 6030)] {
+            let reward = PoAModule::mint_treasury_emission_rewards(validator_reward);
+            assert_eq!(reward, treasury_reward);
+            let balance_new = PoAModule::treasury_balance().saturated_into::<u128>();
+            assert_eq!(balance_new - balance_current, reward);
+            balance_current = balance_new;
+        }
+    });
+}
+
+#[test]
+fn treasury_withdrawal() {
+    new_test_ext().execute_with(|| {
+        TreasuryRewardsPercent::put(60);
+        let acc_id = 1;
+
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 0);
+        assert_eq!(<Test as Trait>::Currency::free_balance(&acc_id).saturated_into::<u128>(), 0);
+
+        let reward_1 = PoAModule::mint_treasury_emission_rewards(1000);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 600);
+
+        PoAModule::withdraw_from_treasury_(acc_id, 100);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 500);
+        assert_eq!(<Test as Trait>::Currency::free_balance(&acc_id).saturated_into::<u128>(), 100);
+
+        let reward_2 = PoAModule::mint_treasury_emission_rewards(200);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 620);
+
+        PoAModule::withdraw_from_treasury_(acc_id, 600);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 20);
+        assert_eq!(<Test as Trait>::Currency::free_balance(&acc_id).saturated_into::<u128>(), 700);
+
+        // Cannot withdraw beyond the treasury's balance
+        PoAModule::withdraw_from_treasury_(acc_id, 21);
+        assert_eq!(<Test as Trait>::Currency::free_balance(&acc_id).saturated_into::<u128>(), 720);
     });
 }
 
@@ -895,8 +941,9 @@ fn validator_rewards_for_non_empty_epoch() {
             PoAModule::count_validator_blocks(current_epoch_no);
 
         // No slots are used by any validators and they both get no reward
+        let expected_slots_per_validator = 10;
         let slots_per_validator = 10;
-        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        let total_validator_reward = PoAModule::mint_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, expected_slots_per_validator, slots_per_validator, validator_block_counts.clone());
         assert_eq!(total_validator_reward, 0);
         assert_eq!(
             <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>(),
@@ -915,25 +962,45 @@ fn validator_rewards_for_non_empty_epoch() {
         let (_, validator_block_counts) =
             PoAModule::count_validator_blocks(current_epoch_no);
 
-        // All slots are used by both validators and they both get 100% reward (of `max_emm`)
+        // The epoch was shortened but all slots are used by both validators and they both get 100% reward as per the shortened epoch
+        let expected_slots_per_validator = 20;
         let slots_per_validator = 10;
-        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        let total_validator_reward = PoAModule::mint_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, expected_slots_per_validator, slots_per_validator, validator_block_counts.clone());
+        // Only 50% of the expected slots were taken
+        assert_eq!(total_validator_reward, 500);
+        // 20% balance remains reserved, rest is free
+        let bal_id1_f0 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+        let bal_id1_r0 = <Test as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+        let bal_id2_f0 = <Test as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+        let bal_id2_r0 = <Test as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+        assert_eq!(bal_id1_f0, 200);
+        assert_eq!(bal_id1_r0, 50);
+        assert_eq!(bal_id2_f0, 200);
+        assert_eq!(bal_id2_r0, 50);
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id1), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(50), unlocked_reward: Some(200)});
+        assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(50), unlocked_reward: Some(200)});
+
+        // The epoch was not shortened and all slots are used by both validators and they both get 100% reward (of `max_emm`)
+        let expected_slots_per_validator = 10;
+        let slots_per_validator = 10;
+        let total_validator_reward = PoAModule::mint_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, expected_slots_per_validator, slots_per_validator, validator_block_counts.clone());
         assert_eq!(total_validator_reward, 1000);
         // 20% balance remains reserved, rest is free
         let bal_id1_f1 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
         let bal_id1_r1 = <Test as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
         let bal_id2_f1 = <Test as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
         let bal_id2_r1 = <Test as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
-        assert_eq!(bal_id1_f1, 400);
-        assert_eq!(bal_id1_r1, 100);
-        assert_eq!(bal_id2_f1, 400);
-        assert_eq!(bal_id2_r1, 100);
+        assert_eq!(bal_id1_f1 - bal_id1_f0, 400);
+        assert_eq!(bal_id1_r1 - bal_id1_r0, 100);
+        assert_eq!(bal_id2_f1 - bal_id2_f0, 400);
+        assert_eq!(bal_id2_r1 - bal_id2_r0, 100);
         assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id1), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(100), unlocked_reward: Some(400)});
         assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(100), unlocked_reward: Some(400)});
 
-        // ~83% slots are used by both validators and they both get ~83% reward (of `max_emm`)
+        // The epoch was not shortened and ~83% slots are used by both validators and they both get ~83% reward (of `max_emm`)
+        let expected_slots_per_validator = 12;
         let slots_per_validator = 12;
-        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        let total_validator_reward = PoAModule::mint_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, expected_slots_per_validator, slots_per_validator, validator_block_counts.clone());
         assert_eq!(total_validator_reward, 832);
         // 20% balance remains reserved, rest is free
         let bal_id1_f2 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
@@ -947,9 +1014,10 @@ fn validator_rewards_for_non_empty_epoch() {
         assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id1), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(83), unlocked_reward: Some(333)});
         assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(83), unlocked_reward: Some(333)});
 
-        // ~63% slots are used by both validators and they both get ~63% reward (of `max_emm`)
+        // The epoch was not shortened and ~63% slots are used by both validators and they both get ~63% reward (of `max_emm`)
+        let expected_slots_per_validator = 16;
         let slots_per_validator = 16;
-        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        let total_validator_reward = PoAModule::mint_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, expected_slots_per_validator, slots_per_validator, validator_block_counts.clone());
         assert_eq!(total_validator_reward, 624);
         // 20% balance remains reserved, rest is free
         let bal_id1_f3 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
@@ -970,9 +1038,10 @@ fn validator_rewards_for_non_empty_epoch() {
         let (_, validator_block_counts) =
             PoAModule::count_validator_blocks(current_epoch_no);
 
-        // All slots are used by 1 validator only and it get 100% reward (of `max_emm`) and the other gets less
+        // The epoch was not shortened and all slots are used by 1 validator only and it get 100% reward (of `max_emm`) and the other gets less
+        let expected_slots_per_validator = 15;
         let slots_per_validator = 15;
-        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        let total_validator_reward = PoAModule::mint_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, expected_slots_per_validator, slots_per_validator, validator_block_counts.clone());
         assert_eq!(total_validator_reward, 833);
         // 20% balance remains reserved, rest is free
         let bal_id1_f4 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
@@ -987,8 +1056,9 @@ fn validator_rewards_for_non_empty_epoch() {
         assert_eq!(PoAModule::get_validator_stats_for_epoch(current_epoch_no, val_id2), ValidatorStatsPerEpoch {block_count: 10, locked_reward: Some(66), unlocked_reward: Some(267)});
 
         // No validators used all slots and both used different slots
+        let expected_slots_per_validator = 18;
         let slots_per_validator = 18;
-        let total_validator_reward = PoAModule::disburse_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, slots_per_validator, validator_block_counts.clone());
+        let total_validator_reward = PoAModule::mint_and_track_validator_rewards_for_non_empty_epoch(current_epoch_no, expected_slots_per_validator, slots_per_validator, validator_block_counts.clone());
         assert_eq!(total_validator_reward, 693);
         // 20% balance remains reserved, rest is free
         let bal_id1_f5 = <Test as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
@@ -1032,7 +1102,7 @@ fn rewards_for_non_empty_epoch() {
         // No slots are used by any validators and they both get no reward and emission supply does not change
         let slots_per_validator = 10;
         let mut epoch_detail = EpochDetail::new(2, 1, 26);
-        PoAModule::disburse_rewards_for_non_empty_epoch(&mut epoch_detail, current_epoch_no, slots_per_validator, validator_block_counts);
+        PoAModule::mint_rewards_for_non_empty_epoch(&mut epoch_detail, current_epoch_no, slots_per_validator, validator_block_counts);
         assert_eq!(epoch_detail.total_emission, Some(0));
         assert_eq!(epoch_detail.emission_for_treasury, Some(0));
         assert_eq!(epoch_detail.emission_for_validators, Some(0));
@@ -1049,7 +1119,7 @@ fn rewards_for_non_empty_epoch() {
         // All slots are used by both validators and they both get 100% reward (of `max_emm`). Emission supply changes
         let slots_per_validator = 10;
         let mut epoch_detail = EpochDetail::new(2, 1, 26);
-        PoAModule::disburse_rewards_for_non_empty_epoch(&mut epoch_detail, current_epoch_no, slots_per_validator, validator_block_counts);
+        PoAModule::mint_rewards_for_non_empty_epoch(&mut epoch_detail, current_epoch_no, slots_per_validator, validator_block_counts);
         assert_eq!(epoch_detail.total_emission, Some(1600));
         assert_eq!(epoch_detail.emission_for_treasury, Some(600));
         assert_eq!(epoch_detail.emission_for_validators, Some(1000));
