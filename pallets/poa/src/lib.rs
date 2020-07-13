@@ -611,6 +611,27 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         let swap = <HotSwap<T>>::take();
 
         if (current_slot_no > epoch_ends_at) || swap.is_some() {
+            /*let (active_validator_set_changed, active_validator_count) =
+                match Self::swap_if_needed(swap) {
+                    Some(count) => {
+                        // Swap occurred, check if the swap coincided with an epoch end
+                        if current_slot_no > epoch_ends_at {
+                            let (changed, new_count) = Self::update_active_validators_if_needed();
+                            // There is a chance that `update_active_validators_if_needed` undoes the swap and in that case
+                            // rotate_session can be avoided.
+                            if changed {
+                                // The epoch end changed the active validator set and count
+                                (changed, new_count)
+                            } else {
+                                (true, count)
+                            }
+                        } else {
+                            // Epoch did not end but swap did happen
+                            (true, count)
+                        }
+                    },
+                    None => Self::update_active_validators_if_needed(),
+                };*/
             let (active_validator_set_changed, active_validator_count) = Self::update_validator_set(current_slot_no, epoch_ends_at, swap);
 
             if active_validator_set_changed {
