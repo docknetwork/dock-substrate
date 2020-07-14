@@ -398,7 +398,7 @@ mod errors {
             let revoke = Revoke {
                 registry_id: regid,
                 revoke_ids: random::<[RevokeId; 32]>().iter().cloned().collect(),
-                last_modified: 0u32,
+                last_modified: block_no() as u32,
             };
             let proof: BTreeMap<Did, DidSignature> = signers
                 .iter()
@@ -449,7 +449,7 @@ mod errors {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let kpa = create_did(DIDA);
         let reg = Registry { policy, add_only };
 
@@ -501,7 +501,7 @@ mod errors {
         }
 
         let registry_id = RGA;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let noreg: Result<(), DispatchError> = Err(RevErr::<Test>::NoReg.into());
 
         assert_eq!(
@@ -699,7 +699,7 @@ mod calls {
             assert!(Registries::<Test>::contains_key(reg_id));
             let (created_reg, created_bloc) = Registries::<Test>::get(reg_id).unwrap();
             assert_eq!(created_reg, reg);
-            assert_eq!(created_bloc, 0);
+            assert_eq!(created_bloc, block_no());
         }
     }
 
@@ -712,7 +712,7 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = true;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let kpa = create_did(DIDA);
 
         RevoMod::new_registry(
@@ -758,7 +758,7 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let kpa = create_did(DIDA);
 
         enum Action {
@@ -845,7 +845,7 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let kpa = create_did(DIDA);
 
         let reg = Registry { policy, add_only };
@@ -943,7 +943,7 @@ mod test {
         RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg.clone()).unwrap();
         assert_eq!(
             RevoMod::get_revocation_registry(registry_id),
-            Some((reg, 0u64))
+            Some((reg, block_no()))
         );
     }
 
@@ -960,7 +960,7 @@ mod test {
         let reg = Registry { policy, add_only };
         let kpa = create_did(DIDA);
         let revid: RevokeId = random();
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
         let revoke = Revoke {
             registry_id,

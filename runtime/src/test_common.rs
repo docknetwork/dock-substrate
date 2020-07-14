@@ -145,10 +145,25 @@ pub fn meta_in_ext() {
 }
 
 pub fn ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
+    let mut ret: sp_io::TestExternalities = system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap()
-        .into()
+        .into();
+    ret.execute_with(|| {
+        system::Module::<Test>::initialize(
+            &1, // system module will not store events if block_number == 0
+            &[0u8; 32].into(),
+            &[0u8; 32].into(),
+            &Default::default(),
+            system::InitKind::Full,
+        );
+    });
+    ret
+}
+
+// get the current block number from the system module
+pub fn block_no() -> u64 {
+    system::Module::<Test>::block_number()
 }
 
 // create a OneOf policy

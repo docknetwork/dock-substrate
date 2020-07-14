@@ -279,19 +279,13 @@ mod test {
             );
             assert_eq!(Votes::<Test>::get(), BTreeMap::new(), "votes were cleared");
             assert_eq!(Round::get(), 2, "round number was incremented twice");
-
-            let record = |event: TestEvent| system::EventRecord::<TestEvent, sp_core::H256> {
-                phase: system::Phase::Initialization,
-                event,
-                topics: vec![],
-            };
             assert_eq!(
-                system::Module::<Test>::events(),
+                events(),
                 vec![
-                    record(TestEvent::Master(Event::<Test>::Vote(1, hash(&call)))),
-                    record(TestEvent::Master(Event::<Test>::Vote(2, hash(&call)))),
-                    record(TestEvent::Master(Event::<Test>::UnderNewOwnership)),
-                    record(TestEvent::Master(Event::<Test>::Executed(hash(&call)))),
+                    Event::<Test>::Vote(1, hash(&call)),
+                    Event::<Test>::Vote(2, hash(&call)),
+                    Event::<Test>::UnderNewOwnership,
+                    Event::<Test>::Executed(hash(&call)),
                 ]
             );
         });
@@ -344,5 +338,24 @@ mod test {
         ext().execute_with(|| {
             todo!();
         });
+    }
+
+    fn events() -> Vec<Event<Test>> {
+        system::Module::<Test>::events()
+            .iter()
+            .map(|event_record| {
+                let system::EventRecord::<TestEvent, sp_core::H256> {
+                    phase,
+                    event,
+                    topics,
+                } = event_record;
+                assert_eq!(phase, &system::Phase::Initialization);
+                assert_eq!(topics, &vec![]);
+                match event {
+                    TestEvent::Master(e) => e.clone(),
+                    _ => panic!(),
+                }
+            })
+            .collect()
     }
 }
