@@ -6,8 +6,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{print, traits::AccountIdConversion, ModuleId, Percent, SaturatedConversion},
     traits::{
-        Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
-        ReservableCurrency,
+        Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
     },
 };
 use frame_system::{self as system, ensure_root};
@@ -19,6 +18,9 @@ use sp_arithmetic::{FixedPointNumber, FixedU128};
 extern crate alloc;
 use alloc::collections::{BTreeMap, BTreeSet};
 
+type EpochNo = u32;
+type EpochLen = u32;
+type SlotNo = u64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> =
@@ -30,26 +32,40 @@ mod tests;
 /// Details per epoch
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct EpochDetail {
+    /// Count of active validators in the epoch
     pub validator_count: u8,
-    pub starting_slot: u64,
-    pub expected_ending_slot: u64,
-    pub ending_slot: Option<u64>,
-    pub total_emission: Option<u128>,
-    pub emission_for_treasury: Option<u128>,
+    /// Starting slot no of the epoch
+    pub starting_slot: SlotNo,
+    /// Expected ending slot for the epoch. This is set such that the no of slots in the epoch
+    /// is >= minimum slots in the epoch and is a multiple of the no of validators, this giving each
+    /// validator same no of slots
+    pub expected_ending_slot: SlotNo,
+    /// The epoch might end earlier than the expected ending due to short circuiting of the epoch (more
+    /// on that in the extrinsic documentation) or swap. This might also be higher than the expected
+    /// ending slot when the network halts (crashes)
+    pub ending_slot: Option<SlotNo>,
+    /// Total emission rewards for all the validators in the epoch
     pub emission_for_validators: Option<u128>,
+    /// Emission rewards for the treasury in the epoch
+    pub emission_for_treasury: Option<u128>,
+    /// Total (validators + treasury) emission rewards for the epoch
+    pub total_emission: Option<u128>,
 }
 
 /// Details per epoch per validator
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 pub struct ValidatorStatsPerEpoch {
-    pub block_count: u64,
+    /// Count of blocks authored by the validator in the epoch
+    pub block_count: EpochLen,
+    /// Amount of locked rewards earned by the validator in the epoch
     pub locked_reward: Option<u128>,
+    /// Amount of unlocked rewards earned by the validator in the epoch
     pub unlocked_reward: Option<u128>,
 }
 
 impl EpochDetail {
     /// Create a new epoch detail object. This is called when epoch is starting
-    pub fn new(validator_count: u8, starting_slot: u64, expected_ending_slot: u64) -> Self {
+    pub fn new(validator_count: u8, starting_slot: SlotNo, expected_ending_slot: SlotNo) -> Self {
         EpochDetail {
             validator_count,
             starting_slot,
@@ -61,8 +77,9 @@ impl EpochDetail {
         }
     }
 
-    pub fn expected_slots_per_validator(&self) -> u64 {
-        (self.expected_ending_slot - self.starting_slot + 1) / (self.validator_count as u64)
+    pub fn expected_slots_per_validator(&self) -> EpochLen {
+        ((self.expected_ending_slot - self.starting_slot + 1) / self.validator_count as SlotNo)
+            as EpochLen
     }
 }
 
@@ -70,13 +87,13 @@ impl EpochDetail {
 /// what is the maximum number of blocks produced in the epoch.
 enum BlockCount {
     /// Different no of blocks were produced by different validators, the max is captured
-    MaxBlocks(u64),
+    MaxBlocks(EpochLen),
     /// Same no of blocks were produced by all the validators
-    SameBlocks(u64),
+    SameBlocks(EpochLen),
 }
 
 impl BlockCount {
-    pub fn to_number(&self) -> u64 {
+    pub fn to_number(&self) -> EpochLen {
         match self {
             BlockCount::MaxBlocks(n) => *n,
             BlockCount::SameBlocks(n) => *n,
@@ -93,12 +110,6 @@ pub trait Trait: system::Trait + pallet_session::Trait + pallet_authorship::Trai
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
-    /// Epoch length in number of slots
-    type MinEpochLength: Get<u64>;
-
-    /// Maximum no. of active validators allowed
-    type MaxActiveValidators: Get<u8>;
-
     type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
 }
 
@@ -106,12 +117,18 @@ pub trait Trait: system::Trait + pallet_session::Trait + pallet_authorship::Trai
 decl_storage! {
 
     trait Store for Module<T: Trait> as PoAModule {
+        /// Minimum epoch length in number of slots, the actual slot length >= it and set as a multiple of number of active validators
+        MinEpochLength get(fn min_epoch_length) config(): EpochLen;
+
+        /// Maximum active validators (the ones that produce blocks).
+        MaxActiveValidators get(fn max_active_validators) config(): u8;
+
         /// List of active validators. Maximum allowed are `MaxActiveValidators`
         ActiveValidators get(fn active_validators) config(): Vec<T::AccountId>;
 
         /// Next epoch will begin after this slot number, i.e. this slot number will be the last
         /// slot of the current epoch
-        EpochEndsAt get(fn epoch_ends_at): u64;
+        EpochEndsAt get(fn epoch_ends_at): SlotNo;
 
         /// Queue of validators to become part of the active validators. Validators can be added either
         /// to the back of the queue or front by passing a flag in the add method.
@@ -130,28 +147,28 @@ decl_storage! {
         HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>;
 
         /// Transaction fees
-        TxnFees get(fn txn_fees): <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+        TxnFees get(fn txn_fees): BalanceOf<T>;
 
         /// Current epoch
-        Epoch get(fn epoch): u32;
+        Epoch get(fn epoch): EpochNo;
 
         /// For each epoch, details like validator count, starting slot, ending slot, etc
-        Epochs get(fn get_epoch_detail): map hasher(identity) u32 => EpochDetail;
+        Epochs get(fn get_epoch_detail): map hasher(identity) EpochNo => EpochDetail;
 
         /// Blocks produced, rewards for each validator per epoch
         ValidatorStats get(fn get_validator_stats_for_epoch):
-            double_map hasher(identity) u32, hasher(blake2_128_concat) T::AccountId => ValidatorStatsPerEpoch;
+            double_map hasher(identity) EpochNo, hasher(blake2_128_concat) T::AccountId => ValidatorStatsPerEpoch;
 
         /// Remaining emission supply
-        EmissionSupply get(fn emission_supply) config(): <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+        EmissionSupply get(fn emission_supply) config(): BalanceOf<T>;
 
         /// Max emission per validator in an epoch
-        MaxEmmValidatorEpoch get(fn max_emm_validator_epoch) config(): <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+        MaxEmmValidatorEpoch get(fn max_emm_validator_epoch) config(): BalanceOf<T>;
 
-        /// Percentage of emission rewards for treasury
+        /// Percentage of emission rewards for treasury in each epoch
         TreasuryRewardsPercent get(fn treasury_reward_pc) config(): u8;
 
-        /// Percentage of emission rewards locked per validator
+        /// Percentage of emission rewards locked per epoch for validators
         ValidatorRewardsLockPercent get(fn validator_reward_lock_pc) config(): u8;
 
         /// Boolean flag determining whether to generate emission rewards or not
@@ -174,7 +191,7 @@ decl_event!(
         // Validator removed.
         ValidatorRemoved(AccountId),
 
-        EpochBegins(u64),
+        EpochBegins(SlotNo),
     }
 );
 
@@ -189,6 +206,7 @@ decl_error! {
         NeedAtLeast1Validator,
         SwapOutFailed,
         SwapInFailed,
+        PercentageGreaterThan100
     }
 }
 
@@ -202,11 +220,13 @@ decl_module! {
 
         fn deposit_event() = default;
 
+        // Weight of the extrinsics in this module is set 0 as they are called by Master.
+        // TODO: Use signed extension to make it free
+
         /// Add a new validator to active validator set unless already a validator and the total number
         /// of validators don't exceed the max allowed count. The validator is considered for adding at
         /// the end of this epoch unless `short_circuit` is true. If a validator is already added to the queue
         /// an error will be thrown unless `short_circuit` is true, in which case it swallows the error.
-        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
         #[weight = 0]
         pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             // TODO: Check the origin is Master
@@ -220,7 +240,6 @@ decl_module! {
         /// will be thrown unless `short_circuit` is true, in which case it swallows the error.
         /// It will not remove the validator if the removal will cause the active validator set to
         /// be empty even after considering the queued validators.
-        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
         #[weight = 0]
         pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             // TODO: Check the origin is Master
@@ -231,7 +250,6 @@ decl_module! {
         /// Replace an active validator (`old_validator_id`) with a new validator (`new_validator_id`)
         /// without waiting for epoch to end. Throws error if `old_validator_id` is not active or
         /// `new_validator_id` is already active. Also useful when a validator wants to rotate his account.
-        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
         #[weight = 0]
         pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
             // TODO: Check the origin is Master
@@ -240,7 +258,6 @@ decl_module! {
         }
 
         /// Withdraw from treasury. Only Master is allowed to withdraw
-        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
         #[weight = 0]
         pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
             // TODO: Check the origin is Master
@@ -250,12 +267,64 @@ decl_module! {
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
         /// Only Master can call this.
-        // Weight can be 0 as its called by Master. TODO: Use signed extension to make it free
         #[weight = 0]
         pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResult {
             // TODO: Check the origin is Master
             ensure_root(origin)?;
             EmissionStatus::put(status);
+            Ok(())
+        }
+
+        /// Set the minimum number of slots in the epoch, i.e. storage item MinEpochLength
+        #[weight = 0]
+        pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
+            MinEpochLength::put(length);
+            Ok(())
+        }
+
+        /// Set the maximum number of active validators.
+        #[weight = 0]
+        pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
+            MaxActiveValidators::put(count);
+            Ok(())
+        }
+
+        /// Set the maximum emission rewards per validator per epoch.
+        #[weight = 0]
+        pub fn set_max_emm_validator_epoch(origin, emission: u128) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
+            <MaxEmmValidatorEpoch<T>>::put(emission.saturated_into::<BalanceOf<T>>());
+            Ok(())
+        }
+
+        /// Set percentage of emission rewards locked per epoch for validators
+        #[weight = 0]
+        pub fn set_validator_reward_lock_pc(origin, lock_pc: u8) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
+            ensure!(
+                lock_pc <= 100,
+                Error::<T>::PercentageGreaterThan100
+            );
+            ValidatorRewardsLockPercent::put(lock_pc);
+            Ok(())
+        }
+
+        /// Set percentage of emission rewards for treasury in each epoch
+        #[weight = 0]
+        pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResult {
+            // TODO: Check the origin is Master
+            ensure_root(origin)?;
+            ensure!(
+                reward_pc <= 100,
+                Error::<T>::PercentageGreaterThan100
+            );
+            TreasuryRewardsPercent::put(reward_pc);
             Ok(())
         }
 
@@ -439,7 +508,7 @@ impl<T: Trait> Module<T> {
         // If any validator is to be added or removed
         if (validators_to_remove.len() > 0) || (validators_to_add.len() > 0) {
             // TODO: Remove debugging variable below
-            let mut count_removed = 0u32;
+            let mut count_removed = 0;
 
             // Remove the validators from active validator set or the queue.
             // The size of the 3 vectors is ~15 so multiple iterations are ok.
@@ -461,7 +530,7 @@ impl<T: Trait> Module<T> {
                 }
             }
 
-            let max_validators = T::MaxActiveValidators::get() as usize;
+            let max_validators = Self::max_active_validators() as usize;
 
             // TODO: Remove debugging variable below
             let mut count_added = 0u32;
@@ -501,9 +570,9 @@ impl<T: Trait> Module<T> {
 
     /// Set next epoch duration such that it is >= `MinEpochLength` and also a multiple of the
     /// number of active validators
-    fn set_next_epoch_end(current_slot_no: u64, active_validator_count: u8) -> u64 {
-        let min_epoch_len = T::MinEpochLength::get();
-        let active_validator_count = active_validator_count as u64;
+    fn set_next_epoch_end(current_slot_no: SlotNo, active_validator_count: u8) -> SlotNo {
+        let min_epoch_len = Self::min_epoch_length();
+        let active_validator_count = active_validator_count as EpochLen;
         let rem = min_epoch_len % active_validator_count;
         let epoch_len = if rem == 0 {
             min_epoch_len
@@ -511,7 +580,7 @@ impl<T: Trait> Module<T> {
             min_epoch_len + active_validator_count - rem
         };
         // Current slot no is part of new epoch
-        let epoch_ends_at = current_slot_no + epoch_len - 1;
+        let epoch_ends_at = current_slot_no + epoch_len as SlotNo - 1;
         EpochEndsAt::put(epoch_ends_at);
         epoch_ends_at
     }
@@ -541,7 +610,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Return the current slot no if accessible
-    fn current_slot_no() -> Option<u64> {
+    fn current_slot_no() -> Option<SlotNo> {
         let digest = <system::Module<T>>::digest();
         let logs = digest.logs();
         if logs.len() > 0 {
@@ -549,7 +618,7 @@ impl<T: Trait> Module<T> {
             match logs[0].as_pre_runtime() {
                 Some(pre_run) => {
                     // Assumes that the 2nd element of tuple is for slot no.
-                    let s = u64::decode(&mut &pre_run.1[..]).unwrap();
+                    let s = SlotNo::decode(&mut &pre_run.1[..]).unwrap();
                     debug!(target: "runtime", "current slo no is {}", s);
                     Some(s)
                 }
@@ -566,7 +635,7 @@ impl<T: Trait> Module<T> {
 
     /// Prematurely end current epoch but keep slots multiple of no of validators
     /// Updates storage for end of current epoch
-    fn short_circuit_current_epoch() -> u64 {
+    fn short_circuit_current_epoch() -> SlotNo {
         let current_slot_no = Self::current_slot_no().unwrap();
         // Moving the logic to separate method to keep it testable
         Self::update_current_epoch_end_on_short_circuit(current_slot_no)
@@ -574,10 +643,10 @@ impl<T: Trait> Module<T> {
 
     /// Updates storage for end of current epoch on premature ending of epoch.
     /// Takes the current slot no.
-    fn update_current_epoch_end_on_short_circuit(current_slot_no: u64) -> u64 {
+    fn update_current_epoch_end_on_short_circuit(current_slot_no: SlotNo) -> SlotNo {
         let current_epoch_no = Self::epoch();
         let epoch_detail = Self::get_epoch_detail(current_epoch_no);
-        let active_validator_count = epoch_detail.validator_count as u64;
+        let active_validator_count = epoch_detail.validator_count as SlotNo;
         let current_progress = current_slot_no - epoch_detail.starting_slot + 1;
         let rem = current_progress % active_validator_count;
         let epoch_ends_at = if rem == 0 {
@@ -595,7 +664,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// If there is any transaction fees, credit it to the given author
-    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<u64> {
+    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<SlotNo> {
         // ------------- DEBUG START -------------
         let current_block_no = <system::Module<T>>::block_number();
         debug!(
@@ -650,17 +719,18 @@ impl<T: Trait> Module<T> {
     /// Get count of slots reserved for a validator in given epoch
     fn get_slots_per_validator(
         epoch_detail: &EpochDetail,
-        ending_slot: u64,
+        ending_slot: SlotNo,
         block_count: &BlockCount,
-    ) -> u64 {
-        if epoch_detail.expected_ending_slot == ending_slot {
+    ) -> EpochLen {
+        if epoch_detail.expected_ending_slot >= ending_slot {
             print(ending_slot);
-            (ending_slot - epoch_detail.starting_slot + 1) / epoch_detail.validator_count as u64
-        } else if epoch_detail.expected_ending_slot > ending_slot {
-            print("Epoch ending early. Swap or network stopped");
+            if epoch_detail.expected_ending_slot > ending_slot {
+                print("Epoch ending early. Swap or epoch short circuited");
+            }
             // This can be slightly disadvantageous for the highest block producer(s) if the following
-            // division leaves a remainder. The disadvantage is loss of emission reward on 1 block.
-            (ending_slot - epoch_detail.starting_slot + 1) / epoch_detail.validator_count as u64
+            // division leaves a remainder (in case of shorter epoch). The disadvantage is loss of emission reward on 1 block.
+            ((ending_slot - epoch_detail.starting_slot + 1)
+                / epoch_detail.validator_count as SlotNo) as EpochLen
         } else {
             print("Epoch ending late. This means the network stopped in between");
             match block_count {
@@ -682,7 +752,9 @@ impl<T: Trait> Module<T> {
     /// Return an enum containing either maximum number of blocks produced by any validator if all validators
     /// did not produce equal blocks in the epoch or the number of blocks if they produced the same number.
     /// Also return count of blocks produced by each validator in a map.
-    fn count_validator_blocks(current_epoch_no: u32) -> (BlockCount, BTreeMap<T::AccountId, u64>) {
+    fn count_validator_blocks(
+        current_epoch_no: EpochLen,
+    ) -> (BlockCount, BTreeMap<T::AccountId, EpochLen>) {
         let mut validator_block_counts = BTreeMap::new();
         let mut max_blocks = 0;
         // Flag to check if all validators produced same blocks
@@ -721,8 +793,8 @@ impl<T: Trait> Module<T> {
     /// not the case, decrease emission rewards proportionally.
     /// Assumes that `slots_per_validator` is not 0 and <= expected_slots_per_validator.
     fn get_max_emission_reward_per_validator_per_epoch(
-        expected_slots_per_validator: u64,
-        slots_per_validator: u64,
+        expected_slots_per_validator: EpochLen,
+        slots_per_validator: EpochLen,
     ) -> u128 {
         // Maximum emission reward for each validator in an epoch assuming epoch was at least `MinEpochLength`
         let max_em = Self::max_emm_validator_epoch().saturated_into::<u128>();
@@ -764,10 +836,10 @@ impl<T: Trait> Module<T> {
     /// Track locked and unlocked reward for each validator in the given epoch and return sum of
     /// emission rewards (locked + unlocked) for all validators
     fn mint_and_track_validator_rewards_for_non_empty_epoch(
-        current_epoch_no: u32,
-        expected_slots_per_validator: u64,
-        slots_per_validator: u64,
-        validator_block_counts: BTreeMap<T::AccountId, u64>,
+        current_epoch_no: EpochNo,
+        expected_slots_per_validator: EpochLen,
+        slots_per_validator: EpochLen,
+        validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
     ) -> u128 {
         let mut total_validator_reward = 0u128;
         // Maximum emission per validator in this epoch
@@ -811,8 +883,8 @@ impl<T: Trait> Module<T> {
 
     /// Track validator rewards for epoch with no rewards. The tracked rewards will be 0
     fn track_validator_rewards_for_empty_epoch(
-        current_epoch_no: u32,
-        validator_block_counts: BTreeMap<T::AccountId, u64>,
+        current_epoch_no: EpochNo,
+        validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
     ) {
         for (v, block_count) in validator_block_counts {
             <ValidatorStats<T>>::insert(
@@ -831,9 +903,9 @@ impl<T: Trait> Module<T> {
     /// validator
     fn mint_rewards_for_non_empty_epoch(
         epoch_detail: &mut EpochDetail,
-        current_epoch_no: u32,
-        slots_per_validator: u64,
-        validator_block_counts: BTreeMap<T::AccountId, u64>,
+        current_epoch_no: EpochNo,
+        slots_per_validator: EpochLen,
+        validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
     ) {
         let total_validator_reward = Self::mint_and_track_validator_rewards_for_non_empty_epoch(
             current_epoch_no,
@@ -851,7 +923,7 @@ impl<T: Trait> Module<T> {
         // Subtract from total supply
         let mut emission_supply = <EmissionSupply<T>>::take().saturated_into::<u128>();
         emission_supply = emission_supply.saturating_sub(total_reward);
-        <EmissionSupply<T>>::put(emission_supply.saturated_into::<<<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance>());
+        <EmissionSupply<T>>::put(emission_supply.saturated_into::<BalanceOf<T>>());
 
         epoch_detail.total_emission = Some(total_reward);
         epoch_detail.emission_for_treasury = Some(treasury_reward);
@@ -861,8 +933,8 @@ impl<T: Trait> Module<T> {
     /// Calculate validator and treasury rewards for epoch with 0 rewards. The tracked rewards will be 0
     fn calculate_rewards_for_empty_epoch(
         epoch_detail: &mut EpochDetail,
-        current_epoch_no: u32,
-        validator_block_counts: BTreeMap<T::AccountId, u64>,
+        current_epoch_no: EpochNo,
+        validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
     ) {
         Self::track_validator_rewards_for_empty_epoch(current_epoch_no, validator_block_counts);
         epoch_detail.total_emission = Some(0);
@@ -874,8 +946,8 @@ impl<T: Trait> Module<T> {
     /// rewards were minted, false otherwise.
     /// TODO: Use this to allow the Master to enable/disable emission rewards.
     fn mint_emission_rewards_if_needed(
-        current_epoch_no: u32,
-        ending_slot: u64,
+        current_epoch_no: EpochNo,
+        ending_slot: SlotNo,
         epoch_detail: &mut EpochDetail,
     ) -> bool {
         // If emission is disabled, return (false) immediately
@@ -926,7 +998,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Track epoch ending slot and rewards for validators and treasury and mint and disburse the rewards.
-    fn update_details_for_ending_epoch(current_slot_no: u64) {
+    fn update_details_for_ending_epoch(current_slot_no: SlotNo) {
         let current_epoch_no = Self::epoch();
         if current_epoch_no == 0 {
             print("Starting up, no epoch to update");
@@ -953,8 +1025,8 @@ impl<T: Trait> Module<T> {
     /// Set last slot for previous epoch, starting slot of current epoch and active validator count
     /// for this epoch
     fn update_details_on_new_epoch(
-        current_epoch_no: u32,
-        current_slot_no: u64,
+        current_epoch_no: EpochNo,
+        current_slot_no: SlotNo,
         active_validator_count: u8,
     ) {
         debug!(
@@ -975,8 +1047,8 @@ impl<T: Trait> Module<T> {
 
     /// The validator set needs to update, either due to swap or epoch end.
     fn update_validator_set(
-        current_slot_no: u64,
-        epoch_ends_at: u64,
+        current_slot_no: SlotNo,
+        epoch_ends_at: SlotNo,
         swap: Option<(T::AccountId, T::AccountId)>,
     ) -> (bool, u8) {
         match Self::swap_if_needed(swap) {

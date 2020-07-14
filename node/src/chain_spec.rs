@@ -249,6 +249,8 @@ fn testnet_genesis(
                 .collect::<Vec<_>>(),
         }),
         poa: Some(PoAModuleConfig {
+            min_epoch_length: 5,
+            max_active_validators: 4,
             active_validators: initial_authorities
                 .iter()
                 .map(|x| x.0.clone())

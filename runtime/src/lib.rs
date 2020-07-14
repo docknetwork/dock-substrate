@@ -298,15 +298,8 @@ impl pallet_session::Trait for Runtime {
     type DisabledValidatorsThreshold = ();
 }
 
-parameter_types! {
-    pub const MinEpochLength: u64 = 5;
-    pub const MaxActiveValidators: u8 = 4;
-}
-
 impl poa::Trait for Runtime {
     type Event = Event;
-    type MinEpochLength = MinEpochLength;
-    type MaxActiveValidators = MaxActiveValidators;
     type Currency = balances::Module<Runtime>;
 }
 

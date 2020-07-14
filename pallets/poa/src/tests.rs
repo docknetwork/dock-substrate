@@ -31,8 +31,6 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
-    pub const MinEpochLength: u64 = 25;
-    pub const MaxActiveValidators: u8 = 4;
     pub const TransactionByteFee: u128 = 1;
 }
 
@@ -73,8 +71,6 @@ impl balances::Trait for TestRuntime {
 
 impl Trait for TestRuntime {
     type Event = ();
-    type MinEpochLength = MinEpochLength;
-    type MaxActiveValidators = MaxActiveValidators;
     type Currency = balances::Module<Self>;
 }
 
@@ -140,6 +136,8 @@ fn new_test_ext() -> sp_io::TestExternalities {
         .build_storage::<TestRuntime>()
         .unwrap();
     GenesisConfig::<TestRuntime> {
+        min_epoch_length: 25,
+        max_active_validators: 4,
         // Most of them values are kept 0 as the tests below will set it.
         active_validators: vec![],
         emission_supply: 0,
@@ -1552,5 +1550,81 @@ fn emission_rewards_status() {
         assert!(epoch_detail.total_emission.is_none());
         assert!(epoch_detail.emission_for_treasury.is_none());
         assert!(epoch_detail.emission_for_validators.is_none());
+    });
+}
+
+#[test]
+fn config_set_by_master() {
+    new_test_ext().execute_with(|| {
+        // Set epoch length
+        assert_eq!(PoAModule::min_epoch_length(), 25);
+        assert_ok!(PoAModule::set_min_epoch_length(RawOrigin::Root.into(), 30));
+        assert_eq!(PoAModule::min_epoch_length(), 30);
+        assert_ok!(PoAModule::set_min_epoch_length(RawOrigin::Root.into(), 25));
+        assert_eq!(PoAModule::min_epoch_length(), 25);
+
+        // Set max validators
+        assert_eq!(PoAModule::max_active_validators(), 4);
+        assert_ok!(PoAModule::set_max_active_validators(
+            RawOrigin::Root.into(),
+            10
+        ));
+        assert_eq!(PoAModule::max_active_validators(), 10);
+        assert_ok!(PoAModule::set_max_active_validators(
+            RawOrigin::Root.into(),
+            4
+        ));
+        assert_eq!(PoAModule::max_active_validators(), 4);
+
+        // Max emission reward per validator
+        assert_eq!(PoAModule::max_emm_validator_epoch(), 0);
+        assert_ok!(PoAModule::set_max_emm_validator_epoch(
+            RawOrigin::Root.into(),
+            1000
+        ));
+        assert_eq!(PoAModule::max_emm_validator_epoch(), 1000);
+        assert_ok!(PoAModule::set_max_emm_validator_epoch(
+            RawOrigin::Root.into(),
+            0
+        ));
+        assert_eq!(PoAModule::max_emm_validator_epoch(), 0);
+
+        // Validator reward lock percentage
+        assert_eq!(PoAModule::validator_reward_lock_pc(), 0);
+        assert_ok!(PoAModule::set_validator_reward_lock_pc(
+            RawOrigin::Root.into(),
+            30
+        ));
+        assert_eq!(PoAModule::validator_reward_lock_pc(), 30);
+
+        // Can't set percentage > 100
+        assert_err!(
+            PoAModule::set_validator_reward_lock_pc(RawOrigin::Root.into(), 101),
+            Error::<TestRuntime>::PercentageGreaterThan100
+        );
+        assert_eq!(PoAModule::validator_reward_lock_pc(), 30);
+
+        assert_ok!(PoAModule::set_validator_reward_lock_pc(
+            RawOrigin::Root.into(),
+            0
+        ));
+
+        // Treasury reward percentage
+        assert_eq!(PoAModule::treasury_reward_pc(), 0);
+        assert_ok!(PoAModule::set_treasury_reward_pc(
+            RawOrigin::Root.into(),
+            45
+        ));
+        assert_eq!(PoAModule::treasury_reward_pc(), 45);
+
+        // Can't set percentage > 100
+        assert_err!(
+            PoAModule::set_treasury_reward_pc(RawOrigin::Root.into(), 101),
+            Error::<TestRuntime>::PercentageGreaterThan100
+        );
+        assert_eq!(PoAModule::treasury_reward_pc(), 45);
+
+        assert_ok!(PoAModule::set_treasury_reward_pc(RawOrigin::Root.into(), 0));
+        assert_eq!(PoAModule::treasury_reward_pc(), 0);
     });
 }
