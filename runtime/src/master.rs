@@ -231,14 +231,7 @@ mod test {
     use super::*;
     use crate::test_common::*;
     type MasterMod = crate::master::Module<Test>;
-
-    fn standard_setup() {
-        // set members
-        Members::<Test>::set(Membership {
-            members: [1, 2, 3].iter().cloned().collect(),
-            vote_requirement: 2,
-        });
-    }
+    use sp_core::H256;
 
     fn hash(inp: &impl Encode) -> <Test as system::Trait>::Hash {
         <Test as system::Trait>::Hashing::hash_of(inp)
@@ -250,28 +243,18 @@ mod test {
     #[test]
     fn execute_set_members() {
         ext().execute_with(|| {
-            standard_setup();
-
-            let old_members = Members::<Test>::get();
+            Members::<Test>::set(Membership {
+                members: set(&[1, 2, 3]),
+                vote_requirement: 2,
+            });
             let new_members = Membership {
                 members: BTreeSet::new(),
                 vote_requirement: 1,
             };
-            assert_ne!(
-                old_members, new_members,
-                "lets not set members to the same thing it was before"
-            );
-
-            // choose a call
             let call = TestCall::Master(Call::<Test>::set_members(new_members.clone()));
-
-            // vote on that call
             MasterMod::vote(Origin::signed(1), 0, hash(&call)).unwrap();
             MasterMod::vote(Origin::signed(2), 0, hash(&call)).unwrap();
-
-            // execute call
             MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
-
             assert_eq!(
                 Members::<Test>::get(),
                 new_members,
@@ -279,11 +262,95 @@ mod test {
             );
             assert_eq!(Votes::<Test>::get(), BTreeMap::new(), "votes were cleared");
             assert_eq!(Round::get(), 2, "round number was incremented twice");
+        });
+    }
+
+    /// After a sucessful execution, the current round of voted is cleared and round number is increased.
+    #[test]
+    fn round_inc_votes_cleared() {
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[1, 2, 3]),
+                vote_requirement: 2,
+            });
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            assert_eq!(Votes::<Test>::get(), BTreeMap::new());
+            MasterMod::vote(Origin::signed(1), 0, hash(&call)).unwrap();
+            MasterMod::vote(Origin::signed(2), 0, hash(&call)).unwrap();
+            assert_eq!(
+                Votes::<Test>::get(),
+                map(&[(1u64, hash(&call)), (2u64, hash(&call))])
+            );
+            assert_eq!(Round::get(), 0);
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
+            assert_eq!(Votes::<Test>::get(), BTreeMap::new());
+            assert_eq!(Round::get(), 1);
+        });
+    }
+
+    /// Running acommand that requires a non-root origin fails.
+    #[test]
+    fn non_root_impossible() {
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[1, 2, 3]),
+                vote_requirement: 2,
+            });
+            let call = TestCall::System(system::Call::<Test>::remark(vec![]));
+            MasterMod::vote(Origin::signed(1), 0, hash(&call)).unwrap();
+            MasterMod::vote(Origin::signed(2), 0, hash(&call)).unwrap();
+            let err = MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap_err();
+            assert_eq!(err, DispatchError::BadOrigin);
+        });
+    }
+
+    #[test]
+    fn test_events() {
+        ext().execute_with(|| {
+            MasterMod::set_members(
+                Origin::ROOT,
+                Membership {
+                    members: BTreeSet::new(),
+                    vote_requirement: 1,
+                },
+            )
+            .unwrap();
+            assert_eq!(events(), vec![Event::<Test>::UnderNewOwnership]);
+        });
+
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[1, 2, 3]),
+                vote_requirement: 2,
+            });
+            let hash = H256([0u8; 32]);
+            MasterMod::vote(Origin::signed(1), Round::get(), hash).unwrap();
+            assert_eq!(events(), vec![Event::<Test>::Vote(1, hash)]);
+        });
+
+        ext().execute_with(|| {
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            Members::<Test>::set(Membership {
+                members: set(&[]),
+                vote_requirement: 0,
+            });
+            MasterMod::execute(Origin::signed(1), Box::new(call.clone())).unwrap();
+            assert_eq!(events(), vec![Event::<Test>::Executed(hash(&call))]);
+        });
+
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[]),
+                vote_requirement: 0,
+            });
+            let call = TestCall::Master(Call::<Test>::set_members(Membership {
+                members: BTreeSet::new(),
+                vote_requirement: 0,
+            }));
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
             assert_eq!(
                 events(),
                 vec![
-                    Event::<Test>::Vote(1, hash(&call)),
-                    Event::<Test>::Vote(2, hash(&call)),
                     Event::<Test>::UnderNewOwnership,
                     Event::<Test>::Executed(hash(&call)),
                 ]
@@ -291,52 +358,144 @@ mod test {
         });
     }
 
-    /// After a sucessful execution, the current round of voted is cleared and round number is increased.
     #[test]
-    #[ignore]
-    fn round_inc_votes_cleared() {
-        ext().execute_with(|| {
-            todo!();
-        });
-    }
-
-    #[test]
-    #[ignore]
-    fn test_events() {
-        ext().execute_with(|| {
-            todo!();
-        });
-    }
-
-    #[test]
-    #[ignore]
     fn no_members() {
         ext().execute_with(|| {
-            todo!();
+            Members::<Test>::set(Membership {
+                members: set(&[]),
+                vote_requirement: 1,
+            });
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let err = MasterMod::vote(Origin::signed(0), Round::get(), hash(&call)).unwrap_err();
+            assert_eq!(err, MasterError::<Test>::NotMember.into());
         });
     }
 
     #[test]
-    #[ignore]
-    fn call_other_module() {
-        ext().execute_with(|| {
-            todo!();
-        });
-    }
-
-    #[test]
-    #[ignore]
     fn valid_call() {
         ext().execute_with(|| {
-            todo!();
+            let kv = (vec![4; 200], vec![5; 200]);
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
+            Members::<Test>::set(Membership {
+                members: set(&[1, 2, 3]),
+                vote_requirement: 2,
+            });
+
+            assert_eq!(sp_io::storage::get(&kv.0), None);
+            MasterMod::vote(Origin::signed(3), 0, hash(&call)).unwrap();
+            MasterMod::vote(Origin::signed(1), 0, hash(&call)).unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
+            assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
         });
     }
 
     #[test]
-    #[ignore]
-    fn insufficient_votes() {
+    fn all_members_vote() {
         ext().execute_with(|| {
-            todo!();
+            let kv = (vec![4; 200], vec![5; 200]);
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
+            Members::<Test>::set(Membership {
+                members: set(&[1, 2, 3]),
+                vote_requirement: 2,
+            });
+            MasterMod::vote(Origin::signed(1), 0, hash(&call)).unwrap();
+            MasterMod::vote(Origin::signed(2), 0, hash(&call)).unwrap();
+            MasterMod::vote(Origin::signed(3), 0, hash(&call)).unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
+        });
+    }
+
+    #[test]
+    fn two_successful_rounds_of_voting() {
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[1, 2, 3]),
+                vote_requirement: 2,
+            });
+
+            {
+                let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+                MasterMod::vote(Origin::signed(3), 0, hash(&call)).unwrap();
+                MasterMod::vote(Origin::signed(1), 0, hash(&call)).unwrap();
+                MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
+            }
+
+            {
+                let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+                MasterMod::vote(Origin::signed(3), 1, hash(&call)).unwrap();
+                MasterMod::vote(Origin::signed(1), 1, hash(&call)).unwrap();
+                MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
+            }
+        });
+    }
+
+    #[test]
+    fn revote() {
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[0]),
+                vote_requirement: 1,
+            });
+            assert_eq!(Votes::<Test>::get(), BTreeMap::new());
+            MasterMod::vote(Origin::signed(0), 0, H256([0; 32])).unwrap();
+            assert_eq!(Votes::<Test>::get(), map(&[(0u64, H256([0; 32]))]));
+            MasterMod::vote(Origin::signed(0), 0, H256([1; 32])).unwrap();
+            assert_eq!(Votes::<Test>::get(), map(&[(0u64, H256([1; 32]))]));
+        });
+    }
+
+    #[test]
+    fn err_wrong_round() {
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[1]),
+                vote_requirement: 1,
+            });
+            let wrong_round = 1;
+            assert_ne!(wrong_round, Round::get());
+            let err = MasterMod::vote(Origin::signed(1), wrong_round, H256([0; 32])).unwrap_err();
+            assert_eq!(err, MasterError::<Test>::WrongRound.into());
+        });
+    }
+
+    #[test]
+    fn err_not_member() {
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[1]),
+                vote_requirement: 1,
+            });
+            let wrong_voter = 0;
+            let err = MasterMod::vote(Origin::signed(wrong_voter), 0, H256([0; 32])).unwrap_err();
+            assert_eq!(err, MasterError::<Test>::NotMember.into());
+        });
+    }
+
+    #[test]
+    fn err_repeated_vote() {
+        ext().execute_with(|| {
+            Members::<Test>::set(Membership {
+                members: set(&[1]),
+                vote_requirement: 1,
+            });
+            MasterMod::vote(Origin::signed(1), 0, H256([0; 32])).unwrap();
+            let err = MasterMod::vote(Origin::signed(1), 0, H256([0; 32])).unwrap_err();
+            assert_eq!(err, MasterError::<Test>::RepeatedVote.into());
+        });
+    }
+
+    #[test]
+    fn err_insufficient_votes() {
+        ext().execute_with(|| {
+            let kv = (vec![4; 200], vec![5; 200]);
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
+            Members::<Test>::set(Membership {
+                members: set(&[1, 2, 3]),
+                vote_requirement: 2,
+            });
+            MasterMod::vote(Origin::signed(3), 0, hash(&call)).unwrap();
+            let err = MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap_err();
+            assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());
         });
     }
 
@@ -357,5 +516,16 @@ mod test {
                 }
             })
             .collect()
+    }
+
+    fn map<K: Ord, V>(slice: &[(K, V)]) -> BTreeMap<K, V>
+    where
+        (K, V): Clone,
+    {
+        slice.iter().cloned().collect()
+    }
+
+    fn set<E: Clone + Ord>(slice: &[E]) -> BTreeSet<E> {
+        slice.iter().cloned().collect()
     }
 }
