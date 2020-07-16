@@ -18,6 +18,7 @@ extern crate alloc;
 
 pub mod blob;
 pub mod did;
+mod is;
 pub mod master;
 pub mod revoke;
 
@@ -76,7 +77,6 @@ type Hash = sp_core::H256;
 /// not self describing.
 /// Never change the order of variants in this enum
 #[derive(Encode, Decode)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum StateChange {
     KeyUpdate(did::KeyUpdate),
     DIDRemoval(did::DidRemoval),
@@ -84,6 +84,7 @@ pub enum StateChange {
     UnRevoke(revoke::UnRevoke),
     RemoveRegistry(revoke::RemoveRegistry),
     Blob(blob::Blob),
+    MasterVote(master::Vote),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -291,7 +292,7 @@ construct_runtime!(
         DIDModule: did::{Module, Call, Storage, Event},
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
-        Master: master::{Module, Call, Storage, Event<T>, Config<T>},
+        Master: master::{Module, Call, Storage, Event<T>, Config},
     }
 );
 

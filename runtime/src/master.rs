@@ -1,16 +1,79 @@
-//! Simulates a multisig root account. Members cast votes on a Call by commiting to a hash.
-//! When a hash has enough votes, it can be executed by providing the preimage.
-//! The preimage is a Dispatchable (a reified on-chain function call). When a vote
-//! succeeds and its preimage is provided, the preimage is called with system::Origin::Root as the
-//! origin.
+//! Simulates a multisig root account.
 //!
-//! Your node_runtime::Call is an example of a Dispatchable.
+//! Each substrate runtime module declares a "Call" enum. The "Call" enum is created by the
+//! `decl_module!` macro. Let's call that enum `module::Call`. Each `module::Call` is a reified
+//! invocation of one of the modules methods. The `module::Call` for this:
 //!
-//! For simplicity, the hashing function used will be the same as what is used in the rest of your
-//! runtime (the one configured in pallet_system::Trait).
+//! ```
+//! # type Foo = ();
+//! # type Bar = ();
+//! # trait Trait: system::Trait {}
+//! decl_module! {
+//!     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+//!         #[weight = 100_000]
+//!         pub fn frob(origin, foo: Foo) -> DispatchResult { Ok(()) }
+//!         #[weight = 100_000]
+//!         pub fn unfrob(origin, foo: Foo, bar: Bar) -> DispatchResult { Ok(()) }
+//!     }
+//! }
+//! ```
+//!
+//! looks something like this:
+//!
+//! ```
+//! # type Foo = ();
+//! # type Bar = ();
+//! enum Call {
+//!     frob(Foo),
+//!     unfrob(Foo, Bar),
+//! }
+//! ```
+//!
+//! The `construct_runtime!` macro assembles the calls from all the included modules into a
+//! single "super call". The name of this enum is also "Call", but let's refer to it as
+//! `runtime::Call`. A `runtime::Call` looks something like this:
+//!
+//! ```
+//! # mod module1 { pub type Call = (); }
+//! # mod module2 { pub type Call = (); }
+//! # mod module3 { pub type Call = (); }
+//! enum Call {
+//!    Module1(module1::Call),
+//!    Module2(module2::Call),
+//!    Module3(module3::Call),
+//! }
+//! ```
+//!
+//! This module allows members of the group called Master to "vote" on a `runtime::Call` (a
+//! proposal) using cryptographic signatures. The votes, along with the proposed `runtime::Call`
+//! are submitted in a single transaction. If enough valid votes endorse the proposal, the proposal
+//! is run as root. If the running the proposal as root succeeds, a new round of voting is started.
+//!
+//! Each member of Master is idenitified by their dock DID.
+//!
+//! This module implement partial replay protection to prevent unauthorized resubmission of votes
+//! from previous rounds.
 
-use alloc::boxed::Box;
-use alloc::collections::{BTreeMap, BTreeSet};
+// TODO: add this to the PR description: the MemberShip type is capable of soundly representing
+//                                       a superset of revoke::Policy::OneOf. Should we unify the
+//                                       types? It would make the revoke module more flexible and
+//                                       would be code re-use.
+// ```
+// enum Policy {
+//     Vote(MemberShip),
+// }
+// ```
+
+use crate::{
+    did::{Did, DidSignature},
+    is::Is,
+    StateChange,
+};
+use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, BTreeSet},
+    vec::Vec,
+};
 use codec::{Decode, Encode};
 use core::default::Default;
 use frame_support::{
@@ -18,17 +81,27 @@ use frame_support::{
     dispatch::{DispatchResult, Dispatchable},
     ensure, Parameter,
 };
-use sp_runtime::traits::Hash;
 use system::{ensure_root, ensure_signed};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
+pub struct Vote {
+    /// The Dispatchable to be called as root
+    proposal: Box<crate::Call>,
+    /// The round for which the vote is to be valid
+    round_no: u64,
+}
+
+/// Proof of authorization by Master.
+pub type PMAuth = BTreeMap<Did, DidSignature>;
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Membership<AccountId: Ord> {
-    pub members: BTreeSet<AccountId>,
+pub struct Membership {
+    pub members: BTreeSet<Did>,
     pub vote_requirement: u64,
 }
 
-impl<T: Ord> Default for Membership<T> {
+impl Default for Membership {
     fn default() -> Self {
         Membership {
             members: BTreeSet::new(),
@@ -37,7 +110,7 @@ impl<T: Ord> Default for Membership<T> {
     }
 }
 
-pub trait Trait: system::Trait
+pub trait Trait: system::Trait + crate::did::Trait
 where
     <Self as system::Trait>::AccountId: Ord,
 {
@@ -45,13 +118,12 @@ where
 
     /// The dispatchable that master may call as Root. It is possible to use another type here, but
     /// it's expectected that your runtime::Call will be used.
-    type Call: Parameter + Dispatchable<Origin = Self::Origin>;
+    type Call: Parameter + Dispatchable<Origin = Self::Origin> + Is<crate::Call>;
 }
 
 decl_storage! {
     trait Store for Module<T: Trait> as Master {
-        pub Votes: BTreeMap<T::AccountId, <T as system::Trait>::Hash>;
-        pub Members config(members): Membership<T::AccountId>;
+        pub Members config(members): Membership;
         pub Round: u64;
     }
 }
@@ -63,24 +135,21 @@ decl_error! {
         WrongRound,
         /// The account used to submit this vote is not a member of Master.
         NotMember,
-        /// This is already the active vote for this account. No need to submit it again this round.
-        RepeatedVote,
         /// This proposal does not yet have enough votes to be executed.
         InsufficientVotes,
+        /// One of the signatures provided is invalid.
+        BadSig,
     }
 }
 
 decl_event! {
     pub enum Event<T>
     where
-        <T as system::Trait>::AccountId,
-        <T as system::Trait>::Hash
+        <T as Trait>::Call
     {
-        /// A member of master submitted a vote.
-        /// The account id of the the voter and the hash of the proposal is provided.
-        Vote(AccountId, Hash),
-        /// A proposal succeeded and was executed. The hash of the proposal is provided.
-        Executed(Hash),
+        /// A proposal succeeded and was executed. The dids listed are the members whose votes were
+        /// used as proof of authorization. The hash of the proposal is provided.
+        Executed(Vec<Did>, Box<Call>),
         /// The membership of Master has changed.
         UnderNewOwnership,
     }
@@ -92,20 +161,6 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Vote "yes" to some proposal.
-        ///
-        /// `current_round` is a protection against accidendally voting on a proposal after is has
-        /// already been executed. Every time a proposal is executed the round number is increased
-        /// by at least one and the votes for the current round are cleared.
-        #[weight = 0]
-        pub fn vote(
-            origin,
-            current_round: u64,
-            proposal_hash: <T as system::Trait>::Hash,
-        ) -> DispatchResult {
-            Module::<T>::vote_(origin, current_round, proposal_hash)
-        }
-
         /// Execute a proposal that has received enough votes. The proposal is a serialized Call.
         /// This function can be freely called by anyone, even someone who is not a member of
         /// Master.
@@ -115,8 +170,9 @@ decl_module! {
         pub fn execute(
             origin,
             proposal: Box<<T as Trait>::Call>,
+            auth: PMAuth,
         ) -> DispatchResult {
-            Module::<T>::execute_(origin, proposal)
+            Module::<T>::execute_(origin, proposal, auth)
         }
 
         /// Root-only. Sets the members and vote requirement for master. Increases the round number
@@ -128,7 +184,6 @@ decl_module! {
         /// # use alloc::collections::BTreeSet;
         /// #
         /// // Setting the following membership will effectively dissolve the master account.
-        /// # let _: Membership<[u8; 32]> =
         /// Membership {
         ///     members: BTreeSet::new(),
         ///     vote_requirement: 1,
@@ -141,7 +196,7 @@ decl_module! {
         #[weight = 0]
         pub fn set_members(
             origin,
-            membership: Membership<T::AccountId>
+            membership: Membership
         ) -> DispatchResult {
             Module::<T>::set_members_(origin, membership)
         }
@@ -149,72 +204,58 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    pub fn vote_(
+    pub fn execute_(
         origin: T::Origin,
-        current_round: u64,
-        proposal_hash: <T as system::Trait>::Hash,
+        proposal: Box<<T as Trait>::Call>,
+        auth: PMAuth,
     ) -> DispatchResult {
-        let who = ensure_signed(origin)?;
-
-        // check
-        let mut votes = Votes::<T>::get();
-        ensure!(Round::get() == current_round, MasterError::<T>::WrongRound);
-        ensure!(
-            Members::<T>::get().members.contains(&who),
-            MasterError::<T>::NotMember
-        );
-        ensure!(
-            votes.get(&who) != Some(&proposal_hash),
-            MasterError::<T>::RepeatedVote
-        );
-
-        // execute
-        votes.insert(who.clone(), proposal_hash);
-        Votes::<T>::set(votes);
-
-        // events
-        Self::deposit_event(RawEvent::Vote(who, proposal_hash));
-
-        Ok(())
-    }
-
-    pub fn execute_(origin: T::Origin, proposal: Box<<T as Trait>::Call>) -> DispatchResult {
         ensure_signed(origin)?;
 
         // check
-        let votes = Votes::<T>::get();
-        let members = Members::<T>::get();
-        let proposal_hash = <T as system::Trait>::Hashing::hash_of(&proposal);
-        let num_votes = votes.values().filter(|h| proposal_hash.eq(*h)).count() as u64;
-        debug_assert!(votes.keys().all(|k| members.members.contains(k)));
+        let membership = Members::get();
+        let payload = StateChange::MasterVote(Vote {
+            proposal: Box::new(into_supercall::<<T as Trait>::Call>(&proposal)),
+            round_no: Round::get(),
+        })
+        .encode();
         ensure!(
-            num_votes >= members.vote_requirement,
-            MasterError::<T>::InsufficientVotes
+            auth.len() as u64 >= membership.vote_requirement,
+            MasterError::<T>::InsufficientVotes,
         );
+        ensure!(
+            auth.keys().all(|k| membership.members.contains(k)),
+            MasterError::<T>::NotMember,
+        );
+        for (did, sig) in auth.iter() {
+            let valid = crate::did::Module::<T>::verify_sig_from_did(sig, &payload, did)?;
+            ensure!(valid, MasterError::<T>::BadSig);
+        }
 
-        // execute/check
+        // check/execute
         proposal
+            .clone()
             .dispatch(system::RawOrigin::Root.into())
             .map_err(|e| e.error)?;
 
         // execute
-        Votes::<T>::set(BTreeMap::default());
         Round::mutate(|round| {
             *round += 1;
         });
 
         // events
-        Self::deposit_event(RawEvent::Executed(proposal_hash));
+        Self::deposit_event(RawEvent::Executed(
+            auth.keys().cloned().collect(),
+            proposal.into(),
+        ));
 
         Ok(())
     }
 
-    pub fn set_members_(origin: T::Origin, membership: Membership<T::AccountId>) -> DispatchResult {
+    pub fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
         ensure_root(origin)?;
 
         // execute
-        Members::<T>::set(membership);
-        Votes::<T>::set(BTreeMap::default());
+        Members::set(membership);
         Round::mutate(|round| {
             *round += 1;
         });
@@ -224,6 +265,10 @@ impl<T: Trait> Module<T> {
 
         Ok(())
     }
+}
+
+fn into_supercall<T: Clone + Is<crate::Call>>(call: &T) -> crate::Call {
+    call.clone().into_is()
 }
 
 #[cfg(test)]

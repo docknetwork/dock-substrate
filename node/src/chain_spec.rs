@@ -11,6 +11,7 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     MultiSignature,
 };
+use std::collections::BTreeSet;
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -66,11 +67,7 @@ pub fn development_config() -> ChainSpec {
                     .map(get_account_id_from_seed::<sr25519::Public>)
                     .collect(),
                 master: Membership {
-                    members: ["Alice//master", "Bob//master", "Charlie//master"]
-                        .iter()
-                        .cloned()
-                        .map(get_account_id_from_seed::<sr25519::Public>)
-                        .collect(),
+                    members: BTreeSet::new(),
                     vote_requirement: 2,
                 },
             }
@@ -114,11 +111,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 .map(get_account_id_from_seed::<sr25519::Public>)
                 .collect(),
                 master: Membership {
-                    members: ["Alice//master", "Bob//master", "Charlie//master"]
-                        .iter()
-                        .cloned()
-                        .map(get_account_id_from_seed::<sr25519::Public>)
-                        .collect(),
+                    members: BTreeSet::new(),
                     vote_requirement: 2,
                 },
             }
@@ -166,15 +159,7 @@ pub fn remote_testnet_config() -> ChainSpec {
                 .map(account_id_from_ss58::<sr25519::Public>)
                 .collect(),
                 master: Membership {
-                    members: [
-                        "5Eco112V85Vu7kdCGFRPqg5iz6BzaskTrcorF7k9M4WrLg87",
-                        "5Cco11WbbaLcngAzV2MBMn566aksWRvaWorrivJHUJhgZDnN",
-                        "5Cco11xaecmWGRuDihk9h85Btsgbevowdt9TgCjV98ALJkor",
-                    ]
-                    .iter()
-                    .cloned()
-                    .map(account_id_from_ss58::<sr25519::Public>)
-                    .collect(),
+                    members: BTreeSet::new(),
                     vote_requirement: 2,
                 },
             }
@@ -200,7 +185,7 @@ pub fn remote_testnet_config() -> ChainSpec {
 struct GenesisBuilder {
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
-    master: Membership<AccountId>,
+    master: Membership,
 }
 
 impl GenesisBuilder {
