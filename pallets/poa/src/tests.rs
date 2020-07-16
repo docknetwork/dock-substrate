@@ -1558,23 +1558,38 @@ fn config_set_by_master() {
     new_test_ext().execute_with(|| {
         // Set epoch length
         assert_eq!(PoAModule::min_epoch_length(), 25);
+        assert_eq!(PoAModule::min_epoch_length_tentative(), 0);
         assert_ok!(PoAModule::set_min_epoch_length(RawOrigin::Root.into(), 30));
-        assert_eq!(PoAModule::min_epoch_length(), 30);
-        assert_ok!(PoAModule::set_min_epoch_length(RawOrigin::Root.into(), 25));
+        // Tentative value changed
+        assert_eq!(PoAModule::min_epoch_length_tentative(), 30);
+        // Actual value unchanged
         assert_eq!(PoAModule::min_epoch_length(), 25);
+
+        // Epoch end
+        assert_eq!(PoAModule::get_and_set_min_epoch_length_on_epoch_end(), 30);
+        // Actual value changed
+        assert_eq!(PoAModule::min_epoch_length(), 30);
+        // Tentative value reset
+        assert_eq!(PoAModule::min_epoch_length_tentative(), 0);
 
         // Set max validators
         assert_eq!(PoAModule::max_active_validators(), 4);
+        assert_eq!(PoAModule::max_active_validators_tentative(), 0);
         assert_ok!(PoAModule::set_max_active_validators(
             RawOrigin::Root.into(),
             10
         ));
-        assert_eq!(PoAModule::max_active_validators(), 10);
-        assert_ok!(PoAModule::set_max_active_validators(
-            RawOrigin::Root.into(),
-            4
-        ));
+        // Tentative value changed
+        assert_eq!(PoAModule::max_active_validators_tentative(), 10);
+        // Actual value unchanged
         assert_eq!(PoAModule::max_active_validators(), 4);
+
+        // Epoch end
+        assert_eq!(PoAModule::get_and_set_max_active_validators_on_epoch_end(), 10);
+        // Actual value changed
+        assert_eq!(PoAModule::max_active_validators(), 10);
+        // Tentative value reset
+        assert_eq!(PoAModule::max_active_validators_tentative(), 0);
 
         // Max emission reward per validator
         assert_eq!(PoAModule::max_emm_validator_epoch(), 0);

@@ -3,14 +3,16 @@
 use codec::{Decode, Encode};
 /// Pallet to add and remove validators.
 use frame_support::{
+    debug::{debug, RuntimeLogger},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{print, traits::AccountIdConversion, ModuleId, Percent, SaturatedConversion},
     traits::{
         Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
     },
+    weights::Pays,
 };
-use frame_system::{self as system, ensure_root};
-use log::{debug, warn};
+
+use frame_system::{self as system, ensure_root, RawOrigin};
 use sp_std::prelude::Vec;
 
 use sp_arithmetic::{FixedPointNumber, FixedU128};
@@ -117,11 +119,27 @@ pub trait Trait: system::Trait + pallet_session::Trait + pallet_authorship::Trai
 decl_storage! {
 
     trait Store for Module<T: Trait> as PoAModule {
-        /// Minimum epoch length in number of slots, the actual slot length >= it and set as a multiple of number of active validators
+        /// Minimum epoch length in number of slots, the actual slot length >= it and set as a
+        /// multiple of number of active validators
         MinEpochLength get(fn min_epoch_length) config(): EpochLen;
+
+        /// Minimum epoch length set through extrinsic, this will become `MinEpochLength` for next epoch
+        /// Once read, this value is made empty
+        // XXX: The storage value is not an option due to serialization error. This might be fixed in
+        // future. Using 0 as lack of value since it is not an acceptable value for this.
+        MinEpochLengthTentative get(fn min_epoch_length_tentative): EpochLen;
 
         /// Maximum active validators (the ones that produce blocks).
         MaxActiveValidators get(fn max_active_validators) config(): u8;
+
+        /// Maximum active validators set through extrinsic, this will become `MaxActiveValidators` for
+        /// next epoch. Once read, this value is made empty
+        // XXX: The storage value is not an option due to serialization error. This might be fixed in
+        // future. Using 0 as lack of value since it is not an acceptable value for this.
+        MaxActiveValidatorsTentative get(fn max_active_validators_tentative): u8;
+
+        /// Flag set when forcefully rotating a session
+        ForcedSessionRotation get(fn forced_session_rotation): bool;
 
         /// List of active validators. Maximum allowed are `MaxActiveValidators`
         ActiveValidators get(fn active_validators) config(): Vec<T::AccountId>;
@@ -204,6 +222,7 @@ decl_error! {
         AlreadyQueuedForAddition,
         AlreadyQueuedForRemoval,
         NeedAtLeast1Validator,
+        EpochLengthCannotBe0,
         SwapOutFailed,
         SwapInFailed,
         PercentageGreaterThan100
@@ -221,17 +240,14 @@ decl_module! {
         fn deposit_event() = default;
 
         // Weight of the extrinsics in this module is set 0 as they are called by Master.
-        // TODO: Use signed extension to make it free
 
         /// Add a new validator to active validator set unless already a validator and the total number
         /// of validators don't exceed the max allowed count. The validator is considered for adding at
         /// the end of this epoch unless `short_circuit` is true. If a validator is already added to the queue
         /// an error will be thrown unless `short_circuit` is true, in which case it swallows the error.
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
-
             Self::add_validator_(validator_id, short_circuit)
         }
 
@@ -240,9 +256,8 @@ decl_module! {
         /// will be thrown unless `short_circuit` is true, in which case it swallows the error.
         /// It will not remove the validator if the removal will cause the active validator set to
         /// be empty even after considering the queued validators.
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
             Self::remove_validator_(validator_id, short_circuit)
         }
@@ -250,62 +265,66 @@ decl_module! {
         /// Replace an active validator (`old_validator_id`) with a new validator (`new_validator_id`)
         /// without waiting for epoch to end. Throws error if `old_validator_id` is not active or
         /// `new_validator_id` is already active. Also useful when a validator wants to rotate his account.
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
             Self::swap_validator_(old_validator_id, new_validator_id)
         }
 
+        /// Used to set session keys for a validator. A validator shares its session key with the
+        /// author of this extrinsic who then calls `set_keys` of the session pallet. This is useful
+        /// when the validator does not balance to pay fees for `set_keys`
+        #[weight = (0, Pays::No)]
+        pub fn set_session_key(origin, validator_id: T::AccountId, keys: T::Keys) -> dispatch::DispatchResult {
+            ensure_root(origin)?;
+            <pallet_session::Module<T>>::set_keys(RawOrigin::Signed(validator_id).into(), keys, [].to_vec())
+        }
+
         /// Withdraw from treasury. Only Master is allowed to withdraw
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
             Self::withdraw_from_treasury_(recipient, amount)
         }
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
         /// Only Master can call this.
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
             EmissionStatus::put(status);
             Ok(())
         }
 
         /// Set the minimum number of slots in the epoch, i.e. storage item MinEpochLength
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
-            MinEpochLength::put(length);
+            ensure!(length > 0, Error::<T>::EpochLengthCannotBe0);
+            MinEpochLengthTentative::put(length);
             Ok(())
         }
 
         /// Set the maximum number of active validators.
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
-            MaxActiveValidators::put(count);
+            ensure!(count > 0, Error::<T>::NeedAtLeast1Validator);
+            MaxActiveValidatorsTentative::put(count);
             Ok(())
         }
 
         /// Set the maximum emission rewards per validator per epoch.
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn set_max_emm_validator_epoch(origin, emission: u128) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
             <MaxEmmValidatorEpoch<T>>::put(emission.saturated_into::<BalanceOf<T>>());
             Ok(())
         }
 
         /// Set percentage of emission rewards locked per epoch for validators
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn set_validator_reward_lock_pc(origin, lock_pc: u8) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
             ensure!(
                 lock_pc <= 100,
@@ -316,9 +335,8 @@ decl_module! {
         }
 
         /// Set percentage of emission rewards for treasury in each epoch
-        #[weight = 0]
+        #[weight = (0, Pays::No)]
         pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResult {
-            // TODO: Check the origin is Master
             ensure_root(origin)?;
             ensure!(
                 reward_pc <= 100,
@@ -331,9 +349,11 @@ decl_module! {
         /// Awards the complete txn fees to the block author if any and increment block count for
         /// current epoch and who authored it.
         fn on_finalize() {
+            // ------------- DEBUG START -------------
             print("Finalized block");
             let total_issuance = T::Currency::total_issuance().saturated_into::<u64>();
             print(total_issuance);
+            // ------------- DEBUG END -------------
 
             // Get the current block author
             let author = <pallet_authorship::Module<T>>::author();
@@ -494,6 +514,32 @@ impl<T: Trait> Module<T> {
         old_size - validators.len()
     }
 
+    /// Get maximum active validators (allowed) on current epoch end and for the next epoch. Reads
+    /// from the tentative value set in storage and if set (>0), "take" it, i.e. read and reset to 0.
+    /// Updates `MaxActiveValidators` as well
+    fn get_and_set_max_active_validators_on_epoch_end() -> u8 {
+        let max_v = MaxActiveValidatorsTentative::take();
+        if max_v > 0 {
+            MaxActiveValidators::put(max_v);
+            max_v
+        } else {
+            Self::max_active_validators()
+        }
+    }
+
+    /// Get minimum epoch length on current epoch end and for the next epoch. Reads from the tentative
+    /// value set in storage and if set (>0), "take" it, i.e. read and reset to 0. Updates
+    /// `MinEpochLength` as well
+    fn get_and_set_min_epoch_length_on_epoch_end() -> EpochLen {
+        let len = MinEpochLengthTentative::take();
+        if len > 0 {
+            MinEpochLength::put(len);
+            len
+        } else {
+            Self::min_epoch_length()
+        }
+    }
+
     /// Update active validator set if needed and return if the active validator set changed and the
     /// count of the new active validators.
     fn update_active_validators_if_needed() -> (bool, u8) {
@@ -530,7 +576,7 @@ impl<T: Trait> Module<T> {
                 }
             }
 
-            let max_validators = Self::max_active_validators() as usize;
+            let max_validators = Self::get_and_set_max_active_validators_on_epoch_end() as usize;
 
             // TODO: Remove debugging variable below
             let mut count_added = 0u32;
@@ -571,7 +617,7 @@ impl<T: Trait> Module<T> {
     /// Set next epoch duration such that it is >= `MinEpochLength` and also a multiple of the
     /// number of active validators
     fn set_next_epoch_end(current_slot_no: SlotNo, active_validator_count: u8) -> SlotNo {
-        let min_epoch_len = Self::min_epoch_length();
+        let min_epoch_len = Self::get_and_set_min_epoch_length_on_epoch_end();
         let active_validator_count = active_validator_count as EpochLen;
         let rem = min_epoch_len % active_validator_count;
         let epoch_len = if rem == 0 {
@@ -619,7 +665,7 @@ impl<T: Trait> Module<T> {
                 Some(pre_run) => {
                     // Assumes that the 2nd element of tuple is for slot no.
                     let s = SlotNo::decode(&mut &pre_run.1[..]).unwrap();
-                    debug!(target: "runtime", "current slo no is {}", s);
+                    debug!(target: "runtime", "current slot no is {}", s);
                     Some(s)
                 }
                 None => {
@@ -944,7 +990,6 @@ impl<T: Trait> Module<T> {
 
     /// Mint emission rewards and disburse them among validators and treasury. Returns true if emission
     /// rewards were minted, false otherwise.
-    /// TODO: Use this to allow the Master to enable/disable emission rewards.
     fn mint_emission_rewards_if_needed(
         current_epoch_no: EpochNo,
         ending_slot: SlotNo,
@@ -1075,6 +1120,17 @@ impl<T: Trait> Module<T> {
 }
 
 /// Indicates to the session module if the session should be rotated.
+/// The following query function modifies the state as well. If an epoch is ending it calculates the
+/// ending epoch's block counts and rewards and mints the rewards and transfers to the intended recipients.
+/// It also calculates the validator set if the validator set needs to change and calls `rotate_session`
+/// explicitly such that delay of 1 session for validator set change can be avoided as another call to
+/// `rotate_session` will be made when this function returns true; thus 2 calls to `rotate_session`
+/// in total if validator set changes, otherwise one (non explicit call)
+/// To make this a "pure" query, i.e. without any state modifications, apart from `new_session`
+/// doing the accounting done by this function, it has to make 2 calls to `rotate_session` with an
+/// integer storage flag handling for recursive calls (flag decrements on each call) since
+/// `rotate_session` calls `new_session`; this will make total calls to `rotate_session`
+/// as 3 (2 explicit by `new_session`, 1 implicit by this function).
 impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
     fn should_end_session(_now: T::BlockNumber) -> bool {
         print("Called should_end_session");
@@ -1091,7 +1147,7 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
             }
         };
 
-        let epoch_ends_at = Self::epoch_ends_at().saturated_into::<u64>();
+        let epoch_ends_at = Self::epoch_ends_at();
         debug!(
             target: "runtime",
             "epoch ends at {}",
@@ -1102,7 +1158,7 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         let swap = <HotSwap<T>>::take();
 
         if (current_slot_no > epoch_ends_at) || swap.is_some() {
-            // Disburse rewards
+            // Mint and disburse rewards to validators and treasury for the ending epoch
             Self::update_details_for_ending_epoch(current_slot_no);
 
             let (active_validator_set_changed, active_validator_count) =
@@ -1111,6 +1167,9 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
             if active_validator_set_changed {
                 // Manually calling `rotate_session` will make the new validator set change take effect
                 // on next session (as `rotate_session` will be called again once this function returns true)
+                // The flag will be set to false on in `new_session`. This should not be set here (after
+                // `rotate_session` to avoid a deadlock in case of immediate node crash after `rotate_session`)
+                ForcedSessionRotation::put(true);
                 <pallet_session::Module<T>>::rotate_session();
             }
 
@@ -1135,31 +1194,42 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 
     fn new_session(session_idx: u32) -> Option<Vec<T::AccountId>> {
         print("Called new_session");
+        // Calling init here for the lack of a better place.
+        // The init will be called on beginning of each session.
+        RuntimeLogger::init();
+
+        debug!(
+            target: "runtime",
+            "Current session index {}",
+            session_idx
+        );
+
         let validators = Self::active_validators();
-        // Check for error on empty validator set. On returning None, it loads validator set from genesis
         if validators.len() == 0 {
-            None
-        } else {
-            debug!(
-                target: "runtime",
-                "Current session index {}",
-                session_idx
-            );
-
-            // This slot number should always be available here. If its not then panic.
-            let current_slot_no = Self::current_slot_no().unwrap();
-
-            // let expected_slot_end = Self::epoch_ends_at();
-            let active_validator_count = validators.len() as u8;
-            let current_epoch_no = session_idx - 1;
-
-            Self::update_details_on_new_epoch(
-                current_epoch_no,
-                current_slot_no,
-                active_validator_count,
-            );
-
+            return None
+        }
+        if session_idx < 2 {
+            // `session_idx` 0 and 1 are called on genesis
             Some(validators)
+        } else {
+            if Self::forced_session_rotation() {
+                ForcedSessionRotation::put(false);
+                // this function will be called again as `should_end_session` will return true
+                Some(validators)
+            } else {
+                let current_epoch_no = Self::epoch() + 1;
+                // This slot number should always be available here. If its not then panic.
+                let current_slot_no = Self::current_slot_no().unwrap();
+
+                let active_validator_count = validators.len() as u8;
+                Self::update_details_on_new_epoch(
+                    current_epoch_no,
+                    current_slot_no,
+                    active_validator_count,
+                );
+                // Validator set unchanged, return None
+                None
+            }
         }
     }
 
