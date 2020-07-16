@@ -359,7 +359,7 @@ type SignedExtra = (
     system::CheckWeight<Runtime>,
     transaction_payment::ChargeTransactionPayment<Runtime>,
     // poa::OnlySudo<Runtime>,
-    token_migration::OnlyMigrator<Runtime>
+    token_migration::OnlyMigrator<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 type UncheckedExtrinsic = generic::UncheckedExtrinsic<AccountId, Call, Signature, SignedExtra>;

@@ -12,7 +12,7 @@ use frame_support::{
         ModuleId, SaturatedConversion,
     },
     traits::{
-        Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency
+        Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
     },
     weights::Pays,
 };
