@@ -18,7 +18,6 @@ extern crate alloc;
 
 pub mod blob;
 pub mod did;
-mod is;
 pub mod master;
 pub mod revoke;
 
