@@ -229,7 +229,7 @@ fn testnet_genesis(
 
     // Max emission per validator in an epoch
     // 30K tokens
-    let max_emm_validator_epoch: u128 = token_to_gas * 30_000;
+    let max_emm_validator_epoch: u128 = token_to_gas * 15_000;
 
     GenesisConfig {
         system: Some(SystemConfig {
