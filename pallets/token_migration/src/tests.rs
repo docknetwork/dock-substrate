@@ -1,16 +1,16 @@
 use super::*;
 
+use frame_support::sp_runtime::{
+    testing::Header,
+    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    Perbill,
+};
 use frame_support::{
     assert_err, assert_ok, impl_outer_origin, parameter_types,
     weights::{constants::WEIGHT_PER_SECOND, Weight},
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
-use frame_support::sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
-    Perbill,
-};
 
 impl_outer_origin! {
     pub enum Origin for TestRuntime {}
@@ -82,7 +82,11 @@ fn new_test_ext() -> sp_io::TestExternalities {
 fn add_migrator() {
     new_test_ext().execute_with(|| {
         let acc_1 = 1;
-        assert_ok!(MigrationModule::add_migrator(RawOrigin::Root.into(), acc_1, 30));
+        assert_ok!(MigrationModule::add_migrator(
+            RawOrigin::Root.into(),
+            acc_1,
+            30
+        ));
         assert_err!(
             MigrationModule::add_migrator(RawOrigin::Root.into(), acc_1, 30),
             Error::<TestRuntime>::MigratorAlreadyPresent
@@ -100,7 +104,10 @@ fn remove_migrator() {
             Error::<TestRuntime>::UnknownMigrator
         );
         MigrationModule::add_migrator(RawOrigin::Root.into(), acc_1, 30).unwrap();
-        assert_ok!(MigrationModule::remove_migrator(RawOrigin::Root.into(), acc_1));
+        assert_ok!(MigrationModule::remove_migrator(
+            RawOrigin::Root.into(),
+            acc_1
+        ));
     });
 }
 
@@ -113,7 +120,11 @@ fn expand_migrator() {
             Error::<TestRuntime>::UnknownMigrator
         );
         MigrationModule::add_migrator(RawOrigin::Root.into(), acc_1, 10).unwrap();
-        assert_ok!(MigrationModule::expand_migrator(RawOrigin::Root.into(), acc_1, 35));
+        assert_ok!(MigrationModule::expand_migrator(
+            RawOrigin::Root.into(),
+            acc_1,
+            35
+        ));
         assert_eq!(MigrationModule::migrators(&acc_1).unwrap(), 45);
         // Overflow check
         assert_err!(
@@ -132,7 +143,11 @@ fn contract_migrator() {
             Error::<TestRuntime>::UnknownMigrator
         );
         MigrationModule::add_migrator(RawOrigin::Root.into(), acc_1, 10).unwrap();
-        assert_ok!(MigrationModule::contract_migrator(RawOrigin::Root.into(), acc_1, 5));
+        assert_ok!(MigrationModule::contract_migrator(
+            RawOrigin::Root.into(),
+            acc_1,
+            5
+        ));
         assert_eq!(MigrationModule::migrators(&acc_1).unwrap(), 5);
         // Underflow check
         assert_err!(
@@ -171,7 +186,10 @@ fn migrate() {
         let mut recips_2 = BTreeMap::new();
         recips_2.insert(recip_acc_1, 10);
         recips_2.insert(recip_acc_2, 1);
-        assert_ok!(MigrationModule::migrate(RawOrigin::Signed(migrator_acc).into(), recips_2));
+        assert_ok!(MigrationModule::migrate(
+            RawOrigin::Signed(migrator_acc).into(),
+            recips_2
+        ));
         assert_eq!(MigrationModule::migrators(&migrator_acc).unwrap(), 2);
         assert_eq!(
             <TestRuntime as Trait>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),
@@ -182,7 +200,9 @@ fn migrate() {
         let mut recips_3 = BTreeMap::new();
         recips_3.insert(recip_acc_1, 85);
         recips_3.insert(recip_acc_2, 5);
-        assert!(MigrationModule::migrate(RawOrigin::Signed(migrator_acc).into(), recips_3).is_err());
+        assert!(
+            MigrationModule::migrate(RawOrigin::Signed(migrator_acc).into(), recips_3).is_err()
+        );
         assert_eq!(MigrationModule::migrators(&migrator_acc).unwrap(), 2);
         assert_eq!(
             <TestRuntime as Trait>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),
@@ -192,7 +212,10 @@ fn migrate() {
         let mut recips_4 = BTreeMap::new();
         recips_4.insert(recip_acc_1, 85);
         recips_4.insert(recip_acc_2, 4);
-        assert_ok!(MigrationModule::migrate(RawOrigin::Signed(migrator_acc).into(), recips_4));
+        assert_ok!(MigrationModule::migrate(
+            RawOrigin::Signed(migrator_acc).into(),
+            recips_4
+        ));
         assert_eq!(MigrationModule::migrators(&migrator_acc).unwrap(), 0);
         assert_eq!(
             <TestRuntime as Trait>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),

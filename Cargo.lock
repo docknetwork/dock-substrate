@@ -3230,7 +3230,6 @@ version = "0.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
- "log",
  "pallet-authorship",
  "pallet-balances",
  "pallet-session",
