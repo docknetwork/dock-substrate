@@ -346,7 +346,7 @@ mod test {
                 },
             )
             .unwrap();
-            assert_eq!(events(), vec![Event::<Test>::UnderNewOwnership]);
+            assert_eq!(master_events(), vec![Event::<Test>::UnderNewOwnership]);
         });
 
         ext().execute_with(|| {
@@ -357,25 +357,37 @@ mod test {
             });
             MasterMod::execute(Origin::signed(1), Box::new(call.clone()), map(&[])).unwrap();
             assert_eq!(
-                events(),
+                master_events(),
                 vec![Event::<Test>::Executed(vec![], Box::new(call))]
             );
         });
 
         ext().execute_with(|| {
-            // let (dida, didak) = newdid();
-            // let (didb, _didbk) = newdid();
-            // let (didc, didck) = newdid();
-            // let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
-            // Members::set(Membership {
-            //     members: set(&[dida, didb, didc]),
-            //     vote_requirement: 2,
-            // });
-            // MasterMod::execute(Origin::signed(1), Box::new(call.clone()), map(&[])).unwrap();
-            // assert_eq!(
-            //     events(),
-            //     vec![Event::<Test>::Executed(vec![dida, didc], Box::new(call))]
-            // );
+            let (dida, didak) = newdid();
+            let (didb, _didbk) = newdid();
+            let (didc, didck) = newdid();
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let sc = StateChange::MasterVote(Vote {
+                proposal: call.encode(),
+                round_no: Round::get(),
+            });
+            Members::set(Membership {
+                members: set(&[dida, didb, didc]),
+                vote_requirement: 2,
+            });
+            MasterMod::execute(
+                Origin::signed(1),
+                Box::new(call.clone()),
+                map(&[(dida, sign(&sc, &didak)), (didc, sign(&sc, &didck))]),
+            )
+            .unwrap();
+            assert_eq!(
+                master_events(),
+                vec![Event::<Test>::Executed(
+                    sorted(vec![dida, didc]),
+                    Box::new(call)
+                )]
+            );
         });
 
         ext().execute_with(|| {
@@ -389,7 +401,7 @@ mod test {
             }));
             MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
             assert_eq!(
-                events(),
+                master_events(),
                 vec![
                     Event::<Test>::UnderNewOwnership,
                     Event::<Test>::Executed(vec![], Box::new(call)),
@@ -399,35 +411,53 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn no_members() {
         ext().execute_with(|| {
-            // Members::set(Membership {
-            //     members: set(&[]),
-            //     vote_requirement: 1,
-            // });
-            // let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
-            // let err = MasterMod::execute(Origin::signed(0), Box::new(call)).unwrap_err();
-            // assert_eq!(err, MasterError::<Test>::NotMember.into());
+            let (dida, didak) = newdid();
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let sc = StateChange::MasterVote(Vote {
+                proposal: call.encode(),
+                round_no: Round::get(),
+            });
+            Members::set(Membership {
+                members: set(&[]),
+                vote_requirement: 1,
+            });
+            let err = MasterMod::execute(
+                Origin::signed(0),
+                Box::new(call),
+                map(&[(dida, sign(&sc, &didak))]),
+            )
+            .unwrap_err();
+            assert_eq!(err, MasterError::<Test>::NotMember.into());
         });
     }
 
     #[test]
-    #[ignore]
     fn valid_call() {
         ext().execute_with(|| {
-            // let kv = (vec![4; 200], vec![5; 200]);
-            // let call = TestCall::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
-            // Members::set(Membership {
-            //     members: set(&[1, 2, 3]),
-            //     vote_requirement: 2,
-            // });
+            let (dida, didak) = newdid();
+            let (didb, _didbk) = newdid();
+            let (didc, didck) = newdid();
+            let kv = (vec![4; 200], vec![5; 200]);
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
+            let sc = StateChange::MasterVote(Vote {
+                proposal: call.encode(),
+                round_no: Round::get(),
+            });
+            Members::set(Membership {
+                members: set(&[dida, didb, didc]),
+                vote_requirement: 2,
+            });
 
-            // assert_eq!(sp_io::storage::get(&kv.0), None);
-            // MasterMod::vote(Origin::signed(3), 0, hash(&call)).unwrap();
-            // MasterMod::vote(Origin::signed(1), 0, hash(&call)).unwrap();
-            // MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap();
-            // assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+            assert_eq!(sp_io::storage::get(&kv.0), None);
+            MasterMod::execute(
+                Origin::signed(1),
+                Box::new(call.clone()),
+                map(&[(dida, sign(&sc, &didak)), (didc, sign(&sc, &didck))]),
+            )
+            .unwrap();
+            assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
         });
     }
 
@@ -519,40 +549,67 @@ mod test {
     }
 
     #[test]
-    #[ignore]
     fn replay_protec() {
         ext().execute_with(|| {
-            // Members::set(Membership {
-            //     members: set(&[1]),
-            //     vote_requirement: 1,
-            // });
-            // MasterMod::vote(Origin::signed(1), 0, H256([0; 32])).unwrap();
-            // let err = MasterMod::vote(Origin::signed(1), 0, H256([0; 32])).unwrap_err();
-            // assert_eq!(err, MasterError::<Test>::RepeatedVote.into());
+            let (dida, didak) = newdid();
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let sc = StateChange::MasterVote(Vote {
+                proposal: call.encode(),
+                round_no: Round::get(),
+            });
+            let sig = sign(&sc, &didak);
+
+            Members::set(Membership {
+                members: set(&[dida]),
+                vote_requirement: 1,
+            });
+
+            MasterMod::execute(
+                Origin::signed(0),
+                Box::new(call.clone()),
+                map(&[(dida, sig.clone())]),
+            )
+            .unwrap();
+            let err = MasterMod::execute(
+                Origin::signed(0),
+                Box::new(call.clone()),
+                map(&[(dida, sig.clone())]),
+            )
+            .unwrap_err();
+            assert_eq!(err, MasterError::<Test>::BadSig.into());
         });
     }
 
     #[test]
-    #[ignore]
     fn err_insufficient_votes() {
         ext().execute_with(|| {
-            // let kv = (vec![4; 200], vec![5; 200]);
-            // let call = TestCall::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
-            // Members::set(Membership {
-            //     members: set(&[1, 2, 3]),
-            //     vote_requirement: 2,
-            // });
-            // MasterMod::vote(Origin::signed(3), 0, hash(&call)).unwrap();
-            // let err = MasterMod::execute(Origin::signed(0), Box::new(call.clone())).unwrap_err();
-            // assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());
+            let (dida, didak) = newdid();
+            let (didb, _didbk) = newdid();
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let sc = StateChange::MasterVote(Vote {
+                proposal: call.encode(),
+                round_no: Round::get(),
+            });
+            Members::set(Membership {
+                members: set(&[dida, didb]),
+                vote_requirement: 2,
+            });
+
+            let err = MasterMod::execute(
+                Origin::signed(0),
+                Box::new(call.clone()),
+                map(&[(dida, sign(&sc, &didak))]),
+            )
+            .unwrap_err();
+            assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());
         });
     }
 
-    fn events() -> Vec<Event<Test>> {
+    fn master_events() -> Vec<Event<Test>> {
         system::Module::<Test>::events()
             .iter()
-            .map(|event_record| {
-                let system::EventRecord::<TestEvent, sp_core::H256> {
+            .filter_map(|event_record| {
+                let system::EventRecord::<TestEvent, H256> {
                     phase,
                     event,
                     topics,
@@ -560,8 +617,8 @@ mod test {
                 assert_eq!(phase, &system::Phase::Initialization);
                 assert_eq!(topics, &vec![]);
                 match event {
-                    TestEvent::Master(e) => e.clone(),
-                    _ => panic!(),
+                    TestEvent::Master(e) => Some(e.clone()),
+                    _ => None,
                 }
             })
             .collect()
@@ -576,5 +633,10 @@ mod test {
 
     fn set<E: Clone + Ord>(slice: &[E]) -> BTreeSet<E> {
         slice.iter().cloned().collect()
+    }
+
+    fn sorted<T: Ord>(mut inp: Vec<T>) -> Vec<T> {
+        inp.sort();
+        inp
     }
 }
