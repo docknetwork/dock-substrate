@@ -1,5 +1,7 @@
 use dock_testnet_runtime::{
-    master::Membership, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, MasterConfig,
+    did::{Did, KeyDetail},
+    master::Membership,
+    AuraConfig, BalancesConfig, DIDModuleConfig, GenesisConfig, GrandpaConfig, MasterConfig,
     SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
@@ -11,7 +13,7 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     MultiSignature,
 };
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -70,6 +72,7 @@ pub fn development_config() -> ChainSpec {
                     members: BTreeSet::new(),
                     vote_requirement: 2,
                 },
+                dids: unimplemented!(),
             }
             .build()
         },
@@ -114,6 +117,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     members: BTreeSet::new(),
                     vote_requirement: 2,
                 },
+                dids: unimplemented!(),
             }
             .build()
         },
@@ -162,6 +166,7 @@ pub fn remote_testnet_config() -> ChainSpec {
                     members: BTreeSet::new(),
                     vote_requirement: 2,
                 },
+                dids: unimplemented!(),
             }
             .build()
         },
@@ -186,11 +191,13 @@ struct GenesisBuilder {
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
     master: Membership,
+    dids: BTreeMap<Did, KeyDetail>,
 }
 
 impl GenesisBuilder {
     fn build(self) -> GenesisConfig {
-        let _ = GenesisConfig {
+        self.validate().unwrap();
+        GenesisConfig {
             system: Some(SystemConfig {
                 code: WASM_BINARY.to_vec(),
                 changes_trie_config: Default::default(),
@@ -220,7 +227,23 @@ impl GenesisBuilder {
             master: Some(MasterConfig {
                 members: self.master,
             }),
-        };
-        todo!()
+            did: Some(DIDModuleConfig {
+                dids: BTreeMap::new(),
+            }),
+        }
+    }
+
+    fn validate(&self) -> Result<(), String> {
+        // Every DID in master must be pre-declared
+        for did in self.master.members.iter() {
+            if !self.dids.keys().any(|k| k == did) {
+                return Err(format!(
+                    "Master contains DID {:x?}.. that is not pre-declared",
+                    did[0],
+                ));
+            }
+        }
+
+        Ok(())
     }
 }

@@ -1,5 +1,6 @@
 use super::{BlockNumber, StateChange};
 use crate as dock;
+use alloc::collections::BTreeMap;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
@@ -272,7 +273,17 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
-        Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
+        Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did
+            => Option<(dock::did::KeyDetail, T::BlockNumber)>;
+    }
+    add_extra_genesis {
+        config(dids): BTreeMap<Did, KeyDetail>;
+        build(|slef: &Self| {
+            let block_no: T::BlockNumber = 0u32.into();
+            for (did, deet) in slef.dids.iter() {
+                Dids::<T>::insert(did, (deet, block_no));
+            }
+        })
     }
 }
 

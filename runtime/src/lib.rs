@@ -288,7 +288,7 @@ construct_runtime!(
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
         TransactionPayment: transaction_payment::{Module, Storage},
-        DIDModule: did::{Module, Call, Storage, Event},
+        DIDModule: did::{Module, Call, Storage, Event, Config},
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
         Master: master::{Module, Call, Storage, Event<T>, Config},
