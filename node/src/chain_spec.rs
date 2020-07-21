@@ -249,7 +249,7 @@ fn testnet_genesis(
                 .collect::<Vec<_>>(),
         }),
         poa: Some(PoAModuleConfig {
-            min_epoch_length: 5,
+            min_epoch_length: 16,
             max_active_validators: 4,
             active_validators: initial_authorities
                 .iter()
@@ -259,6 +259,7 @@ fn testnet_genesis(
             max_emm_validator_epoch,
             treasury_reward_pc: 60,
             validator_reward_lock_pc: 50,
+            // TODO: This will be false on mainnet launch as there won't be any tokens.
             emission_status: true,
         }),
         balances: Some(BalancesConfig {

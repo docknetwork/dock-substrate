@@ -1,7 +1,8 @@
+//! Pallet to add/remove validators, give transaction fees to block author and do emission rewards.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
-/// Pallet to add and remove validators.
 use frame_support::{
     debug::{debug, RuntimeLogger},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
@@ -141,7 +142,11 @@ decl_storage! {
         /// Flag set when forcefully rotating a session
         ForcedSessionRotation get(fn forced_session_rotation): bool;
 
-        /// List of active validators. Maximum allowed are `MaxActiveValidators`
+        /// List of active validators. Maximum allowed are `MaxActiveValidators`.
+        /// The validators are fed to the session pallet using the `new_session` method implemented
+        /// below and are set as `pallet_session::Validators`. For most of the time, the
+        /// `ActiveValidators` should be same as `pallet_session::Validators` except the duration
+        /// where `ActiveValidators` is set and not yet fed to the session pallet.
         ActiveValidators get(fn active_validators) config(): Vec<T::AccountId>;
 
         /// Next epoch will begin after this slot number, i.e. this slot number will be the last
@@ -217,7 +222,6 @@ decl_event!(
 decl_error! {
     /// Errors for the module.
     pub enum Error for Module<T: Trait> {
-        MaxValidators,
         AlreadyActiveValidator,
         AlreadyQueuedForAddition,
         AlreadyQueuedForRemoval,
@@ -296,7 +300,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Set the minimum number of slots in the epoch, i.e. storage item MinEpochLength
+        /// Set the minimum number of slots in the epoch, i.e. storage item MinEpochLength. This
+        /// does not effect the epoch in progress but only subsequent epochs
         #[weight = (0, Pays::No)]
         pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResult {
             ensure_root(origin)?;
@@ -305,7 +310,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Set the maximum number of active validators.
+        /// Set the maximum number of active validators, i.e. storage item MaxActiveValidators. This
+        /// does not effect the epoch in progress but only subsequent epochs
         #[weight = (0, Pays::No)]
         pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
@@ -350,9 +356,10 @@ decl_module! {
         /// current epoch and who authored it.
         fn on_finalize() {
             // ------------- DEBUG START -------------
-            print("Finalized block");
-            let total_issuance = T::Currency::total_issuance().saturated_into::<u64>();
-            print(total_issuance);
+            debug!(
+                target: "runtime",
+                "Finalized block. Total issuance {}", T::Currency::total_issuance().saturated_into::<u64>()
+            );
             // ------------- DEBUG END -------------
 
             // Get the current block author
@@ -659,9 +666,11 @@ impl<T: Trait> Module<T> {
     fn current_slot_no() -> Option<SlotNo> {
         let digest = <system::Module<T>>::digest();
         let logs = digest.logs();
+        // The logs are added in `on_slot` function of slots pallet by the validator
         if logs.len() > 0 {
             // Assumes that the first log is for PreRuntime digest
             match logs[0].as_pre_runtime() {
+                // The first log is added with `pre_digest_data` function of `SimpleSlotWorker`
                 Some(pre_run) => {
                     // Assumes that the 2nd element of tuple is for slot no.
                     let s = SlotNo::decode(&mut &pre_run.1[..]).unwrap();
@@ -1135,10 +1144,6 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
     fn should_end_session(_now: T::BlockNumber) -> bool {
         print("Called should_end_session");
 
-        // TODO: Next 2 are debugging lines. Remove them.
-        let current_block_no = <system::Module<T>>::block_number().saturated_into::<u32>();
-        debug!(target: "runtime", "current_block_no {}", current_block_no);
-
         let current_slot_no = match Self::current_slot_no() {
             Some(s) => s,
             None => {
@@ -1146,6 +1151,7 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
                 return false;
             }
         };
+        print(current_slot_no);
 
         let epoch_ends_at = Self::epoch_ends_at();
         debug!(
@@ -1165,12 +1171,16 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
                 Self::update_validator_set(current_slot_no, epoch_ends_at, swap);
 
             if active_validator_set_changed {
+                // `ActiveValidators` has become different from `<pallet_session::Validators>`
+
                 // Manually calling `rotate_session` will make the new validator set change take effect
                 // on next session (as `rotate_session` will be called again once this function returns true)
                 // The flag will be set to false on in `new_session`. This should not be set here (after
                 // `rotate_session` to avoid a deadlock in case of immediate node crash after `rotate_session`)
                 ForcedSessionRotation::put(true);
                 <pallet_session::Module<T>>::rotate_session();
+
+                // `ActiveValidators` is again same as `<pallet_session::Validators>`
             }
 
             let last_slot_for_next_epoch =
@@ -1189,7 +1199,7 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
 
 /// Provides the new set of validators to the session module when session is being rotated.
 impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
-    // SessionIndex is u32 but comes from sp_staking pallet. Since staking is not needed for now, not
+    // `SessionIndex` is u32 but comes from sp_staking pallet. Since staking is not needed for now, not
     // importing the pallet.
 
     fn new_session(session_idx: u32) -> Option<Vec<T::AccountId>> {
@@ -1213,8 +1223,8 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
             Some(validators)
         } else {
             if Self::forced_session_rotation() {
-                ForcedSessionRotation::put(false);
                 // this function will be called again as `should_end_session` will return true
+                ForcedSessionRotation::put(false);
                 Some(validators)
             } else {
                 let current_epoch_no = Self::epoch() + 1;
