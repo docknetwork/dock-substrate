@@ -1647,3 +1647,12 @@ fn config_set_by_master() {
         assert_eq!(PoAModule::treasury_reward_pc(), 0);
     });
 }
+
+#[test]
+fn expected_treasury_account_id() {
+    use sp_runtime::traits::AccountIdConversion;
+    assert_eq!(
+        AccountIdConversion::<[u8; 32]>::into_account(&TREASURY_ID),
+        *b"modlTreasury\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
+    );
+}
