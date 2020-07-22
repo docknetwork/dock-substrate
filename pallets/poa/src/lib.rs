@@ -1075,7 +1075,7 @@ impl<T: Trait> Module<T> {
 
         Epochs::insert(current_epoch_no, epoch_detail);
 
-        Self::deposit_event(RawEvent::EpochBegins(current_epoch_no, ending_slot));
+        Self::deposit_event(RawEvent::EpochEnds(current_epoch_no, ending_slot));
     }
 
     /// Set last slot for previous epoch, starting slot of current epoch and active validator count
