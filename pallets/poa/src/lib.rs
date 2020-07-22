@@ -1221,7 +1221,7 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 
         let validators = Self::active_validators();
         if validators.len() == 0 {
-            return None
+            return None;
         }
         if session_idx < 2 {
             // `session_idx` 0 and 1 are called on genesis

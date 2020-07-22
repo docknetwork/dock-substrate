@@ -1585,7 +1585,10 @@ fn config_set_by_master() {
         assert_eq!(PoAModule::max_active_validators(), 4);
 
         // Epoch end
-        assert_eq!(PoAModule::get_and_set_max_active_validators_on_epoch_end(), 10);
+        assert_eq!(
+            PoAModule::get_and_set_max_active_validators_on_epoch_end(),
+            10
+        );
         // Actual value changed
         assert_eq!(PoAModule::max_active_validators(), 10);
         // Tentative value reset
