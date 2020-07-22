@@ -955,7 +955,13 @@ impl<T: Trait> Module<T> {
     }
 
     /// Calculate validator and treasury rewards for epoch with non-zero rewards and reward each
-    /// validator
+    /// validator. During each epoch, the network will offer at most `p` tokens to each validator,
+    /// thus the network (with `n` validators) will offer at max `p*n` Dock tokens in total to all validators.
+    /// If a validator is fully available, i.e. it produces all the blocks that it can, it will get `p` tokens
+    /// in the epoch. However, if the validator is unavailable for some time (the node crashed, the network was
+    /// down or some other reason), they get proportionately less rewards. The max rewards `p` will decrease in
+    /// proportion if epoch is shorter than minimum epoch length. Once the total rewards for validators
+    /// are calculated, an extra `t` percent of that is emitted for the treasury.
     fn mint_rewards_for_non_empty_epoch(
         epoch_detail: &mut EpochDetail,
         current_epoch_no: EpochNo,
