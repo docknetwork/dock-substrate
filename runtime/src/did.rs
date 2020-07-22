@@ -3,7 +3,7 @@ use crate as dock;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
-    dispatch::DispatchResult, ensure, fail,
+    dispatch::DispatchResult, ensure, fail, traits::Get,
 };
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_runtime::traits::Verify;
@@ -271,8 +271,8 @@ decl_module! {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will fail if `did` is already registered.
         /// `detail` is the details of the key like its type, controller and value
-        // TODO: Use correct weight
-        #[weight = 10_000]
+        // TODO: Use correct weight offset by benchmarking
+        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
         pub fn new(origin, did: dock::did::Did, detail: dock::did::KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -296,7 +296,8 @@ decl_module! {
         ///
         /// [statechange]: ../enum.StateChange.html
         /// [keyupdate]: ./struct.KeyUpdate.html
-        #[weight = 10_000]
+        // TODO: Use correct weight offset by benchmarking
+        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
         pub fn update_key(
             origin,
             key_update: dock::did::KeyUpdate,
@@ -349,7 +350,8 @@ decl_module! {
         ///
         /// [statechange]: ../enum.StateChange.html
         /// [didremoval]: ./struct.DidRemoval.html
-        #[weight = 10_000]
+        // TODO: Benchmark db removal. Makes sense to give some fees back?
+        #[weight = 0]
         pub fn remove(
             origin,
             to_remove: dock::did::DidRemoval,
@@ -499,6 +501,7 @@ mod tests {
     }
 
     impl system::Trait for Test {
+        type BaseCallFilter = ();
         type Origin = Origin;
         type Call = ();
         type Index = u64;

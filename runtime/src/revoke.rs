@@ -2,7 +2,9 @@ use crate as dock;
 use crate::did::{self, Did, DidSignature};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
-use frame_support::{decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure};
+use frame_support::{
+    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
+};
 use system::ensure_signed;
 
 /// Points to an on-chain revocation registry.
@@ -123,8 +125,8 @@ decl_module! {
         /// Returns an error if `id` is already in use as a registry id.
         ///
         /// Returns an error if `registry.policy` is invalid.
-        // TODO: Use correct weight
-        #[weight = 10_000]
+        // TODO: Use correct weight offset by benchmarking
+        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
         pub fn new_registry(
             origin,
             id: dock::revoke::RevokeId,
@@ -142,9 +144,9 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `revoke.registry_id`.
-        // TODO: Use weight proportional to number of revoked credentials and in future consider
+        // TODO: Use correct weight offset by benchmarking. Use weight proportional to number of revoked credentials and in future consider
         // no. of DIDs in PAuth
-        #[weight = 10_000]
+        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64)  + 0]
         pub fn revoke(
             origin,
             revoke: dock::revoke::Revoke,
@@ -160,13 +162,13 @@ decl_module! {
         /// Returns an error if the registy referenced by `revoke.registry_id` is `add_only`.
         ///
         /// Returns an error if `unrevoke.last_modified` does not match the block number when the
-        /// registy referenced by `revoke.registry_id` was last modified.
+        /// regisrty referenced by `revoke.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `unrevoke.registry_id`.
-        // TODO: Use weight proportional to number of unrevoked credentials and in future consider
+        // TODO: Use correct weight offset by benchmarking. Use weight proportional to number of unrevoked credentials and in future consider
         // no. of DIDs in PAuth
-        #[weight = 10_000]
+        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64)  + 0]
         pub fn unrevoke(
             origin,
             unrevoke: dock::revoke::UnRevoke,
@@ -181,15 +183,15 @@ decl_module! {
         ///
         /// # Errors
         ///
-        /// Returns an error if the registy referenced by `revoke.registry_id` is `add_only`.
+        /// Returns an error if the registry referenced by `revoke.registry_id` is `add_only`.
         ///
         /// Returns an error if `removal.last_modified` does not match the block number when the
-        /// registy referenced by `removal.registry_id` was last modified.
+        /// registry referenced by `removal.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `removal.registry_id`.
         // TODO: Use correct weight
-        #[weight = 10_000]
+        #[weight = 0]
         pub fn remove_registry(
             origin,
             removal: dock::revoke::RemoveRegistry,
