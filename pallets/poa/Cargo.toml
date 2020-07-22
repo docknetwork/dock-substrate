@@ -69,12 +69,6 @@ default-features = false
 tag = 'v2.0.0-rc4'
 version = '2.0.0-rc4'
 
-[dependencies.sp-arithmetic]
-git = 'https://github.com/paritytech/substrate.git'
-default-features = false
-tag = 'v2.0.0-rc4'
-version = '2.0.0-rc4'
-
 [dev-dependencies.balances]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
@@ -92,7 +86,6 @@ std = [
     'serde',
     'pallet-session/std',
     'pallet-authorship/std',
-    'sp-arithmetic/std',
 ]
 
 test = ['std', 'balances/std']
