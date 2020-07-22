@@ -214,7 +214,9 @@ decl_event!(
         // Validator removed.
         ValidatorRemoved(AccountId),
 
-        EpochBegins(SlotNo),
+        EpochBegins(EpochNo, SlotNo),
+
+        EpochEnds(EpochNo, SlotNo),
     }
 );
 
@@ -1074,6 +1076,8 @@ impl<T: Trait> Module<T> {
         Self::mint_emission_rewards_if_needed(current_epoch_no, ending_slot, &mut epoch_detail);
 
         Epochs::insert(current_epoch_no, epoch_detail);
+
+        Self::deposit_event(RawEvent::EpochBegins(current_epoch_no, ending_slot));
     }
 
     /// Set last slot for previous epoch, starting slot of current epoch and active validator count
@@ -1097,6 +1101,7 @@ impl<T: Trait> Module<T> {
                 Self::epoch_ends_at(),
             ),
         );
+        Self::deposit_event(RawEvent::EpochBegins(current_epoch_no, current_slot_no));
     }
 
     /// The validator set needs to update, either due to swap or epoch end.
