@@ -156,7 +156,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
 fn current_epoch_end() {
     new_test_ext().execute_with(|| {
         // Minimum epoch length is 25
-        for (starting_slot, validator_count, ending_slot) in vec![
+        for (starting_slot, validator_count, ending_slot) in &[
             (1, 2, 26),
             (1, 3, 27),
             (1, 4, 28),
@@ -200,9 +200,10 @@ fn current_epoch_end() {
             (81, 4, 108),
             (23, 4, 50),
             (39, 4, 66),
-        ] {
-            let epoch_end = PoAModule::set_next_epoch_end(starting_slot, validator_count);
-            assert_eq!(epoch_end, ending_slot);
+        ][..]
+        {
+            let epoch_end = PoAModule::set_next_epoch_end(*starting_slot, *validator_count);
+            assert_eq!(epoch_end, *ending_slot);
             assert_eq!(PoAModule::epoch_ends_at(), epoch_end);
         }
     });
@@ -214,7 +215,7 @@ fn short_circuit_epoch() {
         // Minimum epoch length is 25
         let current_epoch_no = 1;
         Epoch::put(current_epoch_no);
-        for (validator_count, starting_slot, current_slot_no, expected_epoch_end) in vec![
+        for (validator_count, starting_slot, current_slot_no, expected_epoch_end) in &[
             (2, 1, 10, 10),
             (2, 1, 9, 10),
             (2, 1, 11, 12),
@@ -238,10 +239,10 @@ fn short_circuit_epoch() {
             Epochs::insert(
                 current_epoch_no,
                 // expected ending slot has a dummy value as its not being tested in here
-                EpochDetail::new(validator_count, starting_slot, 0),
+                EpochDetail::new(*validator_count, *starting_slot, 0),
             );
-            let epoch_end = PoAModule::update_current_epoch_end_on_short_circuit(current_slot_no);
-            assert_eq!(epoch_end, expected_epoch_end);
+            let epoch_end = PoAModule::update_current_epoch_end_on_short_circuit(*current_slot_no);
+            assert_eq!(epoch_end, *expected_epoch_end);
             assert_eq!(PoAModule::epoch_ends_at(), epoch_end);
         }
     });
@@ -262,16 +263,16 @@ fn add_validator_basic() {
 
         // Enqueue validators
         let mut queued_validators = vec![];
-        for id in vec![val_id1, val_id2, val_id3, val_id4, val_id5] {
+        for id in &[val_id1, val_id2, val_id3, val_id4, val_id5] {
             // Adding a validator should work
-            assert_ok!(PoAModule::add_validator_(id, false));
+            assert_ok!(PoAModule::add_validator_(*id, false));
             // Cannot add the same validator when validator is already active validator
             assert_err!(
-                PoAModule::add_validator_(id, false),
+                PoAModule::add_validator_(*id, false),
                 Error::<TestRuntime>::AlreadyQueuedForAddition
             );
 
-            queued_validators.push(id.clone());
+            queued_validators.push(*id);
             // Validators should be added to the queue
             assert_eq!(PoAModule::validators_to_add(), queued_validators);
             // Active validator set should not change
@@ -326,8 +327,8 @@ fn remove_validator_basic() {
         let val_id6 = 6;
 
         // Add validators in queue and then to active validator set
-        for id in vec![val_id1, val_id2, val_id3, val_id4, val_id5] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2, val_id3, val_id4, val_id5] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_active_validators_if_needed();
 
@@ -395,8 +396,8 @@ fn add_remove_validator() {
         let val_id6 = 6;
 
         // Add same validator, `val_id3`, for both addition and removal
-        for id in vec![val_id1, val_id2, val_id3, val_id4] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2, val_id3, val_id4] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::remove_validator_(val_id3, false).unwrap();
 
@@ -445,8 +446,8 @@ fn swap_validator() {
         let val_id5 = 5;
         let val_id6 = 6;
 
-        for id in vec![val_id1, val_id2, val_id3, val_id4] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2, val_id3, val_id4] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_active_validators_if_needed();
 
@@ -492,8 +493,8 @@ fn add_remove_swap_validator() {
         let val_id5 = 5;
         let val_id6 = 6;
 
-        for id in vec![val_id1, val_id2, val_id3, val_id4] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2, val_id3, val_id4] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_active_validators_if_needed();
 
@@ -595,8 +596,8 @@ fn txn_fees() {
         let val_id1 = 1;
         let val_id2 = 2;
 
-        for id in vec![val_id1, val_id2] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_active_validators_if_needed();
 
@@ -665,8 +666,8 @@ fn epoch_details_and_block_count() {
         let val_id1 = 1;
         let val_id2 = 2;
 
-        for id in vec![val_id1, val_id2] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_details_for_ending_epoch(1);
         PoAModule::update_active_validators_if_needed();
@@ -902,8 +903,8 @@ fn validator_block_counts() {
         let val_id1 = 1;
         let val_id2 = 2;
 
-        for id in vec![val_id1, val_id2] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_active_validators_if_needed();
         PoAModule::update_details_on_new_epoch(1, 2, 2);
@@ -986,7 +987,7 @@ fn treasury_emission_reward() {
         let mut balance_current = PoAModule::treasury_balance().saturated_into::<u128>();
         assert_eq!(balance_current, 0);
 
-        for (validator_reward, treasury_reward) in vec![
+        for (validator_reward, treasury_reward) in &[
             (100, 60),
             (101, 60),
             (102, 61),
@@ -997,8 +998,8 @@ fn treasury_emission_reward() {
             (10020, 6012),
             (10050, 6030),
         ] {
-            let reward = PoAModule::mint_treasury_emission_rewards(validator_reward);
-            assert_eq!(reward, treasury_reward);
+            let reward = PoAModule::mint_treasury_emission_rewards(*validator_reward);
+            assert_eq!(reward, *treasury_reward);
             let balance_new = PoAModule::treasury_balance().saturated_into::<u128>();
             assert_eq!(balance_new - balance_current, reward);
             balance_current = balance_new;
@@ -1113,8 +1114,8 @@ fn validator_rewards_for_non_empty_epoch() {
 
         let current_epoch_no = 1;
 
-        for id in vec![val_id1, val_id2] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_active_validators_if_needed();
         PoAModule::update_details_on_new_epoch(current_epoch_no, 1, 2);
@@ -1129,7 +1130,7 @@ fn validator_rewards_for_non_empty_epoch() {
                 current_epoch_no,
                 expected_slots_per_validator,
                 slots_per_validator,
-                validator_block_counts.clone(),
+                validator_block_counts,
             );
         assert_eq!(total_validator_reward, 0);
         assert_eq!(
@@ -1280,7 +1281,7 @@ fn validator_rewards_for_non_empty_epoch() {
                 current_epoch_no,
                 expected_slots_per_validator,
                 slots_per_validator,
-                validator_block_counts.clone(),
+                validator_block_counts,
             );
         assert_eq!(total_validator_reward, 624);
         // 20% balance remains reserved, rest is free
@@ -1368,7 +1369,7 @@ fn validator_rewards_for_non_empty_epoch() {
                 current_epoch_no,
                 expected_slots_per_validator,
                 slots_per_validator,
-                validator_block_counts.clone(),
+                validator_block_counts,
             );
         assert_eq!(total_validator_reward, 693);
         // 20% balance remains reserved, rest is free
@@ -1419,8 +1420,8 @@ fn rewards_for_non_empty_epoch() {
         let val_id2 = 2;
 
         let current_epoch_no = 1;
-        for id in vec![val_id1, val_id2] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_active_validators_if_needed();
         PoAModule::update_details_on_new_epoch(current_epoch_no, 1, 2);
@@ -1498,8 +1499,8 @@ fn emission_rewards_status() {
         let val_id3 = 3;
 
         let current_epoch_no = 1;
-        for id in vec![val_id1, val_id2, val_id3] {
-            PoAModule::add_validator_(id, false).unwrap();
+        for id in &[val_id1, val_id2, val_id3] {
+            PoAModule::add_validator_(*id, false).unwrap();
         }
         PoAModule::update_active_validators_if_needed();
         PoAModule::update_details_on_new_epoch(current_epoch_no, 1, 3);

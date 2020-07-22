@@ -6,7 +6,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     debug::{debug, RuntimeLogger},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
-    sp_runtime::{print, traits::AccountIdConversion, ModuleId, Percent, SaturatedConversion},
+    sp_runtime::{print, traits::AccountIdConversion, ModuleId, SaturatedConversion},
     traits::{
         Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
     },
@@ -15,8 +15,6 @@ use frame_support::{
 
 use frame_system::{self as system, ensure_root, RawOrigin};
 use sp_std::prelude::Vec;
-
-use sp_arithmetic::{FixedPointNumber, FixedU128};
 
 extern crate alloc;
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -437,8 +435,8 @@ impl<T: Trait> Module<T> {
             false
         };
 
-        let active_validators: Vec<T::AccountId> = Self::active_validators().into();
-        let validators_to_add: Vec<T::AccountId> = Self::validators_to_add().into();
+        let active_validators: Vec<T::AccountId> = Self::active_validators();
+        let validators_to_add: Vec<T::AccountId> = Self::validators_to_add();
 
         // Construct a set of potential validators and don't allow all the potential validators
         // to be removed as that will prevent the node from starting.
@@ -475,7 +473,7 @@ impl<T: Trait> Module<T> {
         old_validator_id: T::AccountId,
         new_validator_id: T::AccountId,
     ) -> dispatch::DispatchResult {
-        let active_validators: Vec<T::AccountId> = Self::active_validators().into();
+        let active_validators: Vec<T::AccountId> = Self::active_validators();
 
         let mut found = false;
         for v in active_validators.iter() {
@@ -511,7 +509,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Treasury's balance
-    fn treasury_balance() -> BalanceOf<T> {
+    pub fn treasury_balance() -> BalanceOf<T> {
         T::Currency::free_balance(&Self::treasury_account())
     }
 
@@ -561,7 +559,7 @@ impl<T: Trait> Module<T> {
         let mut queued_validator_set_changed = false;
 
         // If any validator is to be added or removed
-        if (validators_to_remove.len() > 0) || (validators_to_add.len() > 0) {
+        if (!validators_to_remove.is_empty()) || (!validators_to_add.is_empty()) {
             // TODO: Remove debugging variable below
             let mut count_removed = 0;
 
@@ -591,7 +589,7 @@ impl<T: Trait> Module<T> {
             let mut count_added = 0u32;
 
             // Make any queued validators active.
-            while (active_validators.len() < max_validators) && (validators_to_add.len() > 0) {
+            while (active_validators.len() < max_validators) && (!validators_to_add.is_empty()) {
                 let new_val = validators_to_add.remove(0);
                 // Check if the validator to add is not already active. The check is needed as a swap
                 // might make a validator as active which is already present in the queue.
@@ -669,7 +667,7 @@ impl<T: Trait> Module<T> {
         let digest = <system::Module<T>>::digest();
         let logs = digest.logs();
         // The logs are added in `on_slot` function of slots pallet by the validator
-        if logs.len() > 0 {
+        if !logs.is_empty() {
             // Assumes that the first log is for PreRuntime digest
             match logs[0].as_pre_runtime() {
                 // The first log is added with `pre_digest_data` function of `SimpleSlotWorker`
@@ -1220,31 +1218,29 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
         );
 
         let validators = Self::active_validators();
-        if validators.len() == 0 {
+        if validators.is_empty() {
             return None;
         }
         if session_idx < 2 {
             // `session_idx` 0 and 1 are called on genesis
             Some(validators)
+        } else if Self::forced_session_rotation() {
+            // this function will be called again as `should_end_session` will return true
+            ForcedSessionRotation::put(false);
+            Some(validators)
         } else {
-            if Self::forced_session_rotation() {
-                // this function will be called again as `should_end_session` will return true
-                ForcedSessionRotation::put(false);
-                Some(validators)
-            } else {
-                let current_epoch_no = Self::epoch() + 1;
-                // This slot number should always be available here. If its not then panic.
-                let current_slot_no = Self::current_slot_no().unwrap();
+            let current_epoch_no = Self::epoch() + 1;
+            // This slot number should always be available here. If its not then panic.
+            let current_slot_no = Self::current_slot_no().unwrap();
 
-                let active_validator_count = validators.len() as u8;
-                Self::update_details_on_new_epoch(
-                    current_epoch_no,
-                    current_slot_no,
-                    active_validator_count,
-                );
-                // Validator set unchanged, return None
-                None
-            }
+            let active_validator_count = validators.len() as u8;
+            Self::update_details_on_new_epoch(
+                current_epoch_no,
+                current_slot_no,
+                active_validator_count,
+            );
+            // Validator set unchanged, return None
+            None
         }
     }
 
