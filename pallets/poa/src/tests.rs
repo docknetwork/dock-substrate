@@ -6,14 +6,14 @@ use frame_support::{
     assert_err, assert_ok, impl_outer_origin, parameter_types,
     traits::FindAuthor,
     weights::{constants::WEIGHT_PER_SECOND, Weight},
+    sp_runtime::{
+        testing::{Header, UintAuthorityId},
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
+        ConsensusEngineId, KeyTypeId, Perbill,
+    }
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::{crypto::key_types, H256};
-use sp_runtime::{
-    testing::{Header, UintAuthorityId},
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-    ConsensusEngineId, KeyTypeId, Perbill,
-};
 
 impl_outer_origin! {
     pub enum Origin for TestRuntime {}
@@ -592,6 +592,20 @@ fn add_remove_swap_validator() {
 #[test]
 fn txn_fees() {
     new_test_ext().execute_with(|| {
+        // Txn fees for the block is 0 initially.
+        assert_eq!(<TxnFees<TestRuntime>>::get(), 0);
+
+        // Deposits should increase the accumulated fees
+        PoAModule::update_txn_fees_for_block(5);
+        assert_eq!(<TxnFees<TestRuntime>>::get(), 5);
+
+        // More deposits increase the accumulated fees more
+        PoAModule::update_txn_fees_for_block(20);
+        assert_eq!(<TxnFees<TestRuntime>>::get(), 25);
+
+        // Clean up
+        <TxnFees<TestRuntime>>::take();
+
         // Max validators allowed is 4
         let val_id1 = 1;
         let val_id2 = 2;

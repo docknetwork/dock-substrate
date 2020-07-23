@@ -6,7 +6,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     debug::{debug, RuntimeLogger},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
-    sp_runtime::{print, traits::AccountIdConversion, ModuleId, SaturatedConversion},
+    sp_runtime::{print, traits::{AccountIdConversion, Saturating}, ModuleId, SaturatedConversion},
     traits::{
         Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
     },
@@ -1135,6 +1135,16 @@ impl<T: Trait> Module<T> {
             None => Self::update_active_validators_if_needed(),
         }
     }
+
+    /// Accumulate txn fees for the block. Whenever a negative imbalance is creates (because txn
+    /// fees is being paid), the fees gets added to `TxnFees` which is emptied (zeroed) when block is
+    /// fully formed, i.e. `on_finalize`
+    fn update_txn_fees_for_block(current_fees: BalanceOf<T>) {
+        // Fees for other extriniscs so far in the block.
+        let existing_fees_for_block = <TxnFees<T>>::take();
+        let total_fees_in_block = existing_fees_for_block.saturating_add(current_fees);
+        <TxnFees<T>>::put(total_fees_in_block);
+    }
 }
 
 /// Indicates to the session module if the session should be rotated.
@@ -1270,7 +1280,7 @@ impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
 
         debug!(
             target: "runtime",
-            "Current txn fees is {} and total issuance is {}",
+            "Current txn fees is {}, total issuance is {}",
             current_fees.saturated_into::<u64>(), total_issuance
         );
 
@@ -1286,6 +1296,6 @@ impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
 
         // ------------- DEBUG END -------------
 
-        <TxnFees<T>>::put(current_fees);
+        Self::update_txn_fees_for_block(current_fees);
     }
 }
