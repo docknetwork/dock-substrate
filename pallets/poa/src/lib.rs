@@ -870,12 +870,15 @@ impl<T: Trait> Module<T> {
 
     /// Credit locked balance to validator's account as reserved balance
     fn credit_locked_emission_rewards_to_validator(validator: &T::AccountId, locked: u128) {
-        let locked_bal = locked.saturated_into();
-        // Deposit locked balance
-        T::Currency::deposit_creating(validator, locked_bal);
-        // Reserve the balance.
-        // The following unwrap will never throw error as the balance to reserve was just transferred.
-        T::Currency::reserve(validator, locked_bal).unwrap();
+        // Only proceed if locked balance > 0 as we don't care about positive imbalances (0 or otherwise)
+        if locked > 0 {
+            let locked_bal = locked.saturated_into();
+            // Deposit locked balance
+            T::Currency::deposit_creating(validator, locked_bal);
+            // Reserve the balance.
+            // The following unwrap will never throw error as the balance to reserve was just transferred.
+            T::Currency::reserve(validator, locked_bal).unwrap();
+        }
     }
 
     /// Credit unlocked and locked balance to validator's account
