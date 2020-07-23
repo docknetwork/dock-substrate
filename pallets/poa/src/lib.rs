@@ -6,7 +6,11 @@ use codec::{Decode, Encode};
 use frame_support::{
     debug::{debug, RuntimeLogger},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
-    sp_runtime::{print, traits::{AccountIdConversion, Saturating}, ModuleId, SaturatedConversion},
+    sp_runtime::{
+        print,
+        traits::{AccountIdConversion, Saturating},
+        ModuleId, SaturatedConversion,
+    },
     traits::{
         Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
     },

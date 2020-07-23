@@ -4,13 +4,13 @@ use super::*;
 
 use frame_support::{
     assert_err, assert_ok, impl_outer_origin, parameter_types,
-    traits::FindAuthor,
-    weights::{constants::WEIGHT_PER_SECOND, Weight},
     sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
         ConsensusEngineId, KeyTypeId, Perbill,
-    }
+    },
+    traits::FindAuthor,
+    weights::{constants::WEIGHT_PER_SECOND, Weight},
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::{crypto::key_types, H256};
