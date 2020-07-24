@@ -21,7 +21,7 @@ pub mod did;
 pub mod revoke;
 
 pub use poa;
-pub use token_migration;
+// pub use token_migration;
 
 #[cfg(test)]
 mod test_common;
@@ -305,10 +305,10 @@ impl poa::Trait for Runtime {
     type Currency = balances::Module<Runtime>;
 }
 
-impl token_migration::Trait for Runtime {
+/*impl token_migration::Trait for Runtime {
     type Event = Event;
     type Currency = balances::Module<Runtime>;
-}
+}*/
 
 parameter_types! {
     // Not accepting any uncles
@@ -342,7 +342,7 @@ construct_runtime!(
         DIDModule: did::{Module, Call, Storage, Event},
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
-        MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
+        // MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -359,7 +359,7 @@ type SignedExtra = (
     system::CheckNonce<Runtime>,
     system::CheckWeight<Runtime>,
     transaction_payment::ChargeTransactionPayment<Runtime>,
-    token_migration::OnlyMigrator<Runtime>,
+    // token_migration::OnlyMigrator<Runtime>,
 );
 /// Unchecked extrinsic type as expected by this runtime.
 type UncheckedExtrinsic = generic::UncheckedExtrinsic<AccountId, Call, Signature, SignedExtra>;
