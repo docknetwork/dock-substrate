@@ -310,8 +310,8 @@ impl pallet_authorship::Trait for Runtime {
     type FilterUncle = ();
     type EventHandler = ();
 }
-        
-        impl master::Trait for Runtime {
+
+impl master::Trait for Runtime {
     type Event = Event;
     type Call = Call;
 }
