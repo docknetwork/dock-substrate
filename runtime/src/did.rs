@@ -9,10 +9,10 @@ use sp_core::{ecdsa, ed25519, sr25519};
 use sp_runtime::traits::Verify;
 use sp_std::convert::TryFrom;
 use sp_std::fmt;
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// Size of the Dock DID in bytes
-const DID_BYTE_SIZE: usize = 32;
+pub const DID_BYTE_SIZE: usize = 32;
 /// The type of the Dock DID
 pub type Did = [u8; DID_BYTE_SIZE];
 
@@ -1017,3 +1017,47 @@ mod tests {
 
     // TODO: Add test for events DidAdded, KeyUpdated, DIDRemoval
 }
+
+/*#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking {
+    use super::*;
+    use frame_benchmarking::{benchmarks, account};
+    use system::RawOrigin;
+    use sp_std::prelude::*;
+
+    const SEED: u32 = 0;
+    const MAX_USER_INDEX: u32 = 1000;
+
+    benchmarks! {
+        _ {
+            // Origin
+            let u in 1 .. MAX_USER_INDEX => ();
+            // DID
+            let d in 0 .. 255 => ();
+            // Key
+            let k in 0 .. 255 => ();
+            // Key type
+            let t in 1 .. 3 => ();
+        }
+
+        new {
+            let u in ...;
+            let d in ...;
+            let k in ...;
+            let t in ...;
+
+            let caller = account("caller", u, SEED);
+            let did = [d as u8; DID_BYTE_SIZE];
+            let pk = match t {
+                n if n == 1 => PublicKey::Sr25519(Bytes32 { value: [k as u8; 32] }),
+                n if n == 2 => PublicKey::Ed25519(Bytes32 { value: [k as u8; 32] }),
+                _ => PublicKey::Secp256k1(Bytes33 { value: [k as u8; 33] }),
+            };
+
+        }: _(RawOrigin::Signed(caller), did, KeyDetail {controller: did, public_key: pk})
+        verify {
+			let value = Dids::<T>::get(did);
+			assert!(value.is_some());
+		}
+	}
+}*/

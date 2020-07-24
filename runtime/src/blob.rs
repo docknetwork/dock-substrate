@@ -7,7 +7,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
 };
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;
@@ -224,3 +224,14 @@ mod tests {
         })
     }
 }
+
+/*#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking {
+    use super::*;
+    use frame_benchmarking::{benchmarks, account};
+    use system::RawOrigin;
+    use sp_std::prelude::*;
+
+    const SEED: u32 = 0;
+    const MAX_USER_INDEX: u32 = 1000;
+}*/

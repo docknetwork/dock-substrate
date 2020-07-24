@@ -5,7 +5,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
 };
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// Points to an on-chain revocation registry.
 pub type RegistryId = [u8; 32];

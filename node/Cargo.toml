@@ -12,7 +12,7 @@ targets = ['x86_64-unknown-linux-gnu']
 futures = '0.3.1'
 log = '0.4.8'
 parking_lot = '0.10.0'
-structopt = '0.3.8'
+structopt = {version = '0.3.8', optional = true}
 
 [dependencies.dock-testnet-runtime]
 path = '../runtime'
@@ -25,6 +25,7 @@ tag = 'v2.0.0-rc4'
 
 [dependencies.sc-cli]
 git = 'https://github.com/paritytech/substrate.git'
+optional = true
 version = '0.8.0-rc4'
 tag = 'v2.0.0-rc4'
 
@@ -105,9 +106,38 @@ version = '2.0.0-rc4'
 
 [build-dependencies.substrate-build-script-utils]
 git = 'https://github.com/paritytech/substrate.git'
+optional = true
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
+
+[dependencies.frame-benchmarking]
+git = 'https://github.com/paritytech/substrate.git'
+default-features = false
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
+
+[dependencies.frame-benchmarking-cli]
+git = 'https://github.com/paritytech/substrate.git'
+optional = true
+default-features = false
 tag = 'v2.0.0-rc4'
 version = '2.0.0-rc4'
 
 [[bin]]
 name = 'dock-testnet'
 path = 'src/main.rs'
+
+[features]
+default = [ "cli" ]
+cli = [
+	"sc-executor/wasmi-errno",
+	"sc-cli",
+	"frame-benchmarking-cli",
+	"sc-service/db",
+	"structopt",
+	"substrate-build-script-utils",
+]
+runtime-benchmarks = [
+	"dock-testnet-runtime/runtime-benchmarks",
+	"frame-benchmarking-cli",
+]

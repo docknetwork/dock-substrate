@@ -128,7 +128,7 @@ package = 'pallet-sudo'
 tag = 'v2.0.0-rc4'
 version = '2.0.0-rc4'
 
-[dependencies.system]
+[dependencies.frame-system]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
 package = 'frame-system'
@@ -167,6 +167,24 @@ default-features = false
 tag = 'v2.0.0-rc4'
 version = '2.0.0-rc4'
 
+[dependencies.frame-benchmarking]
+git = 'https://github.com/paritytech/substrate.git'
+optional = true
+default-features = false
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
+
+[dependencies.frame-system-benchmarking]
+git = 'https://github.com/paritytech/substrate.git'
+optional = true
+default-features = false
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
+
+[dependencies.hex-literal]
+version = "0.2.1"
+optional = true
+
 [dependencies.poa]
 default-features = false
 package = 'poa'
@@ -203,13 +221,22 @@ std = [
     'sp-transaction-pool/std',
     'sp-version/std',
     'sudo/std',
-    'system/std',
+    'frame-system/std',
     'timestamp/std',
     'transaction-payment/std',
     'pallet-session/std',
     'pallet-authorship/std',
     'poa/std',
     'token_migration/std',
+]
+runtime-benchmarks = [
+  "frame-benchmarking",
+  "frame-support/runtime-benchmarks",
+  "frame-system/runtime-benchmarks",
+  "sp-runtime/runtime-benchmarks",
+  "balances/runtime-benchmarks",
+  "frame-system-benchmarking",
+  "hex-literal"
 ]
 
 [dev-dependencies]
