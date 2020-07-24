@@ -58,9 +58,12 @@ pub struct EpochDetail {
 pub struct ValidatorStatsPerEpoch {
     /// Count of blocks authored by the validator in the epoch
     pub block_count: EpochLen,
-    /// Amount of locked rewards earned by the validator in the epoch
+    /// Amount of locked rewards earned by the validator in the epoch. This reward is added to the
+    /// reserved balance (by calling `Balances::reserve`) of the validator. When unlocking (during PoS),
+    /// we move this reserved balance to free balance (by calling `Balances::unreserve` and pass amount)
+    /// for each epoch since beginning, thus giving us the gradual release functionality.
     pub locked_reward: Option<u128>,
-    /// Amount of unlocked rewards earned by the validator in the epoch
+    /// Amount of unlocked rewards earned by the validator in the epoch.
     pub unlocked_reward: Option<u128>,
 }
 
