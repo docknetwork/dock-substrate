@@ -31,6 +31,7 @@ COPY runtime runtime
 COPY node node
 COPY pallets pallets
 COPY Cargo.toml .
+COPY Cargo.lock .
 
 # Build node.
 RUN cargo fetch # cache the result of the fetch in case the build gets interrupted

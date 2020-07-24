@@ -203,10 +203,6 @@ pub fn local_poa_testnet_config() -> ChainSpec {
                     get_account_id_from_seed::<sr25519::Public>("Ferdie"),
                     get_account_id_from_seed::<sr25519::Public>("Alice//stash"),
                     get_account_id_from_seed::<sr25519::Public>("Bob//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Charlie//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Dave//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Eve//stash"),
-                    get_account_id_from_seed::<sr25519::Public>("Ferdie//stash"),
                 ],
             )
         },
@@ -223,6 +219,18 @@ fn testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
 ) -> GenesisConfig {
+    // 1 token is 25000000 gas
+    let token_to_gas: u128 = 25_000_000;
+    // 200M tokens
+    let emission_supply: u128 = token_to_gas * 200_000_000;
+    // TODO: This needs to be tweaked once we know all exchanges
+    // 100M tokens
+    let per_member_endowment: u128 = token_to_gas * 100_000_000;
+
+    // Max emission per validator in an epoch
+    // 30K tokens
+    let max_emm_validator_epoch: u128 = token_to_gas * 30_000;
+
     GenesisConfig {
         system: Some(SystemConfig {
             code: WASM_BINARY.to_vec(),
@@ -241,16 +249,24 @@ fn testnet_genesis(
                 .collect::<Vec<_>>(),
         }),
         poa: Some(PoAModuleConfig {
+            min_epoch_length: 16,
+            max_active_validators: 4,
             active_validators: initial_authorities
                 .iter()
                 .map(|x| x.0.clone())
                 .collect::<Vec<_>>(),
+            emission_supply,
+            max_emm_validator_epoch,
+            treasury_reward_pc: 60,
+            validator_reward_lock_pc: 50,
+            // TODO: This will be false on mainnet launch as there won't be any tokens.
+            emission_status: true,
         }),
         balances: Some(BalancesConfig {
             balances: endowed_accounts
                 .iter()
                 .cloned()
-                .map(|k| (k, 1 << 60))
+                .map(|k| (k, per_member_endowment))
                 .collect(),
         }),
         sudo: Some(SudoConfig { key: root_key }),

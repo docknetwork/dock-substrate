@@ -65,6 +65,7 @@ type Signature = MultiSignature;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Balance of an account.
+// TODO: u64 should be sufficient
 type Balance = u128;
 
 /// Index of a transaction in the chain.
@@ -297,15 +298,8 @@ impl pallet_session::Trait for Runtime {
     type DisabledValidatorsThreshold = ();
 }
 
-parameter_types! {
-    pub const MinEpochLength: u64 = 5;
-    pub const MaxActiveValidators: u8 = 4;
-}
-
 impl poa::Trait for Runtime {
     type Event = Event;
-    type MinEpochLength = MinEpochLength;
-    type MaxActiveValidators = MaxActiveValidators;
     type Currency = balances::Module<Runtime>;
 }
 
@@ -314,7 +308,6 @@ parameter_types! {
     pub const UncleGenerations: u32 = 0;
 }
 
-// TODO: Get rid of this and move fee deduction to poa module
 impl pallet_authorship::Trait for Runtime {
     type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
     type UncleGenerations = UncleGenerations;
