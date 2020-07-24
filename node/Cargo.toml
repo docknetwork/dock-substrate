@@ -20,108 +20,108 @@ version = '2.0.0-rc4'
 
 [dependencies.sc-basic-authorship]
 git = 'https://github.com/paritytech/substrate.git'
-#version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sc-cli]
 git = 'https://github.com/paritytech/substrate.git'
 optional = true
-#version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sc-client-api]
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [dependencies.sc-consensus]
 git = 'https://github.com/paritytech/substrate.git'
-version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sc-consensus-aura]
 git = 'https://github.com/paritytech/substrate.git'
-version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sc-executor]
 git = 'https://github.com/paritytech/substrate.git'
-version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sc-finality-grandpa]
 git = 'https://github.com/paritytech/substrate.git'
-version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sc-network]
 git = 'https://github.com/paritytech/substrate.git'
-version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sc-service]
 git = 'https://github.com/paritytech/substrate.git'
-version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sc-transaction-pool]
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [dependencies.sp-consensus]
 git = 'https://github.com/paritytech/substrate.git'
-version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sp-consensus-aura]
 git = 'https://github.com/paritytech/substrate.git'
-version = '0.8.0-rc4'
-tag = 'v2.0.0-rc4'
+version = '0.8.0-rc5'
+tag = 'v2.0.0-rc5'
 
 [dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [dependencies.sp-finality-grandpa]
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [dependencies.sp-inherents]
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [dependencies.sp-runtime]
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [dependencies.sp-transaction-pool]
 git = 'https://github.com/paritytech/substrate.git'
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [build-dependencies.substrate-build-script-utils]
 git = 'https://github.com/paritytech/substrate.git'
 optional = true
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [dependencies.frame-benchmarking]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [dependencies.frame-benchmarking-cli]
 git = 'https://github.com/paritytech/substrate.git'
 optional = true
 default-features = false
-tag = 'v2.0.0-rc4'
-#version = '2.0.0-rc4'
+tag = 'v2.0.0-rc5'
+version = '2.0.0-rc5'
 
 [[bin]]
 name = 'dock-testnet'

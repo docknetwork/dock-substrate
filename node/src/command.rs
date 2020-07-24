@@ -17,31 +17,33 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service;
-use sc_cli::SubstrateCli;
+use sc_cli::{SubstrateCli, RuntimeVersion, Role, ChainSpec};
+use sc_service::ServiceParams;
+use crate::service::new_full_params;
 
 impl SubstrateCli for Cli {
-    fn impl_name() -> &'static str {
-        "Dock Full Node"
+    fn impl_name() -> String {
+        "Dock Full Node".into()
     }
 
-    fn impl_version() -> &'static str {
-        env!("SUBSTRATE_CLI_IMPL_VERSION")
+    fn impl_version() -> String {
+        env!("SUBSTRATE_CLI_IMPL_VERSION").into()
     }
 
-    fn executable_name() -> &'static str {
-        env!("CARGO_PKG_NAME")
+    fn executable_name() -> String {
+        env!("CARGO_PKG_NAME").into()
     }
 
-    fn description() -> &'static str {
-        env!("CARGO_PKG_DESCRIPTION")
+    fn description() -> String {
+        env!("CARGO_PKG_DESCRIPTION").into()
     }
 
-    fn author() -> &'static str {
-        env!("CARGO_PKG_AUTHORS")
+    fn author() -> String {
+        env!("CARGO_PKG_AUTHORS").into()
     }
 
-    fn support_url() -> &'static str {
-        "support.dock.io"
+    fn support_url() -> String {
+        "support.dock.io".into()
     }
 
     fn copyright_start_year() -> i32 {
@@ -59,6 +61,10 @@ impl SubstrateCli for Cli {
             )?),
         })
     }
+
+    fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
+        &dock_testnet_runtime::VERSION
+    }
 }
 
 /// Parse and run command line arguments
@@ -68,7 +74,11 @@ pub fn run() -> sc_cli::Result<()> {
         Some(Subcommand::Base(subcommand)) => {
             let runner = cli.create_runner(subcommand)?;
 
-            runner.run_subcommand(subcommand, |config| Ok(new_full_start!(config).0))
+            runner.run_subcommand(subcommand, |config| {
+                let (ServiceParams { client, backend, task_manager, import_queue, .. }, ..)
+                    = new_full_params(config)?;
+                Ok((client, backend, import_queue, task_manager))
+            })
         }
         Some(Subcommand::Benchmark(cmd)) => {
             if cfg!(feature = "runtime-benchmarks") {
@@ -84,11 +94,10 @@ pub fn run() -> sc_cli::Result<()> {
         }
         None => {
             let runner = cli.create_runner(&cli.run)?;
-            runner.run_node(
-                service::new_light,
-                service::new_full,
-                dock_testnet_runtime::VERSION,
-            )
+            runner.run_node_until_exit(|config| match config.role {
+                Role::Light => service::new_light(config),
+                _ => service::new_full(config),
+            })
         }
     }
 }
