@@ -1,6 +1,5 @@
 use super::{BlockNumber, StateChange};
 use crate as dock;
-use alloc::collections::BTreeMap;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
@@ -277,8 +276,14 @@ decl_storage! {
             => Option<(dock::did::KeyDetail, T::BlockNumber)>;
     }
     add_extra_genesis {
-        config(dids): BTreeMap<Did, KeyDetail>;
+        config(dids): Vec<(Did, KeyDetail)>;
         build(|slef: &Self| {
+            debug_assert!({
+                let mut dedup: Vec<&Did> = slef.dids.iter().map(|(d, _kd)| d).collect();
+                dedup.sort();
+                dedup.dedup();
+                slef.dids.len() == dedup.len()
+            });
             let block_no: T::BlockNumber = 0u32.into();
             for (did, deet) in slef.dids.iter() {
                 Dids::<T>::insert(did, (deet, block_no));

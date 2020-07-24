@@ -726,6 +726,7 @@ version = "2.0.0-rc2"
 dependencies = [
  "dock-testnet-runtime",
  "futures 0.3.4",
+ "hex-literal 0.3.0",
  "log",
  "parking_lot 0.10.2",
  "sc-basic-authorship",
@@ -1434,6 +1435,12 @@ dependencies = [
  "hex-literal-impl",
  "proc-macro-hack",
 ]
+
+[[package]]
+name = "hex-literal"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dc38ca401ca1b8d89ff1185e39a132e5c4f86d844c0cf6364251576f2d7fa0c1"
 
 [[package]]
 name = "hex-literal-impl"
@@ -3866,7 +3873,7 @@ dependencies = [
  "fnv",
  "futures 0.3.4",
  "hash-db",
- "hex-literal",
+ "hex-literal 0.2.1",
  "kvdb",
  "lazy_static",
  "log",

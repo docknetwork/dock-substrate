@@ -1,9 +1,10 @@
 use dock_testnet_runtime::{
-    did::{Did, KeyDetail},
+    did::{self, Did, KeyDetail},
     master::Membership,
     AuraConfig, BalancesConfig, DIDModuleConfig, GenesisConfig, GrandpaConfig, MasterConfig,
     SystemConfig, WASM_BINARY,
 };
+use hex_literal::hex;
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
@@ -13,7 +14,6 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     MultiSignature,
 };
-use std::collections::{BTreeMap, BTreeSet};
 
 type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
@@ -55,6 +55,15 @@ where
     AccountPublic::from(pubkey_from_ss58::<T>(ss58)).into_account()
 }
 
+/// Create a non-secure development did with specified secret key
+fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, KeyDetail) {
+    let pk = sr25519::Pair::from_seed(seed).public().0;
+    (
+        *did,
+        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+    )
+}
+
 pub fn development_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "Development",
@@ -69,10 +78,34 @@ pub fn development_config() -> ChainSpec {
                     .map(get_account_id_from_seed::<sr25519::Public>)
                     .collect(),
                 master: Membership {
-                    members: BTreeSet::new(),
+                    members: [
+                        b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Bob\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ]
+                    .iter()
+                    .cloned()
+                    .cloned()
+                    .collect(),
                     vote_requirement: 2,
                 },
-                dids: unimplemented!(),
+                dids: [
+                    (
+                        b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Alicesk\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ),
+                    (
+                        b"Bob\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Bobsk\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ),
+                    (
+                        b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Charliesk\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ),
+                ]
+                .iter()
+                .map(|(name, sk)| did_from_seed(name, sk))
+                .collect(),
             }
             .build()
         },
@@ -114,10 +147,34 @@ pub fn local_testnet_config() -> ChainSpec {
                 .map(get_account_id_from_seed::<sr25519::Public>)
                 .collect(),
                 master: Membership {
-                    members: BTreeSet::new(),
+                    members: [
+                        b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Bob\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ]
+                    .iter()
+                    .cloned()
+                    .cloned()
+                    .collect(),
                     vote_requirement: 2,
                 },
-                dids: unimplemented!(),
+                dids: [
+                    (
+                        b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Alicesk\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ),
+                    (
+                        b"Bob\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Bobsk\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ),
+                    (
+                        b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"Charliesk\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ),
+                ]
+                .iter()
+                .map(|(name, sk)| did_from_seed(name, sk))
+                .collect(),
             }
             .build()
         },
@@ -163,10 +220,40 @@ pub fn remote_testnet_config() -> ChainSpec {
                 .map(account_id_from_ss58::<sr25519::Public>)
                 .collect(),
                 master: Membership {
-                    members: BTreeSet::new(),
+                    members: [
+                        b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ]
+                    .iter()
+                    .cloned()
+                    .cloned()
+                    .collect(),
                     vote_requirement: 2,
                 },
-                dids: unimplemented!(),
+                dids: [
+                    (
+                        b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("2a6f70c3dc8cd003075bbf14567c4251b512c5514dff069c293c14679f91913d"),
+                    ),
+                    (
+                        b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("848001ef27f057719a31e0e457d4edd946c5792d03a8cb203bc025bdda825301"),
+                    ),
+                    (
+                        b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("c85c62af598cb718ce4bd1b0b739605fa7a4252db508ceb23dbd3eb4ca523062"),
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .map(|(did, pk)| {
+                    (
+                        *did,
+                        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+                    )
+                })
+                .collect(),
             }
             .build()
         },
@@ -191,7 +278,7 @@ struct GenesisBuilder {
     initial_authorities: Vec<(AuraId, GrandpaId)>,
     endowed_accounts: Vec<AccountId>,
     master: Membership,
-    dids: BTreeMap<Did, KeyDetail>,
+    dids: Vec<(Did, KeyDetail)>,
 }
 
 impl GenesisBuilder {
@@ -227,16 +314,14 @@ impl GenesisBuilder {
             master: Some(MasterConfig {
                 members: self.master,
             }),
-            did: Some(DIDModuleConfig {
-                dids: BTreeMap::new(),
-            }),
+            did: Some(DIDModuleConfig { dids: self.dids }),
         }
     }
 
     fn validate(&self) -> Result<(), String> {
         // Every DID in master must be pre-declared
         for did in self.master.members.iter() {
-            if !self.dids.keys().any(|k| k == did) {
+            if !self.dids.iter().any(|(k, _v)| k == did) {
                 return Err(format!(
                     "Master contains DID {:x?}.. that is not pre-declared",
                     did[0],
@@ -245,5 +330,24 @@ impl GenesisBuilder {
         }
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn expected_did_from_seed() {
+        let did = [1u8; 32];
+        let pk = hex!("c02bab578b07e7e41997fcb03de683f4780e3ad383e573d817d2462f4a27c701");
+        let sk = hex!("d2a75ce109331dde9b6f7782d56b0668ad2f7ad53d32aec4c1618292c2127e87");
+        assert_eq!(
+            did_from_seed(&did, &sk),
+            (
+                did,
+                KeyDetail::new(did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+            )
+        );
     }
 }
