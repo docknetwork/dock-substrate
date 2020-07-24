@@ -339,7 +339,7 @@ mod test {
     fn test_events() {
         ext().execute_with(|| {
             MasterMod::set_members(
-                Origin::ROOT,
+                system::RawOrigin::Root.into(),
                 Membership {
                     members: set(&[]),
                     vote_requirement: 1,

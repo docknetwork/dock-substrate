@@ -1,7 +1,9 @@
 [workspace]
 members = [
     'node',
+    'pallets/poa',
     'runtime',
 ]
+
 [profile.release]
 panic = 'unwind'

@@ -6,6 +6,7 @@ use codec::{Decode, Encode};
 use frame_support::{
     dispatch::{Dispatchable, PostDispatchInfo},
     impl_outer_origin, parameter_types,
+    traits::UnfilteredDispatchable,
     weights::Weight,
 };
 use sp_core::{Pair, H256};
@@ -39,8 +40,8 @@ impl Dispatchable for TestCall {
     type PostInfo = PostDispatchInfo;
     fn dispatch(self, origin: Self::Origin) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
         match self {
-            TestCall::Master(mc) => mc.dispatch(origin),
-            TestCall::System(sc) => sc.dispatch(origin),
+            TestCall::Master(mc) => mc.dispatch_bypass_filter(origin),
+            TestCall::System(sc) => sc.dispatch_bypass_filter(origin),
         }
     }
 }
@@ -80,6 +81,7 @@ parameter_types! {
 }
 
 impl system::Trait for Test {
+    type BaseCallFilter = ();
     type Origin = Origin;
     type Call = ();
     type Index = u64;

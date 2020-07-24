@@ -29,12 +29,13 @@ ENV CXX g++
 # explicitly. This lets us cache build results while iterating on scripts.
 COPY runtime runtime
 COPY node node
+COPY pallets pallets
 COPY Cargo.toml .
+COPY Cargo.lock .
 
 # Build node.
 RUN cargo fetch # cache the result of the fetch in case the build gets interrupted
 RUN cargo build --release
-
 
 # Final stage. Copy the node executable and the script
 FROM debian:stretch-slim

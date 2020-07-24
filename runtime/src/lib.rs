@@ -21,6 +21,8 @@ pub mod did;
 pub mod master;
 pub mod revoke;
 
+pub use poa;
+
 #[cfg(test)]
 mod test_common;
 
@@ -39,14 +41,15 @@ use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
-    BlakeTwo256, Block as BlockT, IdentifyAccount, IdentityLookup, NumberFor, Saturating, Verify,
+    BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, NumberFor,
+    OpaqueKeys, Saturating, Verify,
 };
-use sp_runtime::Perbill;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature,
+    ApplyExtrinsicResult, MultiSignature, Perbill,
 };
+
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
@@ -63,6 +66,7 @@ type Signature = MultiSignature;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Balance of an account.
+// TODO: u64 should be sufficient
 type Balance = u128;
 
 /// Index of a transaction in the chain.
@@ -134,16 +138,18 @@ pub fn native_version() -> NativeVersion {
 
 parameter_types! {
     pub const BlockHashCount: BlockNumber = 2400;
-    /// We allow for 2 seconds of compute with a 6 second average block time.
-    pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
+    /// We allow for 1 seconds of compute with a 3 second average block time.
+    pub const MaximumBlockWeight: Weight = WEIGHT_PER_SECOND;
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
     /// Assume 10% of weight for average on_initialize calls.
-    pub const MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get().saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
+    pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get().saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
     pub const Version: RuntimeVersion = VERSION;
 }
 
 impl system::Trait for Runtime {
+    /// The basic call filter to use in dispatchable.
+    type BaseCallFilter = ();
     /// The ubiquitous origin type.
     type Origin = Origin;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -177,7 +183,7 @@ impl system::Trait for Runtime {
     /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
-    /// idependent of the logic of that extrinsics. (Roughly max block weight - average on
+    /// independent of the logic of that extrinsics. (Roughly max block weight - average on
     /// initialize cost).
     type MaximumExtrinsicWeight = MaximumExtrinsicWeight;
     /// Maximum size of all encoded transactions (in bytes) that are allowed in one block.
@@ -206,8 +212,6 @@ impl grandpa::Trait for Runtime {
 
     type Call = Call;
 
-    type KeyOwnerProofSystem = ();
-
     type KeyOwnerProof =
         <Self::KeyOwnerProofSystem as KeyOwnerProofSystem<(KeyTypeId, GrandpaId)>>::Proof;
 
@@ -215,6 +219,8 @@ impl grandpa::Trait for Runtime {
         KeyTypeId,
         GrandpaId,
     )>>::IdentificationTuple;
+
+    type KeyOwnerProofSystem = ();
 
     type HandleEquivocation = ();
 }
@@ -250,7 +256,7 @@ parameter_types! {
 
 impl transaction_payment::Trait for Runtime {
     type Currency = balances::Module<Runtime>;
-    type OnTransactionPayment = ();
+    type OnTransactionPayment = PoAModule;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -270,7 +276,42 @@ impl blob::Trait for Runtime {
     type MaxBlobSize = MaxBlobSize;
 }
 
-impl master::Trait for Runtime {
+// TODO: Do i need it?
+parameter_types! {
+    /// The fraction of validators set that is safe to be disabled.
+    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(50);
+}
+
+impl pallet_session::Trait for Runtime {
+    type Event = Event;
+    type ValidatorId = <Self as system::Trait>::AccountId;
+    type ValidatorIdOf = ConvertInto;
+    type ShouldEndSession = PoAModule;
+    type NextSessionRotation = ();
+    type SessionManager = PoAModule;
+    type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
+    type Keys = opaque::SessionKeys;
+    type DisabledValidatorsThreshold = ();
+}
+
+impl poa::Trait for Runtime {
+    type Event = Event;
+    type Currency = balances::Module<Runtime>;
+}
+
+parameter_types! {
+    // Not accepting any uncles
+    pub const UncleGenerations: u32 = 0;
+}
+
+impl pallet_authorship::Trait for Runtime {
+    type FindAuthor = pallet_session::FindAccountFromAuthorIndex<Self, Aura>;
+    type UncleGenerations = UncleGenerations;
+    type FilterUncle = ();
+    type EventHandler = ();
+}
+        
+        impl master::Trait for Runtime {
     type Event = Event;
     type Call = Call;
 }
@@ -284,9 +325,12 @@ construct_runtime!(
         System: system::{Module, Call, Config, Storage, Event<T>},
         RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
         Timestamp: timestamp::{Module, Call, Storage, Inherent},
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+        PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
         Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
         DIDModule: did::{Module, Call, Storage, Event, Config},
         Revoke: revoke::{Module, Call, Storage},
