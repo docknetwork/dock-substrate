@@ -12,7 +12,7 @@ use frame_support::{
         ModuleId, SaturatedConversion,
     },
     traits::{
-        Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
+        Get, Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
     },
     weights::Pays,
 };
@@ -250,7 +250,7 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        // Weight of the extrinsics in this module is set 0 as they are called by Master.
+        // TODO: Set weight of the extrinsics
 
         /// Add a new validator to active validator set unless already a validator and the total number
         /// of validators don't exceed the max allowed count. The validator is considered for adding at
@@ -300,7 +300,7 @@ decl_module! {
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
         /// Only Master can call this.
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
         pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             EmissionStatus::put(status);
@@ -309,7 +309,14 @@ decl_module! {
 
         /// Set the minimum number of slots in the epoch, i.e. storage item MinEpochLength. This
         /// does not effect the epoch in progress but only subsequent epochs
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// 3 writes in total:
+        ///     1 write during extrinsic to `MinEpochLengthTentative`
+        ///     1 write during epoch change to `MinEpochLength`
+        ///     1 write during epoch change to `MinEpochLengthTentative` to zero it out
+        /// 1 read during epoch change of `MinEpochLengthTentative`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(1, 3), Pays::No)]
         pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(length > 0, Error::<T>::EpochLengthCannotBe0);
@@ -319,7 +326,14 @@ decl_module! {
 
         /// Set the maximum number of active validators, i.e. storage item MaxActiveValidators. This
         /// does not effect the epoch in progress but only subsequent epochs
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// 3 writes in total:
+        ///     1 write during extrinsic to `MaxActiveValidatorsTentative`
+        ///     1 write during epoch change to `MaxActiveValidators`
+        ///     1 write during epoch change to `MaxActiveValidatorsTentative` to zero it out
+        /// 1 read during epoch change of `MaxActiveValidatorsTentative`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(1, 3), Pays::No)]
         pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(count > 0, Error::<T>::NeedAtLeast1Validator);
@@ -328,7 +342,7 @@ decl_module! {
         }
 
         /// Set the maximum emission rewards per validator per epoch.
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
         pub fn set_max_emm_validator_epoch(origin, emission: u128) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             <MaxEmmValidatorEpoch<T>>::put(emission.saturated_into::<BalanceOf<T>>());
@@ -336,7 +350,7 @@ decl_module! {
         }
 
         /// Set percentage of emission rewards locked per epoch for validators
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
         pub fn set_validator_reward_lock_pc(origin, lock_pc: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(
@@ -348,7 +362,7 @@ decl_module! {
         }
 
         /// Set percentage of emission rewards for treasury in each epoch
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
         pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(

@@ -191,11 +191,11 @@ package = 'poa'
 path = '../pallets/poa'
 version = '0.0.1'
 
-#[dependencies.token_migration]
-#default-features = false
-#package = 'token_migration'
-#path = '../pallets/token_migration'
-#version = '0.0.1'
+[dependencies.token_migration]
+default-features = false
+package = 'token_migration'
+path = '../pallets/token_migration'
+version = '0.0.1'
 
 [features]
 default = ['std']
@@ -205,6 +205,7 @@ std = [
     'codec/std',
     'frame-executive/std',
     'frame-support/std',
+    'frame-benchmarking/std',
     'grandpa/std',
     'randomness-collective-flip/std',
     'serde',
@@ -227,7 +228,7 @@ std = [
     'pallet-session/std',
     'pallet-authorship/std',
     'poa/std',
-#    'token_migration/std',
+    'token_migration/std',
 ]
 runtime-benchmarks = [
   "frame-benchmarking",
@@ -236,6 +237,7 @@ runtime-benchmarks = [
   "sp-runtime/runtime-benchmarks",
   "balances/runtime-benchmarks",
   "frame-system-benchmarking",
+  "token_migration/runtime-benchmarks",
   "hex-literal"
 ]
 

@@ -128,12 +128,21 @@ name = 'dock-testnet'
 path = 'src/main.rs'
 
 [features]
-default = [ "cli" ]
+#default = [ "cli" ]
+default = [ "wasmtime" ]
 cli = [
 	"sc-executor/wasmi-errno",
 	"sc-cli",
 	"frame-benchmarking-cli",
 	"sc-service/db",
+	"structopt",
+	"substrate-build-script-utils",
+]
+wasmtime = [
+	"sc-cli/wasmtime",
+	"sc-executor/wasmtime",
+	"sc-service/wasmtime",
+	"frame-benchmarking-cli",
 	"structopt",
 	"substrate-build-script-utils",
 ]

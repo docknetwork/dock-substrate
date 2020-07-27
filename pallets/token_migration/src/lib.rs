@@ -26,6 +26,8 @@ type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::Ac
 #[cfg(test)]
 mod tests;
 
+mod benchmarking;
+
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
     /// The overarching event type.
@@ -49,6 +51,12 @@ decl_event!(
     {
         // Migrator transferred tokens
         Migration(AccountId, AccountId, u128),
+
+        // New migrator added
+        MigratorAdded(AccountId, u16),
+
+        // Existing migrator removed
+        MigratorRemoved(AccountId),
 
         // Migrator's allowed migrations increased
         MigratorExpanded(AccountId, u16),
@@ -89,7 +97,7 @@ decl_module! {
         }
 
         /// Increase the migrators allowed migrations by the given number
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn expand_migrator(origin, migrator: T::AccountId, increase_migrations_by: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             match Self::migrators(&migrator) {
@@ -104,7 +112,7 @@ decl_module! {
         }
 
         /// Decrease the migrators allowed migrations by the given number
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn contract_migrator(origin, migrator: T::AccountId, decrease_migrations_by: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             let new_migrations = Self::migrators(&migrator)
@@ -117,20 +125,22 @@ decl_module! {
         }
 
         /// Add a new migrator
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn add_migrator(origin, migrator: T::AccountId, allowed_migrations: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(!Migrators::<T>::contains_key(&migrator), Error::<T>::MigratorAlreadyPresent);
-            Migrators::<T>::insert(migrator, allowed_migrations);
+            Migrators::<T>::insert(migrator.clone(), allowed_migrations);
+            Self::deposit_event(RawEvent::MigratorAdded(migrator, allowed_migrations));
             Ok(())
         }
 
         /// Remove an existing migrator
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn remove_migrator(origin, migrator: T::AccountId) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(Migrators::<T>::contains_key(&migrator), Error::<T>::UnknownMigrator);
-            Migrators::<T>::remove(migrator);
+            Migrators::<T>::remove(&migrator);
+            Self::deposit_event(RawEvent::MigratorRemoved(migrator));
             Ok(())
         }
     }
@@ -197,7 +207,7 @@ impl<T: Trait + Send + Sync> sp_std::fmt::Debug for OnlyMigrator<T> {
 
 impl<T: Trait + Send + Sync> SignedExtension for OnlyMigrator<T>
 where
-    <T as system::Trait>::Call: IsSubType<Module<T>, T>,
+    <T as system::Trait>::Call: IsSubType<Call<T>>,
 {
     const IDENTIFIER: &'static str = "OnlyMigrator";
     type AccountId = T::AccountId;
@@ -219,6 +229,7 @@ where
         if let Some(local_call) = call.is_sub_type() {
             if let Call::migrate(..) = local_call {
                 if !<Migrators<T>>::contains_key(who) {
+                    // If migrator not registered, dont include transaction in block
                     return InvalidTransaction::Custom(1).into();
                 }
             }
