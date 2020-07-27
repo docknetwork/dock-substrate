@@ -728,11 +728,13 @@ mod calls {
             &[RA], // Test idempotence, step 2
         ];
         for ids in cases {
+            println!("Revoke ids: {:?}", ids);
             let revoke = Revoke {
                 registry_id,
                 revoke_ids: ids.iter().cloned().collect(),
                 last_modified,
             };
+            println!("Sig {:?}", sign(&crate::StateChange::Revoke(revoke.clone()), &kpa).as_sr25519_sig_bytes());
             let proof = once((
                 DIDA,
                 sign(&crate::StateChange::Revoke(revoke.clone()), &kpa),
@@ -876,6 +878,71 @@ mod calls {
             | Call::__PhantomItem(_, _) => {}
         }
     }
+
+    #[test]
+    fn rev_hard_1() {
+        if !in_ext() {
+            return ext().execute_with(rev_hard_1);
+        }
+
+        let policy = oneof(&[DIDA]);
+        let registry_id = RGA;
+        let add_only = false;
+        let last_modified = 0u32;
+        let kpa = create_did(DIDA);
+
+        let reg = Registry { policy, add_only };
+        RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
+
+        let ids: Vec<[u8; 32]> = vec![random(), random(), random()];
+        println!("ids {:?}", ids);
+        for i in 0..3 {
+            let k = &ids[0..i];
+            for j in k.iter() {
+                Revocations::insert(registry_id, j, ());
+            }
+            let unrevoke = UnRevoke {
+                registry_id,
+                revoke_ids: ids[0..i].to_vec().into_iter().collect(),
+                last_modified,
+            };
+            let proof = once((
+                DIDA,
+                sign(&crate::StateChange::UnRevoke(unrevoke.clone()), &kpa),
+            ))
+                .collect();
+            println!("Sig {:?}", sign(&crate::StateChange::UnRevoke(unrevoke.clone()), &kpa).as_sr25519_sig_bytes());
+            RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, proof).unwrap();
+        }
+    }
+
+    #[test]
+    fn rev_hard_2() {
+        if !in_ext() {
+            return ext().execute_with(rev_hard_2);
+        }
+
+        let policy = oneof(&[DIDA]);
+        let registry_id = RGA;
+        let add_only = false;
+        let last_modified = 0u32;
+        let kpa = create_did(DIDA);
+
+        let reg = Registry { policy, add_only };
+        RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
+
+        let rem = RemoveRegistry {
+            registry_id,
+            last_modified,
+        };
+        let proof = once((
+            DIDA,
+            sign(&crate::StateChange::RemoveRegistry(rem.clone()), &kpa),
+        ))
+            .collect();
+        println!("Sig {:?}", sign(&crate::StateChange::RemoveRegistry(rem.clone()), &kpa).as_sr25519_sig_bytes());
+        RevoMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
+    }
 }
 
 #[cfg(test)]
@@ -973,5 +1040,131 @@ mod test {
         assert_eq!(RevoMod::get_revocation_status(registry_id, revid), None);
         RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
         assert_eq!(RevoMod::get_revocation_status(registry_id, revid), Some(()));
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking {
+    use super::*;
+    use frame_benchmarking::{benchmarks, account};
+    use system::RawOrigin;
+    use sp_std::prelude::*;
+    use crate::did::{DID_BYTE_SIZE, KeyDetail, Dids};
+    use crate::benchmark_utils::{get_data_for_revocation, get_data_for_unrevocation, get_data_for_remove, REV_DATA_SIZE};
+
+    const SEED: u32 = 0;
+    const MAX_USER_INDEX: u32 = 1000;
+
+    /// create a OneOf policy. Redefining from test as cannot import
+    pub fn oneof(dids: &[Did]) -> Policy {
+        Policy::OneOf(dids.iter().cloned().collect())
+    }
+
+    benchmarks! {
+        _ {
+            // Origin
+            let u in 1 .. MAX_USER_INDEX => ();
+            // DID
+            let d in 0 .. 255 => ();
+            // Registry id
+            let r in 0 .. 255 => ();
+            let i in 0 .. (REV_DATA_SIZE - 1) as u32 => ();
+        }
+
+        new_registry {
+            let u in ...;
+            let d in ...;
+            let r in ...;
+
+            let caller = account("caller", u, SEED);
+            let did = [d as u8; DID_BYTE_SIZE];
+            let reg_id = [r as u8; 32];
+            let reg = Registry {
+                policy: oneof(&[did]),
+                add_only: false,
+            };
+
+        }: _(RawOrigin::Signed(caller), reg_id, reg)
+        verify {
+			let value = Registries::<T>::get(reg_id);
+			assert!(value.is_some());
+		}
+
+		revoke {
+		    let u in ...;
+            let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let did = [0u8; 32];
+            let reg_id = [0u8; 32];
+
+            let (n, pk, revoke_ids, signature) = get_data_for_revocation(i as usize);
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
+
+            let rev_cmd = Revoke {registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), last_modified: n};
+            let mut p_auth = BTreeMap::new();
+            p_auth.insert(did, signature);
+		}: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
+		verify {
+		    assert!(revoke_ids
+                .iter()
+                .all(|id| Revocations::contains_key(reg_id, id)));
+		}
+
+		unrevoke {
+            let u in ...;
+            let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let did = [0u8; 32];
+            let reg_id = [0u8; 32];
+
+            let (n, pk, revoke_ids, signature) = get_data_for_unrevocation(i as usize);
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
+            for r_id in &revoke_ids {
+                Revocations::insert(reg_id, r_id, ());
+            }
+            let rev_cmd = UnRevoke {registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), last_modified: n};
+            let mut p_auth = BTreeMap::new();
+            p_auth.insert(did, signature);
+		}: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
+		verify {
+		    assert!(revoke_ids
+                .iter()
+                .all(|id| !Revocations::contains_key(reg_id, id)));
+		}
+
+		remove_registry {
+            let u in ...;
+            let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let did = [0u8; 32];
+            let reg_id = [0u8; 32];
+
+            let (n, pk, signature) = get_data_for_remove();
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
+            for k in 0..i {
+                Revocations::insert(reg_id, [k as u8; 32], ());
+            }
+            let rem_cmd = RemoveRegistry {registry_id: reg_id, last_modified: n};
+            let mut p_auth = BTreeMap::new();
+            p_auth.insert(did, signature);
+		}: _(RawOrigin::Signed(caller), rem_cmd, p_auth)
     }
 }

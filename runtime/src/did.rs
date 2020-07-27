@@ -127,7 +127,7 @@ pub enum DidSignature {
 
 impl DidSignature {
     /// Try to get reference to the bytes if its a Sr25519 signature. Return error if its not.
-    fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
+    pub fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             DidSignature::Sr25519(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
@@ -135,7 +135,7 @@ impl DidSignature {
     }
 
     /// Try to get reference to the bytes if its a Ed25519 signature. Return error if its not.
-    fn as_ed25519_sig_bytes(&self) -> Result<&[u8], ()> {
+    pub fn as_ed25519_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             DidSignature::Ed25519(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
@@ -143,7 +143,7 @@ impl DidSignature {
     }
 
     /// Try to get reference to the bytes if its a Secp256k1 signature. Return error if its not.
-    fn as_secp256k1_sig_bytes(&self) -> Result<&[u8], ()> {
+    pub fn as_secp256k1_sig_bytes(&self) -> Result<&[u8], ()> {
         match self {
             DidSignature::Secp256k1(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
@@ -208,6 +208,8 @@ pub struct KeyUpdate {
     did: Did,
     public_key: PublicKey,
     controller: Option<Did>,
+    // TODO: `BlockNumber` should be changed to `T::BlockNumber` to guard against accidental change
+    // to BlockNumber type. Will require this struct to be typed
     last_modified_in_block: BlockNumber,
 }
 
@@ -235,6 +237,8 @@ impl KeyUpdate {
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct DidRemoval {
     did: Did,
+    // TODO: `BlockNumber` should be changed to `T::BlockNumber` to guard against accidental change
+    // to BlockNumber type. Will require this struct to be typed
     last_modified_in_block: BlockNumber,
 }
 
@@ -258,7 +262,7 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
-        Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
+        pub Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
     }
 }
 
@@ -526,6 +530,7 @@ mod tests {
         type AccountData = ();
         type OnNewAccount = ();
         type OnKilledAccount = ();
+        type SystemWeightInfo = ();
     }
 
     impl super::Trait for Test {
@@ -561,11 +566,8 @@ mod tests {
         // Check that the signature should be wrapped in correct variant of enum `Signature`.
         // Trying to wrap a Sr25519 signature in a Signature::Ed25519 should fail.
         // Trying to wrap a Ed25519 signature in a Signature::Sr25519 should fail.
-        // Not checking for Signature::Secp256k1 as it has a different size
-        // XXX: The following test should not have been wrapped in a Externalities-provided environment but
-        // ed25519_verify needs it.
         new_test_ext().execute_with(|| {
-            let msg = vec![1, 2, 4, 5, 7];
+            let msg = vec![1u8; 24];
 
             // The macro checks that a signature verification only passes when sig wrapped in `$correct_sig_type`
             // but fails when wrapped in `$incorrect_sig_type`
@@ -573,8 +575,11 @@ mod tests {
                 ( $module:ident, $pk_type:expr, $correct_sig_type:expr, $incorrect_sig_type:expr ) => {{
 
                     let (pair, _, _) = $module::Pair::generate_with_phrase(None);
-                    let pk = $pk_type(Bytes32 { value: pair.public().0 });
+                    let pk_bytes = pair.public().0;
+                    println!("pk byes:{:?}", pk_bytes.to_vec());
+                    let pk = $pk_type(Bytes32 { value: pk_bytes });
                     let sig_bytes = pair.sign(&msg).0;
+                    println!("sig bytes:{:?}", sig_bytes.to_vec());
                     let correct_sig = $correct_sig_type(Bytes64 {value: sig_bytes});
 
                     // Valid signature wrapped in a correct type works
@@ -591,6 +596,15 @@ mod tests {
 
             check_sig_verification!(sr25519, PublicKey::Sr25519, DidSignature::Sr25519, DidSignature::Ed25519);
             check_sig_verification!(ed25519, PublicKey::Ed25519, DidSignature::Ed25519, DidSignature::Sr25519);
+
+            let (pair_1, _, _) = ecdsa::Pair::generate_with_phrase(None);
+            let mut pk_bytes: [u8; 33] = [0; 33];
+            pk_bytes.clone_from_slice(pair_1.public().as_ref());
+            println!("pk byes:{:?}", pk_bytes.to_vec());
+            let sig_bytes: [u8; 65] = pair_1.sign(&msg).into();
+            println!("sig bytes:{:?}", sig_bytes.to_vec());
+            let correct_sig = DidSignature::Secp256k1(Bytes65 {value: sig_bytes});
+            assert!(DIDModule::verify_sig_with_public_key(&correct_sig, &msg, &PublicKey::Secp256k1(Bytes33 {value: pk_bytes })).unwrap());
         });
     }
 
@@ -667,7 +681,8 @@ mod tests {
                 ( $did:ident, $module:ident, $pk:expr, $sig_type:expr, $sig_bytearray_type:ident ) => {{
                     let (pair_1, _, _) = $module::Pair::generate_with_phrase(None);
                     let pk_1 = pair_1.public().0;
-
+                    println!("update did:{:?}", $did.to_vec());
+                    println!("update pk_1:{:?}", pk_1.to_vec());
                     let detail = KeyDetail::new($did.clone(), $pk(Bytes32 { value: pk_1 }));
 
                     // Add a DID
@@ -684,13 +699,17 @@ mod tests {
                     // Prepare a key update
                     let (pair_2, _, _) = $module::Pair::generate_with_phrase(None);
                     let pk_2 = pair_2.public().0;
+                    println!("update pk_2:{:?}", pk_2.to_vec());
                     let key_update = KeyUpdate::new(
                         $did.clone(),
                         $pk(Bytes32 { value: pk_2 }),
                         None,
                         modified_in_block as u32,
                     );
-                    let sig = $sig_type($sig_bytearray_type {value: pair_1.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0});
+                    let sig_value = pair_1.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0;
+                    println!("update modified_in_block:{:?}", modified_in_block);
+                    println!("update sig_value:{:?}", sig_value.to_vec());
+                    let sig = $sig_type($sig_bytearray_type {value: sig_value});
 
                     // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
                     assert_ok!(DIDModule::update_key(
@@ -760,6 +779,7 @@ mod tests {
             let (pair_1, _, _) = ecdsa::Pair::generate_with_phrase(None);
             let mut pk_1: [u8; 33] = [0; 33];
             pk_1.clone_from_slice(pair_1.public().as_ref());
+            println!("update pk_1:{:?}", pk_1.to_vec());
             let detail = KeyDetail::new(did.clone(), PublicKey::Secp256k1(Bytes33 { value: pk_1 }));
 
             // Add a DID
@@ -776,6 +796,7 @@ mod tests {
             let (pair_2, _, _) = ecdsa::Pair::generate_with_phrase(None);
             let mut pk_2: [u8; 33] = [0; 33];
             pk_2.clone_from_slice(pair_2.public().as_ref());
+            println!("update pk_2:{:?}", pk_2.to_vec());
             let key_update = KeyUpdate::new(
                 did.clone(),
                 PublicKey::Secp256k1(Bytes33 { value: pk_2 }),
@@ -787,6 +808,7 @@ mod tests {
             let value: [u8; 65] = pair_1
                 .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
                 .into();
+            println!("update sig value:{:?}", value.to_vec());
             let sig = DidSignature::Secp256k1(Bytes65 { value });
             assert_ok!(DIDModule::update_key(
                 Origin::signed(alice),
@@ -964,6 +986,7 @@ mod tests {
             );
 
             // Add a DID
+            println!("remove pk:{:?}", pk_1.to_vec());
             let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_1 }));
             assert_ok!(DIDModule::new(
                 Origin::signed(alice),
@@ -991,10 +1014,12 @@ mod tests {
 
             // The key controlling the DID should be able to remove the DID
             let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
+            let sig_value = pair_1
+                .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
+                .0;
+            println!("remove sig value:{:?}", sig_value.to_vec());
             let sig = DidSignature::Sr25519(Bytes64 {
-                value: pair_1
-                    .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
-                    .0,
+                value: sig_value,
             });
             assert_ok!(DIDModule::remove(Origin::signed(alice), to_remove, sig));
 
@@ -1018,12 +1043,13 @@ mod tests {
     // TODO: Add test for events DidAdded, KeyUpdated, DIDRemoval
 }
 
-/*#[cfg(feature = "runtime-benchmarks")]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking {
     use super::*;
     use frame_benchmarking::{benchmarks, account};
     use system::RawOrigin;
     use sp_std::prelude::*;
+    use crate::benchmark_utils::{get_data_for_key_update, get_data_for_did_removal, get_data_for_sig_ver, DID_DATA_SIZE};
 
     const SEED: u32 = 0;
     const MAX_USER_INDEX: u32 = 1000;
@@ -1037,7 +1063,10 @@ mod benchmarking {
             // Key
             let k in 0 .. 255 => ();
             // Key type
-            let t in 1 .. 3 => ();
+            let t in 0 .. 2 => ();
+            // index into hardcoded public key and signature data
+            // Does not compile without the cast to u32
+            let i in 0 .. (DID_DATA_SIZE - 1) as u32 => ();
         }
 
         new {
@@ -1049,8 +1078,8 @@ mod benchmarking {
             let caller = account("caller", u, SEED);
             let did = [d as u8; DID_BYTE_SIZE];
             let pk = match t {
-                n if n == 1 => PublicKey::Sr25519(Bytes32 { value: [k as u8; 32] }),
-                n if n == 2 => PublicKey::Ed25519(Bytes32 { value: [k as u8; 32] }),
+                n if n == 0 => PublicKey::Sr25519(Bytes32 { value: [k as u8; 32] }),
+                n if n == 1 => PublicKey::Ed25519(Bytes32 { value: [k as u8; 32] }),
                 _ => PublicKey::Secp256k1(Bytes33 { value: [k as u8; 33] }),
             };
 
@@ -1059,5 +1088,132 @@ mod benchmarking {
 			let value = Dids::<T>::get(did);
 			assert!(value.is_some());
 		}
+
+        // Using hardcoded data for keys and signatures and key generation and signing is not
+        // available with benchmarks
+
+		key_update_sr25519 {
+		    let u in ...;
+		    // let i = 0 .. 2 => ();
+		    let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(0, i as usize);
+            let detail = KeyDetail::new(did.clone(), pk_1);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            let key_update = KeyUpdate::new(
+                did.clone(),
+                pk_2,
+                None,
+                n,
+            );
+		}: update_key(RawOrigin::Signed(caller), key_update, sig)
+		verify {
+			let value = Dids::<T>::get(did);
+			assert!(value.is_some());
+			let (_, nn) = value.unwrap();
+			assert_eq!(nn, block_number);
+		}
+
+		key_update_ed25519 {
+		    let u in ...;
+		    // let i = 0 .. 2 => ();
+		    let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(1, i as usize);
+            let detail = KeyDetail::new(did.clone(), pk_1);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            let key_update = KeyUpdate::new(
+                did.clone(),
+                pk_2,
+                None,
+                n,
+            );
+		}: update_key(RawOrigin::Signed(caller), key_update, sig)
+		verify {
+			let value = Dids::<T>::get(did);
+			assert!(value.is_some());
+			let (_, nn) = value.unwrap();
+			assert_eq!(nn, block_number);
+		}
+
+		key_update_secp256k1 {
+		    let u in ...;
+		    // let i = 0 .. 2 => ();
+		    let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(2, i as usize);
+            let detail = KeyDetail::new(did.clone(), pk_1);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            let key_update = KeyUpdate::new(
+                did.clone(),
+                pk_2,
+                None,
+                n,
+            );
+		}: update_key(RawOrigin::Signed(caller), key_update, sig)
+		verify {
+			let value = Dids::<T>::get(did);
+			assert!(value.is_some());
+			let (_, nn) = value.unwrap();
+			assert_eq!(nn, block_number);
+		}
+
+		remove_sr25519 {
+		    let u in ...;
+		    // let i = 0 .. 2 => ();
+		    let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let (n, did, pk, sig) = get_data_for_did_removal(0, i as usize);
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            let remove = DidRemoval::new(
+                did.clone(),
+                n,
+            );
+		}: remove(RawOrigin::Signed(caller), remove, sig)
+		verify {
+			let value = Dids::<T>::get(did);
+			assert!(value.is_none());
+		}
+
+		sig_ver_sr25519 {
+		    let i in ...;
+		    let (msg, pk, sig) = get_data_for_sig_ver(0, i as usize);
+
+		}: {
+		    assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
+		}
+
+		sig_ver_ed25519 {
+            let i in ...;
+		    let (msg, pk, sig) = get_data_for_sig_ver(1, i as usize);
+
+		}: {
+		    assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
+		}
+
+		sig_ver_secp256k1 {
+		    let i in ...;
+		    let (msg, pk, sig) = get_data_for_sig_ver(2, i as usize);
+
+		}: {
+		    assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
+		}
 	}
-}*/
+}

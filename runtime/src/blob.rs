@@ -95,6 +95,7 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use sp_core::Pair;
     use crate::test_common::*;
     pub type BlobMod = crate::blob::Module<Test>;
 
@@ -113,9 +114,14 @@ mod tests {
     ) -> DispatchResult {
         let bl = Blob {
             id,
-            blob: content,
+            blob: content.clone(),
             author,
         };
+        println!("did: {:?}", author);
+        println!("pk: {:?}", author_kp.public().0);
+        println!("id: {:?}", id);
+        println!("content: {:?}", content.clone());
+        println!("Sig {:?}", sign(&crate::StateChange::Blob(bl.clone()), &author_kp).as_sr25519_sig_bytes());
         let sig = sign(&crate::StateChange::Blob(bl.clone()), &author_kp);
         BlobMod::new(Origin::signed(ABBA), bl.clone(), sig)
     }
@@ -225,13 +231,40 @@ mod tests {
     }
 }
 
-/*#[cfg(feature = "runtime-benchmarks")]
+#[cfg(feature = "runtime-benchmarks")]
 mod benchmarking {
     use super::*;
     use frame_benchmarking::{benchmarks, account};
     use system::RawOrigin;
     use sp_std::prelude::*;
+    use crate::benchmark_utils::{get_data_for_blob, BLOB_DATA_SIZE};
 
     const SEED: u32 = 0;
     const MAX_USER_INDEX: u32 = 1000;
-}*/
+
+    benchmarks! {
+        _ {
+            // Origin
+            let u in 1 .. MAX_USER_INDEX => ();
+            let i in 0 .. (BLOB_DATA_SIZE - 1) as u32 => ();
+        }
+
+        new {
+            let u in ...;
+		    let i in ...;
+
+		    let caller = account("caller", u, SEED);
+
+            let (did, pk, id, content, sig) = get_data_for_blob(i as usize);
+            let blob = Blob {
+                id,
+                blob: content,
+                author: did,
+            };
+        }: _(RawOrigin::Signed(caller), blob, sig)
+        verify {
+			let value = Blobs::get(id);
+			assert!(value.is_some());
+		}
+    }
+}

@@ -11,7 +11,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-
+use frame_system::{self as system};
 pub use frame_support::dispatch::DispatchError;
 pub use rand::random;
 pub use sp_core::sr25519;
@@ -58,6 +58,7 @@ impl system::Trait for Test {
     type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type SystemWeightInfo = ();
 }
 
 impl crate::did::Trait for Test {
@@ -101,7 +102,7 @@ pub fn ext() -> sp_io::TestExternalities {
         .into()
 }
 
-// create a OneOf policy
+/// create a OneOf policy
 pub fn oneof(dids: &[Did]) -> Policy {
     Policy::OneOf(dids.iter().cloned().collect())
 }
@@ -116,6 +117,7 @@ pub fn gen_kp() -> sr25519::Pair {
 // concern), but that doesn't matter for our purposes.
 pub fn create_did(did: did::Did) -> sr25519::Pair {
     let kp = gen_kp();
+    println!("did pk: {:?}", kp.public().0);
     did::Module::<Test>::new(
         Origin::signed(ABBA),
         did,

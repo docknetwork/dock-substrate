@@ -82,7 +82,6 @@ pub fn run() -> sc_cli::Result<()> {
         }
         Some(Subcommand::Benchmark(cmd)) => {
             if cfg!(feature = "runtime-benchmarks") {
-                println!("In cli benchmarking");
                 let runner = cli.create_runner(cmd)?;
 
                 runner.sync_run(|config| cmd.run::<dock_testnet_runtime::Block, service::Executor>(config))
