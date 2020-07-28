@@ -734,7 +734,10 @@ mod calls {
                 revoke_ids: ids.iter().cloned().collect(),
                 last_modified,
             };
-            println!("Sig {:?}", sign(&crate::StateChange::Revoke(revoke.clone()), &kpa).as_sr25519_sig_bytes());
+            println!(
+                "Sig {:?}",
+                sign(&crate::StateChange::Revoke(revoke.clone()), &kpa).as_sr25519_sig_bytes()
+            );
             let proof = once((
                 DIDA,
                 sign(&crate::StateChange::Revoke(revoke.clone()), &kpa),
@@ -910,8 +913,11 @@ mod calls {
                 DIDA,
                 sign(&crate::StateChange::UnRevoke(unrevoke.clone()), &kpa),
             ))
-                .collect();
-            println!("Sig {:?}", sign(&crate::StateChange::UnRevoke(unrevoke.clone()), &kpa).as_sr25519_sig_bytes());
+            .collect();
+            println!(
+                "Sig {:?}",
+                sign(&crate::StateChange::UnRevoke(unrevoke.clone()), &kpa).as_sr25519_sig_bytes()
+            );
             RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, proof).unwrap();
         }
     }
@@ -939,8 +945,11 @@ mod calls {
             DIDA,
             sign(&crate::StateChange::RemoveRegistry(rem.clone()), &kpa),
         ))
-            .collect();
-        println!("Sig {:?}", sign(&crate::StateChange::RemoveRegistry(rem.clone()), &kpa).as_sr25519_sig_bytes());
+        .collect();
+        println!(
+            "Sig {:?}",
+            sign(&crate::StateChange::RemoveRegistry(rem.clone()), &kpa).as_sr25519_sig_bytes()
+        );
         RevoMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
     }
 }
@@ -1046,11 +1055,13 @@ mod test {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking {
     use super::*;
-    use frame_benchmarking::{benchmarks, account};
-    use system::RawOrigin;
+    use crate::benchmark_utils::{
+        get_data_for_remove, get_data_for_revocation, get_data_for_unrevocation, REV_DATA_SIZE,
+    };
+    use crate::did::{Dids, KeyDetail, DID_BYTE_SIZE};
+    use frame_benchmarking::{account, benchmarks};
     use sp_std::prelude::*;
-    use crate::did::{DID_BYTE_SIZE, KeyDetail, Dids};
-    use crate::benchmark_utils::{get_data_for_revocation, get_data_for_unrevocation, get_data_for_remove, REV_DATA_SIZE};
+    use system::RawOrigin;
 
     const SEED: u32 = 0;
     const MAX_USER_INDEX: u32 = 1000;
@@ -1086,12 +1097,12 @@ mod benchmarking {
 
         }: _(RawOrigin::Signed(caller), reg_id, reg)
         verify {
-			let value = Registries::<T>::get(reg_id);
-			assert!(value.is_some());
-		}
+            let value = Registries::<T>::get(reg_id);
+            assert!(value.is_some());
+        }
 
-		revoke {
-		    let u in ...;
+        revoke {
+            let u in ...;
             let i in ...;
 
             let caller = account("caller", u, SEED);
@@ -1109,14 +1120,14 @@ mod benchmarking {
             let rev_cmd = Revoke {registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), last_modified: n};
             let mut p_auth = BTreeMap::new();
             p_auth.insert(did, signature);
-		}: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
-		verify {
-		    assert!(revoke_ids
+        }: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
+        verify {
+            assert!(revoke_ids
                 .iter()
                 .all(|id| Revocations::contains_key(reg_id, id)));
-		}
+        }
 
-		unrevoke {
+        unrevoke {
             let u in ...;
             let i in ...;
 
@@ -1137,14 +1148,14 @@ mod benchmarking {
             let rev_cmd = UnRevoke {registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), last_modified: n};
             let mut p_auth = BTreeMap::new();
             p_auth.insert(did, signature);
-		}: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
-		verify {
-		    assert!(revoke_ids
+        }: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
+        verify {
+            assert!(revoke_ids
                 .iter()
                 .all(|id| !Revocations::contains_key(reg_id, id)));
-		}
+        }
 
-		remove_registry {
+        remove_registry {
             let u in ...;
             let i in ...;
 
@@ -1165,6 +1176,6 @@ mod benchmarking {
             let rem_cmd = RemoveRegistry {registry_id: reg_id, last_modified: n};
             let mut p_auth = BTreeMap::new();
             p_auth.insert(did, signature);
-		}: _(RawOrigin::Signed(caller), rem_cmd, p_auth)
+        }: _(RawOrigin::Signed(caller), rem_cmd, p_auth)
     }
 }

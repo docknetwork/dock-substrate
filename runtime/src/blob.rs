@@ -95,8 +95,8 @@ impl<T: Trait> Module<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use sp_core::Pair;
     use crate::test_common::*;
+    use sp_core::Pair;
     pub type BlobMod = crate::blob::Module<Test>;
 
     /// create a random byte array with set len
@@ -121,7 +121,10 @@ mod tests {
         println!("pk: {:?}", author_kp.public().0);
         println!("id: {:?}", id);
         println!("content: {:?}", content.clone());
-        println!("Sig {:?}", sign(&crate::StateChange::Blob(bl.clone()), &author_kp).as_sr25519_sig_bytes());
+        println!(
+            "Sig {:?}",
+            sign(&crate::StateChange::Blob(bl.clone()), &author_kp).as_sr25519_sig_bytes()
+        );
         let sig = sign(&crate::StateChange::Blob(bl.clone()), &author_kp);
         BlobMod::new(Origin::signed(ABBA), bl.clone(), sig)
     }
@@ -234,10 +237,11 @@ mod tests {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking {
     use super::*;
-    use frame_benchmarking::{benchmarks, account};
-    use system::RawOrigin;
-    use sp_std::prelude::*;
     use crate::benchmark_utils::{get_data_for_blob, BLOB_DATA_SIZE};
+    use crate::did::{Dids, KeyDetail};
+    use frame_benchmarking::{account, benchmarks};
+    use sp_std::prelude::*;
+    use system::RawOrigin;
 
     const SEED: u32 = 0;
     const MAX_USER_INDEX: u32 = 1000;
@@ -251,11 +255,17 @@ mod benchmarking {
 
         new {
             let u in ...;
-		    let i in ...;
+            let i in ...;
 
-		    let caller = account("caller", u, SEED);
+            let caller = account("caller", u, SEED);
+            let n = 0;
 
             let (did, pk, id, content, sig) = get_data_for_blob(i as usize);
+
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
             let blob = Blob {
                 id,
                 blob: content,
@@ -263,8 +273,8 @@ mod benchmarking {
             };
         }: _(RawOrigin::Signed(caller), blob, sig)
         verify {
-			let value = Blobs::get(id);
-			assert!(value.is_some());
-		}
+            let value = Blobs::get(id);
+            assert!(value.is_some());
+        }
     }
 }

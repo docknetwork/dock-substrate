@@ -90,7 +90,7 @@ decl_module! {
         /// Does a token migration. The migrator should have sufficient balance to give tokens to recipients
         /// The check whether it is a valid migrator is made inside the SignedExtension
         // TODO: Set correct weight
-        #[weight = (T::DbWeight::get().reads_writes(1, recipients.len() as u64), Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(3 + recipients.len() as u64, 1 + recipients.len() as u64), Pays::No)]
         pub fn migrate(origin, recipients: BTreeMap<T::AccountId, BalanceOf<T>>) -> dispatch::DispatchResult {
             let migrator = ensure_signed(origin)?;
             Self::migrate_(migrator, recipients)
@@ -152,6 +152,8 @@ impl<T: Trait> Module<T> {
         migrator: T::AccountId,
         recipients: BTreeMap<T::AccountId, BalanceOf<T>>,
     ) -> dispatch::DispatchResult {
+        // Unwrap is safe here as the `SignedExtension` will only allow the transaction when migrator
+        // is present
         let allowed_migrations = Self::migrators(&migrator).unwrap();
         let mut mig_count = recipients.len() as u16;
         ensure!(
@@ -166,10 +168,12 @@ impl<T: Trait> Module<T> {
                 acc.saturating_add(x.saturated_into::<u128>())
             })
             .saturated_into();
+
         // The balance of the migrator after the transfer
         let new_free = T::Currency::free_balance(&migrator)
             .checked_sub(&total_transfer_balance)
             .ok_or(Error::<T>::InsufficientBalance)?;
+
         // Ensure that the migrator can transfer, i.e. has sufficient free and unlocked balance
         T::Currency::ensure_can_withdraw(
             &migrator,
@@ -178,8 +182,17 @@ impl<T: Trait> Module<T> {
             new_free,
         )?;
 
+        // XXX: A potentially more efficient way could be to replace all transfers with one call to withdraw
+        // for migrator and then one call to `deposit_creating` for each recipient. This will cause 1
+        // negative imbalance and 1 positive imbalance for each recipient. It needs to be ensured that
+        // the negative imbalance is destroyed and not end up with the validator as txn fees.
+        // This approach needs to be benchmarked for comparison.
+
+        // Transfer to each recipient
         for (recip, balance) in recipients {
-            // There is a very slim change that transfer fails with an addition overflow when the recipient has a very high balance
+            // There is a very slim change that transfer fails with an addition overflow when the
+            // recipient has a very high balance.
+            // Using `AllowDeath` to let migrator be wiped out once he has transferred to all.
             match T::Currency::transfer(&migrator, &recip, balance, AllowDeath) {
                 Ok(_) => Self::deposit_event(RawEvent::Migration(
                     migrator.clone(),
