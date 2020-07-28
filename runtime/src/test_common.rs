@@ -4,10 +4,10 @@ use crate::did::{self, Did, DidSignature};
 use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{Dispatchable, PostDispatchInfo},
+    dispatch::{DispatchInfo, Dispatchable, PostDispatchInfo},
     impl_outer_origin, parameter_types,
     traits::UnfilteredDispatchable,
-    weights::Weight,
+    weights::{DispatchClass, GetDispatchInfo, Weight, Pays},
 };
 use sp_core::{Pair, H256};
 use sp_runtime::{
@@ -42,6 +42,16 @@ impl Dispatchable for TestCall {
         match self {
             TestCall::Master(mc) => mc.dispatch_bypass_filter(origin),
             TestCall::System(sc) => sc.dispatch_bypass_filter(origin),
+        }
+    }
+}
+
+impl GetDispatchInfo for TestCall {
+    fn get_dispatch_info(&self) -> DispatchInfo {
+        DispatchInfo {
+            weight: 101u64,
+            class: DispatchClass::Normal,
+            pays_fee: Pays::Yes,
         }
     }
 }

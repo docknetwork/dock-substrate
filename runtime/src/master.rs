@@ -81,7 +81,9 @@ use core::default::Default;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Dispatchable},
-    ensure, Parameter,
+    ensure,
+    weights::GetDispatchInfo,
+    Parameter,
 };
 use system::{ensure_root, ensure_signed};
 
@@ -130,7 +132,7 @@ where
 
     /// The dispatchable that master may call as Root. It is possible to use another type here, but
     /// it's expectected that your runtime::Call will be used.
-    type Call: Parameter + Dispatchable<Origin = Self::Origin>;
+    type Call: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
 }
 
 decl_storage! {
@@ -172,11 +174,11 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Execute a proposal that has received enough votes. The proposal is a serialized Call.
-        /// This function can be freely called by anyone, even someone who is not a member of
-        /// Master.
+        /// This function can be called by anyone, even someone who is not a member of Master.
         ///
-        /// After a sucessful execution, the current round of voted is cleared and round number is increased.
-        #[weight = 0]
+        /// After a sucessful execution, the current round of votes is cleared and round number is
+        /// increased.
+        #[weight = 10_000 + proposal.get_dispatch_info().weight + 1_000 * auth.len() as u64]
         pub fn execute(
             origin,
             proposal: Box<<T as Trait>::Call>,
@@ -200,13 +202,13 @@ decl_module! {
         /// };
         /// ```
         ///
-        /// Setting the vote requirement to zero grants free and unrestricted root access to
+        /// Setting the vote requirement to zero grants unrestricted root access to
         /// all accounts. It is not recomended to set the vote requirement to zero on a
         /// production chain.
-        #[weight = 0]
+        #[weight = 10_000 + 1_000 * membership.members.len() as u64]
         pub fn set_members(
             origin,
-            membership: Membership
+            membership: Membership,
         ) -> DispatchResult {
             Module::<T>::set_members_(origin, membership)
         }
