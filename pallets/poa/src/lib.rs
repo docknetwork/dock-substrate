@@ -272,7 +272,7 @@ decl_module! {
         /// In worst case there is a write to `QueuedValidators`.
         /// In case of short circuit there is 1 read and write to `EpochEndsAt`
         /// # </weight>
-        #[weight = ((T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
         pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::add_validator_(validator_id, short_circuit)
@@ -565,7 +565,7 @@ impl<T: Trait> Module<T> {
             .map_err(|_| dispatch::DispatchError::Other("Can't withdraw from treasury"))
     }
 
-    /// The account ID that holds the Charity's funds
+    /// The account ID that holds the Treasury's funds
     pub fn treasury_account() -> T::AccountId {
         TREASURY_ID.into_account()
     }
