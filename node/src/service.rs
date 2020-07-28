@@ -19,6 +19,7 @@ native_executor_instance!(
     pub Executor,
     dock_testnet_runtime::api::dispatch,
     dock_testnet_runtime::native_version,
+    frame_benchmarking::benchmarking::HostFunctions,
 );
 
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;
