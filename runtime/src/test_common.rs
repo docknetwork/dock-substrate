@@ -4,17 +4,17 @@ use crate::did;
 use crate::did::{Did, DidSignature};
 use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::Encode;
+pub use frame_support::dispatch::DispatchError;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+use frame_system::{self as system};
+pub use rand::random;
+pub use sp_core::sr25519;
 use sp_core::{Pair, H256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-use frame_system::{self as system};
-pub use frame_support::dispatch::DispatchError;
-pub use rand::random;
-pub use sp_core::sr25519;
 pub use std::iter::once;
 
 pub type RevoMod = crate::revoke::Module<Test>;

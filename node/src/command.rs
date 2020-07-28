@@ -17,9 +17,9 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service;
-use sc_cli::{SubstrateCli, RuntimeVersion, Role, ChainSpec};
-use sc_service::ServiceParams;
 use crate::service::new_full_params;
+use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
+use sc_service::ServiceParams;
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -75,8 +75,16 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(subcommand)?;
 
             runner.run_subcommand(subcommand, |config| {
-                let (ServiceParams { client, backend, task_manager, import_queue, .. }, ..)
-                    = new_full_params(config)?;
+                let (
+                    ServiceParams {
+                        client,
+                        backend,
+                        task_manager,
+                        import_queue,
+                        ..
+                    },
+                    ..,
+                ) = new_full_params(config)?;
                 Ok((client, backend, import_queue, task_manager))
             })
         }
@@ -84,10 +92,14 @@ pub fn run() -> sc_cli::Result<()> {
             if cfg!(feature = "runtime-benchmarks") {
                 let runner = cli.create_runner(cmd)?;
 
-                runner.sync_run(|config| cmd.run::<dock_testnet_runtime::Block, service::Executor>(config))
+                runner.sync_run(|config| {
+                    cmd.run::<dock_testnet_runtime::Block, service::Executor>(config)
+                })
             } else {
-                println!("Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`.");
+                println!(
+                    "Benchmarking wasn't enabled when building the node. \
+				You can enable it with `--features runtime-benchmarks`."
+                );
                 Ok(())
             }
         }

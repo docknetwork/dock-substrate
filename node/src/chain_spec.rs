@@ -219,7 +219,9 @@ fn testnet_genesis(
     root_key: AccountId,
     endowed_accounts: Vec<AccountId>,
 ) -> GenesisConfig {
-    let wasm_binary = WASM_BINARY.ok_or("Wasm binary not available".to_string()).unwrap();
+    let wasm_binary = WASM_BINARY
+        .ok_or("Wasm binary not available".to_string())
+        .unwrap();
 
     // 1 token is 25000000 gas
     let token_to_gas: u128 = 25_000_000;

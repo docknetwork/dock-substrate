@@ -18,11 +18,11 @@ include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 extern crate alloc;
 
+#[cfg(feature = "runtime-benchmarks")]
+pub mod benchmark_utils;
 pub mod blob;
 pub mod did;
 pub mod revoke;
-#[cfg(feature = "runtime-benchmarks")]
-pub mod benchmark_utils;
 
 pub use poa;
 pub use token_migration;
@@ -39,6 +39,7 @@ use frame_support::{
         IdentityFee, Weight,
     },
 };
+use frame_system::{self as system};
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;
@@ -53,7 +54,6 @@ use sp_runtime::{
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
-use frame_system::{self as system};
 
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
@@ -467,14 +467,14 @@ impl_runtime_apis! {
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
-			_equivocation_proof: fg_primitives::EquivocationProof<
-				<Block as BlockT>::Hash,
-				NumberFor<Block>,
-			>,
-			_key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
-		) -> Option<()> {
-			None
-		}
+            _equivocation_proof: fg_primitives::EquivocationProof<
+                <Block as BlockT>::Hash,
+                NumberFor<Block>,
+            >,
+            _key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+        ) -> Option<()> {
+            None
+        }
 
         fn generate_key_ownership_proof(
             _set_id: fg_primitives::SetId,
@@ -488,40 +488,40 @@ impl_runtime_apis! {
     }
 
     #[cfg(feature = "runtime-benchmarks")]
-	impl frame_benchmarking::Benchmark<Block> for Runtime {
-		fn dispatch_benchmark(
-			pallet: Vec<u8>,
-			benchmark: Vec<u8>,
-			lowest_range_values: Vec<u32>,
-			highest_range_values: Vec<u32>,
-			steps: Vec<u32>,
-			repeat: u32,
-		) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+    impl frame_benchmarking::Benchmark<Block> for Runtime {
+        fn dispatch_benchmark(
+            pallet: Vec<u8>,
+            benchmark: Vec<u8>,
+            lowest_range_values: Vec<u32>,
+            highest_range_values: Vec<u32>,
+            steps: Vec<u32>,
+            repeat: u32,
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
             // Following line copied from substrate node
             // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency issues.
-			// To get around that, we separated the Session benchmarks into its own crate, which is why
-			// we need these two lines below.
-			// use pallet_session_benchmarking::Module as SessionBench;
-			use frame_system_benchmarking::Module as SystemBench;
+            // To get around that, we separated the Session benchmarks into its own crate, which is why
+            // we need these two lines below.
+            // use pallet_session_benchmarking::Module as SessionBench;
+            use frame_system_benchmarking::Module as SystemBench;
 
-			// impl pallet_session_benchmarking::Trait for Runtime {}
-			impl frame_system_benchmarking::Trait for Runtime {}
+            // impl pallet_session_benchmarking::Trait for Runtime {}
+            impl frame_system_benchmarking::Trait for Runtime {}
 
-			let whitelist = vec![];
+            let whitelist = vec![];
 
             let mut batches = Vec::<BenchmarkBatch>::new();
-			let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist);
+            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist);
 
             add_benchmark!(params, batches, did, DIDModule);
             add_benchmark!(params, batches, revoke, Revoke);
             add_benchmark!(params, batches, blob, BlobStore);
-			add_benchmark!(params, batches, balances, Balances);
-			add_benchmark!(params, batches, token_migration, MigrationModule);
+            add_benchmark!(params, batches, balances, Balances);
+            add_benchmark!(params, batches, token_migration, MigrationModule);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 
-			if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
-			Ok(batches)
-		}
-	}
+            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            Ok(batches)
+        }
+    }
 }

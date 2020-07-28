@@ -5,11 +5,11 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
     dispatch::DispatchResult, ensure, fail, traits::Get,
 };
+use frame_system::{self as system, ensure_signed};
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_runtime::traits::Verify;
 use sp_std::convert::TryFrom;
 use sp_std::fmt;
-use frame_system::{self as system, ensure_signed};
 
 /// Size of the Dock DID in bytes
 pub const DID_BYTE_SIZE: usize = 32;
@@ -1018,9 +1018,7 @@ mod tests {
                 .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
                 .0;
             println!("remove sig value:{:?}", sig_value.to_vec());
-            let sig = DidSignature::Sr25519(Bytes64 {
-                value: sig_value,
-            });
+            let sig = DidSignature::Sr25519(Bytes64 { value: sig_value });
             assert_ok!(DIDModule::remove(Origin::signed(alice), to_remove, sig));
 
             // Error as the did has been removed
@@ -1046,10 +1044,12 @@ mod tests {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking {
     use super::*;
-    use frame_benchmarking::{benchmarks, account};
-    use system::RawOrigin;
+    use crate::benchmark_utils::{
+        get_data_for_did_removal, get_data_for_key_update, get_data_for_sig_ver, DID_DATA_SIZE,
+    };
+    use frame_benchmarking::{account, benchmarks};
     use sp_std::prelude::*;
-    use crate::benchmark_utils::{get_data_for_key_update, get_data_for_did_removal, get_data_for_sig_ver, DID_DATA_SIZE};
+    use system::RawOrigin;
 
     const SEED: u32 = 0;
     const MAX_USER_INDEX: u32 = 1000;
@@ -1085,17 +1085,17 @@ mod benchmarking {
 
         }: _(RawOrigin::Signed(caller), did, KeyDetail {controller: did, public_key: pk})
         verify {
-			let value = Dids::<T>::get(did);
-			assert!(value.is_some());
-		}
+            let value = Dids::<T>::get(did);
+            assert!(value.is_some());
+        }
 
         // Using hardcoded data for keys and signatures and key generation and signing is not
         // available with benchmarks
 
-		key_update_sr25519 {
-		    let u in ...;
-		    // let i = 0 .. 2 => ();
-		    let i in ...;
+        key_update_sr25519 {
+            let u in ...;
+            // let i = 0 .. 2 => ();
+            let i in ...;
 
             let caller = account("caller", u, SEED);
 
@@ -1110,18 +1110,18 @@ mod benchmarking {
                 None,
                 n,
             );
-		}: update_key(RawOrigin::Signed(caller), key_update, sig)
-		verify {
-			let value = Dids::<T>::get(did);
-			assert!(value.is_some());
-			let (_, nn) = value.unwrap();
-			assert_eq!(nn, block_number);
-		}
+        }: update_key(RawOrigin::Signed(caller), key_update, sig)
+        verify {
+            let value = Dids::<T>::get(did);
+            assert!(value.is_some());
+            let (_, nn) = value.unwrap();
+            assert_eq!(nn, block_number);
+        }
 
-		key_update_ed25519 {
-		    let u in ...;
-		    // let i = 0 .. 2 => ();
-		    let i in ...;
+        key_update_ed25519 {
+            let u in ...;
+            // let i = 0 .. 2 => ();
+            let i in ...;
 
             let caller = account("caller", u, SEED);
 
@@ -1136,18 +1136,18 @@ mod benchmarking {
                 None,
                 n,
             );
-		}: update_key(RawOrigin::Signed(caller), key_update, sig)
-		verify {
-			let value = Dids::<T>::get(did);
-			assert!(value.is_some());
-			let (_, nn) = value.unwrap();
-			assert_eq!(nn, block_number);
-		}
+        }: update_key(RawOrigin::Signed(caller), key_update, sig)
+        verify {
+            let value = Dids::<T>::get(did);
+            assert!(value.is_some());
+            let (_, nn) = value.unwrap();
+            assert_eq!(nn, block_number);
+        }
 
-		key_update_secp256k1 {
-		    let u in ...;
-		    // let i = 0 .. 2 => ();
-		    let i in ...;
+        key_update_secp256k1 {
+            let u in ...;
+            // let i = 0 .. 2 => ();
+            let i in ...;
 
             let caller = account("caller", u, SEED);
 
@@ -1162,18 +1162,18 @@ mod benchmarking {
                 None,
                 n,
             );
-		}: update_key(RawOrigin::Signed(caller), key_update, sig)
-		verify {
-			let value = Dids::<T>::get(did);
-			assert!(value.is_some());
-			let (_, nn) = value.unwrap();
-			assert_eq!(nn, block_number);
-		}
+        }: update_key(RawOrigin::Signed(caller), key_update, sig)
+        verify {
+            let value = Dids::<T>::get(did);
+            assert!(value.is_some());
+            let (_, nn) = value.unwrap();
+            assert_eq!(nn, block_number);
+        }
 
-		remove_sr25519 {
-		    let u in ...;
-		    // let i = 0 .. 2 => ();
-		    let i in ...;
+        remove_sr25519 {
+            let u in ...;
+            // let i = 0 .. 2 => ();
+            let i in ...;
 
             let caller = account("caller", u, SEED);
 
@@ -1186,34 +1186,34 @@ mod benchmarking {
                 did.clone(),
                 n,
             );
-		}: remove(RawOrigin::Signed(caller), remove, sig)
-		verify {
-			let value = Dids::<T>::get(did);
-			assert!(value.is_none());
-		}
+        }: remove(RawOrigin::Signed(caller), remove, sig)
+        verify {
+            let value = Dids::<T>::get(did);
+            assert!(value.is_none());
+        }
 
-		sig_ver_sr25519 {
-		    let i in ...;
-		    let (msg, pk, sig) = get_data_for_sig_ver(0, i as usize);
-
-		}: {
-		    assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
-		}
-
-		sig_ver_ed25519 {
+        sig_ver_sr25519 {
             let i in ...;
-		    let (msg, pk, sig) = get_data_for_sig_ver(1, i as usize);
+            let (msg, pk, sig) = get_data_for_sig_ver(0, i as usize);
 
-		}: {
-		    assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
-		}
+        }: {
+            assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
+        }
 
-		sig_ver_secp256k1 {
-		    let i in ...;
-		    let (msg, pk, sig) = get_data_for_sig_ver(2, i as usize);
+        sig_ver_ed25519 {
+            let i in ...;
+            let (msg, pk, sig) = get_data_for_sig_ver(1, i as usize);
 
-		}: {
-		    assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
-		}
-	}
+        }: {
+            assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
+        }
+
+        sig_ver_secp256k1 {
+            let i in ...;
+            let (msg, pk, sig) = get_data_for_sig_ver(2, i as usize);
+
+        }: {
+            assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
+        }
+    }
 }

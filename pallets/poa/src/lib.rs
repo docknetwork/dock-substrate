@@ -8,19 +8,21 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{
         print,
-        traits::{AccountIdConversion, Saturating},
+        traits::{AccountIdConversion, Saturating, OpaqueKeys},
         ModuleId, SaturatedConversion,
     },
     traits::{
-        Get, Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
+        Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
+        ReservableCurrency,
     },
-    weights::Pays,
+    weights::{Pays, Weight},
 };
 
 use frame_system::{self as system, ensure_root, RawOrigin};
 use sp_std::prelude::Vec;
 
 extern crate alloc;
+
 use alloc::collections::{BTreeMap, BTreeSet};
 
 type EpochNo = u32;
@@ -29,7 +31,7 @@ type SlotNo = u64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+<<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 #[cfg(test)]
 mod tests;
@@ -174,7 +176,14 @@ decl_storage! {
         /// with the 2nd one.
         HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>;
 
-        /// Transaction fees
+        /// Holds transaction fees for a block. Every transaction fees detected through the imbalance
+        /// accumulates the fees in this storage item. Once a block is done (`on_finalize`), the accumulated
+        /// fees is given to the block author and this item is zeroed out.
+        /// # <weight>
+        /// Regarding contribution to the weight, the read and write is not counted towards weight
+        /// contribution of the extrinsic since there is only 1 read and 1 write per block to this
+        /// due to Substrate's _overlay change set_ abstraction on storage.
+        /// # </weight>
         TxnFees get(fn txn_fees): BalanceOf<T>;
 
         /// Current epoch
@@ -187,7 +196,8 @@ decl_storage! {
         ValidatorStats get(fn get_validator_stats_for_epoch):
             double_map hasher(identity) EpochNo, hasher(blake2_128_concat) T::AccountId => ValidatorStatsPerEpoch;
 
-        /// Remaining emission supply
+        /// Remaining emission supply. This reduces after each epoch as emissions happen unless
+        /// emissions are disabled.
         EmissionSupply get(fn emission_supply) config(): BalanceOf<T>;
 
         /// Max emission per validator in an epoch
@@ -241,10 +251,9 @@ decl_error! {
 }
 
 decl_module! {
-    /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
-        // `should_end_session` since that it called more frequently.
+        /// Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
+        /// `should_end_session` since that it called more frequently.
 
         type Error = Error<T>;
 
@@ -256,7 +265,14 @@ decl_module! {
         /// of validators don't exceed the max allowed count. The validator is considered for adding at
         /// the end of this epoch unless `short_circuit` is true. If a validator is already added to the queue
         /// an error will be thrown unless `short_circuit` is true, in which case it swallows the error.
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// Assuming worst case for below. Not considering iteration cost over in memory arrays since the arrays
+        /// are small and these dispatchables are rarely called.
+        /// 2 reads for storage items, 1 each for `ActiveValidators` and `QueuedValidators`.
+        /// In worst case there is a write to `QueuedValidators`.
+        /// In case of short circuit there is 1 read and write to `EpochEndsAt`
+        /// # </weight>
+        #[weight = ((T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
         pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::add_validator_(validator_id, short_circuit)
@@ -267,7 +283,14 @@ decl_module! {
         /// will be thrown unless `short_circuit` is true, in which case it swallows the error.
         /// It will not remove the validator if the removal will cause the active validator set to
         /// be empty even after considering the queued validators.
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// Assuming worst case for below. Not considering iteration cost over in memory arrays since the arrays
+        /// are small and these dispatchables are rarely called.
+        /// 3 reads for storage items, 1 each for `ActiveValidators`, `QueuedValidators` and `RemoveValidators`
+        /// In worst case there is a write to `RemoveValidators`.
+        /// In case of short circuit there is 1 read and write to `EpochEndsAt`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(3 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
         pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::remove_validator_(validator_id, short_circuit)
@@ -276,7 +299,12 @@ decl_module! {
         /// Replace an active validator (`old_validator_id`) with a new validator (`new_validator_id`)
         /// without waiting for epoch to end. Throws error if `old_validator_id` is not active or
         /// `new_validator_id` is already active. Also useful when a validator wants to rotate his account.
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// Only takes into account the weight of read of active validator vector and write to the swap
+        /// storage item. The write to validator set happens while loading next block and is counted
+        /// in `BlockExecutionWeight`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::swap_validator_(old_validator_id, new_validator_id)
@@ -285,14 +313,23 @@ decl_module! {
         /// Used to set session keys for a validator. A validator shares its session key with the
         /// author of this extrinsic who then calls `set_keys` of the session pallet. This is useful
         /// when the validator does not balance to pay fees for `set_keys`
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// Wights computation copied from session pallet's `set_keys` dispatchable
+        /// # </weight>
+        #[weight = (200_000_000
+			+ T::DbWeight::get().reads(2 + T::Keys::key_ids().len() as Weight)
+			+ T::DbWeight::get().writes(1 + T::Keys::key_ids().len() as Weight), Pays::No)]
         pub fn set_session_key(origin, validator_id: T::AccountId, keys: T::Keys) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             <pallet_session::Module<T>>::set_keys(RawOrigin::Signed(validator_id).into(), keys, [].to_vec())
         }
 
         /// Withdraw from treasury. Only Master is allowed to withdraw
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// 1 read-write for treasury and 1 read-write for recipient.
+        /// 70 µs transfer cost copied from balance pallet's `transfer` dispatchable
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(2, 2) + 70_000_000, Pays::No)]
         pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::withdraw_from_treasury_(recipient, amount)
@@ -394,6 +431,7 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// Add a validator. Check documentation of `add_validator` dispatchable
     fn add_validator_(validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
         // Check if the validator is not already present as an active one
         let active_validators = Self::active_validators();
@@ -432,6 +470,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Remove a validator. Check documentation of `remove_validator` dispatchable
     fn remove_validator_(
         validator_id: T::AccountId,
         short_circuit: bool,
@@ -490,6 +529,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Swap existing validator. Check documentation of `swap_validator` dispatchable
     fn swap_validator_(
         old_validator_id: T::AccountId,
         new_validator_id: T::AccountId,
@@ -516,6 +556,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Transfer `amount` from treasury to the `recipient`.
     pub fn withdraw_from_treasury_(
         recipient: T::AccountId,
         amount: BalanceOf<T>,

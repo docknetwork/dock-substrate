@@ -57,7 +57,7 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'v2.0.0-rc5'
 version = '2.0.0-rc5'
 
-[dev-dependencies.balances]
+[dependencies.balances]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
 package = 'pallet-balances'
@@ -77,4 +77,5 @@ runtime-benchmarks = [
 	"frame-benchmarking",
     "frame-system/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",
+	"balances/runtime-benchmarks",
 ]
