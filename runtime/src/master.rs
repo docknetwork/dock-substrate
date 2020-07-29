@@ -150,7 +150,7 @@ decl_event! {
         <T as Trait>::Call
     {
         /// A proposal succeeded and was executed. The dids listed are the members whose votes were
-        /// used as proof of authorization. The hash of the proposal is provided.
+        /// used as proof of authorization. The executed call is provided.
         Executed(Vec<Did>, Box<Call>),
         /// The membership of Master has changed.
         UnderNewOwnership,
