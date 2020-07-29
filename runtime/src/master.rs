@@ -128,8 +128,16 @@ where
 
 decl_storage! {
     trait Store for Module<T: Trait> as Master {
-        pub Members config(members): Membership;
+        pub Members: Membership;
         pub Round: u64;
+    }
+    add_extra_genesis {
+        config(members): Membership;
+        build(|slef: &Self| {
+            debug_assert!(slef.members.vote_requirement != 0);
+            debug_assert!(slef.members.vote_requirement <= slef.members.members.len() as u64);
+            Members::set(slef.members.clone());
+        })
     }
 }
 
@@ -142,6 +150,10 @@ decl_error! {
         /// One of the signatures provided is invalid.
         /// Hint: Is everyone voting for the current round?
         BadSig,
+        /// A vote requirement of 0 would allow unresricted sudo access.
+        ZeroVoteRequirement,
+        /// There aren't enough members to satisfy that vote requirement.
+        VoteRequirementTooHigh,
     }
 }
 
@@ -178,26 +190,14 @@ decl_module! {
         }
 
         /// Root-only. Sets the members and vote requirement for master. Increases the round number
-        /// and removes the votes for the prevous round.
+        /// and removes the votes for the previous round.
         ///
         /// Since as a group members of master have root access, they will be able to call this
         /// function.
         ///
-        /// ```
-        /// # use dock_testnet_runtime::master::Membership;
-        /// # extern crate alloc;
-        /// # use alloc::collections::BTreeSet;
-        /// #
-        /// // Setting the following membership will effectively dissolve the master account.
-        /// Membership {
-        ///     members: BTreeSet::new(),
-        ///     vote_requirement: 1,
-        /// };
-        /// ```
-        ///
-        /// Setting the vote requirement to zero grants unrestricted root access to
-        /// all accounts. It is not recomended to set the vote requirement to zero on a
-        /// production chain.
+        /// A vote requirement of zero is not allowed and will result in an error.
+        /// A vote requirement larger than the size of the member list is not allowed and will
+        /// result in an error.
         #[weight = 10_000 + T::DbWeight::get().reads_writes(1, 2)]
         pub fn set_members(
             origin,
@@ -259,6 +259,16 @@ impl<T: Trait> Module<T> {
     pub fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
         ensure_root(origin)?;
 
+        // check
+        ensure!(
+            membership.vote_requirement != 0,
+            MasterError::<T>::ZeroVoteRequirement
+        );
+        ensure!(
+            membership.vote_requirement <= membership.members.len() as u64,
+            MasterError::<T>::VoteRequirementTooHigh
+        );
+
         // execute
         Members::set(membership);
         Round::mutate(|round| {
@@ -290,7 +300,7 @@ mod test {
                 vote_requirement: 0,
             });
             let new_members = Membership {
-                members: set(&[]),
+                members: set(&[newdid().0]),
                 vote_requirement: 1,
             };
             let call = TestCall::Master(Call::set_members(new_members.clone()));
@@ -336,7 +346,7 @@ mod test {
             MasterMod::set_members(
                 system::RawOrigin::Root.into(),
                 Membership {
-                    members: set(&[]),
+                    members: set(&[newdid().0]),
                     vote_requirement: 1,
                 },
             )
@@ -391,8 +401,8 @@ mod test {
                 vote_requirement: 0,
             });
             let call = TestCall::Master(Call::<Test>::set_members(Membership {
-                members: set(&[]),
-                vote_requirement: 0,
+                members: set(&[newdid().0]),
+                vote_requirement: 1,
             }));
             MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
             assert_eq!(
@@ -648,6 +658,58 @@ mod test {
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());
+        });
+    }
+
+    #[test]
+    fn err_zero_vote_requirement() {
+        ext().execute_with(|| {
+            for m in [
+                Membership {
+                    members: set(&[]),
+                    vote_requirement: 0,
+                },
+                Membership {
+                    members: set(&[newdid().0]),
+                    vote_requirement: 0,
+                },
+            ]
+            .iter()
+            .cloned()
+            {
+                let err = MasterMod::set_members(Origin::root(), m).unwrap_err();
+                assert_eq!(err, MasterError::<Test>::ZeroVoteRequirement.into());
+            }
+        });
+    }
+
+    #[test]
+    fn err_vote_requirement_to_high() {
+        ext().execute_with(|| {
+            for m in [
+                Membership {
+                    members: set(&[]),
+                    vote_requirement: 1,
+                },
+                Membership {
+                    members: set(&[newdid().0]),
+                    vote_requirement: 2,
+                },
+                Membership {
+                    members: set(&[newdid().0]),
+                    vote_requirement: 3,
+                },
+                Membership {
+                    members: set(&[newdid().0]),
+                    vote_requirement: u64::MAX,
+                },
+            ]
+            .iter()
+            .cloned()
+            {
+                let err = MasterMod::set_members(Origin::root(), m).unwrap_err();
+                assert_eq!(err, MasterError::<Test>::VoteRequirementTooHigh.into());
+            }
         });
     }
 
