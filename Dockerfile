@@ -30,6 +30,7 @@ ENV CXX g++
 COPY runtime runtime
 COPY node node
 COPY Cargo.toml .
+COPY Cargo.lock .
 
 # Build node.
 RUN cargo fetch # cache the result of the fetch in case the build gets interrupted
