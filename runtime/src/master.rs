@@ -179,6 +179,9 @@ decl_module! {
         /// Root-only. Sets the members and vote requirement for master. Increases the round number
         /// and removes the votes for the prevous round.
         ///
+        /// Since as a group members of master have root access, they will be able to call this
+        /// function.
+        ///
         /// ```
         /// # use dock_testnet_runtime::master::Membership;
         /// # extern crate alloc;
