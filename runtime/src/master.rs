@@ -180,7 +180,12 @@ decl_module! {
         /// This function can be called by anyone, even someone who is not a member of Master.
         ///
         /// After a sucessful execution, the round number is increased.
-        #[weight = 10_000 + proposal.get_dispatch_info().weight + 1_000 * auth.len() as u64]
+        // TODO: benchmark worst case cost to verify a signature and add it to weight
+        #[
+            weight = 10_000
+                + proposal.get_dispatch_info().weight
+                + T::DbWeight::get().reads(auth.len() as u64)
+        ]
         pub fn execute(
             origin,
             proposal: Box<<T as Trait>::Call>,
