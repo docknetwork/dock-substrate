@@ -763,6 +763,7 @@ dependencies = [
  "pallet-grandpa",
  "pallet-randomness-collective-flip",
  "pallet-session",
+ "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
  "parity-scale-codec",
@@ -2868,6 +2869,20 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "sp-trie",
+]
+
+[[package]]
+name = "pallet-sudo"
+version = "2.0.0-rc4"
+source = "git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc4#00768a1f21a579c478fe5d4f51e1fa71f7db9fd4"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

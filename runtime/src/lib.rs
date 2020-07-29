@@ -37,6 +37,7 @@ use frame_support::{
 };
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_sudo as sudo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -316,6 +317,11 @@ impl master::Trait for Runtime {
     type Call = Call;
 }
 
+impl sudo::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -336,6 +342,7 @@ construct_runtime!(
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
         Master: master::{Module, Call, Storage, Event<T>, Config},
+        Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
     }
 );
 

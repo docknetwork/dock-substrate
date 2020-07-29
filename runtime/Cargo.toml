@@ -158,6 +158,12 @@ git = 'https://github.com/paritytech/substrate.git'
 tag = 'v2.0.0-rc4'
 version = '2.0.0-rc4'
 
+[dependencies.pallet-sudo]
+default_features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-rc4'
+version = '2.0.0-rc4'
+
 [dependencies.pallet-authorship]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
@@ -198,6 +204,7 @@ std = [
     'timestamp/std',
     'transaction-payment/std',
     'pallet-session/std',
+    'pallet-sudo/std',
     'pallet-authorship/std',
     'poa/std',
 ]

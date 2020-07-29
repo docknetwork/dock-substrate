@@ -3,7 +3,7 @@ use dock_testnet_runtime::{
     master::Membership,
     opaque::SessionKeys,
     AuraConfig, BalancesConfig, DIDModuleConfig, GenesisConfig, GrandpaConfig, MasterConfig,
-    PoAModuleConfig, SessionConfig, SystemConfig, WASM_BINARY,
+    PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use hex_literal::hex;
 use sc_service::ChainType;
@@ -115,6 +115,7 @@ pub fn development_config() -> ChainSpec {
                 .iter()
                 .map(|(name, sk)| did_from_seed(name, sk))
                 .collect(),
+                sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
             }
             .build()
         },
@@ -184,6 +185,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 .iter()
                 .map(|(name, sk)| did_from_seed(name, sk))
                 .collect(),
+                sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
             }
             .build()
         },
@@ -269,6 +271,7 @@ pub fn remote_testnet_config() -> ChainSpec {
                     )
                 })
                 .collect(),
+                sudo: [0u8; 32].into(),
             }
             .build()
         },
@@ -294,6 +297,7 @@ struct GenesisBuilder {
     endowed_accounts: Vec<AccountId>,
     master: Membership,
     dids: Vec<(Did, KeyDetail)>,
+    sudo: AccountId,
 }
 
 impl GenesisBuilder {
@@ -363,6 +367,7 @@ impl GenesisBuilder {
                 members: self.master,
             }),
             did: Some(DIDModuleConfig { dids: self.dids }),
+            sudo: Some(SudoConfig { key: self.sudo }),
         }
     }
 
