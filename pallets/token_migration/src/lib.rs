@@ -107,15 +107,13 @@ decl_module! {
         #[weight = (0, Pays::No)]
         pub fn contract_migrator(origin, migrator: T::AccountId, decrease_migrations_by: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
-            match Self::migrators(&migrator) {
-                Some(current_migrations) => {
-                    let new_migrations = current_migrations.checked_sub(decrease_migrations_by).ok_or(Error::<T>::CannotContractMigrator)?;
-                    Migrators::<T>::insert(migrator.clone(), new_migrations.clone());
-                    Self::deposit_event(RawEvent::MigratorContracted(migrator, new_migrations));
-                    Ok(())
-                },
-                None => fail!(Error::<T>::UnknownMigrator)
-            }
+            let new_migrations = Self::migrators(&migrator)
+                .ok_or(Error::<T>::UnknownMigrator)?
+                .checked_sub(decrease_migrations_by)
+                .ok_or(Error::<T>::CannotContractMigrator)?;
+            Migrators::<T>::insert(&migrator, &new_migrations);
+            Self::deposit_event(RawEvent::MigratorContracted(migrator, new_migrations));
+            Ok(())
         }
 
         /// Add a new migrator
