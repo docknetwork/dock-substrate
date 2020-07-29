@@ -214,6 +214,64 @@ pub fn local_poa_testnet_config() -> ChainSpec {
     )
 }
 
+pub fn remote_poa_testnet_config() -> ChainSpec {
+    ChainSpec::from_genesis(
+        "Remote PoA Testnet",
+        "remote_poa_testnet",
+        ChainType::Custom(String::from("Dock testnet")),
+        || {
+            testnet_genesis(
+                vec![
+                    (
+                        account_id_from_ss58::<ecdsa::Public>(
+                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+                        ),
+                        pubkey_from_ss58::<AuraId>(
+                            "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh",
+                        ),
+                    ),
+                    (
+                        account_id_from_ss58::<ecdsa::Public>(
+                            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
+                        ),
+                        pubkey_from_ss58::<AuraId>(
+                            "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "5FJir6hEEWvVCt4PHJ95ygtw5MvgD2xoET9xqskTu4MZBC98",
+                        ),
+                    ),
+                ],
+                account_id_from_ss58::<sr25519::Public>(
+                    "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
+                ),
+                vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>("5Fq9cARnUAWxKGU9w5UngNNMsfjcxenAAuBn8zYJwyidSnuU"),
+                    account_id_from_ss58::<sr25519::Public>("5DcxJv1LRAiEmpR41xKUNbmefmutQ7WBEKEsS5xBxh8wQ99J"),
+                    account_id_from_ss58::<sr25519::Public>("5E7BHnwo9LoKP6bAJseeqZgnWSbsFmiZxMAsEd7zGJfDoCCr"),
+                    account_id_from_ss58::<sr25519::Public>("5DkS3AbP8mXWVUg8o9R7Y8czAPoi9JTYmS3FPzKx1z6735nd"),
+                    account_id_from_ss58::<sr25519::Public>("5C89W6aJTdBBbXPhyLrefGSB97kXKWAo5NkqBvG8U9MKhEkP"),
+                    account_id_from_ss58::<sr25519::Public>("5GpPMM3Mw1eAqniXQsRHdjd7dshmiudU46sELyRfGEbBoJu5"),
+                ],
+            )
+        },
+        vec![],
+        None,
+        None,
+        None,
+        None,
+    )
+}
+
 fn testnet_genesis(
     initial_authorities: Vec<(AccountId, AuraId, GrandpaId)>,
     root_key: AccountId,
