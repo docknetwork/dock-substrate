@@ -57,16 +57,6 @@
 //! This module implement partial replay protection to prevent unauthorized resubmission of votes
 //! from previous rounds.
 
-// REVIEWER: the Membership type is capable of soundly representing
-//           a superset of revoke::Policy::OneOf. Should we unify the
-//           types? It would make the revoke module more flexible and
-//           would be code re-use.
-// ```
-// enum Policy {
-//     Vote(Membership),
-// }
-// ```
-
 use crate::{
     did::{Did, DidSignature},
     StateChange,
