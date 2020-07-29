@@ -176,6 +176,12 @@ package = 'poa'
 path = '../pallets/poa'
 version = '0.0.1'
 
+[dependencies.token_migration]
+default-features = false
+package = 'token_migration'
+path = '../pallets/token_migration'
+version = '0.0.1'
+
 [features]
 default = ['std']
 std = [
@@ -207,6 +213,7 @@ std = [
     'pallet-sudo/std',
     'pallet-authorship/std',
     'poa/std',
+    'token_migration/std',
 ]
 
 [dev-dependencies]

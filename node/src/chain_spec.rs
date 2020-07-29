@@ -311,8 +311,8 @@ impl GenesisBuilder {
         let per_member_endowment: u128 = token_to_gas * 100_000_000;
 
         // Max emission per validator in an epoch
-        // 30K tokens
-        let max_emm_validator_epoch: u128 = token_to_gas * 30_000;
+        // 15K tokens
+        let max_emm_validator_epoch: u128 = token_to_gas * 15_000;
 
         self.validate().unwrap();
 

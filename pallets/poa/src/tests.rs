@@ -123,7 +123,6 @@ parameter_types! {
     pub const UncleGenerations: u32 = 0;
 }
 
-// TODO: Get rid of this and move fee deduction to poa module
 impl pallet_authorship::Trait for TestRuntime {
     type FindAuthor = TestAuthor;
     type UncleGenerations = UncleGenerations;

@@ -784,6 +784,7 @@ dependencies = [
  "sp-transaction-pool",
  "sp-version",
  "substrate-wasm-builder-runner",
+ "token_migration",
 ]
 
 [[package]]
@@ -3237,12 +3238,12 @@ version = "0.0.1"
 dependencies = [
  "frame-support",
  "frame-system",
- "log",
  "pallet-authorship",
  "pallet-balances",
  "pallet-session",
  "parity-scale-codec",
  "serde",
+ "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
@@ -5779,6 +5780,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c9d3793400a45f954c52e73d068316d76b6f4e36977e3fcebb13a2721e80237"
 dependencies = [
  "crunchy",
+]
+
+[[package]]
+name = "token_migration"
+version = "0.0.1"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
