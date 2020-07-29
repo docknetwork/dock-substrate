@@ -72,6 +72,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Dispatchable},
     ensure,
+    traits::Get,
     weights::GetDispatchInfo,
     Parameter,
 };
@@ -197,7 +198,7 @@ decl_module! {
         /// Setting the vote requirement to zero grants unrestricted root access to
         /// all accounts. It is not recomended to set the vote requirement to zero on a
         /// production chain.
-        #[weight = 10_000 + 1_000 * membership.members.len() as u64]
+        #[weight = 10_000 + T::DbWeight::get().reads_writes(1, 2)]
         pub fn set_members(
             origin,
             membership: Membership,
