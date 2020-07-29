@@ -79,7 +79,7 @@ use frame_support::{
 use system::{ensure_root, ensure_signed};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
-pub struct Vote {
+pub struct Payload {
     /// The serialized Call to be run as root.
     // REVIEWER: The type of this call is erased becuase vote needs to go in StateChange
     //           Adding vote to StateChange requires Statechange to be generic over either
@@ -89,7 +89,7 @@ pub struct Vote {
     //           that spans multiple modules. Coupling modules, for example, Revoke to Master,
     //           which is innapropriate.
     //
-    //           By erasing the type of Call we remove polkadotjs's ability to print "Vote" in
+    //           By erasing the type of Call we remove polkadotjs's ability to print "Payload" in
     //           a human comprehesible way.
     proposal: Vec<u8>,
     /// The round for which the vote is to be valid
@@ -226,7 +226,7 @@ impl<T: Trait> Module<T> {
             auth.keys().all(|k| membership.members.contains(k)),
             MasterError::<T>::NotMember,
         );
-        let payload = StateChange::MasterVote(Vote {
+        let payload = StateChange::MasterVote(Payload {
             proposal: proposal.encode(),
             round_no: Round::get(),
         })
@@ -362,7 +362,7 @@ mod test {
             let (didb, _didbk) = newdid();
             let (didc, didck) = newdid();
             let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Vote {
+            let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
             });
@@ -410,7 +410,7 @@ mod test {
         ext().execute_with(|| {
             let (dida, didak) = newdid();
             let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Vote {
+            let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
             });
@@ -436,7 +436,7 @@ mod test {
             let (didc, didck) = newdid();
             let kv = (vec![4; 200], vec![5; 200]);
             let call = TestCall::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
-            let sc = StateChange::MasterVote(Vote {
+            let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
             });
@@ -463,7 +463,7 @@ mod test {
             let (didb, didbk) = newdid();
             let (didc, didck) = newdid();
             let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Vote {
+            let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
             });
@@ -497,7 +497,7 @@ mod test {
             let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
 
             {
-                let sc = StateChange::MasterVote(Vote {
+                let sc = StateChange::MasterVote(Payload {
                     proposal: call.encode(),
                     round_no: 0,
                 });
@@ -510,7 +510,7 @@ mod test {
             }
 
             {
-                let sc = StateChange::MasterVote(Vote {
+                let sc = StateChange::MasterVote(Payload {
                     proposal: call.encode(),
                     round_no: 1,
                 });
@@ -535,7 +535,7 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Box::new(TestCall::System(system::Call::<Test>::set_storage(vec![])));
-            let sc = StateChange::MasterVote(Vote {
+            let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: 0,
             });
@@ -581,7 +581,7 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Box::new(TestCall::System(system::Call::<Test>::set_storage(vec![])));
-            let sc = StateChange::MasterVote(Vote {
+            let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: 0,
             });
@@ -604,7 +604,7 @@ mod test {
                 vote_requirement: 1,
             });
             let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Vote {
+            let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
             });
@@ -632,7 +632,7 @@ mod test {
             let (dida, didak) = newdid();
             let (didb, _didbk) = newdid();
             let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Vote {
+            let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
             });

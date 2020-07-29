@@ -87,7 +87,7 @@ pub enum StateChange {
     UnRevoke(revoke::UnRevoke),
     RemoveRegistry(revoke::RemoveRegistry),
     Blob(blob::Blob),
-    MasterVote(master::Vote),
+    MasterVote(master::Payload),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
