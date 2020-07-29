@@ -9,7 +9,7 @@ use hex_literal::hex;
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{ecdsa, sr25519, Pair, Public};
+use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
@@ -206,7 +206,7 @@ pub fn remote_testnet_config() -> ChainSpec {
             GenesisBuilder {
                 initial_authorities: vec![
                     (
-                        account_id_from_ss58::<ecdsa::Public>(
+                        account_id_from_ss58::<sr25519::Public>(
                             "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
                         ),
                         pubkey_from_ss58::<AuraId>(
@@ -217,7 +217,7 @@ pub fn remote_testnet_config() -> ChainSpec {
                         ),
                     ),
                     (
-                        account_id_from_ss58::<ecdsa::Public>(
+                        account_id_from_ss58::<sr25519::Public>(
                             "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
                         ),
                         pubkey_from_ss58::<AuraId>(
