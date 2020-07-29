@@ -217,11 +217,6 @@ impl<T: Trait> Module<T> {
 
         // check
         let membership = Members::get();
-        let payload = StateChange::MasterVote(Vote {
-            proposal: proposal.encode(),
-            round_no: Round::get(),
-        })
-        .encode();
         ensure!(
             auth.len() as u64 >= membership.vote_requirement,
             MasterError::<T>::InsufficientVotes,
@@ -230,6 +225,11 @@ impl<T: Trait> Module<T> {
             auth.keys().all(|k| membership.members.contains(k)),
             MasterError::<T>::NotMember,
         );
+        let payload = StateChange::MasterVote(Vote {
+            proposal: proposal.encode(),
+            round_no: Round::get(),
+        })
+        .encode();
         for (did, sig) in auth.iter() {
             let valid = crate::did::Module::<T>::verify_sig_from_did(sig, &payload, did)?;
             ensure!(valid, MasterError::<T>::BadSig);
