@@ -166,8 +166,7 @@ decl_module! {
         /// Execute a proposal that has received enough votes. The proposal is a serialized Call.
         /// This function can be called by anyone, even someone who is not a member of Master.
         ///
-        /// After a sucessful execution, the current round of votes is cleared and round number is
-        /// increased.
+        /// After a sucessful execution, the round number is increased.
         #[weight = 10_000 + proposal.get_dispatch_info().weight + 1_000 * auth.len() as u64]
         pub fn execute(
             origin,
