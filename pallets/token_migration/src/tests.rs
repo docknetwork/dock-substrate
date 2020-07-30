@@ -2,7 +2,7 @@ use super::*;
 
 use frame_support::sp_runtime::{
     testing::Header,
-    traits::{BlakeTwo256, ConvertInto, IdentityLookup},
+    traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
 use frame_support::{
@@ -56,6 +56,7 @@ impl system::Trait for TestRuntime {
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type SystemWeightInfo = ();
 }
 
 impl balances::Trait for TestRuntime {
@@ -64,6 +65,7 @@ impl balances::Trait for TestRuntime {
     type Event = ();
     type ExistentialDeposit = ();
     type AccountStore = System;
+    type WeightInfo = ();
 }
 
 impl Trait for TestRuntime {
@@ -167,7 +169,10 @@ fn migrate() {
         let recip_acc_5 = 5;
         let migrator_acc = 10;
 
-        <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc, 100);
+        #[allow(unused_must_use)] {
+            <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc, 100);
+        }
+
         MigrationModule::add_migrator(RawOrigin::Root.into(), migrator_acc, 4).unwrap();
 
         // No of recipients more than allowed migrations
