@@ -7,7 +7,7 @@ use frame_support::{
     dispatch::{DispatchInfo, Dispatchable, PostDispatchInfo},
     impl_outer_origin, parameter_types,
     traits::UnfilteredDispatchable,
-    weights::{DispatchClass, GetDispatchInfo, Weight, Pays},
+    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
 };
 use sp_core::{Pair, H256};
 use sp_runtime::{
