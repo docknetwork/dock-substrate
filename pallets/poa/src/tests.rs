@@ -643,7 +643,10 @@ fn txn_fees() {
         <TxnFees<TestRuntime>>::put(fees);
 
         // Award fees to author
-        assert_eq!(PoAModule::award_txn_fees_if_any(&val_id1), Some(fees));
+        assert_eq!(
+            PoAModule::award_txn_fees_if_any(&val_id1),
+            Some(fees as u128)
+        );
 
         // Only the author's balance should change
         assert_eq!(

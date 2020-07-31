@@ -2,6 +2,7 @@ use crate as dock;
 use crate::did::{self, Did, DidSignature};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
+use frame_support::weights::Weight;
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
 };
@@ -79,6 +80,23 @@ pub struct RemoveRegistry {
     pub last_modified: crate::BlockNumber,
 }
 
+/// Return counts of different signature types in given PAuth as 3-Tuple as (no. of Sr22519 sigs,
+/// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
+/// type is in `Weight` but realistically, it should fit in a u8
+pub fn count_sig_types(auth: &PAuth) -> (Weight, Weight, Weight) {
+    let mut sr = 0;
+    let mut ed = 0;
+    let mut secp = 0;
+    for sig in auth.values() {
+        match sig {
+            DidSignature::Sr25519(_) => sr += 1,
+            DidSignature::Ed25519(_) => ed += 1,
+            DidSignature::Secp256k1(_) => secp += 1,
+        }
+    }
+    (sr, ed, secp)
+}
+
 pub trait Trait: system::Trait + did::Trait {}
 
 decl_error! {
@@ -125,8 +143,7 @@ decl_module! {
         /// Returns an error if `id` is already in use as a registry id.
         ///
         /// Returns an error if `registry.policy` is invalid.
-        // TODO: Use correct weight offset by benchmarking
-        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 41_000_000]
         pub fn new_registry(
             origin,
             id: dock::revoke::RevokeId,
@@ -144,9 +161,10 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `revoke.registry_id`.
-        // TODO: Use correct weight offset by benchmarking. Use weight proportional to number of revoked credentials and in future consider
-        // no. of DIDs in PAuth
-        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64) + 75_000_000 + {
+            let (sr, ed, secp) = count_sig_types(&proof);
+            ((sr * 112_000_000) + (ed * 122_000_000) + (secp * 363_000_000)) as Weight
+        }]
         pub fn revoke(
             origin,
             revoke: dock::revoke::Revoke,
@@ -166,9 +184,10 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `unrevoke.registry_id`.
-        // TODO: Use correct weight offset by benchmarking. Use weight proportional to number of unrevoked credentials and in future consider
-        // no. of DIDs in PAuth
-        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64) + 75_000_000 + {
+            let (sr, ed, secp) = count_sig_types(&proof);
+            ((sr * 112_000_000) + (ed * 122_000_000) + (secp * 363_000_000)) as Weight
+        }]
         pub fn unrevoke(
             origin,
             unrevoke: dock::revoke::UnRevoke,
@@ -190,8 +209,10 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `removal.registry_id`.
-        // TODO: Use correct weight
-        #[weight = 0]
+        #[weight = T::DbWeight::get().reads_writes(1, 2) + 100_000_000 + {
+            let (sr, ed, secp) = count_sig_types(&proof);
+            ((sr * 112_000_000) + (ed * 122_000_000) + (secp * 363_000_000)) as Weight
+        }]
         pub fn remove_registry(
             origin,
             removal: dock::revoke::RemoveRegistry,

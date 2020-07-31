@@ -6,6 +6,7 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
+    weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
 
@@ -52,8 +53,13 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         /// Create a new immutable blob.
-        // TODO: Use correct weight offset by benchmarking and consider size of `blob.blob`
-        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + {
+            match signature {
+                did::DidSignature::Sr25519(_) => 150_000_000,
+                did::DidSignature::Ed25519(_) => 158_000_000,
+                did::DidSignature::Secp256k1(_) => 460_000_000
+            }
+        } + (1_000 * blob.blob.len()) as Weight]
         pub fn new(
             origin,
             blob: dock::blob::Blob,
