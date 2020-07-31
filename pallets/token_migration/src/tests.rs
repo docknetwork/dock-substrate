@@ -169,7 +169,8 @@ fn migrate() {
         let recip_acc_5 = 5;
         let migrator_acc = 10;
 
-        #[allow(unused_must_use)] {
+        #[allow(unused_must_use)]
+        {
             <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc, 100);
         }
 

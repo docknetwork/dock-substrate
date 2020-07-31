@@ -8,7 +8,7 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{
         print,
-        traits::{AccountIdConversion, Saturating, OpaqueKeys},
+        traits::{AccountIdConversion, OpaqueKeys, Saturating},
         ModuleId, SaturatedConversion,
     },
     traits::{
@@ -31,7 +31,7 @@ type SlotNo = u64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> =
-<<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
 
 #[cfg(test)]
 mod tests;
@@ -219,6 +219,7 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
+        BlockNumber = <T as system::Trait>::BlockNumber,
     {
         // New validator added in front of queue.
         ValidatorQueuedInFront(AccountId),
@@ -229,9 +230,17 @@ decl_event!(
         // Validator removed.
         ValidatorRemoved(AccountId),
 
-        EpochBegins(EpochNo, SlotNo),
+        // Validator swapped. Swapped out validator id and swapped in validator id
+        ValidatorSwapped(AccountId, AccountId),
 
+        // Epoch begins at slot and expected to end at slot
+        EpochBegins(EpochNo, SlotNo, SlotNo),
+
+        // Epoch ends at slot
         EpochEnds(EpochNo, SlotNo),
+
+        // Txn fees given to block author for a block no, (block no, validator id, fees)
+        TxnFeesGiven(BlockNumber, AccountId, u128),
     }
 );
 
@@ -317,8 +326,8 @@ decl_module! {
         /// Wights computation copied from session pallet's `set_keys` dispatchable
         /// # </weight>
         #[weight = (200_000_000
-			+ T::DbWeight::get().reads(2 + T::Keys::key_ids().len() as Weight)
-			+ T::DbWeight::get().writes(1 + T::Keys::key_ids().len() as Weight), Pays::No)]
+            + T::DbWeight::get().reads(2 + T::Keys::key_ids().len() as Weight)
+            + T::DbWeight::get().writes(1 + T::Keys::key_ids().len() as Weight), Pays::No)]
         pub fn set_session_key(origin, validator_id: T::AccountId, keys: T::Keys) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             <pallet_session::Module<T>>::set_keys(RawOrigin::Signed(validator_id).into(), keys, [].to_vec())
@@ -412,7 +421,7 @@ decl_module! {
 
         /// Awards the complete txn fees to the block author if any and increment block count for
         /// current epoch and who authored it.
-        fn on_finalize() {
+        fn on_finalize(block_no: T::BlockNumber) {
             // ------------- DEBUG START -------------
             debug!(
                 target: "runtime",
@@ -423,9 +432,14 @@ decl_module! {
             // Get the current block author
             let author = <pallet_authorship::Module<T>>::author();
 
-            Self::award_txn_fees_if_any(&author);
+            let fees = Self::award_txn_fees_if_any(&author);
 
-            Self::increment_current_epoch_block_count(author)
+            Self::increment_current_epoch_block_count(author.clone());
+
+            fees.and_then(|f| {
+                Self::deposit_event(RawEvent::TxnFeesGiven(block_no, author, f));
+                Option::<u128>::default()
+            });
         }
     }
 }
@@ -552,7 +566,11 @@ impl<T: Trait> Module<T> {
             fail!(Error::<T>::SwapOutFailed)
         }
 
-        <HotSwap<T>>::put((old_validator_id, new_validator_id));
+        <HotSwap<T>>::put((old_validator_id.clone(), new_validator_id.clone()));
+        Self::deposit_event(RawEvent::ValidatorSwapped(
+            old_validator_id,
+            new_validator_id,
+        ));
         Ok(())
     }
 
@@ -781,7 +799,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// If there is any transaction fees, credit it to the given author
-    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<SlotNo> {
+    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<u128> {
         // ------------- DEBUG START -------------
         let current_block_no = <system::Module<T>>::block_number();
         debug!(
@@ -800,7 +818,7 @@ impl<T: Trait> Module<T> {
         // ------------- DEBUG END -------------
 
         let txn_fees = <TxnFees<T>>::take();
-        let fees_as_u64 = txn_fees.saturated_into::<u64>();
+        let fees_as_u64 = txn_fees.saturated_into::<u128>();
         if fees_as_u64 > 0 {
             print("Depositing fees");
             // `deposit_creating` will do the issuance of tokens burnt during transaction fees
@@ -1162,15 +1180,16 @@ impl<T: Trait> Module<T> {
             current_epoch_no, current_slot_no
         );
         Epoch::put(current_epoch_no);
+        let expected_ending = Self::epoch_ends_at();
         Epochs::insert(
             current_epoch_no,
-            EpochDetail::new(
-                active_validator_count,
-                current_slot_no,
-                Self::epoch_ends_at(),
-            ),
+            EpochDetail::new(active_validator_count, current_slot_no, expected_ending),
         );
-        Self::deposit_event(RawEvent::EpochBegins(current_epoch_no, current_slot_no));
+        Self::deposit_event(RawEvent::EpochBegins(
+            current_epoch_no,
+            current_slot_no,
+            expected_ending,
+        ));
     }
 
     /// The validator set needs to update, either due to swap or epoch end.

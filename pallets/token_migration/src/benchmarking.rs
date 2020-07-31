@@ -26,7 +26,7 @@ benchmarks! {
             let existential_deposit: BalanceOf<T> = 500.into();
             let migrator: T::AccountId = account("caller", u, SEED);
             let balance = existential_deposit.saturating_mul(120.into());
-		    let _ = T::Currency::make_free_balance_be(&migrator, balance);
+            let _ = T::Currency::make_free_balance_be(&migrator, balance);
 
             // Setup recipients
             let mut recipients = BTreeMap::new();

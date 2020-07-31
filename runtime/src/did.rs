@@ -275,8 +275,7 @@ decl_module! {
         /// Create a new DID.
         /// `did` is the new DID to create. The method will fail if `did` is already registered.
         /// `detail` is the details of the key like its type, controller and value
-        // TODO: Use correct weight offset by benchmarking
-        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + 36_000_000]
         pub fn new(origin, did: dock::did::Did, detail: dock::did::KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -300,8 +299,17 @@ decl_module! {
         ///
         /// [statechange]: ../enum.StateChange.html
         /// [keyupdate]: ./struct.KeyUpdate.html
-        // TODO: Use correct weight offset by benchmarking
-        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
+        /// # <weight>
+        /// This call requires a signature verification and the cost of verification varies by type
+        /// of signature
+        /// # </weight>
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + {
+            match signature {
+                DidSignature::Sr25519(_) => 140_000_000,
+                DidSignature::Ed25519(_) => 152_000_000,
+                DidSignature::Secp256k1(_) => 456_000_000
+            }
+        }]
         pub fn update_key(
             origin,
             key_update: dock::did::KeyUpdate,
@@ -354,8 +362,18 @@ decl_module! {
         ///
         /// [statechange]: ../enum.StateChange.html
         /// [didremoval]: ./struct.DidRemoval.html
-        // TODO: Benchmark db removal. Makes sense to give some fees back?
-        #[weight = 0]
+        // TODO: Makes sense to give some fees back?
+        /// # <weight>
+        /// This call requires a signature verification and the cost of verification varies by type
+        /// of signature
+        /// # </weight>
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + {
+            match signature {
+                DidSignature::Sr25519(_) => 135_000_000,
+                DidSignature::Ed25519(_) => 150_000_000,
+                DidSignature::Secp256k1(_) => 450_000_000
+            }
+        }]
         pub fn remove(
             origin,
             to_remove: dock::did::DidRemoval,
