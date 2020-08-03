@@ -635,70 +635,82 @@ impl<T: Trait> Module<T> {
         // Remove any validators that need to be removed.
         let validators_to_remove = <RemoveValidators<T>>::take();
 
+        // Need these flags as the debugging variables will `count_added` and `count_removed` be removed.
         let mut active_validator_set_changed = false;
         let mut queued_validator_set_changed = false;
 
-        // If any validator is to be added or removed
-        if (!validators_to_remove.is_empty()) || (!validators_to_add.is_empty()) {
-            // TODO: Remove debugging variable below
-            let mut count_removed = 0;
+        // If any validator is to be added or removed. This can happen if the there are any validators
+        // to remove or there are validators to add or the no. of active validators is greater than max
+        // allowed active validators
+        // TODO: Remove debugging variable below
+        let mut count_removed = 0;
 
-            // Remove the validators from active validator set or the queue.
-            // The size of the 3 vectors is ~15 so multiple iterations are ok.
-            // If they were bigger, `validators_to_remove` should be turned into a set and then
-            // iterate over `validators_to_add` and `active_validators` only once removing any id
-            // present in the set.
-            for v in validators_to_remove {
-                let removed_active = Self::remove_validator_id(&v, &mut active_validators);
-                if removed_active > 0 {
-                    active_validator_set_changed = true;
-                    count_removed += 1;
-                } else {
-                    // The `add_validator` ensures that a validator id cannot be part of both active
-                    // validator set and queued validators
-                    let removed_queued = Self::remove_validator_id(&v, &mut validators_to_add);
-                    if removed_queued > 0 {
-                        queued_validator_set_changed = true;
-                    }
-                }
-            }
-
-            let max_validators = Self::get_and_set_max_active_validators_on_epoch_end() as usize;
-
-            // TODO: Remove debugging variable below
-            let mut count_added = 0u32;
-
-            // Make any queued validators active.
-            while (active_validators.len() < max_validators) && (!validators_to_add.is_empty()) {
-                let new_val = validators_to_add.remove(0);
-                // Check if the validator to add is not already active. The check is needed as a swap
-                // might make a validator as active which is already present in the queue.
-                if !active_validators.contains(&new_val) {
-                    active_validator_set_changed = true;
+        // Remove the validators from active validator set or the queue.
+        // The size of the 3 vectors is ~15 so multiple iterations are ok.
+        // If they were bigger, `validators_to_remove` should be turned into a set and then
+        // iterate over `validators_to_add` and `active_validators` only once removing any id
+        // present in the set.
+        for v in validators_to_remove {
+            let removed_active = Self::remove_validator_id(&v, &mut active_validators);
+            if removed_active > 0 {
+                active_validator_set_changed = true;
+                count_removed += 1;
+            } else {
+                // The `add_validator` ensures that a validator id cannot be part of both active
+                // validator set and queued validators
+                let removed_queued = Self::remove_validator_id(&v, &mut validators_to_add);
+                if removed_queued > 0 {
                     queued_validator_set_changed = true;
-                    active_validators.push(new_val);
-                    count_added += 1;
                 }
             }
-
-            // Only write if queued_validator_set_changed
-            if queued_validator_set_changed {
-                <QueuedValidators<T>>::put(validators_to_add);
-            }
-
-            let active_validator_count = active_validators.len() as u8;
-            if active_validator_set_changed {
-                debug!(
-                    target: "runtime",
-                    "Active validator set changed, rotating session. Added {} and removed {}",
-                    count_added, count_removed
-                );
-                <ActiveValidators<T>>::put(active_validators);
-            }
-            (active_validator_set_changed, active_validator_count)
-        } else {
-            (false, active_validators.len() as u8)
         }
+
+        // Get max allowed active validators
+        let max_validators = Self::get_and_set_max_active_validators_on_epoch_end() as usize;
+
+        // TODO: Remove debugging variable below
+        let mut count_added = 0u32;
+
+        // Make any queued validators active.
+        while (active_validators.len() < max_validators) && (!validators_to_add.is_empty()) {
+            let new_val = validators_to_add.remove(0);
+            // Check if the validator to add is not already active. The check is needed as a swap
+            // might make a validator as active which is already present in the queue.
+            if !active_validators.contains(&new_val) {
+                active_validators.push(new_val);
+                active_validator_set_changed = true;
+                queued_validator_set_changed = true;
+                count_added += 1;
+            }
+        }
+
+        // When max active validators is decreased (through `MaxActiveValidators`), appropriate no.
+        // of active validators are moved to the front of the queued validators
+        while active_validators.len() > max_validators {
+            // `pop` will never return None as its ensured that neither `active_validators` can be
+            // empty nor `max_validators` can be 0.
+            let validator_id = active_validators.pop().unwrap();
+            validators_to_add.insert(0, validator_id);
+            active_validator_set_changed = true;
+            queued_validator_set_changed = true;
+            count_removed += 1;
+        }
+
+        // Only write if queued_validator_set_changed
+        if queued_validator_set_changed {
+            <QueuedValidators<T>>::put(validators_to_add);
+        }
+
+        let active_validator_count = active_validators.len() as u8;
+        if active_validator_set_changed {
+            debug!(
+                target: "runtime",
+                "Active validator set changed, rotating session. Added {} and removed {}",
+                count_added, count_removed
+            );
+            <ActiveValidators<T>>::put(active_validators);
+        }
+        (active_validator_set_changed, active_validator_count)
     }
 
     /// Set next epoch duration such that it is >= `MinEpochLength` and also a multiple of the

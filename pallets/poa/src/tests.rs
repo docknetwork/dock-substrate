@@ -1668,6 +1668,57 @@ fn config_set_by_master() {
 }
 
 #[test]
+fn validator_set_change_on_max_active_validator_change() {
+    new_test_ext().execute_with(|| {
+        // The active validator set should increase and decrease as `MaxActiveValidators` increases
+        // or decreases
+
+        // Max validators allowed is 4
+        let val_id1 = 1;
+        let val_id2 = 2;
+        let val_id3 = 3;
+        let val_id4 = 4;
+        let val_id5 = 5;
+
+        // Add 5 validators
+        for id in &[val_id1, val_id2, val_id3, val_id4, val_id5] {
+            PoAModule::add_validator_(*id, false).unwrap();
+        }
+        // Only 4 become active as that is the maximum active validators
+        let (active_validator_set_changed, active_validator_count) =
+            PoAModule::update_active_validators_if_needed();
+        assert!(active_validator_set_changed);
+        assert_eq!(active_validator_count, 4);
+
+        // Increase maximum active validators count to 5
+        assert_ok!(PoAModule::set_max_active_validators(
+            RawOrigin::Root.into(),
+            5
+        ));
+
+        // 5 validators should be active now
+        let (active_validator_set_changed, active_validator_count) =
+            PoAModule::update_active_validators_if_needed();
+        assert!(active_validator_set_changed);
+        assert_eq!(active_validator_count, 5);
+
+        // Decrease maximum active validators count to 3
+        assert_ok!(PoAModule::set_max_active_validators(
+            RawOrigin::Root.into(),
+            3
+        ));
+
+        // 3 validators should be active now
+        let (active_validator_set_changed, active_validator_count) =
+            PoAModule::update_active_validators_if_needed();
+        assert!(active_validator_set_changed);
+        assert_eq!(active_validator_count, 3);
+
+        assert_eq!(PoAModule::validators_to_add(), vec![val_id4, val_id5]);
+    });
+}
+
+#[test]
 fn expected_treasury_account_id() {
     use sp_runtime::traits::AccountIdConversion;
     assert_eq!(

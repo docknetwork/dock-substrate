@@ -962,7 +962,7 @@ checksum = "fea41bba32d969b513997752735605054bc0dfa92b4c56bf1189f2e174be7a10"
 
 [[package]]
 name = "dock-testnet"
-version = "2.0.0-rc4"
+version = "2.0.0-rc5"
 dependencies = [
  "dock-testnet-runtime",
  "frame-benchmarking",
@@ -993,7 +993,7 @@ dependencies = [
 
 [[package]]
 name = "dock-testnet-runtime"
-version = "2.0.0-rc4"
+version = "2.0.0-rc5"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
