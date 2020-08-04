@@ -1,3 +1,6 @@
+//! This module contains functions to return hardcoded data for keys and signatures as key generation
+//! and signing are not possible during benchmarking.
+
 #[cfg(feature = "runtime-benchmarks")]
 use sp_std::prelude::Vec;
 
@@ -309,7 +312,7 @@ pub fn get_data_for_did_removal(
     }
 }
 
-/// Get data for signature verification
+/// Get hardcoded data for signature verification
 pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSignature) {
     assert!(typ < 3);
     assert!(index < DID_DATA_SIZE);
@@ -472,6 +475,7 @@ pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSi
     }
 }
 
+/// Get hardcoded data for revocation
 pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, DidSignature) {
     assert!(index < REV_DATA_SIZE);
     let pk: [u8; 32] = [
@@ -554,6 +558,7 @@ pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, 
     }
 }
 
+/// Get hardcoded data for unrevocation
 pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, DidSignature) {
     assert!(index < REV_DATA_SIZE);
     let pk: [u8; 32] = [
@@ -636,6 +641,7 @@ pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>
     }
 }
 
+/// Get hardcoded data for registry removal
 pub fn get_data_for_remove() -> (u32, PublicKey, DidSignature) {
     let pk: [u8; 32] = [
         218, 250, 63, 166, 122, 73, 74, 124, 18, 228, 65, 176, 211, 158, 182, 63, 53, 223, 199,
@@ -654,6 +660,7 @@ pub fn get_data_for_remove() -> (u32, PublicKey, DidSignature) {
     )
 }
 
+/// Get hardcoded data for blob creation
 pub fn get_data_for_blob(
     index: usize,
 ) -> (

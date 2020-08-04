@@ -5,21 +5,21 @@
 #![recursion_limit = "256"]
 
 // Make the WASM_BINARY available, but hide WASM_BINARY_BLOATY.
-/*#[cfg(feature = "std")]
+#[cfg(feature = "std")]
 mod wasm {
     include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+    // The following assignment is to silence compiler warning for unused variable while not
+    // exposing `WASM_BINARY_BLOATY` as public
     #[allow(dead_code)]
-    const _: &[u8] = &WASM_BINARY_BLOATY;
+    const _: Option<&[u8]> = WASM_BINARY_BLOATY;
 }
 #[cfg(feature = "std")]
-pub use wasm::WASM_BINARY;*/
-#[cfg(feature = "std")]
-include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+pub use wasm::WASM_BINARY;
 
 extern crate alloc;
 
 #[cfg(feature = "runtime-benchmarks")]
-pub mod benchmark_utils;
+mod benchmark_utils;
 pub mod blob;
 pub mod did;
 pub mod revoke;
@@ -279,7 +279,6 @@ impl sudo::Trait for Runtime {
 
 impl did::Trait for Runtime {
     type Event = Event;
-    //type DIDByteSize = DIDByteSize;
 }
 
 impl revoke::Trait for Runtime {}
