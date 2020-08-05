@@ -28,6 +28,8 @@ use alloc::collections::{BTreeMap, BTreeSet};
 type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;
+type Balance = u64;
+
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> =
@@ -52,11 +54,11 @@ pub struct EpochDetail {
     /// ending slot when the network halts (crashes)
     pub ending_slot: Option<SlotNo>,
     /// Total emission rewards for all the validators in the epoch
-    pub emission_for_validators: Option<u128>,
+    pub emission_for_validators: Option<Balance>,
     /// Emission rewards for the treasury in the epoch
-    pub emission_for_treasury: Option<u128>,
+    pub emission_for_treasury: Option<Balance>,
     /// Total (validators + treasury) emission rewards for the epoch
-    pub total_emission: Option<u128>,
+    pub total_emission: Option<Balance>,
 }
 
 /// Details per epoch per validator
@@ -68,9 +70,9 @@ pub struct ValidatorStatsPerEpoch {
     /// reserved balance (by calling `Balances::reserve`) of the validator. When unlocking (during PoS),
     /// we move this reserved balance to free balance (by calling `Balances::unreserve` and pass amount)
     /// for each epoch since beginning, thus giving us the gradual release functionality.
-    pub locked_reward: Option<u128>,
+    pub locked_reward: Option<Balance>,
     /// Amount of unlocked rewards earned by the validator in the epoch.
-    pub unlocked_reward: Option<u128>,
+    pub unlocked_reward: Option<Balance>,
 }
 
 impl EpochDetail {
@@ -240,7 +242,7 @@ decl_event!(
         EpochEnds(EpochNo, SlotNo),
 
         // Txn fees given to block author for a block no, (block no, validator id, fees)
-        TxnFeesGiven(BlockNumber, AccountId, u128),
+        TxnFeesGiven(BlockNumber, AccountId, Balance),
     }
 );
 
@@ -389,7 +391,7 @@ decl_module! {
 
         /// Set the maximum emission rewards per validator per epoch.
         #[weight = (T::DbWeight::get().writes(1), Pays::No)]
-        pub fn set_max_emm_validator_epoch(origin, emission: u128) -> dispatch::DispatchResult {
+        pub fn set_max_emm_validator_epoch(origin, emission: Balance) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             <MaxEmmValidatorEpoch<T>>::put(emission.saturated_into::<BalanceOf<T>>());
             Ok(())
@@ -438,7 +440,7 @@ decl_module! {
 
             fees.and_then(|f| {
                 Self::deposit_event(RawEvent::TxnFeesGiven(block_no, author, f));
-                Option::<u128>::default()
+                Option::<Balance>::default()
             });
         }
     }
@@ -811,7 +813,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// If there is any transaction fees, credit it to the given author
-    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<u128> {
+    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<Balance> {
         // ------------- DEBUG START -------------
         let current_block_no = <system::Module<T>>::block_number();
         debug!(
@@ -830,7 +832,7 @@ impl<T: Trait> Module<T> {
         // ------------- DEBUG END -------------
 
         let txn_fees = <TxnFees<T>>::take();
-        let fees_as_u64 = txn_fees.saturated_into::<u128>();
+        let fees_as_u64 = txn_fees.saturated_into::<Balance>();
         if fees_as_u64 > 0 {
             print("Depositing fees");
             // `deposit_creating` will do the issuance of tokens burnt during transaction fees
@@ -942,26 +944,26 @@ impl<T: Trait> Module<T> {
     fn get_max_emission_reward_per_validator_per_epoch(
         expected_slots_per_validator: EpochLen,
         slots_per_validator: EpochLen,
-    ) -> u128 {
+    ) -> Balance {
         // Maximum emission reward for each validator in an epoch assuming epoch was at least `MinEpochLength`
-        let max_em = Self::max_emm_validator_epoch().saturated_into::<u128>();
+        let max_em = Self::max_emm_validator_epoch().saturated_into::<Balance>();
         if slots_per_validator != expected_slots_per_validator {
             // Reduce the emission for shorter epoch
             max_em.saturating_mul(slots_per_validator.into())
-                / (expected_slots_per_validator as u128)
+                / (expected_slots_per_validator as Balance)
         } else {
             max_em
         }
     }
 
     /// Calculate reward for treasury in an epoch given total reward for validators
-    fn calculate_treasury_reward(total_validator_reward: u128) -> u128 {
-        let treasury_reward_pc = Self::treasury_reward_pc() as u128;
+    fn calculate_treasury_reward(total_validator_reward: Balance) -> Balance {
+        let treasury_reward_pc = Self::treasury_reward_pc() as Balance;
         (total_validator_reward.saturating_mul(treasury_reward_pc)) / 100
     }
 
     /// Credit locked balance to validator's account as reserved balance
-    fn credit_locked_emission_rewards_to_validator(validator: &T::AccountId, locked: u128) {
+    fn credit_locked_emission_rewards_to_validator(validator: &T::AccountId, locked: Balance) {
         // Only proceed if locked balance > 0 as we don't care about positive imbalances (0 or otherwise)
         if locked > 0 {
             let locked_bal = locked.saturated_into();
@@ -976,8 +978,8 @@ impl<T: Trait> Module<T> {
     /// Credit unlocked and locked balance to validator's account
     fn credit_emission_rewards_to_validator(
         validator: &T::AccountId,
-        locked: u128,
-        unlocked: u128,
+        locked: Balance,
+        unlocked: Balance,
     ) {
         T::Currency::deposit_creating(validator, unlocked.saturated_into());
         Self::credit_locked_emission_rewards_to_validator(validator, locked)
@@ -990,17 +992,17 @@ impl<T: Trait> Module<T> {
         expected_slots_per_validator: EpochLen,
         slots_per_validator: EpochLen,
         validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
-    ) -> u128 {
-        let mut total_validator_reward = 0u128;
+    ) -> Balance {
+        let mut total_validator_reward = 0 as Balance;
         // Maximum emission per validator in this epoch
         let max_em = Self::get_max_emission_reward_per_validator_per_epoch(
             expected_slots_per_validator,
             slots_per_validator,
         );
-        let lock_pc = Self::validator_reward_lock_pc() as u128;
+        let lock_pc = Self::validator_reward_lock_pc() as Balance;
         for (v, block_count) in validator_block_counts {
             // The actual emission rewards depends on the availability, i.e. ratio of blocks produced to slots available
-            let reward = max_em.saturating_mul(block_count.into()) / (slots_per_validator as u128);
+            let reward = max_em.saturating_mul(block_count.into()) / (slots_per_validator as Balance);
 
             /*print(reward as u64);
             let reward: u128 = FixedU128::saturating_from_rational(reward, slots_per_validator).into_inner().into();
@@ -1025,7 +1027,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Mint emission rewards for treasury and credit to the treasury account
-    fn mint_treasury_emission_rewards(total_validator_reward: u128) -> u128 {
+    fn mint_treasury_emission_rewards(total_validator_reward: Balance) -> Balance {
         let treasury_reward = Self::calculate_treasury_reward(total_validator_reward);
         T::Currency::deposit_creating(&Self::treasury_account(), treasury_reward.saturated_into());
         treasury_reward
@@ -1077,7 +1079,7 @@ impl<T: Trait> Module<T> {
         let total_reward = total_validator_reward.saturating_add(treasury_reward);
 
         // Subtract from total supply
-        let mut emission_supply = <EmissionSupply<T>>::take().saturated_into::<u128>();
+        let mut emission_supply = <EmissionSupply<T>>::take().saturated_into::<Balance>();
         emission_supply = emission_supply.saturating_sub(total_reward);
         <EmissionSupply<T>>::put(emission_supply.saturated_into::<BalanceOf<T>>());
 
@@ -1110,7 +1112,7 @@ impl<T: Trait> Module<T> {
             return false;
         }
         // Emission is enabled, move on
-        let emission_supply = Self::emission_supply().saturated_into::<u128>();
+        let emission_supply = Self::emission_supply().saturated_into::<Balance>();
         // The check below is not accurate as the remaining emission supply might be > 0 but not sufficient
         // to reward all validators and treasury; we would be over-issuing in that case. This is not a
         // concern for us as the supply won't go down for the life of the PoA network. A more accurate

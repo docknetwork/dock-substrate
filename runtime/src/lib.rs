@@ -71,8 +71,7 @@ type Signature = MultiSignature;
 type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Balance of an account.
-// TODO: u64 should be sufficient
-type Balance = u128;
+pub type Balance = u64;
 
 /// Index of a transaction in the chain.
 type Index = u32;
@@ -246,7 +245,7 @@ impl timestamp::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const ExistentialDeposit: u128 = 500;
+    pub const ExistentialDeposit: Balance = 500;
 }
 
 impl balances::Trait for Runtime {
