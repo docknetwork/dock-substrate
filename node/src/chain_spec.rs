@@ -1,6 +1,6 @@
 use dock_testnet_runtime::{
     opaque::SessionKeys, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, PoAModuleConfig,
-    SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    SessionConfig, SudoConfig, SystemConfig, WASM_BINARY, Balance
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
@@ -295,16 +295,16 @@ fn testnet_genesis(
         .unwrap();
 
     // 1 token is 25000000 gas
-    let token_to_gas: u128 = 25_000_000;
+    let token_to_gas: Balance = 25_000_000;
     // 200M tokens
-    let emission_supply: u128 = token_to_gas * 200_000_000;
+    let emission_supply: Balance = token_to_gas * 200_000_000;
     // TODO: This needs to be tweaked once we know all exchanges
     // 100M tokens
-    let per_member_endowment: u128 = token_to_gas * 100_000_000;
+    let per_member_endowment: Balance = token_to_gas * 100_000_000;
 
     // Max emission per validator in an epoch
     // 30K tokens
-    let max_emm_validator_epoch: u128 = token_to_gas * 15_000;
+    let max_emm_validator_epoch: Balance = token_to_gas * 15_000;
 
     GenesisConfig {
         system: Some(SystemConfig {

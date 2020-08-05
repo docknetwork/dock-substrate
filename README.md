@@ -64,4 +64,7 @@ cargo run -- --help
 
 ## Polkadot-js UI
 
-The [polkadot-js UI](https://polkadot.js.org/apps) UI can be used to interact with the dock network through a locally running node. Some custom types will need to be specified in the `Settings > Developer` section of the UI. The definitions for these types can currently be found in [types.json file](https://github.com/docknetwork/sdk/blob/master/src/types.json). (No guarantees that file will stay up to date though.)
+The [polkadot-js UI](https://polkadot.js.org/apps) UI can be used to interact with the dock network through a locally running node. 
+Some custom types will need to be specified in the `Settings > Developer` section of the UI. The definitions for these types 
+can currently be found in the [types.json](types.json) file. These same types are used in the [SDK](https://github.com/docknetwork/sdk/blob/master/src/types.json) 
+as well. 

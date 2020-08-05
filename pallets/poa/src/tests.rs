@@ -31,7 +31,7 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
-    pub const TransactionByteFee: u128 = 1;
+    pub const TransactionByteFee: Balance = 1;
 }
 
 impl system::Trait for TestRuntime {
@@ -645,7 +645,7 @@ fn txn_fees() {
         // Award fees to author
         assert_eq!(
             PoAModule::award_txn_fees_if_any(&val_id1),
-            Some(fees as u128)
+            Some(fees as Balance)
         );
 
         // Only the author's balance should change
@@ -1003,7 +1003,7 @@ fn treasury_emission_reward() {
     new_test_ext().execute_with(|| {
         TreasuryRewardsPercent::put(60);
 
-        let mut balance_current = PoAModule::treasury_balance().saturated_into::<u128>();
+        let mut balance_current = PoAModule::treasury_balance().saturated_into::<Balance>();
         assert_eq!(balance_current, 0);
 
         for (validator_reward, treasury_reward) in &[
@@ -1019,7 +1019,7 @@ fn treasury_emission_reward() {
         ] {
             let reward = PoAModule::mint_treasury_emission_rewards(*validator_reward);
             assert_eq!(reward, *treasury_reward);
-            let balance_new = PoAModule::treasury_balance().saturated_into::<u128>();
+            let balance_new = PoAModule::treasury_balance().saturated_into::<Balance>();
             assert_eq!(balance_new - balance_current, reward);
             balance_current = balance_new;
         }
@@ -1032,36 +1032,36 @@ fn treasury_withdrawal() {
         TreasuryRewardsPercent::put(60);
         let acc_id = 1;
 
-        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 0);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<Balance>(), 0);
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&acc_id).saturated_into::<u128>(),
+            <TestRuntime as Trait>::Currency::free_balance(&acc_id).saturated_into::<Balance>(),
             0
         );
 
         PoAModule::mint_treasury_emission_rewards(1000);
-        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 600);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<Balance>(), 600);
 
         PoAModule::withdraw_from_treasury_(acc_id, 100).unwrap();
-        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 500);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<Balance>(), 500);
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&acc_id).saturated_into::<u128>(),
+            <TestRuntime as Trait>::Currency::free_balance(&acc_id).saturated_into::<Balance>(),
             100
         );
 
         PoAModule::mint_treasury_emission_rewards(200);
-        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 620);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<Balance>(), 620);
 
         PoAModule::withdraw_from_treasury_(acc_id, 600).unwrap();
-        assert_eq!(PoAModule::treasury_balance().saturated_into::<u128>(), 20);
+        assert_eq!(PoAModule::treasury_balance().saturated_into::<Balance>(), 20);
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&acc_id).saturated_into::<u128>(),
+            <TestRuntime as Trait>::Currency::free_balance(&acc_id).saturated_into::<Balance>(),
             700
         );
 
         // Cannot withdraw beyond the treasury's balance
         assert!(PoAModule::withdraw_from_treasury_(acc_id, 21).is_err());
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&acc_id).saturated_into::<u128>(),
+            <TestRuntime as Trait>::Currency::free_balance(&acc_id).saturated_into::<Balance>(),
             700
         );
     });
@@ -1073,9 +1073,9 @@ fn validator_rewards_credit() {
         let val_id = 1;
 
         let balance_f_1 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id).saturated_into::<Balance>();
         let balance_r_1 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id).saturated_into::<Balance>();
         assert_eq!(balance_f_1, 0);
         assert_eq!(balance_r_1, 0);
 
@@ -1086,9 +1086,9 @@ fn validator_rewards_credit() {
 
         // The locked and unlocked balances should be reflected as reserve and free balances respectively
         let balance_f_2 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id).saturated_into::<Balance>();
         let balance_r_2 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id).saturated_into::<Balance>();
         assert_eq!(balance_f_2, unlocked_1);
         assert_eq!(balance_r_2, locked_1);
 
@@ -1099,22 +1099,22 @@ fn validator_rewards_credit() {
 
         // The locked and unlocked balances should be reflected as reserve and free balances respectively
         let balance_f_3 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id).saturated_into::<Balance>();
         let balance_r_3 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id).saturated_into::<Balance>();
         assert_eq!(balance_f_3, unlocked_1 + unlocked_2);
         assert_eq!(balance_r_3, locked_1 + locked_2);
 
         // Unreserve some funds and check they can be unreserved and free and reserved balances get updated
         let unreserve = 125;
         let cannot_unreserve =
-            <TestRuntime as Trait>::Currency::unreserve(&val_id, 125).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::unreserve(&val_id, 125).saturated_into::<Balance>();
         assert_eq!(cannot_unreserve, 0);
 
         let balance_f_4 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id).saturated_into::<Balance>();
         let balance_r_4 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id).saturated_into::<Balance>();
         assert_eq!(balance_f_4, unlocked_1 + unlocked_2 + unreserve);
         assert_eq!(balance_r_4, locked_1 + locked_2 - unreserve);
     });
@@ -1153,11 +1153,11 @@ fn validator_rewards_for_non_empty_epoch() {
             );
         assert_eq!(total_validator_reward, 0);
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>(),
+            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<Balance>(),
             0
         );
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>(),
+            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<Balance>(),
             0
         );
 
@@ -1182,13 +1182,13 @@ fn validator_rewards_for_non_empty_epoch() {
         assert_eq!(total_validator_reward, 500);
         // 20% balance remains reserved, rest is free
         let bal_id1_f0 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<Balance>();
         let bal_id1_r0 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<Balance>();
         let bal_id2_f0 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<Balance>();
         let bal_id2_r0 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<Balance>();
         assert_eq!(bal_id1_f0, 200);
         assert_eq!(bal_id1_r0, 50);
         assert_eq!(bal_id2_f0, 200);
@@ -1223,13 +1223,13 @@ fn validator_rewards_for_non_empty_epoch() {
         assert_eq!(total_validator_reward, 1000);
         // 20% balance remains reserved, rest is free
         let bal_id1_f1 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<Balance>();
         let bal_id1_r1 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<Balance>();
         let bal_id2_f1 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<Balance>();
         let bal_id2_r1 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<Balance>();
         assert_eq!(bal_id1_f1 - bal_id1_f0, 400);
         assert_eq!(bal_id1_r1 - bal_id1_r0, 100);
         assert_eq!(bal_id2_f1 - bal_id2_f0, 400);
@@ -1264,13 +1264,13 @@ fn validator_rewards_for_non_empty_epoch() {
         assert_eq!(total_validator_reward, 832);
         // 20% balance remains reserved, rest is free
         let bal_id1_f2 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<Balance>();
         let bal_id1_r2 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<Balance>();
         let bal_id2_f2 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<Balance>();
         let bal_id2_r2 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<Balance>();
         assert_eq!(bal_id1_f2 - bal_id1_f1, 333);
         assert_eq!(bal_id1_r2 - bal_id1_r1, 83);
         assert_eq!(bal_id2_f2 - bal_id2_f1, 333);
@@ -1305,13 +1305,13 @@ fn validator_rewards_for_non_empty_epoch() {
         assert_eq!(total_validator_reward, 624);
         // 20% balance remains reserved, rest is free
         let bal_id1_f3 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<Balance>();
         let bal_id1_r3 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<Balance>();
         let bal_id2_f3 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<Balance>();
         let bal_id2_r3 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<Balance>();
         assert_eq!(bal_id1_f3 - bal_id1_f2, 250);
         assert_eq!(bal_id1_r3 - bal_id1_r2, 62);
         assert_eq!(bal_id2_f3 - bal_id2_f2, 250);
@@ -1352,13 +1352,13 @@ fn validator_rewards_for_non_empty_epoch() {
         assert_eq!(total_validator_reward, 833);
         // 20% balance remains reserved, rest is free
         let bal_id1_f4 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<Balance>();
         let bal_id1_r4 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<Balance>();
         let bal_id2_f4 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<Balance>();
         let bal_id2_r4 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<Balance>();
         assert_eq!(bal_id1_f4 - bal_id1_f3, 400);
         assert_eq!(bal_id1_r4 - bal_id1_r3, 100);
         assert_eq!(bal_id2_f4 - bal_id2_f3, 267);
@@ -1393,13 +1393,13 @@ fn validator_rewards_for_non_empty_epoch() {
         assert_eq!(total_validator_reward, 693);
         // 20% balance remains reserved, rest is free
         let bal_id1_f5 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<Balance>();
         let bal_id1_r5 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id1).saturated_into::<Balance>();
         let bal_id2_f5 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<Balance>();
         let bal_id2_r5 =
-            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<u128>();
+            <TestRuntime as Trait>::Currency::reserved_balance(&val_id2).saturated_into::<Balance>();
         assert_eq!(bal_id1_f5 - bal_id1_f4, 333);
         assert_eq!(bal_id1_r5 - bal_id1_r4, 83);
         assert_eq!(bal_id2_f5 - bal_id2_f4, 222);
