@@ -6,7 +6,7 @@ use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::Encode;
 pub use frame_support::dispatch::DispatchError;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
-use frame_system::{self as system};
+use frame_system as system;
 pub use rand::random;
 pub use sp_core::sr25519;
 use sp_core::{Pair, H256};

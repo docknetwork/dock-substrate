@@ -1,10 +1,13 @@
 use crate as dock;
-use crate::did::{self, Did, DidSignature};
+use crate::did::{self, Did, DidSignature, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
-use frame_support::weights::Weight;
 use frame_support::{
-    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
+    decl_error, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    traits::Get,
+    weights::{RuntimeDbWeight, Weight},
 };
 use frame_system::{self as system, ensure_signed};
 
@@ -83,7 +86,7 @@ pub struct RemoveRegistry {
 /// Return counts of different signature types in given PAuth as 3-Tuple as (no. of Sr22519 sigs,
 /// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
 /// type is in `Weight` but realistically, it should fit in a u8
-pub fn count_sig_types(auth: &PAuth) -> (Weight, Weight, Weight) {
+fn count_sig_types(auth: &PAuth) -> (Weight, Weight, Weight) {
     let mut sr = 0;
     let mut ed = 0;
     let mut secp = 0;
@@ -95,6 +98,17 @@ pub fn count_sig_types(auth: &PAuth) -> (Weight, Weight, Weight) {
         }
     }
     (sr, ed, secp)
+}
+
+/// Computes weight of the given `PAuth`. Considers the no. and types of signatures and no. of reads. Disregards
+/// message size as messages are hashed giving the same output size and hashing itself is very cheap.
+/// The extrinsic using it might decide to consider adding some weight proportional to the message size.
+pub fn get_weight_for_pauth(auth: &PAuth, db_weights: RuntimeDbWeight) -> Weight {
+    let (sr, ed, secp) = count_sig_types(auth);
+    (db_weights.reads(auth.len() as u64)
+        + (sr * SR25519_WEIGHT)
+        + (ed * ED25519_WEIGHT)
+        + (secp * SECP256K1_WEIGHT)) as Weight
 }
 
 pub trait Trait: system::Trait + did::Trait {}
@@ -159,12 +173,9 @@ decl_module! {
         /// Returns an error if `revoke.last_modified` does not match the block number when the
         /// registy referenced by `revoke.registry_id` was last modified.
         ///
-        /// Returns an error if `proof` does not satisfy the policy requirements of the registy
+        /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `revoke.registry_id`.
-        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64) + 75_000_000 + {
-            let (sr, ed, secp) = count_sig_types(&proof);
-            ((sr * 112_000_000) + (ed * 122_000_000) + (secp * 363_000_000)) as Weight
-        }]
+        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn revoke(
             origin,
             revoke: dock::revoke::Revoke,
@@ -184,10 +195,7 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `unrevoke.registry_id`.
-        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64) + 75_000_000 + {
-            let (sr, ed, secp) = count_sig_types(&proof);
-            ((sr * 112_000_000) + (ed * 122_000_000) + (secp * 363_000_000)) as Weight
-        }]
+        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn unrevoke(
             origin,
             unrevoke: dock::revoke::UnRevoke,
@@ -209,10 +217,7 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `removal.registry_id`.
-        #[weight = T::DbWeight::get().reads_writes(1, 2) + 100_000_000 + {
-            let (sr, ed, secp) = count_sig_types(&proof);
-            ((sr * 112_000_000) + (ed * 122_000_000) + (secp * 363_000_000)) as Weight
-        }]
+        #[weight = T::DbWeight::get().reads_writes(1, 2) + 100_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn remove_registry(
             origin,
             removal: dock::revoke::RemoveRegistry,
