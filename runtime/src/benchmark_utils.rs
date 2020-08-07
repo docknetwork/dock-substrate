@@ -1,7 +1,6 @@
 //! This module contains functions to return hardcoded data for keys and signatures as key generation
 //! and signing are not possible during benchmarking.
 
-#[cfg(feature = "runtime-benchmarks")]
 use sp_std::prelude::Vec;
 
 use crate::blob::ID_BYTE_SIZE;
@@ -15,7 +14,7 @@ pub const REV_DATA_SIZE: usize = 3;
 /// Size of array of hardcoded data for blobs
 pub const BLOB_DATA_SIZE: usize = 3;
 
-/// Get hardcoded keys and signature for key update, `typ` can be 0, 1 or 2 for sr25519, ed25519 and secp
+/// Get nonce, DID, hardcoded keys and signature for key update, `typ` can be 0, 1 or 2 for sr25519, ed25519 and secp
 /// respectively. `index` is the index in hardcoded data array.
 pub fn get_data_for_key_update(
     typ: u8,
@@ -242,7 +241,7 @@ pub fn get_data_for_key_update(
     }
 }
 
-/// Get hardcoded keys and signature for did removal, `typ` can be only 0 for now can corresponds to sr25519.
+/// Get nonce, DID, hardcoded keys and signature for did removal, `typ` can be only 0 for now can corresponds to sr25519.
 /// `index` is the index in hardcoded data array.
 pub fn get_data_for_did_removal(
     typ: u8,
@@ -312,7 +311,7 @@ pub fn get_data_for_did_removal(
     }
 }
 
-/// Get hardcoded data for signature verification
+/// Get hardcoded message, public key and signature for signature verification
 pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSignature) {
     assert!(typ < 3);
     assert!(index < DID_DATA_SIZE);
@@ -475,7 +474,7 @@ pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSi
     }
 }
 
-/// Get hardcoded data for revocation
+/// Get hardcoded nonce, public key, revocation ids and signature for revocation
 pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, DidSignature) {
     assert!(index < REV_DATA_SIZE);
     let pk: [u8; 32] = [
@@ -558,7 +557,7 @@ pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, 
     }
 }
 
-/// Get hardcoded data for unrevocation
+/// Get hardcoded nonce, public key, revocation ids and signature for unrevocation
 pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, DidSignature) {
     assert!(index < REV_DATA_SIZE);
     let pk: [u8; 32] = [
@@ -641,7 +640,7 @@ pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>
     }
 }
 
-/// Get hardcoded data for registry removal
+/// Get hardcoded nonce, public key and signature for registry removal
 pub fn get_data_for_remove() -> (u32, PublicKey, DidSignature) {
     let pk: [u8; 32] = [
         218, 250, 63, 166, 122, 73, 74, 124, 18, 228, 65, 176, 211, 158, 182, 63, 53, 223, 199,
@@ -660,7 +659,7 @@ pub fn get_data_for_remove() -> (u32, PublicKey, DidSignature) {
     )
 }
 
-/// Get hardcoded data for blob creation
+/// Get hardcoded DID, public key, blob id, blob content and signature for blob creation
 pub fn get_data_for_blob(
     index: usize,
 ) -> (

@@ -39,7 +39,7 @@ use frame_support::{
         IdentityFee, Weight,
     },
 };
-use frame_system::{self as system};
+use frame_system as system;
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use sp_api::impl_runtime_apis;

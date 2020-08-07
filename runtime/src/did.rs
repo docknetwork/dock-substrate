@@ -3,7 +3,7 @@ use crate as dock;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
-    dispatch::DispatchResult, ensure, fail, traits::Get,
+    dispatch::DispatchResult, ensure, fail, traits::Get, weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_core::{ecdsa, ed25519, sr25519};
@@ -125,6 +125,13 @@ pub enum DidSignature {
     Secp256k1(Bytes65),
 }
 
+// Weight for Sr25519 sig verification
+pub const SR25519_WEIGHT: Weight = 112_000_000;
+// Weight for Ed25519 sig verification
+pub const ED25519_WEIGHT: Weight = 122_000_000;
+// Weight for ecdsa using secp256k1 sig verification
+pub const SECP256K1_WEIGHT: Weight = 363_000_000;
+
 impl DidSignature {
     /// Try to get reference to the bytes if its a Sr25519 signature. Return error if its not.
     pub fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
@@ -147,6 +154,18 @@ impl DidSignature {
         match self {
             DidSignature::Secp256k1(bytes) => Ok(bytes.as_bytes()),
             _ => Err(()),
+        }
+    }
+
+    /// Get weight for signature verification.
+    /// Considers the type of signature. Disregards message size as messages are hashed giving the
+    /// same output size and hashing itself is very cheap. The extrinsic using it might decide to
+    /// consider adding some weight proportional to the message size.
+    pub fn weight(&self) -> Weight {
+        match self {
+            DidSignature::Sr25519(_) => SR25519_WEIGHT,
+            DidSignature::Ed25519(_) => ED25519_WEIGHT,
+            DidSignature::Secp256k1(_) => SR25519_WEIGHT,
         }
     }
 }
@@ -1112,7 +1131,6 @@ mod benchmarking {
 
         key_update_sr25519 {
             let u in ...;
-            // let i = 0 .. 2 => ();
             let i in ...;
 
             let caller = account("caller", u, SEED);
@@ -1138,7 +1156,6 @@ mod benchmarking {
 
         key_update_ed25519 {
             let u in ...;
-            // let i = 0 .. 2 => ();
             let i in ...;
 
             let caller = account("caller", u, SEED);
@@ -1164,7 +1181,6 @@ mod benchmarking {
 
         key_update_secp256k1 {
             let u in ...;
-            // let i = 0 .. 2 => ();
             let i in ...;
 
             let caller = account("caller", u, SEED);
@@ -1190,7 +1206,6 @@ mod benchmarking {
 
         remove_sr25519 {
             let u in ...;
-            // let i = 0 .. 2 => ();
             let i in ...;
 
             let caller = account("caller", u, SEED);

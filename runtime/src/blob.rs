@@ -53,13 +53,7 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         /// Create a new immutable blob.
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + {
-            match signature {
-                did::DidSignature::Sr25519(_) => 150_000_000,
-                did::DidSignature::Ed25519(_) => 158_000_000,
-                did::DidSignature::Secp256k1(_) => 460_000_000
-            }
-        } + (1_000 * blob.blob.len()) as Weight]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight() + (1_100 * blob.blob.len()) as Weight]
         pub fn new(
             origin,
             blob: dock::blob::Blob,
