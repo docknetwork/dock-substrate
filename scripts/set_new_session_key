@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This script is used to generate and set (rotate) new session keys for the validator
+
 # The script will will exit if any command fails
 set -ueo pipefail
 
