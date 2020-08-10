@@ -21,6 +21,7 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 extern crate alloc;
 use alloc::collections::BTreeMap;
 
+type Balance = u64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 #[cfg(test)]
@@ -50,7 +51,7 @@ decl_event!(
         AccountId = <T as system::Trait>::AccountId,
     {
         // Migrator transferred tokens
-        Migration(AccountId, AccountId, u128),
+        Migration(AccountId, AccountId, Balance),
 
         // New migrator added
         MigratorAdded(AccountId, u16),
@@ -147,7 +148,7 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    /// Deduct tokens from the migrator's account
+    /// Deduct tokens from the migrator's account and decrease the allowed migrations
     pub fn migrate_(
         migrator: T::AccountId,
         recipients: BTreeMap<T::AccountId, BalanceOf<T>>,
@@ -164,8 +165,8 @@ impl<T: Trait> Module<T> {
         // The balance that needs to be transferred to all recipients combined
         let total_transfer_balance = recipients
             .values()
-            .fold(0u128, |acc, &x| {
-                acc.saturating_add(x.saturated_into::<u128>())
+            .fold(0 as Balance, |acc, &x| {
+                acc.saturating_add(x.saturated_into::<Balance>())
             })
             .saturated_into();
 
@@ -197,7 +198,7 @@ impl<T: Trait> Module<T> {
                 Ok(_) => Self::deposit_event(RawEvent::Migration(
                     migrator.clone(),
                     recip,
-                    balance.saturated_into(),
+                    balance.saturated_into::<Balance>(),
                 )),
                 Err(_) => mig_count -= 1,
             }
