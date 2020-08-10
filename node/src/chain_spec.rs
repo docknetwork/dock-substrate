@@ -2,8 +2,8 @@ use dock_testnet_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
     opaque::SessionKeys,
-    AuraConfig, BalancesConfig, DIDModuleConfig, GenesisConfig, GrandpaConfig, MasterConfig,
-    PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    AuraConfig, Balance, BalancesConfig, DIDModuleConfig, GenesisConfig, GrandpaConfig,
+    MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use hex_literal::hex;
 use sc_service::ChainType;
@@ -312,16 +312,16 @@ struct GenesisBuilder {
 impl GenesisBuilder {
     fn build(self) -> GenesisConfig {
         // 1 token is 25000000 gas
-        let token_to_gas: u128 = 25_000_000;
+        let token_to_gas: Balance = 25_000_000;
         // 200M tokens
-        let emission_supply: u128 = token_to_gas * 200_000_000;
+        let emission_supply: Balance = token_to_gas * 200_000_000;
         // TODO: This needs to be tweaked once we know all exchanges
         // 100M tokens
-        let per_member_endowment: u128 = token_to_gas * 100_000_000;
+        let per_member_endowment: Balance = token_to_gas * 100_000_000;
 
         // Max emission per validator in an epoch
-        // 15K tokens
-        let max_emm_validator_epoch: u128 = token_to_gas * 15_000;
+        // 30K tokens
+        let max_emm_validator_epoch: Balance = token_to_gas * 15_000;
 
         self.validate().unwrap();
 

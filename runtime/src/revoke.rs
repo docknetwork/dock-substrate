@@ -385,6 +385,7 @@ impl<T: Trait> Module<T> {
 mod errors {
     use super::*;
     use crate::test_common::*;
+    use frame_support::dispatch::DispatchError;
     use sp_core::sr25519;
 
     #[test]

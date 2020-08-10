@@ -4,7 +4,7 @@ use crate::did::{self, Did, DidSignature};
 use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{DispatchError, DispatchInfo, Dispatchable, PostDispatchInfo},
+    dispatch::{DispatchInfo, Dispatchable, PostDispatchInfo},
     impl_outer_origin, parameter_types,
     traits::UnfilteredDispatchable,
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},

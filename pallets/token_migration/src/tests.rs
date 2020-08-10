@@ -28,7 +28,7 @@ parameter_types! {
     pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
-    pub const TransactionByteFee: u128 = 1;
+    pub const TransactionByteFee: Balance = 1;
 }
 
 impl system::Trait for TestRuntime {

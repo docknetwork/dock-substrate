@@ -283,6 +283,7 @@ mod test {
     use crate::test_common::*;
     type MasterMod = crate::master::Module<Test>;
     use alloc::collections::BTreeMap;
+    use frame_support::dispatch::DispatchError;
     use sp_core::H256;
 
     /// set_members() may be called from within execute()
