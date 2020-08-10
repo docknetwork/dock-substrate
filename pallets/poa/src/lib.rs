@@ -1005,11 +1005,6 @@ impl<T: Trait> Module<T> {
             let reward =
                 max_em.saturating_mul(block_count.into()) / (slots_per_validator as Balance);
 
-            /*print(reward as u64);
-            let reward: u128 = FixedU128::saturating_from_rational(reward, slots_per_validator).into_inner().into();
-            let locked_reward = FixedU128::from(Percent::from_percent(lock_pc));
-            let locked_reward = locked_reward.saturating_mul_int(reward);*/
-
             let locked_reward = (reward.saturating_mul(lock_pc)) / 100;
             let unlocked_reward = reward.saturating_sub(locked_reward);
             Self::credit_emission_rewards_to_validator(&v, locked_reward, unlocked_reward);
