@@ -81,16 +81,6 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct Payload {
     /// The serialized Call to be run as root.
-    // REVIEWER: The type of this call is erased becuase vote needs to go in StateChange
-    //           Adding vote to StateChange requires Statechange to be generic over either
-    //           master::Call or generic over T, where T: master::Trait .
-    //           Turns out the coupling I introduced by requesting a StateChange enum has
-    //           come back to bite me becuase a generic StateChange is a whole can of worms
-    //           that spans multiple modules. Coupling modules, for example, Revoke to Master,
-    //           which is innapropriate.
-    //
-    //           By erasing the type of Call we remove polkadotjs's ability to print "Payload" in
-    //           a human comprehesible way.
     proposal: Vec<u8>,
     /// The round for which the vote is to be valid
     round_no: u64,
