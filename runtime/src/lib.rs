@@ -8,14 +8,18 @@
 #[cfg(feature = "std")]
 mod wasm {
     include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
+    // The following assignment is to silence compiler warning for unused variable while not
+    // exposing `WASM_BINARY_BLOATY` as public
     #[allow(dead_code)]
-    const _: &[u8] = &WASM_BINARY_BLOATY;
+    const _: Option<&[u8]> = WASM_BINARY_BLOATY;
 }
 #[cfg(feature = "std")]
 pub use wasm::WASM_BINARY;
 
 extern crate alloc;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmark_utils;
 pub mod blob;
 pub mod did;
 pub mod master;
@@ -36,6 +40,7 @@ use frame_support::{
         IdentityFee, Weight,
     },
 };
+use frame_system as system;
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_sudo as sudo;
@@ -105,6 +110,8 @@ pub mod opaque {
     type Header = generic::Header<BlockNumber, BlakeTwo256>;
     /// Opaque block type.
     pub type Block = generic::Block<Header, UncheckedExtrinsic>;
+    /// Opaque block identifier type.
+    pub type BlockId = generic::BlockId<Block>;
 
     impl_opaque_keys! {
         pub struct SessionKeys {
@@ -119,7 +126,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-testnet"),
     impl_name: create_runtime_str!("dock-testnet"),
     authoring_version: 1,
-    spec_version: 2,
+    spec_version: 1,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -203,6 +210,8 @@ impl system::Trait for Runtime {
     type OnNewAccount = ();
     /// What to do if an account is fully reaped from the system.
     type OnKilledAccount = ();
+    /// Weight information for the extrinsics of this pallet.
+    type SystemWeightInfo = ();
 }
 
 impl aura::Trait for Runtime {
@@ -236,6 +245,7 @@ impl timestamp::Trait for Runtime {
     type Moment = u64;
     type OnTimestampSet = Aura;
     type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -250,6 +260,7 @@ impl balances::Trait for Runtime {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
+    type WeightInfo = ();
 }
 
 parameter_types! {
@@ -294,6 +305,7 @@ impl pallet_session::Trait for Runtime {
     type SessionHandler = <opaque::SessionKeys as OpaqueKeys>::KeyTypeIdProviders;
     type Keys = opaque::SessionKeys;
     type DisabledValidatorsThreshold = ();
+    type WeightInfo = ();
 }
 
 impl poa::Trait for Runtime {
@@ -339,7 +351,7 @@ construct_runtime!(
         Timestamp: timestamp::{Module, Call, Storage, Inherent},
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
         PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
-        Aura: aura::{Module, Config<T>, Inherent(Timestamp)},
+        Aura: aura::{Module, Config<T>, Inherent},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
         Authorship: pallet_authorship::{Module, Call, Storage},
@@ -356,7 +368,7 @@ construct_runtime!(
 /// Block header type as expected by this runtime.
 type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
-type Block = generic::Block<Header, UncheckedExtrinsic>;
+pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// The SignedExtension to the basic transaction logic.
 type SignedExtra = (
     system::CheckSpecVersion<Runtime>,
@@ -462,7 +474,7 @@ impl_runtime_apis! {
             Grandpa::grandpa_authorities()
         }
 
-        fn submit_report_equivocation_extrinsic(
+        fn submit_report_equivocation_unsigned_extrinsic(
             _equivocation_proof: fg_primitives::EquivocationProof<
                 <Block as BlockT>::Hash,
                 NumberFor<Block>,
@@ -480,6 +492,44 @@ impl_runtime_apis! {
             // defined our key owner proof type as a bottom type (i.e. a type
             // with no values).
             None
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    impl frame_benchmarking::Benchmark<Block> for Runtime {
+        fn dispatch_benchmark(
+            pallet: Vec<u8>,
+            benchmark: Vec<u8>,
+            lowest_range_values: Vec<u32>,
+            highest_range_values: Vec<u32>,
+            steps: Vec<u32>,
+            repeat: u32,
+        ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
+            // Following line copied from substrate node
+            // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency issues.
+            // To get around that, we separated the Session benchmarks into its own crate, which is why
+            // we need these two lines below.
+            // use pallet_session_benchmarking::Module as SessionBench;
+            use frame_system_benchmarking::Module as SystemBench;
+
+            // impl pallet_session_benchmarking::Trait for Runtime {}
+            impl frame_system_benchmarking::Trait for Runtime {}
+
+            let whitelist = vec![];
+
+            let mut batches = Vec::<BenchmarkBatch>::new();
+            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist);
+
+            add_benchmark!(params, batches, did, DIDModule);
+            add_benchmark!(params, batches, revoke, Revoke);
+            add_benchmark!(params, batches, blob, BlobStore);
+            add_benchmark!(params, batches, balances, Balances);
+            add_benchmark!(params, batches, token_migration, MigrationModule);
+            add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+
+            if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
+            Ok(batches)
         }
     }
 }

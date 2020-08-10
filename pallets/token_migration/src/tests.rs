@@ -56,6 +56,7 @@ impl system::Trait for TestRuntime {
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type SystemWeightInfo = ();
 }
 
 impl balances::Trait for TestRuntime {
@@ -64,6 +65,7 @@ impl balances::Trait for TestRuntime {
     type Event = ();
     type ExistentialDeposit = ();
     type AccountStore = System;
+    type WeightInfo = ();
 }
 
 impl Trait for TestRuntime {

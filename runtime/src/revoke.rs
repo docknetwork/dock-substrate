@@ -1,11 +1,15 @@
 use crate as dock;
-use crate::did::{self, Did, DidSignature};
+use crate::did::{self, Did, DidSignature, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
+    decl_error, decl_module, decl_storage,
+    dispatch::DispatchResult,
+    ensure,
+    traits::Get,
+    weights::{RuntimeDbWeight, Weight},
 };
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// Points to an on-chain revocation registry.
 pub type RegistryId = [u8; 32];
@@ -84,6 +88,34 @@ pub struct RemoveRegistry {
     pub last_modified: crate::BlockNumber,
 }
 
+/// Return counts of different signature types in given PAuth as 3-Tuple as (no. of Sr22519 sigs,
+/// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
+/// type is in `Weight` but realistically, it should fit in a u8
+fn count_sig_types(auth: &PAuth) -> (Weight, Weight, Weight) {
+    let mut sr = 0;
+    let mut ed = 0;
+    let mut secp = 0;
+    for sig in auth.values() {
+        match sig {
+            DidSignature::Sr25519(_) => sr += 1,
+            DidSignature::Ed25519(_) => ed += 1,
+            DidSignature::Secp256k1(_) => secp += 1,
+        }
+    }
+    (sr, ed, secp)
+}
+
+/// Computes weight of the given `PAuth`. Considers the no. and types of signatures and no. of reads. Disregards
+/// message size as messages are hashed giving the same output size and hashing itself is very cheap.
+/// The extrinsic using it might decide to consider adding some weight proportional to the message size.
+pub fn get_weight_for_pauth(auth: &PAuth, db_weights: RuntimeDbWeight) -> Weight {
+    let (sr, ed, secp) = count_sig_types(auth);
+    (db_weights.reads(auth.len() as u64)
+        + (sr * SR25519_WEIGHT)
+        + (ed * ED25519_WEIGHT)
+        + (secp * SECP256K1_WEIGHT)) as Weight
+}
+
 pub trait Trait: system::Trait + did::Trait {}
 
 decl_error! {
@@ -130,8 +162,7 @@ decl_module! {
         /// Returns an error if `id` is already in use as a registry id.
         ///
         /// Returns an error if `registry.policy` is invalid.
-        // TODO: Use correct weight offset by benchmarking
-        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 41_000_000]
         pub fn new_registry(
             origin,
             id: dock::revoke::RevokeId,
@@ -147,11 +178,9 @@ decl_module! {
         /// Returns an error if `revoke.last_modified` does not match the block number when the
         /// registy referenced by `revoke.registry_id` was last modified.
         ///
-        /// Returns an error if `proof` does not satisfy the policy requirements of the registy
+        /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `revoke.registry_id`.
-        // TODO: Use correct weight offset by benchmarking. Use weight proportional to number of revoked credentials and in future consider
-        // no. of DIDs in PAuth
-        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn revoke(
             origin,
             revoke: dock::revoke::Revoke,
@@ -171,9 +200,7 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `unrevoke.registry_id`.
-        // TODO: Use correct weight offset by benchmarking. Use weight proportional to number of unrevoked credentials and in future consider
-        // no. of DIDs in PAuth
-        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn unrevoke(
             origin,
             unrevoke: dock::revoke::UnRevoke,
@@ -195,8 +222,7 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `removal.registry_id`.
-        // TODO: Use correct weight
-        #[weight = 0]
+        #[weight = T::DbWeight::get().reads_writes(1, 2) + 100_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn remove_registry(
             origin,
             removal: dock::revoke::RemoveRegistry,
@@ -359,6 +385,7 @@ impl<T: Trait> Module<T> {
 mod errors {
     use super::*;
     use crate::test_common::*;
+    use sp_core::sr25519;
 
     #[test]
     fn invalidpolicy() {
@@ -733,11 +760,16 @@ mod calls {
             &[RA], // Test idempotence, step 2
         ];
         for ids in cases {
+            println!("Revoke ids: {:?}", ids);
             let revoke = Revoke {
                 registry_id,
                 revoke_ids: ids.iter().cloned().collect(),
                 last_modified,
             };
+            println!(
+                "Sig {:?}",
+                sign(&crate::StateChange::Revoke(revoke.clone()), &kpa).as_sr25519_sig_bytes()
+            );
             let proof = once((
                 DIDA,
                 sign(&crate::StateChange::Revoke(revoke.clone()), &kpa),
@@ -888,6 +920,7 @@ mod calls {
 mod test {
     use super::*;
     use crate::test_common::*;
+    use sp_core::sr25519;
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.
@@ -978,5 +1011,133 @@ mod test {
         assert_eq!(RevoMod::get_revocation_status(registry_id, revid), None);
         RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
         assert_eq!(RevoMod::get_revocation_status(registry_id, revid), Some(()));
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking {
+    use super::*;
+    use crate::benchmark_utils::{
+        get_data_for_remove, get_data_for_revocation, get_data_for_unrevocation, REV_DATA_SIZE,
+    };
+    use crate::did::{Dids, KeyDetail, DID_BYTE_SIZE};
+    use frame_benchmarking::{account, benchmarks};
+    use sp_std::prelude::*;
+    use system::RawOrigin;
+
+    const SEED: u32 = 0;
+    const MAX_USER_INDEX: u32 = 1000;
+
+    /// create a OneOf policy. Redefining from test as cannot import
+    pub fn oneof(dids: &[Did]) -> Policy {
+        Policy::OneOf(dids.iter().cloned().collect())
+    }
+
+    benchmarks! {
+        _ {
+            // Origin
+            let u in 1 .. MAX_USER_INDEX => ();
+            // DID
+            let d in 0 .. 255 => ();
+            // Registry id
+            let r in 0 .. 255 => ();
+            let i in 0 .. (REV_DATA_SIZE - 1) as u32 => ();
+        }
+
+        new_registry {
+            let u in ...;
+            let d in ...;
+            let r in ...;
+
+            let caller = account("caller", u, SEED);
+            let did = [d as u8; DID_BYTE_SIZE];
+            let reg_id = [r as u8; 32];
+            let reg = Registry {
+                policy: oneof(&[did]),
+                add_only: false,
+            };
+
+        }: _(RawOrigin::Signed(caller), reg_id, reg)
+        verify {
+            let value = Registries::<T>::get(reg_id);
+            assert!(value.is_some());
+        }
+
+        revoke {
+            let u in ...;
+            let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let did = [0u8; 32];
+            let reg_id = [0u8; 32];
+
+            let (n, pk, revoke_ids, signature) = get_data_for_revocation(i as usize);
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
+
+            let rev_cmd = Revoke {registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), last_modified: n};
+            let mut p_auth = BTreeMap::new();
+            p_auth.insert(did, signature);
+        }: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
+        verify {
+            assert!(revoke_ids
+                .iter()
+                .all(|id| Revocations::contains_key(reg_id, id)));
+        }
+
+        unrevoke {
+            let u in ...;
+            let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let did = [0u8; 32];
+            let reg_id = [0u8; 32];
+
+            let (n, pk, revoke_ids, signature) = get_data_for_unrevocation(i as usize);
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
+            for r_id in &revoke_ids {
+                Revocations::insert(reg_id, r_id, ());
+            }
+            let rev_cmd = UnRevoke {registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), last_modified: n};
+            let mut p_auth = BTreeMap::new();
+            p_auth.insert(did, signature);
+        }: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
+        verify {
+            assert!(revoke_ids
+                .iter()
+                .all(|id| !Revocations::contains_key(reg_id, id)));
+        }
+
+        remove_registry {
+            let u in ...;
+            let i in ...;
+
+            let caller = account("caller", u, SEED);
+
+            let did = [0u8; 32];
+            let reg_id = [0u8; 32];
+
+            let (n, pk, signature) = get_data_for_remove();
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
+            for k in 0..i {
+                Revocations::insert(reg_id, [k as u8; 32], ());
+            }
+            let rem_cmd = RemoveRegistry {registry_id: reg_id, last_modified: n};
+            let mut p_auth = BTreeMap::new();
+            p_auth.insert(did, signature);
+        }: _(RawOrigin::Signed(caller), rem_cmd, p_auth)
     }
 }

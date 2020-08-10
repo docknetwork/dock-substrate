@@ -4,21 +4,19 @@ use crate::did::{self, Did, DidSignature};
 use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{DispatchInfo, Dispatchable, PostDispatchInfo},
+    dispatch::{DispatchError, DispatchInfo, Dispatchable, PostDispatchInfo},
     impl_outer_origin, parameter_types,
     traits::UnfilteredDispatchable,
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
 };
-use sp_core::{Pair, H256};
+use frame_system as system;
+pub use rand::random;
+use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
-
-pub use frame_support::dispatch::DispatchError;
-pub use rand::random;
-pub use sp_core::sr25519;
 pub use std::iter::once;
 
 pub type RevoMod = crate::revoke::Module<Test>;
@@ -115,6 +113,7 @@ impl system::Trait for Test {
     type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
+    type SystemWeightInfo = ();
 }
 
 impl crate::did::Trait for Test {
@@ -178,7 +177,7 @@ pub fn block_no() -> u64 {
     system::Module::<Test>::block_number()
 }
 
-// create a OneOf policy
+/// create a OneOf policy
 pub fn oneof(dids: &[Did]) -> Policy {
     Policy::OneOf(dids.iter().cloned().collect())
 }
@@ -193,6 +192,7 @@ pub fn gen_kp() -> sr25519::Pair {
 // concern), but that doesn't matter for our purposes.
 pub fn create_did(did: did::Did) -> sr25519::Pair {
     let kp = gen_kp();
+    println!("did pk: {:?}", kp.public().0);
     did::Module::<Test>::new(
         Origin::signed(ABBA),
         did,

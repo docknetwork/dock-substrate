@@ -8,19 +8,21 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{
         print,
-        traits::{AccountIdConversion, Saturating},
+        traits::{AccountIdConversion, OpaqueKeys, Saturating},
         ModuleId, SaturatedConversion,
     },
     traits::{
-        Currency, ExistenceRequirement::AllowDeath, Imbalance, OnUnbalanced, ReservableCurrency,
+        Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
+        ReservableCurrency,
     },
-    weights::Pays,
+    weights::{Pays, Weight},
 };
 
 use frame_system::{self as system, ensure_root, RawOrigin};
 use sp_std::prelude::Vec;
 
 extern crate alloc;
+
 use alloc::collections::{BTreeMap, BTreeSet};
 
 type EpochNo = u32;
@@ -174,7 +176,14 @@ decl_storage! {
         /// with the 2nd one.
         HotSwap get(fn hot_swap): Option<(T::AccountId, T::AccountId)>;
 
-        /// Transaction fees
+        /// Holds transaction fees for a block. Every transaction fees detected through the imbalance
+        /// accumulates the fees in this storage item. Once a block is done (`on_finalize`), the accumulated
+        /// fees is given to the block author and this item is zeroed out.
+        /// # <weight>
+        /// Regarding contribution to the weight, the read and write is not counted towards weight
+        /// contribution of the extrinsic since there is only 1 read and 1 write per block to this
+        /// due to Substrate's _overlay change set_ abstraction on storage.
+        /// # </weight>
         TxnFees get(fn txn_fees): BalanceOf<T>;
 
         /// Current epoch
@@ -187,7 +196,8 @@ decl_storage! {
         ValidatorStats get(fn get_validator_stats_for_epoch):
             double_map hasher(identity) EpochNo, hasher(blake2_128_concat) T::AccountId => ValidatorStatsPerEpoch;
 
-        /// Remaining emission supply
+        /// Remaining emission supply. This reduces after each epoch as emissions happen unless
+        /// emissions are disabled.
         EmissionSupply get(fn emission_supply) config(): BalanceOf<T>;
 
         /// Max emission per validator in an epoch
@@ -209,6 +219,7 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
+        BlockNumber = <T as system::Trait>::BlockNumber,
     {
         // New validator added in front of queue.
         ValidatorQueuedInFront(AccountId),
@@ -219,9 +230,17 @@ decl_event!(
         // Validator removed.
         ValidatorRemoved(AccountId),
 
-        EpochBegins(EpochNo, SlotNo),
+        // Validator swapped. Swapped out validator id and swapped in validator id
+        ValidatorSwapped(AccountId, AccountId),
 
+        // Epoch begins at slot and expected to end at slot
+        EpochBegins(EpochNo, SlotNo, SlotNo),
+
+        // Epoch ends at slot
         EpochEnds(EpochNo, SlotNo),
+
+        // Txn fees given to block author for a block no, (block no, validator id, fees)
+        TxnFeesGiven(BlockNumber, AccountId, u128),
     }
 );
 
@@ -241,22 +260,28 @@ decl_error! {
 }
 
 decl_module! {
-    /// The module declaration.
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
-        // Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
-        // `should_end_session` since that it called more frequently.
+        /// Do maximum of the work in functions to `add_validator` or `remove_validator` and minimize the work in
+        /// `should_end_session` since that it called more frequently.
 
         type Error = Error<T>;
 
         fn deposit_event() = default;
 
-        // Weight of the extrinsics in this module is set 0 as they are called by Master.
+        // TODO: Set weight of the extrinsics
 
         /// Add a new validator to active validator set unless already a validator and the total number
         /// of validators don't exceed the max allowed count. The validator is considered for adding at
         /// the end of this epoch unless `short_circuit` is true. If a validator is already added to the queue
         /// an error will be thrown unless `short_circuit` is true, in which case it swallows the error.
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// Assuming worst case for below. Not considering iteration cost over in memory arrays since the arrays
+        /// are small and these dispatchables are rarely called.
+        /// 2 reads for storage items, 1 each for `ActiveValidators` and `QueuedValidators`.
+        /// In worst case there is a write to `QueuedValidators`.
+        /// In case of short circuit there is 1 read and write to `EpochEndsAt`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
         pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::add_validator_(validator_id, short_circuit)
@@ -267,7 +292,14 @@ decl_module! {
         /// will be thrown unless `short_circuit` is true, in which case it swallows the error.
         /// It will not remove the validator if the removal will cause the active validator set to
         /// be empty even after considering the queued validators.
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// Assuming worst case for below. Not considering iteration cost over in memory arrays since the arrays
+        /// are small and these dispatchables are rarely called.
+        /// 3 reads for storage items, 1 each for `ActiveValidators`, `QueuedValidators` and `RemoveValidators`
+        /// In worst case there is a write to `RemoveValidators`.
+        /// In case of short circuit there is 1 read and write to `EpochEndsAt`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(3 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
         pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::remove_validator_(validator_id, short_circuit)
@@ -276,7 +308,12 @@ decl_module! {
         /// Replace an active validator (`old_validator_id`) with a new validator (`new_validator_id`)
         /// without waiting for epoch to end. Throws error if `old_validator_id` is not active or
         /// `new_validator_id` is already active. Also useful when a validator wants to rotate his account.
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// Only takes into account the weight of read of active validator vector and write to the swap
+        /// storage item. The write to validator set happens while loading next block and is counted
+        /// in `BlockExecutionWeight`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::swap_validator_(old_validator_id, new_validator_id)
@@ -285,14 +322,23 @@ decl_module! {
         /// Used to set session keys for a validator. A validator shares its session key with the
         /// author of this extrinsic who then calls `set_keys` of the session pallet. This is useful
         /// when the validator does not balance to pay fees for `set_keys`
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// Wights computation copied from session pallet's `set_keys` dispatchable
+        /// # </weight>
+        #[weight = (200_000_000
+            + T::DbWeight::get().reads(2 + T::Keys::key_ids().len() as Weight)
+            + T::DbWeight::get().writes(1 + T::Keys::key_ids().len() as Weight), Pays::No)]
         pub fn set_session_key(origin, validator_id: T::AccountId, keys: T::Keys) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             <pallet_session::Module<T>>::set_keys(RawOrigin::Signed(validator_id).into(), keys, [].to_vec())
         }
 
         /// Withdraw from treasury. Only Master is allowed to withdraw
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// 1 read-write for treasury and 1 read-write for recipient.
+        /// 70 µs transfer cost copied from balance pallet's `transfer` dispatchable
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(2, 2) + 70_000_000, Pays::No)]
         pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::withdraw_from_treasury_(recipient, amount)
@@ -300,7 +346,7 @@ decl_module! {
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
         /// Only Master can call this.
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
         pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             EmissionStatus::put(status);
@@ -309,7 +355,14 @@ decl_module! {
 
         /// Set the minimum number of slots in the epoch, i.e. storage item MinEpochLength. This
         /// does not effect the epoch in progress but only subsequent epochs
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// 3 writes in total:
+        ///     1 write during extrinsic to `MinEpochLengthTentative`
+        ///     1 write during epoch change to `MinEpochLength`
+        ///     1 write during epoch change to `MinEpochLengthTentative` to zero it out
+        /// 1 read during epoch change of `MinEpochLengthTentative`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(1, 3), Pays::No)]
         pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(length > 0, Error::<T>::EpochLengthCannotBe0);
@@ -319,7 +372,14 @@ decl_module! {
 
         /// Set the maximum number of active validators, i.e. storage item MaxActiveValidators. This
         /// does not effect the epoch in progress but only subsequent epochs
-        #[weight = (0, Pays::No)]
+        /// # <weight>
+        /// 3 writes in total:
+        ///     1 write during extrinsic to `MaxActiveValidatorsTentative`
+        ///     1 write during epoch change to `MaxActiveValidators`
+        ///     1 write during epoch change to `MaxActiveValidatorsTentative` to zero it out
+        /// 1 read during epoch change of `MaxActiveValidatorsTentative`
+        /// # </weight>
+        #[weight = (T::DbWeight::get().reads_writes(1, 3), Pays::No)]
         pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(count > 0, Error::<T>::NeedAtLeast1Validator);
@@ -328,7 +388,7 @@ decl_module! {
         }
 
         /// Set the maximum emission rewards per validator per epoch.
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
         pub fn set_max_emm_validator_epoch(origin, emission: u128) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             <MaxEmmValidatorEpoch<T>>::put(emission.saturated_into::<BalanceOf<T>>());
@@ -336,7 +396,7 @@ decl_module! {
         }
 
         /// Set percentage of emission rewards locked per epoch for validators
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
         pub fn set_validator_reward_lock_pc(origin, lock_pc: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(
@@ -348,7 +408,7 @@ decl_module! {
         }
 
         /// Set percentage of emission rewards for treasury in each epoch
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
         pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(
@@ -361,7 +421,7 @@ decl_module! {
 
         /// Awards the complete txn fees to the block author if any and increment block count for
         /// current epoch and who authored it.
-        fn on_finalize() {
+        fn on_finalize(block_no: T::BlockNumber) {
             // ------------- DEBUG START -------------
             debug!(
                 target: "runtime",
@@ -372,14 +432,20 @@ decl_module! {
             // Get the current block author
             let author = <pallet_authorship::Module<T>>::author();
 
-            Self::award_txn_fees_if_any(&author);
+            let fees = Self::award_txn_fees_if_any(&author);
 
-            Self::increment_current_epoch_block_count(author)
+            Self::increment_current_epoch_block_count(author.clone());
+
+            fees.and_then(|f| {
+                Self::deposit_event(RawEvent::TxnFeesGiven(block_no, author, f));
+                Option::<u128>::default()
+            });
         }
     }
 }
 
 impl<T: Trait> Module<T> {
+    /// Add a validator. Check documentation of `add_validator` dispatchable
     fn add_validator_(validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
         // Check if the validator is not already present as an active one
         let active_validators = Self::active_validators();
@@ -418,6 +484,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Remove a validator. Check documentation of `remove_validator` dispatchable
     fn remove_validator_(
         validator_id: T::AccountId,
         short_circuit: bool,
@@ -476,6 +543,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
+    /// Swap existing validator. Check documentation of `swap_validator` dispatchable
     fn swap_validator_(
         old_validator_id: T::AccountId,
         new_validator_id: T::AccountId,
@@ -498,10 +566,15 @@ impl<T: Trait> Module<T> {
             fail!(Error::<T>::SwapOutFailed)
         }
 
-        <HotSwap<T>>::put((old_validator_id, new_validator_id));
+        <HotSwap<T>>::put((old_validator_id.clone(), new_validator_id.clone()));
+        Self::deposit_event(RawEvent::ValidatorSwapped(
+            old_validator_id,
+            new_validator_id,
+        ));
         Ok(())
     }
 
+    /// Transfer `amount` from treasury to the `recipient`.
     pub fn withdraw_from_treasury_(
         recipient: T::AccountId,
         amount: BalanceOf<T>,
@@ -510,7 +583,7 @@ impl<T: Trait> Module<T> {
             .map_err(|_| dispatch::DispatchError::Other("Can't withdraw from treasury"))
     }
 
-    /// The account ID that holds the Charity's funds
+    /// The account ID that holds the Treasury's funds
     pub fn treasury_account() -> T::AccountId {
         TREASURY_ID.into_account()
     }
@@ -562,70 +635,82 @@ impl<T: Trait> Module<T> {
         // Remove any validators that need to be removed.
         let validators_to_remove = <RemoveValidators<T>>::take();
 
+        // Need these flags as the debugging variables will `count_added` and `count_removed` be removed.
         let mut active_validator_set_changed = false;
         let mut queued_validator_set_changed = false;
 
-        // If any validator is to be added or removed
-        if (!validators_to_remove.is_empty()) || (!validators_to_add.is_empty()) {
-            // TODO: Remove debugging variable below
-            let mut count_removed = 0;
+        // If any validator is to be added or removed. This can happen if the there are any validators
+        // to remove or there are validators to add or the no. of active validators is greater than max
+        // allowed active validators
+        // TODO: Remove debugging variable below
+        let mut count_removed = 0;
 
-            // Remove the validators from active validator set or the queue.
-            // The size of the 3 vectors is ~15 so multiple iterations are ok.
-            // If they were bigger, `validators_to_remove` should be turned into a set and then
-            // iterate over `validators_to_add` and `active_validators` only once removing any id
-            // present in the set.
-            for v in validators_to_remove {
-                let removed_active = Self::remove_validator_id(&v, &mut active_validators);
-                if removed_active > 0 {
-                    active_validator_set_changed = true;
-                    count_removed += 1;
-                } else {
-                    // The `add_validator` ensures that a validator id cannot be part of both active
-                    // validator set and queued validators
-                    let removed_queued = Self::remove_validator_id(&v, &mut validators_to_add);
-                    if removed_queued > 0 {
-                        queued_validator_set_changed = true;
-                    }
-                }
-            }
-
-            let max_validators = Self::get_and_set_max_active_validators_on_epoch_end() as usize;
-
-            // TODO: Remove debugging variable below
-            let mut count_added = 0u32;
-
-            // Make any queued validators active.
-            while (active_validators.len() < max_validators) && (!validators_to_add.is_empty()) {
-                let new_val = validators_to_add.remove(0);
-                // Check if the validator to add is not already active. The check is needed as a swap
-                // might make a validator as active which is already present in the queue.
-                if !active_validators.contains(&new_val) {
-                    active_validator_set_changed = true;
+        // Remove the validators from active validator set or the queue.
+        // The size of the 3 vectors is ~15 so multiple iterations are ok.
+        // If they were bigger, `validators_to_remove` should be turned into a set and then
+        // iterate over `validators_to_add` and `active_validators` only once removing any id
+        // present in the set.
+        for v in validators_to_remove {
+            let removed_active = Self::remove_validator_id(&v, &mut active_validators);
+            if removed_active > 0 {
+                active_validator_set_changed = true;
+                count_removed += 1;
+            } else {
+                // The `add_validator` ensures that a validator id cannot be part of both active
+                // validator set and queued validators
+                let removed_queued = Self::remove_validator_id(&v, &mut validators_to_add);
+                if removed_queued > 0 {
                     queued_validator_set_changed = true;
-                    active_validators.push(new_val);
-                    count_added += 1;
                 }
             }
-
-            // Only write if queued_validator_set_changed
-            if queued_validator_set_changed {
-                <QueuedValidators<T>>::put(validators_to_add);
-            }
-
-            let active_validator_count = active_validators.len() as u8;
-            if active_validator_set_changed {
-                debug!(
-                    target: "runtime",
-                    "Active validator set changed, rotating session. Added {} and removed {}",
-                    count_added, count_removed
-                );
-                <ActiveValidators<T>>::put(active_validators);
-            }
-            (active_validator_set_changed, active_validator_count)
-        } else {
-            (false, active_validators.len() as u8)
         }
+
+        // Get max allowed active validators
+        let max_validators = Self::get_and_set_max_active_validators_on_epoch_end() as usize;
+
+        // TODO: Remove debugging variable below
+        let mut count_added = 0u32;
+
+        // Make any queued validators active.
+        while (active_validators.len() < max_validators) && (!validators_to_add.is_empty()) {
+            let new_val = validators_to_add.remove(0);
+            // Check if the validator to add is not already active. The check is needed as a swap
+            // might make a validator as active which is already present in the queue.
+            if !active_validators.contains(&new_val) {
+                active_validators.push(new_val);
+                active_validator_set_changed = true;
+                queued_validator_set_changed = true;
+                count_added += 1;
+            }
+        }
+
+        // When max active validators is decreased (through `MaxActiveValidators`), appropriate no.
+        // of active validators are moved to the front of the queued validators
+        while active_validators.len() > max_validators {
+            // `pop` will never return None as its ensured that neither `active_validators` can be
+            // empty nor `max_validators` can be 0.
+            let validator_id = active_validators.pop().unwrap();
+            validators_to_add.insert(0, validator_id);
+            active_validator_set_changed = true;
+            queued_validator_set_changed = true;
+            count_removed += 1;
+        }
+
+        // Only write if queued_validator_set_changed
+        if queued_validator_set_changed {
+            <QueuedValidators<T>>::put(validators_to_add);
+        }
+
+        let active_validator_count = active_validators.len() as u8;
+        if active_validator_set_changed {
+            debug!(
+                target: "runtime",
+                "Active validator set changed, rotating session. Added {} and removed {}",
+                count_added, count_removed
+            );
+            <ActiveValidators<T>>::put(active_validators);
+        }
+        (active_validator_set_changed, active_validator_count)
     }
 
     /// Set next epoch duration such that it is >= `MinEpochLength` and also a multiple of the
@@ -726,7 +811,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// If there is any transaction fees, credit it to the given author
-    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<SlotNo> {
+    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<u128> {
         // ------------- DEBUG START -------------
         let current_block_no = <system::Module<T>>::block_number();
         debug!(
@@ -745,7 +830,7 @@ impl<T: Trait> Module<T> {
         // ------------- DEBUG END -------------
 
         let txn_fees = <TxnFees<T>>::take();
-        let fees_as_u64 = txn_fees.saturated_into::<u64>();
+        let fees_as_u64 = txn_fees.saturated_into::<u128>();
         if fees_as_u64 > 0 {
             print("Depositing fees");
             // `deposit_creating` will do the issuance of tokens burnt during transaction fees
@@ -1107,15 +1192,16 @@ impl<T: Trait> Module<T> {
             current_epoch_no, current_slot_no
         );
         Epoch::put(current_epoch_no);
+        let expected_ending = Self::epoch_ends_at();
         Epochs::insert(
             current_epoch_no,
-            EpochDetail::new(
-                active_validator_count,
-                current_slot_no,
-                Self::epoch_ends_at(),
-            ),
+            EpochDetail::new(active_validator_count, current_slot_no, expected_ending),
         );
-        Self::deposit_event(RawEvent::EpochBegins(current_epoch_no, current_slot_no));
+        Self::deposit_event(RawEvent::EpochBegins(
+            current_epoch_no,
+            current_slot_no,
+            expected_ending,
+        ));
     }
 
     /// The validator set needs to update, either due to swap or epoch end.

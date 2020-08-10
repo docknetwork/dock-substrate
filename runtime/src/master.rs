@@ -9,7 +9,7 @@
 //! # use frame_support::{decl_module, dispatch::DispatchResult};
 //! # type Foo = ();
 //! # type Bar = ();
-//! # trait Trait: system::Trait {}
+//! # trait Trait: frame_system::Trait {}
 //! decl_module! {
 //!     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 //!         #[weight = 100_000]
@@ -76,7 +76,7 @@ use frame_support::{
     weights::GetDispatchInfo,
     Parameter,
 };
-use system::{ensure_root, ensure_signed};
+use frame_system::{self as system, ensure_root, ensure_signed};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 pub struct Payload {

@@ -129,8 +129,8 @@ pub fn development_config() -> ChainSpec {
 
 pub fn local_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "Local Testnet",
-        "local_testnet",
+        "Local Poa Testnet",
+        "local_poa_testnet",
         ChainType::Local,
         || {
             GenesisBuilder {
@@ -197,10 +197,10 @@ pub fn local_testnet_config() -> ChainSpec {
     )
 }
 
-pub fn remote_testnet_config() -> ChainSpec {
+pub fn testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "RemoteDevelopment",
-        "remdev",
+        "Poa Testnet",
+        "poa_testnet",
         ChainType::Live,
         || {
             GenesisBuilder {
@@ -231,6 +231,12 @@ pub fn remote_testnet_config() -> ChainSpec {
                 endowed_accounts: [
                     "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
                     "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
+                    "5Fq9cARnUAWxKGU9w5UngNNMsfjcxenAAuBn8zYJwyidSnuU",
+                    "5DcxJv1LRAiEmpR41xKUNbmefmutQ7WBEKEsS5xBxh8wQ99J",
+                    "5E7BHnwo9LoKP6bAJseeqZgnWSbsFmiZxMAsEd7zGJfDoCCr",
+                    "5DkS3AbP8mXWVUg8o9R7Y8czAPoi9JTYmS3FPzKx1z6735nd",
+                    "5C89W6aJTdBBbXPhyLrefGSB97kXKWAo5NkqBvG8U9MKhEkP",
+                    "5GpPMM3Mw1eAqniXQsRHdjd7dshmiudU46sELyRfGEbBoJu5",
                 ]
                 .iter()
                 .cloned()
@@ -271,7 +277,10 @@ pub fn remote_testnet_config() -> ChainSpec {
                     )
                 })
                 .collect(),
-                sudo: [0u8; 32].into(),
+                // In mainnet, this will be a public key (0s) that no one knows private key for
+                sudo: account_id_from_ss58::<sr25519::Public>(
+                    "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
+                ),
             }
             .build()
         },
@@ -318,7 +327,7 @@ impl GenesisBuilder {
 
         GenesisConfig {
             system: Some(SystemConfig {
-                code: WASM_BINARY.to_vec(),
+                code: WASM_BINARY.unwrap().to_vec(),
                 changes_trie_config: Default::default(),
             }),
             pallet_session: Some(SessionConfig {

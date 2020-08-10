@@ -6,8 +6,9 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
+    weights::Weight,
 };
-use system::ensure_signed;
+use frame_system::{self as system, ensure_signed};
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;
@@ -53,8 +54,7 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         /// Create a new immutable blob.
-        // TODO: Use correct weight offset by benchmarking and consider size of `blob.blob`
-        #[weight = T::DbWeight::get().reads_writes(1, 1)  + 0]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight() + (1_100 * blob.blob.len()) as Weight]
         pub fn new(
             origin,
             blob: dock::blob::Blob,
@@ -97,7 +97,9 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use crate::test_common::*;
-    pub type BlobMod = crate::blob::Module<Test>;
+    use sp_core::{sr25519, Pair};
+
+    type BlobMod = crate::blob::Module<Test>;
 
     /// create a random byte array with set len
     fn random_bytes(len: usize) -> Vec<u8> {
@@ -114,9 +116,17 @@ mod tests {
     ) -> DispatchResult {
         let bl = Blob {
             id,
-            blob: content,
+            blob: content.clone(),
             author,
         };
+        println!("did: {:?}", author);
+        println!("pk: {:?}", author_kp.public().0);
+        println!("id: {:?}", id);
+        println!("content: {:?}", content.clone());
+        println!(
+            "Sig {:?}",
+            sign(&crate::StateChange::Blob(bl.clone()), &author_kp).as_sr25519_sig_bytes()
+        );
         let sig = sign(&crate::StateChange::Blob(bl.clone()), &author_kp);
         BlobMod::new(Origin::signed(ABBA), bl.clone(), sig)
     }
@@ -223,5 +233,50 @@ mod tests {
                 assert_eq!(err, BlobError::<Test>::InvalidSig.into());
             }
         })
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarking {
+    use super::*;
+    use crate::benchmark_utils::{get_data_for_blob, BLOB_DATA_SIZE};
+    use crate::did::{Dids, KeyDetail};
+    use frame_benchmarking::{account, benchmarks};
+    use sp_std::prelude::*;
+    use system::RawOrigin;
+
+    const SEED: u32 = 0;
+    const MAX_USER_INDEX: u32 = 1000;
+
+    benchmarks! {
+        _ {
+            // Origin
+            let u in 1 .. MAX_USER_INDEX => ();
+            let i in 0 .. (BLOB_DATA_SIZE - 1) as u32 => ();
+        }
+
+        new {
+            let u in ...;
+            let i in ...;
+
+            let caller = account("caller", u, SEED);
+            let n = 0;
+
+            let (did, pk, id, content, sig) = get_data_for_blob(i as usize);
+
+            let detail = KeyDetail::new(did.clone(), pk);
+            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            Dids::<T>::insert(did.clone(), (detail, block_number));
+
+            let blob = Blob {
+                id,
+                blob: content,
+                author: did,
+            };
+        }: _(RawOrigin::Signed(caller), blob, sig)
+        verify {
+            let value = Blobs::get(id);
+            assert!(value.is_some());
+        }
     }
 }

@@ -26,6 +26,8 @@ type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::Ac
 #[cfg(test)]
 mod tests;
 
+mod benchmarking;
+
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
     /// The overarching event type.
@@ -49,6 +51,12 @@ decl_event!(
     {
         // Migrator transferred tokens
         Migration(AccountId, AccountId, u128),
+
+        // New migrator added
+        MigratorAdded(AccountId, u16),
+
+        // Existing migrator removed
+        MigratorRemoved(AccountId),
 
         // Migrator's allowed migrations increased
         MigratorExpanded(AccountId, u16),
@@ -82,20 +90,20 @@ decl_module! {
         /// Does a token migration. The migrator should have sufficient balance to give tokens to recipients
         /// The check whether it is a valid migrator is made inside the SignedExtension
         // TODO: Set correct weight
-        #[weight = (T::DbWeight::get().reads_writes(1, recipients.len() as u64), Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(3 + recipients.len() as u64, 1 + recipients.len() as u64), Pays::No)]
         pub fn migrate(origin, recipients: BTreeMap<T::AccountId, BalanceOf<T>>) -> dispatch::DispatchResult {
             let migrator = ensure_signed(origin)?;
             Self::migrate_(migrator, recipients)
         }
 
         /// Increase the migrators allowed migrations by the given number
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn expand_migrator(origin, migrator: T::AccountId, increase_migrations_by: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             match Self::migrators(&migrator) {
                 Some(current_migrations) => {
                     let new_migrations = current_migrations.checked_add(increase_migrations_by).ok_or(Error::<T>::CannotExpandMigrator)?;
-                    Migrators::<T>::insert(migrator.clone(), new_migrations.clone());
+                    Migrators::<T>::insert(migrator.clone(), new_migrations);
                     Self::deposit_event(RawEvent::MigratorExpanded(migrator, new_migrations));
                     Ok(())
                 },
@@ -104,7 +112,7 @@ decl_module! {
         }
 
         /// Decrease the migrators allowed migrations by the given number
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn contract_migrator(origin, migrator: T::AccountId, decrease_migrations_by: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             let new_migrations = Self::migrators(&migrator)
@@ -117,20 +125,22 @@ decl_module! {
         }
 
         /// Add a new migrator
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn add_migrator(origin, migrator: T::AccountId, allowed_migrations: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(!Migrators::<T>::contains_key(&migrator), Error::<T>::MigratorAlreadyPresent);
-            Migrators::<T>::insert(migrator, allowed_migrations);
+            Migrators::<T>::insert(migrator.clone(), allowed_migrations);
+            Self::deposit_event(RawEvent::MigratorAdded(migrator, allowed_migrations));
             Ok(())
         }
 
         /// Remove an existing migrator
-        #[weight = (0, Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
         pub fn remove_migrator(origin, migrator: T::AccountId) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(Migrators::<T>::contains_key(&migrator), Error::<T>::UnknownMigrator);
-            Migrators::<T>::remove(migrator);
+            Migrators::<T>::remove(&migrator);
+            Self::deposit_event(RawEvent::MigratorRemoved(migrator));
             Ok(())
         }
     }
@@ -142,6 +152,8 @@ impl<T: Trait> Module<T> {
         migrator: T::AccountId,
         recipients: BTreeMap<T::AccountId, BalanceOf<T>>,
     ) -> dispatch::DispatchResult {
+        // Unwrap is safe here as the `SignedExtension` will only allow the transaction when migrator
+        // is present
         let allowed_migrations = Self::migrators(&migrator).unwrap();
         let mut mig_count = recipients.len() as u16;
         ensure!(
@@ -156,10 +168,12 @@ impl<T: Trait> Module<T> {
                 acc.saturating_add(x.saturated_into::<u128>())
             })
             .saturated_into();
+
         // The balance of the migrator after the transfer
         let new_free = T::Currency::free_balance(&migrator)
             .checked_sub(&total_transfer_balance)
             .ok_or(Error::<T>::InsufficientBalance)?;
+
         // Ensure that the migrator can transfer, i.e. has sufficient free and unlocked balance
         T::Currency::ensure_can_withdraw(
             &migrator,
@@ -168,8 +182,17 @@ impl<T: Trait> Module<T> {
             new_free,
         )?;
 
+        // XXX: A potentially more efficient way could be to replace all transfers with one call to withdraw
+        // for migrator and then one call to `deposit_creating` for each recipient. This will cause 1
+        // negative imbalance and 1 positive imbalance for each recipient. It needs to be ensured that
+        // the negative imbalance is destroyed and not end up with the validator as txn fees.
+        // This approach needs to be benchmarked for comparison.
+
+        // Transfer to each recipient
         for (recip, balance) in recipients {
-            // There is a very slim change that transfer fails with an addition overflow when the recipient has a very high balance
+            // There is a very slim change that transfer fails with an addition overflow when the
+            // recipient has a very high balance.
+            // Using `AllowDeath` to let migrator be wiped out once he has transferred to all.
             match T::Currency::transfer(&migrator, &recip, balance, AllowDeath) {
                 Ok(_) => Self::deposit_event(RawEvent::Migration(
                     migrator.clone(),
@@ -197,7 +220,7 @@ impl<T: Trait + Send + Sync> sp_std::fmt::Debug for OnlyMigrator<T> {
 
 impl<T: Trait + Send + Sync> SignedExtension for OnlyMigrator<T>
 where
-    <T as system::Trait>::Call: IsSubType<Module<T>, T>,
+    <T as system::Trait>::Call: IsSubType<Call<T>>,
 {
     const IDENTIFIER: &'static str = "OnlyMigrator";
     type AccountId = T::AccountId;
@@ -219,6 +242,7 @@ where
         if let Some(local_call) = call.is_sub_type() {
             if let Call::migrate(..) = local_call {
                 if !<Migrators<T>>::contains_key(who) {
+                    // If migrator not registered, dont include transaction in block
                     return InvalidTransaction::Custom(1).into();
                 }
             }
