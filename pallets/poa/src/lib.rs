@@ -1002,7 +1002,8 @@ impl<T: Trait> Module<T> {
         let lock_pc = Self::validator_reward_lock_pc() as Balance;
         for (v, block_count) in validator_block_counts {
             // The actual emission rewards depends on the availability, i.e. ratio of blocks produced to slots available
-            let reward = max_em.saturating_mul(block_count.into()) / (slots_per_validator as Balance);
+            let reward =
+                max_em.saturating_mul(block_count.into()) / (slots_per_validator as Balance);
 
             /*print(reward as u64);
             let reward: u128 = FixedU128::saturating_from_rational(reward, slots_per_validator).into_inner().into();

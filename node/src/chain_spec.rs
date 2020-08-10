@@ -1,6 +1,6 @@
 use dock_testnet_runtime::{
-    opaque::SessionKeys, AuraConfig, BalancesConfig, GenesisConfig, GrandpaConfig, PoAModuleConfig,
-    SessionConfig, SudoConfig, SystemConfig, WASM_BINARY, Balance
+    opaque::SessionKeys, AuraConfig, Balance, BalancesConfig, GenesisConfig, GrandpaConfig,
+    PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
 };
 use sc_service::ChainType;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
