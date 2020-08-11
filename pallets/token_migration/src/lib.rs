@@ -104,7 +104,7 @@ decl_module! {
             match Self::migrators(&migrator) {
                 Some(current_migrations) => {
                     let new_migrations = current_migrations.checked_add(increase_migrations_by).ok_or(Error::<T>::CannotExpandMigrator)?;
-                    Migrators::<T>::insert(migrator.clone(), new_migrations.clone());
+                    Migrators::<T>::insert(migrator.clone(), new_migrations);
                     Self::deposit_event(RawEvent::MigratorExpanded(migrator, new_migrations));
                     Ok(())
                 },

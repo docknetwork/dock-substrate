@@ -18,10 +18,11 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 
 /// When a new blob is being registered, the following object is sent.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Blob {
-    id: BlobId,
-    blob: Vec<u8>,
-    author: did::Did,
+    pub id: BlobId,
+    pub blob: Vec<u8>,
+    pub author: did::Did,
 }
 
 pub trait Trait: system::Trait + did::Trait {
@@ -96,8 +97,9 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
     use crate::test_common::*;
-    use sp_core::Pair;
-    pub type BlobMod = crate::blob::Module<Test>;
+    use sp_core::{sr25519, Pair};
+
+    type BlobMod = crate::blob::Module<Test>;
 
     /// create a random byte array with set len
     fn random_bytes(len: usize) -> Vec<u8> {

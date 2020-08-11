@@ -169,11 +169,7 @@ fn migrate() {
         let recip_acc_5 = 5;
         let migrator_acc = 10;
 
-        #[allow(unused_must_use)]
-        {
-            <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc, 100);
-        }
-
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc, 100);
         MigrationModule::add_migrator(RawOrigin::Root.into(), migrator_acc, 4).unwrap();
 
         // No of recipients more than allowed migrations

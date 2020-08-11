@@ -44,6 +44,7 @@ decl_error! {
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bytes32 {
     pub value: [u8; 32],
 }
@@ -54,6 +55,12 @@ impl Bytes32 {
     }
 }
 
+#[cfg(feature = "serde")]
+serde_big_array::big_array! {
+    BigArray;
+    33, 64, 65
+}
+
 // XXX: These could have been a tuple structs. Keeping them normal struct for Substrate UI
 /// Creates a struct named `$name` which contains only 1 element which is a bytearray, useful when
 /// wrapping arrays of size > 32. `$size` is the size of the underlying bytearray. Implements the `Default`,
@@ -62,7 +69,9 @@ macro_rules! struct_over_byte_array {
     ( $name:ident, $size:tt ) => {
         /// A wrapper over a byte array
         #[derive(Encode, Decode, Clone)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct $name {
+            #[cfg_attr(feature = "serde", serde(with = "BigArray"))]
             pub value: [u8; $size],
         }
 
@@ -105,6 +114,7 @@ struct_over_byte_array!(Bytes65, 65);
 /// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
 /// byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PublicKey {
     /// Public key for Sr25519 is 32 bytes
     Sr25519(Bytes32),
@@ -116,6 +126,7 @@ pub enum PublicKey {
 
 /// An abstraction for a signature.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DidSignature {
     /// Signature for Sr25519 is 64 bytes
     Sr25519(Bytes64),
@@ -195,6 +206,7 @@ pub struct Bytes32(pub [u8;32]);*/
 /// `controller` is the controller DID and its value might be same as `did`.
 /// `public_key` is the public key and it is accepted and stored as raw bytes.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyDetail {
     controller: Did,
     public_key: PublicKey,
@@ -223,13 +235,14 @@ impl KeyDetail {
 /// successful extrinsic and the chain requiring the extrinsic's nonce to be higher than current.
 /// This is little more involved as it involves a ">" check
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyUpdate {
-    did: Did,
-    public_key: PublicKey,
-    controller: Option<Did>,
+    pub did: Did,
+    pub public_key: PublicKey,
+    pub controller: Option<Did>,
     // TODO: `BlockNumber` should be changed to `T::BlockNumber` to guard against accidental change
     // to BlockNumber type. Will require this struct to be typed
-    last_modified_in_block: BlockNumber,
+    pub last_modified_in_block: BlockNumber,
 }
 
 impl KeyUpdate {
@@ -254,11 +267,12 @@ impl KeyUpdate {
 /// `did` is the DID which is being removed.
 /// `last_modified_in_block` is the block number when this DID was last modified. The last modified time is present to prevent replay attack.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DidRemoval {
-    did: Did,
+    pub did: Did,
     // TODO: `BlockNumber` should be changed to `T::BlockNumber` to guard against accidental change
     // to BlockNumber type. Will require this struct to be typed
-    last_modified_in_block: BlockNumber,
+    pub last_modified_in_block: BlockNumber,
 }
 
 impl DidRemoval {
@@ -281,7 +295,23 @@ decl_event!(
 
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
-        pub Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did => Option<(dock::did::KeyDetail, T::BlockNumber)>;
+        pub Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did
+            => Option<(dock::did::KeyDetail, T::BlockNumber)>;
+    }
+    add_extra_genesis {
+        config(dids): Vec<(Did, KeyDetail)>;
+        build(|slef: &Self| {
+            debug_assert!({
+                let mut dedup: Vec<&Did> = slef.dids.iter().map(|(d, _kd)| d).collect();
+                dedup.sort();
+                dedup.dedup();
+                slef.dids.len() == dedup.len()
+            });
+            let block_no: T::BlockNumber = 0u32.into();
+            for (did, deet) in slef.dids.iter() {
+                Dids::<T>::insert(did, (deet, block_no));
+            }
+        })
     }
 }
 

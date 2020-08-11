@@ -29,5 +29,11 @@ popd
 	0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa \
 	0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
-# don't have a good way to test run_node_in_docker because that script doesn't exit
-# until the node exits
+# build chainspec
+./scripts/run_node_in_docker build-spec > /dev/null
+./scripts/run_node_in_docker build-spec --chain=dev > /dev/null
+./scripts/run_node_in_docker build-spec --chain=local_poa_testnet > /dev/null
+./scripts/run_node_in_docker build-spec --chain=poa_testnet > /dev/null
+
+# don't have a good way to test other invocations of run_node_in_docker because that script doesn't
+# exit until the node exits
