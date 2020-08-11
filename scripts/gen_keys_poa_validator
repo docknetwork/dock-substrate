@@ -21,6 +21,8 @@ then
   exit 1
 fi
 
+# The 3rd argument main or test will used to generate specific addresses once the PRs in Substrate and Polkadot are
+# merged
 if [[ $# == 3 ]]
 then
   if [[ $3 != 'main' ]] && [[ $3 != 'test' ]]
@@ -81,8 +83,9 @@ else
   exit 1
 fi
 
-# Generate libp2p keypair, will output public key and persist secret key in file
+# Generate libp2p keypair, will output public key and secret key and persist secret key in file
 libp2p_public_key=$(subkey generate-node-key $LIBP2P_SECRET_KEY_FILENAME)
+libp2p_secret_key=$(xxd -c 32 -p $LIBP2P_SECRET_KEY_FILENAME)
 
 # For colored output
 GREEN_COLOR='\033[1;32m'
@@ -93,4 +96,5 @@ echo -e "The account address in ss58 format is ${GREEN_COLOR}$account${NOCOLOR}"
 echo -e "The secret phrase for the account is ${RED_COLOR}$secret_phrase${NOCOLOR}"
 echo -e "The secret key for the account is ${RED_COLOR}$secret_key${NOCOLOR}"
 echo -e "The libp2p public key is ${GREEN_COLOR}$libp2p_public_key${NOCOLOR}"
-echo -e "The libp2p secret key is stored in the file ${RED_COLOR}$LIBP2P_SECRET_KEY_FILENAME${NOCOLOR}"
+echo -e "The libp2p secret key is ${RED_COLOR}$libp2p_secret_key${NOCOLOR}"
+echo -e "The libp2p secret key is also stored in the file ${RED_COLOR}$LIBP2P_SECRET_KEY_FILENAME${NOCOLOR}"
