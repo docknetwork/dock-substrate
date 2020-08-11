@@ -22,6 +22,7 @@ pub type PAuth = BTreeMap<Did, DidSignature>;
 
 /// Authorization logic for a registry.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Policy {
     /// Set of dids allowed to modify a registry.
     OneOf(BTreeSet<Did>),
@@ -39,6 +40,7 @@ impl Policy {
 
 /// Metadata about a revocation scope.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Registry {
     /// Who is allowed to update this registry.
     pub policy: Policy,
@@ -51,6 +53,7 @@ pub struct Registry {
 /// Creation of revocations is idempotent; creating a revocation that already exists is allowed,
 /// but has no effect.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Revoke {
     /// The registry on which to operate
     pub registry_id: RegistryId,
@@ -64,6 +67,7 @@ pub struct Revoke {
 /// Removal of revocations is idempotent; removing a revocation that doesn't exists is allowed,
 /// but has no effect.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UnRevoke {
     /// The registry on which to operate
     pub registry_id: RegistryId,
@@ -76,6 +80,7 @@ pub struct UnRevoke {
 /// Command to remove an entire registy. Removes all revocations in the registry as well as
 /// registry metadata.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemoveRegistry {
     /// The registry on which to operate
     pub registry_id: RegistryId,
@@ -380,6 +385,8 @@ impl<T: Trait> Module<T> {
 mod errors {
     use super::*;
     use crate::test_common::*;
+    use frame_support::dispatch::DispatchError;
+    use sp_core::sr25519;
 
     #[test]
     fn invalidpolicy() {
@@ -421,7 +428,7 @@ mod errors {
             let revoke = Revoke {
                 registry_id: regid,
                 revoke_ids: random::<[RevokeId; 32]>().iter().cloned().collect(),
-                last_modified: 0u32,
+                last_modified: block_no() as u32,
             };
             let proof: BTreeMap<Did, DidSignature> = signers
                 .iter()
@@ -472,7 +479,7 @@ mod errors {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let kpa = create_did(DIDA);
         let reg = Registry { policy, add_only };
 
@@ -524,7 +531,7 @@ mod errors {
         }
 
         let registry_id = RGA;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let noreg: Result<(), DispatchError> = Err(RevErr::<Test>::NoReg.into());
 
         assert_eq!(
@@ -722,7 +729,7 @@ mod calls {
             assert!(Registries::<Test>::contains_key(reg_id));
             let (created_reg, created_bloc) = Registries::<Test>::get(reg_id).unwrap();
             assert_eq!(created_reg, reg);
-            assert_eq!(created_bloc, 0);
+            assert_eq!(created_bloc, block_no());
         }
     }
 
@@ -735,7 +742,7 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = true;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let kpa = create_did(DIDA);
 
         RevoMod::new_registry(
@@ -786,7 +793,7 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let kpa = create_did(DIDA);
 
         enum Action {
@@ -873,7 +880,7 @@ mod calls {
         let policy = oneof(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         let kpa = create_did(DIDA);
 
         let reg = Registry { policy, add_only };
@@ -914,6 +921,7 @@ mod calls {
 mod test {
     use super::*;
     use crate::test_common::*;
+    use sp_core::sr25519;
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.
@@ -971,7 +979,7 @@ mod test {
         RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg.clone()).unwrap();
         assert_eq!(
             RevoMod::get_revocation_registry(registry_id),
-            Some((reg, 0u64))
+            Some((reg, block_no()))
         );
     }
 
@@ -988,7 +996,7 @@ mod test {
         let reg = Registry { policy, add_only };
         let kpa = create_did(DIDA);
         let revid: RevokeId = random();
-        let last_modified = 0u32;
+        let last_modified = block_no() as u32;
         RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg).unwrap();
         let revoke = Revoke {
             registry_id,

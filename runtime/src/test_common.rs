@@ -1,15 +1,17 @@
 //! Boilerplate for runtime module unit tests
 
-use crate::did;
-use crate::did::{Did, DidSignature};
+use crate::did::{self, Did, DidSignature};
 use crate::revoke::{Policy, RegistryId, RevokeId};
-use codec::Encode;
-pub use frame_support::dispatch::DispatchError;
-use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
+use codec::{Decode, Encode};
+use frame_support::{
+    dispatch::{DispatchInfo, Dispatchable, PostDispatchInfo},
+    impl_outer_origin, parameter_types,
+    traits::UnfilteredDispatchable,
+    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
+};
 use frame_system as system;
 pub use rand::random;
-pub use sp_core::sr25519;
-use sp_core::{Pair, H256};
+use sp_core::{sr25519, Pair, H256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -21,6 +23,59 @@ pub type RevoMod = crate::revoke::Module<Test>;
 
 impl_outer_origin! {
     pub enum Origin for Test {}
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub enum TestCall {
+    Master(crate::master::Call<Test>),
+    System(system::Call<Test>),
+}
+
+impl Dispatchable for TestCall {
+    type Origin = Origin;
+    type Trait = ();
+    type Info = ();
+    type PostInfo = PostDispatchInfo;
+    fn dispatch(self, origin: Self::Origin) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
+        match self {
+            TestCall::Master(mc) => mc.dispatch_bypass_filter(origin),
+            TestCall::System(sc) => sc.dispatch_bypass_filter(origin),
+        }
+    }
+}
+
+impl GetDispatchInfo for TestCall {
+    fn get_dispatch_info(&self) -> DispatchInfo {
+        DispatchInfo {
+            weight: 101u64,
+            class: DispatchClass::Normal,
+            pays_fee: Pays::Yes,
+        }
+    }
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+pub enum TestEvent {
+    Master(crate::master::Event<Test>),
+    Unknown,
+}
+
+impl From<system::Event<Test>> for TestEvent {
+    fn from(_: system::Event<Test>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl From<()> for TestEvent {
+    fn from((): ()) -> Self {
+        Self::Unknown
+    }
+}
+
+impl From<crate::master::Event<Test>> for TestEvent {
+    fn from(other: crate::master::Event<Test>) -> Self {
+        Self::Master(other)
+    }
 }
 
 #[derive(Clone, Eq, Debug, PartialEq)]
@@ -44,7 +99,7 @@ impl system::Trait for Test {
     type AccountId = u64;
     type Lookup = IdentityLookup<Self::AccountId>;
     type Header = Header;
-    type Event = ();
+    type Event = TestEvent;
     type BlockHashCount = BlockHashCount;
     type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = ();
@@ -75,6 +130,11 @@ impl crate::blob::Trait for Test {
     type MaxBlobSize = MaxBlobSize;
 }
 
+impl crate::master::Trait for Test {
+    type Event = TestEvent;
+    type Call = TestCall;
+}
+
 pub const ABBA: u64 = 0;
 pub const RGA: RegistryId = [0u8; 32];
 pub const RA: RevokeId = [0u8; 32];
@@ -96,10 +156,25 @@ pub fn meta_in_ext() {
 }
 
 pub fn ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
+    let mut ret: sp_io::TestExternalities = system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap()
-        .into()
+        .into();
+    ret.execute_with(|| {
+        system::Module::<Test>::initialize(
+            &1, // system module will not store events if block_number == 0
+            &[0u8; 32].into(),
+            &[0u8; 32].into(),
+            &Default::default(),
+            system::InitKind::Full,
+        );
+    });
+    ret
+}
+
+// get the current block number from the system module
+pub fn block_no() -> u64 {
+    system::Module::<Test>::block_number()
 }
 
 /// create a OneOf policy

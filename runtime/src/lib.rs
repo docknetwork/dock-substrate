@@ -22,6 +22,7 @@ extern crate alloc;
 mod benchmark_utils;
 pub mod blob;
 pub mod did;
+pub mod master;
 pub mod revoke;
 
 pub use poa;
@@ -42,6 +43,7 @@ use frame_support::{
 use frame_system as system;
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_sudo as sudo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -91,6 +93,7 @@ pub enum StateChange {
     UnRevoke(revoke::UnRevoke),
     RemoveRegistry(revoke::RemoveRegistry),
     Blob(blob::Blob),
+    MasterVote(master::Payload),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -271,11 +274,6 @@ impl transaction_payment::Trait for Runtime {
     type FeeMultiplierUpdate = ();
 }
 
-impl sudo::Trait for Runtime {
-    type Event = Event;
-    type Call = Call;
-}
-
 impl did::Trait for Runtime {
     type Event = Event;
 }
@@ -331,6 +329,16 @@ impl pallet_authorship::Trait for Runtime {
     type EventHandler = ();
 }
 
+impl master::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+}
+
+impl sudo::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -347,10 +355,11 @@ construct_runtime!(
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
-        Sudo: sudo::{Module, Call, Config<T>, Storage, Event<T>},
-        DIDModule: did::{Module, Call, Storage, Event},
+        DIDModule: did::{Module, Call, Storage, Event, Config},
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
+        Master: master::{Module, Call, Storage, Event<T>, Config},
+        Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
     }
 );

@@ -10,7 +10,7 @@
 # ./run_node_in_docker --dev
 #
 # # Start a testnet node
-# ./run_node_in_docker --chain=remdev --rpc-external --ws-external --rpc-cors=all
+# ./run_node_in_docker --chain=poa_testnet --rpc-external --ws-external --rpc-cors=all
 # ```
 
 set -uexo pipefail
