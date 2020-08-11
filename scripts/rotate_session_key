@@ -1,14 +1,17 @@
 #!/bin/bash
 
-# This script is used to generate and set (rotate) new session keys for the validator
+# This script is used to generate and set (rotate) new session keys for the validator.
+# Pass flag --nocolor to disable colored output.
 
 # The script will will exit if any command fails
 set -ueo pipefail
 
 DEFAULT_NODE_RPC_ENDPOINT='http://localhost:9933'
+NOCOLOR='--nocolor'
 
 # If the node RPC endpoint is not provided, use the default one.
-if [[ $# == 1 ]]
+# The RPC endpoint should be the first argument and should not be $NOCOLOR
+if [[ $# -ge 1 && $1 != $NOCOLOR ]]
 then
   node_rpc_url=$1
 else
@@ -29,8 +32,18 @@ else
   exit 1
 fi
 
-# For colored output
-GREEN_COLOR='\033[1;32m'
-NOCOLOR='\033[0m'
+# Get the last argument
+last_arg=''
+for last_arg; do true; done
 
-echo -e "The session key is ${GREEN_COLOR}$session_key${NOCOLOR}"
+# If the last argument is not $NOCOLOR, print colored output
+if [[ $last_arg != $NOCOLOR ]]
+then
+  # For colored output
+  GREEN_COLOR='\033[1;32m'
+  NOCOLOR='\033[0m'
+
+  echo -e "The session key is ${GREEN_COLOR}$session_key${NOCOLOR}"
+else
+  echo "The session key is $session_key"
+fi
