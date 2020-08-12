@@ -37,8 +37,8 @@
         ]
       },
       "poa": {
-        "minEpochLength": 16,
-        "maxActiveValidators": 4,
+        "minEpochLength": 100,
+        "maxActiveValidators": 8,
         "activeValidators": [
           "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
           "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh"

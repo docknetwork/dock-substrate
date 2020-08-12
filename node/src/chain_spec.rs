@@ -116,6 +116,8 @@ pub fn development_config() -> ChainSpec {
                 .map(|(name, sk)| did_from_seed(name, sk))
                 .collect(),
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
+                min_epoch_length: 8,
+                max_active_validators: 2
             }
             .build()
         },
@@ -186,6 +188,8 @@ pub fn local_testnet_config() -> ChainSpec {
                 .map(|(name, sk)| did_from_seed(name, sk))
                 .collect(),
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
+                min_epoch_length: 16,
+                max_active_validators: 4
             }
             .build()
         },
@@ -281,6 +285,8 @@ pub fn testnet_config() -> ChainSpec {
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
                 ),
+                min_epoch_length: 100,
+                max_active_validators: 8
             }
             .build()
         },
@@ -307,6 +313,8 @@ struct GenesisBuilder {
     master: Membership,
     dids: Vec<(Did, KeyDetail)>,
     sudo: AccountId,
+    min_epoch_length: u32,
+    max_active_validators: u8
 }
 
 impl GenesisBuilder {
@@ -344,8 +352,8 @@ impl GenesisBuilder {
                     .collect::<Vec<_>>(),
             }),
             poa: Some(PoAModuleConfig {
-                min_epoch_length: 16,
-                max_active_validators: 4,
+                min_epoch_length: self.min_epoch_length,
+                max_active_validators: self.max_active_validators,
                 active_validators: self
                     .initial_authorities
                     .iter()
