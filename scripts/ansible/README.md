@@ -11,7 +11,7 @@ the 1st tier which is a validator only talks to its sentry. The sentry node is t
 its responsible for and other whitelisted (reserved) nodes which might be sentries of other validators or other validators 
 or some other full nodes serving clients or bootnodes. The nodes serving clients or acting as full nodes are the 3rd tier.
 The objective is to allow only whitelisted traffic (P2P or RPC) to tier 1 and 2 and only tier 3 allows client RPC traffic.  
-A sentry most likely will have one full dedicated to the serving RPC traffic from clients.  
+A sentry most likely will have one full node dedicated to the serving RPC traffic from clients.  
 The playbook uses the `host` variable to select the details of the node to run. In the sample hosts file, there are 3 hosts, 
 `validator`, `sentry` and `fullnode`.
 
