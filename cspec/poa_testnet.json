@@ -1,9 +1,9 @@
 {
-  "name": "Development",
-  "id": "dev",
-  "chainType": "Development",
+  "name": "Poa Testnet",
+  "id": "poa_testnet",
+  "chainType": "Live",
   "bootNodes": [
-    "/ip4/127.0.0.1/tcp/30333/p2p/12D3KooWFmf3sJnA2kVw4LRTc2Koud9g27ZJQZUfg5LtCLiYVDTv"
+    "/dns4/testnet-1.dock.io/tcp/30333/p2p/12D3KooWSbaqC655sjBSk7bNMghWsKdy1deCKRL6aRf6xcmm9dwW"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
@@ -18,26 +18,35 @@
       "palletSession": {
         "keys": [
           [
-            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
             {
-              "aura": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
-              "grandpa": "5FA9nQDVg267DEd8m1ZypXLBnvN7SFxYwV7ndqSYGiN9TTpu"
+              "aura": "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+              "grandpa": "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh"
+            }
+          ],
+          [
+            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
+            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
+            {
+              "aura": "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
+              "grandpa": "5FJir6hEEWvVCt4PHJ95ygtw5MvgD2xoET9xqskTu4MZBC98"
             }
           ]
         ]
       },
       "poa": {
-        "minEpochLength": 8,
-        "maxActiveValidators": 2,
+        "minEpochLength": 100,
+        "maxActiveValidators": 8,
         "activeValidators": [
-          "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+          "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+          "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh"
         ],
         "emissionSupply": 5000000000000000,
         "maxEmmValidatorEpoch": 375000000000,
         "treasuryRewardPc": 60,
         "validatorRewardLockPc": 50,
-        "emissionStatus": true
+        "emissionStatus": false
       },
       "aura": {
         "authorities": []
@@ -48,19 +57,35 @@
       "balances": {
         "balances": [
           [
-            "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY",
+            "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
             2500000000000000
           ],
           [
-            "5FHneW46xGXgs5mUiveU4sbTyGBzmstUspZC92UhjJM694ty",
+            "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
             2500000000000000
           ],
           [
-            "5GNJqTPyNqANBkUVMN1LPPrxXnFouWXoe2wNSmmEoLctxiZY",
+            "5Fq9cARnUAWxKGU9w5UngNNMsfjcxenAAuBn8zYJwyidSnuU",
             2500000000000000
           ],
           [
-            "5HpG9w8EBLe5XCrbczpwq5TSXvedjrBGCwqxK1iQ7qUsSWFc",
+            "5DcxJv1LRAiEmpR41xKUNbmefmutQ7WBEKEsS5xBxh8wQ99J",
+            2500000000000000
+          ],
+          [
+            "5E7BHnwo9LoKP6bAJseeqZgnWSbsFmiZxMAsEd7zGJfDoCCr",
+            2500000000000000
+          ],
+          [
+            "5DkS3AbP8mXWVUg8o9R7Y8czAPoi9JTYmS3FPzKx1z6735nd",
+            2500000000000000
+          ],
+          [
+            "5C89W6aJTdBBbXPhyLrefGSB97kXKWAo5NkqBvG8U9MKhEkP",
+            2500000000000000
+          ],
+          [
+            "5GpPMM3Mw1eAqniXQsRHdjd7dshmiudU46sELyRfGEbBoJu5",
             2500000000000000
           ]
         ]
@@ -69,119 +94,9 @@
         "dids": [
           [
             [
-              65,
-              108,
-              105,
-              99,
-              101,
+              110,
+              109,
               0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            {
-              "controller": [
-                65,
-                108,
-                105,
-                99,
-                101,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0
-              ],
-              "public_key": {
-                "Sr25519": {
-                  "value": [
-                    184,
-                    184,
-                    104,
-                    248,
-                    50,
-                    39,
-                    223,
-                    131,
-                    36,
-                    15,
-                    219,
-                    239,
-                    202,
-                    162,
-                    99,
-                    107,
-                    235,
-                    241,
-                    99,
-                    4,
-                    201,
-                    36,
-                    144,
-                    105,
-                    137,
-                    123,
-                    81,
-                    11,
-                    125,
-                    139,
-                    189,
-                    11
-                  ]
-                }
-              }
-            }
-          ],
-          [
-            [
-              66,
-              111,
-              98,
               0,
               0,
               0,
@@ -214,9 +129,9 @@
             ],
             {
               "controller": [
-                66,
-                111,
-                98,
+                110,
+                109,
+                0,
                 0,
                 0,
                 0,
@@ -250,38 +165,38 @@
               "public_key": {
                 "Sr25519": {
                   "value": [
-                    198,
-                    215,
-                    150,
-                    154,
-                    179,
-                    23,
-                    145,
-                    200,
-                    187,
-                    155,
-                    4,
-                    67,
-                    119,
-                    21,
-                    83,
+                    42,
+                    111,
+                    112,
+                    195,
+                    220,
+                    140,
+                    208,
+                    3,
+                    7,
                     91,
-                    228,
-                    252,
-                    189,
-                    254,
-                    72,
+                    191,
+                    20,
+                    86,
+                    124,
+                    66,
+                    81,
+                    181,
+                    18,
+                    197,
+                    81,
+                    77,
+                    255,
                     6,
-                    84,
-                    2,
-                    175,
-                    51,
-                    105,
-                    83,
-                    230,
-                    223,
-                    89,
-                    85
+                    156,
+                    41,
+                    60,
+                    20,
+                    103,
+                    159,
+                    145,
+                    145,
+                    61
                   ]
                 }
               }
@@ -289,13 +204,13 @@
           ],
           [
             [
-              67,
-              104,
-              97,
-              114,
+              110,
               108,
-              105,
-              101,
+              0,
+              0,
+              0,
+              0,
+              0,
               0,
               0,
               0,
@@ -324,13 +239,13 @@
             ],
             {
               "controller": [
-                67,
-                104,
-                97,
-                114,
+                110,
                 108,
-                105,
-                101,
+                0,
+                0,
+                0,
+                0,
+                0,
                 0,
                 0,
                 0,
@@ -360,38 +275,148 @@
               "public_key": {
                 "Sr25519": {
                   "value": [
-                    118,
-                    110,
-                    143,
-                    180,
-                    228,
-                    33,
-                    135,
-                    178,
-                    95,
-                    59,
-                    153,
-                    119,
-                    70,
-                    84,
-                    103,
-                    166,
-                    161,
+                    132,
+                    128,
+                    1,
                     239,
-                    204,
-                    182,
-                    189,
-                    119,
-                    18,
-                    33,
-                    173,
-                    127,
+                    39,
+                    240,
+                    87,
+                    113,
+                    154,
+                    49,
+                    224,
                     228,
-                    253,
-                    88,
-                    177,
-                    99,
-                    94
+                    87,
+                    212,
+                    237,
+                    217,
+                    70,
+                    197,
+                    121,
+                    45,
+                    3,
+                    168,
+                    203,
+                    32,
+                    59,
+                    192,
+                    37,
+                    189,
+                    218,
+                    130,
+                    83,
+                    1
+                  ]
+                }
+              }
+            }
+          ],
+          [
+            [
+              101,
+              99,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            {
+              "controller": [
+                101,
+                99,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0
+              ],
+              "public_key": {
+                "Sr25519": {
+                  "value": [
+                    200,
+                    92,
+                    98,
+                    175,
+                    89,
+                    140,
+                    183,
+                    24,
+                    206,
+                    75,
+                    209,
+                    176,
+                    183,
+                    57,
+                    96,
+                    95,
+                    167,
+                    164,
+                    37,
+                    45,
+                    181,
+                    8,
+                    206,
+                    178,
+                    61,
+                    189,
+                    62,
+                    180,
+                    202,
+                    82,
+                    48,
+                    98
                   ]
                 }
               }
@@ -403,43 +428,9 @@
         "members": {
           "members": [
             [
-              65,
-              108,
-              105,
+              101,
               99,
-              101,
               0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0,
-              0
-            ],
-            [
-              66,
-              111,
-              98,
               0,
               0,
               0,
@@ -471,13 +462,47 @@
               0
             ],
             [
-              67,
-              104,
-              97,
-              114,
+              110,
               108,
-              105,
-              101,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0,
+              0
+            ],
+            [
+              110,
+              109,
+              0,
+              0,
+              0,
+              0,
+              0,
               0,
               0,
               0,
@@ -509,7 +534,7 @@
         }
       },
       "sudo": {
-        "key": "5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY"
+        "key": "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH"
       }
     }
   }
