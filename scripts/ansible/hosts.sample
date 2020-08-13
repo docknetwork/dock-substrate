@@ -10,6 +10,7 @@
 [validator:vars]
 ansible_ssh_user=ubuntu
 ansible_ssh_private_key_file=<path of private key file>
+ansible_python_interpreter=<path to python binary, this should match python version on your host>
 libp2p_key=8ab0ed6a2d23699b952434d73c57fcd294b48f9d780805247b48aa6748368050
 allow_ext_rpc=false
 is_validator=true
@@ -22,6 +23,7 @@ rotate_session_key=false
 [sentry:vars]
 ansible_ssh_user=ubuntu
 ansible_ssh_private_key_file=<path of private key file>
+ansible_python_interpreter=<path to python binary, this should match python version on your host>
 libp2p_key=d2d00c24446603cc29d81a39bfa918b864928e469c2921cf6de599a07c0cc169
 allow_ext_rpc=false
 sentry_of=/ip4/<validator node ip>/tcp/30333/p2p/<validator node p2p public key>
@@ -33,6 +35,7 @@ bootnodes=['/ip4/<some bootstrap node's ip>/tcp/30333/p2p/<bootstrap node p2p pu
 [fullnode:vars]
 ansible_ssh_user=ubuntu
 ansible_ssh_private_key_file=<path of private key file>
+ansible_python_interpreter=<path to python binary, this should match python version on your host>
 libp2p_key=fd0e2dad34c5d6aca1b6f2e951b3d36a76e2eced56148e3a1352b6c84da743a2
 allow_ext_rpc=true
 #telemetry_url=ws://telemetry.polkadot.io:1024 0
