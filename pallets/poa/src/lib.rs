@@ -1140,7 +1140,7 @@ impl<T: Trait> Module<T> {
         // more than the slots allowed per validator. The cushion of 1 is given in the case when network
         // abruptly terminates and some validators don't get a chance to produce blocks
         let max_bl = max_blocks.to_number();
-        if (max_bl > slots_per_validator) && ((max_bl - slots_per_validator) > 1) {
+        if max_bl.saturating_sub(slots_per_validator) > 1 {
             error!(target: "panicing now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
             print(slots_per_validator);
             print(max_bl);
