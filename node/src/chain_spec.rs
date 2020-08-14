@@ -118,7 +118,7 @@ pub fn development_config() -> ChainSpec {
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
                 min_epoch_length: 8,
                 max_active_validators: 2,
-                emission_status: true
+                emission_status: true,
             }
             .build()
         },
@@ -191,7 +191,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
                 min_epoch_length: 16,
                 max_active_validators: 4,
-                emission_status: true
+                emission_status: true,
             }
             .build()
         },
@@ -289,16 +289,14 @@ pub fn testnet_config() -> ChainSpec {
                 ),
                 min_epoch_length: 100,
                 max_active_validators: 8,
-                emission_status: false
+                emission_status: false,
             }
             .build()
         },
-        vec![
-            "/dns4/testnet-1.dock.io/tcp/30333/p2p/\
+        vec!["/dns4/testnet-1.dock.io/tcp/30333/p2p/\
              12D3KooWSbaqC655sjBSk7bNMghWsKdy1deCKRL6aRf6xcmm9dwW"
-                .parse()
-                .unwrap(),
-        ],
+            .parse()
+            .unwrap()],
         None,
         None,
         None,
@@ -314,7 +312,7 @@ struct GenesisBuilder {
     sudo: AccountId,
     min_epoch_length: u32,
     max_active_validators: u8,
-    emission_status: bool
+    emission_status: bool,
 }
 
 impl GenesisBuilder {

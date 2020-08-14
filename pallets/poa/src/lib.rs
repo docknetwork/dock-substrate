@@ -4,7 +4,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    debug::{debug, RuntimeLogger},
+    debug::{debug, error, RuntimeLogger},
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{
         print,
@@ -865,13 +865,17 @@ impl<T: Trait> Module<T> {
         <ValidatorStats<T>>::insert(current_epoch_no, block_author, stats);
     }
 
-    /// Get count of slots reserved for a validator in given epoch
+    /// Get count of slots reserved for a validator in given epoch. Considers the length of epoch
+    /// and no of validators in the epoch and calculates slots that were reserved for each validator.
+    /// Handles the cases where an epoch was short circuited or the epoch seems (apparently) extended
+    /// as node crashed.
     fn get_slots_per_validator(
         epoch_detail: &EpochDetail,
         ending_slot: SlotNo,
         block_count: &BlockCount,
     ) -> EpochLen {
         if epoch_detail.expected_ending_slot >= ending_slot {
+            // Epoch was either short circuited ended in the expected slot
             print(ending_slot);
             if epoch_detail.expected_ending_slot > ending_slot {
                 print("Epoch ending early. Swap or epoch short circuited");
@@ -884,6 +888,7 @@ impl<T: Trait> Module<T> {
             print("Epoch ending late. This means the network stopped in between");
             match block_count {
                 BlockCount::MaxBlocks(max_blocks) => {
+                    // At least one of the validator produced more blocks than the rest
                     // Pick slot as every one should have got max_blocks - 1 slots at least, this is slightly
                     // disadvantageous for the highest block producer as he does not get paid for one block.
                     if *max_blocks > 0 {
@@ -1107,8 +1112,10 @@ impl<T: Trait> Module<T> {
         if !Self::emission_status() {
             return false;
         }
+
         // Emission is enabled, move on
         let emission_supply = Self::emission_supply().saturated_into::<Balance>();
+
         // The check below is not accurate as the remaining emission supply might be > 0 but not sufficient
         // to reward all validators and treasury; we would be over-issuing in that case. This is not a
         // concern for us as the supply won't go down for the life of the PoA network. A more accurate
@@ -1119,6 +1126,7 @@ impl<T: Trait> Module<T> {
         if emission_supply == 0 {
             return false;
         }
+
         // Get blocks authored by each validator
         let (max_blocks, validator_block_counts) = Self::count_validator_blocks(current_epoch_no);
         // Get slots received by each validator
@@ -1127,8 +1135,16 @@ impl<T: Trait> Module<T> {
         print("slots_per_validator");
         print(slots_per_validator);
 
-        if slots_per_validator > max_blocks.to_number() {
-            panic!("This panic should never trigger");
+        // It might happen that `slots_per_validator` > `max_blocks` as the network went down for
+        // a brief moment of time but a validator should not be able to produce any more than 1 blocks
+        // more than the slots allowed per validator. The cushion of 1 is given in the case when network
+        // abruptly terminates and some validators don't get a chance to produce blocks
+        let max_bl = max_blocks.to_number();
+        if (max_bl > slots_per_validator) && ((max_bl - slots_per_validator) > 1) {
+            error!(target: "panicing now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
+            print(slots_per_validator);
+            print(max_bl);
+            panic!("THIS PANIC SHOULD NEVER TRIGGER: slots_per_validator > max_blocks.to_number()");
         }
 
         if slots_per_validator > 0 {
