@@ -161,7 +161,7 @@
   
   # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
   - name: Rotate session key
-    shell: docker exec -it {{ container_name }} ./scripts/rotate_session_key --nocolor
+    shell: docker exec {{ container_name }} ./scripts/rotate_session_key --nocolor
     register: sess_key
     when: rotate_session_key | bool
   
