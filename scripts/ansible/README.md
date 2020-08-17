@@ -3,9 +3,9 @@
 ## Ansible playbook for testnode.
 
 The playbook [poa-1-testnet-node](poa-1-testnet-node.yml) is used to run a testnet node, be it a validator, sentry
-or a full node. The playbook has only been tested with Ubuntu and will setup Docker, pull the testnet node image, start a 
-container and run a node. For non-Ubuntu machines, the playbook might be useful if Docker is already setup.
-The playbook requires some variables which it reads either from the given host file or command line. These are the parameters
+or a full node. The playbook has only been tested on remotes running Ubuntu 18.04 and RHEL 8.2 using ansible 2.9.6 with python 3.8. 
+It requires python3 to be installed on the remote (where node will run) as well and sudo access to the remotes. It will setup Docker, 
+pull the testnet node image, start a container running a node. These are the parameters
 
 1. path to python interpreter on remote `ansible_python_interpreter`
 1. node name as `node_name`
@@ -19,6 +19,7 @@ The playbook requires some variables which it reads either from the given host f
 1. what telemetry url it should use as `telemetry_url`, default to no telemetry
 1. if session key should be rotated, as `rotate_session_key`, defaults to false. If true, session key will be stored 
 in a file called session_key.txt on the host.
+1. pruning mode for the node, as `pruning`, this can be either `archive` or a positive integer.
 
 The [sample hosts file](hosts.sample) can be checked for the parameters. Note that the sample file has several 
 placeholders enclosed in angle brackets, i.e. like `<validator node ip>` or `<path of private key file>`, all of these 

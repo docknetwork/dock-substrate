@@ -37,6 +37,8 @@
     # if `bootnodes` is defined, then `boot_nodes` will be a string like `--bootnodes=<addr1> --bootnodes=<addr2>`. `bootnodes` is expected to as an array and no input validation is done as of now
     # Variable name `boot_nodes` is intentionally kept different from `bootnodes` to avoid recursion
     boot_nodes: "{{ '--bootnodes=' + bootnodes | join(' --bootnodes=') if bootnodes is defined else '' }}"
+    
+    prune: "{{ '--pruning=' + pruning if pruning is defined else '' }}"
     # TODO: Allow light node as well
   tasks:
 
@@ -73,46 +75,59 @@
     become_method: sudo
     apt: update_cache=yes name=docker-ce state=latest
   
-  # Following commented are for RedHat. Haven't tested yet.
-  # - name: Install yum utils (Will only run for RedHat/Centos)
-  #   when: ansible_facts['os_family'] == "RedHat"
-  #   yum:
-  #     name: yum-utils
-  #     state: latest
+  # Following commented are for RedHat.
+  - name: Install yum utils (Will only run for RedHat/Centos)
+    when: ansible_facts['os_family'] == "RedHat"
+    become: yes
+    become_method: sudo
+    yum:
+      name: yum-utils
+      state: latest
   
-  # - name: Install device-mapper-persistent-data (Will only run for RedHat/Centos)
-  #   when: ansible_facts['os_family'] == "RedHat"
-  #   yum:
-  #     name: device-mapper-persistent-data
-  #     state: latest
+  - name: Install device-mapper-persistent-data (Will only run for RedHat/Centos)
+    when: ansible_facts['os_family'] == "RedHat"
+    become: yes
+    become_method: sudo
+    yum:
+      name: device-mapper-persistent-data
+      state: latest
 
-  # - name: Install lvm2 (Will only run for RedHat/Centos)
-  #   when: ansible_facts['os_family'] == "RedHat"
-  #   yum:
-  #     name: lvm2
-  #     state: latest
+  - name: Install lvm2 (Will only run for RedHat/Centos)
+    when: ansible_facts['os_family'] == "RedHat"
+    become: yes
+    become_method: sudo
+    yum:
+      name: lvm2
+      state: latest
 
-  # - name: Add Docker repo (Will only run for RedHat/Centos)
-  #   when: ansible_facts['os_family'] == "RedHat"
-  #   get_url:
-  #     url: https://download.docker.com/linux/centos/docker-ce.repo
-  #     dest: /etc/yum.repos.d/docer-ce.repo
-  #   become: yes
+  - name: Add Docker repo (Will only run for RedHat/Centos)
+    when: ansible_facts['os_family'] == "RedHat"
+    get_url:
+      url: https://download.docker.com/linux/centos/docker-ce.repo
+      dest: /etc/yum.repos.d/docer-ce.repo
+    become: yes
   
-  # - name: Install Docker (Will only run for RedHat/Centos)
-  #   when: ansible_facts['os_family'] == "RedHat"
-  #   package:
-  #     name: docker-ce
-  #     state: latest
-  #   become: yes
+  - name: Install Containerd (Will only run for RedHat/Centos; this should be removed in future when docker-ce is packaged with the distro)
+    when: ansible_facts['os_family'] == "RedHat"
+    become: yes
+    become_method: sudo
+    yum:
+      name: https://download.docker.com/linux/centos/7/x86_64/stable/Packages/containerd.io-1.2.6-3.3.el7.x86_64.rpm
 
-  # - name: Start Docker service (Will only run for RedHat/Centos)
-  #   when: ansible_facts['os_family'] == "RedHat"
-  #   service:
-  #     name: docker
-  #     state: started
-  #     enabled: yes
-  #   become: yes
+  - name: Install Docker (Will only run for RedHat/Centos)
+    when: ansible_facts['os_family'] == "RedHat"
+    package:
+      name: docker-ce
+      state: latest
+    become: yes
+
+  - name: Start Docker service (Will only run for RedHat/Centos)
+    when: ansible_facts['os_family'] == "RedHat"
+    service:
+      name: docker
+      state: started
+      enabled: yes
+    become: yes
 
   - name: Add group "docker", ignore if exists
     become: yes
@@ -120,6 +135,10 @@
     group:
       name: docker
       state: present
+
+  - name: This achieves the "logout and then login" effect by resetting the ssh connection to add current user to the group "docker". Need on RedHat. (Will only run for RedHat/Centos)
+    when: ansible_facts['os_family'] == "RedHat"
+    meta: reset_connection
 
   - name: Add current user to group "docker", ignore if exists
     become: yes
@@ -157,7 +176,7 @@
       mounts:
       - source: 'chain-data'
         target: '{{ mount_at }}'
-      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }}'
+      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }}'
   
   # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
   - name: Rotate session key
