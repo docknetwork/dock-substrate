@@ -60,6 +60,18 @@ cargo run -- purge-chain --dev
 
 # View available command line options.
 cargo run -- --help
+
+# Incase block finalisation stalls for some reason, exporting the blocks, purging the chain and importing the blocks fixes it
+# Make sure node is stopped before running followig commands. The `pruning mode` is by default `archive`
+
+# Export blocks to file blocks.bin
+./target/<debug or release>/dock-testnet export-blocks --binary --chain=<chain spec> --base-path=<data directory of the node> [--pruning=<pruning mode>] blocks.bin
+
+# Purge chain
+./target/<debug or release>/dock-testnet purge-chain --chain=<chain spec> --base-path=<data directory of the node>
+
+# Import blocks from file blocks.bin
+./target/<debug or release>/dock-testnet import-blocks --binary --chain=<chain spec> --base-path=<data directory of the node> [--pruning=<pruning mode>] blocks.bin 
 ```
 
 ## Polkadot-js UI
