@@ -136,8 +136,7 @@
       name: docker
       state: present
 
-  - name: This achieves the "logout and then login" effect by resetting the ssh connection to add current user to the group "docker". Need on RedHat. (Will only run for RedHat/Centos)
-    when: ansible_facts['os_family'] == "RedHat"
+  - name: This achieves the "logout and then login" effect by resetting the ssh connection to add current user to the group "docker". Need only on RedHat.
     meta: reset_connection
 
   - name: Add current user to group "docker", ignore if exists
