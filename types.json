@@ -1,4 +1,7 @@
 {
+  "Address": "AccountId",
+  "LookupSource": "AccountId",
+  "Keys": "SessionKeys2",
   "Did": "[u8;32]",
   "Bytes32": {
     "value": "[u8;32]"
@@ -90,6 +93,15 @@
     "locked_reward": "Option<Balance>",
     "unlocked_reward": "Option<Balance>"
   },
+  "Payload": {
+    "proposal": "Vec<u8>",
+    "round_no": "u64"
+  },
+  "Membership": {
+    "members": "BTreeSet<Did>",
+    "vote_requirement": "u64"
+  },
+  "PMAuth": "BTreeMap<Did, DidSignature>",
   "StateChange": {
     "_enum": {
       "KeyUpdate": "KeyUpdate",
@@ -97,7 +109,8 @@
       "Revoke": "Revoke",
       "UnRevoke": "UnRevoke",
       "RemoveRegistry": "RemoveRegistry",
-      "Blob": "Blob"
+      "Blob": "Blob",
+      "MasterVote": "Payload"
     }
   }
 }
