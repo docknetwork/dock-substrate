@@ -33,7 +33,7 @@ mod test_common;
 
 use codec::{Decode, Encode};
 use frame_support::{
-    construct_runtime, parameter_types,
+    construct_runtime, parameter_types, debug::debug,
     traits::{KeyOwnerProofSystem, Randomness},
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
@@ -52,9 +52,9 @@ use sp_runtime::traits::{
     OpaqueKeys, Saturating, Verify,
 };
 use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys,
+    create_runtime_str, generic, impl_opaque_keys, print,
     transaction_validity::{TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature, Perbill,
+    ApplyExtrinsicResult, MultiSignature, Perbill
 };
 
 use sp_std::prelude::*;
@@ -458,6 +458,14 @@ impl_runtime_apis! {
 
     impl sp_session::SessionKeys<Block> for Runtime {
         fn generate_session_keys(seed: Option<Vec<u8>>) -> Vec<u8> {
+            match seed {
+                Some(_) => {
+                    print("Some seed provided");
+                    debug!(
+                        target: "runtime", "{:?}", seed);
+                },
+                None => print("None seed provided")
+            }
             opaque::SessionKeys::generate(seed)
         }
 

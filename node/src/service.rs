@@ -1,6 +1,7 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use dock_testnet_runtime::{self, Block, RuntimeApi};
+use poa_rpc::{PoAApi, PoA};
 use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
@@ -13,6 +14,7 @@ use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_inherents::InherentDataProviders;
 use std::sync::Arc;
 use std::time::Duration;
+use sc_rpc_api::DenyUnsafe;
 
 // Our native executor instance.
 native_executor_instance!(
@@ -21,6 +23,9 @@ native_executor_instance!(
     dock_testnet_runtime::native_version,
     frame_benchmarking::benchmarking::HostFunctions,
 );
+
+/// A IO handler that uses all Full RPC extensions.
+pub type IoHandler = jsonrpc_core::IoHandler<sc_rpc::Metadata>;
 
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;
 type FullBackend = sc_service::TFullBackend<Block>;
@@ -35,7 +40,7 @@ pub fn new_full_params(
             FullClient,
             sc_consensus_aura::AuraImportQueue<Block, FullClient>,
             sc_transaction_pool::FullPool<Block, FullClient>,
-            (),
+            IoHandler,
             FullBackend,
         >,
         FullSelectChain,
@@ -91,7 +96,7 @@ pub fn new_full_params(
 
     let params = sc_service::ServiceParams {
         backend,
-        client,
+        client: client.clone(),
         import_queue,
         keystore,
         task_manager,
@@ -102,7 +107,14 @@ pub fn new_full_params(
         finality_proof_provider: Some(finality_proof_provider),
         on_demand: None,
         remote_blockchain: None,
-        rpc_extensions_builder: Box::new(|_| ()),
+        rpc_extensions_builder: Box::new(move |deny_unsafe: DenyUnsafe| {
+            let mut io = jsonrpc_core::IoHandler::default();
+            io.extend_with(PoAApi::to_delegate(PoA::new(
+                client.clone(),
+                deny_unsafe.clone()
+            )));
+            io
+        }),
     };
 
     Ok((

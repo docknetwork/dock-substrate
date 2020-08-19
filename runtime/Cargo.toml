@@ -194,6 +194,13 @@ package = 'poa'
 path = '../pallets/poa'
 version = '0.0.1'
 
+[dependencies.poa-rpc]
+#default-features = false
+package = 'poa-rpc'
+optional = true
+path = '../pallets/poa/rpc'
+version = '0.0.1'
+
 [dependencies.token_migration]
 default-features = false
 package = 'token_migration'
@@ -232,6 +239,8 @@ std = [
     'pallet-sudo/std',
     'pallet-authorship/std',
     'poa/std',
+#    'poa-rpc/std',
+    'poa-rpc',
     'token_migration/std',
 ]
 runtime-benchmarks = [
