@@ -17,9 +17,9 @@
 use crate::chain_spec;
 use crate::cli::{Cli, Subcommand};
 use crate::service;
-use crate::service::new_full_params;
+use crate::service::new_partial;
 use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
-use sc_service::ServiceParams;
+use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
@@ -74,16 +74,13 @@ pub fn run() -> sc_cli::Result<()> {
             let runner = cli.create_runner(subcommand)?;
 
             runner.run_subcommand(subcommand, |config| {
-                let (
-                    ServiceParams {
-                        client,
-                        backend,
-                        task_manager,
-                        import_queue,
-                        ..
-                    },
-                    ..,
-                ) = new_full_params(config)?;
+                let PartialComponents {
+                    client,
+                    backend,
+                    task_manager,
+                    import_queue,
+                    ..
+                } = new_partial(&config)?;
                 Ok((client, backend, import_queue, task_manager))
             })
         }

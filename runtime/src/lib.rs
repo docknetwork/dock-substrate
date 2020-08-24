@@ -70,13 +70,13 @@ type Signature = MultiSignature;
 
 /// Some way of identifying an account on the chain. We intentionally make it equivalent
 /// to the public key of our transaction signing scheme.
-type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
+pub type AccountId = <<Signature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Balance of an account.
 pub type Balance = u64;
 
 /// Index of a transaction in the chain.
-type Index = u32;
+pub type Index = u32;
 
 /// A hash of some data used by the chain.
 type Hash = sp_core::H256;
@@ -125,8 +125,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-testnet"),
     impl_name: create_runtime_str!("dock-testnet"),
     authoring_version: 1,
-    spec_version: 1,
-    impl_version: 2,
+    spec_version: 2,
+    impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
@@ -491,6 +491,21 @@ impl_runtime_apis! {
             // defined our key owner proof type as a bottom type (i.e. a type
             // with no values).
             None
+        }
+    }
+
+    impl frame_system_rpc_runtime_api::AccountNonceApi<Block, AccountId, Index> for Runtime {
+        fn account_nonce(account: AccountId) -> Index {
+            System::account_nonce(account)
+        }
+    }
+
+    impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
+        fn query_info(
+            uxt: <Block as BlockT>::Extrinsic,
+            len: u32,
+        ) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
+            TransactionPayment::query_info(uxt, len)
         }
     }
 
