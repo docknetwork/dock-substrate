@@ -14,7 +14,7 @@ benchmarks! {
             // Migrator
             let u in 1 .. MAX_USER_INDEX => ();
             // No of migrations
-            let n in 1 .. 100 => ();
+            let n in 1 .. 1000 => ();
         }
 
         // Assumes recipient account does not exist which is most likely to be the case
@@ -22,10 +22,13 @@ benchmarks! {
             let u in ...;
             let n in ...;
 
-            // Fuel migrator
-            let existential_deposit: BalanceOf<T> = 500.into();
             let migrator: T::AccountId = account("caller", u, SEED);
-            let balance = existential_deposit.saturating_mul(120.into());
+            // Setup migrator
+            Migrators::<T>::insert(migrator.clone(), n as u16);
+
+            // Fuel migrator such that he can pay each recipient
+            let recip_amount: BalanceOf<T> = 500.into();
+            let balance = recip_amount.saturating_mul((n+1).into());
             let _ = T::Currency::make_free_balance_be(&migrator, balance);
 
             // Setup recipients
@@ -33,7 +36,7 @@ benchmarks! {
             for i in 0..n {
                 // Same seed is fine as index is different
                 let recipient: T::AccountId = account("recipient", i, SEED);
-                recipients.insert(recipient, existential_deposit);
+                recipients.insert(recipient, recip_amount);
             }
         }: _(RawOrigin::Signed(migrator), recipients)
 }
