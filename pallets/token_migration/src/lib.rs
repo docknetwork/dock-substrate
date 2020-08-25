@@ -12,7 +12,7 @@ use frame_support::{
         },
     },
     traits::{Currency, ExistenceRequirement::AllowDeath, Get, WithdrawReason},
-    weights::Pays,
+    weights::{Pays, Weight},
 };
 /// Pallet for token migration.
 use sp_std::marker::PhantomData;
@@ -90,8 +90,7 @@ decl_module! {
 
         /// Does a token migration. The migrator should have sufficient balance to give tokens to recipients
         /// The check whether it is a valid migrator is made inside the SignedExtension
-        // TODO: Set correct weight
-        #[weight = (T::DbWeight::get().reads_writes(3 + recipients.len() as u64, 1 + recipients.len() as u64), Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(3 + recipients.len() as u64, 1 + recipients.len() as u64) + (22_100 * recipients.len() as Weight), Pays::No)]
         pub fn migrate(origin, recipients: BTreeMap<T::AccountId, BalanceOf<T>>) -> dispatch::DispatchResult {
             let migrator = ensure_signed(origin)?;
             Self::migrate_(migrator, recipients)
