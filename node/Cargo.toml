@@ -30,7 +30,6 @@ tag = 'v2.0.0-rc6'
 
 [dependencies.sc-cli]
 git = 'https://github.com/paritytech/substrate.git'
-#features = ['wasmtime']
 optional = true
 version = '0.8.0-rc6'
 tag = 'v2.0.0-rc6'
@@ -52,7 +51,6 @@ tag = 'v2.0.0-rc6'
 
 [dependencies.sc-executor]
 git = 'https://github.com/paritytech/substrate.git'
-features = ['wasmtime']
 version = '0.8.0-rc6'
 tag = 'v2.0.0-rc6'
 
@@ -68,7 +66,6 @@ tag = 'v2.0.0-rc6'
 
 [dependencies.sc-service]
 git = 'https://github.com/paritytech/substrate.git'
-features = ['wasmtime']
 version = '0.8.0-rc6'
 tag = 'v2.0.0-rc6'
 
@@ -171,16 +168,15 @@ name = 'dock-testnet'
 path = 'src/main.rs'
 
 [features]
-#default = [ "cli" ]
 default = [ "wasmtime" ]
-#cli = [
-#	"sc-executor/wasmi-errno",
-#	"sc-cli",
-#	"frame-benchmarking-cli",
-#	"sc-service/db",
-#	"structopt",
-#	"substrate-build-script-utils",
-#]
+cli = [
+	"sc-executor/wasmi-errno",
+	"sc-cli",
+	"frame-benchmarking-cli",
+	"sc-service/db",
+	"structopt",
+	"substrate-build-script-utils",
+]
 wasmtime = [
 	"sc-cli/wasmtime",
 	"sc-executor/wasmtime",
