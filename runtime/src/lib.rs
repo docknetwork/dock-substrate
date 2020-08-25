@@ -518,6 +518,7 @@ impl_runtime_apis! {
             highest_range_values: Vec<u32>,
             steps: Vec<u32>,
             repeat: u32,
+            extra: bool
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
             // Following line copied from substrate node
@@ -533,7 +534,7 @@ impl_runtime_apis! {
             let whitelist = vec![];
 
             let mut batches = Vec::<BenchmarkBatch>::new();
-            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist);
+            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist, extra);
 
             add_benchmark!(params, batches, did, DIDModule);
             add_benchmark!(params, batches, revoke, Revoke);
