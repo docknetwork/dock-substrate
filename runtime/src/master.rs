@@ -70,7 +70,7 @@ use codec::{Decode, Encode};
 use core::default::Default;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, DispatchResultWithPostInfo, Dispatchable},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
     ensure,
     traits::Get,
     weights::{GetDispatchInfo, Pays},
@@ -113,7 +113,9 @@ where
 
     /// The dispatchable that master may call as Root. It is possible to use another type here, but
     /// it's expectected that your runtime::Call will be used.
-    type Call: Parameter + Dispatchable<Origin = Self::Origin> + GetDispatchInfo;
+    type Call: Parameter
+        + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
+        + GetDispatchInfo;
 }
 
 decl_storage! {
@@ -183,7 +185,7 @@ decl_module! {
             origin,
             proposal: Box<<T as Trait>::Call>,
             auth: PMAuth,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             Module::<T>::execute_(origin, proposal, auth)
         }
 
@@ -212,7 +214,7 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         proposal: Box<<T as Trait>::Call>,
         auth: PMAuth,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         ensure_signed(origin)?;
 
         // check
@@ -235,13 +237,13 @@ impl<T: Trait> Module<T> {
             ensure!(valid, MasterError::<T>::BadSig);
         }
 
-        // check/execute
-        proposal
+        // execute call and collect dispatch info to return
+        let dispatch_info = proposal
             .clone()
             .dispatch(system::RawOrigin::Root.into())
             .map_err(|e| e.error)?;
 
-        // execute
+        // Update round (nonce)
         Round::mutate(|round| {
             *round += 1;
         });
@@ -252,7 +254,7 @@ impl<T: Trait> Module<T> {
             proposal.into(),
         ));
 
-        Ok(())
+        Ok(dispatch_info)
     }
 
     pub fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
@@ -336,7 +338,7 @@ mod test {
             });
             let call = TestCall::System(system::Call::<Test>::remark(vec![]));
             let err = MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap_err();
-            assert_eq!(err, DispatchError::BadOrigin);
+            assert_eq!(err, (DispatchError::BadOrigin).into());
         });
     }
 
