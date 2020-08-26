@@ -169,7 +169,7 @@ decl_module! {
         /// Execute a proposal that has received enough votes. The proposal is a serialized Call.
         /// This function can be called by anyone, even someone who is not a member of Master.
         ///
-        /// After a sucessful execution, the round number is increased.
+        /// After a successful execution, the round number is increased.
         // TODO: benchmark worst case cost to verify a signature and add it to weight
         #[
             weight = 10_000

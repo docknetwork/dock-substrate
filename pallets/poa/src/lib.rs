@@ -283,10 +283,11 @@ decl_module! {
         /// In worst case there is a write to `QueuedValidators`.
         /// In case of short circuit there is 1 read and write to `EpochEndsAt`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
-        pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight)]
+        pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::add_validator_(validator_id, short_circuit)
+            Self::add_validator_(validator_id, short_circuit)?;
+            Ok(Pays::No.into())
         }
 
         /// Remove the given validator from active validator set and the queued validators at the end
@@ -301,10 +302,11 @@ decl_module! {
         /// In worst case there is a write to `RemoveValidators`.
         /// In case of short circuit there is 1 read and write to `EpochEndsAt`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(3 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
-        pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(3 + *short_circuit as Weight, 1 + *short_circuit as Weight)]
+        pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::remove_validator_(validator_id, short_circuit)
+            Self::remove_validator_(validator_id, short_circuit)?;
+            Ok(Pays::No.into())
         }
 
         /// Replace an active validator (`old_validator_id`) with a new validator (`new_validator_id`)
@@ -315,10 +317,11 @@ decl_module! {
         /// storage item. The write to validator set happens while loading next block and is counted
         /// in `BlockExecutionWeight`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
-        pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::swap_validator_(old_validator_id, new_validator_id)
+            Self::swap_validator_(old_validator_id, new_validator_id)?;
+            Ok(Pays::No.into())
         }
 
         /// Used to set session keys for a validator. A validator shares its session key with the
@@ -327,12 +330,13 @@ decl_module! {
         /// # <weight>
         /// Wights computation copied from session pallet's `set_keys` dispatchable
         /// # </weight>
-        #[weight = (200_000_000
+        #[weight = 200_000_000
             + T::DbWeight::get().reads(2 + T::Keys::key_ids().len() as Weight)
-            + T::DbWeight::get().writes(1 + T::Keys::key_ids().len() as Weight), Pays::No)]
-        pub fn set_session_key(origin, validator_id: T::AccountId, keys: T::Keys) -> dispatch::DispatchResult {
+            + T::DbWeight::get().writes(1 + T::Keys::key_ids().len() as Weight)]
+        pub fn set_session_key(origin, validator_id: T::AccountId, keys: T::Keys) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            <pallet_session::Module<T>>::set_keys(RawOrigin::Signed(validator_id).into(), keys, [].to_vec())
+            <pallet_session::Module<T>>::set_keys(RawOrigin::Signed(validator_id).into(), keys, [].to_vec())?;
+            Ok(Pays::No.into())
         }
 
         /// Withdraw from treasury. Only Master is allowed to withdraw
@@ -340,19 +344,20 @@ decl_module! {
         /// 1 read-write for treasury and 1 read-write for recipient.
         /// 70 µs transfer cost copied from balance pallet's `transfer` dispatchable
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(2, 2) + 70_000_000, Pays::No)]
-        pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(2, 2) + 70_000_000]
+        pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
-            Self::withdraw_from_treasury_(recipient, amount)
+            Self::withdraw_from_treasury_(recipient, amount)?;
+            Ok(Pays::No.into())
         }
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
         /// Only Master can call this.
-        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
-        pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().writes(1)]
+        pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             EmissionStatus::put(status);
-            Ok(())
+            Ok(Pays::No.into())
         }
 
         /// Set the minimum number of slots in the epoch, i.e. storage item MinEpochLength. This
@@ -364,12 +369,12 @@ decl_module! {
         ///     1 write during epoch change to `MinEpochLengthTentative` to zero it out
         /// 1 read during epoch change of `MinEpochLengthTentative`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(1, 3), Pays::No)]
-        pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 3)]
+        pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(length > 0, Error::<T>::EpochLengthCannotBe0);
             MinEpochLengthTentative::put(length);
-            Ok(())
+            Ok(Pays::No.into())
         }
 
         /// Set the maximum number of active validators, i.e. storage item MaxActiveValidators. This
@@ -381,44 +386,44 @@ decl_module! {
         ///     1 write during epoch change to `MaxActiveValidatorsTentative` to zero it out
         /// 1 read during epoch change of `MaxActiveValidatorsTentative`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(1, 3), Pays::No)]
-        pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 3)]
+        pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(count > 0, Error::<T>::NeedAtLeast1Validator);
             MaxActiveValidatorsTentative::put(count);
-            Ok(())
+            Ok(Pays::No.into())
         }
 
         /// Set the maximum emission rewards per validator per epoch.
-        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
-        pub fn set_max_emm_validator_epoch(origin, emission: Balance) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().writes(1)]
+        pub fn set_max_emm_validator_epoch(origin, emission: Balance) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             <MaxEmmValidatorEpoch<T>>::put(emission.saturated_into::<BalanceOf<T>>());
-            Ok(())
+            Ok(Pays::No.into())
         }
 
         /// Set percentage of emission rewards locked per epoch for validators
-        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
-        pub fn set_validator_reward_lock_pc(origin, lock_pc: u8) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().writes(1)]
+        pub fn set_validator_reward_lock_pc(origin, lock_pc: u8) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(
                 lock_pc <= 100,
                 Error::<T>::PercentageGreaterThan100
             );
             ValidatorRewardsLockPercent::put(lock_pc);
-            Ok(())
+            Ok(Pays::No.into())
         }
 
         /// Set percentage of emission rewards for treasury in each epoch
-        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
-        pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().writes(1)]
+        pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(
                 reward_pc <= 100,
                 Error::<T>::PercentageGreaterThan100
             );
             TreasuryRewardsPercent::put(reward_pc);
-            Ok(())
+            Ok(Pays::No.into())
         }
 
         /// Awards the complete txn fees to the block author if any and increment block count for

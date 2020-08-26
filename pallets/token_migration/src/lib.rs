@@ -97,23 +97,23 @@ decl_module! {
         }
 
         /// Increase the migrators allowed migrations by the given number
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
-        pub fn expand_migrator(origin, migrator: T::AccountId, increase_migrations_by: u16) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn expand_migrator(origin, migrator: T::AccountId, increase_migrations_by: u16) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             match Self::migrators(&migrator) {
                 Some(current_migrations) => {
                     let new_migrations = current_migrations.checked_add(increase_migrations_by).ok_or(Error::<T>::CannotExpandMigrator)?;
                     Migrators::<T>::insert(migrator.clone(), new_migrations);
                     Self::deposit_event(RawEvent::MigratorExpanded(migrator, new_migrations));
-                    Ok(())
+                    Ok(Pays::No.into())
                 },
                 None => fail!(Error::<T>::UnknownMigrator)
             }
         }
 
         /// Decrease the migrators allowed migrations by the given number
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
-        pub fn contract_migrator(origin, migrator: T::AccountId, decrease_migrations_by: u16) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn contract_migrator(origin, migrator: T::AccountId, decrease_migrations_by: u16) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let new_migrations = Self::migrators(&migrator)
                 .ok_or(Error::<T>::UnknownMigrator)?
@@ -121,27 +121,27 @@ decl_module! {
                 .ok_or(Error::<T>::CannotContractMigrator)?;
             Migrators::<T>::insert(&migrator, &new_migrations);
             Self::deposit_event(RawEvent::MigratorContracted(migrator, new_migrations));
-            Ok(())
+            Ok(Pays::No.into())
         }
 
         /// Add a new migrator
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
-        pub fn add_migrator(origin, migrator: T::AccountId, allowed_migrations: u16) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn add_migrator(origin, migrator: T::AccountId, allowed_migrations: u16) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(!Migrators::<T>::contains_key(&migrator), Error::<T>::MigratorAlreadyPresent);
             Migrators::<T>::insert(migrator.clone(), allowed_migrations);
             Self::deposit_event(RawEvent::MigratorAdded(migrator, allowed_migrations));
-            Ok(())
+            Ok(Pays::No.into())
         }
 
         /// Remove an existing migrator
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
-        pub fn remove_migrator(origin, migrator: T::AccountId) -> dispatch::DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn remove_migrator(origin, migrator: T::AccountId) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(Migrators::<T>::contains_key(&migrator), Error::<T>::UnknownMigrator);
             Migrators::<T>::remove(&migrator);
             Self::deposit_event(RawEvent::MigratorRemoved(migrator));
-            Ok(())
+            Ok(Pays::No.into())
         }
     }
 }
