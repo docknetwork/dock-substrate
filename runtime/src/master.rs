@@ -70,7 +70,7 @@ use codec::{Decode, Encode};
 use core::default::Default;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, Dispatchable, DispatchResultWithPostInfo},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo, Dispatchable},
     ensure,
     traits::Get,
     weights::{GetDispatchInfo, Pays},
