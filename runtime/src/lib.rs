@@ -152,7 +152,7 @@ parameter_types! {
     /// We allow for 1 seconds of compute with a 3 second average block time.
     pub const MaximumBlockWeight: Weight = WEIGHT_PER_SECOND;
     /// Since there are no `Operational` transactions as of now, the whole block can be filled with
-    /// `Noraml` transactions.
+    /// `Normal` transactions.
     pub const AvailableBlockRatio: Perbill = Perbill::from_percent(100);
     /// Assume 10% of weight for average on_initialize calls.
     pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get().saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
@@ -204,7 +204,7 @@ impl system::Trait for Runtime {
     /// The base weight of any extrinsic processed by the runtime, independent of the
     /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
     /// The storage item `TxnFees` would potentially be read and written after each extrinsic if that
-    /// pays fees but that read and write goes to DB only once per block due to Substrate's Substrate's _overlay change set_
+    /// pays fees but that read and write goes to DB only once per block due to Substrate's _overlay change set_
     /// and is captured in weight calculation of `BlockExecutionWeight`
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
