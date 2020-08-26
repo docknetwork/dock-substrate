@@ -15,9 +15,9 @@ then
   exit 1
 fi
 
-if [[ $1 != 'sr25519' ]] && [[ $1 != 'ed25519' ]] && [[ $1 != 'secp256k1' ]]
+if [[ $1 != 'sr25519' ]] && [[ $1 != 'ed25519' ]] && [[ $1 != 'ecdsa' ]]
 then
-  echo "First argument is the account key type and must be sr25519 or ed25519 or secp256k1"
+  echo "First argument is the account key type and must be sr25519 or ed25519 or ecdsa"
   exit 1
 fi
 
@@ -41,17 +41,17 @@ account_pass=$2
 # Generate account for given key type
 if [[ $1 == 'sr25519' ]]
 then
-  generate_output=$(subkey -s -o=json -p $account_pass generate)
+  generate_output=$(subkey generate --scheme=sr25519 --password=$account_pass --output-type=json)
 fi
 
 if [[ $1 == 'ed25519' ]]
 then
-  generate_output=$(subkey -e -o=json -p $account_pass generate)
+  generate_output=$(subkey generate --scheme=ed25519 --password=$account_pass --output-type=json)
 fi
 
-if [[ $1 == 'secp256k1' ]]
+if [[ $1 == 'ecdsa' ]]
 then
-  generate_output=$(subkey -k -o=json -p $account_pass generate)
+  generate_output=$(subkey generate --scheme=ecdsa --password=$account_pass --output-type=json)
 fi
 
 
@@ -84,7 +84,7 @@ else
 fi
 
 # Generate libp2p keypair, will output public key and secret key and persist secret key in file
-libp2p_public_key=$(subkey generate-node-key $LIBP2P_SECRET_KEY_FILENAME)
+libp2p_public_key=$(subkey generate-node-key --file=$LIBP2P_SECRET_KEY_FILENAME)
 libp2p_secret_key=$(xxd -c 32 -p $LIBP2P_SECRET_KEY_FILENAME)
 
 # For colored output
