@@ -70,10 +70,10 @@ use codec::{Decode, Encode};
 use core::default::Default;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, Dispatchable},
+    dispatch::{DispatchResult, Dispatchable, DispatchResultWithPostInfo},
     ensure,
     traits::Get,
-    weights::GetDispatchInfo,
+    weights::{GetDispatchInfo, Pays},
     Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -172,9 +172,12 @@ decl_module! {
         /// After a successful execution, the round number is increased.
         // TODO: benchmark worst case cost to verify a signature and add it to weight
         #[
-            weight = 10_000
+            weight = (10_000
                 + proposal.get_dispatch_info().weight
-                + T::DbWeight::get().reads(auth.len() as u64)
+                + T::DbWeight::get().reads(auth.len() as u64),
+             proposal.get_dispatch_info().class,
+             proposal.get_dispatch_info().pays_fee,
+            )
         ]
         pub fn execute(
             origin,
@@ -197,8 +200,9 @@ decl_module! {
         pub fn set_members(
             origin,
             membership: Membership,
-        ) -> DispatchResult {
-            Module::<T>::set_members_(origin, membership)
+        ) -> DispatchResultWithPostInfo {
+            Module::<T>::set_members_(origin, membership)?;
+            Ok(Pays::No.into())
         }
     }
 }
