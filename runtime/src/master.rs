@@ -70,10 +70,10 @@ use codec::{Decode, Encode};
 use core::default::Default;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, Dispatchable},
+    dispatch::{DispatchResult, DispatchResultWithPostInfo, Dispatchable},
     ensure,
     traits::Get,
-    weights::GetDispatchInfo,
+    weights::{GetDispatchInfo, Pays},
     Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -154,7 +154,7 @@ decl_event! {
     {
         /// A proposal succeeded and was executed. The dids listed are the members whose votes were
         /// used as proof of authorization. The executed call is provided.
-        Executed(Vec<Did>, Box<Call>),
+        Executed(Vec<Did>, Box<Call>, DispatchResult),
         /// The membership of Master has changed.
         UnderNewOwnership,
     }
@@ -180,7 +180,7 @@ decl_module! {
             origin,
             proposal: Box<<T as Trait>::Call>,
             auth: PMAuth,
-        ) -> DispatchResult {
+        ) -> DispatchResultWithPostInfo {
             Module::<T>::execute_(origin, proposal, auth)
         }
 
@@ -208,7 +208,7 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         proposal: Box<<T as Trait>::Call>,
         auth: PMAuth,
-    ) -> DispatchResult {
+    ) -> DispatchResultWithPostInfo {
         ensure_signed(origin)?;
 
         // check
@@ -231,13 +231,8 @@ impl<T: Trait> Module<T> {
             ensure!(valid, MasterError::<T>::BadSig);
         }
 
-        // check/execute
-        proposal
-            .clone()
-            .dispatch(system::RawOrigin::Root.into())
-            .map_err(|e| e.error)?;
-
         // execute
+        let res = proposal.clone().dispatch(system::RawOrigin::Root.into());
         Round::mutate(|round| {
             *round += 1;
         });
@@ -246,9 +241,10 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::Executed(
             auth.keys().cloned().collect(),
             proposal.into(),
+            res.map(|_| ()).map_err(|e| e.error),
         ));
 
-        Ok(())
+        Ok(Pays::No.into())
     }
 
     pub fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
@@ -283,7 +279,7 @@ mod test {
     use crate::test_common::*;
     type MasterMod = crate::master::Module<Test>;
     use alloc::collections::BTreeMap;
-    use frame_support::dispatch::DispatchError;
+    use frame_support::dispatch::{DispatchError, PostDispatchInfo};
     use sp_core::H256;
 
     /// set_members() may be called from within execute()
@@ -331,8 +327,15 @@ mod test {
                 vote_requirement: 0,
             });
             let call = TestCall::System(system::Call::<Test>::remark(vec![]));
-            let err = MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap_err();
-            assert_eq!(err, DispatchError::BadOrigin);
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
+            assert_eq!(
+                master_events(),
+                vec![Event::<Test>::Executed(
+                    vec![],
+                    Box::new(call),
+                    Err(DispatchError::BadOrigin)
+                ),]
+            );
         });
     }
 
@@ -359,7 +362,7 @@ mod test {
             MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
             assert_eq!(
                 master_events(),
-                vec![Event::<Test>::Executed(vec![], Box::new(call))]
+                vec![Event::<Test>::Executed(vec![], Box::new(call), Ok(()))]
             );
         });
 
@@ -386,7 +389,8 @@ mod test {
                 master_events(),
                 vec![Event::<Test>::Executed(
                     sorted(vec![dida, didc]),
-                    Box::new(call)
+                    Box::new(call),
+                    Ok(()),
                 )]
             );
         });
@@ -405,7 +409,7 @@ mod test {
                 master_events(),
                 vec![
                     Event::<Test>::UnderNewOwnership,
-                    Event::<Test>::Executed(vec![], Box::new(call)),
+                    Event::<Test>::Executed(vec![], Box::new(call), Ok(())),
                 ]
             );
         });
@@ -706,6 +710,78 @@ mod test {
                 let err = MasterMod::set_members(Origin::root(), m).unwrap_err();
                 assert_eq!(err, MasterError::<Test>::VoteRequirementTooHigh.into());
             }
+        });
+    }
+
+    /// Free transactions are DoS vector. We specifically need to disallow a sender getting
+    /// away with sending an execute call that is not authorized by master members.
+    /// This test ensures that an unauthorized call returns Pays::Yes.
+    ///
+    /// This approach effectively makes the sender "stake" balance on the call being authorized.
+    /// If the call is authorized, the balance is returned. If it is not authorized, the sender
+    /// loses an amount proportional to the on-chain resources consumed (the weight of the
+    /// transaction).
+    #[test]
+    fn insufficient_votes_sender_must_pay() {
+        ext().execute_with(|| {
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            Members::set(Membership {
+                members: set(&[]),
+                vote_requirement: 1,
+            });
+            let err = MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[]))
+                .unwrap_err();
+            assert_eq!(err.error, MasterError::<Test>::InsufficientVotes.into());
+            assert_eq!(
+                err.post_info,
+                PostDispatchInfo {
+                    actual_weight: None,
+                    pays_fee: Pays::Yes,
+                }
+            );
+        });
+    }
+
+    #[test]
+    fn successful_tx_is_free() {
+        ext().execute_with(|| {
+            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            Members::set(Membership {
+                members: set(&[]),
+                vote_requirement: 0,
+            });
+            let post_info =
+                MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap();
+            assert_eq!(
+                post_info,
+                PostDispatchInfo {
+                    actual_weight: None,
+                    pays_fee: Pays::No,
+                }
+            );
+        });
+    }
+
+    /// If an authorized execution fails, that is not the fault of the sender. Sender should not
+    /// pay.
+    #[test]
+    fn failed_but_authorized_tx_is_free() {
+        ext().execute_with(|| {
+            // calling remark because it is expected to fail when called as sudo
+            let call = TestCall::System(system::Call::<Test>::remark(vec![]));
+            Members::set(Membership {
+                members: set(&[]),
+                vote_requirement: 0,
+            });
+            let post_info =
+                MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap();
+            assert_eq!(
+                post_info,
+                PostDispatchInfo {
+                    actual_weight: None,
+                    pays_fee: Pays::No,
+                }
+            );
         });
     }
 

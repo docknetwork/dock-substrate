@@ -15,7 +15,7 @@ use frame_support::{
         Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
         ReservableCurrency,
     },
-    weights::{Pays, Weight},
+    weights::Weight,
 };
 
 use frame_system::{self as system, ensure_root, RawOrigin};
@@ -283,7 +283,7 @@ decl_module! {
         /// In worst case there is a write to `QueuedValidators`.
         /// In case of short circuit there is 1 read and write to `EpochEndsAt`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight)]
         pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::add_validator_(validator_id, short_circuit)
@@ -301,7 +301,7 @@ decl_module! {
         /// In worst case there is a write to `RemoveValidators`.
         /// In case of short circuit there is 1 read and write to `EpochEndsAt`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(3 + *short_circuit as Weight, 1 + *short_circuit as Weight), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(3 + *short_circuit as Weight, 1 + *short_circuit as Weight)]
         pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::remove_validator_(validator_id, short_circuit)
@@ -315,7 +315,7 @@ decl_module! {
         /// storage item. The write to validator set happens while loading next block and is counted
         /// in `BlockExecutionWeight`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::swap_validator_(old_validator_id, new_validator_id)
@@ -327,9 +327,9 @@ decl_module! {
         /// # <weight>
         /// Wights computation copied from session pallet's `set_keys` dispatchable
         /// # </weight>
-        #[weight = (200_000_000
+        #[weight = 200_000_000
             + T::DbWeight::get().reads(2 + T::Keys::key_ids().len() as Weight)
-            + T::DbWeight::get().writes(1 + T::Keys::key_ids().len() as Weight), Pays::No)]
+            + T::DbWeight::get().writes(1 + T::Keys::key_ids().len() as Weight)]
         pub fn set_session_key(origin, validator_id: T::AccountId, keys: T::Keys) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             <pallet_session::Module<T>>::set_keys(RawOrigin::Signed(validator_id).into(), keys, [].to_vec())
@@ -340,7 +340,7 @@ decl_module! {
         /// 1 read-write for treasury and 1 read-write for recipient.
         /// 70 µs transfer cost copied from balance pallet's `transfer` dispatchable
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(2, 2) + 70_000_000, Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(2, 2) + 70_000_000]
         pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             Self::withdraw_from_treasury_(recipient, amount)
@@ -348,7 +348,7 @@ decl_module! {
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
         /// Only Master can call this.
-        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
+        #[weight = T::DbWeight::get().writes(1)]
         pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             EmissionStatus::put(status);
@@ -364,7 +364,7 @@ decl_module! {
         ///     1 write during epoch change to `MinEpochLengthTentative` to zero it out
         /// 1 read during epoch change of `MinEpochLengthTentative`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(1, 3), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(1, 3)]
         pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(length > 0, Error::<T>::EpochLengthCannotBe0);
@@ -381,7 +381,7 @@ decl_module! {
         ///     1 write during epoch change to `MaxActiveValidatorsTentative` to zero it out
         /// 1 read during epoch change of `MaxActiveValidatorsTentative`
         /// # </weight>
-        #[weight = (T::DbWeight::get().reads_writes(1, 3), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(1, 3)]
         pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(count > 0, Error::<T>::NeedAtLeast1Validator);
@@ -390,7 +390,7 @@ decl_module! {
         }
 
         /// Set the maximum emission rewards per validator per epoch.
-        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
+        #[weight = T::DbWeight::get().writes(1)]
         pub fn set_max_emm_validator_epoch(origin, emission: Balance) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             <MaxEmmValidatorEpoch<T>>::put(emission.saturated_into::<BalanceOf<T>>());
@@ -398,7 +398,7 @@ decl_module! {
         }
 
         /// Set percentage of emission rewards locked per epoch for validators
-        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
+        #[weight = T::DbWeight::get().writes(1)]
         pub fn set_validator_reward_lock_pc(origin, lock_pc: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(
@@ -410,7 +410,7 @@ decl_module! {
         }
 
         /// Set percentage of emission rewards for treasury in each epoch
-        #[weight = (T::DbWeight::get().writes(1), Pays::No)]
+        #[weight = T::DbWeight::get().writes(1)]
         pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(

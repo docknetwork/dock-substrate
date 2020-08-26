@@ -97,7 +97,7 @@ decl_module! {
         }
 
         /// Increase the migrators allowed migrations by the given number
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn expand_migrator(origin, migrator: T::AccountId, increase_migrations_by: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             match Self::migrators(&migrator) {
@@ -112,7 +112,7 @@ decl_module! {
         }
 
         /// Decrease the migrators allowed migrations by the given number
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn contract_migrator(origin, migrator: T::AccountId, decrease_migrations_by: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             let new_migrations = Self::migrators(&migrator)
@@ -125,7 +125,7 @@ decl_module! {
         }
 
         /// Add a new migrator
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn add_migrator(origin, migrator: T::AccountId, allowed_migrations: u16) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(!Migrators::<T>::contains_key(&migrator), Error::<T>::MigratorAlreadyPresent);
@@ -135,7 +135,7 @@ decl_module! {
         }
 
         /// Remove an existing migrator
-        #[weight = (T::DbWeight::get().reads_writes(1, 1), Pays::No)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn remove_migrator(origin, migrator: T::AccountId) -> dispatch::DispatchResult {
             ensure_root(origin)?;
             ensure!(Migrators::<T>::contains_key(&migrator), Error::<T>::UnknownMigrator);
