@@ -163,7 +163,8 @@ parameter_types! {
     /// - credit fees to block author's account which is 1 read and 1 write
     /// - reset the storage item `TxnFees`, 1 write
     /// Thus in the worst case, we do 3 reads and 3 writes
-    pub BlockExecutionWeight: Weight = DefaultBlockExecutionWeight::get() + RocksDbWeight::get().reads_writes(3, 3);
+    pub BlockExecutionWeight: Weight = DefaultBlockExecutionWeight::get() +
+        <Runtime as system::Trait>::DbWeight::get().reads_writes(3, 3);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
     pub const Version: RuntimeVersion = VERSION;
 }
