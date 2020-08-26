@@ -36,7 +36,10 @@ use frame_support::{
     construct_runtime, parameter_types,
     traits::{KeyOwnerProofSystem, Randomness},
     weights::{
-        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
+        constants::{
+            BlockExecutionWeight as DefaultBlockExecutionWeight, ExtrinsicBaseWeight,
+            RocksDbWeight, WEIGHT_PER_SECOND,
+        },
         IdentityFee, Weight,
     },
 };
@@ -126,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: create_runtime_str!("dock-testnet"),
     authoring_version: 1,
     spec_version: 2,
-    impl_version: 1,
+    impl_version: 2,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
@@ -148,9 +151,19 @@ parameter_types! {
     pub const BlockHashCount: BlockNumber = 2400;
     /// We allow for 1 seconds of compute with a 3 second average block time.
     pub const MaximumBlockWeight: Weight = WEIGHT_PER_SECOND;
-    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(75);
+    /// Since there are no `Operational` transactions as of now, the whole block can be filled with
+    /// `Noraml` transactions.
+    pub const AvailableBlockRatio: Perbill = Perbill::from_percent(100);
     /// Assume 10% of weight for average on_initialize calls.
     pub MaximumExtrinsicWeight: Weight = AvailableBlockRatio::get().saturating_sub(Perbill::from_percent(10)) * MaximumBlockWeight::get();
+    /// DefaultBlockExecutionWeight is the weight of any empty block.
+    /// After each block we
+    /// - update stats, which is 1 read and 1 write
+    /// - check if there is any fees in storage item `TxnFees`, which is 1 read
+    /// - credit fees to block author's account which is 1 read and 1 write
+    /// - reset the storage item `TxnFees`, 1 write
+    /// Thus in the worst case, we do 3 reads and 3 writes
+    pub BlockExecutionWeight: Weight = DefaultBlockExecutionWeight::get() + RocksDbWeight::get().reads_writes(3, 3);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
     pub const Version: RuntimeVersion = VERSION;
 }
@@ -189,6 +202,9 @@ impl system::Trait for Runtime {
     type BlockExecutionWeight = BlockExecutionWeight;
     /// The base weight of any extrinsic processed by the runtime, independent of the
     /// logic of that extrinsic. (Signature verification, nonce increment, fee, etc...)
+    /// The storage item `TxnFees` would potentially be read and written after each extrinsic if that
+    /// pays fees but that read and write goes to DB only once per block due to Substrate's Substrate's _overlay change set_
+    /// and is captured in weight calculation of `BlockExecutionWeight`
     type ExtrinsicBaseWeight = ExtrinsicBaseWeight;
     /// The maximum weight that a single extrinsic of `Normal` dispatch class can have,
     /// independent of the logic of that extrinsics. (Roughly max block weight - average on
