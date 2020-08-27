@@ -85,7 +85,7 @@ fi
 
 # Generate libp2p keypair, will output public key and secret key and persist secret key in file
 libp2p_public_key=$(subkey generate-node-key --file=$LIBP2P_SECRET_KEY_FILENAME)
-libp2p_secret_key=$(xxd -c 32 -p $LIBP2P_SECRET_KEY_FILENAME)
+libp2p_secret_key=$(cat $LIBP2P_SECRET_KEY_FILENAME)
 
 # For colored output
 GREEN_COLOR='\033[1;32m'
