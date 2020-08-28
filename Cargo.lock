@@ -1193,6 +1193,7 @@ dependencies = [
  "pallet-timestamp",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
+ "pallet-utility",
  "parity-scale-codec",
  "poa",
  "rand 0.7.3",
@@ -3843,6 +3844,21 @@ dependencies = [
  "parity-scale-codec",
  "serde",
  "sp-api",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-utility"
+version = "2.0.0-rc6"
+source = "git+https://github.com/paritytech/substrate.git?tag=v2.0.0-rc6#be8bb186d87b9d2b47a2907c9b51ae1e252362c3"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]

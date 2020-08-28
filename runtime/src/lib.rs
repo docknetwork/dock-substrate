@@ -128,7 +128,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-testnet"),
     impl_name: create_runtime_str!("dock-testnet"),
     authoring_version: 1,
-    spec_version: 3,
+    spec_version: 4,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -346,6 +346,13 @@ impl pallet_authorship::Trait for Runtime {
     type EventHandler = ();
 }
 
+/// Utility pallet is needed to send extrinsics in a batch
+impl pallet_utility::Trait for Runtime {
+    type Event = Event;
+    type Call = Call;
+    type WeightInfo = ();
+}
+
 impl master::Trait for Runtime {
     type Event = Event;
     type Call = Call;
@@ -372,6 +379,7 @@ construct_runtime!(
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
+        Utility: pallet_utility::{Module, Call, Event},
         DIDModule: did::{Module, Call, Storage, Event, Config},
         Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},

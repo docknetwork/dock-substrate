@@ -181,6 +181,12 @@ default-features = false
 tag = 'v2.0.0-rc6'
 version = '2.0.0-rc6'
 
+[dependencies.pallet-utility]
+git = 'https://github.com/paritytech/substrate.git'
+default-features = false
+tag = 'v2.0.0-rc6'
+version = '2.0.0-rc6'
+
 [dependencies.frame-benchmarking]
 git = 'https://github.com/paritytech/substrate.git'
 optional = true
@@ -242,6 +248,7 @@ std = [
     'pallet-session/std',
     'pallet-sudo/std',
     'pallet-authorship/std',
+    'pallet-utility/std',
     'poa/std',
     'token_migration/std',
 ]
