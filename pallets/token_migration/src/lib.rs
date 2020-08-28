@@ -89,7 +89,11 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Does a token migration. The migrator should have sufficient balance to give tokens to recipients
-        /// The check whether it is a valid migrator is made inside the SignedExtension
+        /// The check whether it is a valid migrator is made inside the SignedExtension.
+        /// Migrators are assumed to not be adversarial and do DoS attacks on the chain. They might act
+        /// in their benefit and try to send more fee txns then allowed which is guarded against.
+        /// An bad migrator can flood the network with properly signed but invalid txns like trying to pay more
+        /// than he has, make the network reject his txn but still spend netowork resources for free.
         #[weight = (T::DbWeight::get().reads_writes(3 + recipients.len() as u64, 1 + recipients.len() as u64) + (22_100 * recipients.len() as Weight), Pays::No)]
         pub fn migrate(origin, recipients: BTreeMap<T::AccountId, BalanceOf<T>>) -> dispatch::DispatchResult {
             let migrator = ensure_signed(origin)?;

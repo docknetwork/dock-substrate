@@ -270,8 +270,6 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        // TODO: Set weight of the extrinsics
-
         /// Add a new validator to active validator set unless already a validator and the total number
         /// of validators don't exceed the max allowed count. The validator is considered for adding at
         /// the end of this epoch unless `short_circuit` is true. If a validator is already added to the queue
