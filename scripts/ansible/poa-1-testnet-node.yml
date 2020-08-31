@@ -176,18 +176,14 @@
       - source: 'chain-data'
         target: '{{ mount_at }}'
       command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }}'
-  
-  - name: Wait for port 9933 to become open on the host. This is needed to ensure that node is running such that an RPC call can be made. Only run when rotating a session key
-    wait_for:
-      port: 9933
-      delay: 2  
-      timeout: 30
-    when: rotate_session_key | bool
 
   # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
   - name: Rotate session key
     shell: docker exec {{ container_name }} ./scripts/rotate_session_key --nocolor
     register: sess_key
+    until: sess_key['stdout'].find("The session key is") != -1
+    retries: 20
+    delay: 2
     when: rotate_session_key | bool
   
   - name: Write session key to file "session_key.txt" in current directory
