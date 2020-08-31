@@ -28,7 +28,8 @@ if [[ $rpc_resp =~ $session_key_regex ]]
 then
   session_key=${BASH_REMATCH[1]}
 else
-  echo "Cannot get session key. Regex failed."
+  echo "Cannot get session key. Regex failed. Curl response below:"
+  echo $rpc_resp
   exit 1
 fi
 
