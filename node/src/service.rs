@@ -7,8 +7,8 @@ pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{
     FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState,
 };
+use sc_network::config::DummyFinalityProofRequestBuilder;
 use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
-use sp_api::TransactionFor;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_inherents::InherentDataProviders;
 use std::sync::Arc;
@@ -347,7 +347,6 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
     let client = Arc::new(client);
 
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
-
     let transaction_pool = sc_transaction_pool::BasicPool::new_full(
         config.transaction_pool.clone(),
         config.prometheus_registry(),
@@ -355,30 +354,24 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
         client.clone(),
     );
 
-    let (block_import, grandpa_link) = sc_finality_grandpa::block_import(
-        client.clone(),
-        &(client.clone() as Arc<_>),
-        select_chain.clone(),
-    )?;
-
     let import_queue = sc_consensus_manual_seal::import_queue(
         Box::new(client.clone()),
         &task_manager.spawn_handle(),
         config.prometheus_registry(),
     );
-    inherent_data_providers
-        .register_provider(sp_timestamp::InherentDataProvider)
-        .map_err(Into::into)
-        .map_err(sp_consensus::error::Error::InherentData)?;
 
     // let slot_duration = sc_consensus_aura::slot_duration(&*client)?.get();
-    // inherent_data_providers
-    //     .register_provider(sc_consensus_aura::InherentDataProvider::new(slot_duration))
-    //     .map_err(Into::into)
-    //     .map_err(sp_consensus::Error::InherentData)?;
+    inherent_data_providers
+        .register_provider(sc_consensus_aura::InherentDataProvider::new(1))
+        .map_err(Into::into)
+        .map_err(sp_consensus::Error::InherentData)?;
 
-    let finality_proof_provider =
-        GrandpaFinalityProofProvider::new_for_service(backend.clone(), client.clone());
+    // // sc_consensus_aura::InherentDataProvider implicitly registers
+    // // sp_timestamp::InherentDataProvider so we dont need to
+    // inherent_data_providers
+    //     .register_provider(sp_timestamp::InherentDataProvider)
+    //     .map_err(Into::into)
+    //     .map_err(sp_consensus::error::Error::InherentData)?;
 
     let (network, network_status_sinks, system_rpc_tx, network_starter) =
         sc_service::build_network(sc_service::BuildNetworkParams {
@@ -389,8 +382,8 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
             import_queue,
             on_demand: None,
             block_announce_validator_builder: None,
-            finality_proof_request_builder: None,
-            finality_proof_provider: Some(finality_proof_provider.clone()),
+            finality_proof_request_builder: Some(Box::new(DummyFinalityProofRequestBuilder)),
+            finality_proof_provider: Some(Arc::new(())),
         })?;
 
     if config.offchain_worker.enabled {
@@ -404,24 +397,18 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
     }
 
     let role = config.role.clone();
-    let force_authoring = config.force_authoring;
-    let name = config.network.node_name.clone();
-    let enable_grandpa = !config.disable_grandpa;
     let prometheus_registry = config.prometheus_registry().cloned();
     let telemetry_connection_sinks = sc_service::TelemetryConnectionSinks::default();
 
     let rpc_extensions_builder = {
         let client = client.clone();
         let pool = transaction_pool.clone();
-
         Box::new(move |deny_unsafe, _| {
-            let deps = crate::rpc::FullDeps {
+            crate::rpc::create_full(crate::rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 deny_unsafe,
-            };
-
-            crate::rpc::create_full(deps)
+            })
         })
     };
 
@@ -448,9 +435,6 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
             prometheus_registry.as_ref(),
         );
 
-        let can_author_with =
-            sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
-
         let authorship_future = sc_consensus_manual_seal::run_instant_seal(
             Box::new(client.clone()),
             proposer,
@@ -465,52 +449,9 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
             .spawn_blocking("instant-seal", authorship_future);
     }
 
-    // if the node isn't actively participating in consensus then it doesn't
-    // need a keystore, regardless of which protocol we use below.
-    let keystore = if role.is_authority() {
-        Some(keystore as sp_core::traits::BareCryptoStorePtr)
-    } else {
-        None
-    };
-
-    if enable_grandpa {
-        let grandpa_config = sc_finality_grandpa::Config {
-            // FIXME #1578 make this available through chainspec
-            gossip_duration: Duration::from_millis(333),
-            justification_period: 512,
-            name: Some(name),
-            observer_enabled: false,
-            keystore,
-            is_authority: role.is_network_authority(),
-        };
-
-        // start the full GRANDPA voter
-        // NOTE: non-authorities could run the GRANDPA observer protocol, but at
-        // this point the full voter should provide better guarantees of block
-        // and vote data availability than the observer. The observer has not
-        // been tested extensively yet and having most nodes in a network run it
-        // could lead to finality stalls.
-        let grandpa_config = sc_finality_grandpa::GrandpaParams {
-            config: grandpa_config,
-            link: grandpa_link,
-            network,
-            inherent_data_providers,
-            telemetry_on_connect: Some(telemetry_connection_sinks.on_connect_stream()),
-            voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
-            prometheus_registry,
-            shared_voter_state: SharedVoterState::empty(),
-        };
-
-        // the GRANDPA voter task is considered infallible, i.e.
-        // if it fails we take down the service with it.
-        task_manager.spawn_essential_handle().spawn_blocking(
-            "grandpa-voter",
-            sc_finality_grandpa::run_grandpa_voter(grandpa_config)?,
-        );
-    } else {
-        sc_finality_grandpa::setup_disabled_grandpa(client, &inherent_data_providers, network)?;
-    }
-
     network_starter.start_network();
     Ok(task_manager)
 }
+
+// issue 1 Timestamp not getting set
+// issue 2 transaction priority too low
