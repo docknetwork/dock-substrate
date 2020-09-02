@@ -44,6 +44,11 @@ git = 'https://github.com/paritytech/substrate.git'
 version = '0.8.0-rc6'
 tag = 'v2.0.0-rc6'
 
+[dependencies.sc-consensus-manual-seal]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0-rc6'
+tag = 'v2.0.0-rc6'
+
 [dependencies.sc-consensus-aura]
 git = 'https://github.com/paritytech/substrate.git'
 version = '0.8.0-rc6'
@@ -100,6 +105,11 @@ tag = 'v2.0.0-rc6'
 version = '2.0.0-rc6'
 
 [dependencies.sp-runtime]
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-rc6'
+version = '2.0.0-rc6'
+
+[dependencies.sp-timestamp]
 git = 'https://github.com/paritytech/substrate.git'
 tag = 'v2.0.0-rc6'
 version = '2.0.0-rc6'

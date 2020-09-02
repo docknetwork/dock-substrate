@@ -6,6 +6,13 @@ pub struct Cli {
     #[structopt(subcommand)]
     pub subcommand: Option<Subcommand>,
 
+    #[structopt(long = "instdev")]
+    /// Skip normal block validation logic and produce blocks instantly whenever
+    /// transactions enter the transaction pool. Must be accompanied by the --dev
+    /// flag.
+    pub instdev: bool,
+    
+    // this RunCmd is only populated when subcommand is None
     #[structopt(flatten)]
     pub run: RunCmd,
 }

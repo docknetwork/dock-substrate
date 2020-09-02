@@ -94,17 +94,32 @@ pub fn run() -> sc_cli::Result<()> {
             } else {
                 println!(
                     "Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`."
+				     You can enable it with `--features runtime-benchmarks`."
                 );
                 Ok(())
             }
         }
         None => {
             let runner = cli.create_runner(&cli.run)?;
-            runner.run_node_until_exit(|config| match config.role {
-                Role::Light => service::new_light(config),
-                _ => service::new_full(config),
-            })
+            if cli.instdev {
+                assert!(
+                    cli.run.shared_params.dev,
+                    "must be running in --dev mode to use --instdev"
+                );
+                runner.run_node_until_exit(|config| {
+                    let is_light = match config.role {
+                        Role::Light => true,
+                        _ => false,
+                    };
+                    assert!(!is_light, "Light client is not supported with instdev.");
+                    service::new_instdev(config)
+                })
+            } else {
+                runner.run_node_until_exit(|config| match config.role {
+                    Role::Light => service::new_light(config),
+                    _ => service::new_full(config),
+                })
+            }
         }
     }
 }
