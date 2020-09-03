@@ -1,14 +1,15 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use dock_testnet_runtime::{self, opaque::Block, RuntimeApi};
+use futures::stream::StreamExt;
 use sc_client_api::{ExecutorProvider, RemoteBackend};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{
     FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState,
 };
-// use sc_network::config::DummyFinalityProofRequestBuilder;
 use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
+use sc_transaction_pool::txpool;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_inherents::InherentDataProviders;
 use std::sync::Arc;
@@ -344,7 +345,7 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
 
     // aura provider implicitly adds timestamp provider
     inherent_data_providers
-        .register_provider(sc_consensus_aura::InherentDataProvider::new(3000))
+        .register_provider(sc_consensus_aura::InherentDataProvider::new(1))
         .map_err(Into::into)
         .map_err(sp_consensus::Error::InherentData)?;
 
@@ -432,11 +433,32 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
             prometheus_registry.as_ref(),
         );
 
-        let authorship_future = sc_consensus_manual_seal::run_instant_seal(
+        // create blocks as soon as they enter the pool
+        let tpool: Arc<txpool::Pool<_>> = transaction_pool.pool().clone();
+        let p = tpool.clone();
+        let idp = inherent_data_providers.clone();
+        let commands_stream =
+            tpool
+                .validated_pool()
+                .import_notification_stream()
+                .map(move |_: sp_core::H256| {
+                    let id = idp.create_inherent_data().unwrap();
+                    dbg!(id.len());
+                    assert!(p.validated_pool().status().ready != 0);
+                    sc_consensus_manual_seal::EngineCommand::SealNewBlock {
+                        create_empty: false,
+                        finalize: true,
+                        parent_hash: None,
+                        sender: None,
+                    }
+                });
+
+        let authorship_future = sc_consensus_manual_seal::run_manual_seal(
             Box::new(client.clone()),
             proposer,
             client,
-            transaction_pool.pool().clone(),
+            tpool,
+            commands_stream,
             select_chain,
             inherent_data_providers,
         );
@@ -470,3 +492,15 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
 //
 //   possible: a race condition causes instant seal to sometimes pick up the transaction in time
 //   so the the first few transactions sometimes work
+//
+// Observation:
+//   Transactions are never commited to a block uness allow_empty it true.
+//   Whan allow empty is true, transactions blocks are produced, but very slowly.
+//   If transaction submission is sped up by not waiting for finalization,
+//   timestamp and aura slot inherent dont stop getting included in blocks.
+//   since both timestamp and slot are checked on_finalize, processing the
+//   block results in a panic. The block is never finalized so old transactions
+//   never leave the transaction pool. Sinse old transactions are still in the pool
+//   submitting new ones with the same account results in
+//     Error: 1014: Priority is too low: (9223372037331108274 vs 9223372037281108177): The
+//     transaction has too low priority to replace another transaction already in the pool.
