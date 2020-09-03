@@ -306,7 +306,10 @@ pub fn testnet_config() -> ChainSpec {
 }
 
 /// Configuration for the mainnet
-/// TODO: Change the keys for initial authorities and master membership
+/// TODO:
+///     Change the keys for initial authorities and master membership
+///     Set sudo key to 0x0000...
+///     Set built-in bootstrap node to a dns record that does not constain the string "testnet"
 pub fn mainnet_config() -> ChainSpec {
     // Epoch is of ~7 days, 604800000 ms in 7 days
     let min_epoch_length = (604800000 / MILLISECS_PER_BLOCK) as u32;
