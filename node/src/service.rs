@@ -7,7 +7,7 @@ pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{
     FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState,
 };
-use sc_network::config::DummyFinalityProofRequestBuilder;
+// use sc_network::config::DummyFinalityProofRequestBuilder;
 use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_inherents::InherentDataProviders;
@@ -340,13 +340,35 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 
 /// Builds a new service for a full client.
 pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
-    let inherent_data_providers = sp_inherents::InherentDataProviders::new();
+    let inherent_data_providers = InherentDataProviders::new();
+
+    // aura provider implicitly adds timestamp provider
+    inherent_data_providers
+        .register_provider(sc_consensus_aura::InherentDataProvider::new(3000))
+        .map_err(Into::into)
+        .map_err(sp_consensus::Error::InherentData)?;
 
     let (client, backend, keystore, mut task_manager) =
         sc_service::new_full_parts::<Block, RuntimeApi, Executor>(&config)?;
     let client = Arc::new(client);
 
+    // Initialize seed for signing transaction using off-chain workers
+    #[cfg(feature = "ocw")]
+    {
+        let dev_seed = config.dev_key_seed.clone();
+        if let Some(seed) = dev_seed {
+            keystore
+                .write()
+                .insert_ephemeral_from_seed_by_type::<runtime::offchain_demo::crypto::Pair>(
+                    &seed,
+                    runtime::offchain_demo::KEY_TYPE,
+                )
+                .expect("Dev Seed should always succeed.");
+        }
+    }
+
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
+
     let transaction_pool = sc_transaction_pool::BasicPool::new_full(
         config.transaction_pool.clone(),
         config.prometheus_registry(),
@@ -360,19 +382,6 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
         config.prometheus_registry(),
     );
 
-    // let slot_duration = sc_consensus_aura::slot_duration(&*client)?.get();
-    inherent_data_providers
-        .register_provider(sc_consensus_aura::InherentDataProvider::new(1))
-        .map_err(Into::into)
-        .map_err(sp_consensus::Error::InherentData)?;
-
-    // // sc_consensus_aura::InherentDataProvider implicitly registers
-    // // sp_timestamp::InherentDataProvider so we dont need to
-    // inherent_data_providers
-    //     .register_provider(sp_timestamp::InherentDataProvider)
-    //     .map_err(Into::into)
-    //     .map_err(sp_consensus::error::Error::InherentData)?;
-
     let (network, network_status_sinks, system_rpc_tx, network_starter) =
         sc_service::build_network(sc_service::BuildNetworkParams {
             config: &config,
@@ -382,8 +391,8 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
             import_queue,
             on_demand: None,
             block_announce_validator_builder: None,
-            finality_proof_request_builder: Some(Box::new(DummyFinalityProofRequestBuilder)),
-            finality_proof_provider: Some(Arc::new(())),
+            finality_proof_request_builder: None,
+            finality_proof_provider: None,
         })?;
 
     if config.offchain_worker.enabled {
@@ -396,30 +405,18 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
         );
     }
 
-    let role = config.role.clone();
+    let is_authority = config.role.is_authority();
     let prometheus_registry = config.prometheus_registry().cloned();
     let telemetry_connection_sinks = sc_service::TelemetryConnectionSinks::default();
 
-    let rpc_extensions_builder = {
-        let client = client.clone();
-        let pool = transaction_pool.clone();
-        Box::new(move |deny_unsafe, _| {
-            crate::rpc::create_full(crate::rpc::FullDeps {
-                client: client.clone(),
-                pool: pool.clone(),
-                deny_unsafe,
-            })
-        })
-    };
-
     sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-        network: network.clone(),
+        network,
         client: client.clone(),
-        keystore: keystore.clone(),
+        keystore,
         task_manager: &mut task_manager,
         transaction_pool: transaction_pool.clone(),
-        telemetry_connection_sinks: telemetry_connection_sinks.clone(),
-        rpc_extensions_builder,
+        telemetry_connection_sinks,
+        rpc_extensions_builder: Box::new(|_, _| ()),
         on_demand: None,
         remote_blockchain: None,
         backend,
@@ -428,7 +425,7 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
         config,
     })?;
 
-    if role.is_authority() {
+    if is_authority {
         let proposer = sc_basic_authorship::ProposerFactory::new(
             client.clone(),
             transaction_pool.clone(),
@@ -438,18 +435,19 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
         let authorship_future = sc_consensus_manual_seal::run_instant_seal(
             Box::new(client.clone()),
             proposer,
-            client.clone(),
+            client,
             transaction_pool.pool().clone(),
             select_chain,
-            inherent_data_providers.clone(),
+            inherent_data_providers,
         );
 
         task_manager
             .spawn_essential_handle()
             .spawn_blocking("instant-seal", authorship_future);
-    }
+    };
 
     network_starter.start_network();
+
     Ok(task_manager)
 }
 
