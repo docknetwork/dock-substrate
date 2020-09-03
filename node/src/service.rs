@@ -452,4 +452,21 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
 }
 
 // issue 1 Timestamp not getting set
+//   Initial solution is to add the timestamp inherent data provider or the Aura inherent data
+//   provider, which implies timestamp.
+//   The error sometimes reappears after producing several blocks but I don't know why.
 // issue 2 transaction priority too low
+//   I think this one is caused by multiple transactions from the same account accumulating in the
+//   same pool. Since two txns from the same account exist, their priorities are compared and one is
+//   dropped.
+//
+// I think instant_seal is reciving a signal to create a new block before the extrinsic is in the pool.
+// It then complains that the block is empty.
+//
+// Hypothesis 1:
+//   Instant seal is triggered and attempts to read from pool before it transaction is added.
+//   Future transactions are disallowed because there is already a transaction by that same
+//   author in the pool.
+//
+//   possible: a race condition causes instant seal to sometimes pick up the transaction in time
+//   so the the first few transactions sometimes work
