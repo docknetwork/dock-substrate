@@ -1,7 +1,7 @@
 FROM ubuntu:bionic AS builder
 
 # The node will be built in this directory
-WORKDIR /dock-testnet
+WORKDIR /dock-node
 
 RUN apt -y update && \
 	apt install -y --no-install-recommends \
@@ -40,9 +40,9 @@ RUN cargo build --release
 # Final stage. Copy the node executable and the script
 FROM debian:stretch-slim
 
-WORKDIR /dock-testnet
+WORKDIR /dock-node
 
-COPY --from=builder /dock-testnet/target/release/dock-testnet .
+COPY --from=builder /dock-node/target/release/dock-node .
 
 # curl is required for uploading to keystore
 # note: `subkey insert` is a potential alternarve to curl
@@ -61,5 +61,5 @@ EXPOSE 30333 9933 9944
 
 ENV RUST_BACKTRACE 1
 
-ENTRYPOINT ["./dock-testnet"]
+ENTRYPOINT ["./dock-node"]
 CMD []

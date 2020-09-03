@@ -1,6 +1,6 @@
 # Dock Blockchain Node
 
-[Rust Docs](https://docknetwork.github.io/dock-substrate/dock_testnet_runtime).
+[Rust Docs](https://docknetwork.github.io/dock-substrate/dock_runtime).
 [Javascript Client](https://github.com/docknetwork/sdk).
 
 The dock blockchain serves as registry for [Decentralized Identifiers](https://www.w3.org/TR/did-core) and for revocations of [Verifiable Credentials](https://www.w3.org/TR/vc-data-model).
@@ -10,7 +10,7 @@ The dock blockchain serves as registry for [Decentralized Identifiers](https://w
 Docker can be used to quickly spin up a node (may require sudo):
 
 ```
-docker run -p 9933:9933 -p 30333:30333 docknetwork/dock-substrate --chain ./cspec/poa_testnet.json --ws-external
+docker run -p 9944:9944 -p 30333:30333 docknetwork/dock-substrate --chain ./cspec/danforth_raw.json --ws-external
              |            |                       |                      |                             |
              |     Expose p2p port                |              Join the testnet                      |
              |                                    |                                                    |
@@ -65,13 +65,13 @@ cargo run -- --help
 # Make sure node is stopped before running followig commands. The `pruning mode` is by default `archive`
 
 # Export blocks to file blocks.bin
-./target/<debug or release>/dock-testnet export-blocks --binary --chain=<chain spec> --base-path=<data directory of the node> [--pruning=<pruning mode>] blocks.bin
+./target/<debug or release>/dock-node export-blocks --binary --chain=<chain spec> --base-path=<data directory of the node> [--pruning=<pruning mode>] blocks.bin
 
 # Purge chain
-./target/<debug or release>/dock-testnet purge-chain --chain=<chain spec> --base-path=<data directory of the node>
+./target/<debug or release>/dock-node purge-chain --chain=<chain spec> --base-path=<data directory of the node>
 
 # Import blocks from file blocks.bin
-./target/<debug or release>/dock-testnet import-blocks --binary --chain=<chain spec> --base-path=<data directory of the node> [--pruning=<pruning mode>] blocks.bin 
+./target/<debug or release>/dock-node import-blocks --binary --chain=<chain spec> --base-path=<data directory of the node> [--pruning=<pruning mode>] blocks.bin 
 ```
 
 ## Polkadot-js UI

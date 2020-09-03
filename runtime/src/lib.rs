@@ -125,16 +125,18 @@ pub mod opaque {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
+    // TODO: Rename "dock-testnet" to "dock-runtime" before mainnet. Not changing the name now as
+    // that will need reset of testnet.
     spec_name: create_runtime_str!("dock-testnet"),
-    impl_name: create_runtime_str!("dock-testnet"),
+    impl_name: create_runtime_str!("dock-runtime"),
     authoring_version: 1,
-    spec_version: 4,
+    spec_version: 5,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
 
-const MILLISECS_PER_BLOCK: u64 = 3000;
+pub const MILLISECS_PER_BLOCK: u64 = 3000;
 
 const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 

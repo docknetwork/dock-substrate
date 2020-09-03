@@ -2,8 +2,8 @@
 authors = ['Dock.io']
 build = 'build.rs'
 edition = '2018'
-name = 'dock-testnet'
-version = '2.0.0-rc6'
+name = 'dock-node'
+version = '0.1.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -19,9 +19,9 @@ jsonrpc-core = '14.0.3'
 version = '0.3.8'
 optional = true
 
-[dependencies.dock-testnet-runtime]
+[dependencies.dock-runtime]
 path = '../runtime'
-version = '2.0.0-rc6'
+version = '0.1.0'
 
 [dependencies.sc-basic-authorship]
 git = 'https://github.com/paritytech/substrate.git'
@@ -164,7 +164,7 @@ tag = 'v2.0.0-rc6'
 version = '2.0.0-rc6'
 
 [[bin]]
-name = 'dock-testnet'
+name = 'dock-node'
 path = 'src/main.rs'
 
 [features]
@@ -186,6 +186,6 @@ wasmtime = [
 	"substrate-build-script-utils",
 ]
 runtime-benchmarks = [
-	"dock-testnet-runtime/runtime-benchmarks",
+	"dock-runtime/runtime-benchmarks",
 	"frame-benchmarking-cli",
 ]

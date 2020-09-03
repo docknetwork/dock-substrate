@@ -1133,10 +1133,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "dock-testnet"
-version = "2.0.0-rc6"
+name = "dock-node"
+version = "0.1.0"
 dependencies = [
- "dock-testnet-runtime",
+ "dock-runtime",
  "frame-benchmarking",
  "frame-benchmarking-cli",
  "futures 0.3.5",
@@ -1173,8 +1173,8 @@ dependencies = [
 ]
 
 [[package]]
-name = "dock-testnet-runtime"
-version = "2.0.0-rc6"
+name = "dock-runtime"
+version = "0.1.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",

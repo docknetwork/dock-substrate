@@ -55,6 +55,7 @@ impl SubstrateCli for Cli {
             "" | "dev" => Box::new(chain_spec::development_config()),
             "local_poa_testnet" => Box::new(chain_spec::local_testnet_config()),
             "poa_testnet" => Box::new(chain_spec::testnet_config()),
+            "mainnet" => Box::new(chain_spec::mainnet_config()),
             path => Box::new(chain_spec::ChainSpec::from_json_file(
                 std::path::PathBuf::from(path),
             )?),
@@ -62,7 +63,7 @@ impl SubstrateCli for Cli {
     }
 
     fn native_runtime_version(_: &Box<dyn ChainSpec>) -> &'static RuntimeVersion {
-        &dock_testnet_runtime::VERSION
+        &dock_runtime::VERSION
     }
 }
 
@@ -88,9 +89,7 @@ pub fn run() -> sc_cli::Result<()> {
             if cfg!(feature = "runtime-benchmarks") {
                 let runner = cli.create_runner(cmd)?;
 
-                runner.sync_run(|config| {
-                    cmd.run::<dock_testnet_runtime::Block, service::Executor>(config)
-                })
+                runner.sync_run(|config| cmd.run::<dock_runtime::Block, service::Executor>(config))
             } else {
                 println!(
                     "Benchmarking wasn't enabled when building the node. \

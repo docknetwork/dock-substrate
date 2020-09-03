@@ -1,9 +1,10 @@
-use dock_testnet_runtime::{
+use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
     opaque::SessionKeys,
     AuraConfig, Balance, BalancesConfig, DIDModuleConfig, GenesisConfig, GrandpaConfig,
-    MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig, WASM_BINARY,
+    MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig, MILLISECS_PER_BLOCK,
+    WASM_BINARY,
 };
 use hex_literal::hex;
 use sc_service::ChainType;
@@ -190,7 +191,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 .collect(),
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
                 min_epoch_length: 16,
-                max_active_validators: 4,
+                max_active_validators: 5,
                 emission_status: true,
             }
             .build()
@@ -287,9 +288,117 @@ pub fn testnet_config() -> ChainSpec {
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
                 ),
-                min_epoch_length: 100,
+                min_epoch_length: 1000,
                 max_active_validators: 8,
                 emission_status: false,
+            }
+            .build()
+        },
+        vec!["/dns4/testnet-1.dock.io/tcp/30333/p2p/\
+             12D3KooWSbaqC655sjBSk7bNMghWsKdy1deCKRL6aRf6xcmm9dwW"
+            .parse()
+            .unwrap()],
+        None,
+        None,
+        None,
+        None,
+    )
+}
+
+/// Configuration for the mainnet
+/// TODO: Change the keys for initial authorities and master membership
+pub fn mainnet_config() -> ChainSpec {
+    // Epoch is of ~7 days, 604800000 ms in 7 days
+    let min_epoch_length = (604800000 / MILLISECS_PER_BLOCK) as u32;
+    let max_active_validators = 10;
+    let emission_status = false;
+
+    ChainSpec::from_genesis(
+        "Mainnet",
+        "mainnet",
+        ChainType::Live,
+        move || {
+            GenesisBuilder {
+                initial_authorities: vec![
+                    (
+                        account_id_from_ss58::<sr25519::Public>(
+                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+                        ),
+                        pubkey_from_ss58::<AuraId>(
+                            "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh",
+                        ),
+                    ),
+                    (
+                        account_id_from_ss58::<sr25519::Public>(
+                            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
+                        ),
+                        pubkey_from_ss58::<AuraId>(
+                            "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "5FJir6hEEWvVCt4PHJ95ygtw5MvgD2xoET9xqskTu4MZBC98",
+                        ),
+                    ),
+                ],
+                endowed_accounts: [
+                    "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
+                    "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
+                    "5Fq9cARnUAWxKGU9w5UngNNMsfjcxenAAuBn8zYJwyidSnuU",
+                    "5DcxJv1LRAiEmpR41xKUNbmefmutQ7WBEKEsS5xBxh8wQ99J",
+                    "5E7BHnwo9LoKP6bAJseeqZgnWSbsFmiZxMAsEd7zGJfDoCCr",
+                    "5DkS3AbP8mXWVUg8o9R7Y8czAPoi9JTYmS3FPzKx1z6735nd",
+                    "5C89W6aJTdBBbXPhyLrefGSB97kXKWAo5NkqBvG8U9MKhEkP",
+                    "5GpPMM3Mw1eAqniXQsRHdjd7dshmiudU46sELyRfGEbBoJu5",
+                ]
+                .iter()
+                .cloned()
+                .map(account_id_from_ss58::<sr25519::Public>)
+                .collect(),
+                master: Membership {
+                    members: [
+                        b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ]
+                    .iter()
+                    .cloned()
+                    .cloned()
+                    .collect(),
+                    vote_requirement: 2,
+                },
+                dids: [
+                    (
+                        b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("2a6f70c3dc8cd003075bbf14567c4251b512c5514dff069c293c14679f91913d"),
+                    ),
+                    (
+                        b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("848001ef27f057719a31e0e457d4edd946c5792d03a8cb203bc025bdda825301"),
+                    ),
+                    (
+                        b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("c85c62af598cb718ce4bd1b0b739605fa7a4252db508ceb23dbd3eb4ca523062"),
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .map(|(did, pk)| {
+                    (
+                        *did,
+                        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+                    )
+                })
+                .collect(),
+                // In mainnet, this will be a public key (0s) that no one knows private key for
+                sudo: account_id_from_ss58::<sr25519::Public>(
+                    "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
+                ),
+                min_epoch_length,
+                max_active_validators,
+                emission_status,
             }
             .build()
         },
