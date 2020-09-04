@@ -8,10 +8,14 @@ pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{
     FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState,
 };
+use sc_network::config::DummyFinalityProofRequestBuilder;
 use sc_service::{error::Error as ServiceError, Configuration, PartialComponents, TaskManager};
 use sc_transaction_pool::txpool;
+use sp_consensus::block_validation::BlockAnnounceValidator;
+use sp_consensus::block_validation::Validation;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_inherents::InherentDataProviders;
+use std::error::Error;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -343,11 +347,16 @@ pub fn new_light(config: Configuration) -> Result<TaskManager, ServiceError> {
 pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
     let inherent_data_providers = InherentDataProviders::new();
 
-    // aura provider implicitly adds timestamp provider
     inherent_data_providers
-        .register_provider(sc_consensus_aura::InherentDataProvider::new(1))
+        .register_provider(sp_timestamp::InherentDataProvider)
         .map_err(Into::into)
         .map_err(sp_consensus::Error::InherentData)?;
+
+    // // aura provider implicitly adds timestamp provider
+    // inherent_data_providers
+    //     .register_provider(sc_consensus_aura::InherentDataProvider::new(1))
+    //     .map_err(Into::into)
+    //     .map_err(sp_consensus::Error::InherentData)?;
 
     let (client, backend, keystore, mut task_manager) =
         sc_service::new_full_parts::<Block, RuntimeApi, Executor>(&config)?;
@@ -391,9 +400,9 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
             spawn_handle: task_manager.spawn_handle(),
             import_queue,
             on_demand: None,
-            block_announce_validator_builder: None,
-            finality_proof_request_builder: None,
-            finality_proof_provider: None,
+            block_announce_validator_builder: Some(Box::new(|_| Box::new(EveryBlockIsPerfect))),
+            finality_proof_request_builder: Some(Box::new(DummyFinalityProofRequestBuilder)),
+            finality_proof_provider: Some(Arc::new(())),
         })?;
 
     if config.offchain_worker.enabled {
@@ -444,6 +453,8 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
                 .map(move |_: sp_core::H256| {
                     let id = idp.create_inherent_data().unwrap();
                     dbg!(id.len());
+                    // assert_eq!(idp.create_inherent_data().unwrap().len(), 2);
+                    // assert_eq!(idp.create_inherent_data().unwrap().len(), 2);
                     assert!(p.validated_pool().status().ready != 0);
                     sc_consensus_manual_seal::EngineCommand::SealNewBlock {
                         create_empty: false,
@@ -453,7 +464,7 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
                     }
                 });
 
-        let authorship_future = sc_consensus_manual_seal::run_manual_seal(
+        let authorship_future = crate::manual_seal_custom::run_manual_seal(
             Box::new(client.clone()),
             proposer,
             client,
@@ -471,6 +482,14 @@ pub fn new_instdev(config: Configuration) -> Result<TaskManager, ServiceError> {
     network_starter.start_network();
 
     Ok(task_manager)
+}
+
+pub struct EveryBlockIsPerfect;
+
+impl<B: sp_runtime::traits::Block> BlockAnnounceValidator<B> for EveryBlockIsPerfect {
+    fn validate(&mut self, _h: &B::Header, _d: &[u8]) -> Result<Validation, Box<dyn Error + Send>> {
+        Ok(Validation::Success { is_new_best: true })
+    }
 }
 
 // issue 1 Timestamp not getting set
