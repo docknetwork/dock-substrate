@@ -3,9 +3,6 @@
 # This script is used to generate and set (rotate) new session keys for the validator.
 # Pass flag --nocolor to disable colored output.
 
-# The script will will exit if any command fails
-set -ueo pipefail
-
 DEFAULT_NODE_RPC_ENDPOINT='http://localhost:9933'
 NOCOLOR='--nocolor'
 
