@@ -279,7 +279,7 @@ decl_module! {
         /// are small and these dispatchables are rarely called.
         /// 2 reads for storage items, 1 each for `ActiveValidators` and `QueuedValidators`.
         /// In worst case there is a write to `QueuedValidators`.
-        /// In case of short circuit there is 1 read and write to `EpochEndsAt`
+        /// In case of short circuit there is 1 read to `Epochs` and 1 write to `EpochEndsAt`
         /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(2 + *short_circuit as Weight, 1 + *short_circuit as Weight)]
         pub fn add_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResultWithPostInfo {
@@ -298,7 +298,7 @@ decl_module! {
         /// are small and these dispatchables are rarely called.
         /// 3 reads for storage items, 1 each for `ActiveValidators`, `QueuedValidators` and `RemoveValidators`
         /// In worst case there is a write to `RemoveValidators`.
-        /// In case of short circuit there is 1 read and write to `EpochEndsAt`
+        /// In case of short circuit there is 1 read to `Epochs` and 1 write to `EpochEndsAt`
         /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(3 + *short_circuit as Weight, 1 + *short_circuit as Weight)]
         pub fn remove_validator(origin, validator_id: T::AccountId, short_circuit: bool) -> dispatch::DispatchResultWithPostInfo {
@@ -319,6 +319,17 @@ decl_module! {
         pub fn swap_validator(origin, old_validator_id: T::AccountId, new_validator_id: T::AccountId) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             Self::swap_validator_(old_validator_id, new_validator_id)?;
+            Ok(Pays::No.into())
+        }
+
+        /// End epoch early
+        /// # <weight>
+        /// 1 read to `Epochs` and 1 write to `EpochEndsAt`
+        /// # </weight>
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn short_circuit_epoch(origin) -> dispatch::DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            Self::short_circuit_current_epoch();
             Ok(Pays::No.into())
         }
 
