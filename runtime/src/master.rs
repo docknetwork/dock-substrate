@@ -73,7 +73,7 @@ use frame_support::{
     dispatch::{DispatchResult, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
     ensure,
     traits::Get,
-    weights::{GetDispatchInfo, Pays},
+    weights::{GetDispatchInfo, Pays, Weight},
     Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -189,6 +189,26 @@ decl_module! {
             Module::<T>::execute_(origin, proposal, auth)
         }
 
+        /// Does the same job as `execute` dispatchable but does not inherit the weight of the
+        /// `Call` its wrapping but expects the caller to provide it
+        // TODO: benchmark worst case cost to verify a signature and add it to weight
+        #[
+            weight = (10_000
+                + _weight
+                + T::DbWeight::get().reads(auth.len() as u64),
+             proposal.get_dispatch_info().class,
+             proposal.get_dispatch_info().pays_fee,
+            )
+        ]
+        pub fn execute_unchecked_weight(
+            origin,
+            proposal: Box<<T as Trait>::Call>,
+            auth: PMAuth,
+            _weight: Weight,
+        ) -> DispatchResultWithPostInfo {
+            Module::<T>::execute_(origin, proposal, auth)
+        }
+
         /// Root-only. Sets the members and vote requirement for master. Increases the round number
         /// and removes the votes for the previous round.
         ///
@@ -292,6 +312,9 @@ mod test {
     use frame_support::dispatch::DispatchError;
     use sp_core::H256;
 
+    // XXX: To check both `execute` and `execute_unchecked_weight`, we can simply test `execute_` but
+    // thats less future proof in theory
+
     /// set_members() may be called from within execute()
     /// that should cause round number to be incremented twice
     #[test]
@@ -313,7 +336,7 @@ mod test {
         });
     }
 
-    /// After a sucessful execution the round number is increased.
+    /// After a successful execution the round number is increased.
     #[test]
     fn round_inc() {
         ext().execute_with(|| {
@@ -323,8 +346,11 @@ mod test {
             });
             let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
             assert_eq!(Round::get(), 0);
-            MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
             assert_eq!(Round::get(), 1);
+            MasterMod::execute_unchecked_weight(Origin::signed(0), Box::new(call), map(&[]), 1)
+                .unwrap();
+            assert_eq!(Round::get(), 2);
         });
     }
 

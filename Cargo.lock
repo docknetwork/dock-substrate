@@ -1134,7 +1134,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "dock-runtime",
  "frame-benchmarking",
@@ -1174,7 +1174,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
