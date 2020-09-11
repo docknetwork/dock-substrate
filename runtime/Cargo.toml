@@ -208,7 +208,7 @@ optional = true
 [dependencies.poa]
 default-features = false
 path = '../pallets/poa'
-version = '0.0.1'
+version = '0.2.0'
 
 [dependencies.token_migration]
 default-features = false
@@ -270,7 +270,7 @@ rand = "0.7.3"
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.1.0'
+version = '0.2.0'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
