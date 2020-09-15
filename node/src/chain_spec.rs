@@ -317,8 +317,8 @@ pub fn mainnet_config() -> ChainSpec {
     let emission_status = false;
 
     ChainSpec::from_genesis(
-        "Mainnet",
-        "mainnet",
+        "Dock Mainnet", // This will be used in the Telemetry so keeping the word "Dock" in there
+        "dock_mainnet",
         ChainType::Live,
         move || {
             GenesisBuilder {

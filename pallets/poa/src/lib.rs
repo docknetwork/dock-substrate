@@ -25,6 +25,8 @@ extern crate alloc;
 
 use alloc::collections::{BTreeMap, BTreeSet};
 
+// TODO: Remove all print statements before releasing for mainnet
+
 type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;

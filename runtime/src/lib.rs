@@ -307,12 +307,6 @@ impl blob::Trait for Runtime {
     type MaxBlobSize = MaxBlobSize;
 }
 
-// TODO: Do i need it?
-parameter_types! {
-    /// The fraction of validators set that is safe to be disabled.
-    pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(50);
-}
-
 impl pallet_session::Trait for Runtime {
     type Event = Event;
     type ValidatorId = <Self as system::Trait>::AccountId;
