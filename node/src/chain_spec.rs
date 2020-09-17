@@ -7,7 +7,7 @@ use dock_runtime::{
     WASM_BINARY,
 };
 use hex_literal::hex;
-use sc_service::ChainType;
+use sc_service::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{sr25519, Pair, Public};
@@ -16,6 +16,8 @@ use sp_runtime::{
     traits::{IdentifyAccount, Verify},
     MultiSignature,
 };
+
+use serde_json::map::Map;
 
 fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
     SessionKeys { aura, grandpa }
@@ -74,6 +76,13 @@ fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, KeyDetail) {
     )
 }
 
+fn get_properties() -> Properties {
+    let mut properties = Map::new();
+    properties.insert("tokenSymbol".into(), "DCK".into());
+    properties.insert("tokenDecimals".into(), 7.into());
+    properties
+}
+
 pub fn development_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "Development",
@@ -126,7 +135,7 @@ pub fn development_config() -> ChainSpec {
         vec![],
         None,
         None,
-        None,
+        Some(get_properties()),
         None,
     )
 }
@@ -199,7 +208,7 @@ pub fn local_testnet_config() -> ChainSpec {
         vec![],
         None,
         None,
-        None,
+        Some(get_properties()),
         None,
     )
 }
@@ -300,7 +309,7 @@ pub fn testnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        None,
+        Some(get_properties()),
         None,
     )
 }
@@ -411,7 +420,7 @@ pub fn mainnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        None,
+        Some(get_properties()),
         None,
     )
 }
