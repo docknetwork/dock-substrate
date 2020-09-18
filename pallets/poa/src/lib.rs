@@ -25,11 +25,15 @@ extern crate alloc;
 
 use alloc::collections::{BTreeMap, BTreeSet};
 
-// TODO: Remove all print statements before releasing for mainnet
+// TODO: Remove all print statements and panics before releasing for mainnet
 
 type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;
+
+// XXX: Shortcut of keeping `Balance`'s type same as in the runtime. The correct approach would
+// be to use the `Balance` type of runtime and make `EpochDetail` and `ValidatorStatsPerEpoch` typed and
+// use T::Balance instead of Balance below
 type Balance = u64;
 
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;

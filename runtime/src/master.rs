@@ -230,6 +230,12 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
+    /// The following can be misused to do recursive calls as the proposal can itslef be call
+    /// leading to `execute_` which will keep the cycle going. This can be prevented by incrementing
+    /// the round no before dispatching the call in `proposal` and if the call throws error then
+    /// decrementing the round no before returning the error.
+    /// However, since this call is made by entities that not adversarial, the behavior is not dangerous
+    /// in this case
     pub fn execute_(
         origin: T::Origin,
         proposal: Box<<T as Trait>::Call>,
