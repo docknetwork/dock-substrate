@@ -165,7 +165,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1)  + 41_000_000]
         pub fn new_registry(
             origin,
-            id: dock::revoke::RevokeId,
+            id: dock::revoke::RegistryId,
             registry: dock::revoke::Registry,
         ) -> DispatchResult {
             Module::<T>::new_registry_(origin, id, registry)
