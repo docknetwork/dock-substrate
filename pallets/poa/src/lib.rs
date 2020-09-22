@@ -128,7 +128,7 @@ pub trait Trait: system::Trait + pallet_session::Trait + pallet_authorship::Trai
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
-    type Currency: Currency<Self::AccountId> + ReservableCurrency<Self::AccountId>;
+    type Currency: ReservableCurrency<Self::AccountId>;
 }
 
 // This pallet's storage items.
