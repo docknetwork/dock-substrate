@@ -25,6 +25,8 @@ extern crate alloc;
 
 use alloc::collections::{BTreeMap, BTreeSet};
 
+pub mod runtime_api;
+
 // TODO: Remove all print statements and panics before releasing for mainnet
 
 type EpochNo = u32;
@@ -610,7 +612,7 @@ impl<T: Trait> Module<T> {
         TREASURY_ID.into_account()
     }
 
-    /// Treasury's balance
+    /// Treasury's free balance. Only free balance makes sense for treasury in context of PoA
     pub fn treasury_balance() -> BalanceOf<T> {
         T::Currency::free_balance(&Self::treasury_account())
     }

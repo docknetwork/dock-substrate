@@ -130,7 +130,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-testnet"),
     impl_name: create_runtime_str!("dock-runtime"),
     authoring_version: 1,
-    spec_version: 7,
+    spec_version: 8,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -527,6 +527,16 @@ impl_runtime_apis! {
             len: u32,
         ) -> pallet_transaction_payment_rpc_runtime_api::RuntimeDispatchInfo<Balance> {
             TransactionPayment::query_info(uxt, len)
+        }
+    }
+
+    impl poa::runtime_api::PoAApi<Block, AccountId, Balance> for Runtime {
+        fn get_treasury_account() -> AccountId {
+            PoAModule::treasury_account()
+        }
+
+        fn get_treasury_balance() -> Balance {
+            PoAModule::treasury_balance()
         }
     }
 

@@ -1134,7 +1134,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "dock-runtime",
  "frame-benchmarking",
@@ -1142,9 +1142,11 @@ dependencies = [
  "futures 0.3.5",
  "hex-literal 0.3.1",
  "jsonrpc-core",
+ "jsonrpc-derive",
  "log",
  "pallet-transaction-payment-rpc",
  "parking_lot 0.10.2",
+ "poa_rpc",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -1176,7 +1178,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.3.0"
+version = "0.4.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
@@ -4195,7 +4197,7 @@ checksum = "feb3b2b1033b8a60b4da6ee470325f887758c95d5320f52f9ce0df055a55940e"
 
 [[package]]
 name = "poa"
-version = "0.2.0"
+version = "0.3.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4204,11 +4206,28 @@ dependencies = [
  "pallet-session",
  "parity-scale-codec",
  "serde",
+ "sp-api",
  "sp-arithmetic",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "poa_rpc"
+version = "0.0.1"
+dependencies = [
+ "jsonrpc-core",
+ "jsonrpc-core-client",
+ "jsonrpc-derive",
+ "parity-scale-codec",
+ "poa",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
 ]
 
 [[package]]

@@ -2,6 +2,7 @@
 members = [
     'node',
     'pallets/poa',
+    'pallets/poa/rpc',
     'pallets/token_migration',
     'runtime',
 ]
