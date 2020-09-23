@@ -1,9 +1,10 @@
 [package]
 name = "poa"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Dock.io"]
 edition = "2018"
 license = 'Apache-2.0'
+
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
 
@@ -66,9 +67,15 @@ default-features = false
 tag = 'v2.0.0-rc6'
 version = '2.0.0-rc6'
 
-[dev-dependencies.sp-runtime]
+[dependencies.sp-runtime]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0-rc6'
+version = '2.0.0-rc6'
+
+[dependencies.sp-api]
+git = 'https://github.com/paritytech/substrate.git'
+default-features = false
 tag = 'v2.0.0-rc6'
 version = '2.0.0-rc6'
 
@@ -86,6 +93,8 @@ std = [
     'frame-support/std',
     'frame-system/std',
     'sp-std/std',
+    'sp-runtime/std',
+    'sp-api/std',
     'serde',
     'pallet-session/std',
     'pallet-authorship/std',
