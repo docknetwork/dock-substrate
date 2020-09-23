@@ -27,6 +27,7 @@ pub mod master;
 pub mod revoke;
 
 pub use poa;
+pub use simple_democracy;
 pub use token_migration;
 
 #[cfg(test)]
@@ -35,7 +36,7 @@ mod test_common;
 use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{KeyOwnerProofSystem, Randomness},
+    traits::{Filter, KeyOwnerProofSystem, Randomness},
     weights::{
         constants::{
             BlockExecutionWeight as DefaultBlockExecutionWeight, ExtrinsicBaseWeight,
@@ -45,18 +46,20 @@ use frame_support::{
     },
 };
 use frame_system as system;
+use frame_system::{EnsureOneOf, EnsureRoot};
 use grandpa::fg_primitives;
 use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_sudo as sudo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_core::u32_trait::{_1, _2, _3};
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, NumberFor,
     OpaqueKeys, Saturating, Verify,
 };
 use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys,
+    create_runtime_str, generic, impl_opaque_keys, print,
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
@@ -139,6 +142,11 @@ pub const MILLISECS_PER_BLOCK: u64 = 3000;
 
 const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
+// Time is measured by number of blocks.
+pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+pub const HOURS: BlockNumber = MINUTES * 60;
+pub const DAYS: BlockNumber = HOURS * 24;
+
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
 pub fn native_version() -> NativeVersion {
@@ -168,6 +176,45 @@ parameter_types! {
         <Runtime as system::Trait>::DbWeight::get().reads_writes(3, 3);
     pub const MaximumBlockLength: u32 = 5 * 1024 * 1024;
     pub const Version: RuntimeVersion = VERSION;
+}
+
+/// Filter to disallow access to certain modules
+pub struct BaseFilter;
+
+impl Filter<Call> for BaseFilter {
+    fn filter(call: &Call) -> bool {
+        match call {
+            // These modules are all allowed to be called by transactions:
+            Call::Democracy(_)
+            | Call::Council(_)
+            | Call::TechnicalCommittee(_)
+            | Call::CouncilMembership(_)
+            | Call::TechnicalCommitteeMembership(_)
+            | Call::System(_)
+            | Call::Scheduler(_)
+            | Call::Timestamp(_)
+            | Call::Balances(_)
+            | Call::Authorship(_)
+            | Call::Session(_)
+            | Call::Grandpa(_)
+            | Call::Utility(_)
+            | Call::PoAModule(_)
+            | Call::DIDModule(_)
+            | Call::Revoke(_)
+            | Call::BlobStore(_)
+            | Call::Master(_)
+            | Call::Sudo(_)
+            | Call::MigrationModule(_)
+            | Call::RandomnessCollectiveFlip(_) => {
+                print("Returning true in BaseFilter");
+                true
+            }
+            _ => {
+                print("Returning false in BaseFilter");
+                false
+            }
+        }
+    }
 }
 
 impl system::Trait for Runtime {
@@ -294,6 +341,7 @@ parameter_types! {
 
 impl transaction_payment::Trait for Runtime {
     type Currency = balances::Module<Runtime>;
+    /// Transaction fees is handled by PoA module
     type OnTransactionPayment = PoAModule;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = IdentityFee<Balance>;
@@ -380,6 +428,163 @@ impl anchor::Trait for Runtime {
     type Event = Event;
 }
 
+/// This origin indicates that either >50% (simple majority) of Council members approved some dispatch (through a proposal)
+/// or the dispatch was done as `Root` (by sudo or master)
+type RootOrMoreThanHalfCouncil = EnsureOneOf<
+    AccountId,
+    EnsureRoot<AccountId>,
+    pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
+>;
+
+type CouncilMember = pallet_collective::EnsureMember<AccountId, CouncilCollective>;
+
+parameter_types! {
+    pub const CouncilMotionDuration: BlockNumber = 7 * DAYS;
+    pub const CouncilMaxProposals: u32 = 100;
+    pub const CouncilMaxMembers: u32 = 30;
+}
+
+type CouncilCollective = pallet_collective::Instance1;
+impl pallet_collective::Trait<CouncilCollective> for Runtime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+    type MotionDuration = CouncilMotionDuration;
+    type MaxProposals = CouncilMaxProposals;
+    type MaxMembers = CouncilMaxMembers;
+    type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
+    type WeightInfo = ();
+}
+
+/// This instance of the membership pallet corresponds to Council.
+/// Adding, removing, swapping, reseting members requires an approval of simple majority of the Council
+/// or `Root` origin
+impl pallet_membership::Trait<pallet_membership::Instance1> for Runtime {
+    type Event = Event;
+    type AddOrigin = RootOrMoreThanHalfCouncil;
+    type RemoveOrigin = RootOrMoreThanHalfCouncil;
+    type SwapOrigin = RootOrMoreThanHalfCouncil;
+    type ResetOrigin = RootOrMoreThanHalfCouncil;
+    type PrimeOrigin = RootOrMoreThanHalfCouncil;
+    type MembershipInitialized = Council;
+    type MembershipChanged = Council;
+}
+
+parameter_types! {
+    pub const TechnicalMotionDuration: BlockNumber = 7 * DAYS;
+    pub const TechnicalMaxProposals: u32 = 100;
+    pub const TechnicalMaxMembers: u32 = 50;
+}
+
+type TechnicalCollective = pallet_collective::Instance2;
+impl pallet_collective::Trait<TechnicalCollective> for Runtime {
+    type Origin = Origin;
+    type Proposal = Call;
+    type Event = Event;
+    type MotionDuration = TechnicalMotionDuration;
+    type MaxProposals = TechnicalMaxProposals;
+    type MaxMembers = TechnicalMaxMembers;
+    type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
+    type WeightInfo = ();
+}
+
+/// This instance of the membership pallet corresponds to the Technical committee which can fast track proposals.
+/// Adding, removing, swapping, resetting members requires an approval of simple majority of the Council
+/// or `Root` origin, the technical committee itself cannot change its membership
+impl pallet_membership::Trait<pallet_membership::Instance2> for Runtime {
+    type Event = Event;
+    type AddOrigin = RootOrMoreThanHalfCouncil;
+    type RemoveOrigin = RootOrMoreThanHalfCouncil;
+    type SwapOrigin = RootOrMoreThanHalfCouncil;
+    type ResetOrigin = RootOrMoreThanHalfCouncil;
+    type PrimeOrigin = RootOrMoreThanHalfCouncil;
+    type MembershipInitialized = TechnicalCommittee;
+    type MembershipChanged = TechnicalCommittee;
+}
+
+parameter_types! {
+    pub const MaxScheduledPerBlock: u32 = 50;
+}
+
+impl pallet_scheduler::Trait for Runtime {
+    type Event = Event;
+    type Origin = Origin;
+    type PalletsOrigin = OriginCaller;
+    type Call = Call;
+    type MaximumWeight = MaximumBlockWeight;
+    type ScheduleOrigin = EnsureRoot<AccountId>;
+    type MaxScheduledPerBlock = MaxScheduledPerBlock;
+    type WeightInfo = ();
+}
+
+parameter_types! {
+    pub const EnactmentPeriod: BlockNumber = 2 * DAYS;
+    pub const LaunchPeriod: BlockNumber = 20 * DAYS;
+    pub const VotingPeriod: BlockNumber = 15 * DAYS;
+    pub const CooloffPeriod: BlockNumber = 1 * DAYS;
+    pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
+    // 10K tokens
+    pub const MinimumDeposit: Balance = 10_000 * 1_000_000;
+    // 1 token
+    pub const PreimageByteDeposit: Balance = 1 * 1_000_000;
+    pub const MaxVotes: u32 = 100;
+    pub const MaxProposals: u32 = 100;
+}
+
+impl simple_democracy::Trait for Runtime {
+    type Event = Event;
+    type PublicProposalDeposit = MinimumDeposit;
+    /// Only council members can vote
+    type VoterOrigin = CouncilMember;
+}
+
+impl pallet_democracy::Trait for Runtime {
+    type Proposal = Call;
+    type Event = Event;
+    type Currency = Balances;
+    type EnactmentPeriod = EnactmentPeriod;
+    type LaunchPeriod = LaunchPeriod;
+    type VotingPeriod = VotingPeriod;
+    type CooloffPeriod = CooloffPeriod;
+    type MinimumDeposit = MinimumDeposit;
+    type ExternalOrigin = CouncilMember;
+    type ExternalMajorityOrigin = CouncilMember;
+    type ExternalDefaultOrigin = RootOrMoreThanHalfCouncil;
+    /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
+    /// be tabled immediately and with a shorter voting/enactment period.
+    type FastTrackOrigin = EnsureOneOf<
+        AccountId,
+        pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>,
+        EnsureRoot<AccountId>,
+    >;
+    type InstantOrigin = EnsureRoot<AccountId>;
+    type InstantAllowed = ();
+    type FastTrackVotingPeriod = FastTrackVotingPeriod;
+    type CancellationOrigin = RootOrMoreThanHalfCouncil;
+    /// Any council member can cancel a public proposal
+    type CancelProposalOrigin = CouncilMember;
+    type PreimageByteDeposit = PreimageByteDeposit;
+    /// Slashes are handled by Democracy
+    type Slash = Democracy;
+    type OperationalPreimageOrigin = CouncilMember;
+    /*type OperationalPreimageOrigin = EnsureOneOf<AccountId,
+        pallet_collective::EnsureMember<AccountId, CouncilCollective>,
+        pallet_collective::EnsureMember<AccountId, TechnicalCollective>,
+    >;*/
+    /*type VetoOrigin = EnsureOneOf<
+        AccountId,
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionMoreThan<_1, _1, AccountId, TechnicalCollective>,
+        Success=AccountId
+    >;*/
+    type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
+    type Scheduler = Scheduler;
+    type PalletsOrigin = OriginCaller;
+    type MaxVotes = MaxVotes;
+    type MaxProposals = MaxProposals;
+    type WeightInfo = ();
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -404,6 +609,13 @@ construct_runtime!(
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
         Anchor: anchor::{Module, Call, Storage, Event<T>},
+        Democracy: simple_democracy::{Module, Call, Event},
+        ForkedDemocracy: pallet_democracy::{Module, Call, Storage, Event<T>},
+        Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        CouncilMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
+        TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
+        TechnicalCommitteeMembership: pallet_membership::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
+        Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -604,6 +816,12 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, balances, Balances);
             add_benchmark!(params, batches, token_migration, MigrationModule);
             add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+
+            add_benchmark!(params, batches, pallet_collective, Council);
+            add_benchmark!(params, batches, pallet_democracy, Democracy);
+            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+
+            // TODO: Add benchmark for democracy as well
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
