@@ -221,6 +221,24 @@ default-features = false
 tag = 'v2.0.0'
 version = '2.0.0'
 
+[dependencies.pallet-collective]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0'
+version = '2.0.0'
+
+[dependencies.pallet-membership]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0'
+version = '2.0.0'
+
+[dependencies.pallet-scheduler]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0'
+version = '2.0.0'
+
 [dependencies.hex-literal]
 version = "0.2.1"
 optional = true
@@ -234,6 +252,17 @@ version = '0.6.0'
 default-features = false
 path = '../pallets/token_migration'
 version = '0.1.1'
+
+[dependencies.pallet-democracy]
+package = 'forked-pallet-democracy'
+default-features = false
+path = '../pallets/democracy'
+version = '2.0.0'
+
+[dependencies.simple_democracy]
+default-features = false
+path = '../pallets/simple_democracy'
+version = '0.0.1'
 
 [features]
 default = ['std']
@@ -270,8 +299,10 @@ std = [
     'pallet-sudo/std',
     'pallet-authorship/std',
     'pallet-utility/std',
+    'pallet-collective/std',
     'poa/std',
     'token_migration/std',
+    'simple_democracy/std',
 ]
 runtime-benchmarks = [
   'frame-benchmarking',

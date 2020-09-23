@@ -141,7 +141,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
     GenesisConfig::<TestRuntime> {
         min_epoch_length: 25,
         max_active_validators: 4,
-        // Most of them values are kept 0 as the tests below will set it.
+        // Most of the values are kept 0 as the tests below will set it.
         active_validators: vec![],
         emission_supply: 0,
         max_emm_validator_epoch: 0,
