@@ -18,19 +18,21 @@ then
   exit 1
 fi
 
-# The 3rd argument main or test will used to generate specific addresses once the PRs in Substrate and Polkadot are
-# merged
+# The 3rd argument main or test will used to generate specific addresses. Default is mainnet address
 if [[ $# == 3 ]]
 then
   if [[ $3 != 'main' ]] && [[ $3 != 'test' ]]
   then
     echo "Third argument must be main or test"
     exit 1
+  elif [[ $3 == 'main' ]]
+  then
+    network='dock-mainnet'
   else
-    network=$3
+    network='dock-testnet'
   fi
 else
-  network='test'
+  network='dock-mainnet'
 fi
 
 account_pass=$2
@@ -38,17 +40,17 @@ account_pass=$2
 # Generate account for given key type
 if [[ $1 == 'sr25519' ]]
 then
-  generate_output=$(subkey generate --scheme=sr25519 --password=$account_pass --output-type=json)
+  generate_output=$(subkey generate --scheme=sr25519 --password=$account_pass --output-type=json -n=$network)
 fi
 
 if [[ $1 == 'ed25519' ]]
 then
-  generate_output=$(subkey generate --scheme=ed25519 --password=$account_pass --output-type=json)
+  generate_output=$(subkey generate --scheme=ed25519 --password=$account_pass --output-type=json -n=$network)
 fi
 
 if [[ $1 == 'ecdsa' ]]
 then
-  generate_output=$(subkey generate --scheme=ecdsa --password=$account_pass --output-type=json)
+  generate_output=$(subkey generate --scheme=ecdsa --password=$account_pass --output-type=json -n=$network)
 fi
 
 
