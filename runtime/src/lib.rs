@@ -551,15 +551,9 @@ impl_runtime_apis! {
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {
         fn dispatch_benchmark(
-            pallet: Vec<u8>,
-            benchmark: Vec<u8>,
-            lowest_range_values: Vec<u32>,
-            highest_range_values: Vec<u32>,
-            steps: Vec<u32>,
-            repeat: u32,
-            extra: bool
+            config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
-            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark};
+            use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
             // Following line copied from substrate node
             // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency issues.
             // To get around that, we separated the Session benchmarks into its own crate, which is why
@@ -570,10 +564,21 @@ impl_runtime_apis! {
             // impl pallet_session_benchmarking::Trait for Runtime {}
             impl frame_system_benchmarking::Trait for Runtime {}
 
-            let whitelist = vec![];
+            let whitelist: Vec<TrackedStorageKey> = vec![
+				// Block Number
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac").to_vec().into(),
+				// Total Issuance
+				hex_literal::hex!("c2261276cc9d1f8598ea4b6a74b15c2f57c875e4cff74148e4628f264b974c80").to_vec().into(),
+				// Execution Phase
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef7ff553b5a9862a516939d82b3d3d8661a").to_vec().into(),
+				// Event Count
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef70a98fdbe9ce6c55837576c60c7af3850").to_vec().into(),
+				// System Events
+				hex_literal::hex!("26aa394eea5630e07c48ae0c9558cef780d41e5e16056765bc8461851072c9d7").to_vec().into(),
+			];
 
             let mut batches = Vec::<BenchmarkBatch>::new();
-            let params = (&pallet, &benchmark, &lowest_range_values, &highest_range_values, &steps, repeat, &whitelist, extra);
+            let params = (&config, &whitelist);
 
             add_benchmark!(params, batches, did, DIDModule);
             add_benchmark!(params, batches, revoke, Revoke);

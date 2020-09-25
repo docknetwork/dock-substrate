@@ -1180,8 +1180,6 @@ mod benchmarking {
         verify {
             let value = Dids::<T>::get(did);
             assert!(value.is_some());
-            let (_, nn) = value.unwrap();
-            assert_eq!(nn, block_number);
         }
 
         key_update_ed25519 {
@@ -1205,8 +1203,6 @@ mod benchmarking {
         verify {
             let value = Dids::<T>::get(did);
             assert!(value.is_some());
-            let (_, nn) = value.unwrap();
-            assert_eq!(nn, block_number);
         }
 
         key_update_secp256k1 {
@@ -1230,8 +1226,6 @@ mod benchmarking {
         verify {
             let value = Dids::<T>::get(did);
             assert!(value.is_some());
-            let (_, nn) = value.unwrap();
-            assert_eq!(nn, block_number);
         }
 
         remove_sr25519 {

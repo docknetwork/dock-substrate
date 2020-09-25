@@ -487,7 +487,6 @@ impl GenesisBuilder {
                 max_emm_validator_epoch,
                 treasury_reward_pc,
                 validator_reward_lock_pc,
-                // TODO: This will be false on mainnet launch as there won't be any tokens.
                 emission_status: self.emission_status,
             }),
             balances: Some(BalancesConfig {
