@@ -127,8 +127,8 @@ pub mod opaque {
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     // TODO: Rename "dock-testnet" to "dock-runtime" before mainnet. Not changing the name now as
     // that will need reset of testnet.
-    spec_name: create_runtime_str!("dock-testnet"),
-    impl_name: create_runtime_str!("dock-runtime"),
+    spec_name: create_runtime_str!("dock-main-runtime"),
+    impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
     spec_version: 9,
     impl_version: 1,
@@ -290,7 +290,7 @@ impl balances::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionByteFee: Balance = 1;
+    pub const TransactionByteFee: Balance = 10_000;
 }
 
 impl transaction_payment::Trait for Runtime {

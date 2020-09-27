@@ -315,14 +315,10 @@ pub fn testnet_config() -> ChainSpec {
 }
 
 /// Configuration for the mainnet
-/// TODO:
-///     Change the keys for initial authorities and master membership
-///     Set sudo key to 0x0000...
-///     Set built-in bootstrap node to a dns record that does not contain the string "testnet"
 pub fn mainnet_config() -> ChainSpec {
     // Epoch is of ~7 days, 604800000 ms in 7 days
     let min_epoch_length = (604800000 / MILLISECS_PER_BLOCK) as u32;
-    let max_active_validators = 10;
+    let max_active_validators = 11;
     let emission_status = false;
 
     ChainSpec::from_genesis(
@@ -334,36 +330,25 @@ pub fn mainnet_config() -> ChainSpec {
                 initial_authorities: vec![
                     (
                         account_id_from_ss58::<sr25519::Public>(
-                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+                            "3Gb64wBURVBpAau5WVRRpAgNLPAnqsPR3CgoZPAK6diinaMp",
                         ),
                         pubkey_from_ss58::<AuraId>(
-                            "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                            "3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw",
                         ),
                         pubkey_from_ss58::<GrandpaId>(
-                            "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh",
+                            "3G4PHvp6EDBbmvfcDLEEkAQk1cRmvh3ZHp264pERRzcZzHwn",
                         ),
-                    ),
-                    (
-                        account_id_from_ss58::<sr25519::Public>(
-                            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
-                        ),
-                        pubkey_from_ss58::<AuraId>(
-                            "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
-                        ),
-                        pubkey_from_ss58::<GrandpaId>(
-                            "5FJir6hEEWvVCt4PHJ95ygtw5MvgD2xoET9xqskTu4MZBC98",
-                        ),
-                    ),
+                    )
                 ],
                 endowed_accounts: [
-                    "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
-                    "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
-                    "5Fq9cARnUAWxKGU9w5UngNNMsfjcxenAAuBn8zYJwyidSnuU",
-                    "5DcxJv1LRAiEmpR41xKUNbmefmutQ7WBEKEsS5xBxh8wQ99J",
-                    "5E7BHnwo9LoKP6bAJseeqZgnWSbsFmiZxMAsEd7zGJfDoCCr",
-                    "5DkS3AbP8mXWVUg8o9R7Y8czAPoi9JTYmS3FPzKx1z6735nd",
-                    "5C89W6aJTdBBbXPhyLrefGSB97kXKWAo5NkqBvG8U9MKhEkP",
-                    "5GpPMM3Mw1eAqniXQsRHdjd7dshmiudU46sELyRfGEbBoJu5",
+                    "3EjNXTpMJieqEF5Fj5szwAqpvmmKFG3YtsY5eBazxaCkNtoz",
+                    "3HmNvFfZey63mdUdKrQ2iTdbYB6ic5y9QaAZCQZ7aWMBnUu8",
+                    "3CjsvaK2h1AkimGohPCZuykuykpp5SU5NvM2d8VLEmzt2Pd6",
+                    "3FYRYvGLaatYrLMgU68frrptGbnMZCCakZaFQNDQy3WrEeAb",
+                    "3J4zBr2jCttvBJrkks1U2Rquhmgk4pmSgEboNPPbmPp7fuSb",
+                    "3D9gQig8SD3veR6n4Yjy8CeLAeVVrEN49UXia7Wztu4go4sF",
+                    "3EQqc6uyguP1RsvJvQxzoz3stbvMuZoWA9vKX18u9su17Lu3",
+                    "3HGY9pJWZfhXKhCzr8fYW989bf21Gk6PoWKcPSy9ewNKJXrJ",
                 ]
                 .iter()
                 .cloned()
@@ -384,15 +369,15 @@ pub fn mainnet_config() -> ChainSpec {
                 dids: [
                     (
                         b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-                        hex!("2a6f70c3dc8cd003075bbf14567c4251b512c5514dff069c293c14679f91913d"),
+                        hex!("628321c4c6c4e3ea9553b4c0762cd51dc05562c716cbd2b94ba6e87194474f48"),
                     ),
                     (
                         b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-                        hex!("848001ef27f057719a31e0e457d4edd946c5792d03a8cb203bc025bdda825301"),
+                        hex!("ce63ce77519770026f67a500c9107d66f7570d5aab203ad739664e6b6aa1c201"),
                     ),
                     (
                         b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
-                        hex!("c85c62af598cb718ce4bd1b0b739605fa7a4252db508ceb23dbd3eb4ca523062"),
+                        hex!("082f15a97e4757100ead2cba1bad527def2a7602167ceea0a5854e03a27eed4a"),
                     ),
                 ]
                 .iter()
@@ -406,7 +391,7 @@ pub fn mainnet_config() -> ChainSpec {
                 .collect(),
                 // In mainnet, this will be a public key (0s) that no one knows private key for
                 sudo: account_id_from_ss58::<sr25519::Public>(
-                    "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
+                    "3HqoTXW3HBQJoFpvRaAaJoNsWTBZs3CuGRqT9xxfv497k8fs",
                 ),
                 min_epoch_length,
                 max_active_validators,
@@ -414,8 +399,8 @@ pub fn mainnet_config() -> ChainSpec {
             }
             .build()
         },
-        vec!["/dns4/testnet-1.dock.io/tcp/30333/p2p/\
-             12D3KooWSbaqC655sjBSk7bNMghWsKdy1deCKRL6aRf6xcmm9dwW"
+        vec!["/dns4/mainnet-node.dock.io/tcp/30333/p2p/\
+             12D3KooWS9ypfE8A6MAT986uEBZDp9UDdSKYgvTJEZvfBSGwhHnx"
             .parse()
             .unwrap()],
         None,
