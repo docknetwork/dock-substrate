@@ -83,7 +83,8 @@ else
 fi
 
 # Generate libp2p keypair, will output public key and secret key and persist secret key in file
-libp2p_public_key=$(subkey generate-node-key --file=$LIBP2P_SECRET_KEY_FILENAME)
+# subkey's generate-node-key always outputs the public key to stderr so ignoring stdout and storing stderr.
+libp2p_public_key=$(subkey generate-node-key --file=$LIBP2P_SECRET_KEY_FILENAME 2>&1 > /dev/null)
 libp2p_secret_key=$(cat $LIBP2P_SECRET_KEY_FILENAME)
 
 # For colored output
