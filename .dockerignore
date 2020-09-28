@@ -4,3 +4,4 @@ Dockerfile
 .gitignore
 target
 tmp
+scripts/ansible/hosts_*
