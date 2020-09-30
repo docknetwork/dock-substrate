@@ -420,7 +420,7 @@ pub fn mainnet_config() -> ChainSpec {
             .build()
         },
         vec!["/dns4/mainnet-node.dock.io/tcp/30333/p2p/\
-             12D3KooWS9ypfE8A6MAT986uEBZDp9UDdSKYgvTJEZvfBSGwhHnx"
+             12D3KooWGTXSDietKtxC41fM5M8YmLVaQfnBnohkwaak3y5iqXMy"
             .parse()
             .unwrap()],
         None,
