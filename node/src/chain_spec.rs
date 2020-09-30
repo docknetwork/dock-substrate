@@ -76,10 +76,28 @@ fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, KeyDetail) {
     )
 }
 
-fn get_properties() -> Properties {
+fn get_common_properties_map() -> Properties {
     let mut properties = Map::new();
     properties.insert("tokenSymbol".into(), "DCK".into());
-    properties.insert("tokenDecimals".into(), 7.into());
+    properties.insert("tokenDecimals".into(), 6.into());
+    properties
+}
+
+fn get_dev_properties() -> Properties {
+    let mut properties = get_common_properties_map();
+    properties.insert("ss58Format".into(), 42.into());
+    properties
+}
+
+fn get_testnet_properties() -> Properties {
+    let mut properties = get_common_properties_map();
+    properties.insert("ss58Format".into(), 21.into());
+    properties
+}
+
+fn get_mainnet_properties() -> Properties {
+    let mut properties = get_common_properties_map();
+    properties.insert("ss58Format".into(), 22.into());
     properties
 }
 
@@ -91,7 +109,7 @@ pub fn development_config() -> ChainSpec {
         || {
             GenesisBuilder {
                 initial_authorities: vec![get_authority_keys_from_seed("Alice")],
-                endowed_accounts: ["Alice", "Bob", "Alice//stash", "Bob//stash"]
+                endowed_accounts: ["Alice", "Bob", "Alice//stash", "Bob//stash", "Charlie", "Dave", "Eve", "Ferdie",]
                     .iter()
                     .cloned()
                     .map(get_account_id_from_seed::<sr25519::Public>)
@@ -135,7 +153,7 @@ pub fn development_config() -> ChainSpec {
         vec![],
         None,
         None,
-        Some(get_properties()),
+        Some(get_dev_properties()),
         None,
     )
 }
@@ -208,7 +226,7 @@ pub fn local_testnet_config() -> ChainSpec {
         vec![],
         None,
         None,
-        Some(get_properties()),
+        Some(get_dev_properties()),
         None,
     )
 }
@@ -309,7 +327,9 @@ pub fn testnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        Some(get_properties()),
+        // The chain is already deployed so can't use new prefix. If we ever choose to redeploy it, we
+        // should use correct properties and update account addresses
+        Some(get_dev_properties()),
         None,
     )
 }
@@ -389,7 +409,7 @@ pub fn mainnet_config() -> ChainSpec {
                     )
                 })
                 .collect(),
-                // In mainnet, this will be a public key (0s) that no one knows private key for
+                // Post mainnet launch, this will be changed into a public key (0s) that no one knows private key for
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "3HqoTXW3HBQJoFpvRaAaJoNsWTBZs3CuGRqT9xxfv497k8fs",
                 ),
@@ -405,7 +425,7 @@ pub fn mainnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        Some(get_properties()),
+        Some(get_mainnet_properties()),
         None,
     )
 }
