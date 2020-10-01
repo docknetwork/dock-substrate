@@ -446,14 +446,14 @@ impl GenesisBuilder {
         // 1 token is 25000000 gas
         let token_to_gas: Balance = 25_000_000;
         // 200M tokens
-        let emission_supply: Balance = token_to_gas * 200_000_000;
+        let emission_supply: Balance = token_to_gas.checked_mul( 200_000_000).unwrap();
         // TODO: This needs to be tweaked once we know all exchanges
         // 100M tokens
-        let per_member_endowment: Balance = token_to_gas * 100_000_000;
+        let per_member_endowment: Balance = token_to_gas.checked_mul(100_000_000).unwrap();
 
         // Max emission per validator in an epoch
         // 30K tokens
-        let max_emm_validator_epoch: Balance = token_to_gas * 15_000;
+        let max_emm_validator_epoch: Balance = token_to_gas.checked_mul(15_000).unwrap();
 
         // Percentage of rewards given to Treasury
         let treasury_reward_pc = 60;

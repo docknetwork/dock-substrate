@@ -31,7 +31,7 @@ pub trait Trait: system::Trait + did::Trait {
 }
 
 decl_error! {
-    /// Error for the token module.
+    /// Error for the blob module.
     pub enum BlobError for Module<T: Trait> {
         /// The blob is greater than `MaxBlobSize`
         BlobTooBig,

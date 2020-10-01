@@ -236,7 +236,7 @@ impl<T: Trait> Module<T> {
     /// decrementing the round no before returning the error.
     /// However, since this call is made by entities that not adversarial, the behavior is not dangerous
     /// in this case
-    pub fn execute_(
+    fn execute_(
         origin: T::Origin,
         proposal: Box<<T as Trait>::Call>,
         auth: PMAuth,
@@ -277,13 +277,13 @@ impl<T: Trait> Module<T> {
         // events
         Self::deposit_event(RawEvent::Executed(
             auth.keys().cloned().collect(),
-            proposal.into(),
+            proposal,
         ));
 
         Ok(dispatch_info)
     }
 
-    pub fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
+    fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
         ensure_root(origin)?;
 
         // check

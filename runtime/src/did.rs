@@ -23,7 +23,7 @@ pub trait Trait: system::Trait {
 }
 
 decl_error! {
-    /// Error for the token module.
+    /// Error for the DID module.
     pub enum Error for Module<T: Trait> {
         /// Given public key is not of the correct size
         PublicKeySizeIncorrect,
@@ -176,7 +176,7 @@ impl DidSignature {
         match self {
             DidSignature::Sr25519(_) => SR25519_WEIGHT,
             DidSignature::Ed25519(_) => ED25519_WEIGHT,
-            DidSignature::Secp256k1(_) => SR25519_WEIGHT,
+            DidSignature::Secp256k1(_) => SECP256K1_WEIGHT,
         }
     }
 }
@@ -203,7 +203,7 @@ pub enum PublicKey {
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct Bytes32(pub [u8;32]);*/
 
-/// `controller` is the controller DID and its value might be same as `did`.
+/// `controller` is the controller of the DID and its value might be same as the DID.
 /// `public_key` is the public key and it is accepted and stored as raw bytes.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -323,7 +323,8 @@ decl_module! {
 
         /// Create a new DID.
         /// `did` is the new DID to create. The method will fail if `did` is already registered.
-        /// `detail` is the details of the key like its type, controller and value
+        /// `detail` is the details of the key like its type, controller and value. The controller DID
+        /// is not required to exist in the state.
         #[weight = T::DbWeight::get().reads_writes(1, 1) + 36_000_000]
         pub fn new(origin, did: dock::did::Did, detail: dock::did::KeyDetail) -> DispatchResult {
             ensure_signed(origin)?;
@@ -339,7 +340,8 @@ decl_module! {
 
         /// Sets the single publicKey (and possibly its controller) stored in this DID.
         ///
-        /// `key_update` specifies which DID's key needs to be updated
+        /// `key_update` specifies which DID's key needs to be updated. The new controller DID
+        /// is not required to exist in the state.
         /// `signature` is the signature on a serialized [StateChange][statechange] that wraps the
         /// [KeyUpdate][keyupdate] struct
         ///
@@ -438,7 +440,7 @@ decl_module! {
             // serialize `DIDRemoval` to bytes
             let serz_rem = StateChange::DIDRemoval(to_remove).encode();
 
-            // Verify signature on the serialized `KeyUpdate` with the current public key
+            // Verify signature on the serialized `DidRemoval` with the current public key
             let sig_ver = Self::verify_sig_with_public_key(
                 &signature,
                 &serz_rem,
@@ -514,7 +516,7 @@ impl<T: Trait> Module<T> {
                         .map_err(|_| Error::<T>::InvalidSigType)?,
                 )
                 .map_err(|_| Error::<T>::InvalidSig)?;
-                let pk = sr25519::Public(bytes.value.clone());
+                let pk = sr25519::Public(bytes.value);
                 signature.verify(message, &pk)
             }
             PublicKey::Ed25519(bytes) => {
@@ -524,7 +526,7 @@ impl<T: Trait> Module<T> {
                         .map_err(|_| Error::<T>::InvalidSigType)?,
                 )
                 .map_err(|_| Error::<T>::InvalidSig)?;
-                let pk = ed25519::Public(bytes.value.clone());
+                let pk = ed25519::Public(bytes.value);
                 signature.verify(message, &pk)
             }
             PublicKey::Secp256k1(bytes) => {
@@ -534,7 +536,7 @@ impl<T: Trait> Module<T> {
                         .map_err(|_| Error::<T>::InvalidSigType)?,
                 )
                 .map_err(|_| Error::<T>::InvalidSig)?;
-                let pk = ecdsa::Public::from_raw(bytes.value.clone());
+                let pk = ecdsa::Public::from_raw(bytes.value);
                 signature.verify(message, &pk)
             }
         })
