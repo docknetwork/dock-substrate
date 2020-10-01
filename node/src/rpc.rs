@@ -58,7 +58,7 @@ where
     )));
 
     // RPC calls for PoA pallet
-    io.extend_with(PoAApi::to_delegate(PoA::new(client.clone())));
+    io.extend_with(PoAApi::to_delegate(PoA::new(client)));
 
     io
 }

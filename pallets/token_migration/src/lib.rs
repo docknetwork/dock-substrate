@@ -194,7 +194,7 @@ impl<T: Trait> Module<T> {
 
         // Transfer to each recipient
         for (recip, balance) in recipients {
-            // There is a very slim change that transfer fails with an addition overflow when the
+            // There is a very slim chance that transfer fails with an addition overflow when the
             // recipient has a very high balance.
             // Using `AllowDeath` to let migrator be wiped out once he has transferred to all.
             match T::Currency::transfer(&migrator, &recip, balance, AllowDeath) {

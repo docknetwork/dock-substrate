@@ -318,6 +318,11 @@ decl_module! {
         /// Replace an active validator (`old_validator_id`) with a new validator (`new_validator_id`)
         /// without waiting for epoch to end. Throws error if `old_validator_id` is not active or
         /// `new_validator_id` is already active. Also useful when a validator wants to rotate his account.
+        /// When several of such extrinsics are in a single block, only the last extrinsic's swap will
+        /// take effect assuming they are swapping out existing validators and swapping in non-existent
+        /// validators. Since this extrinsic is rarely used, the risk is non-existent in practice. However,
+        /// it can be enforced that only first one takes effect by checking that storage entry `HotSwap<T>`
+        /// is "empty" else abort the extrinsic.
         /// # <weight>
         /// Only takes into account the weight of read of active validator vector and write to the swap
         /// storage item. The write to validator set happens while loading next block and is counted
@@ -599,7 +604,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Transfer `amount` from treasury to the `recipient`.
-    pub fn withdraw_from_treasury_(
+    fn withdraw_from_treasury_(
         recipient: T::AccountId,
         amount: BalanceOf<T>,
     ) -> dispatch::DispatchResult {
@@ -828,7 +833,7 @@ impl<T: Trait> Module<T> {
         EpochEndsAt::put(epoch_ends_at);
         debug!(
             target: "runtime",
-            "Epoch {} prematurely ended at slot {}",
+            "Epoch {} prematurely ending at slot {}",
             current_epoch_no, epoch_ends_at
         );
         epoch_ends_at
@@ -882,7 +887,7 @@ impl<T: Trait> Module<T> {
     fn increment_current_epoch_block_count(block_author: T::AccountId) {
         let current_epoch_no = Self::epoch();
         let mut stats = Self::get_validator_stats_for_epoch(current_epoch_no, &block_author);
-        // Not doing saturating add as its practically impossible to produce 2^64 blocks
+        // Not doing saturating add as its practically impossible to produce 2^32 blocks
         stats.block_count += 1;
         <ValidatorStats<T>>::insert(current_epoch_no, block_author, stats);
     }
@@ -897,7 +902,7 @@ impl<T: Trait> Module<T> {
         block_count: &BlockCount,
     ) -> EpochLen {
         if epoch_detail.expected_ending_slot >= ending_slot {
-            // Epoch was either short circuited ended in the expected slot
+            // Epoch was either short circuited or ended in the expected slot
             print(ending_slot);
             if epoch_detail.expected_ending_slot > ending_slot {
                 print("Epoch ending early. Swap or epoch short circuited");
@@ -929,7 +934,7 @@ impl<T: Trait> Module<T> {
     /// did not produce equal blocks in the epoch or the number of blocks if they produced the same number.
     /// Also return count of blocks produced by each validator in a map.
     fn count_validator_blocks(
-        current_epoch_no: EpochLen,
+        current_epoch_no: EpochNo,
     ) -> (BlockCount, BTreeMap<T::AccountId, EpochLen>) {
         let mut validator_block_counts = BTreeMap::new();
         let mut max_blocks = 0;
@@ -1166,7 +1171,7 @@ impl<T: Trait> Module<T> {
             error!(target: "panicing now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
             print(slots_per_validator);
             print(max_bl);
-            panic!("THIS PANIC SHOULD NEVER TRIGGER: slots_per_validator > max_blocks.to_number()");
+            panic!("THIS PANIC SHOULD NEVER TRIGGER: max_blocks.to_number() > slots_per_validator + 1");
         }
 
         if slots_per_validator > 0 {
@@ -1215,8 +1220,8 @@ impl<T: Trait> Module<T> {
         Self::deposit_event(RawEvent::EpochEnds(current_epoch_no, ending_slot));
     }
 
-    /// Set last slot for previous epoch, starting slot of current epoch and active validator count
-    /// for this epoch
+    /// Set the current epoch, starting slot, expected ending of the current epoch and active validator
+    /// count for this epoch
     fn update_details_on_new_epoch(
         current_epoch_no: EpochNo,
         current_slot_no: SlotNo,
@@ -1250,15 +1255,11 @@ impl<T: Trait> Module<T> {
             Some(count) => {
                 // Swap occurred, check if the swap coincided with an epoch end
                 if current_slot_no > epoch_ends_at {
-                    let (changed, new_count) = Self::update_active_validators_if_needed();
-                    // There is a chance that `update_active_validators_if_needed` undoes the swap and in that case
-                    // rotate_session can be avoided.
-                    if changed {
-                        // The epoch end changed the active validator set and count
-                        (changed, new_count)
-                    } else {
-                        (true, count)
-                    }
+                    let (_, new_count) = Self::update_active_validators_if_needed();
+                    // Potential optimization: There is a chance that `update_active_validators_if_needed`
+                    // undoes the swap and in that case `rotate_session` can be avoided. Not doing the
+                    // optimization here.
+                    (true, new_count)
                 } else {
                     // Epoch did not end but swap did happen
                     (true, count)
@@ -1272,7 +1273,7 @@ impl<T: Trait> Module<T> {
     /// fees is being paid), the fees gets added to `TxnFees` which is emptied (zeroed) when block is
     /// fully formed, i.e. `on_finalize`
     fn update_txn_fees_for_block(current_fees: BalanceOf<T>) {
-        // Fees for other extriniscs so far in the block.
+        // Fees for other extrinsics so far in the block.
         let existing_fees_for_block = <TxnFees<T>>::take();
         let total_fees_in_block = existing_fees_for_block.saturating_add(current_fees);
         <TxnFees<T>>::put(total_fees_in_block);
@@ -1367,6 +1368,7 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 
         let validators = Self::active_validators();
         if validators.is_empty() {
+            // On genesis
             return None;
         }
         if session_idx < 2 {
