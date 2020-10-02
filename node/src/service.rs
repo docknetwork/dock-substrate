@@ -116,6 +116,9 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
         other: (block_import, grandpa_link),
     } = new_partial(&config)?;
 
+    let justification_stream = grandpa_link.justification_stream();
+    let shared_authority_set = grandpa_link.shared_authority_set().clone();
+    let shared_voter_state = SharedVoterState::empty();
     let finality_proof_provider =
         GrandpaFinalityProofProvider::new_for_service(backend.clone(), client.clone());
 
@@ -129,7 +132,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             on_demand: None,
             block_announce_validator_builder: None,
             finality_proof_request_builder: None,
-            finality_proof_provider: Some(finality_proof_provider),
+            finality_proof_provider: Some(finality_proof_provider.clone()),
         })?;
 
     if config.offchain_worker.enabled {
@@ -149,15 +152,24 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
     let prometheus_registry = config.prometheus_registry().cloned();
     let telemetry_connection_sinks = sc_service::TelemetryConnectionSinks::default();
 
+    let grandpa_shared_voter_state = shared_voter_state.clone();
+
     let rpc_extensions_builder = {
         let client = client.clone();
         let pool = transaction_pool.clone();
 
-        Box::new(move |deny_unsafe, _| {
+        Box::new(move |deny_unsafe, subscription_executor | {
             let deps = crate::rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
                 deny_unsafe,
+                grandpa: crate::rpc::GrandpaDeps {
+                    shared_voter_state: shared_voter_state.clone(),
+                    shared_authority_set: shared_authority_set.clone(),
+                    justification_stream: justification_stream.clone(),
+                    subscription_executor,
+                    finality_proof_provider: finality_proof_provider.clone(),
+                }
             };
 
             crate::rpc::create_full(deps)
@@ -243,7 +255,7 @@ pub fn new_full(config: Configuration) -> Result<TaskManager, ServiceError> {
             telemetry_on_connect: Some(telemetry_connection_sinks.on_connect_stream()),
             voting_rule: sc_finality_grandpa::VotingRulesBuilder::default().build(),
             prometheus_registry,
-            shared_voter_state: SharedVoterState::empty(),
+            shared_voter_state: grandpa_shared_voter_state,
         };
 
         // the GRANDPA voter task is considered infallible, i.e.
