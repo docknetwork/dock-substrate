@@ -926,6 +926,7 @@ fn validator_block_counts() {
         for id in &[val_id1, val_id2] {
             PoAModule::add_validator_(*id, false).unwrap();
         }
+
         PoAModule::update_active_validators_if_needed();
         PoAModule::update_details_on_new_epoch(1, 2, 2);
 
