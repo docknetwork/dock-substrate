@@ -143,7 +143,7 @@ decl_storage! {
 
         /// Minimum epoch length set through extrinsic, this will become `MinEpochLength` for next epoch
         /// Once read, this value is made empty
-        // XXX: The storage value is not an option due to serialization error. This might be fixed in
+        // XXX: The storage value is not an `Option` due to serialization error. This might be fixed in
         // future. Using 0 as lack of value since it is not an acceptable value for this.
         MinEpochLengthTentative get(fn min_epoch_length_tentative): EpochLen;
 
@@ -152,7 +152,7 @@ decl_storage! {
 
         /// Maximum active validators set through extrinsic, this will become `MaxActiveValidators` for
         /// next epoch. Once read, this value is made empty
-        // XXX: The storage value is not an option due to serialization error. This might be fixed in
+        // XXX: The storage value is not an `Option` due to serialization error. This might be fixed in
         // future. Using 0 as lack of value since it is not an acceptable value for this.
         MaxActiveValidatorsTentative get(fn max_active_validators_tentative): u8;
 
@@ -606,6 +606,7 @@ impl<T: Trait> Module<T> {
         recipient: T::AccountId,
         amount: BalanceOf<T>,
     ) -> dispatch::DispatchResult {
+        // AllowDeath is fine as the account would be back in state when it gets rewards
         T::Currency::transfer(&Self::treasury_account(), &recipient, amount, AllowDeath)
             .map_err(|_| dispatch::DispatchError::Other("Can't withdraw from treasury"))
     }
@@ -684,7 +685,8 @@ impl<T: Trait> Module<T> {
                 count_removed += 1;
             } else {
                 // The `add_validator` ensures that a validator id cannot be part of both active
-                // validator set and queued validators
+                // validator set and queued validators with the exception of swap-in for an already queued validators.
+                // This exception is guarded against when adding queued validator below.
                 let removed_queued = Self::remove_validator_id(&v, &mut validators_to_add);
                 if removed_queued > 0 {
                     queued_validator_set_changed = true;
@@ -1017,7 +1019,7 @@ impl<T: Trait> Module<T> {
 
     /// Track locked and unlocked reward for each validator in the given epoch and return sum of
     /// emission rewards (locked + unlocked) for all validators
-    fn mint_and_track_validator_rewards_for_non_empty_epoch(
+    fn mint_and_track_validator_rewards_for_rewarding_epoch(
         current_epoch_no: EpochNo,
         expected_slots_per_validator: EpochLen,
         slots_per_validator: EpochLen,
@@ -1031,9 +1033,22 @@ impl<T: Trait> Module<T> {
         );
         let lock_pc = Self::validator_reward_lock_pc() as Balance;
         for (v, block_count) in validator_block_counts {
-            // The actual emission rewards depends on the availability, i.e. ratio of blocks produced to slots available
+            // The actual emission rewards depends on the availability, i.e. ratio of blocks produced
+            // to slots available
+
+            // In case of a crash, it might happen that some validators produce more blocks than others
+            // and thus their block count > `slots_per_validator` but only by 1. In that case, adjust
+            // their block count so that their reward does not exceed maximum (adjusted) reward for epoch
+            let adjusted_block_count = if (block_count > 0) && (block_count > slots_per_validator) {
+                if (block_count - 1) != slots_per_validator {
+                    panic!("THIS SHOULD NEVER TRIGGER. ADJUSTED BLOCK COUNT NOT EQUAL TO SLOTS PER VALIDATOR");
+                }
+                block_count - 1
+            } else {
+                block_count
+            };
             let reward =
-                max_em.saturating_mul(block_count.into()) / (slots_per_validator as Balance);
+                max_em.saturating_mul(adjusted_block_count.into()) / (slots_per_validator as Balance);
 
             let locked_reward = (reward.saturating_mul(lock_pc)) / 100;
             let unlocked_reward = reward.saturating_sub(locked_reward);
@@ -1060,7 +1075,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Track validator rewards for epoch with no rewards. The tracked rewards will be 0
-    fn track_validator_rewards_for_empty_epoch(
+    fn update_validator_stats_for_worthless_epoch(
         current_epoch_no: EpochNo,
         validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
     ) {
@@ -1085,13 +1100,13 @@ impl<T: Trait> Module<T> {
     /// down or some other reason), they get proportionately less rewards. The max rewards `p` will decrease in
     /// proportion if epoch is shorter than minimum epoch length. Once the total rewards for validators
     /// are calculated, an extra `t` percent of that is emitted for the treasury.
-    fn mint_rewards_for_non_empty_epoch(
+    fn mint_and_track_rewards_for_rewarding_epoch(
         epoch_detail: &mut EpochDetail,
         current_epoch_no: EpochNo,
         slots_per_validator: EpochLen,
         validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
     ) {
-        let total_validator_reward = Self::mint_and_track_validator_rewards_for_non_empty_epoch(
+        let total_validator_reward = Self::mint_and_track_validator_rewards_for_rewarding_epoch(
             current_epoch_no,
             epoch_detail.expected_slots_per_validator(),
             slots_per_validator,
@@ -1115,12 +1130,12 @@ impl<T: Trait> Module<T> {
     }
 
     /// Calculate validator and treasury rewards for epoch with 0 rewards. The tracked rewards will be 0
-    fn calculate_rewards_for_empty_epoch(
+    fn update_epoch_detail_for_worthless_epoch(
         epoch_detail: &mut EpochDetail,
         current_epoch_no: EpochNo,
         validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
     ) {
-        Self::track_validator_rewards_for_empty_epoch(current_epoch_no, validator_block_counts);
+        Self::update_validator_stats_for_worthless_epoch(current_epoch_no, validator_block_counts);
         epoch_detail.total_emission = Some(0);
         epoch_detail.emission_for_treasury = Some(0);
         epoch_detail.emission_for_validators = Some(0);
@@ -1133,8 +1148,16 @@ impl<T: Trait> Module<T> {
         ending_slot: SlotNo,
         epoch_detail: &mut EpochDetail,
     ) -> bool {
-        // If emission is disabled, return (false) immediately
+        // Get blocks authored by each validator
+        let (max_blocks, validator_block_counts) = Self::count_validator_blocks(current_epoch_no);
+
+        // If emission is disabled, return false after updating validators' block count and rewards
         if !Self::emission_status() {
+            Self::update_epoch_detail_for_worthless_epoch(
+                epoch_detail,
+                current_epoch_no,
+                validator_block_counts,
+            );
             return false;
         }
 
@@ -1149,11 +1172,14 @@ impl<T: Trait> Module<T> {
         // unminted for some amount of time, maybe indefinitely. Another option is to reduce rewards of
         // all parties (or maybe some parties) by a certain percentage so that remaining supply is sufficient.
         if emission_supply == 0 {
+            Self::update_epoch_detail_for_worthless_epoch(
+                epoch_detail,
+                current_epoch_no,
+                validator_block_counts,
+            );
             return false;
         }
 
-        // Get blocks authored by each validator
-        let (max_blocks, validator_block_counts) = Self::count_validator_blocks(current_epoch_no);
         // Get slots received by each validator
         let slots_per_validator =
             Self::get_slots_per_validator(&epoch_detail, ending_slot, &max_blocks);
@@ -1166,14 +1192,14 @@ impl<T: Trait> Module<T> {
         // abruptly terminates and some validators don't get a chance to produce blocks
         let max_bl = max_blocks.to_number();
         if max_bl.saturating_sub(slots_per_validator) > 1 {
-            error!(target: "panicing now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
+            error!(target: "panicking now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
             print(slots_per_validator);
             print(max_bl);
             panic!("THIS PANIC SHOULD NEVER TRIGGER: max_blocks.to_number() > slots_per_validator + 1");
         }
 
         if slots_per_validator > 0 {
-            Self::mint_rewards_for_non_empty_epoch(
+            Self::mint_and_track_rewards_for_rewarding_epoch(
                 epoch_detail,
                 current_epoch_no,
                 slots_per_validator,
@@ -1182,7 +1208,7 @@ impl<T: Trait> Module<T> {
             true
         } else {
             // No slots claimed, 0 rewards for validators and treasury
-            Self::calculate_rewards_for_empty_epoch(
+            Self::update_epoch_detail_for_worthless_epoch(
                 epoch_detail,
                 current_epoch_no,
                 validator_block_counts,
