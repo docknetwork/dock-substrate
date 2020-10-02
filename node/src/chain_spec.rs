@@ -89,6 +89,7 @@ fn get_dev_properties() -> Properties {
     properties
 }
 
+#[allow(dead_code)]
 fn get_testnet_properties() -> Properties {
     let mut properties = get_common_properties_map();
     properties.insert("ss58Format".into(), 21.into());

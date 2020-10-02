@@ -18,4 +18,4 @@ sp-rpc = { git = 'https://github.com/paritytech/substrate.git', tag = 'v2.0.0', 
 sp-runtime = { git = 'https://github.com/paritytech/substrate.git', tag = 'v2.0.0', version = '2.0.0' }
 sp-api = { git = 'https://github.com/paritytech/substrate.git', tag = 'v2.0.0', version = '2.0.0' }
 sp-blockchain = { git = 'https://github.com/paritytech/substrate.git', tag = 'v2.0.0', version = '2.0.0' }
-poa = { version = '0.3.0', path = '..' }
+poa = { version = '0.4.0', path = '..' }

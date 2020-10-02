@@ -389,9 +389,8 @@ decl_module! {
         ///     1 write during extrinsic to `MinEpochLengthTentative`
         ///     1 write during epoch change to `MinEpochLength`
         ///     1 write during epoch change to `MinEpochLengthTentative` to zero it out
-        /// 1 read during epoch change of `MinEpochLengthTentative`
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 3)]
+        #[weight = T::DbWeight::get().writes(3)]
         pub fn set_min_epoch_length(origin, length: EpochLen) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(length > 0, Error::<T>::EpochLengthCannotBe0);
@@ -406,9 +405,8 @@ decl_module! {
         ///     1 write during extrinsic to `MaxActiveValidatorsTentative`
         ///     1 write during epoch change to `MaxActiveValidators`
         ///     1 write during epoch change to `MaxActiveValidatorsTentative` to zero it out
-        /// 1 read during epoch change of `MaxActiveValidatorsTentative`
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 3)]
+        #[weight = T::DbWeight::get().writes(3)]
         pub fn set_max_active_validators(origin, count: u8) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             ensure!(count > 0, Error::<T>::NeedAtLeast1Validator);
@@ -1234,6 +1232,7 @@ impl<T: Trait> Module<T> {
         );
         Epoch::put(current_epoch_no);
         let expected_ending = Self::epoch_ends_at();
+
         Epochs::insert(
             current_epoch_no,
             EpochDetail::new(active_validator_count, current_slot_no, expected_ending),
@@ -1308,6 +1307,7 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         let epoch_ends_at = Self::epoch_ends_at();
         debug!(
             target: "runtime",
+
             "epoch ends at {}",
             epoch_ends_at
         );
