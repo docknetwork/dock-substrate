@@ -61,6 +61,11 @@ git = 'https://github.com/paritytech/substrate.git'
 version = '0.8.0'
 tag = 'v2.0.0'
 
+[dependencies.sc-finality-grandpa-rpc]
+git = 'https://github.com/paritytech/substrate.git'
+version = '0.8.0'
+tag = 'v2.0.0'
+
 [dependencies.sc-network]
 git = 'https://github.com/paritytech/substrate.git'
 version = '0.8.0'

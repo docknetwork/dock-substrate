@@ -66,7 +66,7 @@ use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
 /// An index to a block.
-type BlockNumber = u32;
+pub type BlockNumber = u32;
 
 /// Alias to 512-bit hash when used in the context of a transaction signature on the chain.
 type Signature = MultiSignature;
@@ -82,7 +82,7 @@ pub type Balance = u64;
 pub type Index = u32;
 
 /// A hash of some data used by the chain.
-type Hash = sp_core::H256;
+pub type Hash = sp_core::H256;
 
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
