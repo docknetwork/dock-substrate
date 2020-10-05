@@ -420,9 +420,9 @@ decl_module! {
         /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(1, 1) + {
             match signature {
-                DidSignature::Sr25519(_) => 135_000_000,
-                DidSignature::Ed25519(_) => 150_000_000,
-                DidSignature::Secp256k1(_) => 450_000_000
+                DidSignature::Sr25519(_) => 140_000_000,
+                DidSignature::Ed25519(_) => 152_000_000,
+                DidSignature::Secp256k1(_) => 456_000_000
             }
         }]
         pub fn remove(

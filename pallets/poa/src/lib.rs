@@ -301,6 +301,8 @@ decl_module! {
         /// will be thrown unless `short_circuit` is true, in which case it swallows the error.
         /// It will not remove the validator if the removal will cause the active validator set to
         /// be empty even after considering the queued validators.
+        /// Remove takes priority over adding and thus if a validator is both is set for removal, it
+        /// cannot be added in the next epoch when added in the queue.
         /// # <weight>
         /// Assuming worst case for below. Not considering iteration cost over in memory arrays since the arrays
         /// are small and these dispatchables are rarely called.
@@ -1047,8 +1049,8 @@ impl<T: Trait> Module<T> {
             } else {
                 block_count
             };
-            let reward =
-                max_em.saturating_mul(adjusted_block_count.into()) / (slots_per_validator as Balance);
+            let reward = max_em.saturating_mul(adjusted_block_count.into())
+                / (slots_per_validator as Balance);
 
             let locked_reward = (reward.saturating_mul(lock_pc)) / 100;
             let unlocked_reward = reward.saturating_sub(locked_reward);
@@ -1195,7 +1197,9 @@ impl<T: Trait> Module<T> {
             error!(target: "panicking now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
             print(slots_per_validator);
             print(max_bl);
-            panic!("THIS PANIC SHOULD NEVER TRIGGER: max_blocks.to_number() > slots_per_validator + 1");
+            panic!(
+                "THIS PANIC SHOULD NEVER TRIGGER: max_blocks.to_number() > slots_per_validator + 1"
+            );
         }
 
         if slots_per_validator > 0 {

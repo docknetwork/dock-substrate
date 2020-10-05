@@ -1,13 +1,14 @@
 use super::*;
 
+use super::Call as MigrateCall;
 use frame_support::sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
     Perbill,
 };
 use frame_support::{
-    assert_err, assert_ok, impl_outer_origin, parameter_types,
-    weights::{constants::WEIGHT_PER_SECOND, Weight},
+    assert_err, assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types,
+    weights::{constants::WEIGHT_PER_SECOND, DispatchClass, DispatchInfo, Weight},
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
@@ -16,11 +17,17 @@ impl_outer_origin! {
     pub enum Origin for TestRuntime {}
 }
 
+impl_outer_dispatch! {
+    pub enum Call for TestRuntime where origin: Origin {
+        system::System,
+        token_migration::MigrationModule,
+    }
+}
+
 #[derive(Clone, Eq, Debug, PartialEq)]
 pub struct TestRuntime;
 
 type MigrationModule = Module<TestRuntime>;
-
 type System = system::Module<TestRuntime>;
 
 parameter_types! {
@@ -34,7 +41,7 @@ parameter_types! {
 impl system::Trait for TestRuntime {
     type BaseCallFilter = ();
     type Origin = Origin;
-    type Call = ();
+    type Call = Call;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -226,5 +233,62 @@ fn migrate() {
         );
 
         // TODO: Check for overflow as well
+    });
+}
+
+#[test]
+fn signed_extension_test() {
+    // Check that the signed extension `OnlyMigrator` only allows registered migrator
+    new_test_ext().execute_with(|| {
+        // Migrators
+        let migrator_acc_1 = 1;
+        let migrator_acc_2 = 2;
+        let migrator_acc_3 = 3;
+
+        // Register migrators and fuel them
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc_1, 100);
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc_2, 90);
+        MigrationModule::add_migrator(RawOrigin::Root.into(), migrator_acc_1, 4).unwrap();
+        MigrationModule::add_migrator(RawOrigin::Root.into(), migrator_acc_2, 5).unwrap();
+
+        let signed_extension = OnlyMigrator::<TestRuntime>(PhantomData);
+
+        // The call made by migrator. The recipients being empty is irrelevant for this test.
+        let call: <TestRuntime as system::Trait>::Call =
+            Call::MigrationModule(MigrateCall::migrate(BTreeMap::new()));
+
+        let tx_info = DispatchInfo {
+            weight: 3,
+            class: DispatchClass::Normal,
+            pays_fee: Pays::No,
+        };
+
+        // Registered migrators should not pass signed extension
+        assert!(signed_extension
+            .validate(&migrator_acc_1, &call, &tx_info, 20)
+            .is_ok());
+        assert!(signed_extension
+            .validate(&migrator_acc_2, &call, &tx_info, 20)
+            .is_ok());
+
+        // Unregistered migrator should not pass signed extension
+        assert!(signed_extension
+            .validate(&migrator_acc_3, &call, &tx_info, 20)
+            .is_err());
+
+        MigrationModule::add_migrator(RawOrigin::Root.into(), migrator_acc_3, 6).unwrap();
+
+        assert!(signed_extension
+            .validate(&migrator_acc_3, &call, &tx_info, 20)
+            .is_ok());
+
+        assert_ok!(MigrationModule::remove_migrator(
+            RawOrigin::Root.into(),
+            migrator_acc_1
+        ));
+
+        assert!(signed_extension
+            .validate(&migrator_acc_1, &call, &tx_info, 20)
+            .is_err());
     });
 }

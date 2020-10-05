@@ -7,18 +7,17 @@
 
 use std::sync::Arc;
 
-use dock_runtime::{opaque::Block, AccountId, Balance, Index, Hash, BlockNumber};
+use dock_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
+use sc_finality_grandpa::{
+    FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
+};
+use sc_finality_grandpa_rpc::GrandpaRpcHandler;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_transaction_pool::TransactionPool;
-use sc_finality_grandpa::{
-    SharedVoterState, SharedAuthoritySet, FinalityProofProvider, GrandpaJustificationStream
-};
-use sc_finality_grandpa_rpc::GrandpaRpcHandler;
-
 
 /// Extra dependencies for GRANDPA
 pub struct GrandpaDeps<B> {
@@ -69,7 +68,7 @@ where
         client,
         pool,
         deny_unsafe,
-        grandpa
+        grandpa,
     } = deps;
 
     let GrandpaDeps {
@@ -93,17 +92,15 @@ where
     // RPC calls for PoA pallet
     io.extend_with(PoAApi::to_delegate(PoA::new(client)));
 
-    io.extend_with(
-        sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
-            GrandpaRpcHandler::new(
-                shared_authority_set,
-                shared_voter_state,
-                justification_stream,
-                subscription_executor,
-                finality_proof_provider,
-            )
-        )
-    );
+    io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
+        GrandpaRpcHandler::new(
+            shared_authority_set,
+            shared_voter_state,
+            justification_stream,
+            subscription_executor,
+            finality_proof_provider,
+        ),
+    ));
 
     io
 }
