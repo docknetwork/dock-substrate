@@ -137,11 +137,11 @@ pub enum DidSignature {
 }
 
 // Weight for Sr25519 sig verification
-pub const SR25519_WEIGHT: Weight = 112_000_000;
+pub const SR25519_WEIGHT: Weight = 140_000_000;
 // Weight for Ed25519 sig verification
-pub const ED25519_WEIGHT: Weight = 122_000_000;
+pub const ED25519_WEIGHT: Weight = 152_000_000;
 // Weight for ecdsa using secp256k1 sig verification
-pub const SECP256K1_WEIGHT: Weight = 363_000_000;
+pub const SECP256K1_WEIGHT: Weight = 456_000_000;
 
 impl DidSignature {
     /// Try to get reference to the bytes if its a Sr25519 signature. Return error if its not.
@@ -354,13 +354,7 @@ decl_module! {
         /// This call requires a signature verification and the cost of verification varies by type
         /// of signature
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + {
-            match signature {
-                DidSignature::Sr25519(_) => 140_000_000,
-                DidSignature::Ed25519(_) => 152_000_000,
-                DidSignature::Secp256k1(_) => 456_000_000
-            }
-        }]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + signature.weight()]
         pub fn update_key(
             origin,
             key_update: dock::did::KeyUpdate,
@@ -418,13 +412,7 @@ decl_module! {
         /// This call requires a signature verification and the cost of verification varies by type
         /// of signature
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + {
-            match signature {
-                DidSignature::Sr25519(_) => 140_000_000,
-                DidSignature::Ed25519(_) => 152_000_000,
-                DidSignature::Secp256k1(_) => 456_000_000
-            }
-        }]
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + signature.weight()]
         pub fn remove(
             origin,
             to_remove: dock::did::DidRemoval,

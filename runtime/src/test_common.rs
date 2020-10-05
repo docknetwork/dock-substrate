@@ -4,7 +4,7 @@ use crate::did::{self, Did, DidSignature};
 use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{DispatchInfo, Dispatchable, PostDispatchInfo},
+    dispatch::{DispatchInfo, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
     impl_outer_origin, parameter_types,
     traits::UnfilteredDispatchable,
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
@@ -37,6 +37,17 @@ impl Dispatchable for TestCall {
     type Info = ();
     type PostInfo = PostDispatchInfo;
     fn dispatch(self, origin: Self::Origin) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
+        match self {
+            TestCall::Master(mc) => mc.dispatch_bypass_filter(origin),
+            TestCall::System(sc) => sc.dispatch_bypass_filter(origin),
+        }
+    }
+}
+
+impl UnfilteredDispatchable for TestCall {
+    type Origin = Origin;
+
+    fn dispatch_bypass_filter(self, origin: Self::Origin) -> DispatchResultWithPostInfo {
         match self {
             TestCall::Master(mc) => mc.dispatch_bypass_filter(origin),
             TestCall::System(sc) => sc.dispatch_bypass_filter(origin),
@@ -144,7 +155,7 @@ pub const DIDA: Did = [0u8; 32];
 pub const DIDB: Did = [1u8; 32];
 pub const DIDC: Did = [2u8; 32];
 
-/// check whether test externalies are available
+/// check whether test externalities are available
 pub fn in_ext() -> bool {
     std::panic::catch_unwind(|| sp_io::storage::exists(&[])).is_ok()
 }

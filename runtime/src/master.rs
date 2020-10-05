@@ -59,6 +59,7 @@
 
 use crate::{
     did::{Did, DidSignature},
+    revoke::get_weight_for_pauth,
     StateChange,
 };
 use alloc::{
@@ -68,12 +69,13 @@ use alloc::{
 };
 use codec::{Decode, Encode};
 use core::default::Default;
+use frame_support::dispatch::PostDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchResult, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
+    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
     ensure,
-    traits::Get,
-    weights::{GetDispatchInfo, Pays, Weight},
+    traits::{Get, UnfilteredDispatchable},
+    weights::{GetDispatchInfo, Pays, RuntimeDbWeight, Weight},
     Parameter,
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
@@ -105,6 +107,15 @@ impl Default for Membership {
     }
 }
 
+// Minimum weight of Master's extrinsics. This is not based on any computation but only there to account for
+// some in-memory operations
+const MIN_WEIGHT: Weight = 10_000;
+
+/// Minimum weight for master's extrinsics. Considers cost of signature verification and update to round no
+fn get_min_weight_for_execute(auth: &PMAuth, db_weights: RuntimeDbWeight) -> Weight {
+    MIN_WEIGHT + get_weight_for_pauth(&auth, db_weights) + db_weights.reads_writes(1, 1)
+}
+
 pub trait Trait: system::Trait + crate::did::Trait
 where
     <Self as system::Trait>::AccountId: Ord,
@@ -113,9 +124,8 @@ where
 
     /// The dispatchable that master may call as Root. It is possible to use another type here, but
     /// it's expectected that your runtime::Call will be used.
-    type Call: Parameter
-        + Dispatchable<Origin = Self::Origin, PostInfo = PostDispatchInfo>
-        + GetDispatchInfo;
+    /// Master's call should bypass any filter.
+    type Call: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + GetDispatchInfo;
 }
 
 decl_storage! {
@@ -159,6 +169,8 @@ decl_event! {
         Executed(Vec<Did>, Box<Call>),
         /// The membership of Master has changed.
         UnderNewOwnership,
+        /// A proposal failed to execute
+        ExecutionFailed(Vec<Did>, Box<Call>, DispatchError),
     }
 }
 
@@ -172,11 +184,9 @@ decl_module! {
         /// This function can be called by anyone, even someone who is not a member of Master.
         ///
         /// After a successful execution, the round number is increased.
-        // TODO: benchmark worst case cost to verify a signature and add it to weight
         #[
-            weight = (10_000
-                + proposal.get_dispatch_info().weight
-                + T::DbWeight::get().reads(auth.len() as u64),
+            weight = (
+             get_min_weight_for_execute(&auth, T::DbWeight::get()) + proposal.get_dispatch_info().weight,
              proposal.get_dispatch_info().class,
              proposal.get_dispatch_info().pays_fee,
             )
@@ -186,16 +196,15 @@ decl_module! {
             proposal: Box<<T as Trait>::Call>,
             auth: PMAuth,
         ) -> DispatchResultWithPostInfo {
-            Module::<T>::execute_(origin, proposal, auth)
+            // `execute_` will compute the weight
+            Module::<T>::execute_(origin, proposal, auth, None)
         }
 
         /// Does the same job as `execute` dispatchable but does not inherit the weight of the
         /// `Call` its wrapping but expects the caller to provide it
-        // TODO: benchmark worst case cost to verify a signature and add it to weight
         #[
-            weight = (10_000
-                + _weight
-                + T::DbWeight::get().reads(auth.len() as u64),
+            weight = (
+             get_min_weight_for_execute(&auth, T::DbWeight::get()) + _weight,
              proposal.get_dispatch_info().class,
              proposal.get_dispatch_info().pays_fee,
             )
@@ -206,7 +215,9 @@ decl_module! {
             auth: PMAuth,
             _weight: Weight,
         ) -> DispatchResultWithPostInfo {
-            Module::<T>::execute_(origin, proposal, auth)
+            let weight = get_min_weight_for_execute(&auth, T::DbWeight::get()) + _weight;
+            // `execute_` won't compute the weight but use the given weight instead
+            Module::<T>::execute_(origin, proposal, auth, Some(weight))
         }
 
         /// Root-only. Sets the members and vote requirement for master. Increases the round number
@@ -218,7 +229,7 @@ decl_module! {
         /// A vote requirement of zero is not allowed and will result in an error.
         /// A vote requirement larger than the size of the member list is not allowed and will
         /// result in an error.
-        #[weight = 10_000 + T::DbWeight::get().reads_writes(1, 2)]
+        #[weight = MIN_WEIGHT + T::DbWeight::get().reads_writes(1, 2)]
         pub fn set_members(
             origin,
             membership: Membership,
@@ -230,7 +241,10 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    /// The following can be misused to do recursive calls as the proposal can itslef be call
+    /// Execute a call as Root origin after verifying signatures in `auth`. If `given_weight` is None,
+    /// then it computes the weight by considering the cost of signature verification and cost of
+    /// executing the call. If `given_weight` has a value then that is considered as weight.
+    /// Note: The following can be misused to do recursive calls as the proposal can itself be call
     /// leading to `execute_` which will keep the cycle going. This can be prevented by incrementing
     /// the round no before dispatching the call in `proposal` and if the call throws error then
     /// decrementing the round no before returning the error.
@@ -240,6 +254,7 @@ impl<T: Trait> Module<T> {
         origin: T::Origin,
         proposal: Box<<T as Trait>::Call>,
         auth: PMAuth,
+        given_weight: Option<Weight>,
     ) -> DispatchResultWithPostInfo {
         ensure_signed(origin)?;
 
@@ -264,20 +279,46 @@ impl<T: Trait> Module<T> {
         }
 
         // execute call and collect dispatch info to return
-        let dispatch_info = proposal
+        let dispatch_result = proposal
             .clone()
-            .dispatch(system::RawOrigin::Root.into())
-            .map_err(|e| e.error)?;
+            .dispatch_bypass_filter(system::RawOrigin::Root.into());
 
         // Update round (nonce)
         Round::mutate(|round| {
             *round += 1;
         });
 
-        // events
-        Self::deposit_event(RawEvent::Executed(auth.keys().cloned().collect(), proposal));
+        // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,
+        // then this weight is used.
+        let dispatch_decl_weight = proposal.get_dispatch_info().weight;
 
-        Ok(dispatch_info)
+        // Log event for success or failure of execution
+        let post_info = match dispatch_result {
+            Ok(post_dispatch_info) => {
+                Self::deposit_event(RawEvent::Executed(auth.keys().cloned().collect(), proposal));
+                post_dispatch_info
+            }
+            Err(e) => {
+                Self::deposit_event(RawEvent::ExecutionFailed(
+                    auth.keys().cloned().collect(),
+                    proposal,
+                    e.error,
+                ));
+                e.post_info
+            }
+        };
+
+        Ok(PostDispatchInfo {
+            // If weight was not given in `given_weight`, look for weight of dispatch in `post_info`. If `post_info` does not have weight,
+            // use weight from declaration. Also add minimum weight for execution
+            actual_weight: given_weight.or_else(|| {
+                Some(
+                    post_info.actual_weight.unwrap_or(dispatch_decl_weight)
+                        + get_min_weight_for_execute(&auth, T::DbWeight::get()),
+                )
+            }),
+            pays_fee: post_info.pays_fee,
+        })
     }
 
     fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
@@ -312,7 +353,6 @@ mod test {
     use crate::test_common::*;
     type MasterMod = crate::master::Module<Test>;
     use alloc::collections::BTreeMap;
-    use frame_support::dispatch::DispatchError;
     use sp_core::H256;
 
     // XXX: To check both `execute` and `execute_unchecked_weight`, we can simply test `execute_` but
@@ -442,6 +482,23 @@ mod test {
                     Event::<Test>::UnderNewOwnership,
                     Event::<Test>::Executed(vec![], Box::new(call)),
                 ]
+            );
+        });
+
+        ext().execute_with(|| {
+            let call = TestCall::System(system::Call::<Test>::remark(vec![]));
+            Members::set(Membership {
+                members: set(&[]),
+                vote_requirement: 0,
+            });
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
+            assert_eq!(
+                master_events(),
+                vec![Event::<Test>::ExecutionFailed(
+                    vec![],
+                    Box::new(call),
+                    DispatchError::BadOrigin
+                )]
             );
         });
     }
