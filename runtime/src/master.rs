@@ -275,10 +275,7 @@ impl<T: Trait> Module<T> {
         });
 
         // events
-        Self::deposit_event(RawEvent::Executed(
-            auth.keys().cloned().collect(),
-            proposal,
-        ));
+        Self::deposit_event(RawEvent::Executed(auth.keys().cloned().collect(), proposal));
 
         Ok(dispatch_info)
     }
