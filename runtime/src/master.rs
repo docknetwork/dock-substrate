@@ -72,7 +72,9 @@ use core::default::Default;
 use frame_support::dispatch::PostDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
-    dispatch::{DispatchError, DispatchResult, DispatchResultWithPostInfo},
+    dispatch::{
+        DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
+    },
     ensure,
     traits::{Get, UnfilteredDispatchable},
     weights::{GetDispatchInfo, Pays, RuntimeDbWeight, Weight},
@@ -292,33 +294,39 @@ impl<T: Trait> Module<T> {
         // then this weight is used.
         let dispatch_decl_weight = proposal.get_dispatch_info().weight;
 
-        // Log event for success or failure of execution
-        let post_info = match dispatch_result {
-            Ok(post_dispatch_info) => {
-                Self::deposit_event(RawEvent::Executed(auth.keys().cloned().collect(), proposal));
-                post_dispatch_info
-            }
-            Err(e) => {
-                Self::deposit_event(RawEvent::ExecutionFailed(
-                    auth.keys().cloned().collect(),
-                    proposal,
-                    e.error,
-                ));
-                e.post_info
-            }
-        };
+        let authors = auth.keys().cloned().collect();
 
-        Ok(PostDispatchInfo {
-            // If weight was not given in `given_weight`, look for weight of dispatch in `post_info`. If `post_info` does not have weight,
-            // use weight from declaration. Also add minimum weight for execution
-            actual_weight: given_weight.or_else(|| {
+        // If weight was not given in `given_weight`, look for weight of dispatch in `post_info`. If
+        // `post_info` does not have weight, use weight from declaration. Also add minimum weight for execution
+        let actual_weight = move |post_info: PostDispatchInfo| {
+            given_weight.or_else(|| {
                 Some(
                     post_info.actual_weight.unwrap_or(dispatch_decl_weight)
                         + get_min_weight_for_execute(&auth, T::DbWeight::get()),
                 )
-            }),
-            pays_fee: post_info.pays_fee,
-        })
+            })
+        };
+
+        // Log event for success or failure of execution
+        match dispatch_result {
+            Ok(post_dispatch_info) => {
+                Self::deposit_event(RawEvent::Executed(authors, proposal));
+                Ok(PostDispatchInfo {
+                    actual_weight: actual_weight(post_dispatch_info),
+                    pays_fee: post_dispatch_info.pays_fee,
+                })
+            }
+            Err(e) => {
+                Self::deposit_event(RawEvent::ExecutionFailed(authors, proposal, e.error));
+                Err(DispatchErrorWithPostInfo {
+                    post_info: PostDispatchInfo {
+                        actual_weight: actual_weight(e.post_info),
+                        pays_fee: e.post_info.pays_fee,
+                    },
+                    error: e.error,
+                })
+            }
+        }
     }
 
     fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
@@ -407,7 +415,7 @@ mod test {
             });
             let call = TestCall::System(system::Call::<Test>::remark(vec![]));
             let err = MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap_err();
-            assert_eq!(err, (DispatchError::BadOrigin).into());
+            assert_eq!(err.error, DispatchError::BadOrigin);
         });
     }
 
@@ -491,7 +499,8 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
+            let res = MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[]));
+            assert!(res.is_err());
             assert_eq!(
                 master_events(),
                 vec![Event::<Test>::ExecutionFailed(
