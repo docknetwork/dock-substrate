@@ -5,7 +5,7 @@
 use codec::{Decode, Encode};
 use frame_support::{
     debug::{debug, error, RuntimeLogger},
-    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail, runtime_print,
     sp_runtime::{
         print,
         traits::{AccountIdConversion, OpaqueKeys, Saturating},
@@ -65,8 +65,6 @@ pub struct EpochDetail {
     pub emission_for_validators: Option<Balance>,
     /// Emission rewards for the treasury in the epoch
     pub emission_for_treasury: Option<Balance>,
-    /// Total (validators + treasury) emission rewards for the epoch
-    pub total_emission: Option<Balance>,
 }
 
 /// Details per epoch per validator
@@ -91,7 +89,6 @@ impl EpochDetail {
             starting_slot,
             expected_ending_slot,
             ending_slot: None,
-            total_emission: None,
             emission_for_treasury: None,
             emission_for_validators: None,
         }
@@ -469,6 +466,67 @@ decl_module! {
                 Self::deposit_event(RawEvent::TxnFeesGiven(block_no, author, f));
                 Option::<Balance>::default()
             });
+        }
+
+        /// This will be run on a runtime upgrade when spec version increases. To be safe, once the
+        /// storage migration is done, this function should be removed with another upgrade immediately.
+        /// This upgrade removes `total_emission` from existing `EpochDetail` type and changes None to 0
+        /// for emission in worthless epochs
+        fn on_runtime_upgrade() -> Weight {
+            use frame_support::migration::StorageIterator;
+
+            /// Old `EpochDetail` from which migrating away from
+            /// Note that the order of fields in the struct should be same as existing struct to keep
+            /// the decoding correct
+            #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+            pub struct OldEpochDetail {
+                pub validator_count: u8,
+                pub starting_slot: SlotNo,
+                pub expected_ending_slot: SlotNo,
+                pub ending_slot: Option<SlotNo>,
+                pub total_emission: Option<Balance>,
+                pub emission_for_validators: Option<Balance>,
+                pub emission_for_treasury: Option<Balance>,
+            }
+
+            // Storage iterator over existing `EpochDetail`s. Will return key value pairs where key is byte vector
+            let existing_epoch_details: StorageIterator<OldEpochDetail> = StorageIterator::new(b"PoAModule", b"Epochs");
+
+            let mut size = 0;
+
+            for (key_bytes, value) in existing_epoch_details.drain() {
+                // Convert byte vector to type `EpochLen`
+                let mut temp: [u8; 4] = [0; 4];
+                temp.copy_from_slice(&key_bytes);
+                // SCALE uses little-endian
+                let epoch = EpochLen::from_le_bytes(temp);
+
+                runtime_print!("Migrating detail of epoch {:?}", epoch);
+
+                // Older implementation used to store `None` for Epochs with no emission but later
+                // implementations are putting 0. Fix that as well
+                let (ev, et) = if value.ending_slot.is_some() {
+                    (value.emission_for_validators.or(Some(0)), value.emission_for_treasury.or(Some(0)))
+                } else {
+                    // Epoch has not ended
+                    (None, None)
+                };
+
+                // Update new storage
+                Epochs::insert(epoch, EpochDetail {
+                    validator_count: value.validator_count,
+                    starting_slot: value.starting_slot,
+                    expected_ending_slot: value.expected_ending_slot,
+                    ending_slot: value.ending_slot,
+                    emission_for_validators: ev,
+                    emission_for_treasury: et,
+                });
+                size += 1;
+            }
+
+            // One write for destroying old storage location and one for creating a new location per `EpochDetail`
+            // The other costs would be negligible compared to DB costs.
+            T::DbWeight::get().reads_writes(size, 2*size)
         }
     }
 }
@@ -905,16 +963,21 @@ impl<T: Trait> Module<T> {
     ) -> EpochLen {
         if epoch_detail.expected_ending_slot >= ending_slot {
             // Epoch was either short circuited or ended in the expected slot
-            print(ending_slot);
             if epoch_detail.expected_ending_slot > ending_slot {
-                print("Epoch ending early. Swap or epoch short circuited");
+                runtime_print!(
+                    "Epoch ending early. Swap or epoch short circuited. Ending slot {}",
+                    ending_slot
+                );
             }
             // This can be slightly disadvantageous for the highest block producer(s) if the following
             // division leaves a remainder (in case of shorter epoch). The disadvantage is loss of emission reward on 1 block.
             ((ending_slot - epoch_detail.starting_slot + 1)
                 / epoch_detail.validator_count as SlotNo) as EpochLen
         } else {
-            print("Epoch ending late. This means the network stopped in between");
+            runtime_print!(
+                "Epoch ending late. This means the network stopped in between. Ending slot {}",
+                ending_slot
+            );
             match block_count {
                 BlockCount::MaxBlocks(max_blocks) => {
                     // At least one of the validator produced more blocks than the rest
@@ -1126,7 +1189,6 @@ impl<T: Trait> Module<T> {
         emission_supply = emission_supply.saturating_sub(total_reward);
         <EmissionSupply<T>>::put(emission_supply.saturated_into::<BalanceOf<T>>());
 
-        epoch_detail.total_emission = Some(total_reward);
         epoch_detail.emission_for_treasury = Some(treasury_reward);
         epoch_detail.emission_for_validators = Some(total_validator_reward);
     }
@@ -1138,7 +1200,6 @@ impl<T: Trait> Module<T> {
         validator_block_counts: BTreeMap<T::AccountId, EpochLen>,
     ) {
         Self::update_validator_stats_for_worthless_epoch(current_epoch_no, validator_block_counts);
-        epoch_detail.total_emission = Some(0);
         epoch_detail.emission_for_treasury = Some(0);
         epoch_detail.emission_for_validators = Some(0);
     }
@@ -1185,8 +1246,7 @@ impl<T: Trait> Module<T> {
         // Get slots received by each validator
         let slots_per_validator =
             Self::get_slots_per_validator(&epoch_detail, ending_slot, &max_blocks);
-        print("slots_per_validator");
-        print(slots_per_validator);
+        runtime_print!("slots_per_validator {}", slots_per_validator);
 
         // It might happen that `slots_per_validator` > `max_blocks` as the network went down for
         // a brief moment of time but a validator should not be able to produce any more than 1 blocks
@@ -1195,8 +1255,6 @@ impl<T: Trait> Module<T> {
         let max_bl = max_blocks.to_number();
         if max_bl.saturating_sub(slots_per_validator) > 1 {
             error!(target: "panicking now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
-            print(slots_per_validator);
-            print(max_bl);
             panic!(
                 "THIS PANIC SHOULD NEVER TRIGGER: max_blocks.to_number() > slots_per_validator + 1"
             );
@@ -1237,9 +1295,7 @@ impl<T: Trait> Module<T> {
         let mut epoch_detail = Self::get_epoch_detail(current_epoch_no);
         epoch_detail.ending_slot = Some(ending_slot);
 
-        print("Epoch ending at slot");
-        print(current_epoch_no);
-        print(ending_slot);
+        runtime_print!("Epoch {} ending at slot {}", current_epoch_no, ending_slot);
 
         Self::mint_emission_rewards_if_needed(current_epoch_no, ending_slot, &mut epoch_detail);
 
@@ -1332,7 +1388,6 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
                 return false;
             }
         };
-        print(current_slot_no);
 
         let epoch_ends_at = Self::epoch_ends_at();
         debug!(

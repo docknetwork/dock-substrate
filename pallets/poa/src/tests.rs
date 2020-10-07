@@ -1470,7 +1470,6 @@ fn rewards_for_non_empty_epoch() {
             slots_per_validator,
             validator_block_counts,
         );
-        assert_eq!(epoch_detail.total_emission, Some(0));
         assert_eq!(epoch_detail.emission_for_treasury, Some(0));
         assert_eq!(epoch_detail.emission_for_validators, Some(0));
         assert_eq!(PoAModule::emission_supply(), emission_supply);
@@ -1492,13 +1491,9 @@ fn rewards_for_non_empty_epoch() {
             slots_per_validator,
             validator_block_counts,
         );
-        assert_eq!(epoch_detail.total_emission, Some(1228));
         assert_eq!(epoch_detail.emission_for_treasury, Some(460));
         assert_eq!(epoch_detail.emission_for_validators, Some(768));
-        assert_eq!(
-            PoAModule::emission_supply(),
-            emission_supply - epoch_detail.total_emission.unwrap() as u64
-        );
+        assert_eq!(PoAModule::emission_supply(), emission_supply - (460 + 768));
     });
 }
 
@@ -1552,7 +1547,6 @@ fn emission_rewards_status() {
         ));
 
         // Emission rewards being generated
-        assert!(epoch_detail.total_emission.unwrap() > 0);
         assert!(epoch_detail.emission_for_treasury.unwrap() > 0);
         assert!(epoch_detail.emission_for_validators.unwrap() > 0);
 
@@ -1581,7 +1575,6 @@ fn emission_rewards_status() {
         ));
 
         // No emission rewards were generated
-        assert_eq!(epoch_detail.total_emission.unwrap(), 0);
         assert_eq!(epoch_detail.emission_for_treasury.unwrap(), 0);
         assert_eq!(epoch_detail.emission_for_validators.unwrap(), 0);
     });
