@@ -346,8 +346,8 @@ pub fn testnet_config() -> ChainSpec {
 
 /// Configuration for the mainnet
 pub fn mainnet_config() -> ChainSpec {
-    // Epoch is of ~7 days, 604800000 ms in 7 days
-    let min_epoch_length = (604800000 / MILLISECS_PER_BLOCK) as u32;
+    // Epoch is of ~10 days, 604800000 ms in 7 days
+    let min_epoch_length = (864000000 / MILLISECS_PER_BLOCK) as u32;
     let max_active_validators = 11;
     let emission_status = false;
 
