@@ -346,7 +346,7 @@ pub fn testnet_config() -> ChainSpec {
 
 /// Configuration for the mainnet
 pub fn mainnet_config() -> ChainSpec {
-    // Epoch is of ~10 days, 604800000 ms in 7 days
+    // Epoch is of ~10 days, 864000000 ms in 10 days
     let min_epoch_length = (864000000 / MILLISECS_PER_BLOCK) as u32;
     let max_active_validators = 11;
     let emission_status = false;
@@ -449,8 +449,8 @@ struct GenesisBuilder {
 
 impl GenesisBuilder {
     fn build(self) -> GenesisConfig {
-        // 1 token is 25000000 gas
-        let token_to_gas: Balance = 25_000_000;
+        // 1 token is 1000000 gas
+        let token_to_gas: Balance = 1_000_000;
         // 200M tokens
         let emission_supply: Balance = token_to_gas.checked_mul(200_000_000).unwrap();
         // TODO: This needs to be tweaked once we know all exchanges

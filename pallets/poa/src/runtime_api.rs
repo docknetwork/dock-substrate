@@ -2,6 +2,7 @@
 
 use codec::Codec;
 use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
+use super::EpochNo;
 
 sp_api::decl_runtime_apis! {
     pub trait PoAApi<AccountId, Balance> where
@@ -16,5 +17,8 @@ sp_api::decl_runtime_apis! {
         /// sense for treasury. But just in case, to check all kinds of balance (locked, reserved, etc),
         /// get the account address with above call and query the chain.
         fn get_treasury_balance() -> Balance;
+
+        /// Return total (validators + treasury) emission rewards for given epoch
+        fn get_total_emission_in_epoch(epoch_no: EpochNo) -> Balance;
     }
 }

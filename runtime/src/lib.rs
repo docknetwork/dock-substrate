@@ -128,7 +128,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 11,
+    spec_version: 12,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -543,6 +543,10 @@ impl_runtime_apis! {
 
         fn get_treasury_balance() -> Balance {
             PoAModule::treasury_balance()
+        }
+
+        fn get_total_emission_in_epoch(epoch_no: poa::EpochNo) -> Balance {
+            PoAModule::get_total_emission_in_epoch(epoch_no)
         }
     }
 

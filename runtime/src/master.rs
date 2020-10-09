@@ -125,7 +125,7 @@ where
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     /// The dispatchable that master may call as Root. It is possible to use another type here, but
-    /// it's expectected that your runtime::Call will be used.
+    /// it's expected that your runtime::Call will be used.
     /// Master's call should bypass any filter.
     type Call: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + GetDispatchInfo;
 }

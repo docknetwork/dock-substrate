@@ -29,7 +29,7 @@ pub mod runtime_api;
 
 // TODO: Remove all print statements and panics before releasing for mainnet
 
-type EpochNo = u32;
+pub type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;
 
@@ -448,13 +448,6 @@ decl_module! {
         /// Awards the complete txn fees to the block author if any and increment block count for
         /// current epoch and who authored it.
         fn on_finalize(block_no: T::BlockNumber) {
-            // ------------- DEBUG START -------------
-            debug!(
-                target: "runtime",
-                "Finalized block. Total issuance {}", T::Currency::total_issuance().saturated_into::<u64>()
-            );
-            // ------------- DEBUG END -------------
-
             // Get the current block author
             let author = <pallet_authorship::Module<T>>::author();
 
@@ -466,67 +459,6 @@ decl_module! {
                 Self::deposit_event(RawEvent::TxnFeesGiven(block_no, author, f));
                 Option::<Balance>::default()
             });
-        }
-
-        /// This will be run on a runtime upgrade when spec version increases. To be safe, once the
-        /// storage migration is done, this function should be removed with another upgrade immediately.
-        /// This upgrade removes `total_emission` from existing `EpochDetail` type and changes None to 0
-        /// for emission in worthless epochs
-        fn on_runtime_upgrade() -> Weight {
-            use frame_support::migration::StorageIterator;
-
-            /// Old `EpochDetail` from which migrating away from
-            /// Note that the order of fields in the struct should be same as existing struct to keep
-            /// the decoding correct
-            #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
-            pub struct OldEpochDetail {
-                pub validator_count: u8,
-                pub starting_slot: SlotNo,
-                pub expected_ending_slot: SlotNo,
-                pub ending_slot: Option<SlotNo>,
-                pub total_emission: Option<Balance>,
-                pub emission_for_validators: Option<Balance>,
-                pub emission_for_treasury: Option<Balance>,
-            }
-
-            // Storage iterator over existing `EpochDetail`s. Will return key value pairs where key is byte vector
-            let existing_epoch_details: StorageIterator<OldEpochDetail> = StorageIterator::new(b"PoAModule", b"Epochs");
-
-            let mut size = 0;
-
-            for (key_bytes, value) in existing_epoch_details.drain() {
-                // Convert byte vector to type `EpochLen`
-                let mut temp: [u8; 4] = [0; 4];
-                temp.copy_from_slice(&key_bytes);
-                // SCALE uses little-endian
-                let epoch = EpochLen::from_le_bytes(temp);
-
-                runtime_print!("Migrating detail of epoch {:?}", epoch);
-
-                // Older implementation used to store `None` for Epochs with no emission but later
-                // implementations are putting 0. Fix that as well
-                let (ev, et) = if value.ending_slot.is_some() {
-                    (value.emission_for_validators.or(Some(0)), value.emission_for_treasury.or(Some(0)))
-                } else {
-                    // Epoch has not ended
-                    (None, None)
-                };
-
-                // Update new storage
-                Epochs::insert(epoch, EpochDetail {
-                    validator_count: value.validator_count,
-                    starting_slot: value.starting_slot,
-                    expected_ending_slot: value.expected_ending_slot,
-                    ending_slot: value.ending_slot,
-                    emission_for_validators: ev,
-                    emission_for_treasury: et,
-                });
-                size += 1;
-            }
-
-            // One write for destroying old storage location and one for creating a new location per `EpochDetail`
-            // The other costs would be negligible compared to DB costs.
-            T::DbWeight::get().reads_writes(size, 2*size)
         }
     }
 }
@@ -679,6 +611,14 @@ impl<T: Trait> Module<T> {
     /// Treasury's free balance. Only free balance makes sense for treasury in context of PoA
     pub fn treasury_balance() -> BalanceOf<T> {
         T::Currency::free_balance(&Self::treasury_account())
+    }
+
+    /// Return total (validators + treasury) emission rewards for given epoch
+    pub fn get_total_emission_in_epoch(epoch_no: EpochNo) -> Balance {
+        // No need to check if epoch detail of the epoch exists or not. If it does not, `EpochDetail`
+        // with default values will be returned which will have `emission_for_validators` and `emission_for_treasury` as 0.
+        let epoch_detail = Self::get_epoch_detail(epoch_no);
+        epoch_detail.emission_for_validators.unwrap_or(0) + epoch_detail.emission_for_treasury.unwrap_or(0)
     }
 
     /// Takes a validator id and a mutable vector of validator ids and remove any occurrence from
@@ -901,44 +841,14 @@ impl<T: Trait> Module<T> {
 
     /// If there is any transaction fees, credit it to the given author
     fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<Balance> {
-        // ------------- DEBUG START -------------
-        let current_block_no = <system::Module<T>>::block_number();
-        debug!(
-            target: "runtime",
-            "block author in finalize for {:?} is {:?}",
-            current_block_no, block_author
-        );
-
-        let total_issuance = T::Currency::total_issuance().saturated_into::<u64>();
-        let ab = T::Currency::free_balance(block_author).saturated_into::<u64>();
-        debug!(
-            target: "runtime",
-            "block author's balance is {} and total issuance is {}",
-            ab, total_issuance
-        );
-        // ------------- DEBUG END -------------
-
         let txn_fees = <TxnFees<T>>::take();
         let fees_as_u64 = txn_fees.saturated_into::<Balance>();
         if fees_as_u64 > 0 {
-            print("Depositing fees");
             // `deposit_creating` will do the issuance of tokens burnt during transaction fees
             T::Currency::deposit_creating(block_author, txn_fees);
-        }
-
-        // ------------- DEBUG START -------------
-        let total_issuance = T::Currency::total_issuance().saturated_into::<u64>();
-        let ab = T::Currency::free_balance(block_author).saturated_into::<u64>();
-        debug!(
-            target: "runtime",
-            "block author's balance is {} and total issuance is {}",
-            ab, total_issuance
-        );
-        // ------------- DEBUG END -------------
-
-        if fees_as_u64 > 0 {
             Some(fees_as_u64)
-        } else {
+        }
+        else {
             None
         }
     }
@@ -1490,30 +1400,7 @@ impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
     /// in `on_finalize`. Not retrieving block author here as that is unreliable and gives different
     /// author than the block's.
     fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
-        print("Called on_nonzero_unbalanced. This will be used to track txn fees for validator");
-        // TODO: Remove the next 3 debug lines
         let current_fees = amount.peek();
-
-        // ------------- DEBUG START -------------
-        let total_issuance = T::Currency::total_issuance().saturated_into::<u64>();
-
-        debug!(
-            target: "runtime",
-            "Current txn fees is {}, total issuance is {}",
-            current_fees.saturated_into::<u64>(), total_issuance
-        );
-
-        let current_block_no = <system::Module<T>>::block_number();
-
-        // Get the current block author
-        let author = <pallet_authorship::Module<T>>::author();
-        debug!(
-            target: "runtime",
-            "block author for {:?} is {:?}",
-            current_block_no, author
-        );
-
-        // ------------- DEBUG END -------------
 
         Self::update_txn_fees_for_block(current_fees);
     }
