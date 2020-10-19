@@ -68,6 +68,7 @@ impl GetDispatchInfo for TestCall {
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum TestEvent {
     Master(crate::master::Event<Test>),
+    Anchor(crate::anchor::Event<Test>),
     Unknown,
 }
 
@@ -86,6 +87,12 @@ impl From<()> for TestEvent {
 impl From<crate::master::Event<Test>> for TestEvent {
     fn from(other: crate::master::Event<Test>) -> Self {
         Self::Master(other)
+    }
+}
+
+impl From<crate::anchor::Event<Test>> for TestEvent {
+    fn from(other: crate::anchor::Event<Test>) -> Self {
+        Self::Anchor(other)
     }
 }
 
@@ -144,6 +151,10 @@ impl crate::blob::Trait for Test {
 impl crate::master::Trait for Test {
     type Event = TestEvent;
     type Call = TestCall;
+}
+
+impl crate::anchor::Trait for Test {
+    type Event = TestEvent;
 }
 
 pub const ABBA: u64 = 0;
@@ -228,4 +239,11 @@ pub fn sign(payload: &crate::StateChange, keypair: &sr25519::Pair) -> DidSignatu
     DidSignature::Sr25519(did::Bytes64 {
         value: keypair.sign(&payload.encode()).0,
     })
+}
+
+/// create a random byte array with set len
+pub fn random_bytes(len: usize) -> Vec<u8> {
+    let ret: Vec<u8> = (0..len).map(|_| rand::random()).collect();
+    assert_eq!(ret.len(), len);
+    ret
 }
