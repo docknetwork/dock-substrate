@@ -1475,7 +1475,10 @@ fn rewards_for_non_empty_epoch() {
         Epochs::insert(current_epoch_no, epoch_detail);
         assert_eq!(PoAModule::get_total_emission_in_epoch(current_epoch_no), 0);
         // Future epoch emissions are 0 as well
-        assert_eq!(PoAModule::get_total_emission_in_epoch(current_epoch_no+10), 0);
+        assert_eq!(
+            PoAModule::get_total_emission_in_epoch(current_epoch_no + 10),
+            0
+        );
         assert_eq!(PoAModule::emission_supply(), emission_supply);
 
         // Both validator produce 10 blocks
@@ -1499,8 +1502,14 @@ fn rewards_for_non_empty_epoch() {
         assert_eq!(epoch_detail.emission_for_validators, Some(768));
         let total_emission = 460 + 768;
         Epochs::insert(current_epoch_no, epoch_detail);
-        assert_eq!(PoAModule::get_total_emission_in_epoch(current_epoch_no), total_emission);
-        assert_eq!(PoAModule::emission_supply(), emission_supply - total_emission);
+        assert_eq!(
+            PoAModule::get_total_emission_in_epoch(current_epoch_no),
+            total_emission
+        );
+        assert_eq!(
+            PoAModule::emission_supply(),
+            emission_supply - total_emission
+        );
     });
 }
 
@@ -1634,7 +1643,10 @@ fn config_set_by_master() {
         assert_eq!(PoAModule::max_active_validators_tentative(), 0);
 
         // When tentative value is 0, return `max_active_validators`
-        assert_eq!(PoAModule::get_and_set_max_active_validators_on_epoch_end(), 10);
+        assert_eq!(
+            PoAModule::get_and_set_max_active_validators_on_epoch_end(),
+            10
+        );
 
         // Max emission reward per validator
         assert_eq!(PoAModule::max_emm_validator_epoch(), 0);
