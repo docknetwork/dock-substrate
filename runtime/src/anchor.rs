@@ -24,7 +24,7 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Blob {
+    trait Store for Module<T: Trait> as Anchor {
         // Hasher can be the identity here becuse we perform a hash ourself which has the same
         // merkle-trie balancing effect as using a hash-prefix map.
         Anchors: map hasher(identity) <T as system::Trait>::Hash =>
