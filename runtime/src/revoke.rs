@@ -176,7 +176,7 @@ decl_module! {
         /// # Errors
         ///
         /// Returns an error if `revoke.last_modified` does not match the block number when the
-        /// registy referenced by `revoke.registry_id` was last modified.
+        /// registry referenced by `revoke.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `revoke.registry_id`.
@@ -193,10 +193,10 @@ decl_module! {
         ///
         /// # Errors
         ///
-        /// Returns an error if the registy referenced by `revoke.registry_id` is `add_only`.
+        /// Returns an error if the registry referenced by `revoke.registry_id` is `add_only`.
         ///
         /// Returns an error if `unrevoke.last_modified` does not match the block number when the
-        /// regisrty referenced by `revoke.registry_id` was last modified.
+        /// registry referenced by `revoke.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registy
         /// referenced by `unrevoke.registry_id`.
