@@ -6,22 +6,29 @@ use frame_support::{
     dispatch::IsSubType,
     ensure, fail,
     sp_runtime::{
-        traits::{CheckedSub, DispatchInfoOf, SaturatedConversion, SignedExtension},
+        traits::{
+            CheckedSub, Convert, DispatchInfoOf, Saturating, SignedExtension, StaticLookup, Zero,
+        },
         transaction_validity::{
             InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
         },
+        RuntimeDebug,
     },
-    traits::{Currency, ExistenceRequirement::AllowDeath, Get, WithdrawReason},
+    traits::{
+        Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
+        WithdrawReason, WithdrawReasons,
+    },
     weights::{Pays, Weight},
 };
 /// Pallet for token migration.
 use sp_std::marker::PhantomData;
+use sp_std::prelude::Vec;
 
 use frame_system::{self as system, ensure_root, ensure_signed};
 extern crate alloc;
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
+use frame_support::traits::ExistenceRequirement;
 
-type Balance = u64;
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 
 #[cfg(test)]
@@ -29,18 +36,50 @@ mod tests;
 
 mod benchmarking;
 
+/// Lock id for migration bonus lock
+const MIGRATION_BONUS_LOCK: LockIdentifier = *b"mi-bonus";
+
+/// Struct to encode all the bonuses of an account.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+pub struct Bonus<Balance, BlockNumber> {
+    /// Total locked balance in all the bonuses. This field is needed as locks "overlay" rather than "stack"
+    /// according to the balances pallet's Readme, meaning that if 2 locks A and B are applied on an account
+    /// for amounts 10 and 15 respectively, the total locked balance is 15 (max(10, 15)) and not 25 (10+15)
+    pub total_locked_bonus: Balance,
+    /// Each element of the vector is swap bonus and the block number at which it unlocks
+    pub swap_bonuses: Vec<(Balance, BlockNumber)>,
+    /// Each element of the vector is total bonus (set only once when bonus is given), remaining locked bonus and starting block number
+    pub vesting_bonuses: Vec<(Balance, Balance, BlockNumber)>,
+}
+
 /// The pallet's configuration trait.
 pub trait Trait: system::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
-    type Currency: Currency<Self::AccountId>;
+    /// Currency type that supports locking
+    type Currency: LockableCurrency<Self::AccountId>;
+
+    /// Convert the block number into a balance.
+    type BlockNumberToBalance: Convert<Self::BlockNumber, BalanceOf<Self>>;
+
+    /// Vesting happens in milestones. The total duration is sub-divided into equal duration milestones
+    /// and for each milestone, proportional balance is vested.
+    /// This might be moved to a storage item if needs to be configurable but is less likely
+    type VestingMilestones: Get<u8>;
+
+    /// Vesting duration in number of blocks.
+    type VestingDuration: Get<u32>;
 }
 
 // This pallet's storage items.
 decl_storage! {
     trait Store for Module<T: Trait> as MigrationModule {
+        /// Track accounts registered as migrators
         Migrators get(fn migrators): map hasher(blake2_128_concat) T::AccountId => Option<u16>;
+
+        /// Tracks swap and vesting bonuses that will be given to holders
+        pub Bonuses get(fn bonus): map hasher(blake2_128_concat) T::AccountId => Option<Bonus<BalanceOf<T>, T::BlockNumber>>;
     }
 }
 
@@ -49,21 +88,35 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Trait>::AccountId,
+        Balance = BalanceOf<T>,
+        BlockNumber = <T as system::Trait>::BlockNumber,
     {
-        // Migrator transferred tokens
+        /// Migrator transferred tokens
         Migration(AccountId, AccountId, Balance),
 
-        // New migrator added
+        /// New migrator added
         MigratorAdded(AccountId, u16),
 
-        // Existing migrator removed
+        /// Existing migrator removed
         MigratorRemoved(AccountId),
 
-        // Migrator's allowed migrations increased
+        /// Migrator's allowed migrations increased
         MigratorExpanded(AccountId, u16),
 
-        // Migrator's allowed migrations decreased
+        /// Migrator's allowed migrations decreased
         MigratorContracted(AccountId, u16),
+
+        /// Swap bonus was added. Parameters are sender, receiver, bonus, unlock block number
+        SwapBonusAdded(AccountId, AccountId, Balance, BlockNumber),
+
+        /// Swap bonus was claimed
+        SwapBonusClaimed(AccountId, Balance),
+
+        /// Vesting bonus was added. Parameters are sender, receiver, bonus, starting block number
+        VestingBonusAdded(AccountId, AccountId, Balance, BlockNumber),
+
+        /// Vesting bonus was claimed
+        VestingBonusClaimed(AccountId, Balance),
     }
 );
 
@@ -76,7 +129,19 @@ decl_error! {
         ExceededMigrations,
         CannotExpandMigrator,
         CannotContractMigrator,
-        InsufficientBalance
+        InsufficientBalance,
+        /// The account has no bonus.
+        NoBonus,
+        /// The account has no swap bonus.
+        NoSwapBonus,
+        /// Has a swap bonus but cannot claim yet.
+        CannotClaimSwapBonusYet,
+        /// Vesting has not started yet.
+        VestingNotStartedYet,
+        /// The account has no vesting bonus.
+        NoVestingBonus,
+        /// Has a vesting bonus but cannot claim yet.
+        CannotClaimVestingBonusYet,
     }
 }
 
@@ -147,44 +212,95 @@ decl_module! {
             Self::deposit_event(RawEvent::MigratorRemoved(migrator));
             Ok(Pays::No.into())
         }
+
+        /// Give bonuses to recipients. Only callable by migrator. An alternate data structure of both bonus args could be a map from AccountId -> Set<(amount, offset)>
+        /// # <weight>
+        /// 2 storage entries are touched (read and write) per recipient, its account and bonus. Repeated recipients are not counted.
+        /// Locks don't contribute to DB weight as once an account data is read from disk, locks are loaded as well
+        /// Ignoring weight of in-memory operations
+        /// # </weight>
+        #[weight = ({
+            // Find unique accounts as number of reads and writes depend on them
+            let mut set = BTreeSet::<T::AccountId>::new();
+            for (a, _, _) in swap_bonus_recips.iter() {
+                set.insert(a.clone());
+            }
+            for (a, _, _) in vesting_bonus_recips.iter() {
+                set.insert(a.clone());
+            }
+            let ops = 2 * set.len() as u64;
+            T::DbWeight::get().reads_writes(3 + ops, 1 + ops)
+        }, Pays::No)]
+        pub fn give_bonuses(origin, swap_bonus_recips: Vec<(T::AccountId, BalanceOf<T>, u32)>, vesting_bonus_recips: Vec<(T::AccountId, BalanceOf<T>, u32)>) -> dispatch::DispatchResult {
+            let migrator = ensure_signed(origin)?;
+            Self::give_bonuses_(migrator, swap_bonus_recips, vesting_bonus_recips)
+        }
+
+        // TODO: Bonus claims for swap and vesting individually could be removed to give a cleaner interface
+        // to user as a user might not care what bonus he is getting but only the amount
+
+        /// Claim bonus if any and can be claimed
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        pub fn claim_bonus(origin) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            Self::unlock_bonus(who)
+        }
+
+        /// Similar to `claim_bonus` but done for another account. The bonus does not
+        /// credit to the sending account's free balance
+        #[weight = T::DbWeight::get().reads_writes(3, 3)]
+        pub fn claim_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
+            ensure_signed(origin)?;
+            Self::unlock_bonus(T::Lookup::lookup(target)?)
+        }
+
+        /// Claim swap bonus if any and can be claimed
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        pub fn claim_swap_bonus(origin) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            Self::unlock_swap_bonus(who)
+        }
+
+        /// Similar to `claim_swap_bonus` but done for another account. The bonus does not
+        /// credit to the sending account's free balance
+        #[weight = T::DbWeight::get().reads_writes(3, 3)]
+        pub fn claim_swap_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
+            ensure_signed(origin)?;
+            Self::unlock_swap_bonus(T::Lookup::lookup(target)?)
+        }
+
+        /// Claim vesting bonus if any and can be claimed
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        pub fn claim_vesting_bonus(origin) -> dispatch::DispatchResult {
+            let who = ensure_signed(origin)?;
+            Self::unlock_vesting_bonus(who)
+        }
+
+        /// Similar to `claim_vesting_bonus` but done for another account. The bonus does not
+        /// credit to the sending account's free balance
+        #[weight = T::DbWeight::get().reads_writes(3, 3)]
+        pub fn claim_vesting_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
+            ensure_signed(origin)?;
+            Self::unlock_vesting_bonus(T::Lookup::lookup(target)?)
+        }
     }
 }
 
 impl<T: Trait> Module<T> {
     /// Deduct tokens from the migrator's account and decrease the allowed migrations
-    pub fn migrate_(
+    fn migrate_(
         migrator: T::AccountId,
         recipients: BTreeMap<T::AccountId, BalanceOf<T>>,
     ) -> dispatch::DispatchResult {
-        // Unwrap is safe here as the `SignedExtension` will only allow the transaction when migrator
-        // is present
-        let allowed_migrations = Self::migrators(&migrator).unwrap();
         let mut mig_count = recipients.len() as u16;
-        ensure!(
-            mig_count <= allowed_migrations,
-            Error::<T>::ExceededMigrations
-        );
+        let allowed_migrations = Self::check_allowed_migrations_limit(&migrator, mig_count)?;
 
         // The balance that needs to be transferred to all recipients combined
         let total_transfer_balance = recipients
             .values()
-            .fold(0 as Balance, |acc, &x| {
-                acc.saturating_add(x.saturated_into::<Balance>())
-            })
-            .saturated_into();
+            .fold(BalanceOf::<T>::zero(), |acc, &x| acc.saturating_add(x));
 
-        // The balance of the migrator after the transfer
-        let new_free = T::Currency::free_balance(&migrator)
-            .checked_sub(&total_transfer_balance)
-            .ok_or(Error::<T>::InsufficientBalance)?;
-
-        // Ensure that the migrator can transfer, i.e. has sufficient free and unlocked balance
-        T::Currency::ensure_can_withdraw(
-            &migrator,
-            total_transfer_balance,
-            WithdrawReason::Transfer.into(),
-            new_free,
-        )?;
+        Self::check_if_migrator_has_sufficient_balance(&migrator, total_transfer_balance)?;
 
         // XXX: A potentially more efficient way could be to replace all transfers with one call to withdraw
         // for migrator and then one call to `deposit_creating` for each recipient. This will cause 1
@@ -198,15 +314,297 @@ impl<T: Trait> Module<T> {
             // recipient has a very high balance.
             // Using `AllowDeath` to let migrator be wiped out once he has transferred to all.
             match T::Currency::transfer(&migrator, &recip, balance, AllowDeath) {
-                Ok(_) => Self::deposit_event(RawEvent::Migration(
-                    migrator.clone(),
-                    recip,
-                    balance.saturated_into::<Balance>(),
-                )),
+                Ok(_) => Self::deposit_event(RawEvent::Migration(migrator.clone(), recip, balance)),
                 Err(_) => mig_count -= 1,
             }
         }
         Migrators::<T>::insert(migrator, allowed_migrations - mig_count);
+        Ok(())
+    }
+
+    /// Set bonuses for recipients
+    fn give_bonuses_(
+        migrator: T::AccountId,
+        swap_bonus_recips: Vec<(T::AccountId, BalanceOf<T>, u32)>,
+        vesting_bonus_recips: Vec<(T::AccountId, BalanceOf<T>, u32)>,
+    ) -> dispatch::DispatchResult {
+        let mut mig_count = (swap_bonus_recips.len() + vesting_bonus_recips.len()) as u16;
+        let allowed_migrations = Self::check_allowed_migrations_limit(&migrator, mig_count)?;
+
+        // The balance that needs to be transferred to all recipients combined
+        let mut total_transfer_balance = swap_bonus_recips
+            .iter()
+            .fold(BalanceOf::<T>::zero(), |acc, x| acc.saturating_add(x.1));
+        total_transfer_balance = vesting_bonus_recips
+            .iter()
+            .fold(total_transfer_balance, |acc, x| acc.saturating_add(x.1));
+
+        Self::check_if_migrator_has_sufficient_balance(&migrator, total_transfer_balance)?;
+
+        let now = <frame_system::Module<T>>::block_number();
+
+        // Give swap bonuses
+        for (acc_id, amount, offset) in swap_bonus_recips {
+            if Self::add_swap_bonus(
+                migrator.clone(),
+                acc_id,
+                amount,
+                now + T::BlockNumber::from(offset),
+            )
+            .is_err()
+            {
+                mig_count -= 1;
+            }
+        }
+
+        // Give vesting bonuses
+        for (acc_id, amount, offset) in vesting_bonus_recips {
+            if Self::add_vesting_bonus(
+                migrator.clone(),
+                acc_id,
+                amount,
+                now + T::BlockNumber::from(offset),
+            )
+            .is_err()
+            {
+                mig_count -= 1;
+            }
+        }
+
+        Migrators::<T>::insert(migrator, allowed_migrations - mig_count);
+        Ok(())
+    }
+
+    /// Unlock whatever swap and vesting bonus that can be unlocked
+    fn unlock_bonus(who: T::AccountId) -> dispatch::DispatchResult {
+        let swap_bonus = Self::unlock_swap_bonus(who.clone());
+        let vesting_bonus = Self::unlock_vesting_bonus(who);
+        if swap_bonus.is_ok() || vesting_bonus.is_ok() {
+            Ok(())
+        } else {
+            fail!(Error::<T>::NoBonus)
+        }
+    }
+
+    /// Add swap bonus for an account
+    fn add_swap_bonus(
+        from: T::AccountId,
+        to: T::AccountId,
+        amount: BalanceOf<T>,
+        until: T::BlockNumber,
+    ) -> dispatch::DispatchResult {
+        T::Currency::transfer(&from, &to, amount, ExistenceRequirement::AllowDeath)?;
+
+        let mut bonus = Self::get_bonus_struct(&to);
+        bonus.total_locked_bonus += amount;
+
+        let bonuses = &mut bonus.swap_bonuses;
+
+        // Maintain sorting in increasing order of block numbers for efficiency in unlocking
+        let mut i = 0;
+        while (i < bonuses.len()) && (until > bonuses[i].1) {
+            i += 1;
+        }
+        bonuses.insert(i, (amount, until));
+
+        // A storage optimization would be to combine bonuses unlocking at same block number but
+        // this is a rare occurrence in practice and thus not worth paying the O(n) cost.
+
+        Self::update_bonus(&to, bonus);
+        Self::deposit_event(RawEvent::SwapBonusAdded(from, to, amount, until));
+        Ok(())
+    }
+
+    /// Unlock any swap bonuses that can be unlocked for an account
+    fn unlock_swap_bonus(who: T::AccountId) -> dispatch::DispatchResult {
+        let mut bonus = Self::bonus(&who).ok_or(Error::<T>::NoBonus)?;
+        let bonuses = &mut bonus.swap_bonuses;
+        ensure!(!bonuses.is_empty(), Error::<T>::NoSwapBonus);
+        let now = <frame_system::Module<T>>::block_number();
+        let mut bonus_to_unlock = BalanceOf::<T>::zero();
+
+        // Avoiding nightly `drain_filter`
+        let mut i = 0;
+        while i < bonuses.len() {
+            if bonuses[i].1 <= now {
+                bonus_to_unlock += bonuses[i].0;
+                i += 1;
+            } else {
+                break;
+            }
+        }
+        ensure!(i > 0, Error::<T>::CannotClaimSwapBonusYet);
+
+        bonuses.drain(0..i);
+        bonus.total_locked_bonus -= bonus_to_unlock;
+
+        Self::update_bonus_after_claim(&who, bonus);
+        Self::deposit_event(RawEvent::SwapBonusClaimed(who, bonus_to_unlock));
+        Ok(())
+    }
+
+    /// Add vesting bonus for an account
+    fn add_vesting_bonus(
+        from: T::AccountId,
+        to: T::AccountId,
+        amount: BalanceOf<T>,
+        start: T::BlockNumber,
+    ) -> dispatch::DispatchResult {
+        T::Currency::transfer(&from, &to, amount, ExistenceRequirement::AllowDeath)?;
+
+        let mut bonus = Self::get_bonus_struct(&to);
+        bonus.total_locked_bonus += amount;
+
+        bonus.vesting_bonuses.push((amount, amount, start));
+
+        // A storage optimization would be to combine bonuses with same offsets but
+        // this is a rare occurrence in practice and thus not worth paying the O(n) cost.
+
+        Self::update_bonus(&to, bonus);
+        Self::deposit_event(RawEvent::VestingBonusAdded(from, to, amount, start));
+        Ok(())
+    }
+
+    /// Unlock any vesting bonuses that can be unlocked for an account
+    fn unlock_vesting_bonus(who: T::AccountId) -> dispatch::DispatchResult {
+        let mut bonus = Self::bonus(&who).ok_or(Error::<T>::NoBonus)?;
+        let bonuses = &mut bonus.vesting_bonuses;
+        ensure!(!bonuses.is_empty(), Error::<T>::NoVestingBonus);
+
+        let now = <frame_system::Module<T>>::block_number();
+        let now_plus_1 = now + T::BlockNumber::from(1);
+
+        let vesting_duration = T::BlockNumber::from(T::VestingDuration::get());
+        let vesting_milestones = T::BlockNumber::from(T::VestingMilestones::get() as u32);
+        let milestone_as_bal = BalanceOf::<T>::from(T::VestingMilestones::get() as u32);
+
+        // XXX: The following division needs to be done only once in practice as vesting duration will be fixed.
+        let milestone_duration = vesting_duration / vesting_milestones;
+
+        let mut bonus_to_unlock = BalanceOf::<T>::zero();
+
+        let mut i = 0;
+        let mut completely_vested_bonus_indices = Vec::<usize>::new();
+        while i < bonuses.len() {
+            let start = bonuses[i].2;
+            let total_bonus = bonuses[i].0;
+            let locked_bonus = bonuses[i].1;
+            // start + vesting_duration - 1 <= now
+            if (start + vesting_duration) <= now_plus_1 {
+                // All remaining locked bonus has vested. Unlock
+                bonus_to_unlock += locked_bonus;
+                completely_vested_bonus_indices.push(i);
+            } else {
+                // Calculate number of milestones already passed
+                // milestones_passed = now - start + 1
+                let milestones_passed = (now_plus_1.saturating_sub(start)) / milestone_duration;
+                if milestones_passed == vesting_milestones {
+                    // Unlock all bonus in last milestone
+                    bonus_to_unlock += locked_bonus;
+                    completely_vested_bonus_indices.push(i);
+                } else {
+                    let bonus_per_milestone = total_bonus / milestone_as_bal;
+                    let bonus_to_be_unlocked_till_now =
+                        T::BlockNumberToBalance::convert(milestones_passed) * bonus_per_milestone;
+                    let expected_locked = total_bonus.saturating_sub(bonus_to_be_unlocked_till_now);
+                    if expected_locked < locked_bonus {
+                        bonus_to_unlock += locked_bonus - expected_locked;
+                        bonuses[i].1 = expected_locked
+                    }
+                }
+            }
+            i += 1;
+        }
+
+        ensure!(
+            bonus_to_unlock > BalanceOf::<T>::zero(),
+            Error::<T>::CannotClaimVestingBonusYet
+        );
+
+        completely_vested_bonus_indices.reverse();
+        for j in completely_vested_bonus_indices {
+            bonuses.remove(j);
+        }
+
+        bonus.total_locked_bonus -= bonus_to_unlock;
+
+        Self::update_bonus_after_claim(&who, bonus);
+        Self::deposit_event(RawEvent::VestingBonusClaimed(who, bonus_to_unlock));
+        Ok(())
+    }
+
+    /// Retrieve bonus struct from storage if exists or create a new one.
+    fn get_bonus_struct(acc: &T::AccountId) -> Bonus<BalanceOf<T>, T::BlockNumber> {
+        Bonuses::<T>::get(acc).unwrap_or(Bonus {
+            total_locked_bonus: BalanceOf::<T>::zero(),
+            swap_bonuses: Vec::new(),
+            vesting_bonuses: Vec::new(),
+        })
+    }
+
+    /// Update storage and lock for bonus of an account after bonus credit
+    fn update_bonus(acc: &T::AccountId, bonus: Bonus<BalanceOf<T>, T::BlockNumber>) {
+        T::Currency::set_lock(
+            MIGRATION_BONUS_LOCK,
+            acc,
+            bonus.total_locked_bonus,
+            WithdrawReasons::all(),
+        );
+        Bonuses::<T>::insert(acc.clone(), bonus);
+    }
+
+    /// Update storage and lock for bonus of an account after a claim has been made. Remove lock and
+    /// storage entry if all bonus claimed else reset lock and update storage.
+    fn update_bonus_after_claim(acc: &T::AccountId, bonus: Bonus<BalanceOf<T>, T::BlockNumber>) {
+        if bonus.total_locked_bonus.is_zero() {
+            // All bonus has been claimed, remove lock on balance and entry from storage
+            T::Currency::remove_lock(MIGRATION_BONUS_LOCK, acc);
+            Bonuses::<T>::remove(acc);
+        } else {
+            // Reset lock to the decreased locked balance and update storage
+            T::Currency::set_lock(
+                MIGRATION_BONUS_LOCK,
+                acc,
+                bonus.total_locked_bonus,
+                WithdrawReasons::all(),
+            );
+            Bonuses::<T>::insert(acc.clone(), bonus);
+        }
+    }
+
+    /// Check if migrator can transfer to recipients as regular amounts or as locked (for bonus)
+    fn check_allowed_migrations_limit(
+        migrator: &T::AccountId,
+        mig_count: u16,
+    ) -> Result<u16, dispatch::DispatchError> {
+        // Unwrap is safe here as the `SignedExtension` will only allow the transaction when migrator
+        // is present
+        let allowed_migrations = Self::migrators(migrator).unwrap();
+        ensure!(
+            mig_count <= allowed_migrations,
+            Error::<T>::ExceededMigrations
+        );
+        Ok(allowed_migrations)
+    }
+
+    /// Check if migrator has balance to transfer to recipients as regular amounts or as locked (for bonus
+    fn check_if_migrator_has_sufficient_balance(
+        migrator: &T::AccountId,
+        to_transfer: BalanceOf<T>,
+    ) -> dispatch::DispatchResult {
+        // The balance of the migrator after the transfer
+        let new_free = T::Currency::free_balance(migrator)
+            .checked_sub(&to_transfer)
+            .ok_or(Error::<T>::InsufficientBalance)?;
+
+        // Ensure that the migrator can transfer, i.e. has sufficient free and unlocked balance
+        T::Currency::ensure_can_withdraw(
+            migrator,
+            to_transfer,
+            WithdrawReason::Transfer.into(),
+            new_free,
+        )?;
+
         Ok(())
     }
 }
@@ -244,11 +642,15 @@ where
         _len: usize,
     ) -> TransactionValidity {
         if let Some(local_call) = call.is_sub_type() {
-            if let Call::migrate(..) = local_call {
-                if !<Migrators<T>>::contains_key(who) {
-                    // If migrator not registered, dont include transaction in block
-                    return InvalidTransaction::Custom(1).into();
+            match local_call {
+                // Migrator can make only these 2 calls without paying fees
+                Call::migrate(..) | Call::give_bonuses(..) => {
+                    if !<Migrators<T>>::contains_key(who) {
+                        // If migrator not registered, don't include transaction in block
+                        return InvalidTransaction::Custom(1).into();
+                    }
                 }
+                _ => (),
             }
         }
         Ok(ValidTransaction::default())

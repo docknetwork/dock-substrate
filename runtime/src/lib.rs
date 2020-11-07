@@ -332,9 +332,19 @@ impl poa::Trait for Runtime {
     type Currency = balances::Module<Runtime>;
 }
 
+parameter_types! {
+    /// Number of vesting milestones
+    pub const VestingMilestones: u8 = 3;
+    /// Vesting duration in number of blocks. Duration is 183 days and block time is 3 sec. (183 * 24 * 3600) / 3 = 5270400
+    pub const VestingDuration: u32 = 5270400;
+}
+
 impl token_migration::Trait for Runtime {
     type Event = Event;
     type Currency = balances::Module<Runtime>;
+    type BlockNumberToBalance = ConvertInto;
+    type VestingMilestones = VestingMilestones;
+    type VestingDuration = VestingDuration;
 }
 
 parameter_types! {

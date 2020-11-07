@@ -224,7 +224,7 @@ version = '0.5.1'
 [dependencies.token_migration]
 default-features = false
 path = '../pallets/token_migration'
-version = '0.0.1'
+version = '0.1.0'
 
 [features]
 default = ['std']
