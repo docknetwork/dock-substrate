@@ -1,3 +1,11 @@
+//! Pallet for token migration from ERC-20 to Dock's native token. Migrators are assumed to not be adversarial
+//! and not do DoS attacks on the chain and are the exchanges in practice. Migrators are given balance
+//! by Dock to fulfil expected migration requests and Dock needs to ensure that migrators do hold the
+//! correct amount of ERC-20 and that they will lock it (request signature from addresses to check ownership
+//! and monitor addresses or ask them to transfer to the Vault). Also bonus amounts are calculated post
+//! the initial migration and depend on the participating holder and their vesting choice which Dock
+//! should verify with external migrators.
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -20,7 +28,6 @@ use frame_support::{
     },
     weights::{Pays, Weight},
 };
-/// Pallet for token migration.
 use sp_std::marker::PhantomData;
 use sp_std::prelude::Vec;
 
@@ -37,7 +44,7 @@ mod tests;
 mod benchmarking;
 
 /// Lock id for migration bonus lock
-const MIGRATION_BONUS_LOCK: LockIdentifier = *b"mi-bonus";
+const MIGRATION_BONUS_LOCK: LockIdentifier = *b"migBonus";
 
 /// Struct to encode all the bonuses of an account.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
@@ -155,10 +162,10 @@ decl_module! {
 
         /// Does a token migration. The migrator should have sufficient balance to give tokens to recipients
         /// The check whether it is a valid migrator is made inside the SignedExtension.
-        /// Migrators are assumed to not be adversarial and do DoS attacks on the chain. They might act
+        /// Migrators are assumed to not be adversarial and not do DoS attacks on the chain. They might act
         /// in their benefit and try to send more fee txns then allowed which is guarded against.
-        /// An bad migrator can flood the network with properly signed but invalid txns like trying to pay more
-        /// than he has, make the network reject his txn but still spend netowork resources for free.
+        /// A bad migrator can flood the network with properly signed but invalid txns like trying to pay more
+        /// than he has, make the network reject his txn but still spend network resources for free.
         #[weight = (T::DbWeight::get().reads_writes(3 + recipients.len() as u64, 1 + recipients.len() as u64) + (22_100 * recipients.len() as Weight), Pays::No)]
         pub fn migrate(origin, recipients: BTreeMap<T::AccountId, BalanceOf<T>>) -> dispatch::DispatchResult {
             let migrator = ensure_signed(origin)?;
@@ -438,7 +445,7 @@ impl<T: Trait> Module<T> {
         bonuses.drain(0..i);
         bonus.total_locked_bonus -= bonus_to_unlock;
 
-        Self::update_bonus_after_claim(&who, bonus);
+        Self::update_bonus(&who, bonus);
         Self::deposit_event(RawEvent::SwapBonusClaimed(who, bonus_to_unlock));
         Ok(())
     }
@@ -485,32 +492,27 @@ impl<T: Trait> Module<T> {
 
         let mut i = 0;
         let mut completely_vested_bonus_indices = Vec::<usize>::new();
+        // Vest any bonuses that can be vested
         while i < bonuses.len() {
             let start = bonuses[i].2;
             let total_bonus = bonuses[i].0;
             let locked_bonus = bonuses[i].1;
-            // start + vesting_duration - 1 <= now
-            if (start + vesting_duration) <= now_plus_1 {
-                // All remaining locked bonus has vested. Unlock
+            // Note: To avoid the division in case the vesting duration is over, an additional `if`
+            // block can be introduced checking `(start + vesting_duration) <= now_plus_1`
+            // Calculate number of milestones already passed
+            let milestones_passed = (now_plus_1.saturating_sub(start)) / milestone_duration;
+            if milestones_passed >= vesting_milestones {
+                // Unlock all bonus in or post last milestone
                 bonus_to_unlock += locked_bonus;
                 completely_vested_bonus_indices.push(i);
             } else {
-                // Calculate number of milestones already passed
-                // milestones_passed = now - start + 1
-                let milestones_passed = (now_plus_1.saturating_sub(start)) / milestone_duration;
-                if milestones_passed == vesting_milestones {
-                    // Unlock all bonus in last milestone
-                    bonus_to_unlock += locked_bonus;
-                    completely_vested_bonus_indices.push(i);
-                } else {
-                    let bonus_per_milestone = total_bonus / milestone_as_bal;
-                    let bonus_to_be_unlocked_till_now =
-                        T::BlockNumberToBalance::convert(milestones_passed) * bonus_per_milestone;
-                    let expected_locked = total_bonus.saturating_sub(bonus_to_be_unlocked_till_now);
-                    if expected_locked < locked_bonus {
-                        bonus_to_unlock += locked_bonus - expected_locked;
-                        bonuses[i].1 = expected_locked
-                    }
+                let bonus_per_milestone = total_bonus / milestone_as_bal;
+                let bonus_to_be_unlocked_till_now =
+                    T::BlockNumberToBalance::convert(milestones_passed) * bonus_per_milestone;
+                let expected_locked = total_bonus.saturating_sub(bonus_to_be_unlocked_till_now);
+                if expected_locked < locked_bonus {
+                    bonus_to_unlock += locked_bonus - expected_locked;
+                    bonuses[i].1 = expected_locked
                 }
             }
             i += 1;
@@ -528,7 +530,7 @@ impl<T: Trait> Module<T> {
 
         bonus.total_locked_bonus -= bonus_to_unlock;
 
-        Self::update_bonus_after_claim(&who, bonus);
+        Self::update_bonus(&who, bonus);
         Self::deposit_event(RawEvent::VestingBonusClaimed(who, bonus_to_unlock));
         Ok(())
     }
@@ -542,26 +544,15 @@ impl<T: Trait> Module<T> {
         })
     }
 
-    /// Update storage and lock for bonus of an account after bonus credit
+    /// Update storage and lock for bonus of an account after bonus credit or a claim has been made.
+    /// Remove lock and storage entry if all bonus claimed else reset lock and update storage.
     fn update_bonus(acc: &T::AccountId, bonus: Bonus<BalanceOf<T>, T::BlockNumber>) {
-        T::Currency::set_lock(
-            MIGRATION_BONUS_LOCK,
-            acc,
-            bonus.total_locked_bonus,
-            WithdrawReasons::all(),
-        );
-        Bonuses::<T>::insert(acc.clone(), bonus);
-    }
-
-    /// Update storage and lock for bonus of an account after a claim has been made. Remove lock and
-    /// storage entry if all bonus claimed else reset lock and update storage.
-    fn update_bonus_after_claim(acc: &T::AccountId, bonus: Bonus<BalanceOf<T>, T::BlockNumber>) {
         if bonus.total_locked_bonus.is_zero() {
             // All bonus has been claimed, remove lock on balance and entry from storage
             T::Currency::remove_lock(MIGRATION_BONUS_LOCK, acc);
             Bonuses::<T>::remove(acc);
         } else {
-            // Reset lock to the decreased locked balance and update storage
+            // Set (or reset lock to the decreased) locked balance and update storage
             T::Currency::set_lock(
                 MIGRATION_BONUS_LOCK,
                 acc,
