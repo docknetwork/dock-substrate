@@ -18,6 +18,7 @@ pub use wasm::WASM_BINARY;
 
 extern crate alloc;
 
+pub mod anchor;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmark_utils;
 pub mod blob;
@@ -128,7 +129,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 12,
+    spec_version: 13,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -365,6 +366,10 @@ impl sudo::Trait for Runtime {
     type Call = Call;
 }
 
+impl anchor::Trait for Runtime {
+    type Event = Event;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -388,6 +393,7 @@ construct_runtime!(
         Master: master::{Module, Call, Storage, Event<T>, Config},
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
+        Anchor: anchor::{Module, Call, Storage, Event<T>},
     }
 );
 

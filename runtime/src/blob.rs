@@ -101,13 +101,6 @@ mod tests {
 
     type BlobMod = crate::blob::Module<Test>;
 
-    /// create a random byte array with set len
-    fn random_bytes(len: usize) -> Vec<u8> {
-        let ret: Vec<u8> = (0..len).map(|_| rand::random()).collect();
-        assert_eq!(ret.len(), len);
-        ret
-    }
-
     fn create_blob(
         id: BlobId,
         content: Vec<u8>,

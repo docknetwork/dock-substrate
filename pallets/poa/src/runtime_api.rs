@@ -1,8 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use super::EpochNo;
 use codec::Codec;
 use sp_runtime::traits::{MaybeDisplay, MaybeFromStr};
-use super::EpochNo;
 
 sp_api::decl_runtime_apis! {
     pub trait PoAApi<AccountId, Balance> where

@@ -34,10 +34,10 @@ To build the node executable yourself, you'll need to install the following depe
 # Install Rust.
 curl https://sh.rustup.rs -sSf | sh
 
-# Ensure rust nightly is installed and up to date.
+# Ensure rust nightly version pinned by ./rust-toolchain is installed.
 rustup update nightly
 
-# Ensure nightly can compile to wasm.
+# Install the wasm32-unknown-unknown target for the rust version pinned by ./rust-toolchain.
 rustup target add wasm32-unknown-unknown --toolchain nightly
 ```
 

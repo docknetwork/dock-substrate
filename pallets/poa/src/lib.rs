@@ -618,7 +618,8 @@ impl<T: Trait> Module<T> {
         // No need to check if epoch detail of the epoch exists or not. If it does not, `EpochDetail`
         // with default values will be returned which will have `emission_for_validators` and `emission_for_treasury` as 0.
         let epoch_detail = Self::get_epoch_detail(epoch_no);
-        epoch_detail.emission_for_validators.unwrap_or(0) + epoch_detail.emission_for_treasury.unwrap_or(0)
+        epoch_detail.emission_for_validators.unwrap_or(0)
+            + epoch_detail.emission_for_treasury.unwrap_or(0)
     }
 
     /// Takes a validator id and a mutable vector of validator ids and remove any occurrence from
@@ -847,8 +848,7 @@ impl<T: Trait> Module<T> {
             // `deposit_creating` will do the issuance of tokens burnt during transaction fees
             T::Currency::deposit_creating(block_author, txn_fees);
             Some(fees_as_u64)
-        }
-        else {
+        } else {
             None
         }
     }
