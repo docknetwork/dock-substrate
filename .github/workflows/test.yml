@@ -17,13 +17,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install latest nightly
+      - name: Install nightly-2020-10-06
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2020-10-06
           override: true
       - name: Install WASM
-        run: rustup target add wasm32-unknown-unknown --toolchain nightly
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-06
       - name: Ensure docs are buildable
         run: cargo doc --no-deps
       - name: Run tests

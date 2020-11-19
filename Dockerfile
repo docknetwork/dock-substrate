@@ -15,11 +15,11 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 # rustup directory
 ENV PATH /root/.cargo/bin:$PATH
 
-# setup rust nightly channel
-RUN rustup install nightly
+# setup rust nightly channel, pinning specific version as newer versions have a regression
+RUN rustup install nightly-2020-10-06
 
 # install wasm toolchain for substrate
-RUN rustup target add wasm32-unknown-unknown --toolchain nightly
+RUN rustup target add wasm32-unknown-unknown --toolchain nightly-2020-10-06
 
 #compiler ENV
 ENV CC gcc
