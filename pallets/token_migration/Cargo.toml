@@ -1,6 +1,6 @@
 [package]
 name = "token_migration"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Dock.io"]
 edition = "2018"
 license = 'Apache-2.0'

@@ -2,12 +2,14 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.10.0'
+version = '0.10.1'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
 
+[dependencies]
+static_assertions = "1.1.0"
 
 [dependencies.aura]
 git = 'https://github.com/paritytech/substrate.git'
@@ -224,7 +226,7 @@ version = '0.5.1'
 [dependencies.token_migration]
 default-features = false
 path = '../pallets/token_migration'
-version = '0.1.0'
+version = '0.1.1'
 
 [features]
 default = ['std']

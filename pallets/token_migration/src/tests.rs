@@ -10,6 +10,7 @@ use frame_support::{
     assert_err, assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types,
     sp_runtime::traits::{ConvertInto, SaturatedConversion},
     weights::{constants::WEIGHT_PER_SECOND, DispatchClass, DispatchInfo, Weight},
+    traits::ReservableCurrency,
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
@@ -1160,5 +1161,34 @@ fn bonus_claim_extrinsics() {
 
         assert!(MigrationModule::bonus(&recip_1).is_none());
         assert!(MigrationModule::bonus(&recip_2).is_none());
+    });
+}
+
+#[test]
+fn bonus_locking_reserving() {
+    // Locking should preserve locking
+    new_test_ext().execute_with(|| {
+        let acc_1 = 1;
+        let acc_2 = 2;
+        let acc_3 = 3;
+
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&acc_1, 100);
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&acc_2, 100);
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&acc_3, 100);
+
+        MigrationModule::lock_bonus(&acc_1, 90);
+        <TestRuntime as Trait>::Currency::reserve(&acc_1, 10).unwrap();
+        MigrationModule::remove_lock_from_bonus(&acc_1);
+        <TestRuntime as Trait>::Currency::reserve(&acc_1, 90).unwrap();
+
+        MigrationModule::lock_bonus(&acc_2, 90);
+        assert!(<TestRuntime as Trait>::Currency::reserve(&acc_2, 11).is_err());
+        MigrationModule::remove_lock_from_bonus(&acc_2);
+        <TestRuntime as Trait>::Currency::reserve(&acc_2, 11).unwrap();
+
+        MigrationModule::lock_bonus(&acc_3, 100);
+        assert!(<TestRuntime as Trait>::Currency::reserve(&acc_3, 1).is_err());
+        MigrationModule::remove_lock_from_bonus(&acc_3);
+        <TestRuntime as Trait>::Currency::reserve(&acc_3, 1).unwrap();
     });
 }

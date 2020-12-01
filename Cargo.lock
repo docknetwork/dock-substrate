@@ -1153,7 +1153,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "dock-runtime",
  "frame-benchmarking",
@@ -1197,7 +1197,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
@@ -1234,6 +1234,7 @@ dependencies = [
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "static_assertions",
  "substrate-wasm-builder-runner",
  "token_migration",
 ]
@@ -7046,7 +7047,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "token_migration"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",

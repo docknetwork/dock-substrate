@@ -18,6 +18,9 @@ pub use wasm::WASM_BINARY;
 
 extern crate alloc;
 
+#[macro_use]
+extern crate static_assertions;
+
 pub mod anchor;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmark_utils;
@@ -130,7 +133,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
     spec_version: 14,
-    impl_version: 1,
+    impl_version: 2,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
@@ -338,6 +341,10 @@ parameter_types! {
     /// Vesting duration in number of blocks. Duration is 183 days and block time is 3 sec. (183 * 24 * 3600) / 3 = 5270400
     pub const VestingDuration: u32 = 5270400;
 }
+
+/// `VestingMilestones` and `VestingDuration` must be > 0
+const_assert!(VestingMilestones::get() > 0);
+const_assert!(VestingDuration::get() > 0);
 
 impl token_migration::Trait for Runtime {
     type Event = Event;
