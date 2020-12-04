@@ -1,4 +1,12 @@
-//! This is a facade over Substrate's democracy pallet
+//! This is a facade over Substrate's democracy pallet offering similar functionality with a few differences.
+//! This pallet implements a "simple majority" governance where only Council can vote but anyone can
+//! propose by locking a fixed amount of tokens, `PublicProposalDeposit`. Similar to Substrate's governance pallet, both Council and
+//! general public take turns proposing, and a proposal follows "propose" -> "referendum" -> "enact" sequence.
+//! General public's proposals can be "seconded" by other token holder.
+//! Technical committee can fast track proposal made by Council member.
+//! A simple majority of Council members' votes (>50%) are needed to accept an ongoing referendum.
+//! Council members can cancel a proposal made by the public.
+//! Setting up of Council and Technical committee can be seen in the pallet's tests.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
