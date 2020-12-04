@@ -15,17 +15,15 @@ use frame_support::{
     ensure, fail,
     sp_runtime::{
         traits::{
-            CheckedSub, Convert, DispatchInfoOf, Saturating, SignedExtension, StaticLookup, Zero,
+            CheckedAdd, CheckedSub, Convert, DispatchInfoOf, Saturating, SignedExtension,
+            StaticLookup, Zero,
         },
         transaction_validity::{
             InvalidTransaction, TransactionValidity, TransactionValidityError, ValidTransaction,
         },
         RuntimeDebug,
     },
-    traits::{
-        Currency, ExistenceRequirement::AllowDeath, Get, LockIdentifier, LockableCurrency,
-        WithdrawReason, WithdrawReasons
-    },
+    traits::{Currency, ExistenceRequirement::AllowDeath, Get, ReservableCurrency, WithdrawReason},
     weights::{Pays, Weight},
 };
 use sp_std::marker::PhantomData;
@@ -43,20 +41,19 @@ mod tests;
 
 mod benchmarking;
 
-/// Lock id for migration bonus lock
-const MIGRATION_BONUS_LOCK: LockIdentifier = *b"migBonus";
-
 /// Struct to encode all the bonuses of an account.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct Bonus<Balance, BlockNumber> {
-    /// Total locked balance in all the bonuses. This field is needed as locks "overlay" rather than "stack"
-    /// according to the balances' pallet's Readme, meaning that if 2 locks A and B are applied on an account
-    /// for amounts 10 and 15 respectively, the total locked balance is 15 (max(10, 15)) and not 25 (10+15)
-    pub total_locked_bonus: Balance,
     /// Each element of the vector is swap bonus and the block number at which it unlocks
     pub swap_bonuses: Vec<(Balance, BlockNumber)>,
     /// Each element of the vector is total bonus (set only once when bonus is given), remaining locked bonus and starting block number
     pub vesting_bonuses: Vec<(Balance, Balance, BlockNumber)>,
+}
+
+impl<Balance, BlockNumber> Bonus<Balance, BlockNumber> {
+    fn is_empty(&self) -> bool {
+        (self.swap_bonuses.len() + self.vesting_bonuses.len()) == 0
+    }
 }
 
 /// The pallet's configuration trait.
@@ -65,7 +62,7 @@ pub trait Trait: system::Trait {
     type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
 
     /// Currency type that supports locking
-    type Currency: LockableCurrency<Self::AccountId>;
+    type Currency: ReservableCurrency<Self::AccountId>;
 
     /// Convert the block number into a balance.
     type BlockNumberToBalance: Convert<Self::BlockNumber, BalanceOf<Self>>;
@@ -143,6 +140,8 @@ decl_error! {
         CannotExpandMigrator,
         CannotContractMigrator,
         InsufficientBalance,
+        /// Overflow while doing bonus calculations
+        BonusOverflowError,
         /// The account has no bonus.
         NoBonus,
         /// The account has no swap bonus.
@@ -254,7 +253,7 @@ decl_module! {
 
         /// Claim bonus if any and can be claimed
         /// # <weight>
-        /// There are 2 reads, one for bonus storage, one for account data. Similarly for writes.
+        /// There are 2 reads, one for bonus storage, one for account locks. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(2, 2)]
@@ -266,11 +265,11 @@ decl_module! {
         /// Similar to `claim_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 3 reads, one for bonus storage, one each for account data of sender and receiver.
-        /// One write to bonus storage and one to account data of receiver.
+        /// There are 2 reads, one for bonus storage, one for account locks of receiver.
+        /// One write to bonus storage and one to account locks of receiver.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(3, 2)]
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
         pub fn claim_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_bonus(T::Lookup::lookup(target)?)
@@ -278,7 +277,7 @@ decl_module! {
 
         /// Claim swap bonus if any and can be claimed
         /// # <weight>
-        /// There are 2 reads, one for bonus storage, one for account data. Similarly for writes.
+        /// There are 2 reads, one for bonus storage, one for account locks. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(2, 2)]
@@ -290,11 +289,11 @@ decl_module! {
         /// Similar to `claim_swap_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 3 reads, one for bonus storage, one each for account data of sender and receiver.
+        /// There are 3 reads, one for bonus storage, one for account locks of receiver.
         /// One write to bonus storage and one to account data of receiver.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(3, 2)]
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
         pub fn claim_swap_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_swap_bonus(T::Lookup::lookup(target)?)
@@ -302,7 +301,7 @@ decl_module! {
 
         /// Claim vesting bonus if any and can be claimed
         /// # <weight>
-        /// There are 2 reads, one for bonus storage, one for account data. Similarly for writes.
+        /// There are 2 reads, one for bonus storage, one for account locks. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
         #[weight = T::DbWeight::get().reads_writes(2, 2)]
@@ -314,11 +313,11 @@ decl_module! {
         /// Similar to `claim_vesting_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 3 reads, one for bonus storage, one each for account data of sender and receiver.
+        /// There are 3 reads, one for bonus storage, one for account locks of receiver.
         /// One write to bonus storage and one to account data of receiver.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(3, 2)]
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
         pub fn claim_vesting_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_vesting_bonus(T::Lookup::lookup(target)?)
@@ -434,9 +433,9 @@ impl<T: Trait> Module<T> {
         until: T::BlockNumber,
     ) -> dispatch::DispatchResult {
         T::Currency::transfer(&from, &to, amount, ExistenceRequirement::AllowDeath)?;
+        T::Currency::reserve(&to, amount)?;
 
         let mut bonus = Self::get_bonus_struct(&to);
-        bonus.total_locked_bonus = bonus.total_locked_bonus.saturating_add(amount);
 
         let bonuses = &mut bonus.swap_bonuses;
 
@@ -467,7 +466,9 @@ impl<T: Trait> Module<T> {
         let mut i = 0;
         while i < bonuses.len() {
             if bonuses[i].1 <= now {
-                bonus_to_unlock = bonus_to_unlock.saturating_add(bonuses[i].0);
+                bonus_to_unlock = bonus_to_unlock
+                    .checked_add(&bonuses[i].0)
+                    .ok_or(Error::<T>::BonusOverflowError)?;
                 i += 1;
             } else {
                 break;
@@ -476,7 +477,7 @@ impl<T: Trait> Module<T> {
         ensure!(i > 0, Error::<T>::CannotClaimSwapBonusYet);
 
         bonuses.drain(0..i);
-        bonus.total_locked_bonus = bonus.total_locked_bonus.saturating_sub(bonus_to_unlock);
+        T::Currency::unreserve(&who, bonus_to_unlock);
 
         Self::update_bonus(&who, bonus);
         Self::deposit_event(RawEvent::SwapBonusClaimed(who, bonus_to_unlock));
@@ -491,9 +492,9 @@ impl<T: Trait> Module<T> {
         start: T::BlockNumber,
     ) -> dispatch::DispatchResult {
         T::Currency::transfer(&from, &to, amount, ExistenceRequirement::AllowDeath)?;
+        T::Currency::reserve(&to, amount)?;
 
         let mut bonus = Self::get_bonus_struct(&to);
-        bonus.total_locked_bonus = bonus.total_locked_bonus.saturating_add(amount);
 
         bonus.vesting_bonuses.push((amount, amount, start));
 
@@ -533,18 +534,27 @@ impl<T: Trait> Module<T> {
             // Note: To avoid the division in case the vesting duration is over, an additional `if`
             // block can be introduced checking `(start + vesting_duration) <= now_plus_1`
             // Calculate number of milestones already passed
-            let milestones_passed = (now_plus_1.saturating_sub(start)) / milestone_duration;
+            let milestones_passed = now_plus_1
+                .checked_sub(&start)
+                .ok_or(Error::<T>::BonusOverflowError)?
+                / milestone_duration;
             if milestones_passed >= vesting_milestones {
                 // Unlock all bonus in or post last milestone
-                bonus_to_unlock = bonus_to_unlock.saturating_add(locked_bonus);
+                bonus_to_unlock = bonus_to_unlock
+                    .checked_add(&locked_bonus)
+                    .ok_or(Error::<T>::BonusOverflowError)?;
                 completely_vested_bonus_indices.push(i);
             } else {
                 let bonus_per_milestone = total_bonus / milestone_as_bal;
                 let bonus_to_be_unlocked_till_now =
                     T::BlockNumberToBalance::convert(milestones_passed) * bonus_per_milestone;
-                let expected_locked = total_bonus.saturating_sub(bonus_to_be_unlocked_till_now);
+                let expected_locked = total_bonus
+                    .checked_sub(&bonus_to_be_unlocked_till_now)
+                    .ok_or(Error::<T>::BonusOverflowError)?;
                 if expected_locked < locked_bonus {
-                    bonus_to_unlock = bonus_to_unlock.saturating_add(locked_bonus - expected_locked);
+                    bonus_to_unlock = bonus_to_unlock
+                        .checked_add(&(locked_bonus - expected_locked))
+                        .ok_or(Error::<T>::BonusOverflowError)?;
                     bonuses[i].1 = expected_locked
                 }
             }
@@ -560,8 +570,7 @@ impl<T: Trait> Module<T> {
         for j in completely_vested_bonus_indices {
             bonuses.remove(j);
         }
-
-        bonus.total_locked_bonus = bonus.total_locked_bonus.saturating_sub(bonus_to_unlock);
+        T::Currency::unreserve(&who, bonus_to_unlock);
 
         Self::update_bonus(&who, bonus);
         Self::deposit_event(RawEvent::VestingBonusClaimed(who, bonus_to_unlock));
@@ -571,7 +580,6 @@ impl<T: Trait> Module<T> {
     /// Retrieve bonus struct from storage if exists or create a new one.
     fn get_bonus_struct(acc: &T::AccountId) -> Bonus<BalanceOf<T>, T::BlockNumber> {
         Bonuses::<T>::get(acc).unwrap_or(Bonus {
-            total_locked_bonus: BalanceOf::<T>::zero(),
             swap_bonuses: Vec::new(),
             vesting_bonuses: Vec::new(),
         })
@@ -580,30 +588,13 @@ impl<T: Trait> Module<T> {
     /// Update storage and lock for bonus of an account after bonus credit or a claim has been made.
     /// Remove lock and storage entry if all bonus claimed else reset lock and update storage.
     fn update_bonus(acc: &T::AccountId, bonus: Bonus<BalanceOf<T>, T::BlockNumber>) {
-        if bonus.total_locked_bonus.is_zero() {
-            // All bonus has been claimed, remove lock on balance and entry from storage
-            Self::remove_lock_from_bonus(acc);
+        if bonus.is_empty() {
+            // All bonus has been claimed, remove entry from storage
             Bonuses::<T>::remove(acc);
         } else {
-            // Set (or reset lock to the decreased) locked balance and update storage
-            Self::lock_bonus(acc, bonus.total_locked_bonus);
+            // Update storage
             Bonuses::<T>::insert(acc.clone(), bonus);
         }
-    }
-
-    /// Set (or reset lock to the decreased) locked balance
-    fn lock_bonus(acc: &T::AccountId, amount: BalanceOf<T>) {
-        T::Currency::set_lock(
-            MIGRATION_BONUS_LOCK,
-            acc,
-            amount,
-            WithdrawReasons::all(),
-        );
-    }
-
-    /// Remove lock on bonus
-    fn remove_lock_from_bonus(acc: &T::AccountId) {
-        T::Currency::remove_lock(MIGRATION_BONUS_LOCK, acc);
     }
 
     /// Check if migrator can transfer to recipients as regular amounts or as locked (for bonus)

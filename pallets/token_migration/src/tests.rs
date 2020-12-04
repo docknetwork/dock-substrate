@@ -10,7 +10,6 @@ use frame_support::{
     assert_err, assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types,
     sp_runtime::traits::{ConvertInto, SaturatedConversion},
     weights::{constants::WEIGHT_PER_SECOND, DispatchClass, DispatchInfo, Weight},
-    traits::ReservableCurrency,
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
@@ -493,14 +492,13 @@ fn give_bonuses() {
         assert!(MigrationModule::bonus(&recip_1).is_some());
         assert!(MigrationModule::bonus(&recip_2).is_some());
 
-        let recip_1_bal_2 = Balances::free_balance(&recip_1);
-        let recip_2_bal_2 = Balances::free_balance(&recip_2);
         // Free balance changes as bonus credited
-        assert_eq!(recip_1_bal_1 + 15, recip_1_bal_2);
-        assert_eq!(recip_2_bal_1 + 45, recip_2_bal_2);
-        // Usable balance does not change as bonus credited but locked
-        assert_eq!(recip_1_bal_1, Balances::usable_balance(&recip_1));
-        assert_eq!(recip_2_bal_1, Balances::usable_balance(&recip_2));
+        assert_eq!(15, Balances::reserved_balance(&recip_1));
+        assert_eq!(45, Balances::reserved_balance(&recip_2));
+
+        // Free balance does not change as bonus credited but reserved
+        assert_eq!(recip_1_bal_1, Balances::free_balance(&recip_1));
+        assert_eq!(recip_2_bal_1, Balances::free_balance(&recip_2));
         // Migrator's free balance changed as well
         assert_eq!(Balances::free_balance(&sender_2), 40);
         // Did 4 migrations
@@ -511,7 +509,7 @@ fn give_bonuses() {
         MigrationModule::claim_bonus(RawOrigin::Signed(recip_2).into()).unwrap();
         // Entry in storage exists until some unclaimed bonus exists
         assert!(MigrationModule::bonus(&recip_2).is_some());
-        assert_eq!(recip_2_bal_1 + 25, Balances::usable_balance(&recip_2));
+        assert_eq!(recip_2_bal_1 + 25, Balances::free_balance(&recip_2));
 
         assert!(MigrationModule::claim_bonus(RawOrigin::Signed(recip_2).into()).is_err());
 
@@ -519,13 +517,13 @@ fn give_bonuses() {
         MigrationModule::claim_bonus(RawOrigin::Signed(recip_1).into()).unwrap();
         // Entry in storage exists until some unclaimed bonus exists
         assert!(MigrationModule::bonus(&recip_1).is_some());
-        assert_eq!(recip_1_bal_1 + 10, Balances::usable_balance(&recip_1));
+        assert_eq!(recip_1_bal_1 + 10, Balances::free_balance(&recip_1));
 
         System::set_block_number(7);
         MigrationModule::claim_bonus(RawOrigin::Signed(recip_1).into()).unwrap();
         // Entry in storage is removed when all bonus is claimed bonus
         assert!(MigrationModule::bonus(&recip_1).is_none());
-        assert_eq!(recip_1_bal_1 + 10 + 5, Balances::usable_balance(&recip_1));
+        assert_eq!(recip_1_bal_1 + 10 + 5, Balances::free_balance(&recip_1));
 
         assert!(MigrationModule::claim_bonus(RawOrigin::Signed(recip_1).into()).is_err());
     });
@@ -547,7 +545,7 @@ fn swap_bonus_claims() {
 
         assert_eq!(System::block_number(), 0);
 
-        let recip_1_bal_1 = Balances::usable_balance(&recip_1);
+        let recip_1_bal_1 = Balances::free_balance(&recip_1);
 
         let amount_1 = 5;
         let unlock_1 = 10;
@@ -569,24 +567,24 @@ fn swap_bonus_claims() {
             .unwrap()
             .vesting_bonuses
             .is_empty());
-        // Adding bonus does not change usable balance
-        assert_eq!(recip_1_bal_1, Balances::usable_balance(&recip_1));
+        // Adding bonus does not change free balance
+        assert_eq!(recip_1_bal_1, Balances::free_balance(&recip_1));
 
         System::set_block_number(unlock_1 - 1);
         assert!(MigrationModule::unlock_swap_bonus(recip_1).is_err());
-        assert_eq!(recip_1_bal_1, Balances::usable_balance(&recip_1));
+        assert_eq!(recip_1_bal_1, Balances::free_balance(&recip_1));
 
         System::set_block_number(unlock_1);
-        assert_eq!(recip_1_bal_1, Balances::usable_balance(&recip_1));
+        assert_eq!(recip_1_bal_1, Balances::free_balance(&recip_1));
 
         MigrationModule::unlock_swap_bonus(recip_1).unwrap();
         // Entry removed from storage
         assert!(MigrationModule::bonus(&recip_1).is_none());
-        let recip_1_bal_2 = Balances::usable_balance(&recip_1);
+        let recip_1_bal_2 = Balances::free_balance(&recip_1);
         assert_eq!(recip_1_bal_1 + amount_1, recip_1_bal_2);
         assert!(MigrationModule::unlock_swap_bonus(recip_1).is_err());
-        let recip_2_bal_1 = Balances::usable_balance(&recip_2);
-        let recip_3_bal_1 = Balances::usable_balance(&recip_3);
+        let recip_2_bal_1 = Balances::free_balance(&recip_2);
+        let recip_3_bal_1 = Balances::free_balance(&recip_3);
 
         // No entry in storage
         assert!(MigrationModule::bonus(&recip_2).is_none());
@@ -621,14 +619,14 @@ fn swap_bonus_claims() {
             .unwrap()
             .vesting_bonuses
             .is_empty());
-        assert_eq!(recip_2_bal_1, Balances::usable_balance(&recip_2));
-        assert_eq!(recip_3_bal_1, Balances::usable_balance(&recip_3));
+        assert_eq!(recip_2_bal_1, Balances::free_balance(&recip_2));
+        assert_eq!(recip_3_bal_1, Balances::free_balance(&recip_3));
 
         System::set_block_number(unlock_2 - 1);
         assert!(MigrationModule::unlock_swap_bonus(recip_2).is_err());
         assert!(MigrationModule::unlock_swap_bonus(recip_3).is_err());
-        assert_eq!(recip_2_bal_1, Balances::usable_balance(&recip_2));
-        assert_eq!(recip_3_bal_1, Balances::usable_balance(&recip_3));
+        assert_eq!(recip_2_bal_1, Balances::free_balance(&recip_2));
+        assert_eq!(recip_3_bal_1, Balances::free_balance(&recip_3));
 
         System::set_block_number(unlock_2);
         MigrationModule::unlock_swap_bonus(recip_2).unwrap();
@@ -643,8 +641,8 @@ fn swap_bonus_claims() {
             MigrationModule::bonus(&recip_3).unwrap().swap_bonuses.len(),
             1
         );
-        let recip_2_bal_2 = Balances::usable_balance(&recip_2);
-        let recip_3_bal_2 = Balances::usable_balance(&recip_3);
+        let recip_2_bal_2 = Balances::free_balance(&recip_2);
+        let recip_3_bal_2 = Balances::free_balance(&recip_3);
         assert_eq!(recip_2_bal_1 + amount_2, recip_2_bal_2);
         assert_eq!(recip_3_bal_1 + amount_2, recip_3_bal_2);
 
@@ -654,8 +652,8 @@ fn swap_bonus_claims() {
         System::set_block_number(unlock_3 - 1);
         assert!(MigrationModule::unlock_swap_bonus(recip_2).is_err());
         assert!(MigrationModule::unlock_swap_bonus(recip_3).is_err());
-        assert_eq!(recip_2_bal_2, Balances::usable_balance(&recip_2));
-        assert_eq!(recip_3_bal_2, Balances::usable_balance(&recip_3));
+        assert_eq!(recip_2_bal_2, Balances::free_balance(&recip_2));
+        assert_eq!(recip_3_bal_2, Balances::free_balance(&recip_3));
 
         System::set_block_number(unlock_3);
         MigrationModule::unlock_swap_bonus(recip_2).unwrap();
@@ -663,8 +661,8 @@ fn swap_bonus_claims() {
         // Entry removed from storage as swap bonuses claimed
         assert!(MigrationModule::bonus(&recip_2).is_none());
         assert!(MigrationModule::bonus(&recip_3).is_none());
-        assert_eq!(recip_2_bal_2 + amount_2, Balances::usable_balance(&recip_2));
-        assert_eq!(recip_3_bal_2 + amount_2, Balances::usable_balance(&recip_3));
+        assert_eq!(recip_2_bal_2 + amount_2, Balances::free_balance(&recip_2));
+        assert_eq!(recip_3_bal_2 + amount_2, Balances::free_balance(&recip_3));
         assert!(MigrationModule::unlock_swap_bonus(recip_2).is_err());
         assert!(MigrationModule::unlock_swap_bonus(recip_3).is_err());
 
@@ -682,7 +680,7 @@ fn swap_bonus_claims() {
 
         System::set_block_number(unlock_4 - 1);
         assert!(MigrationModule::unlock_swap_bonus(recip_1).is_err());
-        assert_eq!(recip_1_bal_2, Balances::usable_balance(&recip_1));
+        assert_eq!(recip_1_bal_2, Balances::free_balance(&recip_1));
 
         System::set_block_number(unlock_4);
         MigrationModule::unlock_swap_bonus(recip_1).unwrap();
@@ -691,7 +689,7 @@ fn swap_bonus_claims() {
         assert!(MigrationModule::bonus(&recip_1).is_none());
         assert_eq!(
             recip_1_bal_2 + 3 * amount_3,
-            Balances::usable_balance(&recip_1)
+            Balances::free_balance(&recip_1)
         );
         assert!(MigrationModule::unlock_swap_bonus(recip_1).is_err());
     });
@@ -707,7 +705,7 @@ fn vesting_bonus_claims_1() {
 
         assert_eq!(System::block_number(), 0);
 
-        let recip_bal_1 = Balances::usable_balance(&recip);
+        let recip_bal_1 = Balances::free_balance(&recip);
 
         // No entry in storage
         assert!(MigrationModule::bonus(&recip).is_none());
@@ -736,17 +734,18 @@ fn vesting_bonus_claims_1() {
 
         // Cannot claim before vesting starts
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_1, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_1, Balances::free_balance(&recip));
+        assert_eq!(amount_1, Balances::reserved_balance(&recip));
 
         // Cannot claim even 1 block before milestone
         System::set_block_number(199);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_1, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_1, Balances::free_balance(&recip));
 
         // Can claim at milestone
         System::set_block_number(200);
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
-        let recip_bal_2 = Balances::usable_balance(&recip);
+        let recip_bal_2 = Balances::free_balance(&recip);
         assert_eq!(
             recip_bal_1 + (amount_1 / <TestRuntime as Trait>::VestingMilestones::get() as u64),
             recip_bal_2
@@ -763,12 +762,12 @@ fn vesting_bonus_claims_1() {
         // Cannot claim even 1 block before milestone
         System::set_block_number(299);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_2, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_2, Balances::free_balance(&recip));
 
         // Can claim at milestone
         System::set_block_number(300);
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
-        let recip_bal_3 = Balances::usable_balance(&recip);
+        let recip_bal_3 = Balances::free_balance(&recip);
         assert_eq!(
             recip_bal_2 + (amount_1 / <TestRuntime as Trait>::VestingMilestones::get() as u64),
             recip_bal_3
@@ -784,22 +783,22 @@ fn vesting_bonus_claims_1() {
 
         System::set_block_number(301);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_3, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_3, Balances::free_balance(&recip));
 
         // Cannot claim before milestone
         System::set_block_number(305);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_3, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_3, Balances::free_balance(&recip));
 
         // Cannot claim before milestone
         System::set_block_number(399);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_3, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_3, Balances::free_balance(&recip));
 
         // Can claim at milestone
         System::set_block_number(400);
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
-        let recip_bal_4 = Balances::usable_balance(&recip);
+        let recip_bal_4 = Balances::free_balance(&recip);
         assert_eq!(
             recip_bal_3 + (amount_1 / <TestRuntime as Trait>::VestingMilestones::get() as u64),
             recip_bal_4
@@ -812,11 +811,11 @@ fn vesting_bonus_claims_1() {
         // Cannot claim after all bonus given
         System::set_block_number(500);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_4, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_4, Balances::free_balance(&recip));
 
         System::set_block_number(600);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_4, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_4, Balances::free_balance(&recip));
 
         // Test vesting all at once
         let amount_2 = 100;
@@ -834,12 +833,12 @@ fn vesting_bonus_claims_1() {
 
         System::set_block_number(605);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_4, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_4, Balances::free_balance(&recip));
 
         // Claim all bonus at once
         System::set_block_number(900);
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
-        let recip_bal_5 = Balances::usable_balance(&recip);
+        let recip_bal_5 = Balances::free_balance(&recip);
         assert_eq!(recip_bal_4 + amount_2, recip_bal_5);
 
         // Entry removed from storage as vesting is complete
@@ -852,12 +851,12 @@ fn vesting_bonus_claims_1() {
 
         System::set_block_number(1005);
         assert!(MigrationModule::unlock_vesting_bonus(recip).is_err());
-        assert_eq!(recip_bal_5, Balances::usable_balance(&recip));
+        assert_eq!(recip_bal_5, Balances::free_balance(&recip));
 
         // Can claim few blocks after milestone
         System::set_block_number(1103);
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
-        let recip_bal_6 = Balances::usable_balance(&recip);
+        let recip_bal_6 = Balances::free_balance(&recip);
         assert_eq!(
             recip_bal_5 + (amount_3 / <TestRuntime as Trait>::VestingMilestones::get() as u64),
             recip_bal_6
@@ -866,7 +865,7 @@ fn vesting_bonus_claims_1() {
         // Can claim few blocks after milestone
         System::set_block_number(1302);
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
-        let recip_bal_7 = Balances::usable_balance(&recip);
+        let recip_bal_7 = Balances::free_balance(&recip);
         assert_eq!(recip_bal_5 + amount_3, recip_bal_7);
     });
 }
@@ -897,8 +896,8 @@ fn vesting_bonus_claims_2() {
             // Override for testing
             <TestRuntime as Trait>::VestingDuration::set(end - start + 1);
 
-            let recip_1_bal_1 = Balances::usable_balance(&recip_1);
-            let recip_2_bal_1 = Balances::usable_balance(&recip_2);
+            let recip_1_bal_1 = Balances::free_balance(&recip_1);
+            let recip_2_bal_1 = Balances::free_balance(&recip_2);
 
             let offset = 5;
             MigrationModule::add_vesting_bonus(sender, recip_1, amount, start as u64).unwrap();
@@ -908,69 +907,69 @@ fn vesting_bonus_claims_2() {
             System::set_block_number(milestone_1 - 1);
             assert!(MigrationModule::unlock_vesting_bonus(recip_1).is_err());
             assert!(MigrationModule::unlock_vesting_bonus(recip_2).is_err());
-            assert_eq!(recip_1_bal_1, Balances::usable_balance(&recip_1));
-            assert_eq!(recip_2_bal_1, Balances::usable_balance(&recip_2));
+            assert_eq!(recip_1_bal_1, Balances::free_balance(&recip_1));
+            assert_eq!(recip_2_bal_1, Balances::free_balance(&recip_2));
 
             System::set_block_number(milestone_1);
             MigrationModule::unlock_vesting_bonus(recip_1).unwrap();
-            let recip_1_bal_2 = Balances::usable_balance(&recip_1);
+            let recip_1_bal_2 = Balances::free_balance(&recip_1);
             assert_eq!(
                 recip_1_bal_1 + (amount / <TestRuntime as Trait>::VestingMilestones::get() as u64),
                 recip_1_bal_2
             );
             assert!(MigrationModule::unlock_vesting_bonus(recip_2).is_err());
-            assert_eq!(recip_2_bal_1, Balances::usable_balance(&recip_2));
+            assert_eq!(recip_2_bal_1, Balances::free_balance(&recip_2));
 
             System::set_block_number(milestone_1 + offset as u64);
             MigrationModule::unlock_vesting_bonus(recip_2).unwrap();
-            let recip_2_bal_2 = Balances::usable_balance(&recip_2);
+            let recip_2_bal_2 = Balances::free_balance(&recip_2);
             assert_eq!(
                 recip_2_bal_1 + (amount / <TestRuntime as Trait>::VestingMilestones::get() as u64),
                 recip_2_bal_2
             );
             assert!(MigrationModule::unlock_vesting_bonus(recip_1).is_err());
-            assert_eq!(recip_1_bal_2, Balances::usable_balance(&recip_1));
+            assert_eq!(recip_1_bal_2, Balances::free_balance(&recip_1));
 
             System::set_block_number(milestone_2 - 1);
             assert!(MigrationModule::unlock_vesting_bonus(recip_1).is_err());
             assert!(MigrationModule::unlock_vesting_bonus(recip_2).is_err());
-            assert_eq!(recip_1_bal_2, Balances::usable_balance(&recip_1));
-            assert_eq!(recip_2_bal_2, Balances::usable_balance(&recip_2));
+            assert_eq!(recip_1_bal_2, Balances::free_balance(&recip_1));
+            assert_eq!(recip_2_bal_2, Balances::free_balance(&recip_2));
 
             System::set_block_number(milestone_2);
             MigrationModule::unlock_vesting_bonus(recip_1).unwrap();
-            let recip_1_bal_3 = Balances::usable_balance(&recip_1);
+            let recip_1_bal_3 = Balances::free_balance(&recip_1);
             assert_eq!(
                 recip_1_bal_2 + (amount / <TestRuntime as Trait>::VestingMilestones::get() as u64),
                 recip_1_bal_3
             );
             assert!(MigrationModule::unlock_vesting_bonus(recip_2).is_err());
-            assert_eq!(recip_2_bal_2, Balances::usable_balance(&recip_2));
+            assert_eq!(recip_2_bal_2, Balances::free_balance(&recip_2));
 
             System::set_block_number(milestone_2 + offset as u64);
             MigrationModule::unlock_vesting_bonus(recip_2).unwrap();
-            let recip_2_bal_3 = Balances::usable_balance(&recip_2);
+            let recip_2_bal_3 = Balances::free_balance(&recip_2);
             assert_eq!(
                 recip_2_bal_2 + (amount / <TestRuntime as Trait>::VestingMilestones::get() as u64),
                 recip_2_bal_3
             );
             assert!(MigrationModule::unlock_vesting_bonus(recip_1).is_err());
-            assert_eq!(recip_1_bal_3, Balances::usable_balance(&recip_1));
+            assert_eq!(recip_1_bal_3, Balances::free_balance(&recip_1));
 
             // All the bonus should credit by last milestone
             System::set_block_number(milestone_3);
             MigrationModule::unlock_vesting_bonus(recip_1).unwrap();
-            let recip_1_bal_4 = Balances::usable_balance(&recip_1);
+            let recip_1_bal_4 = Balances::free_balance(&recip_1);
             assert_eq!(recip_1_bal_1 + amount, recip_1_bal_4);
             assert!(MigrationModule::unlock_vesting_bonus(recip_2).is_err());
-            assert_eq!(recip_2_bal_3, Balances::usable_balance(&recip_2));
+            assert_eq!(recip_2_bal_3, Balances::free_balance(&recip_2));
 
             System::set_block_number(milestone_3 + offset as u64);
             MigrationModule::unlock_vesting_bonus(recip_2).unwrap();
-            let recip_2_bal_4 = Balances::usable_balance(&recip_2);
+            let recip_2_bal_4 = Balances::free_balance(&recip_2);
             assert_eq!(recip_2_bal_1 + amount, recip_2_bal_4);
             assert!(MigrationModule::unlock_vesting_bonus(recip_1).is_err());
-            assert_eq!(recip_1_bal_4, Balances::usable_balance(&recip_1));
+            assert_eq!(recip_1_bal_4, Balances::free_balance(&recip_1));
         }
     });
 }
@@ -990,8 +989,8 @@ fn bonus_claim_extrinsics() {
         // Override for testing
         <TestRuntime as Trait>::VestingDuration::set(100);
 
-        let recip_1_bal_1 = Balances::usable_balance(&recip_1);
-        let recip_2_bal_1 = Balances::usable_balance(&recip_2);
+        let recip_1_bal_1 = Balances::free_balance(&recip_1);
+        let recip_2_bal_1 = Balances::free_balance(&recip_2);
 
         MigrationModule::add_migrator(RawOrigin::Root.into(), migrator, 100).unwrap();
 
@@ -1011,7 +1010,7 @@ fn bonus_claim_extrinsics() {
         assert!(MigrationModule::bonus(&recip_2).is_some());
 
         MigrationModule::claim_swap_bonus(RawOrigin::Signed(recip_1).into()).unwrap();
-        let recip_1_bal_2 = Balances::usable_balance(&recip_1);
+        let recip_1_bal_2 = Balances::free_balance(&recip_1);
         assert_eq!(recip_1_bal_1 + 10, recip_1_bal_2);
 
         assert!(MigrationModule::claim_swap_bonus(RawOrigin::Signed(recip_2).into()).is_err());
@@ -1020,15 +1019,15 @@ fn bonus_claim_extrinsics() {
             recip_2
         )
         .is_err());
-        assert_eq!(recip_2_bal_1, Balances::usable_balance(&recip_2));
-        assert_eq!(recip_1_bal_2, Balances::usable_balance(&recip_1));
+        assert_eq!(recip_2_bal_1, Balances::free_balance(&recip_2));
+        assert_eq!(recip_1_bal_2, Balances::free_balance(&recip_1));
 
         System::set_block_number(10);
         MigrationModule::claim_swap_bonus_for_other(RawOrigin::Signed(recip_1).into(), recip_2)
             .unwrap();
-        let recip_2_bal_2 = Balances::usable_balance(&recip_2);
+        let recip_2_bal_2 = Balances::free_balance(&recip_2);
         assert_eq!(recip_2_bal_1 + 40, recip_2_bal_2);
-        assert_eq!(recip_1_bal_2, Balances::usable_balance(&recip_1));
+        assert_eq!(recip_1_bal_2, Balances::free_balance(&recip_1));
 
         MigrationModule::give_bonuses(
             RawOrigin::Signed(migrator).into(),
@@ -1065,23 +1064,23 @@ fn bonus_claim_extrinsics() {
 
         System::set_block_number(49);
         MigrationModule::claim_vesting_bonus(RawOrigin::Signed(recip_1).into()).unwrap();
-        let recip_1_bal_3 = Balances::usable_balance(&recip_1);
+        let recip_1_bal_3 = Balances::free_balance(&recip_1);
         assert_eq!(recip_1_bal_2 + 6, recip_1_bal_3);
 
         System::set_block_number(53);
         MigrationModule::claim_vesting_bonus(RawOrigin::Signed(recip_2).into()).unwrap();
-        let recip_2_bal_3 = Balances::usable_balance(&recip_2);
+        let recip_2_bal_3 = Balances::free_balance(&recip_2);
         assert_eq!(recip_2_bal_2 + 16, recip_2_bal_3);
 
         // Claim remaining at once after bonus ends
         System::set_block_number(130);
         MigrationModule::claim_vesting_bonus_for_other(RawOrigin::Signed(recip_2).into(), recip_1)
             .unwrap();
-        let recip_1_bal_4 = Balances::usable_balance(&recip_1);
+        let recip_1_bal_4 = Balances::free_balance(&recip_1);
         assert_eq!(recip_1_bal_3 + 14, recip_1_bal_4);
         MigrationModule::claim_vesting_bonus_for_other(RawOrigin::Signed(recip_1).into(), recip_2)
             .unwrap();
-        let recip_2_bal_4 = Balances::usable_balance(&recip_2);
+        let recip_2_bal_4 = Balances::free_balance(&recip_2);
         assert_eq!(recip_2_bal_3 + 34, recip_2_bal_4);
 
         assert!(MigrationModule::bonus(&recip_1).is_none());
@@ -1122,10 +1121,10 @@ fn bonus_claim_extrinsics() {
 
         System::set_block_number(140);
         MigrationModule::claim_bonus(RawOrigin::Signed(recip_2).into()).unwrap();
-        let recip_2_bal_5 = Balances::usable_balance(&recip_2);
+        let recip_2_bal_5 = Balances::free_balance(&recip_2);
         assert_eq!(recip_2_bal_4 + 40, recip_2_bal_5);
         MigrationModule::claim_bonus_for_other(RawOrigin::Signed(recip_2).into(), recip_1).unwrap();
-        let recip_1_bal_5 = Balances::usable_balance(&recip_1);
+        let recip_1_bal_5 = Balances::free_balance(&recip_1);
         assert_eq!(recip_1_bal_4 + 10, recip_1_bal_5);
 
         assert!(MigrationModule::bonus(&recip_1)
@@ -1153,42 +1152,13 @@ fn bonus_claim_extrinsics() {
 
         System::set_block_number(250);
         MigrationModule::claim_bonus(RawOrigin::Signed(recip_2).into()).unwrap();
-        let recip_2_bal_6 = Balances::usable_balance(&recip_2);
+        let recip_2_bal_6 = Balances::free_balance(&recip_2);
         assert_eq!(recip_2_bal_5 + 200, recip_2_bal_6);
         MigrationModule::claim_bonus_for_other(RawOrigin::Signed(recip_2).into(), recip_1).unwrap();
-        let recip_1_bal_6 = Balances::usable_balance(&recip_1);
+        let recip_1_bal_6 = Balances::free_balance(&recip_1);
         assert_eq!(recip_1_bal_5 + 100, recip_1_bal_6);
 
         assert!(MigrationModule::bonus(&recip_1).is_none());
         assert!(MigrationModule::bonus(&recip_2).is_none());
-    });
-}
-
-#[test]
-fn bonus_locking_reserving() {
-    // Locking should preserve locking
-    new_test_ext().execute_with(|| {
-        let acc_1 = 1;
-        let acc_2 = 2;
-        let acc_3 = 3;
-
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&acc_1, 100);
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&acc_2, 100);
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&acc_3, 100);
-
-        MigrationModule::lock_bonus(&acc_1, 90);
-        <TestRuntime as Trait>::Currency::reserve(&acc_1, 10).unwrap();
-        MigrationModule::remove_lock_from_bonus(&acc_1);
-        <TestRuntime as Trait>::Currency::reserve(&acc_1, 90).unwrap();
-
-        MigrationModule::lock_bonus(&acc_2, 90);
-        assert!(<TestRuntime as Trait>::Currency::reserve(&acc_2, 11).is_err());
-        MigrationModule::remove_lock_from_bonus(&acc_2);
-        <TestRuntime as Trait>::Currency::reserve(&acc_2, 11).unwrap();
-
-        MigrationModule::lock_bonus(&acc_3, 100);
-        assert!(<TestRuntime as Trait>::Currency::reserve(&acc_3, 1).is_err());
-        MigrationModule::remove_lock_from_bonus(&acc_3);
-        <TestRuntime as Trait>::Currency::reserve(&acc_3, 1).unwrap();
     });
 }

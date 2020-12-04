@@ -342,7 +342,7 @@ parameter_types! {
     pub const VestingDuration: u32 = 5270400;
 }
 
-/// `VestingMilestones` and `VestingDuration` must be > 0
+// `VestingMilestones` and `VestingDuration` must be > 0
 const_assert!(VestingMilestones::get() > 0);
 const_assert!(VestingDuration::get() > 0);
 
