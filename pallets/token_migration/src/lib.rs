@@ -265,11 +265,10 @@ decl_module! {
         /// Similar to `claim_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 2 reads, one for bonus storage, one for account locks of receiver.
-        /// One write to bonus storage and one to account locks of receiver.
+        /// There are 3 reads, one for bonus storage, one for account storage and 1 for locks of receiver. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        #[weight = T::DbWeight::get().reads_writes(3, 3)]
         pub fn claim_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_bonus(T::Lookup::lookup(target)?)
@@ -289,11 +288,10 @@ decl_module! {
         /// Similar to `claim_swap_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 3 reads, one for bonus storage, one for account locks of receiver.
-        /// One write to bonus storage and one to account data of receiver.
+        /// There are 3 reads, one for bonus storage, one for account storage and 1 for locks of receiver. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        #[weight = T::DbWeight::get().reads_writes(3, 3)]
         pub fn claim_swap_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_swap_bonus(T::Lookup::lookup(target)?)
@@ -313,11 +311,10 @@ decl_module! {
         /// Similar to `claim_vesting_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 3 reads, one for bonus storage, one for account locks of receiver.
-        /// One write to bonus storage and one to account data of receiver.
+        /// There are 3 reads, one for bonus storage, one for account storage and 1 for locks of receiver. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        #[weight = T::DbWeight::get().reads_writes(3, 3)]
         pub fn claim_vesting_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_vesting_bonus(T::Lookup::lookup(target)?)
