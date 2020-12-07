@@ -253,10 +253,10 @@ decl_module! {
 
         /// Claim bonus if any and can be claimed
         /// # <weight>
-        /// There are 2 reads, one for bonus storage, one for account locks. Similarly for writes.
+        /// There is 1 read and write for bonus storage.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn claim_bonus(origin) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             Self::unlock_bonus(who)
@@ -265,10 +265,10 @@ decl_module! {
         /// Similar to `claim_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 3 reads, one for bonus storage, one for account storage and 1 for locks of receiver. Similarly for writes.
+        /// There are 2 reads, one for bonus storage, one for account storage. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(3, 3)]
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
         pub fn claim_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_bonus(T::Lookup::lookup(target)?)
@@ -276,10 +276,10 @@ decl_module! {
 
         /// Claim swap bonus if any and can be claimed
         /// # <weight>
-        /// There are 2 reads, one for bonus storage, one for account locks. Similarly for writes.
+        /// There is 1 read and write for bonus storage.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn claim_swap_bonus(origin) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             Self::unlock_swap_bonus(who)
@@ -288,10 +288,10 @@ decl_module! {
         /// Similar to `claim_swap_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 3 reads, one for bonus storage, one for account storage and 1 for locks of receiver. Similarly for writes.
+        /// There are 2 reads, one for bonus storage, one for account storage. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(3, 3)]
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
         pub fn claim_swap_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_swap_bonus(T::Lookup::lookup(target)?)
@@ -299,10 +299,10 @@ decl_module! {
 
         /// Claim vesting bonus if any and can be claimed
         /// # <weight>
-        /// There are 2 reads, one for bonus storage, one for account locks. Similarly for writes.
+        /// There is 1 read and write for bonus storage.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn claim_vesting_bonus(origin) -> dispatch::DispatchResult {
             let who = ensure_signed(origin)?;
             Self::unlock_vesting_bonus(who)
@@ -311,10 +311,10 @@ decl_module! {
         /// Similar to `claim_vesting_bonus` but done for another account. The bonus does not
         /// credit to the sending account's free balance
         /// # <weight>
-        /// There are 3 reads, one for bonus storage, one for account storage and 1 for locks of receiver. Similarly for writes.
+        /// There are 2 reads, one for bonus storage, one for account storage. Similarly for writes.
         /// Ignoring weight of in-memory operations
         /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(3, 3)]
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
         pub fn claim_vesting_bonus_for_other(origin, target: <T::Lookup as StaticLookup>::Source) -> dispatch::DispatchResult {
             ensure_signed(origin)?;
             Self::unlock_vesting_bonus(T::Lookup::lookup(target)?)
