@@ -12,7 +12,7 @@ Docker can be used to quickly spin up a node (may require sudo):
 ```
 docker run -p 9944:9944 -p 30333:30333 docknetwork/dock-substrate:latest --chain ./cspec/vulcan_raw.json --ws-external
              |            |                       |                         |                              |
-             |     Expose p2p port                |                 Join the testnet                       |
+             |     Expose p2p port                |                 Join the mainnet                       |
              |                                    |                                                        |
     Expose websocket port          Use the node image from dockerhub                     Listen for rpc over websocket
 ```
