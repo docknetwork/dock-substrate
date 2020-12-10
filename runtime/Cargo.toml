@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.10.1'
+version = '0.11.0'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
@@ -10,6 +10,7 @@ targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
 static_assertions = "1.1.0"
+smallvec = "1.4.1"
 
 [dependencies.aura]
 git = 'https://github.com/paritytech/substrate.git'
@@ -138,6 +139,12 @@ default-features = false
 tag = 'v2.0.0'
 version = '2.0.0'
 
+[dependencies.sp-arithmetic]
+git = 'https://github.com/paritytech/substrate.git'
+default-features = false
+tag = 'v2.0.0'
+version = '2.0.0'
+
 [dependencies.frame-system]
 git = 'https://github.com/paritytech/substrate.git'
 default-features = false
@@ -253,6 +260,7 @@ std = [
     'sp-std/std',
     'sp-transaction-pool/std',
     'sp-version/std',
+    'sp-arithmetic/std',
     'frame-system/std',
     'frame-system-rpc-runtime-api/std',
     'timestamp/std',
@@ -266,14 +274,14 @@ std = [
     'token_migration/std',
 ]
 runtime-benchmarks = [
-  "frame-benchmarking",
-  "frame-support/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
-  "balances/runtime-benchmarks",
-  "frame-system-benchmarking",
-  "token_migration/runtime-benchmarks",
-  "hex-literal"
+  'frame-benchmarking',
+  'frame-support/runtime-benchmarks',
+  'frame-system/runtime-benchmarks',
+  'sp-runtime/runtime-benchmarks',
+  'balances/runtime-benchmarks',
+  'frame-system-benchmarking',
+  'token_migration/runtime-benchmarks',
+  'hex-literal',
 ]
 
 [dev-dependencies]

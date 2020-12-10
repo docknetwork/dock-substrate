@@ -28,6 +28,7 @@ pub mod blob;
 pub mod did;
 pub mod master;
 pub mod revoke;
+pub mod weight_to_fee;
 
 pub use poa;
 pub use token_migration;
@@ -44,7 +45,7 @@ use frame_support::{
             BlockExecutionWeight as DefaultBlockExecutionWeight, ExtrinsicBaseWeight,
             RocksDbWeight, WEIGHT_PER_SECOND,
         },
-        IdentityFee, Weight,
+        Weight,
     },
 };
 use frame_system as system;
@@ -68,6 +69,7 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
+use crate::weight_to_fee::TxnFee;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -132,8 +134,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 14,
-    impl_version: 2,
+    spec_version: 15,
+    impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
@@ -299,7 +301,7 @@ impl transaction_payment::Trait for Runtime {
     type Currency = balances::Module<Runtime>;
     type OnTransactionPayment = PoAModule;
     type TransactionByteFee = TransactionByteFee;
-    type WeightToFee = IdentityFee<Balance>;
+    type WeightToFee = TxnFee<Balance>;
     type FeeMultiplierUpdate = ();
 }
 

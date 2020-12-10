@@ -1153,7 +1153,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "dock-runtime",
  "frame-benchmarking",
@@ -1197,7 +1197,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.10.1"
+version = "0.11.0"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
@@ -1222,7 +1222,9 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde-big-array",
+ "smallvec 1.5.0",
  "sp-api",
+ "sp-arithmetic",
  "sp-block-builder",
  "sp-consensus-aura",
  "sp-core",
