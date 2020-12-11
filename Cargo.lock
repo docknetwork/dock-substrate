@@ -1153,7 +1153,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "dock-runtime",
  "frame-benchmarking",
@@ -1197,7 +1197,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "frame-benchmarking",
  "frame-executive",
@@ -4281,7 +4281,7 @@ checksum = "feb3b2b1033b8a60b4da6ee470325f887758c95d5320f52f9ce0df055a55940e"
 
 [[package]]
 name = "poa"
-version = "0.5.1"
+version = "0.6.0"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4300,7 +4300,7 @@ dependencies = [
 
 [[package]]
 name = "poa_rpc"
-version = "0.0.2"
+version = "0.0.3"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",

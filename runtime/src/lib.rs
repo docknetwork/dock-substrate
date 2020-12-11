@@ -65,11 +65,11 @@ use sp_runtime::{
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
 
+use crate::weight_to_fee::TxnFee;
 use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-use crate::weight_to_fee::TxnFee;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -134,7 +134,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 15,
+    spec_version: 16,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,

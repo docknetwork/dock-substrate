@@ -3,7 +3,7 @@ authors = ['Dock.io']
 build = 'build.rs'
 edition = '2018'
 name = 'dock-node'
-version = '0.11.0'
+version = '0.11.1'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -23,7 +23,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = '../runtime'
-version = '0.11.0'
+version = '0.11.1'
 
 [dependencies.sc-basic-authorship]
 git = 'https://github.com/paritytech/substrate.git'
@@ -172,7 +172,7 @@ version = '2.0.0'
 
 [dependencies.poa_rpc]
 path = '../pallets/poa/rpc'
-version = '0.0.2'
+version = '0.0.3'
 
 [[bin]]
 name = 'dock-node'
