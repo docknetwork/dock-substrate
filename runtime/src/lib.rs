@@ -63,7 +63,7 @@ use sp_runtime::traits::{
     OpaqueKeys, Saturating, Verify,
 };
 use sp_runtime::{
-    create_runtime_str, generic, impl_opaque_keys, print,
+    create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature, Perbill,
 };
@@ -210,21 +210,15 @@ impl Filter<Call> for BaseFilter {
             | Call::Master(_)
             | Call::Sudo(_)
             | Call::MigrationModule(_)
-            | Call::RandomnessCollectiveFlip(_) => {
-                print("Returning true in BaseFilter");
-                true
-            }
-            _ => {
-                print("Returning false in BaseFilter");
-                false
-            }
+            | Call::RandomnessCollectiveFlip(_) => true,
+            _ => false,
         }
     }
 }
 
 impl system::Trait for Runtime {
     /// The basic call filter to use in dispatchable.
-    type BaseCallFilter = ();
+    type BaseCallFilter = BaseFilter;
     /// The ubiquitous origin type.
     type Origin = Origin;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -542,7 +536,6 @@ parameter_types! {
 
 impl simple_democracy::Trait for Runtime {
     type Event = Event;
-    type PublicProposalDeposit = MinimumDeposit;
     /// Only council members can vote
     type VoterOrigin = CouncilMember;
 }

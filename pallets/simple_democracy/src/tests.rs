@@ -261,7 +261,6 @@ impl poa::Trait for TestRuntime {
 
 impl super::Trait for TestRuntime {
     type Event = ();
-    type PublicProposalDeposit = MinimumDeposit;
     type VoterOrigin = CouncilMember;
 }
 
@@ -370,16 +369,16 @@ fn execute_as_council_member(call: Call) -> Call {
 }
 
 // Some test helpers copied from forked democracy pallet and adapted
-fn set_balance_proposal(value: u64) -> Vec<u8> {
-    Call::Balances(balances::Call::set_balance(42, value, 0)).encode()
+fn set_balance_proposal(balance: u64) -> Vec<u8> {
+    Call::Balances(balances::Call::set_balance(42, balance, 0)).encode()
 }
 
-fn set_balance_proposal_hash(value: u64) -> H256 {
-    BlakeTwo256::hash(&set_balance_proposal(value)[..])
+fn set_balance_proposal_hash(balance: u64) -> H256 {
+    BlakeTwo256::hash(&set_balance_proposal(balance)[..])
 }
 
-fn set_balance_proposal_hash_and_note(value: u64) -> H256 {
-    let p = set_balance_proposal(value);
+fn set_balance_proposal_hash_and_note(balance: u64) -> H256 {
+    let p = set_balance_proposal(balance);
     let h = BlakeTwo256::hash(&p[..]);
     // Give sufficient balance for deposit
     let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(&117, 1000);
@@ -387,16 +386,18 @@ fn set_balance_proposal_hash_and_note(value: u64) -> H256 {
     h
 }
 
-fn propose_set_balance_and_note(who: u64, value: u64) -> DispatchResult {
+fn propose_set_balance_and_note(who: u64, balance: u64) -> DispatchResult {
     Democracy::propose(
         Origin::signed(who),
-        set_balance_proposal_hash_and_note(value),
+        set_balance_proposal_hash_and_note(balance),
+        50,
     )
 }
 
 fn next_block() {
     System::set_block_number(System::block_number() + 1);
     Scheduler::on_initialize(System::block_number());
+    ForkedDemocracy::on_initialize(System::block_number());
     Democracy::on_initialize(System::block_number());
 }
 
@@ -713,7 +714,9 @@ fn public_proposes_root_action_and_council_accepts() {
         assert_eq!(Balances::reserved_balance(proposer), 0);
 
         // Proposing should fail
-        assert!(Democracy::propose(Origin::signed(proposer), balance_set_prop_hash).is_err());
+        assert!(
+            Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).is_err()
+        );
 
         // Give some more balance to reach `MinimumDeposit`
         let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(&proposer, 10);
@@ -724,7 +727,7 @@ fn public_proposes_root_action_and_council_accepts() {
 
         assert_eq!(Democracy::public_prop_count(), 0);
         // Proposing should work and proposer's balance should be reserved
-        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash).unwrap();
+        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
         assert_eq!(Democracy::public_prop_count(), 1);
 
         Democracy::second(Origin::signed(backer), 0, 10).unwrap();
@@ -778,7 +781,7 @@ fn public_proposes_root_action_and_council_rejects() {
         assert!(Democracy::deposit_of(0).is_none());
 
         // Public proposal backed by 2 more accounts
-        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash).unwrap();
+        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
         Democracy::second(Origin::signed(backer_1), 0, 10).unwrap();
         Democracy::second(Origin::signed(backer_2), 0, 10).unwrap();
         assert_eq!(Democracy::public_props().len(), 1);
@@ -835,12 +838,15 @@ fn only_council_can_vote() {
         let balance_set_prop = set_balance_proposal(2);
         let balance_set_prop_hash = BlakeTwo256::hash(&balance_set_prop);
 
-        let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(&proposer, 50);
+        let deposit = 50;
+        let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(
+            &proposer, deposit,
+        );
 
         assert_eq!(Democracy::public_props().len(), 0);
 
         // Public proposal
-        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash).unwrap();
+        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
         assert_eq!(Democracy::public_props().len(), 1);
         assert_eq!(Democracy::referendum_count(), 0);
 
@@ -931,6 +937,81 @@ fn only_council_can_vote() {
 }
 
 #[test]
+fn can_change_remove_vote() {
+    // Voter (Council) can change vote or remove vote
+    new_test_ext().execute_with(|| {
+        assert_eq!(Council::members(), vec![1, 2, 3]);
+        assert_eq!(Balances::free_balance(42), 0);
+
+        let proposer = 23;
+        System::set_block_number(0);
+
+        let balance_set_prop = set_balance_proposal(2);
+        let balance_set_prop_hash = BlakeTwo256::hash(&balance_set_prop);
+
+        let deposit = 50;
+        let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(
+            &proposer, deposit,
+        );
+        // Public proposal
+        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
+
+        assert_eq!(Democracy::referendum_count(), 0);
+        fast_forward_to(6);
+        // launch period ends, referendum is chosen
+        assert_eq!(
+            Democracy::referendum_status(0).unwrap().tally,
+            Tally {
+                ayes: 0,
+                nays: 0,
+                turnout: 0
+            }
+        );
+
+        // One council member approves
+        let vote_1 = Call::Democracy(crate::Call::vote(0, aye()));
+        let exec_1 = execute_as_council_member(vote_1);
+        exec_1.dispatch(Origin::signed(1)).unwrap();
+        assert_eq!(
+            Democracy::referendum_status(0).unwrap().tally,
+            Tally {
+                ayes: 1,
+                nays: 0,
+                turnout: 0
+            }
+        );
+
+        // Same council member changes vote to disapproval
+        let vote_2 = Call::Democracy(crate::Call::vote(0, nay()));
+        let exec_2 = execute_as_council_member(vote_2);
+        exec_2.dispatch(Origin::signed(1)).unwrap();
+        assert_eq!(
+            Democracy::referendum_status(0).unwrap().tally,
+            Tally {
+                ayes: 0,
+                nays: 1,
+                turnout: 0
+            }
+        );
+
+        // Same council member removes vote
+        let vote_3 = Call::Democracy(crate::Call::remove_vote(0));
+        let exec_3 = execute_as_council_member(vote_3);
+        exec_3.dispatch(Origin::signed(1)).unwrap();
+        assert_eq!(
+            Democracy::referendum_status(0).unwrap().tally,
+            Tally {
+                ayes: 0,
+                nays: 0,
+                turnout: 0
+            }
+        );
+
+        council_votes_and_concludes(balance_set_prop_hash, balance_set_prop);
+    });
+}
+
+#[test]
 fn proposals_picked_alternatively() {
     new_test_ext().execute_with(|| {
         System::set_block_number(0);
@@ -996,12 +1077,6 @@ fn proposals_picked_alternatively() {
             council_prop_2,
         )));
         exec_2.dispatch(Origin::signed(2)).unwrap();
-
-        println!("{:?}", council_prop_1);
-        println!("{:?}", public_prop_1);
-        println!("{:?}", public_prop_2);
-        println!("{:?}", public_prop_3);
-        println!("{:?}", council_prop_2);
 
         fast_forward_to(12);
 
@@ -1152,8 +1227,11 @@ fn changing_config_of_poa_module() {
         let prop_2_hash = BlakeTwo256::hash(&proposal_to_decrease_val_lock_pc);
 
         // Give some more balance to reach `MinimumDeposit`
-        let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(&proposer, 50);
-        Democracy::propose(Origin::signed(proposer), prop_2_hash).unwrap();
+        let deposit = 50;
+        let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(
+            &proposer, deposit,
+        );
+        Democracy::propose(Origin::signed(proposer), prop_2_hash, deposit).unwrap();
 
         execute_poa_config_proposal(12, 1, proposal_to_decrease_val_lock_pc);
 
