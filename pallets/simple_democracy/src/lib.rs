@@ -16,7 +16,7 @@ use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::{
     decl_error, decl_event, decl_module, ensure,
     traits::{Currency, EnsureOrigin, Get, Imbalance, OnUnbalanced},
-    weights::{DispatchClass, Weight},
+    weights::DispatchClass,
     StorageMap, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
@@ -34,7 +34,6 @@ mod tests;
 
 pub trait Trait: system::Trait + pallet_democracy::Trait + poa::Trait {
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
-    type PublicProposalDeposit: Get<u64>;
     /// Origin which can vote
     type VoterOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 }
@@ -60,13 +59,11 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Almost similar to forked democracy pallet's `propose` with the difference being that the
-        /// deposit cannot be chosen by user but is fixed in `PublicProposalDeposit`
+        /// Proxy function to forked democracy pallet's `propose`
         // TODO: Fix weight
         #[weight = 0]
-        fn propose(origin, proposal_hash: T::Hash) {
-            let deposit = T::PublicProposalDeposit::get();
-            <pallet_democracy::Module<T>>::propose(origin, proposal_hash, deposit.saturated_into())?;
+        fn propose(origin, proposal_hash: T::Hash, #[compact] value: BalanceOf<T>) {
+            <pallet_democracy::Module<T>>::propose(origin, proposal_hash, value)?;
         }
 
         /// Proxy function to forked democracy pallet's `second`
@@ -171,12 +168,6 @@ decl_module! {
         fn clear_public_proposals(origin) {
             <pallet_democracy::Module<T>>::clear_public_proposals(origin)?;
         }
-
-        /// Proxy function to forked democracy pallet's `on_initialize`
-        // TODO: Set weight
-        fn on_initialize(n: T::BlockNumber) -> Weight {
-            <pallet_democracy::Module<T>>::on_initialize(n)
-        }
     }
 }
 
@@ -246,8 +237,8 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         if let AccountVote::Standard { vote, .. } = vote {
             match vote.aye {
-                true => tally.ayes += 1.saturated_into(),
-                false => tally.nays += 1.saturated_into(),
+                true => tally.ayes -= 1.saturated_into(),
+                false => tally.nays -= 1.saturated_into(),
             }
             Ok(())
         } else {
@@ -262,9 +253,7 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         if let AccountVote::Standard { vote, .. } = vote {
             match vote.aye {
-                true => {
-                    tally.ayes += 1.saturated_into();
-                }
+                true => tally.ayes += 1.saturated_into(),
                 false => tally.nays += 1.saturated_into(),
             }
             Ok(())
