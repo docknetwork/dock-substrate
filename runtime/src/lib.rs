@@ -104,6 +104,7 @@ pub enum StateChange {
     RemoveRegistry(revoke::RemoveRegistry),
     Blob(blob::Blob),
     MasterVote(master::Payload),
+    Attestation((did::Did, attest::Attestation)),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -314,10 +315,12 @@ impl revoke::Trait for Runtime {}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
+    pub const StorageWeight: Weight = 1100;
 }
 
 impl blob::Trait for Runtime {
     type MaxBlobSize = MaxBlobSize;
+    type StorageWeight = StorageWeight;
 }
 
 impl pallet_session::Trait for Runtime {
@@ -390,6 +393,10 @@ impl anchor::Trait for Runtime {
     type Event = Event;
 }
 
+impl attest::Trait for Runtime {
+    type StorageWeight = StorageWeight;
+}
+
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
@@ -414,6 +421,7 @@ construct_runtime!(
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
         Anchor: anchor::{Module, Call, Storage, Event<T>},
+        Attest: attest::{Module, Call, Storage},
     }
 );
 

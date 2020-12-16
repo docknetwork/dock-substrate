@@ -142,10 +142,12 @@ impl crate::revoke::Trait for Test {}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
+    pub const StorageWeight: Weight = 1100;
 }
 
 impl crate::blob::Trait for Test {
     type MaxBlobSize = MaxBlobSize;
+    type StorageWeight = StorageWeight;
 }
 
 impl crate::master::Trait for Test {
