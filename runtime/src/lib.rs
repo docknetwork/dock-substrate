@@ -22,6 +22,7 @@ extern crate alloc;
 extern crate static_assertions;
 
 pub mod anchor;
+pub mod attest;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmark_utils;
 pub mod blob;
