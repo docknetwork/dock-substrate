@@ -159,6 +159,10 @@ impl crate::anchor::Trait for Test {
     type Event = TestEvent;
 }
 
+impl crate::attest::Trait for Test {
+    type StorageWeight = StorageWeight;
+}
+
 pub const ABBA: u64 = 0;
 pub const RGA: RegistryId = [0u8; 32];
 pub const RA: RevokeId = [0u8; 32];

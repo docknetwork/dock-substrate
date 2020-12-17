@@ -119,41 +119,261 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod test {
-    /// Trigger the PriorityTooLow error
+    use super::*;
+    use crate::test_common::*;
+    use sp_core::sr25519;
+
+    type Mod = crate::attest::Module<Test>;
+    type Er = crate::attest::Error<Test>;
+
+    /// Trigger the PriorityTooLow error by submitting a priority 0 attestation.
     #[test]
     fn priority_too_low() {
-        unimplemented!()
+        ext().execute_with(|| {
+            let (did, kp) = newdid();
+            let att = Attestation {
+                priority: 0,
+                iri: None,
+            };
+            let err = Mod::set_claim(
+                Origin::signed(0),
+                did,
+                att.clone(),
+                sign(&StateChange::Attestation((did, att)), &kp),
+            )
+            .unwrap_err();
+            assert_eq!(err, Er::PriorityTooLow.into());
+        });
     }
 
     /// assert sizes of encoded Attestation
     #[test]
     fn encoded_attestation_size() {
-        unimplemented!()
+        ext().execute_with(|| {
+            for (priority, iri, expected_size) in [
+                (0, None, 1 + 1),
+                (63, None, 1 + 1),
+                (64, None, 2 + 1),
+                (256, None, 2 + 1),
+                (0, Some(vec![]), 1 + 2),
+                (0, Some(vec![0]), 1 + 3),
+                (0, Some(vec![0; 63]), 1 + 63 + 2),
+                (0, Some(vec![0; 64]), 1 + 64 + 3),
+                (0, Some(vec![0; 256]), 1 + 256 + 3),
+                (63, Some(vec![0; 256]), 1 + 256 + 3),
+                (64, Some(vec![0; 256]), 2 + 256 + 3),
+            ]
+            .iter()
+            .cloned()
+            {
+                assert_eq!(Attestation { priority, iri }.encode().len(), expected_size);
+            }
+        });
     }
 
     /// Trigger the InvalidSig error by tweaking a value in the plaintext after signing
     #[test]
-    fn invalid_sig() {
-        unimplemented!()
+    fn invalid_sig_a() {
+        ext().execute_with(|| {
+            let (dida, kpa) = newdid();
+            let mut att = Attestation {
+                priority: 1,
+                iri: None,
+            };
+            let sig = sign(&StateChange::Attestation((dida, att.clone())), &kpa);
+            att.priority += 1;
+            let err = Mod::set_claim(Origin::signed(0), dida, att, sig).unwrap_err();
+            assert_eq!(err, Er::InvalidSig.into());
+        });
+    }
+
+    /// Trigger the InvalidSig error using a different did for signing
+    #[test]
+    fn invalid_sig_b() {
+        ext().execute_with(|| {
+            let (dida, _kpa) = newdid();
+            let (_didb, kpb) = newdid();
+            let att = Attestation {
+                priority: 1,
+                iri: None,
+            };
+            let err = Mod::set_claim(
+                Origin::signed(0),
+                dida,
+                att.clone(),
+                sign(&StateChange::Attestation((dida, att)), &kpb),
+            )
+            .unwrap_err();
+            assert_eq!(err, Er::InvalidSig.into());
+        });
     }
 
     /// Attestations with equal priority are mutually exlusive
     #[test]
     fn priority_face_off() {
-        unimplemented!()
+        ext().execute_with(|| {
+            let (did, kp) = newdid();
+
+            // same iri
+            set_claim(
+                &did,
+                &Attestation {
+                    priority: 1,
+                    iri: None,
+                },
+                &kp,
+            )
+            .unwrap();
+            assert_eq!(
+                set_claim(
+                    &did,
+                    &Attestation {
+                        priority: 1,
+                        iri: None,
+                    },
+                    &kp,
+                )
+                .unwrap_err(),
+                Er::PriorityTooLow.into()
+            );
+
+            // different iris
+            set_claim(
+                &did,
+                &Attestation {
+                    priority: 2,
+                    iri: Some(vec![0]),
+                },
+                &kp,
+            )
+            .unwrap();
+            assert_eq!(
+                set_claim(
+                    &did,
+                    &Attestation {
+                        priority: 2,
+                        iri: Some(vec![0, 2, 3]),
+                    },
+                    &kp,
+                )
+                .unwrap_err(),
+                Er::PriorityTooLow.into()
+            );
+        });
     }
 
     /// After attempting a set of attestations the one with highest priority is the one that ends up
     /// in chain state.
     #[test]
     fn priority_battle_royale() {
-        unimplemented!()
+        ext().execute_with(|| {
+            let (did, kp) = newdid();
+            let prios: Vec<u64> = (0..200).map(|_| rand::random::<u64>()).collect();
+            for priority in &prios {
+                let _ = set_claim(
+                    &did,
+                    &Attestation {
+                        priority: *priority,
+                        iri: None,
+                    },
+                    &kp,
+                );
+            }
+            assert_eq!(
+                Attestations::get(did).priority,
+                prios.iter().max().unwrap().clone()
+            );
+        });
     }
 
     /// An attestation with priority set to the highest value is final.
     /// It does not trigger a panic by integer overflow.
     #[test]
     fn max_priority_is_final() {
-        unimplemented!()
+        ext().execute_with(|| {
+            let (did, kp) = newdid();
+            set_claim(
+                &did,
+                &Attestation {
+                    priority: u64::max_value(),
+                    iri: None,
+                },
+                &kp,
+            )
+            .unwrap();
+            let err = set_claim(
+                &did,
+                &Attestation {
+                    priority: u64::max_value(),
+                    iri: None,
+                },
+                &kp,
+            )
+            .unwrap_err();
+            assert_eq!(err, Er::PriorityTooLow.into());
+        });
+    }
+
+    /// Set an attestation that is not None
+    #[test]
+    fn set_some_attestation() {
+        ext().execute_with(|| {
+            let (did, kp) = newdid();
+            assert_eq!(
+                Attestations::get(did),
+                Attestation {
+                    priority: 0,
+                    iri: None,
+                }
+            );
+            set_claim(
+                &did,
+                &Attestation {
+                    priority: 1,
+                    iri: Some(vec![0, 1, 2]),
+                },
+                &kp,
+            )
+            .unwrap();
+            assert_eq!(
+                Attestations::get(did),
+                Attestation {
+                    priority: 1,
+                    iri: Some(vec![0, 1, 2]),
+                }
+            );
+        });
+    }
+
+    /// Skip a priority value.
+    #[test]
+    fn skip_prio() {
+        ext().execute_with(|| {
+            let (did, kp) = newdid();
+            for priority in &[1, 2, 4] {
+                set_claim(
+                    &did,
+                    &Attestation {
+                        priority: *priority,
+                        iri: None,
+                    },
+                    &kp,
+                )
+                .unwrap();
+            }
+        });
+    }
+
+    /// helper
+    fn set_claim(claimer: &did::Did, att: &Attestation, kp: &sr25519::Pair) -> DispatchResult {
+        Mod::set_claim(
+            Origin::signed(0),
+            claimer.clone(),
+            att.clone(),
+            sign(
+                &StateChange::Attestation((claimer.clone(), att.clone())),
+                kp,
+            ),
+        )
     }
 }
