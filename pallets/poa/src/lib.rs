@@ -88,8 +88,8 @@ impl<Balance> EpochDetail<Balance> {
             starting_slot,
             expected_ending_slot,
             ending_slot: None,
-            emission_for_treasury: None,
             emission_for_validators: None,
+            emission_for_treasury: None,
         }
     }
 
