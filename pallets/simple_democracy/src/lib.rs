@@ -1,5 +1,6 @@
 //! This is a facade over Substrate's democracy pallet offering similar functionality with a few differences.
-//! This pallet implements a "simple majority" governance where only Council can vote but anyone can
+//! It also assumes that sending extrinsics to Substrate's democracy pallet are disallowed and this is configured in runtime/lib.rs
+//! This pallet offers a "simple majority" governance, by mostly restricting certain features of Substrate's democracy pallet. Here only Council can vote but anyone can
 //! propose by locking a fixed amount of tokens, `PublicProposalDeposit`. Similar to Substrate's governance pallet, both Council and
 //! general public take turns proposing, and a proposal follows "propose" -> "referendum" -> "enact" sequence.
 //! General public's proposals can be "seconded" by other token holder.
@@ -59,27 +60,89 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        /// Proxy function to forked democracy pallet's `propose`
+        // Several functions below are "proxy" to the forked democracy pallet's calls and have their docs and weight largely copied from there
+
+        /// Propose a sensitive action to be taken.
+        ///
+        /// The dispatch origin of this call must be _Signed_ and the sender must
+        /// have funds to cover the deposit.
+        ///
+        /// - `proposal_hash`: The hash of the proposal preimage.
+        /// - `value`: The amount of deposit (must be at least `MinimumDeposit`).
+        ///
+        /// Emits `Proposed`.
+        ///
+        /// # <weight>
+        /// - Complexity: `O(1)`
+        /// - Db reads: `PublicPropCount`, `PublicProps`
+        /// - Db writes: `PublicPropCount`, `PublicProps`, `DepositOf`
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
         fn propose(origin, proposal_hash: T::Hash, #[compact] value: BalanceOf<T>) {
             <pallet_democracy::Module<T>>::propose(origin, proposal_hash, value)?;
         }
 
-        /// Proxy function to forked democracy pallet's `second`
+        /// Signals agreement with a particular proposal.
+        ///
+        /// The dispatch origin of this call must be _Signed_ and the sender
+        /// must have funds to cover the deposit, equal to the original deposit.
+        ///
+        /// - `proposal`: The index of the proposal to second.
+        /// - `seconds_upper_bound`: an upper bound on the current number of seconds on this
+        ///   proposal. Extrinsic is weighted according to this value with no refund.
+        ///
+        /// # <weight>
+        /// - Complexity: `O(S)` where S is the number of seconds a proposal already has.
+        /// - Db reads: `DepositOf`
+        /// - Db writes: `DepositOf`
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
         fn second(origin, #[compact] proposal: PropIndex, #[compact] seconds_upper_bound: u32) {
             <pallet_democracy::Module<T>>::second(origin, proposal, seconds_upper_bound)?;
         }
 
-        /// Proxy function to forked democracy pallet's `external_propose_majority`
+        /// Schedule a majority-carries referendum to be tabled next once it is legal to schedule
+        /// an external referendum.
+        ///
+        /// The dispatch of this call must be `ExternalMajorityOrigin`.
+        ///
+        /// - `proposal_hash`: The preimage hash of the proposal.
+        ///
+        /// Unlike `external_propose`, blacklisting has no effect on this and it may replace a
+        /// pre-scheduled `external_propose` call.
+        ///
+        /// # <weight>
+        /// - Complexity: `O(1)`
+        /// - Db write: `NextExternal`
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
         fn council_propose(origin, proposal_hash: T::Hash) {
             <pallet_democracy::Module<T>>::external_propose_majority(origin, proposal_hash)?;
         }
 
+        /// Schedule the currently externally-proposed majority-carries referendum to be tabled
+        /// immediately. If there is no externally-proposed referendum currently, or if there is one
+        /// but it is not a majority-carries referendum then it fails.
+        ///
+        /// The dispatch of this call must be `FastTrackOrigin`.
+        ///
+        /// - `proposal_hash`: The hash of the current external proposal.
+        /// - `voting_period`: The period that is allowed for voting on this proposal. Increased to
+        ///   `FastTrackVotingPeriod` if too low.
+        /// - `delay`: The number of block after voting has ended in approval and this should be
+        ///   enacted. This doesn't have a minimum amount.
+        ///
+        /// Emits `Started`.
+        ///
+        /// # <weight>
+        /// - Complexity: `O(1)`
+        /// - Db reads: `NextExternal`, `ReferendumCount`
+        /// - Db writes: `NextExternal`, `ReferendumCount`, `ReferendumInfoOf`
+        /// - Base Weight: 30.1 µs
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
         fn fast_track(origin, proposal_hash: T::Hash, voting_period: T::BlockNumber, delay: T::BlockNumber) {
@@ -114,55 +177,118 @@ decl_module! {
             Self::try_remove_vote(&target, ref_index, scope)
         }
 
-        /// Proxy function to forked democracy pallet's `enact_proposal`
+        /// Enact a proposal from a referendum. For now we just make the weight be the maximum.
         #[weight = T::MaximumBlockWeight::get()]
         fn enact_proposal(origin, proposal_hash: T::Hash, index: ReferendumIndex) -> DispatchResult {
             <pallet_democracy::Module<T>>::enact_proposal(origin, proposal_hash, index)
         }
 
-        /// Proxy function to forked democracy pallet's `note_preimage`
+        /// Register the preimage for an upcoming proposal. This doesn't require the proposal to be
+        /// in the dispatch queue but does require a deposit, returned once enacted.
+        ///
+        /// The dispatch origin of this call must be _Signed_.
+        ///
+        /// - `encoded_proposal`: The preimage of a proposal.
+        ///
+        /// Emits `PreimageNoted`.
+        ///
+        /// # <weight>
+        /// - Complexity: `O(E)` with E size of `encoded_proposal` (protected by a required deposit).
+        /// - Db reads: `Preimages`
+        /// - Db writes: `Preimages`
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
         pub fn note_preimage(origin, encoded_proposal: Vec<u8>) {
             <pallet_democracy::Module<T>>::note_preimage(origin, encoded_proposal)?;
         }
 
-        /// Proxy function to forked democracy pallet's `note_preimage_operational`
+        /// Same as `note_preimage` but origin is `OperationalPreimageOrigin`.
         // TODO: Fix weight
         #[weight = (0, DispatchClass::Operational)]
         fn note_preimage_operational(origin, encoded_proposal: Vec<u8>) {
             <pallet_democracy::Module<T>>::note_preimage_operational(origin, encoded_proposal)?;
         }
 
-        /// Proxy function to forked democracy pallet's `reap_preimage`
+        /// Remove an expired proposal preimage and collect the deposit.
+        ///
+        /// The dispatch origin of this call must be _Signed_.
+        ///
+        /// - `proposal_hash`: The preimage hash of a proposal.
+        /// - `proposal_length_upper_bound`: an upper bound on length of the proposal.
+        ///   Extrinsic is weighted according to this value with no refund.
+        ///
+        /// This will only work after `VotingPeriod` blocks from the time that the preimage was
+        /// noted, if it's the same account doing it. If it's a different account, then it'll only
+        /// work an additional `EnactmentPeriod` later.
+        ///
+        /// Emits `PreimageReaped`.
+        ///
+        /// # <weight>
+        /// - Complexity: `O(D)` where D is length of proposal.
+        /// - Db reads: `Preimages`, provider account data
+        /// - Db writes: `Preimages` provider account data
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
         pub fn reap_preimage(origin, proposal_hash: T::Hash, #[compact] proposal_len_upper_bound: u32) {
             <pallet_democracy::Module<T>>::reap_preimage(origin, proposal_hash, proposal_len_upper_bound)?;
         }
 
-        /// Proxy function to forked democracy pallet's `cancel_proposal`
+        /// Remove a proposal.
+        ///
+        /// The dispatch origin of this call must be `CancelProposalOrigin`.
+        ///
+        /// - `prop_index`: The index of the proposal to cancel.
+        ///
+        /// Weight: `O(p)` where `p = PublicProps::<T>::decode_len()`
         // TODO: Fix weight
         #[weight = 0]
         fn cancel_proposal(origin, #[compact] prop_index: PropIndex) {
             <pallet_democracy::Module<T>>::cancel_proposal(origin, prop_index)?;
         }
 
-        /// Proxy function to forked democracy pallet's `cancel_queued`
+        /// Cancel a proposal queued for enactment.
+        ///
+        /// The dispatch origin of this call must be _Root_.
+        ///
+        /// - `which`: The index of the referendum to cancel.
+        ///
+        /// # <weight>
+        /// - `O(D)` where `D` is the items in the dispatch queue. Weighted as `D = 10`.
+        /// - Db reads: `scheduler lookup`, scheduler agenda`
+        /// - Db writes: `scheduler lookup`, scheduler agenda`
+        /// # </weight>
         // TODO: Fix weight
         #[weight = (0, DispatchClass::Operational)]
         fn cancel_queued(origin, which: ReferendumIndex) {
             <pallet_democracy::Module<T>>::cancel_queued(origin, which)?;
         }
 
-        /// Proxy function to forked democracy pallet's `cancel_referendum`
+        /// Remove a referendum.
+        ///
+        /// The dispatch origin of this call must be _Root_.
+        ///
+        /// - `ref_index`: The index of the referendum to cancel.
+        ///
+        /// # <weight>
+        /// - Complexity: `O(1)`.
+        /// - Db writes: `ReferendumInfoOf`
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
         fn cancel_referendum(origin, #[compact] ref_index: ReferendumIndex) {
             <pallet_democracy::Module<T>>::cancel_referendum(origin, ref_index)?;
         }
 
-        /// Proxy function to forked democracy pallet's `clear_public_proposals`
+        /// Clears all public proposals.
+        ///
+        /// The dispatch origin of this call must be _Root_.
+        ///
+        /// # <weight>
+        /// - `O(1)`.
+        /// - Db writes: `PublicProps`
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
         fn clear_public_proposals(origin) {

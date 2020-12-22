@@ -183,39 +183,6 @@ parameter_types! {
     pub const Version: RuntimeVersion = VERSION;
 }
 
-/// Filter to disallow access to certain modules
-pub struct BaseFilter;
-
-impl Filter<Call> for BaseFilter {
-    fn filter(call: &Call) -> bool {
-        match call {
-            // These modules are all allowed to be called by transactions:
-            Call::Democracy(_)
-            | Call::Council(_)
-            | Call::TechnicalCommittee(_)
-            | Call::CouncilMembership(_)
-            | Call::TechnicalCommitteeMembership(_)
-            | Call::System(_)
-            | Call::Scheduler(_)
-            | Call::Timestamp(_)
-            | Call::Balances(_)
-            | Call::Authorship(_)
-            | Call::Session(_)
-            | Call::Grandpa(_)
-            | Call::Utility(_)
-            | Call::PoAModule(_)
-            | Call::DIDModule(_)
-            | Call::Revoke(_)
-            | Call::BlobStore(_)
-            | Call::Master(_)
-            | Call::Sudo(_)
-            | Call::MigrationModule(_)
-            | Call::RandomnessCollectiveFlip(_) => true,
-            _ => false,
-        }
-    }
-}
-
 impl system::Trait for Runtime {
     /// The basic call filter to use in dispatchable.
     type BaseCallFilter = BaseFilter;
@@ -528,8 +495,8 @@ parameter_types! {
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
     // 10K tokens
     pub const MinimumDeposit: Balance = 10_000 * 1_000_000;
-    // 1 token
-    pub const PreimageByteDeposit: Balance = 1 * 1_000_000;
+    // 0.1 token
+    pub const PreimageByteDeposit: Balance = 100_000;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
 }
@@ -549,8 +516,10 @@ impl pallet_democracy::Trait for Runtime {
     type VotingPeriod = VotingPeriod;
     type CooloffPeriod = CooloffPeriod;
     type MinimumDeposit = MinimumDeposit;
+    /// Only specified to compile, not used however.
     type ExternalOrigin = CouncilMember;
     type ExternalMajorityOrigin = CouncilMember;
+    /// Only specified to compile, not used however.
     type ExternalDefaultOrigin = RootOrMoreThanHalfCouncil;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
@@ -569,16 +538,6 @@ impl pallet_democracy::Trait for Runtime {
     /// Slashes are handled by Democracy
     type Slash = Democracy;
     type OperationalPreimageOrigin = CouncilMember;
-    /*type OperationalPreimageOrigin = EnsureOneOf<AccountId,
-        pallet_collective::EnsureMember<AccountId, CouncilCollective>,
-        pallet_collective::EnsureMember<AccountId, TechnicalCollective>,
-    >;*/
-    /*type VetoOrigin = EnsureOneOf<
-        AccountId,
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionMoreThan<_1, _1, AccountId, TechnicalCollective>,
-        Success=AccountId
-    >;*/
     type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
     type Scheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
@@ -587,6 +546,42 @@ impl pallet_democracy::Trait for Runtime {
     type WeightInfo = ();
 }
 
+/// Filter to disallow access to certain modules. Make sure that any modules added to `Runtime` (with `construct_runtime!`)
+/// and intended to called publicly should be added to this filter.
+pub struct BaseFilter;
+
+impl Filter<Call> for BaseFilter {
+    fn filter(call: &Call) -> bool {
+        match call {
+            // These modules are all allowed to be called by transactions:
+            Call::Democracy(_)
+            | Call::Council(_)
+            | Call::TechnicalCommittee(_)
+            | Call::CouncilMembership(_)
+            | Call::TechnicalCommitteeMembership(_)
+            | Call::System(_)
+            | Call::Scheduler(_)
+            | Call::Timestamp(_)
+            | Call::Balances(_)
+            | Call::Authorship(_)
+            | Call::Session(_)
+            | Call::Grandpa(_)
+            | Call::Utility(_)
+            | Call::PoAModule(_)
+            | Call::DIDModule(_)
+            | Call::Revoke(_)
+            | Call::BlobStore(_)
+            | Call::Anchor(_)
+            | Call::Master(_)
+            | Call::Sudo(_)
+            | Call::MigrationModule(_)
+            | Call::RandomnessCollectiveFlip(_) => true,
+            _ => false,
+        }
+    }
+}
+
+// If adding a module that can be called publicly, add it to the above `BaseFilter` as well.
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
