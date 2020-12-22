@@ -13,7 +13,6 @@ use frame_support::{
     weights::{constants::WEIGHT_PER_SECOND, Weight},
 };
 use frame_system::{self as system, EnsureOneOf, EnsureRoot};
-use pallet_democracy::{Conviction, Vote};
 use sp_core::u32_trait::{_1, _2, _3};
 use sp_core::{crypto::key_types, H256};
 use std::cell::RefCell;
@@ -407,27 +406,12 @@ fn fast_forward_to(n: u64) {
     }
 }
 
-const AYE: Vote = Vote {
-    aye: true,
-    conviction: Conviction::None,
-};
-const NAY: Vote = Vote {
-    aye: false,
-    conviction: Conviction::None,
-};
-
-fn aye() -> AccountVote<u64> {
-    AccountVote::Standard {
-        vote: AYE,
-        balance: 0,
-    }
+fn aye() -> bool {
+    true
 }
 
-fn nay() -> AccountVote<u64> {
-    AccountVote::Standard {
-        vote: NAY,
-        balance: 0,
-    }
+fn nay() -> bool {
+    false
 }
 
 fn council_votes_and_concludes(balance_set_prop_hash: H256, balance_set_prop: Vec<u8>) {

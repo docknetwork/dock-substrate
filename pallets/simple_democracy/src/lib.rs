@@ -22,10 +22,11 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_democracy::{
-    AccountVote, BalanceOf, NegativeImbalanceOf, PreimageStatus, PropIndex, ReferendumIndex,
-    ReferendumInfo, ReferendumInfoOf, ReferendumStatus, Tally, UnvoteScope, VoteThreshold, Voting,
+    AccountVote, BalanceOf, Conviction, NegativeImbalanceOf, PreimageStatus, PropIndex,
+    ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus, Tally, UnvoteScope, Vote,
+    VoteThreshold, Voting,
 };
-use sp_runtime::SaturatedConversion;
+use sp_runtime::{traits::Zero, SaturatedConversion};
 
 #[cfg(test)]
 mod tests;
@@ -149,11 +150,23 @@ decl_module! {
             <pallet_democracy::Module<T>>::fast_track(origin, proposal_hash, voting_period, delay)?;
         }
 
-        /// Almost similar to forked democracy pallet's `vote` with the difference that vote balances
-        /// are disregarded and split voting is not allowed
+        /// Vote in a referendum. If `vote` is true, the vote is to enact the proposal;
+        /// otherwise it is a vote to keep the status quo.
+        ///
+        /// The dispatch origin of this call must be _Signed_.
+        ///
+        /// - `ref_index`: The index of the referendum to vote for.
+        /// - `vote`: True or false.
+        ///
+        /// # <weight>
+        /// - Complexity: `O(R)` where R is the number of referendums the voter has voted on.
+        ///   weight is charged as if maximum votes.
+        /// - Db reads: `ReferendumInfoOf`, `VotingOf`, `balances locks`
+        /// - Db writes: `ReferendumInfoOf`, `VotingOf`, `balances locks`
+        /// # </weight>
         // TODO: Fix weight
         #[weight = 0]
-        fn vote(origin, #[compact] ref_index: ReferendumIndex, vote: AccountVote<BalanceOf<T>>) -> DispatchResult {
+        fn vote(origin, #[compact] ref_index: ReferendumIndex, vote: bool) -> DispatchResult {
             let who = T::VoterOrigin::ensure_origin(origin)?;
             Self::try_vote(&who, ref_index, vote)
         }
@@ -299,11 +312,8 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     /// Almost similar to forked democracy pallet's `try_vote` with the difference that vote balances are disregarded and split voting is not allowed
-    fn try_vote(
-        who: &T::AccountId,
-        ref_index: ReferendumIndex,
-        vote: AccountVote<BalanceOf<T>>,
-    ) -> DispatchResult {
+    fn try_vote(who: &T::AccountId, ref_index: ReferendumIndex, vote: bool) -> DispatchResult {
+        let vote = Self::bool_vote_to_account_vote(vote);
         let mut status = <pallet_democracy::Module<T>>::referendum_status(ref_index)?;
         <pallet_democracy::VotingOf<T>>::try_mutate(who, |voting| -> DispatchResult {
             if let Voting::Direct { ref mut votes, .. } = voting {
@@ -385,6 +395,17 @@ impl<T: Trait> Module<T> {
             Ok(())
         } else {
             Err(Error::<T>::OnlyStandardVotingAllowed.into())
+        }
+    }
+
+    /// Take a vote as a boolean and convert to `AccountVote` as that's whats needed by the forked pallet
+    fn bool_vote_to_account_vote(vote: bool) -> AccountVote<BalanceOf<T>> {
+        AccountVote::Standard {
+            vote: Vote {
+                aye: vote,
+                conviction: Conviction::None,
+            },
+            balance: BalanceOf::<T>::zero(),
         }
     }
 
