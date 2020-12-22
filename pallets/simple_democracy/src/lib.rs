@@ -17,14 +17,14 @@ use frame_support::dispatch::{DispatchError, DispatchResult};
 use frame_support::{
     decl_error, decl_event, decl_module, ensure,
     traits::{Currency, EnsureOrigin, Get, Imbalance, OnUnbalanced},
-    weights::DispatchClass,
+    weights::{constants::RocksDbWeight as DbWeight, DispatchClass, Weight},
     StorageMap, StorageValue,
 };
 use frame_system::{self as system, ensure_signed};
 use pallet_democracy::{
     AccountVote, BalanceOf, Conviction, NegativeImbalanceOf, PreimageStatus, PropIndex,
     ReferendumIndex, ReferendumInfo, ReferendumInfoOf, ReferendumStatus, Tally, UnvoteScope, Vote,
-    VoteThreshold, Voting,
+    VoteThreshold, Voting, WeightInfo,
 };
 use sp_runtime::{traits::Zero, SaturatedConversion};
 
@@ -33,6 +33,22 @@ mod tests;
 
 // Another way to achieve voting by Council is to have the council vote as simple majority on the proposal as the gov. call.
 // The simple majority origin can be used to make the call.
+
+/// Copied from Substrate democracy pallet's default weight but discouted the read and write of locks
+fn vote_new(r: u32) -> Weight {
+    (54159000 as Weight)
+        .saturating_add((252000 as Weight).saturating_mul(r as Weight))
+        .saturating_add(DbWeight::get().reads(2 as Weight))
+        .saturating_add(DbWeight::get().writes(2 as Weight))
+}
+
+/// Copied from Substrate democracy pallet's default weight but discouted the read and write of locks
+fn vote_existing(r: u32) -> Weight {
+    (54145000 as Weight)
+        .saturating_add((262000 as Weight).saturating_mul(r as Weight))
+        .saturating_add(DbWeight::get().reads(2 as Weight))
+        .saturating_add(DbWeight::get().writes(2 as Weight))
+}
 
 pub trait Trait: system::Trait + pallet_democracy::Trait + poa::Trait {
     type Event: From<Event> + Into<<Self as system::Trait>::Event>;
@@ -61,7 +77,8 @@ decl_module! {
 
         fn deposit_event() = default;
 
-        // Several functions below are "proxy" to the forked democracy pallet's calls and have their docs and weight largely copied from there
+        // Several functions below are "proxy" to the forked democracy pallet's calls and have their docs
+        // and weight largely copied from there
 
         /// Propose a sensitive action to be taken.
         ///
@@ -78,8 +95,7 @@ decl_module! {
         /// - Db reads: `PublicPropCount`, `PublicProps`
         /// - Db writes: `PublicPropCount`, `PublicProps`, `DepositOf`
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::propose()]
         fn propose(origin, proposal_hash: T::Hash, #[compact] value: BalanceOf<T>) {
             <pallet_democracy::Module<T>>::propose(origin, proposal_hash, value)?;
         }
@@ -98,8 +114,7 @@ decl_module! {
         /// - Db reads: `DepositOf`
         /// - Db writes: `DepositOf`
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::second(*seconds_upper_bound)]
         fn second(origin, #[compact] proposal: PropIndex, #[compact] seconds_upper_bound: u32) {
             <pallet_democracy::Module<T>>::second(origin, proposal, seconds_upper_bound)?;
         }
@@ -118,8 +133,7 @@ decl_module! {
         /// - Complexity: `O(1)`
         /// - Db write: `NextExternal`
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::external_propose_majority()]
         fn council_propose(origin, proposal_hash: T::Hash) {
             <pallet_democracy::Module<T>>::external_propose_majority(origin, proposal_hash)?;
         }
@@ -144,8 +158,7 @@ decl_module! {
         /// - Db writes: `NextExternal`, `ReferendumCount`, `ReferendumInfoOf`
         /// - Base Weight: 30.1 µs
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::fast_track()]
         fn fast_track(origin, proposal_hash: T::Hash, voting_period: T::BlockNumber, delay: T::BlockNumber) {
             <pallet_democracy::Module<T>>::fast_track(origin, proposal_hash, voting_period, delay)?;
         }
@@ -161,29 +174,59 @@ decl_module! {
         /// # <weight>
         /// - Complexity: `O(R)` where R is the number of referendums the voter has voted on.
         ///   weight is charged as if maximum votes.
-        /// - Db reads: `ReferendumInfoOf`, `VotingOf`, `balances locks`
-        /// - Db writes: `ReferendumInfoOf`, `VotingOf`, `balances locks`
+        /// - Db reads: `ReferendumInfoOf`, `VotingOf`
+        /// - Db writes: `ReferendumInfoOf`, `VotingOf`
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = vote_new(<T as pallet_democracy::Trait>::MaxVotes::get())
+            .max(vote_existing(<T as pallet_democracy::Trait>::MaxVotes::get()))]
         fn vote(origin, #[compact] ref_index: ReferendumIndex, vote: bool) -> DispatchResult {
             let who = T::VoterOrigin::ensure_origin(origin)?;
             Self::try_vote(&who, ref_index, vote)
         }
 
-        /// Almost similar to forked democracy pallet's `remove_vote` with the difference that vote
-        /// balances are disregarded and split voting is not allowed
-        // TODO: Fix weight
-        #[weight = 0]
+        /// Remove a vote for a referendum.
+        ///
+        /// If:
+        /// - the referendum was cancelled, or
+        /// - the referendum is ongoing, or
+        /// - the referendum has ended
+        ///
+        /// The dispatch origin of this call must be _Signed_, and the signer must have a vote
+        /// registered for referendum `index`.
+        ///
+        /// - `index`: The index of referendum of the vote to be removed.
+        ///
+        /// # <weight>
+        /// - `O(R + log R)` where R is the number of referenda that `target` has voted on.
+        ///   Weight is calculated for the maximum number of vote.
+        /// - Db reads: `ReferendumInfoOf`, `VotingOf`
+        /// - Db writes: `ReferendumInfoOf`, `VotingOf`
+        /// # </weight>
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::remove_vote(<T as pallet_democracy::Trait>::MaxVotes::get())]
         fn remove_vote(origin, #[compact] ref_index: ReferendumIndex) -> DispatchResult {
             let who = T::VoterOrigin::ensure_origin(origin)?;
             Self::try_remove_vote(&who, ref_index, UnvoteScope::Any)
         }
 
-        /// Almost similar to forked democracy pallet's `remove_other_vote` with the difference that
-        /// vote balances are disregarded and split voting is not allowed
-        // TODO: Fix weight
-        #[weight = 0]
+        /// Remove a vote for a referendum.
+        ///
+        /// If the `target` is equal to the signer, then this function is exactly equivalent to
+        /// `remove_vote`. If not equal to the signer, then the vote must have expired,
+        /// either because the referendum was cancelled or the voter lost the referendum
+        ///
+        /// The dispatch origin of this call must be _Signed_.
+        ///
+        /// - `target`: The account of the vote to be removed; this account must have voted for
+        ///   referendum `index`.
+        /// - `index`: The index of referendum of the vote to be removed.
+        ///
+        /// # <weight>
+        /// - `O(R + log R)` where R is the number of referenda that `target` has voted on.
+        ///   Weight is calculated for the maximum number of vote.
+        /// - Db reads: `ReferendumInfoOf`, `VotingOf`
+        /// - Db writes: `ReferendumInfoOf`, `VotingOf`
+        /// # </weight>
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::remove_other_vote(<T as pallet_democracy::Trait>::MaxVotes::get())]
         fn remove_other_vote(origin, target: T::AccountId, ref_index: ReferendumIndex) -> DispatchResult {
             let who = ensure_signed(origin)?;
             let scope = if target == who { UnvoteScope::Any } else { UnvoteScope::OnlyExpired };
@@ -210,15 +253,13 @@ decl_module! {
         /// - Db reads: `Preimages`
         /// - Db writes: `Preimages`
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::note_preimage(encoded_proposal.len() as u32)]
         pub fn note_preimage(origin, encoded_proposal: Vec<u8>) {
             <pallet_democracy::Module<T>>::note_preimage(origin, encoded_proposal)?;
         }
 
         /// Same as `note_preimage` but origin is `OperationalPreimageOrigin`.
-        // TODO: Fix weight
-        #[weight = (0, DispatchClass::Operational)]
+        #[weight = (<T as pallet_democracy::Trait>::WeightInfo::note_preimage(encoded_proposal.len() as u32), DispatchClass::Operational)]
         fn note_preimage_operational(origin, encoded_proposal: Vec<u8>) {
             <pallet_democracy::Module<T>>::note_preimage_operational(origin, encoded_proposal)?;
         }
@@ -242,8 +283,7 @@ decl_module! {
         /// - Db reads: `Preimages`, provider account data
         /// - Db writes: `Preimages` provider account data
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::reap_preimage(*proposal_len_upper_bound)]
         pub fn reap_preimage(origin, proposal_hash: T::Hash, #[compact] proposal_len_upper_bound: u32) {
             <pallet_democracy::Module<T>>::reap_preimage(origin, proposal_hash, proposal_len_upper_bound)?;
         }
@@ -255,8 +295,7 @@ decl_module! {
         /// - `prop_index`: The index of the proposal to cancel.
         ///
         /// Weight: `O(p)` where `p = PublicProps::<T>::decode_len()`
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::cancel_proposal(<T as pallet_democracy::Trait>::MaxProposals::get())]
         fn cancel_proposal(origin, #[compact] prop_index: PropIndex) {
             <pallet_democracy::Module<T>>::cancel_proposal(origin, prop_index)?;
         }
@@ -272,8 +311,7 @@ decl_module! {
         /// - Db reads: `scheduler lookup`, scheduler agenda`
         /// - Db writes: `scheduler lookup`, scheduler agenda`
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = (0, DispatchClass::Operational)]
+        #[weight = (<T as pallet_democracy::Trait>::WeightInfo::cancel_queued(10), DispatchClass::Operational)]
         fn cancel_queued(origin, which: ReferendumIndex) {
             <pallet_democracy::Module<T>>::cancel_queued(origin, which)?;
         }
@@ -288,8 +326,7 @@ decl_module! {
         /// - Complexity: `O(1)`.
         /// - Db writes: `ReferendumInfoOf`
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::cancel_referendum()]
         fn cancel_referendum(origin, #[compact] ref_index: ReferendumIndex) {
             <pallet_democracy::Module<T>>::cancel_referendum(origin, ref_index)?;
         }
@@ -302,8 +339,7 @@ decl_module! {
         /// - `O(1)`.
         /// - Db writes: `PublicProps`
         /// # </weight>
-        // TODO: Fix weight
-        #[weight = 0]
+        #[weight = <T as pallet_democracy::Trait>::WeightInfo::clear_public_proposals()]
         fn clear_public_proposals(origin) {
             <pallet_democracy::Module<T>>::clear_public_proposals(origin)?;
         }
