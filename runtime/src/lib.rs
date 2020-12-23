@@ -546,42 +546,17 @@ impl pallet_democracy::Trait for Runtime {
     type WeightInfo = ();
 }
 
-/// Filter to disallow access to certain modules. Make sure that any modules added to `Runtime` (with `construct_runtime!`)
-/// and intended to called publicly should be added to this filter.
 pub struct BaseFilter;
 
 impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
-            // These modules are all allowed to be called by transactions:
-            Call::Democracy(_)
-            | Call::Council(_)
-            | Call::TechnicalCommittee(_)
-            | Call::CouncilMembership(_)
-            | Call::TechnicalCommitteeMembership(_)
-            | Call::System(_)
-            | Call::Scheduler(_)
-            | Call::Timestamp(_)
-            | Call::Balances(_)
-            | Call::Authorship(_)
-            | Call::Session(_)
-            | Call::Grandpa(_)
-            | Call::Utility(_)
-            | Call::PoAModule(_)
-            | Call::DIDModule(_)
-            | Call::Revoke(_)
-            | Call::BlobStore(_)
-            | Call::Anchor(_)
-            | Call::Master(_)
-            | Call::Sudo(_)
-            | Call::MigrationModule(_)
-            | Call::RandomnessCollectiveFlip(_) => true,
-            _ => false,
+            Call::ForkedDemocracy(_) => false,
+            _ => true,
         }
     }
 }
 
-// If adding a module that can be called publicly, add it to the above `BaseFilter` as well.
 construct_runtime!(
     pub enum Runtime where
         Block = Block,
