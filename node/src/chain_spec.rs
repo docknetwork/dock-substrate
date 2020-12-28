@@ -123,6 +123,10 @@ pub fn development_config() -> ChainSpec {
                     "Bob",
                     "Alice//stash",
                     "Bob//stash",
+                    "Charlie",
+                    "Dave",
+                    "Eve",
+                    "Ferdie",
                 ]),
                 master: Membership {
                     members: [

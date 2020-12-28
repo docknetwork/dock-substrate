@@ -141,7 +141,7 @@ impl pallet_democracy::Trait for TestRuntime {
     type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
     type CooloffPeriod = CooloffPeriod;
     type PreimageByteDeposit = PreimageByteDeposit;
-    type Slash = Democracy;
+    type Slash = SimpleDemocracy;
     type InstantOrigin = RootOrMoreThanHalfCouncil;
     type InstantAllowed = ();
     type Scheduler = Scheduler;
@@ -274,8 +274,8 @@ frame_support::construct_runtime!(
     {
         System: system::{Module, Call},
         Balances: balances::{Module, Call, Storage},
-        Democracy: simple_democracy::{Module, Call},
-        ForkedDemocracy: pallet_democracy::{Module, Call, Storage},
+        SimpleDemocracy: simple_democracy::{Module, Call},
+        Democracy: pallet_democracy::{Module, Call, Storage},
         Council: pallet_collective::<Instance1>::{Module, Call, Origin<T>},
         CouncilMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Config<T>},
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Origin<T>},
@@ -381,12 +381,12 @@ fn set_balance_proposal_hash_and_note(balance: u64) -> H256 {
     let h = BlakeTwo256::hash(&p[..]);
     // Give sufficient balance for deposit
     let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(&117, 1000);
-    Democracy::note_preimage(Origin::signed(117), p).unwrap();
+    SimpleDemocracy::note_preimage(Origin::signed(117), p).unwrap();
     h
 }
 
 fn propose_set_balance_and_note(who: u64, balance: u64) -> DispatchResult {
-    Democracy::propose(
+    SimpleDemocracy::propose(
         Origin::signed(who),
         set_balance_proposal_hash_and_note(balance),
         50,
@@ -396,8 +396,8 @@ fn propose_set_balance_and_note(who: u64, balance: u64) -> DispatchResult {
 fn next_block() {
     System::set_block_number(System::block_number() + 1);
     Scheduler::on_initialize(System::block_number());
-    ForkedDemocracy::on_initialize(System::block_number());
     Democracy::on_initialize(System::block_number());
+    SimpleDemocracy::on_initialize(System::block_number());
 }
 
 fn fast_forward_to(n: u64) {
@@ -416,17 +416,17 @@ fn nay() -> bool {
 
 fn council_votes_and_concludes(balance_set_prop_hash: H256, balance_set_prop: Vec<u8>) {
     // One council member approves
-    let vote_1 = Call::Democracy(crate::Call::vote(0, aye()));
+    let vote_1 = Call::SimpleDemocracy(crate::Call::vote(0, aye()));
     let exec_1 = execute_as_council_member(vote_1);
     exec_1.dispatch(Origin::signed(1)).unwrap();
 
     // One council member disapproves
-    let vote_2 = Call::Democracy(crate::Call::vote(0, nay()));
+    let vote_2 = Call::SimpleDemocracy(crate::Call::vote(0, nay()));
     let exec_2 = execute_as_council_member(vote_2);
     exec_2.dispatch(Origin::signed(2)).unwrap();
 
     assert_eq!(
-        ForkedDemocracy::referendum_status(0).unwrap().tally,
+        Democracy::referendum_status(0).unwrap().tally,
         Tally {
             ayes: 1,
             nays: 1,
@@ -435,12 +435,12 @@ fn council_votes_and_concludes(balance_set_prop_hash: H256, balance_set_prop: Ve
     );
 
     // Last council member approves
-    let vote_3 = Call::Democracy(crate::Call::vote(0, aye()));
+    let vote_3 = Call::SimpleDemocracy(crate::Call::vote(0, aye()));
     let exec_3 = execute_as_council_member(vote_3);
     exec_3.dispatch(Origin::signed(3)).unwrap();
 
     assert_eq!(
-        ForkedDemocracy::referendum_status(0).unwrap().tally,
+        Democracy::referendum_status(0).unwrap().tally,
         Tally {
             ayes: 2,
             nays: 1,
@@ -453,13 +453,13 @@ fn council_votes_and_concludes(balance_set_prop_hash: H256, balance_set_prop: Ve
     let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(&10, 1000);
     assert_eq!(Balances::free_balance(10), 1000);
 
-    assert!(Democracy::get_preimage(balance_set_prop_hash).is_none());
-    Democracy::note_preimage(Origin::signed(10), balance_set_prop).unwrap();
-    assert!(Democracy::get_preimage(balance_set_prop_hash).is_some());
+    assert!(SimpleDemocracy::get_preimage(balance_set_prop_hash).is_none());
+    SimpleDemocracy::note_preimage(Origin::signed(10), balance_set_prop).unwrap();
+    assert!(SimpleDemocracy::get_preimage(balance_set_prop_hash).is_some());
     assert!(Balances::free_balance(10) < 1000);
 
     fast_forward_to(10);
-    assert!(ForkedDemocracy::referendum_status(0).is_err());
+    assert!(Democracy::referendum_status(0).is_err());
     // The proposal is scheduled to be enacted
     assert!(pallet_scheduler::Agenda::<TestRuntime>::get(12)[0].is_some());
     assert_eq!(Balances::free_balance(42), 0);
@@ -475,14 +475,14 @@ fn council_votes_and_concludes(balance_set_prop_hash: H256, balance_set_prop: Ve
 fn conclude_proposal(balance_set_prop_hash: H256, balance_set_prop: Vec<u8>) {
     assert_eq!(Council::members(), vec![1, 2, 3]);
 
-    assert_eq!(ForkedDemocracy::referendum_count(), 0);
+    assert_eq!(Democracy::referendum_count(), 0);
     fast_forward_to(4);
-    assert_eq!(ForkedDemocracy::referendum_count(), 0);
+    assert_eq!(Democracy::referendum_count(), 0);
     fast_forward_to(6);
     // launch period ends, referendum is chosen
-    assert_eq!(ForkedDemocracy::referendum_count(), 1);
+    assert_eq!(Democracy::referendum_count(), 1);
     assert_eq!(
-        ForkedDemocracy::referendum_status(0),
+        Democracy::referendum_status(0),
         Ok(ReferendumStatus {
             end: 10, // 6+4, i.e. launch period + voting period
             proposal_hash: balance_set_prop_hash,
@@ -502,17 +502,17 @@ fn execute_poa_config_proposal(start: u64, ref_id: ReferendumIndex, proposal: Ve
     fast_forward_to(start + 6);
 
     // One council member approves
-    let vote_1 = Call::Democracy(crate::Call::vote(ref_id, aye()));
+    let vote_1 = Call::SimpleDemocracy(crate::Call::vote(ref_id, aye()));
     let exec_1 = execute_as_council_member(vote_1);
     exec_1.dispatch(Origin::signed(1)).unwrap();
 
     // Another council member approves
-    let vote_2 = Call::Democracy(crate::Call::vote(ref_id, aye()));
+    let vote_2 = Call::SimpleDemocracy(crate::Call::vote(ref_id, aye()));
     let exec_2 = execute_as_council_member(vote_2);
     exec_2.dispatch(Origin::signed(2)).unwrap();
 
     let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(&10, 1000);
-    Democracy::note_preimage(Origin::signed(10), proposal).unwrap();
+    SimpleDemocracy::note_preimage(Origin::signed(10), proposal).unwrap();
 
     fast_forward_to(start + 12);
 }
@@ -655,21 +655,21 @@ fn council_proposes_root_action_and_accepts() {
 
         System::set_block_number(0);
 
-        assert!(Democracy::next_external().is_none());
+        assert!(SimpleDemocracy::next_external().is_none());
 
         let balance_set_prop = set_balance_proposal(2);
         let balance_set_prop_hash = BlakeTwo256::hash(&balance_set_prop);
 
-        let proposal = Call::Democracy(crate::Call::council_propose(balance_set_prop_hash));
+        let proposal = Call::SimpleDemocracy(crate::Call::council_propose(balance_set_prop_hash));
         let exec = execute_as_council_member(proposal);
 
         // Non council member cannot call `council_propose`, i.e. propose as council
         assert!(exec.clone().dispatch(Origin::signed(5)).is_err());
-        assert!(Democracy::next_external().is_none());
+        assert!(SimpleDemocracy::next_external().is_none());
 
         // Only council member can send
         exec.dispatch(Origin::signed(1)).unwrap();
-        Democracy::next_external().unwrap();
+        SimpleDemocracy::next_external().unwrap();
 
         conclude_proposal(balance_set_prop_hash, balance_set_prop);
     });
@@ -699,7 +699,8 @@ fn public_proposes_root_action_and_council_accepts() {
 
         // Proposing should fail
         assert!(
-            Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).is_err()
+            SimpleDemocracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit)
+                .is_err()
         );
 
         // Give some more balance to reach `MinimumDeposit`
@@ -709,12 +710,12 @@ fn public_proposes_root_action_and_council_accepts() {
         assert!(Balances::free_balance(proposer) >= deposit);
         assert!(Balances::free_balance(backer) >= deposit);
 
-        assert_eq!(Democracy::public_prop_count(), 0);
+        assert_eq!(SimpleDemocracy::public_prop_count(), 0);
         // Proposing should work and proposer's balance should be reserved
-        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
-        assert_eq!(Democracy::public_prop_count(), 1);
+        SimpleDemocracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
+        assert_eq!(SimpleDemocracy::public_prop_count(), 1);
 
-        Democracy::second(Origin::signed(backer), 0, 10).unwrap();
+        SimpleDemocracy::second(Origin::signed(backer), 0, 10).unwrap();
 
         // Proposer and backer got their balance locked (reserved)
         assert_eq!(Balances::reserved_balance(proposer), deposit);
@@ -762,36 +763,36 @@ fn public_proposes_root_action_and_council_rejects() {
         assert_eq!(Balances::reserved_balance(proposer), 0);
         assert_eq!(Balances::reserved_balance(backer_1), 0);
         assert_eq!(Balances::reserved_balance(backer_1), 0);
-        assert!(Democracy::deposit_of(0).is_none());
+        assert!(SimpleDemocracy::deposit_of(0).is_none());
 
         // Public proposal backed by 2 more accounts
-        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
-        Democracy::second(Origin::signed(backer_1), 0, 10).unwrap();
-        Democracy::second(Origin::signed(backer_2), 0, 10).unwrap();
-        assert_eq!(Democracy::public_props().len(), 1);
+        SimpleDemocracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
+        SimpleDemocracy::second(Origin::signed(backer_1), 0, 10).unwrap();
+        SimpleDemocracy::second(Origin::signed(backer_2), 0, 10).unwrap();
+        assert_eq!(SimpleDemocracy::public_props().len(), 1);
 
         // Proposer's and backers' free balance decreases and that balance is reserved.
         assert_eq!(Balances::reserved_balance(proposer), deposit);
         assert_eq!(Balances::reserved_balance(backer_1), deposit);
         assert_eq!(Balances::reserved_balance(backer_1), deposit);
-        assert_eq!(Democracy::deposit_of(0).unwrap().0.len(), 3);
-        assert_eq!(Democracy::deposit_of(0).unwrap().1, deposit);
+        assert_eq!(SimpleDemocracy::deposit_of(0).unwrap().0.len(), 3);
+        assert_eq!(SimpleDemocracy::deposit_of(0).unwrap().1, deposit);
 
         let treasury_balance = PoAModule::treasury_balance();
 
-        let proposal = Call::Democracy(crate::Call::cancel_proposal(0));
+        let proposal = Call::SimpleDemocracy(crate::Call::cancel_proposal(0));
         let exec = execute_as_council_member(proposal);
 
         // Non council member cannot cancel the proposal
         assert!(exec.clone().dispatch(Origin::signed(5)).is_err());
-        assert_eq!(Democracy::public_props().len(), 1);
+        assert_eq!(SimpleDemocracy::public_props().len(), 1);
 
         // Council member cancels the proposal
         exec.dispatch(Origin::signed(1)).unwrap();
-        assert_eq!(Democracy::public_props().len(), 0);
+        assert_eq!(SimpleDemocracy::public_props().len(), 0);
 
         // Proposer's and backers' balance is slashed and treasury is credited
-        assert!(Democracy::deposit_of(0).is_none());
+        assert!(SimpleDemocracy::deposit_of(0).is_none());
         assert_eq!(Balances::reserved_balance(proposer), 0);
         assert_eq!(Balances::reserved_balance(backer_1), 0);
         assert_eq!(Balances::reserved_balance(backer_1), 0);
@@ -827,19 +828,19 @@ fn only_council_can_vote() {
             &proposer, deposit,
         );
 
-        assert_eq!(Democracy::public_props().len(), 0);
+        assert_eq!(SimpleDemocracy::public_props().len(), 0);
 
         // Public proposal
-        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
-        assert_eq!(Democracy::public_props().len(), 1);
-        assert_eq!(Democracy::referendum_count(), 0);
+        SimpleDemocracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
+        assert_eq!(SimpleDemocracy::public_props().len(), 1);
+        assert_eq!(SimpleDemocracy::referendum_count(), 0);
 
         fast_forward_to(6);
         // launch period ends, referendum is chosen
-        assert_eq!(Democracy::referendum_count(), 1);
+        assert_eq!(SimpleDemocracy::referendum_count(), 1);
 
         assert_eq!(
-            Democracy::referendum_status(0),
+            SimpleDemocracy::referendum_status(0),
             Ok(ReferendumStatus {
                 end: 10, // 6+4, i.e. launch period + voting period
                 proposal_hash: balance_set_prop_hash,
@@ -854,7 +855,7 @@ fn only_council_can_vote() {
         );
 
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 0,
                 nays: 0,
@@ -863,11 +864,11 @@ fn only_council_can_vote() {
         );
 
         // A public (non-council, non-committee) account approves
-        let vote_1 = Call::Democracy(crate::Call::vote(0, aye()));
+        let vote_1 = Call::SimpleDemocracy(crate::Call::vote(0, aye()));
         let exec_1 = execute_as_council_member(vote_1);
         assert!(exec_1.dispatch(Origin::signed(50)).is_err());
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 0,
                 nays: 0,
@@ -876,11 +877,11 @@ fn only_council_can_vote() {
         );
 
         // A public (non-council, non-committee) account disapproves
-        let vote_2 = Call::Democracy(crate::Call::vote(0, nay()));
+        let vote_2 = Call::SimpleDemocracy(crate::Call::vote(0, nay()));
         let exec_2 = execute_as_council_member(vote_2);
         assert!(exec_2.dispatch(Origin::signed(50)).is_err());
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 0,
                 nays: 0,
@@ -889,11 +890,11 @@ fn only_council_can_vote() {
         );
 
         // A committee member approves
-        let vote_3 = Call::Democracy(crate::Call::vote(0, aye()));
+        let vote_3 = Call::SimpleDemocracy(crate::Call::vote(0, aye()));
         let exec_3 = execute_as_council_member(vote_3);
         assert!(exec_3.dispatch(Origin::signed(4)).is_err());
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 0,
                 nays: 0,
@@ -902,11 +903,11 @@ fn only_council_can_vote() {
         );
 
         // A committee member disapproves
-        let vote_4 = Call::Democracy(crate::Call::vote(0, nay()));
+        let vote_4 = Call::SimpleDemocracy(crate::Call::vote(0, nay()));
         let exec_4 = execute_as_council_member(vote_4);
         assert!(exec_4.dispatch(Origin::signed(4)).is_err());
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 0,
                 nays: 0,
@@ -938,13 +939,13 @@ fn can_change_remove_vote() {
             &proposer, deposit,
         );
         // Public proposal
-        Democracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
+        SimpleDemocracy::propose(Origin::signed(proposer), balance_set_prop_hash, deposit).unwrap();
 
-        assert_eq!(Democracy::referendum_count(), 0);
+        assert_eq!(SimpleDemocracy::referendum_count(), 0);
         fast_forward_to(6);
         // launch period ends, referendum is chosen
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 0,
                 nays: 0,
@@ -953,11 +954,11 @@ fn can_change_remove_vote() {
         );
 
         // One council member approves
-        let vote_1 = Call::Democracy(crate::Call::vote(0, aye()));
+        let vote_1 = Call::SimpleDemocracy(crate::Call::vote(0, aye()));
         let exec_1 = execute_as_council_member(vote_1);
         exec_1.dispatch(Origin::signed(1)).unwrap();
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 1,
                 nays: 0,
@@ -966,11 +967,11 @@ fn can_change_remove_vote() {
         );
 
         // Same council member changes vote to disapproval
-        let vote_2 = Call::Democracy(crate::Call::vote(0, nay()));
+        let vote_2 = Call::SimpleDemocracy(crate::Call::vote(0, nay()));
         let exec_2 = execute_as_council_member(vote_2);
         exec_2.dispatch(Origin::signed(1)).unwrap();
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 0,
                 nays: 1,
@@ -979,11 +980,11 @@ fn can_change_remove_vote() {
         );
 
         // Same council member removes vote
-        let vote_3 = Call::Democracy(crate::Call::remove_vote(0));
+        let vote_3 = Call::SimpleDemocracy(crate::Call::remove_vote(0));
         let exec_3 = execute_as_council_member(vote_3);
         exec_3.dispatch(Origin::signed(1)).unwrap();
         assert_eq!(
-            Democracy::referendum_status(0).unwrap().tally,
+            SimpleDemocracy::referendum_status(0).unwrap().tally,
             Tally {
                 ayes: 0,
                 nays: 0,
@@ -1018,29 +1019,29 @@ fn proposals_picked_alternatively() {
             deposit,
         );
 
-        assert_eq!(Democracy::public_props().len(), 0);
+        assert_eq!(SimpleDemocracy::public_props().len(), 0);
         propose_set_balance_and_note(proposer_1, 20).unwrap();
         let public_prop_1 = set_balance_proposal_hash(20);
-        assert_eq!(Democracy::public_props().len(), 1);
+        assert_eq!(SimpleDemocracy::public_props().len(), 1);
         propose_set_balance_and_note(proposer_2, 30).unwrap();
         let public_prop_2 = set_balance_proposal_hash(30);
-        assert_eq!(Democracy::public_props().len(), 2);
+        assert_eq!(SimpleDemocracy::public_props().len(), 2);
         propose_set_balance_and_note(proposer_3, 40).unwrap();
         let public_prop_3 = set_balance_proposal_hash(40);
-        assert_eq!(Democracy::public_props().len(), 3);
+        assert_eq!(SimpleDemocracy::public_props().len(), 3);
 
         fast_forward_to(2);
 
         let council_prop_1 = set_balance_proposal_hash_and_note(5);
-        let exec_1 = execute_as_council_member(Call::Democracy(crate::Call::council_propose(
-            council_prop_1,
-        )));
+        let exec_1 = execute_as_council_member(Call::SimpleDemocracy(
+            crate::Call::council_propose(council_prop_1),
+        ));
         exec_1.dispatch(Origin::signed(1)).unwrap();
 
         fast_forward_to(6);
 
         assert_eq!(
-            Democracy::referendum_status(0),
+            SimpleDemocracy::referendum_status(0),
             Ok(ReferendumStatus {
                 end: 10,
                 proposal_hash: council_prop_1,
@@ -1057,15 +1058,15 @@ fn proposals_picked_alternatively() {
         fast_forward_to(7);
 
         let council_prop_2 = set_balance_proposal_hash_and_note(6);
-        let exec_2 = execute_as_council_member(Call::Democracy(crate::Call::council_propose(
-            council_prop_2,
-        )));
+        let exec_2 = execute_as_council_member(Call::SimpleDemocracy(
+            crate::Call::council_propose(council_prop_2),
+        ));
         exec_2.dispatch(Origin::signed(2)).unwrap();
 
         fast_forward_to(12);
 
         assert_eq!(
-            Democracy::referendum_status(1),
+            SimpleDemocracy::referendum_status(1),
             Ok(ReferendumStatus {
                 end: 16,
                 proposal_hash: public_prop_3,
@@ -1082,7 +1083,7 @@ fn proposals_picked_alternatively() {
         fast_forward_to(18);
 
         assert_eq!(
-            Democracy::referendum_status(2),
+            SimpleDemocracy::referendum_status(2),
             Ok(ReferendumStatus {
                 end: 22,
                 proposal_hash: council_prop_2,
@@ -1099,7 +1100,7 @@ fn proposals_picked_alternatively() {
         fast_forward_to(24);
 
         assert_eq!(
-            Democracy::referendum_status(3),
+            SimpleDemocracy::referendum_status(3),
             Ok(ReferendumStatus {
                 end: 28,
                 proposal_hash: public_prop_2,
@@ -1116,7 +1117,7 @@ fn proposals_picked_alternatively() {
         fast_forward_to(30);
 
         assert_eq!(
-            Democracy::referendum_status(4),
+            SimpleDemocracy::referendum_status(4),
             Ok(ReferendumStatus {
                 end: 34,
                 proposal_hash: public_prop_1,
@@ -1142,14 +1143,16 @@ fn tech_committee_fast_tracks() {
         System::set_block_number(0);
 
         let council_prop = set_balance_proposal_hash_and_note(55);
-        let exec =
-            execute_as_council_member(Call::Democracy(crate::Call::council_propose(council_prop)));
+        let exec = execute_as_council_member(Call::SimpleDemocracy(crate::Call::council_propose(
+            council_prop,
+        )));
         exec.dispatch(Origin::signed(1)).unwrap();
 
-        assert_eq!(Democracy::referendum_count(), 0);
+        assert_eq!(SimpleDemocracy::referendum_count(), 0);
 
         // Member 4 of technical committee proposes to set the voting period as 3 blocks and delay as 1 block
-        let proposal_to_fast_track = Call::Democracy(crate::Call::fast_track(council_prop, 3, 1));
+        let proposal_to_fast_track =
+            Call::SimpleDemocracy(crate::Call::fast_track(council_prop, 3, 1));
         let proposal_call_1 = make_tech_comm_proposal(proposal_to_fast_track, 2);
         proposal_call_1.dispatch(Origin::signed(4)).unwrap();
 
@@ -1161,10 +1164,10 @@ fn tech_committee_fast_tracks() {
         let close_call_1 = make_tech_comm_close(TechnicalCommittee::proposals()[0], 0);
         close_call_1.dispatch(Origin::signed(100)).unwrap();
 
-        assert_eq!(Democracy::referendum_count(), 1);
+        assert_eq!(SimpleDemocracy::referendum_count(), 1);
 
         assert_eq!(
-            Democracy::referendum_status(0),
+            SimpleDemocracy::referendum_status(0),
             Ok(ReferendumStatus {
                 end: 3,
                 proposal_hash: council_prop,
@@ -1194,7 +1197,7 @@ fn changing_config_of_poa_module() {
             Call::PoAModule(poa::Call::set_treasury_reward_pc(90)).encode();
         let prop_1_hash = BlakeTwo256::hash(&proposal_to_increase_treasury_pc);
 
-        let proposal_1 = Call::Democracy(crate::Call::council_propose(prop_1_hash));
+        let proposal_1 = Call::SimpleDemocracy(crate::Call::council_propose(prop_1_hash));
         let exec_1 = execute_as_council_member(proposal_1);
         exec_1.dispatch(Origin::signed(1)).unwrap();
 
@@ -1215,7 +1218,7 @@ fn changing_config_of_poa_module() {
         let _ = <TestRuntime as pallet_democracy::Trait>::Currency::deposit_creating(
             &proposer, deposit,
         );
-        Democracy::propose(Origin::signed(proposer), prop_2_hash, deposit).unwrap();
+        SimpleDemocracy::propose(Origin::signed(proposer), prop_2_hash, deposit).unwrap();
 
         execute_poa_config_proposal(12, 1, proposal_to_decrease_val_lock_pc);
 

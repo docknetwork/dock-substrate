@@ -536,7 +536,7 @@ impl pallet_democracy::Trait for Runtime {
     type CancelProposalOrigin = CouncilMember;
     type PreimageByteDeposit = PreimageByteDeposit;
     /// Slashes are handled by Democracy
-    type Slash = Democracy;
+    type Slash = SimpleDemocracy;
     type OperationalPreimageOrigin = CouncilMember;
     type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
     type Scheduler = Scheduler;
@@ -551,7 +551,7 @@ pub struct BaseFilter;
 impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
-            Call::ForkedDemocracy(_) => false,
+            Call::Democracy(_) => false,
             _ => true,
         }
     }
@@ -581,8 +581,8 @@ construct_runtime!(
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
         Anchor: anchor::{Module, Call, Storage, Event<T>},
-        Democracy: simple_democracy::{Module, Call, Event},
-        ForkedDemocracy: pallet_democracy::{Module, Call, Storage, Event<T>},
+        SimpleDemocracy: simple_democracy::{Module, Call, Event},
+        Democracy: pallet_democracy::{Module, Call, Storage, Event<T>},
         Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         CouncilMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
