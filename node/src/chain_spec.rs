@@ -4,7 +4,7 @@ use dock_runtime::{
     opaque::SessionKeys,
     AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig, GenesisConfig,
     GrandpaConfig, MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeMembershipConfig, MILLISECS_PER_BLOCK, WASM_BINARY,
+    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use sc_service::{ChainType, Properties};
@@ -507,16 +507,14 @@ struct GenesisBuilder {
 
 impl GenesisBuilder {
     fn build(self) -> GenesisConfig {
-        // 1 token is 1,000,000 gas or has 6 decimal places
-        let token_to_gas: Balance = 1_000_000;
         // 200M tokens
-        let emission_supply: Balance = token_to_gas.checked_mul(200_000_000).unwrap();
+        let emission_supply: Balance = DOCK.checked_mul(200_000_000).unwrap();
         // 100M tokens
-        let per_member_endowment: Balance = token_to_gas.checked_mul(100_000_000).unwrap();
+        let per_member_endowment: Balance = DOCK.checked_mul(100_000_000).unwrap();
 
         // Max emission per validator in an epoch
         // 15K tokens
-        let max_emm_validator_epoch: Balance = token_to_gas.checked_mul(15_000).unwrap();
+        let max_emm_validator_epoch: Balance = DOCK.checked_mul(15_000).unwrap();
 
         // Percentage of rewards given to Treasury
         let treasury_reward_pc = 60;

@@ -93,6 +93,9 @@ pub type Index = u32;
 /// A hash of some data used by the chain.
 pub type Hash = sp_core::H256;
 
+/// The token has 6 decimal places
+pub const DOCK: Balance = 1_000_000;
+
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
 /// not self describing.
@@ -302,7 +305,8 @@ impl balances::Trait for Runtime {
 }
 
 parameter_types! {
-    pub const TransactionByteFee: Balance = 10_000;
+    /// .01 token
+    pub const TransactionByteFee: Balance = DOCK / 100;
 }
 
 impl transaction_payment::Trait for Runtime {
@@ -366,7 +370,7 @@ impl token_migration::Trait for Runtime {
 }
 
 parameter_types! {
-    // Not accepting any uncles
+    /// Not accepting any uncles
     pub const UncleGenerations: u32 = 0;
 }
 
@@ -491,14 +495,14 @@ parameter_types! {
     pub const EnactmentPeriod: BlockNumber = 2 * DAYS;
     pub const LaunchPeriod: BlockNumber = 20 * DAYS;
     pub const VotingPeriod: BlockNumber = 15 * DAYS;
-    pub const CooloffPeriod: BlockNumber = 1 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
-    // 10K tokens
-    pub const MinimumDeposit: Balance = 10_000 * 1_000_000;
-    // 0.1 token
-    pub const PreimageByteDeposit: Balance = 100_000;
+    /// 10K tokens
+    pub const MinimumDeposit: Balance = 10_000 * DOCK;
+    /// 0.1 token
+    pub const PreimageByteDeposit: Balance = DOCK / 10;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
+    pub const InstantAllowed: bool = true;
 }
 
 impl simple_democracy::Trait for Runtime {
@@ -514,7 +518,7 @@ impl pallet_democracy::Trait for Runtime {
     type EnactmentPeriod = EnactmentPeriod;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
-    type CooloffPeriod = CooloffPeriod;
+    type CooloffPeriod = ();
     type MinimumDeposit = MinimumDeposit;
     /// Only specified to compile, not used however.
     type ExternalOrigin = CouncilMember;
@@ -528,8 +532,13 @@ impl pallet_democracy::Trait for Runtime {
         pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>,
         EnsureRoot<AccountId>,
     >;
-    type InstantOrigin = EnsureRoot<AccountId>;
-    type InstantAllowed = ();
+    /// Root or the Council unanimously agreeing can make a Council proposal a referendum instantly.
+    type InstantOrigin = EnsureOneOf<
+        AccountId,
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>,
+    >;
+    type InstantAllowed = InstantAllowed;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     type CancellationOrigin = RootOrMoreThanHalfCouncil;
     /// Any council member can cancel a public proposal
