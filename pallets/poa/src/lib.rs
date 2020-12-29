@@ -620,10 +620,10 @@ impl<T: Trait> Module<T> {
         let epoch_detail = Self::get_epoch_detail(epoch_no);
         epoch_detail
             .emission_for_validators
-            .unwrap_or(BalanceOf::<T>::zero())
+            .unwrap_or_else(|| BalanceOf::<T>::zero())
             + epoch_detail
                 .emission_for_treasury
-                .unwrap_or(BalanceOf::<T>::zero())
+                .unwrap_or_else(|| BalanceOf::<T>::zero())
     }
 
     /// Takes a validator id and a mutable vector of validator ids and remove any occurrence from

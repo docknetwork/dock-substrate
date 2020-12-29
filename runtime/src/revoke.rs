@@ -4,7 +4,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_module, decl_storage,
-    dispatch::DispatchResult,
+    dispatch::{DispatchError, DispatchResult},
     ensure,
     traits::Get,
     weights::{RuntimeDbWeight, Weight},
@@ -258,15 +258,10 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         ensure_signed(origin)?;
 
-        // setup
-        let (registry, last_modified_actual) =
-            Registries::<T>::get(&revoke.registry_id).ok_or(RevErr::<T>::NoReg)?;
-
-        // check
-        ensure!(
-            T::BlockNumber::from(revoke.last_modified) == last_modified_actual,
-            RevErr::<T>::DifferentBlockNumber
-        );
+        let registry = Self::ensure_registry_exists_and_payload_fresh(
+            &revoke.registry_id,
+            revoke.last_modified,
+        )?;
         Self::ensure_auth(
             &crate::StateChange::Revoke(revoke.clone()),
             &proof,
@@ -292,16 +287,11 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         ensure_signed(origin)?;
 
-        // setup
-        let (registry, last_modified_actual) =
-            Registries::<T>::get(&unrevoke.registry_id).ok_or(RevErr::<T>::NoReg)?;
-
-        // check
+        let registry = Self::ensure_registry_exists_and_payload_fresh(
+            &unrevoke.registry_id,
+            unrevoke.last_modified,
+        )?;
         ensure!(!registry.add_only, RevErr::<T>::AddOnly);
-        ensure!(
-            T::BlockNumber::from(unrevoke.last_modified) == last_modified_actual,
-            RevErr::<T>::DifferentBlockNumber
-        );
         Self::ensure_auth(
             &crate::StateChange::UnRevoke(unrevoke.clone()),
             &proof,
@@ -327,16 +317,12 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         ensure_signed(origin)?;
 
-        // setup
-        let (registry, last_modified_actual) =
-            Registries::<T>::get(&removal.registry_id).ok_or(RevErr::<T>::NoReg)?;
-
-        // check
+        let registry = Self::ensure_registry_exists_and_payload_fresh(
+            &removal.registry_id,
+            removal.last_modified,
+        )?;
         ensure!(!registry.add_only, RevErr::<T>::AddOnly);
-        ensure!(
-            T::BlockNumber::from(removal.last_modified) == last_modified_actual,
-            RevErr::<T>::DifferentBlockNumber
-        );
+
         Self::ensure_auth(
             &crate::StateChange::RemoveRegistry(removal.clone()),
             &proof,
@@ -372,6 +358,24 @@ impl<T: Trait> Module<T> {
         }
 
         Ok(())
+    }
+
+    /// Ensure that the registry exists and this is not a replayed payload by checking the equality
+    /// with stored block number when the registry was last modified.
+    fn ensure_registry_exists_and_payload_fresh(
+        registry_id: &RegistryId,
+        last_modified_in_block: crate::BlockNumber,
+    ) -> Result<Registry, DispatchError> {
+        // setup
+        let (registry, last_modified_actual) =
+            Registries::<T>::get(registry_id).ok_or_else(|| RevErr::<T>::NoReg)?;
+
+        // check
+        ensure!(
+            T::BlockNumber::from(last_modified_in_block) == last_modified_actual,
+            RevErr::<T>::DifferentBlockNumber
+        );
+        Ok(registry)
     }
 }
 

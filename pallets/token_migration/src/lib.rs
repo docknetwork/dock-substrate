@@ -183,7 +183,7 @@ decl_module! {
             ensure_root(origin)?;
             match Self::migrators(&migrator) {
                 Some(current_migrations) => {
-                    let new_migrations = current_migrations.checked_add(increase_migrations_by).ok_or(Error::<T>::CannotExpandMigrator)?;
+                    let new_migrations = current_migrations.checked_add(increase_migrations_by).ok_or_else(|| Error::<T>::CannotExpandMigrator)?;
                     Migrators::<T>::insert(migrator.clone(), new_migrations);
                     Self::deposit_event(RawEvent::MigratorExpanded(migrator, new_migrations));
                     Ok(Pays::No.into())
@@ -197,9 +197,9 @@ decl_module! {
         pub fn contract_migrator(origin, migrator: T::AccountId, decrease_migrations_by: u16) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             let new_migrations = Self::migrators(&migrator)
-                .ok_or(Error::<T>::UnknownMigrator)?
+                .ok_or_else(|| Error::<T>::UnknownMigrator)?
                 .checked_sub(decrease_migrations_by)
-                .ok_or(Error::<T>::CannotContractMigrator)?;
+                .ok_or_else(|| Error::<T>::CannotContractMigrator)?;
             Migrators::<T>::insert(&migrator, &new_migrations);
             Self::deposit_event(RawEvent::MigratorContracted(migrator, new_migrations));
             Ok(Pays::No.into())
@@ -453,7 +453,7 @@ impl<T: Trait> Module<T> {
 
     /// Unlock any swap bonuses that can be unlocked for an account
     fn unlock_swap_bonus(who: T::AccountId) -> dispatch::DispatchResult {
-        let mut bonus = Self::bonus(&who).ok_or(Error::<T>::NoBonus)?;
+        let mut bonus = Self::bonus(&who).ok_or_else(|| Error::<T>::NoBonus)?;
         let bonuses = &mut bonus.swap_bonuses;
         ensure!(!bonuses.is_empty(), Error::<T>::NoSwapBonus);
         let now = <frame_system::Module<T>>::block_number();
@@ -465,7 +465,7 @@ impl<T: Trait> Module<T> {
             if bonuses[i].1 <= now {
                 bonus_to_unlock = bonus_to_unlock
                     .checked_add(&bonuses[i].0)
-                    .ok_or(Error::<T>::BonusOverflowError)?;
+                    .ok_or_else(|| Error::<T>::BonusOverflowError)?;
                 i += 1;
             } else {
                 break;
@@ -505,7 +505,7 @@ impl<T: Trait> Module<T> {
 
     /// Unlock any vesting bonuses that can be unlocked for an account
     fn unlock_vesting_bonus(who: T::AccountId) -> dispatch::DispatchResult {
-        let mut bonus = Self::bonus(&who).ok_or(Error::<T>::NoBonus)?;
+        let mut bonus = Self::bonus(&who).ok_or_else(|| Error::<T>::NoBonus)?;
         let bonuses = &mut bonus.vesting_bonuses;
         ensure!(!bonuses.is_empty(), Error::<T>::NoVestingBonus);
 
@@ -533,13 +533,13 @@ impl<T: Trait> Module<T> {
             // Calculate number of milestones already passed
             let milestones_passed = now_plus_1
                 .checked_sub(&start)
-                .ok_or(Error::<T>::BonusOverflowError)?
+                .ok_or_else(|| Error::<T>::BonusOverflowError)?
                 / milestone_duration;
             if milestones_passed >= vesting_milestones {
                 // Unlock all bonus in or post last milestone
                 bonus_to_unlock = bonus_to_unlock
                     .checked_add(&locked_bonus)
-                    .ok_or(Error::<T>::BonusOverflowError)?;
+                    .ok_or_else(|| Error::<T>::BonusOverflowError)?;
                 completely_vested_bonus_indices.push(i);
             } else {
                 let bonus_per_milestone = total_bonus / milestone_as_bal;
@@ -547,11 +547,11 @@ impl<T: Trait> Module<T> {
                     T::BlockNumberToBalance::convert(milestones_passed) * bonus_per_milestone;
                 let expected_locked = total_bonus
                     .checked_sub(&bonus_to_be_unlocked_till_now)
-                    .ok_or(Error::<T>::BonusOverflowError)?;
+                    .ok_or_else(|| Error::<T>::BonusOverflowError)?;
                 if expected_locked < locked_bonus {
                     bonus_to_unlock = bonus_to_unlock
                         .checked_add(&(locked_bonus - expected_locked))
-                        .ok_or(Error::<T>::BonusOverflowError)?;
+                        .ok_or_else(|| Error::<T>::BonusOverflowError)?;
                     bonuses[i].1 = expected_locked
                 }
             }
@@ -576,7 +576,7 @@ impl<T: Trait> Module<T> {
 
     /// Retrieve bonus struct from storage if exists or create a new one.
     fn get_bonus_struct(acc: &T::AccountId) -> Bonus<BalanceOf<T>, T::BlockNumber> {
-        Bonuses::<T>::get(acc).unwrap_or(Bonus {
+        Bonuses::<T>::get(acc).unwrap_or_else(|| Bonus {
             swap_bonuses: Vec::new(),
             vesting_bonuses: Vec::new(),
         })
@@ -617,7 +617,7 @@ impl<T: Trait> Module<T> {
         // The balance of the migrator after the transfer
         let new_free = T::Currency::free_balance(migrator)
             .checked_sub(&to_transfer)
-            .ok_or(Error::<T>::InsufficientBalance)?;
+            .ok_or_else(|| Error::<T>::InsufficientBalance)?;
 
         // Ensure that the migrator can transfer, i.e. has sufficient free and unlocked balance
         T::Currency::ensure_can_withdraw(

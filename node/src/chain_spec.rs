@@ -340,9 +340,28 @@ pub fn testnet_config() -> ChainSpec {
                 min_epoch_length: 1000,
                 max_active_validators: 8,
                 emission_status: false,
-                // XXX: Not applicable for now
-                council_members: vec![],
-                technical_committee_members: vec![],
+                council_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5GZL42dUZCUV85Uen9nyg5smj5zYSkHgi8gkHMD98enRyNHd",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5H8nZtbQKzrexiGzNC41KdmJXj9P3yAq4e8YTNuLrjuriyJc",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5GYLRk3bVaYg4Li2K6UxC1Rt52BGpfaJzGAZCqWTzqY4q7T3",
+                    ),
+                ],
+                technical_committee_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5EvDPEYFRe1WtUZKt8HNsmT3RrJDqsd6DNrB6UNLmj5Cv3KC",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5Hbk8LuBSQkKkFM96SuyYDB1xHi972dqoqzjX1KZKrWLZn7h",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5Eng8QjwLmucywgXKhvUqNq5QWdwC9kJf5r4bZh43b4ZFLZQ",
+                    ),
+                ],
             }
             .build()
         },
@@ -437,9 +456,28 @@ pub fn mainnet_config() -> ChainSpec {
                 min_epoch_length,
                 max_active_validators,
                 emission_status,
-                // XXX: Not applicable for now
-                council_members: vec![],
-                technical_committee_members: vec![],
+                council_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3EpgfUS2x744ZTFccNdkpRRSW1efbYyqNyw81x9eHqy7JuAS",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3EuDQ56g6hpZgdLNwkb4EzqhdGk6oPpd51KzHqSP8TXYuzeV",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3EBrJoDw8hbuCrww4mV8o1YzG8JtmWHh4MbHb5rKPYgAVA23",
+                    ),
+                ],
+                technical_committee_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3HPsdLzFNbffiQpgMxvztDPMfEixoyfbWioxzTSHg6Q1RKTr",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3H8WLyLk5LButFHsDJCN6CVP5bNWCKx3zcTpWEpMEpQwJgqd",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3DMtxe6rnXAMnut5vtDEzPEV1JzsUTCrbq9R6t9xPNwZmit6",
+                    ),
+                ],
             }
             .build()
         },
@@ -473,7 +511,6 @@ impl GenesisBuilder {
         let token_to_gas: Balance = 1_000_000;
         // 200M tokens
         let emission_supply: Balance = token_to_gas.checked_mul(200_000_000).unwrap();
-        // TODO: This needs to be tweaked once we know all exchanges
         // 100M tokens
         let per_member_endowment: Balance = token_to_gas.checked_mul(100_000_000).unwrap();
 

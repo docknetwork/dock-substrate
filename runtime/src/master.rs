@@ -301,7 +301,9 @@ impl<T: Trait> Module<T> {
         let actual_weight = move |post_info: PostDispatchInfo| {
             given_weight.or_else(|| {
                 Some(
-                    post_info.actual_weight.unwrap_or(dispatch_decl_weight)
+                    post_info
+                        .actual_weight
+                        .unwrap_or_else(|| dispatch_decl_weight)
                         + get_min_weight_for_execute(&auth, T::DbWeight::get()),
                 )
             })
