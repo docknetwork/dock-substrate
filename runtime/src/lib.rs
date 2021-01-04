@@ -495,6 +495,7 @@ parameter_types! {
     pub const EnactmentPeriod: BlockNumber = 30;    // 30 sec
     pub const LaunchPeriod: BlockNumber = 3 * MINUTES;
     pub const VotingPeriod: BlockNumber = 2 * MINUTES;
+    pub const CooloffPeriod: BlockNumber = 1 * MINUTES;
     pub const FastTrackVotingPeriod: BlockNumber = 1 * MINUTES;
     /// 10K tokens
     pub const MinimumDeposit: Balance = 10_000 * DOCK;
