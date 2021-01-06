@@ -140,7 +140,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 17,
+    spec_version: 18,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -496,8 +496,8 @@ parameter_types! {
     pub const LaunchPeriod: BlockNumber = 20 * DAYS;
     pub const VotingPeriod: BlockNumber = 15 * DAYS;
     pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
-    /// 10K tokens
-    pub const MinimumDeposit: Balance = 10_000 * DOCK;
+    /// 1000 tokens
+    pub const MinimumDeposit: Balance = 1_000 * DOCK;
     /// 0.1 token
     pub const PreimageByteDeposit: Balance = DOCK / 10;
     pub const MaxVotes: u32 = 100;
