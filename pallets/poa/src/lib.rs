@@ -8,12 +8,12 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail, runtime_print,
     sp_runtime::{
         print,
-        traits::{AccountIdConversion, OpaqueKeys, Saturating, Zero},
+        traits::{AccountIdConversion, CheckedSub, OpaqueKeys, Saturating, StaticLookup, Zero},
         ModuleId, SaturatedConversion,
     },
     traits::{
-        Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
-        ReservableCurrency,
+        BalanceStatus::Reserved, Currency, ExistenceRequirement::AllowDeath, Get, Imbalance,
+        OnUnbalanced, ReservableCurrency,
     },
     weights::{Pays, Weight},
 };
@@ -32,10 +32,6 @@ pub mod runtime_api;
 pub type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;
-
-// XXX: Shortcut of keeping `Balance`'s type same as in the runtime. The correct approach would
-// be to use the `Balance` type of runtime and make `EpochDetail` and `ValidatorStatsPerEpoch` typed and
-// use T::Balance instead of Balance below
 
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
@@ -262,7 +258,9 @@ decl_error! {
         EpochLengthCannotBe0,
         SwapOutFailed,
         SwapInFailed,
-        PercentageGreaterThan100
+        PercentageGreaterThan100,
+        InsufficientFreeBalance,
+        InsufficientReservedBalance
     }
 }
 
@@ -460,6 +458,20 @@ decl_module! {
                 Option::<BalanceOf<T>>::default()
             });
         }
+
+        /// Force a transfer using root to transfer balance of reserved as well as free kind.
+        /// This call is dangerous and can be abused by a malicious Root
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn force_transfer_both(
+            origin, source: <T::Lookup as StaticLookup>::Source, dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] free: BalanceOf<T>, #[compact] reserved: BalanceOf<T>
+        ) -> dispatch::DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let source = T::Lookup::lookup(source)?;
+            let dest = T::Lookup::lookup(dest)?;
+            Self::force_transfer_both_(&source, &dest, free, reserved)?;
+            Ok(Pays::No.into())
+        }
     }
 }
 
@@ -611,6 +623,24 @@ impl<T: Trait> Module<T> {
     /// Treasury's free balance. Only free balance makes sense for treasury in context of PoA
     pub fn treasury_balance() -> BalanceOf<T> {
         T::Currency::free_balance(&Self::treasury_account())
+    }
+
+    fn force_transfer_both_(
+        source: &T::AccountId,
+        dest: &T::AccountId,
+        free: BalanceOf<T>,
+        reserved: BalanceOf<T>,
+    ) -> dispatch::DispatchResult {
+        T::Currency::free_balance(source)
+            .checked_sub(&free)
+            .ok_or_else(|| Error::<T>::InsufficientFreeBalance)?;
+        T::Currency::reserved_balance(source)
+            .checked_sub(&reserved)
+            .ok_or_else(|| Error::<T>::InsufficientReservedBalance)?;
+        // ensure!((T::Cuurency::free_balance(source) >= free && T::Cuurency::reserved_balance(source) >= reserved), Error::<T>::InSufficientFreeOrReservedBalance);
+        T::Currency::transfer(&source, &dest, free, AllowDeath)?;
+        T::Currency::repatriate_reserved(&source, &dest, reserved, Reserved)?;
+        Ok(())
     }
 
     /// Return total (validators + treasury) emission rewards for given epoch

@@ -1697,3 +1697,86 @@ fn expected_treasury_account_id() {
         *b"modlTreasury\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
     );
 }
+
+#[test]
+fn force_transfer_both() {
+    new_test_ext().execute_with(|| {
+        let source = 1;
+        let dest = 2;
+
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&source, 1000);
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&dest, 200);
+        <TestRuntime as Trait>::Currency::reserve(&source, 500).unwrap();
+        <TestRuntime as Trait>::Currency::reserve(&dest, 20).unwrap();
+
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&source), 500);
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::reserved_balance(&source),
+            500
+        );
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&dest), 180);
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::reserved_balance(&dest),
+            20
+        );
+
+        // Only Root can make the call
+        assert!(PoAModule::force_transfer_both(
+            RawOrigin::Signed(4),
+            source,
+            dest,
+            1,
+            1
+        ).is_err());
+
+        assert_ok!(PoAModule::force_transfer_both(
+            RawOrigin::Root.into(),
+            source,
+            dest,
+            50,
+            10
+        ));
+
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&source), 450);
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::reserved_balance(&source),
+            490
+        );
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&dest), 230);
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::reserved_balance(&dest),
+            30
+        );
+
+        // Should have sufficient balance of the corresponding kind to make the call
+        assert_err!(
+            PoAModule::force_transfer_both(RawOrigin::Root.into(), source, dest, 451, 0),
+            Error::<TestRuntime>::InsufficientFreeBalance
+        );
+
+        assert_err!(
+            PoAModule::force_transfer_both(RawOrigin::Root.into(), source, dest, 0, 491),
+            Error::<TestRuntime>::InsufficientReservedBalance
+        );
+
+        // Drain the source
+        assert_ok!(PoAModule::force_transfer_both(
+            RawOrigin::Root.into(),
+            source,
+            dest,
+            450,
+            490
+        ));
+
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&source), 0);
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::reserved_balance(&source),
+            0
+        );
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&dest), 680);
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::reserved_balance(&dest),
+            520
+        );
+    });
+}
