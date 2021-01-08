@@ -1,12 +1,12 @@
 # Fiat filter pallet 
 
 - Support an extrinsic which takes a call to execute and deduct fees according to fiat price. It can also be used to allow only certain kinds of transactions.
-- After executing, return `Pays:No` in `PostDispatchInfo`.
+- Compute fees according to fiat/token pair and deduct fees using `Currency::withdraw`. After executing, return `Pays:No` in `PostDispatchInfo`.
 - The weight computation should take into account the weight of the call being passed by using its `dispatch_info`
 - Use the `BaseCallFilter` in runtime lib.rs to disallow direct access to modules like DID, Blob, etc.
 - Optional: Make the filter only accept calls to DID, Blob, etc pallet. Better option is to keep the pallet decoupled and accept the
 `Call` types in configuration trait but this seems tricky as would i how would i accept an unbounded list of types.
-- The default value of the pair fiat/token is set in genesis.
+- The default value of the pair fiat/token is set in genesis config.
 - After each `n` blocks (configurable), calls a price update function. It doesn't request price from the contract
 directly (by sending update price request to contract) to keep it decoupled from the pricing logic. The update function should
 be configurable in the pallet's config trait, like `OnNewAccount` in `frame_system` pallet or `OnTransactionPayment` in transaction
