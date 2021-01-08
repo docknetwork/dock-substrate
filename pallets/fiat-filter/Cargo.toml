@@ -1,0 +1,28 @@
+[package]
+name = "fiat_filter"
+version = "0.0.1"
+authors = ["Dock.io"]
+edition = "2018"
+license = 'Apache-2.0'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies.frame-support]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0'
+version = '2.0.0'
+
+[dependencies.frame-system]
+default-features = false
+git = 'https://github.com/paritytech/substrate.git'
+tag = 'v2.0.0'
+version = '2.0.0'
+
+[features]
+default = ['std']
+std = [
+    'frame-support/std',
+    'frame-system/std',
+]

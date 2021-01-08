@@ -1439,6 +1439,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fiat_filter"
+version = "0.0.1"
+dependencies = [
+ "frame-support",
+ "frame-system",
+]
+
+[[package]]
 name = "file-per-thread-logger"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
