@@ -1721,13 +1721,7 @@ fn force_transfer_both() {
         );
 
         // Only Root can make the call
-        assert!(PoAModule::force_transfer_both(
-            RawOrigin::Signed(4),
-            source,
-            dest,
-            1,
-            1
-        ).is_err());
+        assert!(PoAModule::force_transfer_both(Origin::signed(4), source, dest, 1, 1).is_err());
 
         assert_ok!(PoAModule::force_transfer_both(
             RawOrigin::Root.into(),
