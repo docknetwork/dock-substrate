@@ -561,6 +561,7 @@ impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
             Call::Democracy(_) => false,
+            // TODO filter out DID, blob
             _ => true,
         }
     }

@@ -1,0 +1,31 @@
+#!/bin/bash
+set -euxo pipefail
+
+deps() {
+	# command test -f Cargo.toml || git clone -b v2.0.0 --depth 1 https://github.com/substrate-developer-hub/substrate-node-template; rm -rf ./substrate-node-template/.git
+	rustc --version &>/dev/null || rustup --version &>/dev/null || curl https://sh.rustup.rs -sSf | sh -s -- -y; export PATH="/root/.cargo/bin:${PATH}"
+	rustc --version | grep -E 'nightly.*2020-10-05' &>/dev/null || rustup override set $v
+	rustc --version | grep -E 'nightly.*2020-10-05' &>/dev/null || rustup update $v 
+	rustup show | grep wasm &>/dev/null || rustup target add wasm32-unknown-unknown --toolchain $v
+}
+s=`&>/dev/null`
+v=`echo nightly-2020-10-06`
+clean() {
+	${node} purge-chain --dev -y || true
+	${node} purge-chain --base-path /tmp/alice --chain local -y || true
+	${node} purge-chain --base-path /tmp/bob --chain local -y || true
+	rm -f .cache/alice.out .cache/bob.out .cache/dev.out
+}
+
+
+if declare -f "${1}" >/dev/null; then
+#   nix-shell --version || curl -L https://nixos.org/nix/install | sh; . ~/.nix-profile/etc/profile.d/nix.sh
+  sub="${1}"; shift
+#   if echo ${shell} | grep nix; then
+	"$sub" "$@" # invoke our named function w/ all remaining arguments
+#   else
+	# nix-shell --run "$(printf "%q " command "$0" "$sub" "$@")"
+#   fi
+else
+  PROGNAME=$(basename $0); echo "Subcommand '$1' not recognized. Run './${PROGNAME} help' for docs." >&2; exit 1
+fi
