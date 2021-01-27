@@ -82,7 +82,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 // use crate::{Error};
 use frame_support::{assert_ok, assert_noop};
-use frame_system::{ RawOrigin};
+use frame_system::RawOrigin;
 
 #[test]
 fn root_set_update_freq__OK() {
