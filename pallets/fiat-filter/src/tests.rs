@@ -1,5 +1,5 @@
-// use crate::{Module, Trait};
-use super::{Module,Trait,Error,*};
+// use crate::{Module,Trait,Error};
+use crate::*;
 use sp_core::H256;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_runtime::{
@@ -82,24 +82,26 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 
 // use crate::{Error};
 use frame_support::{assert_ok, assert_noop};
+use frame_system::{ RawOrigin};
 
-// #[test]
-// fn it_works_for_default_value() {
-// 	new_test_ext().execute_with(|| {
-// 		// Dispatch a signed extrinsic.
-// 		assert_ok!(FiatFilterModule::do_something(Origin::signed(1), 42));
-// 		// Read pallet storage and assert an expected result.
-// 		assert_eq!(FiatFilterModule::something(), Some(42));
-// 	});
-// }
+#[test]
+fn root_set_update_freq__OK() {
+	new_test_ext().execute_with(|| {
+		// Dispatch a signed extrinsic.
+		assert_ok!(FiatFilterModule::root_set_update_freq(RawOrigin::Root.into(), 42u64));
+		// Read pallet storage and assert an expected result.
+		assert_eq!(FiatFilterModule::update_freq(), 42u64);
+	});
+}
 
-// #[test]
-// fn correct_error_for_none_value() {
-// 	new_test_ext().execute_with(|| {
-// 		// Ensure the expected error is thrown when no value is present.
-// 		assert_noop!(
-// 			FiatFilterModule::cause_error(Origin::signed(1)),
-// 			Error::<Test>::NoneValue
-// 		);
-// 	});
-// }
+#[test]
+fn root_set_update_freq__Err_NotRoot() {
+	new_test_ext().execute_with(|| {
+		// Ensure the expected error is thrown when no value is present.
+		assert_noop!(
+			FiatFilterModule::root_set_update_freq(Origin::signed(1), 42u64),
+			// Error::<Test>::NoneValue
+			DispatchError::BadOrigin
+		);
+	});
+}

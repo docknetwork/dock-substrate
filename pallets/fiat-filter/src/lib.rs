@@ -12,7 +12,7 @@ use frame_support::{
 	weights::{GetDispatchInfo},
 	traits::{Get,UnfilteredDispatchable},
 	Parameter,
-	sp_runtime::Perbill,
+	sp_runtime::{Perbill, DispatchError},
 };
 
 
@@ -90,6 +90,8 @@ decl_error! {
 		NoneValue,
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
+		// /// UnexpectedOrigin: for instance, dispatchable expects root, finds account
+		// BadOrigin,
 	}
 }
 
