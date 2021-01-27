@@ -122,7 +122,7 @@ decl_storage!(
         /// price update frequency (in number of blocks)
         pub UpdateFreq get(fn update_freq) config(): u8 = INIT_UPDATE_EVERY_N_BLOCKS;
         /// block number of last DockUsdRate update
-        pub UpdatedAt get(fn updated_at): BlockNumber
+        pub UpdatedAt get(fn updated_at): BlockNumber;
     }
 
     // add_extra_genesis { // TODO use this to initialize value at genesis, instead of config types

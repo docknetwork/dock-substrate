@@ -1,8 +1,0 @@
-#!/bin/bash
-set -uexo pipefail
-dir_scripts=$(dirname $0)
-cd $(dirname $0)/..
-
-sh ${dir_scripts}/deps deps
-cargo check -p fiat_filter
-cargo test -p fiat_filter

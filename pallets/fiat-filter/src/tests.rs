@@ -1,4 +1,5 @@
-use crate::{Module, Trait};
+// use crate::{Module, Trait};
+use super::{Module,Trait,Error,*};
 use sp_core::H256;
 use frame_support::{impl_outer_origin, parameter_types, weights::Weight};
 use sp_runtime::{
@@ -49,11 +50,25 @@ impl system::Trait for Test {
 	type SystemWeightInfo = ();
 }
 
+// impl_outer_dispatch! {
+//     pub enum Call for Test where origin: Origin {
+//         frame_system::System,
+//         pallet_balances::Balances,
+//         democracy::Democracy,
+//     }
+// }
+
+pub struct TestUpdaterDockFiatRate {}
+impl UpdaterDockFiatRate for TestUpdaterDockFiatRate {
+	fn update_dock_fiat_rate() {}
+}
 impl Trait for Test {
 	type Event = ();
+	type UpdaterDockFiatRate = TestUpdaterDockFiatRate;
+	// type Call = Call;
 }
 
-pub type TemplateModule = Module<Test>;
+pub type FiatFilterModule = Module<Test>;
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
@@ -61,17 +76,20 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
 }
 
 
-// TESTS
-use crate::{Error};
+
+
+// TEST
+
+// use crate::{Error};
 use frame_support::{assert_ok, assert_noop};
 
 #[test]
 fn it_works_for_default_value() {
 	new_test_ext().execute_with(|| {
 		// Dispatch a signed extrinsic.
-		assert_ok!(TemplateModule::do_something(Origin::signed(1), 42));
+		assert_ok!(FiatFilterModule::do_something(Origin::signed(1), 42));
 		// Read pallet storage and assert an expected result.
-		assert_eq!(TemplateModule::something(), Some(42));
+		assert_eq!(FiatFilterModule::something(), Some(42));
 	});
 }
 
@@ -80,7 +98,7 @@ fn correct_error_for_none_value() {
 	new_test_ext().execute_with(|| {
 		// Ensure the expected error is thrown when no value is present.
 		assert_noop!(
-			TemplateModule::cause_error(Origin::signed(1)),
+			FiatFilterModule::cause_error(Origin::signed(1)),
 			Error::<Test>::NoneValue
 		);
 	});

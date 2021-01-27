@@ -1,0 +1,9 @@
+#!/bin/bash
+set -uexo pipefail
+dir_scripts=$(dirname $0)
+cd $(dirname $0)/..
+
+
+. ${dir_scripts}/deps deps
+cargo +$v check -p fiat_filter
+cargo +$v test -p fiat_filter

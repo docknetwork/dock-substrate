@@ -4,19 +4,42 @@
 /// Learn more about FRAME and the core library of Substrate FRAME pallets:
 /// https://substrate.dev/docs/en/knowledgebase/runtime/frame
 
-use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch, traits::Get};
+use frame_support::{decl_module, decl_storage, decl_event, decl_error, dispatch};
 use frame_system::ensure_signed;
+use frame_support::{
+	// dispatch::{DispatchResultWithPostInfo,PostDispatchInfo},
+	weights::{GetDispatchInfo},
+	traits::{Get,UnfilteredDispatchable},
+	Parameter,
+	sp_runtime::Perbill,
+};
 
-// #[cfg(test)]
-// mod mock;
+
+
 #[cfg(test)]
 mod tests;
 
+/// Handler for updating the DockUsdRate
+// #[impl_for_tuples(30)]
+pub trait UpdaterDockFiatRate {
+    // fn update_dock_usd_rate(who: &AccountId);
+	/// Handler for updating the DockUsdRate
+	fn update_dock_fiat_rate();
+}
+
+/// The pallet's configuration trait
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Trait: frame_system::Trait {
 	/// Because this pallet emits events, it depends on the runtime's definition of an event.
 	type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+	// type Call: Parameter + UnfilteredDispatchable<Origin = Self::Origin> + GetDispatchInfo;
+	type UpdaterDockFiatRate: UpdaterDockFiatRate;
 }
+
+
+pub fn INIT_DOCK_FIAT_RATE() -> Perbill { Perbill::from_fraction(0.02251112) }
+// pub const INIT_UPDATE_EVERY_N_BLOCKS: <Trait as frame_system::Trait>::BlockNumber = 10;
+pub const INIT_UPDATE_EVERY_N_BLOCKS: u8 = 10;
 
 // The pallet's runtime storage items.
 // https://substrate.dev/docs/en/knowledgebase/runtime/storage
@@ -24,22 +47,39 @@ decl_storage! {
 	// A unique name is used to ensure that the pallet's storage items are isolated.
 	// This name may be updated, but each pallet in the runtime must use a unique name.
 	// ---------------------------------vvvvvvvvvvvvvv
-	trait Store for Module<T: Trait> as TemplateModule {
+	trait Store for Module<T: Trait> as FiatFilterModule {
 		// Learn more about declaring storage items:
 		// https://substrate.dev/docs/en/knowledgebase/runtime/storage#declaring-storage-items
 		Something get(fn something): Option<u32>;
+
+		/// price of one DOCK in fiat (for now, only USD)
+		pub DockFiatRate get(fn dock_fiat_rate) config(): Perbill = INIT_DOCK_FIAT_RATE();
+		// /// price update frequency (in number of blocks)
+		// pub UpdateFreq get(fn update_freq) config(): BlockNumber = INIT_UPDATE_EVERY_N_BLOCKS;
+		// /// block number of last DockUsdRate update
+		// pub LastUpdatedAt get(fn last_updated_at): BlockNumber;
 	}
 }
 
 // Pallets use events to inform users when important changes are made.
 // https://substrate.dev/docs/en/knowledgebase/runtime/events
-decl_event!(
-	pub enum Event<T> where AccountId = <T as frame_system::Trait>::AccountId {
+decl_event! {
+	pub enum Event<T> where 
+		AccountId = <T as frame_system::Trait>::AccountId, // TODO remove bound
+		<T as frame_system::Trait>::BlockNumber,
+	{
 		/// Event documentation should end with an array that provides descriptive names for event
 		/// parameters. [something, who]
-		SomethingStored(u32, AccountId),
-	}
-);
+		SomethingStored(u32, AccountId), // TODO rm
+
+		/// on set_dock_usd_rate executed
+		/// event parameters: [new_dock_usd_rate]
+        DockUsdRateSet(Perbill),
+		/// on root_set_update_freq executed
+		/// event parameters: [new_update_frequency_blocks]
+        UpdateFreqStored(BlockNumber),
+    }
+}
 
 // Errors inform users that something went wrong.
 decl_error! {
@@ -57,8 +97,7 @@ decl_error! {
 decl_module! {
 	pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 		// Errors must be initialized if they are used by the pallet.
-		type Error = Error<T>;
-
+		// type Error = Error<T>;
 		// Events must be initialized if they are used by the pallet.
 		fn deposit_event() = default;
 

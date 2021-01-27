@@ -1442,9 +1442,10 @@ dependencies = [
 name = "fiat_filter"
 version = "0.0.1"
 dependencies = [
- "frame-support 2.0.0 (git+https://github.com/paritytech/substrate.git?tag=v2.0.0)",
+ "frame-support 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "frame-system 2.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "parity-scale-codec",
+ "serde",
  "sp-core 2.0.1",
  "sp-io 2.0.1",
  "sp-runtime 2.0.1",

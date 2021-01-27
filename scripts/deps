@@ -9,7 +9,7 @@ deps() {
 	rustup show | grep wasm &>/dev/null || rustup target add wasm32-unknown-unknown --toolchain $v
 }
 s=`&>/dev/null`
-v=`echo nightly-2020-10-06`
+export v='nightly-2020-10-06'
 clean() {
 	${node} purge-chain --dev -y || true
 	${node} purge-chain --base-path /tmp/alice --chain local -y || true
