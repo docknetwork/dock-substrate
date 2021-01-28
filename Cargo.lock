@@ -1190,7 +1190,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.12.2"
+version = "0.12.3"
 dependencies = [
  "dock-runtime",
  "frame-benchmarking",
@@ -1234,7 +1234,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.12.2"
+version = "0.12.3"
 dependencies = [
  "forked-pallet-democracy",
  "frame-benchmarking",
@@ -1621,7 +1621,7 @@ dependencies = [
 
 [[package]]
 name = "forked-pallet-democracy"
-version = "2.0.0"
+version = "2.0.1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -3936,8 +3936,6 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "2.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9b59d3bfd2c8199922b93cd71853ad809a9a1972f9016bd9c5fa4ed25a0ee4ba"
 dependencies = [
  "evm",
  "frame-support",
@@ -4530,7 +4528,7 @@ checksum = "feb3b2b1033b8a60b4da6ee470325f887758c95d5320f52f9ce0df055a55940e"
 
 [[package]]
 name = "poa"
-version = "0.6.1"
+version = "0.6.2"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4549,7 +4547,7 @@ dependencies = [
 
 [[package]]
 name = "poa_rpc"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",
@@ -6459,7 +6457,7 @@ checksum = "0f0242b8e50dd9accdd56170e94ca1ebd223b098eb9c83539a6e367d0f36ae68"
 
 [[package]]
 name = "simple_democracy"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "forked-pallet-democracy",
  "frame-support",
@@ -7532,7 +7530,7 @@ checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
 
 [[package]]
 name = "token_migration"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
