@@ -29,6 +29,7 @@ pub mod did;
 pub mod master;
 pub mod revoke;
 pub mod weight_to_fee;
+mod evm_test;
 
 pub use poa;
 pub use simple_democracy;
@@ -57,7 +58,7 @@ use pallet_sudo as sudo;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::u32_trait::{_1, _2, _3};
-use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
+use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160};
 use sp_runtime::traits::{
     BlakeTwo256, Block as BlockT, ConvertInto, IdentifyAccount, IdentityLookup, NumberFor,
     OpaqueKeys, Saturating, Verify,
@@ -66,6 +67,9 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, MultiSignature, Perbill,
+};
+use pallet_evm::{
+    EnsureAddressTruncated, IdentityAddressMapping, HashedAddressMapping
 };
 
 use crate::weight_to_fee::TxnFee;
@@ -555,6 +559,21 @@ impl pallet_democracy::Trait for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const DockChainId: u64 = 2021;
+}
+
+impl pallet_evm::Trait for Runtime {
+    type FeeCalculator = ();
+    type CallOrigin = EnsureAddressTruncated;
+    type WithdrawOrigin = EnsureAddressTruncated;
+    type AddressMapping = HashedAddressMapping<BlakeTwo256>;
+    type Currency = Balances;
+    type Event = Event;
+    type Precompiles = ();
+    type ChainId = DockChainId;
+}
+
 pub struct BaseFilter;
 
 impl Filter<Call> for BaseFilter {
@@ -597,6 +616,7 @@ construct_runtime!(
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TechnicalCommitteeMembership: pallet_membership::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
+        EVM: pallet_evm::{Module, Call, Storage, Config, Event<T>}
     }
 );
 

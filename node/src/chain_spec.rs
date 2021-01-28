@@ -4,7 +4,7 @@ use dock_runtime::{
     opaque::SessionKeys,
     AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig, GenesisConfig,
     GrandpaConfig, MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
+    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY, EVMConfig
 };
 use hex_literal::hex;
 use sc_service::{ChainType, Properties};
@@ -18,6 +18,8 @@ use sp_runtime::{
 };
 
 use serde_json::map::Map;
+
+use std::collections::BTreeMap;
 
 fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
     SessionKeys { aura, grandpa }
@@ -583,6 +585,9 @@ impl GenesisBuilder {
             pallet_membership_Instance2: Some(TechnicalCommitteeMembershipConfig {
                 members: self.technical_committee_members,
                 phantom: Default::default(),
+            }),
+            pallet_evm: Some(EVMConfig {
+                accounts: BTreeMap::new(),
             }),
         }
     }
