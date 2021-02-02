@@ -33,7 +33,7 @@ pub enum TestCall {
 
 impl Dispatchable for TestCall {
     type Origin = Origin;
-    type Trait = ();
+    type Config = ();
     type Info = ();
     type PostInfo = PostDispatchInfo;
     fn dispatch(self, origin: Self::Origin) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
@@ -101,12 +101,9 @@ pub struct Test;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = 1024;
-    pub const MaximumBlockLength: u32 = 2 * 1024;
-    pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-impl system::Trait for Test {
+impl system::Config for Test {
     type BaseCallFilter = ();
     type Origin = Origin;
     type Call = ();
@@ -119,19 +116,16 @@ impl system::Trait for Test {
     type Header = Header;
     type Event = TestEvent;
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
+    type BlockWeights = ();
+    type BlockLength = ();
     type Version = ();
     type PalletInfo = ();
     type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
 impl crate::did::Trait for Test {
@@ -185,7 +179,6 @@ pub fn ext() -> sp_io::TestExternalities {
     ret.execute_with(|| {
         system::Module::<Test>::initialize(
             &1, // system module will not store events if block_number == 0
-            &[0u8; 32].into(),
             &[0u8; 32].into(),
             &Default::default(),
             system::InitKind::Full,

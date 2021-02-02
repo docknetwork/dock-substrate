@@ -34,7 +34,7 @@ parameter_types! {
     pub const TransactionByteFee: u64 = 1;
 }
 
-impl system::Trait for TestRuntime {
+impl system::Config for TestRuntime {
     type BaseCallFilter = ();
     type Origin = Origin;
     type Call = ();
@@ -47,22 +47,19 @@ impl system::Trait for TestRuntime {
     type Header = Header;
     type Event = ();
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
+    type BlockWeights = ();
+    type BlockLength = ();
     type Version = ();
     type PalletInfo = ();
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
-impl balances::Trait for TestRuntime {
+impl balances::Config for TestRuntime {
     type Balance = u64;
     type DustRemoval = ();
     type Event = ();
@@ -97,9 +94,9 @@ impl pallet_session::SessionHandler<ValidatorId> for TestSessionHandler {
     fn on_disabled(_validator_index: usize) {}
 }
 
-impl pallet_session::Trait for TestRuntime {
+impl pallet_session::Config for TestRuntime {
     type Event = ();
-    type ValidatorId = <Self as system::Trait>::AccountId;
+    type ValidatorId = <Self as system::Config>::AccountId;
     type ValidatorIdOf = ConvertInto;
     type ShouldEndSession = PoAModule;
     type NextSessionRotation = ();
@@ -127,7 +124,7 @@ parameter_types! {
     pub const UncleGenerations: u32 = 0;
 }
 
-impl pallet_authorship::Trait for TestRuntime {
+impl pallet_authorship::Config for TestRuntime {
     type FindAuthor = TestAuthor;
     type UncleGenerations = UncleGenerations;
     type FilterUncle = ();

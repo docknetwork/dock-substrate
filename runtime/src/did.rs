@@ -17,9 +17,9 @@ pub const DID_BYTE_SIZE: usize = 32;
 pub type Did = [u8; DID_BYTE_SIZE];
 
 /// The module's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Config {
     /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event> + Into<<Self as system::Config>::Event>;
 }
 
 decl_error! {
@@ -561,7 +561,7 @@ mod tests {
         pub const AvailableBlockRatio: Perbill = Perbill::one();
     }
 
-    impl system::Trait for Test {
+    impl system::Config for Test {
         type BaseCallFilter = ();
         type Origin = Origin;
         type Call = ();
@@ -575,19 +575,16 @@ mod tests {
         type Header = Header;
         type Event = ();
         type BlockHashCount = BlockHashCount;
-        type MaximumBlockWeight = MaximumBlockWeight;
         type DbWeight = ();
-        type BlockExecutionWeight = ();
-        type ExtrinsicBaseWeight = ();
-        type MaximumExtrinsicWeight = MaximumBlockWeight;
-        type MaximumBlockLength = MaximumBlockLength;
-        type AvailableBlockRatio = AvailableBlockRatio;
+        type BlockWeights = ();
+        type BlockLength = ();
         type Version = ();
         type PalletInfo = ();
         type AccountData = ();
         type OnNewAccount = ();
         type OnKilledAccount = ();
         type SystemWeightInfo = ();
+        type SS58Prefix = ();
     }
 
     impl super::Trait for Test {
@@ -1157,7 +1154,7 @@ mod benchmarking {
 
             let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(0, i as usize);
             let detail = KeyDetail::new(did.clone(), pk_1);
-            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            let block_number = <T as system::Config>::BlockNumber::from(n);
             Dids::<T>::insert(did.clone(), (detail, block_number));
 
             let key_update = KeyUpdate::new(
@@ -1180,7 +1177,7 @@ mod benchmarking {
 
             let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(1, i as usize);
             let detail = KeyDetail::new(did.clone(), pk_1);
-            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            let block_number = <T as system::Config>::BlockNumber::from(n);
             Dids::<T>::insert(did.clone(), (detail, block_number));
 
             let key_update = KeyUpdate::new(
@@ -1203,7 +1200,7 @@ mod benchmarking {
 
             let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(2, i as usize);
             let detail = KeyDetail::new(did.clone(), pk_1);
-            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            let block_number = <T as system::Config>::BlockNumber::from(n);
             Dids::<T>::insert(did.clone(), (detail, block_number));
 
             let key_update = KeyUpdate::new(
@@ -1226,7 +1223,7 @@ mod benchmarking {
 
             let (n, did, pk, sig) = get_data_for_did_removal(0, i as usize);
             let detail = KeyDetail::new(did.clone(), pk);
-            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            let block_number = <T as system::Config>::BlockNumber::from(n);
             Dids::<T>::insert(did.clone(), (detail, block_number));
 
             let remove = DidRemoval::new(

@@ -2,9 +2,10 @@ use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
     opaque::SessionKeys,
+    AccountId, Signature,
     AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig, GenesisConfig,
     GrandpaConfig, MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY, EVMConfig
+    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY
 };
 use hex_literal::hex;
 use sc_service::{ChainType, Properties};
@@ -14,7 +15,6 @@ use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::{
     traits::{IdentifyAccount, Verify},
-    MultiSignature,
 };
 
 use serde_json::map::Map;
@@ -24,8 +24,6 @@ use std::collections::BTreeMap;
 fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
     SessionKeys { aura, grandpa }
 }
-
-type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
@@ -37,7 +35,7 @@ fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public
         .public()
 }
 
-type AccountPublic = <MultiSignature as Verify>::Signer;
+type AccountPublic = <Signature as Verify>::Signer;
 
 /// Helper function to generate an account ID from seed
 fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
@@ -586,9 +584,9 @@ impl GenesisBuilder {
                 members: self.technical_committee_members,
                 phantom: Default::default(),
             }),
-            pallet_evm: Some(EVMConfig {
+            /*pallet_evm: Some(EVMConfig {
                 accounts: BTreeMap::new(),
-            }),
+            }),*/
         }
     }
 

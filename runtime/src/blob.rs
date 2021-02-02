@@ -25,7 +25,7 @@ pub struct Blob {
     pub author: did::Did,
 }
 
-pub trait Trait: system::Trait + did::Trait {
+pub trait Trait: system::Config + did::Trait {
     /// Blobs larger than this will not be accepted.
     type MaxBlobSize: Get<u32>;
 }
@@ -67,7 +67,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn new_(
-        origin: <T as system::Trait>::Origin,
+        origin: <T as system::Config>::Origin,
         blob: Blob,
         signature: did::DidSignature,
     ) -> DispatchResult {
@@ -258,7 +258,7 @@ mod benchmarking {
             let (did, pk, id, content, sig) = get_data_for_blob(i as usize);
 
             let detail = KeyDetail::new(did.clone(), pk);
-            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            let block_number = <T as system::Config>::BlockNumber::from(n);
             Dids::<T>::insert(did.clone(), (detail, block_number));
 
             let blob = Blob {

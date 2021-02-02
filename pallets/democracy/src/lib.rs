@@ -164,7 +164,7 @@ use frame_support::{
     traits::{
         schedule::{DispatchTime, Named as ScheduleNamed},
         BalanceStatus, Currency, EnsureOrigin, Get, LockIdentifier, LockableCurrency, OnUnbalanced,
-        ReservableCurrency, WithdrawReason,
+        ReservableCurrency, WithdrawReasons,
     },
     weights::{DispatchClass, Pays, Weight},
     Parameter,
@@ -206,9 +206,9 @@ pub type PropIndex = u32;
 pub type ReferendumIndex = u32;
 
 pub type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::Balance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 pub type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as frame_system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Trait>::Currency as Currency<<T as frame_system::Config>::AccountId>>::NegativeImbalance;
 
 pub trait WeightInfo {
     fn propose() -> Weight;
@@ -239,9 +239,9 @@ pub trait WeightInfo {
 
 // TODO: Add method to cancel proposal from master branch
 
-pub trait Trait: frame_system::Trait + Sized {
+pub trait Trait: frame_system::Config + Sized {
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
-    type Event: From<Event<Self>> + Into<<Self as frame_system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
 
     /// Currency type for this module.
     type Currency: ReservableCurrency<Self::AccountId>
@@ -447,9 +447,9 @@ decl_storage! {
 decl_event! {
     pub enum Event<T> where
         Balance = BalanceOf<T>,
-        <T as frame_system::Trait>::AccountId,
-        <T as frame_system::Trait>::Hash,
-        <T as frame_system::Trait>::BlockNumber,
+        <T as frame_system::Config>::AccountId,
+        <T as frame_system::Config>::Hash,
+        <T as frame_system::Config>::BlockNumber,
     {
         /// A motion has been proposed by a public account. \[proposal_index, deposit\]
         Proposed(PropIndex, Balance),
@@ -1184,7 +1184,7 @@ decl_module! {
         }
 
         /// Enact a proposal from a referendum. For now we just make the weight be the maximum.
-        #[weight = T::MaximumBlockWeight::get()]
+        #[weight = T::BlockWeights::get().max_block]
         pub fn enact_proposal(origin, proposal_hash: T::Hash, index: ReferendumIndex) -> DispatchResult {
             ensure_root(origin)?;
             Self::do_enact_proposal(proposal_hash, index)
@@ -1345,7 +1345,7 @@ impl<T: Trait> Module<T> {
             DEMOCRACY_ID,
             who,
             vote.balance(),
-            WithdrawReason::Transfer.into(),
+            WithdrawReasons::TRANSFER,
         );
         ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
         Ok(())
@@ -1509,7 +1509,7 @@ impl<T: Trait> Module<T> {
             let votes = Self::increase_upstream_delegation(&target, conviction.votes(balance));
             // Extend the lock to `balance` (rather than setting it) since we don't know what other
             // votes are in place.
-            T::Currency::extend_lock(DEMOCRACY_ID, &who, balance, WithdrawReason::Transfer.into());
+            T::Currency::extend_lock(DEMOCRACY_ID, &who, balance, WithdrawReasons::TRANSFER);
             Ok(votes)
         })?;
         Self::deposit_event(Event::<T>::Delegated(who, target));
@@ -1562,7 +1562,7 @@ impl<T: Trait> Module<T> {
                 DEMOCRACY_ID,
                 who,
                 lock_needed,
-                WithdrawReason::Transfer.into(),
+                WithdrawReasons::TRANSFER,
             );
         }
     }
@@ -1737,6 +1737,7 @@ impl<T: Trait> Module<T> {
     /// - Db reads per R: `DepositOf`, `ReferendumInfoOf`
     /// # </weight>
     fn begin_block(now: T::BlockNumber) -> Result<Weight, DispatchError> {
+        let max_block_weight = T::BlockWeights::get().max_block;
         let mut weight = 0;
 
         // pick out another public referendum if it's time.
@@ -1744,7 +1745,7 @@ impl<T: Trait> Module<T> {
             // Errors come from the queue being empty. we don't really care about that, and even if
             // we did, there is nothing we can do here.
             let _ = Self::launch_next(now);
-            weight = T::MaximumBlockWeight::get();
+            weight = max_block_weight;
         }
 
         let next = Self::lowest_unbaked();
@@ -1755,7 +1756,7 @@ impl<T: Trait> Module<T> {
         for (index, info) in Self::maturing_referenda_at_inner(now, next..last).into_iter() {
             let approved = Self::bake_referendum(now, index, info)?;
             ReferendumInfoOf::<T>::insert(index, ReferendumInfo::Finished { end: now, approved });
-            weight = T::MaximumBlockWeight::get();
+            weight = max_block_weight;
         }
 
         Ok(weight)

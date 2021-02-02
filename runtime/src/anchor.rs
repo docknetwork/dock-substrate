@@ -12,8 +12,8 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
 
-pub trait Trait: system::Trait {
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+pub trait Trait: system::Config {
+    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 }
 
 decl_error! {
@@ -27,17 +27,17 @@ decl_storage! {
     trait Store for Module<T: Trait> as Anchor {
         // Hasher can be the identity here becuse we perform a hash ourself which has the same
         // merkle-trie balancing effect as using a hash-prefix map.
-        Anchors: map hasher(identity) <T as system::Trait>::Hash =>
-            Option<<T as system::Trait>::BlockNumber>;
+        Anchors: map hasher(identity) <T as system::Config>::Hash =>
+            Option<<T as system::Config>::BlockNumber>;
     }
 }
 
 decl_event! {
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
-        BlockNumber = <T as system::Trait>::BlockNumber,
-        Hash = <T as system::Trait>::Hash,
+        AccountId = <T as system::Config>::AccountId,
+        BlockNumber = <T as system::Config>::BlockNumber,
+        Hash = <T as system::Config>::Hash,
     {
         /// A new permanent anchor was posted.
         AnchorDeployed(Hash, AccountId, BlockNumber),
@@ -60,11 +60,11 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    fn deploy_(origin: <T as system::Trait>::Origin, dat: Vec<u8>) -> DispatchResult {
+    fn deploy_(origin: <T as system::Config>::Origin, dat: Vec<u8>) -> DispatchResult {
         let acct = ensure_signed(origin)?;
 
         // check
-        let h = <T as system::Trait>::Hashing::hash(&dat);
+        let h = <T as system::Config>::Hashing::hash(&dat);
         ensure!(Anchors::<T>::get(&h).is_none(), Error::<T>::AnchorExists);
 
         // execute
@@ -87,7 +87,7 @@ mod tests {
     fn deploy_and_check() {
         ext().execute_with(|| {
             let bs = random_bytes(32);
-            let h = <Test as system::Trait>::Hashing::hash(&bs);
+            let h = <Test as system::Config>::Hashing::hash(&bs);
             assert!(Anchors::<Test>::get(h).is_none());
             Mod::deploy(Origin::signed(ABBA), bs).unwrap();
             assert!(Anchors::<Test>::get(h).is_some());
@@ -108,7 +108,7 @@ mod tests {
     fn deploy_and_observe_event() {
         ext().execute_with(|| {
             let bs = random_bytes(32);
-            let h = <Test as system::Trait>::Hashing::hash(&bs);
+            let h = <Test as system::Config>::Hashing::hash(&bs);
             Mod::deploy(Origin::signed(ABBA), bs).unwrap();
             assert_eq!(
                 &anchor_events(),
