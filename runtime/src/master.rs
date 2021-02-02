@@ -9,7 +9,7 @@
 //! # use frame_support::{decl_module, dispatch::DispatchResult};
 //! # type Foo = ();
 //! # type Bar = ();
-//! # trait Trait: frame_system::Trait {}
+//! # trait Trait: frame_system::Config {}
 //! decl_module! {
 //!     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
 //!         #[weight = 100_000]
@@ -118,11 +118,11 @@ fn get_min_weight_for_execute(auth: &PMAuth, db_weights: RuntimeDbWeight) -> Wei
     MIN_WEIGHT + get_weight_for_pauth(&auth, db_weights) + db_weights.reads_writes(1, 1)
 }
 
-pub trait Trait: system::Trait + crate::did::Trait
+pub trait Trait: system::Config + crate::did::Trait
 where
-    <Self as system::Trait>::AccountId: Ord,
+    <Self as system::Config>::AccountId: Ord,
 {
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 
     /// The dispatchable that master may call as Root. It is possible to use another type here, but
     /// it's expected that your runtime::Call will be used.

@@ -33,10 +33,10 @@ pub type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;
 
-type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::NegativeImbalance;
+    <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::NegativeImbalance;
 
 #[cfg(test)]
 mod tests;
@@ -118,9 +118,9 @@ impl BlockCount {
 const TREASURY_ID: ModuleId = ModuleId(*b"Treasury");
 
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait + pallet_session::Trait + pallet_authorship::Trait {
+pub trait Trait: system::Config + pallet_session::Config + pallet_authorship::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 
     type Currency: ReservableCurrency<Self::AccountId>;
 }
@@ -220,8 +220,8 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
-        BlockNumber = <T as system::Trait>::BlockNumber,
+        AccountId = <T as system::Config>::AccountId,
+        BlockNumber = <T as system::Config>::BlockNumber,
         Balance = BalanceOf<T>,
     {
         // New validator added in front of queue.

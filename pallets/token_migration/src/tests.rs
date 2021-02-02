@@ -42,7 +42,7 @@ parameter_types! {
     pub const TransactionByteFee: Balance = 1;
 }
 
-impl system::Trait for TestRuntime {
+impl system::Config for TestRuntime {
     type BaseCallFilter = ();
     type Origin = Origin;
     type Call = Call;
@@ -55,22 +55,19 @@ impl system::Trait for TestRuntime {
     type Header = Header;
     type Event = ();
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
+    type BlockWeights = ();
+    type BlockLength = ();
     type Version = ();
     type PalletInfo = ();
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
-impl balances::Trait for TestRuntime {
+impl balances::Config for TestRuntime {
     type Balance = u64;
     type DustRemoval = ();
     type Event = ();
@@ -309,10 +306,10 @@ fn signed_extension_test() {
         let signed_extension = OnlyMigrator::<TestRuntime>(PhantomData);
 
         // The call made by migrator. The recipients being empty is irrelevant for this test.
-        let call_1: <TestRuntime as system::Trait>::Call =
+        let call_1: <TestRuntime as system::Config>::Call =
             Call::MigrationModule(MigrateCall::migrate(BTreeMap::new()));
         // The call made by migrator. The bonus vectors being empty is irrelevant for this test.
-        let call_2: <TestRuntime as system::Trait>::Call =
+        let call_2: <TestRuntime as system::Config>::Call =
             Call::MigrationModule(MigrateCall::give_bonuses(Vec::new(), Vec::new()));
 
         let tx_info = DispatchInfo {

@@ -116,7 +116,7 @@ pub fn get_weight_for_pauth(auth: &PAuth, db_weights: RuntimeDbWeight) -> Weight
         + (secp * SECP256K1_WEIGHT)) as Weight
 }
 
-pub trait Trait: system::Trait + did::Trait {}
+pub trait Trait: system::Config + did::Trait {}
 
 decl_error! {
     /// Revocation Error
@@ -235,7 +235,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn new_registry_(
-        origin: <T as system::Trait>::Origin,
+        origin: <T as system::Config>::Origin,
         id: RegistryId,
         registry: Registry,
     ) -> DispatchResult {
@@ -252,7 +252,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn revoke_(
-        origin: <T as system::Trait>::Origin,
+        origin: <T as system::Config>::Origin,
         revoke: Revoke,
         proof: PAuth,
     ) -> DispatchResult {
@@ -281,7 +281,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn unrevoke_(
-        origin: <T as system::Trait>::Origin,
+        origin: <T as system::Config>::Origin,
         unrevoke: UnRevoke,
         proof: PAuth,
     ) -> DispatchResult {
@@ -311,7 +311,7 @@ impl<T: Trait> Module<T> {
     }
 
     fn remove_registry_(
-        origin: <T as system::Trait>::Origin,
+        origin: <T as system::Config>::Origin,
         removal: RemoveRegistry,
         proof: PAuth,
     ) -> DispatchResult {
@@ -1079,7 +1079,7 @@ mod benchmarking {
 
             let (n, pk, revoke_ids, signature) = get_data_for_revocation(i as usize);
             let detail = KeyDetail::new(did.clone(), pk);
-            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            let block_number = <T as system::Config>::BlockNumber::from(n);
             Dids::<T>::insert(did.clone(), (detail, block_number));
 
             Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
@@ -1105,7 +1105,7 @@ mod benchmarking {
 
             let (n, pk, revoke_ids, signature) = get_data_for_unrevocation(i as usize);
             let detail = KeyDetail::new(did.clone(), pk);
-            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            let block_number = <T as system::Config>::BlockNumber::from(n);
             Dids::<T>::insert(did.clone(), (detail, block_number));
 
             Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
@@ -1133,7 +1133,7 @@ mod benchmarking {
 
             let (n, pk, signature) = get_data_for_remove();
             let detail = KeyDetail::new(did.clone(), pk);
-            let block_number = <T as system::Trait>::BlockNumber::from(n);
+            let block_number = <T as system::Config>::BlockNumber::from(n);
             Dids::<T>::insert(did.clone(), (detail, block_number));
 
             Registries::<T>::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
