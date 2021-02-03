@@ -21,21 +21,16 @@ extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
 
-pub mod anchor;
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmark_utils;
-pub mod blob;
-pub mod did;
-pub mod master;
-pub mod revoke;
+pub use core_mods::anchor;
+pub use core_mods::blob;
+pub use core_mods::did;
+pub use core_mods::master;
+pub use core_mods::revoke;
 pub mod weight_to_fee;
 
 pub use poa;
 pub use simple_democracy;
 pub use token_migration;
-
-#[cfg(test)]
-mod test_common;
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -112,21 +107,6 @@ pub type Hash = H256;
 
 /// The token has 6 decimal places
 pub const DOCK: Balance = 1_000_000;
-
-/// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
-/// This is done to prevent make it unambiguous which command was intended as the SCALE codec's
-/// not self describing.
-/// Never change the order of variants in this enum
-#[derive(Encode, Decode)]
-pub enum StateChange {
-    KeyUpdate(did::KeyUpdate),
-    DIDRemoval(did::DidRemoval),
-    Revoke(revoke::Revoke),
-    UnRevoke(revoke::UnRevoke),
-    RemoveRegistry(revoke::RemoveRegistry),
-    Blob(blob::Blob),
-    MasterVote(master::Payload),
-}
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
 /// the specifics of the runtime. They can then be made to be agnostic over specific formats

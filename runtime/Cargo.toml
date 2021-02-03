@@ -264,6 +264,11 @@ default-features = false
 path = '../pallets/simple_democracy'
 version = '0.0.2'
 
+[dependencies.core_mods]
+default-features = false
+path = '../pallets/core_mods'
+version = '0.1.0'
+
 [features]
 default = ['std']
 std = [
@@ -305,6 +310,7 @@ std = [
     'poa/std',
     'token_migration/std',
     'simple_democracy/std',
+    'core_mods/std',
 ]
 runtime-benchmarks = [
   'frame-benchmarking',
@@ -314,6 +320,7 @@ runtime-benchmarks = [
   'balances/runtime-benchmarks',
   'frame-system-benchmarking',
   'token_migration/runtime-benchmarks',
+  'core_mods/runtime-benchmarks',
   'hex-literal',
 ]
 
