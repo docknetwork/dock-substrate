@@ -27,7 +27,6 @@ pub mod attest;
 mod benchmark_utils;
 pub mod blob;
 pub mod did;
-mod evm_test;
 pub mod master;
 pub mod revoke;
 pub mod weight_to_fee;
