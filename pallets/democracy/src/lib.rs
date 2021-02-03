@@ -237,8 +237,6 @@ pub trait WeightInfo {
     fn remove_other_vote(r: u32) -> Weight;
 }
 
-// TODO: Add method to cancel proposal from master branch
-
 pub trait Trait: frame_system::Config + Sized {
     type Proposal: Parameter + Dispatchable<Origin = Self::Origin> + From<Call<Self>>;
     type Event: From<Event<Self>> + Into<<Self as frame_system::Config>::Event>;
@@ -1341,12 +1339,7 @@ impl<T: Trait> Module<T> {
         })?;
         // Extend the lock to `balance` (rather than setting it) since we don't know what other
         // votes are in place.
-        T::Currency::extend_lock(
-            DEMOCRACY_ID,
-            who,
-            vote.balance(),
-            WithdrawReasons::TRANSFER,
-        );
+        T::Currency::extend_lock(DEMOCRACY_ID, who, vote.balance(), WithdrawReasons::TRANSFER);
         ReferendumInfoOf::<T>::insert(ref_index, ReferendumInfo::Ongoing(status));
         Ok(())
     }
@@ -1558,12 +1551,7 @@ impl<T: Trait> Module<T> {
         if lock_needed.is_zero() {
             T::Currency::remove_lock(DEMOCRACY_ID, who);
         } else {
-            T::Currency::set_lock(
-                DEMOCRACY_ID,
-                who,
-                lock_needed,
-                WithdrawReasons::TRANSFER,
-            );
+            T::Currency::set_lock(DEMOCRACY_ID, who, lock_needed, WithdrawReasons::TRANSFER);
         }
     }
 

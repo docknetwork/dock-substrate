@@ -2,10 +2,10 @@ use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
     opaque::SessionKeys,
-    AccountId, Signature,
-    AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig, GenesisConfig,
-    GrandpaConfig, MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY
+    AccountId, AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig,
+    EVMConfig, EthereumConfig, GenesisConfig, GrandpaConfig, MasterConfig, PoAModuleConfig,
+    SessionConfig, Signature, SudoConfig, SystemConfig, TechnicalCommitteeMembershipConfig, DOCK,
+    MILLISECS_PER_BLOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use sc_service::{ChainType, Properties};
@@ -13,9 +13,7 @@ use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::{
-    traits::{IdentifyAccount, Verify},
-};
+use sp_runtime::traits::{IdentifyAccount, Verify};
 
 use serde_json::map::Map;
 
@@ -584,9 +582,10 @@ impl GenesisBuilder {
                 members: self.technical_committee_members,
                 phantom: Default::default(),
             }),
-            /*pallet_evm: Some(EVMConfig {
+            pallet_ethereum: Some(EthereumConfig {}),
+            pallet_evm: Some(EVMConfig {
                 accounts: BTreeMap::new(),
-            }),*/
+            }),
         }
     }
 
