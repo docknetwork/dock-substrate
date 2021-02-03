@@ -10,8 +10,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch,
-    ensure, fail,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{
         traits::{
             CheckedAdd, CheckedSub, Convert, DispatchInfoOf, Saturating, SignedExtension,
@@ -22,7 +21,10 @@ use frame_support::{
         },
         RuntimeDebug,
     },
-    traits::{Currency, ExistenceRequirement::AllowDeath, Get, ReservableCurrency, WithdrawReasons, IsSubType},
+    traits::{
+        Currency, ExistenceRequirement::AllowDeath, Get, IsSubType, ReservableCurrency,
+        WithdrawReasons,
+    },
     weights::{Pays, Weight},
 };
 use sp_std::marker::PhantomData;
