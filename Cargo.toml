@@ -6,7 +6,6 @@ members = [
     'pallets/token_migration',
     'pallets/democracy',
     'pallets/simple_democracy',
-#    'pallets/evm',
     'runtime',
 ]
 
