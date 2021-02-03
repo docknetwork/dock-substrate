@@ -773,6 +773,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
+name = "core_mods"
+version = "0.1.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "rand 0.7.3",
+ "serde",
+ "serde-big-array",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "cpuid-bool"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1192,6 +1209,7 @@ dependencies = [
 name = "dock-runtime"
 version = "0.12.3"
 dependencies = [
+ "core_mods",
  "forked-pallet-democracy",
  "fp-rpc",
  "frame-benchmarking",
