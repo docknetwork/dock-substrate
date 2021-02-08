@@ -1,7 +1,9 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use dock_runtime::{self, opaque::Block, RuntimeApi};
-use sc_client_api::{ExecutorProvider, RemoteBackend, BlockchainEvents};
+use fc_consensus::FrontierBlockImport;
+use fc_rpc_core::types::{FilterPool, PendingTransactions};
+use sc_client_api::{BlockchainEvents, ExecutorProvider, RemoteBackend};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{
@@ -12,11 +14,9 @@ use sc_service::{error::Error as ServiceError, Configuration, TaskManager};
 use sc_telemetry::TelemetrySpan;
 use sp_consensus_aura::sr25519::AuthorityPair as AuraPair;
 use sp_inherents::InherentDataProviders;
+use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use std::collections::{HashMap, BTreeMap};
-use fc_consensus::FrontierBlockImport;
-use fc_rpc_core::types::{FilterPool, PendingTransactions};
 
 // Our native executor instance.
 native_executor_instance!(
@@ -58,14 +58,14 @@ pub fn new_partial(
                         FullClient,
                         FullSelectChain,
                     >,
-                    FullClient
+                    FullClient,
                 >,
                 AuraPair,
             >,
             sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
             PendingTransactions,
             Option<FilterPool>,
-            Option<TelemetrySpan>
+            Option<TelemetrySpan>,
         ),
     >,
     ServiceError,
@@ -101,11 +101,8 @@ pub fn new_partial(
         select_chain.clone(),
     )?;
 
-    let frontier_block_import = FrontierBlockImport::new(
-        grandpa_block_import.clone(),
-        client.clone(),
-        true
-    );
+    let frontier_block_import =
+        FrontierBlockImport::new(grandpa_block_import.clone(), client.clone(), true);
 
     let aura_block_import = sc_consensus_aura::AuraBlockImport::<_, _, _, AuraPair>::new(
         frontier_block_import,
@@ -132,7 +129,13 @@ pub fn new_partial(
         select_chain,
         transaction_pool,
         inherent_data_providers,
-        other: (aura_block_import, grandpa_link, pending_transactions, filter_pool, telemetry_span),
+        other: (
+            aura_block_import,
+            grandpa_link,
+            pending_transactions,
+            filter_pool,
+            telemetry_span,
+        ),
     })
 }
 
@@ -231,7 +234,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
                 filter_pool: filter_pool.clone(),
             };
 
-            crate::rpc::create_full(deps, subscription_executor,)
+            crate::rpc::create_full(deps, subscription_executor)
         })
     };
 
@@ -259,60 +262,67 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         const FILTER_RETAIN_THRESHOLD: u64 = 100;
         task_manager.spawn_essential_handle().spawn(
             "frontier-filter-pool",
-            client.import_notification_stream().for_each(move |notification| {
-                if let Ok(locked) = &mut filter_pool.clone().unwrap().lock() {
-                    let imported_number: u64 = notification.header.number as u64;
-                    for (k, v) in locked.clone().iter() {
-                        let lifespan_limit = v.at_block + FILTER_RETAIN_THRESHOLD;
-                        if lifespan_limit <= imported_number {
-                            locked.remove(&k);
+            client
+                .import_notification_stream()
+                .for_each(move |notification| {
+                    if let Ok(locked) = &mut filter_pool.clone().unwrap().lock() {
+                        let imported_number: u64 = notification.header.number as u64;
+                        for (k, v) in locked.clone().iter() {
+                            let lifespan_limit = v.at_block + FILTER_RETAIN_THRESHOLD;
+                            if lifespan_limit <= imported_number {
+                                locked.remove(&k);
+                            }
                         }
                     }
-                }
-                futures::future::ready(())
-            })
+                    futures::future::ready(())
+                }),
         );
     }
 
     // Spawn Frontier pending transactions maintenance task (as essential, otherwise we leak).
     if pending_transactions.is_some() {
+        use fp_consensus::{ConsensusLog, FRONTIER_ENGINE_ID};
         use futures::StreamExt;
-        use fp_consensus::{FRONTIER_ENGINE_ID, ConsensusLog};
         use sp_runtime::generic::OpaqueDigestItemId;
 
         const TRANSACTION_RETAIN_THRESHOLD: u64 = 5;
         task_manager.spawn_essential_handle().spawn(
             "frontier-pending-transactions",
-            client.import_notification_stream().for_each(move |notification| {
-
-                if let Ok(locked) = &mut pending_transactions.clone().unwrap().lock() {
-                    // As pending transactions have a finite lifespan anyway
-                    // we can ignore MultiplePostRuntimeLogs error checks.
-                    let mut frontier_log: Option<_> = None;
-                    for log in notification.header.digest.logs {
-                        let log = log.try_to::<ConsensusLog>(OpaqueDigestItemId::Consensus(&FRONTIER_ENGINE_ID));
-                        if let Some(log) = log {
-                            frontier_log = Some(log);
+            client
+                .import_notification_stream()
+                .for_each(move |notification| {
+                    if let Ok(locked) = &mut pending_transactions.clone().unwrap().lock() {
+                        // As pending transactions have a finite lifespan anyway
+                        // we can ignore MultiplePostRuntimeLogs error checks.
+                        let mut frontier_log: Option<_> = None;
+                        for log in notification.header.digest.logs {
+                            let log = log.try_to::<ConsensusLog>(OpaqueDigestItemId::Consensus(
+                                &FRONTIER_ENGINE_ID,
+                            ));
+                            if let Some(log) = log {
+                                frontier_log = Some(log);
+                            }
                         }
-                    }
 
-                    let imported_number: u64 = notification.header.number as u64;
+                        let imported_number: u64 = notification.header.number as u64;
 
-                    if let Some(ConsensusLog::EndBlock {
-                                    block_hash: _, transaction_hashes,
-                                }) = frontier_log {
-                        // Retain all pending transactions that were not
-                        // processed in the current block.
-                        locked.retain(|&k, _| !transaction_hashes.contains(&k));
+                        if let Some(ConsensusLog::EndBlock {
+                            block_hash: _,
+                            transaction_hashes,
+                        }) = frontier_log
+                        {
+                            // Retain all pending transactions that were not
+                            // processed in the current block.
+                            locked.retain(|&k, _| !transaction_hashes.contains(&k));
+                        }
+                        locked.retain(|_, v| {
+                            // Drop all the transactions that exceeded the given lifespan.
+                            let lifespan_limit = v.at_block + TRANSACTION_RETAIN_THRESHOLD;
+                            lifespan_limit > imported_number
+                        });
                     }
-                    locked.retain(|_, v| {
-                        // Drop all the transactions that exceeded the given lifespan.
-                        let lifespan_limit = v.at_block + TRANSACTION_RETAIN_THRESHOLD;
-                        lifespan_limit > imported_number
-                    });
-                }
-                futures::future::ready(())
-            })
+                    futures::future::ready(())
+                }),
         );
     }
 
