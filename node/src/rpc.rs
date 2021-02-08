@@ -5,26 +5,28 @@
 
 #![warn(missing_docs)]
 
-use std::{sync::Arc, fmt};
+use std::{fmt, sync::Arc};
 
-use dock_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Hash, Index, TransactionConverter};
+use dock_runtime::{
+    opaque::Block, AccountId, Balance, BlockNumber, Hash, Index, TransactionConverter,
+};
+use fc_rpc_core::types::{FilterPool, PendingTransactions};
+use jsonrpc_pubsub::manager::SubscriptionManager;
+use sc_client_api::{
+    backend::{AuxStore, Backend, StateBackend, StorageProvider},
+    client::BlockchainEvents,
+};
 use sc_finality_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
 use sc_finality_grandpa_rpc::GrandpaRpcHandler;
+use sc_network::NetworkService;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_transaction_pool::TransactionPool;
-use sc_network::NetworkService;
-use sc_client_api::{
-    backend::{StorageProvider, Backend, StateBackend, AuxStore},
-    client::BlockchainEvents
-};
-use jsonrpc_pubsub::manager::SubscriptionManager;
-use fc_rpc_core::types::{PendingTransactions, FilterPool};
 
 /// Extra dependencies for GRANDPA
 pub struct GrandpaDeps<B> {
@@ -59,7 +61,10 @@ pub struct FullDeps<C, P, B> {
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P, B>(deps: FullDeps<C, P, B>, subscription_executor: SubscriptionTaskExecutor) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+pub fn create_full<C, P, B>(
+    deps: FullDeps<C, P, B>,
+    subscription_executor: SubscriptionTaskExecutor,
+) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
 where
     B: Backend<Block> + Send + Sync + 'static,
     B::State: StateBackend<sp_runtime::traits::HashFor<Block>>,
@@ -74,15 +79,15 @@ where
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     <C::Api as sp_api::ApiErrorExt>::Error: fmt::Debug,
-    P: TransactionPool<Block=Block> + 'static,
+    P: TransactionPool<Block = Block> + 'static,
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use poa_rpc::{PoA, PoAApi};
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
     use fc_rpc::{
-        EthApi, EthApiServer, EthFilterApi, EthFilterApiServer, NetApi, NetApiServer,
-        EthPubSubApi, EthPubSubApiServer, Web3Api, Web3ApiServer, HexEncodedIdProvider
+        EthApi, EthApiServer, EthFilterApi, EthFilterApiServer, EthPubSubApi, EthPubSubApiServer,
+        HexEncodedIdProvider, NetApi, NetApiServer, Web3Api, Web3ApiServer,
     };
 
     let mut io = jsonrpc_core::IoHandler::default();
@@ -128,52 +133,40 @@ where
     ));
 
     // Below code is taken from frontier template
-    io.extend_with(
-        EthApiServer::to_delegate(EthApi::new(
-            client.clone(),
-            pool.clone(),
-            TransactionConverter,
-            network.clone(),
-            pending_transactions.clone(),
-            vec![],
-            is_authority,
-        ))
-    );
+    io.extend_with(EthApiServer::to_delegate(EthApi::new(
+        client.clone(),
+        pool.clone(),
+        TransactionConverter,
+        network.clone(),
+        pending_transactions.clone(),
+        vec![],
+        is_authority,
+    )));
 
     if let Some(filter_pool) = filter_pool {
-        io.extend_with(
-            EthFilterApiServer::to_delegate(EthFilterApi::new(
-                client.clone(),
-                filter_pool.clone(),
-                500 as usize, // max stored filters
-            ))
-        );
+        io.extend_with(EthFilterApiServer::to_delegate(EthFilterApi::new(
+            client.clone(),
+            filter_pool.clone(),
+            500 as usize, // max stored filters
+        )));
     }
 
-    io.extend_with(
-        NetApiServer::to_delegate(NetApi::new(
-            client.clone(),
-            network.clone(),
-        ))
-    );
+    io.extend_with(NetApiServer::to_delegate(NetApi::new(
+        client.clone(),
+        network.clone(),
+    )));
 
-    io.extend_with(
-        Web3ApiServer::to_delegate(Web3Api::new(
-            client.clone(),
-        ))
-    );
+    io.extend_with(Web3ApiServer::to_delegate(Web3Api::new(client.clone())));
 
-    io.extend_with(
-        EthPubSubApiServer::to_delegate(EthPubSubApi::new(
-            pool.clone(),
-            client.clone(),
-            network.clone(),
-            SubscriptionManager::<HexEncodedIdProvider>::with_id_provider(
-                HexEncodedIdProvider::default(),
-                Arc::new(subscription_executor)
-            ),
-        ))
-    );
+    io.extend_with(EthPubSubApiServer::to_delegate(EthPubSubApi::new(
+        pool.clone(),
+        client.clone(),
+        network.clone(),
+        SubscriptionManager::<HexEncodedIdProvider>::with_id_provider(
+            HexEncodedIdProvider::default(),
+            Arc::new(subscription_executor),
+        ),
+    )));
 
     io
 }

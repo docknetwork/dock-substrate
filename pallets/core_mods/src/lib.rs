@@ -24,12 +24,12 @@ pub enum StateChange {
 pub type BlockNumber = u32;
 
 pub mod anchor;
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmark_utils;
 pub mod blob;
 pub mod did;
 pub mod master;
 pub mod revoke;
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmark_utils;
 
 #[cfg(test)]
 mod test_common;
