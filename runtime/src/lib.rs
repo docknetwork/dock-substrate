@@ -594,9 +594,20 @@ parameter_types! {
     pub const DockChainId: u64 = 2021;
 }
 
+/// Fixed gas price of `1`.
+pub struct FixedGasPrice;
+
+impl FeeCalculator for FixedGasPrice {
+    fn min_gas_price() -> U256 {
+        // Gas price is always one token per gas.
+        1.into()
+    }
+}
+
 impl pallet_evm::Config for Runtime {
     // TODO: Define proper gas pricing
-    type FeeCalculator = ();
+    type FeeCalculator = FixedGasPrice;
+    // TODO: Define proper gas weight
     type GasWeightMapping = ();
     type CallOrigin = EnsureAddressTruncated;
     type WithdrawOrigin = EnsureAddressTruncated;

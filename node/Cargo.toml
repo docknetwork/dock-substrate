@@ -182,27 +182,27 @@ branch = "frontier"
 [dependencies.fc-consensus]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '415ee1cd9823ab7d94bf1a7926227801a5ae2645'
+rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
 
 [dependencies.fp-consensus]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '415ee1cd9823ab7d94bf1a7926227801a5ae2645'
+rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
 
 [dependencies.fc-rpc]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '415ee1cd9823ab7d94bf1a7926227801a5ae2645'
+rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
 
 [dependencies.fc-rpc-core]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '415ee1cd9823ab7d94bf1a7926227801a5ae2645'
+rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
 
 [dependencies.fp-rpc]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '415ee1cd9823ab7d94bf1a7926227801a5ae2645'
+rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
 
 [dependencies.poa_rpc]
 path = '../pallets/poa/rpc'

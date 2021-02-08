@@ -1033,9 +1033,9 @@ dependencies = [
 
 [[package]]
 name = "ctor"
-version = "0.1.18"
+version = "0.1.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10bcb9d7dcbf7002aaffbb53eac22906b64cdcc127971dcc387d8eb7c95d5560"
+checksum = "e8f45d9ad417bcef4817d614a501ab55cdd96a6fdb24f49aab89a54acfd66b19"
 dependencies = [
  "quote",
  "syn",
@@ -1419,9 +1419,9 @@ checksum = "f7531096570974c3a9dcf9e4b8e1cede1ec26cf5046219fb3b9d897503b9be59"
 
 [[package]]
 name = "evm"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b38d664e59bf9ae0114a275cdf785d4112c32b3df0e522f16585a77599e7c614"
+checksum = "3b46f945d7548bea2affc1a48168f6d7e832bae914e0d90627a2ea2a7ba63001"
 dependencies = [
  "ethereum",
  "evm-core",
@@ -1437,9 +1437,9 @@ dependencies = [
 
 [[package]]
 name = "evm-core"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c11690b7226e83602067b6ba9568055e642971158b2c3af210c80d37ce2b8629"
+checksum = "cc372feb219651f8ae872e6ec0f84b346053c058bd0e8408b1f44a2a796bfecd"
 dependencies = [
  "parity-scale-codec",
  "primitive-types",
@@ -1448,9 +1448,9 @@ dependencies = [
 
 [[package]]
 name = "evm-gasometer"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f566265c4b49fab36e74db39f8c5499a7d4bbfb54c83896ef56f3f517b945eca"
+checksum = "5737059b7a570b3e28a0126b02e0e36e218cc828b29dddbbae73d0b97fce1e0a"
 dependencies = [
  "evm-core",
  "evm-runtime",
@@ -1459,9 +1459,9 @@ dependencies = [
 
 [[package]]
 name = "evm-runtime"
-version = "0.21.0"
+version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d22e83135ff4870046706c7bd8dd70bb321df98b42218812e99444332222250"
+checksum = "95726118dbc5f76ed1ee300e685950e58e52a1c4db454a7635aba636c7002186"
 dependencies = [
  "evm-core",
  "primitive-types",
@@ -1523,10 +1523,11 @@ dependencies = [
 [[package]]
 name = "fc-consensus"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/frontier.git?rev=415ee1cd9823ab7d94bf1a7926227801a5ae2645#415ee1cd9823ab7d94bf1a7926227801a5ae2645"
+source = "git+https://github.com/paritytech/frontier.git?rev=b4ce6ecb0db923a173b9a19276437056e8d7ec0e#b4ce6ecb0db923a173b9a19276437056e8d7ec0e"
 dependencies = [
  "derive_more",
  "fp-consensus",
+ "fp-rpc",
  "futures 0.3.12",
  "log",
  "parity-scale-codec",
@@ -1545,7 +1546,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/frontier.git?rev=415ee1cd9823ab7d94bf1a7926227801a5ae2645#415ee1cd9823ab7d94bf1a7926227801a5ae2645"
+source = "git+https://github.com/paritytech/frontier.git?rev=b4ce6ecb0db923a173b9a19276437056e8d7ec0e#b4ce6ecb0db923a173b9a19276437056e8d7ec0e"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -1581,7 +1582,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/frontier.git?rev=415ee1cd9823ab7d94bf1a7926227801a5ae2645#415ee1cd9823ab7d94bf1a7926227801a5ae2645"
+source = "git+https://github.com/paritytech/frontier.git?rev=b4ce6ecb0db923a173b9a19276437056e8d7ec0e#b4ce6ecb0db923a173b9a19276437056e8d7ec0e"
 dependencies = [
  "ethereum-types",
  "jsonrpc-core 15.1.0",
@@ -1705,7 +1706,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/frontier.git?rev=415ee1cd9823ab7d94bf1a7926227801a5ae2645#415ee1cd9823ab7d94bf1a7926227801a5ae2645"
+source = "git+https://github.com/paritytech/frontier.git?rev=b4ce6ecb0db923a173b9a19276437056e8d7ec0e#b4ce6ecb0db923a173b9a19276437056e8d7ec0e"
 dependencies = [
  "parity-scale-codec",
  "sp-core",
@@ -1716,7 +1717,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "0.8.0"
-source = "git+https://github.com/paritytech/frontier.git?rev=415ee1cd9823ab7d94bf1a7926227801a5ae2645#415ee1cd9823ab7d94bf1a7926227801a5ae2645"
+source = "git+https://github.com/paritytech/frontier.git?rev=b4ce6ecb0db923a173b9a19276437056e8d7ec0e#b4ce6ecb0db923a173b9a19276437056e8d7ec0e"
 dependencies = [
  "evm",
  "impl-trait-for-tuples 0.1.3",
@@ -1729,7 +1730,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/frontier.git?rev=415ee1cd9823ab7d94bf1a7926227801a5ae2645#415ee1cd9823ab7d94bf1a7926227801a5ae2645"
+source = "git+https://github.com/paritytech/frontier.git?rev=b4ce6ecb0db923a173b9a19276437056e8d7ec0e#b4ce6ecb0db923a173b9a19276437056e8d7ec0e"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2497,7 +2498,7 @@ dependencies = [
  "httparse",
  "httpdate",
  "itoa",
- "pin-project 1.0.4",
+ "pin-project 1.0.5",
  "socket2",
  "tokio 0.2.25",
  "tower-service",
@@ -2536,9 +2537,9 @@ dependencies = [
 
 [[package]]
 name = "idna"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "02e2673c30ee86b5b96a9cb52ad15718aa1f966f5ab9ad54a8b95d5ca33120a9"
+checksum = "de910d521f7cc3135c4de8db1cb910e0b5ed1dc6f57c381cd07e8e661ce10094"
 dependencies = [
  "matches",
  "unicode-bidi",
@@ -3046,7 +3047,7 @@ dependencies = [
  "libp2p-yamux",
  "parity-multiaddr",
  "parking_lot 0.11.1",
- "pin-project 1.0.4",
+ "pin-project 1.0.5",
  "smallvec 1.6.1",
  "wasm-timer",
 ]
@@ -3071,7 +3072,7 @@ dependencies = [
  "multistream-select",
  "parity-multiaddr",
  "parking_lot 0.11.1",
- "pin-project 1.0.4",
+ "pin-project 1.0.5",
  "prost",
  "prost-build",
  "rand 0.7.3",
@@ -3304,7 +3305,7 @@ checksum = "6ce3374f3b28162db9d3442c9347c4f14cb01e8290052615c7d341d40eae0599"
 dependencies = [
  "futures 0.3.12",
  "log",
- "pin-project 1.0.4",
+ "pin-project 1.0.5",
  "rand 0.7.3",
  "salsa20",
  "sha3 0.9.1",
@@ -3332,9 +3333,9 @@ dependencies = [
 
 [[package]]
 name = "libp2p-swarm"
-version = "0.27.1"
+version = "0.27.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d4f89ebb4d8953bda12623e9871959fe728dea3bf6eae0421dc9c42dc821e488"
+checksum = "7955b973e1fd2bd61ffd43ce261c1223f61f4aacd5bae362a924993f9a25fd98"
 dependencies = [
  "either",
  "futures 0.3.12",
@@ -3514,9 +3515,9 @@ dependencies = [
 
 [[package]]
 name = "lru"
-version = "0.6.3"
+version = "0.6.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3aae342b73d57ad0b8b364bd12584819f2c1fe9114285dfcf8b0722607671635"
+checksum = "fe2382d8ed3918ea4ba70d98d5b74e47a168e0331965f3f17cdbc748bdebc5a3"
 dependencies = [
  "hashbrown",
 ]
@@ -3783,7 +3784,7 @@ dependencies = [
  "bytes 1.0.1",
  "futures 0.3.12",
  "log",
- "pin-project 1.0.4",
+ "pin-project 1.0.5",
  "smallvec 1.6.1",
  "unsigned-varint 0.6.0",
 ]
@@ -4046,7 +4047,7 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "0.1.0"
-source = "git+https://github.com/paritytech/frontier.git?rev=415ee1cd9823ab7d94bf1a7926227801a5ae2645#415ee1cd9823ab7d94bf1a7926227801a5ae2645"
+source = "git+https://github.com/paritytech/frontier.git?rev=b4ce6ecb0db923a173b9a19276437056e8d7ec0e#b4ce6ecb0db923a173b9a19276437056e8d7ec0e"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -4073,7 +4074,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "2.0.0"
-source = "git+https://github.com/paritytech/frontier.git?rev=415ee1cd9823ab7d94bf1a7926227801a5ae2645#415ee1cd9823ab7d94bf1a7926227801a5ae2645"
+source = "git+https://github.com/paritytech/frontier.git?rev=b4ce6ecb0db923a173b9a19276437056e8d7ec0e#b4ce6ecb0db923a173b9a19276437056e8d7ec0e"
 dependencies = [
  "evm",
  "evm-gasometer",
@@ -4616,11 +4617,11 @@ dependencies = [
 
 [[package]]
 name = "pin-project"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "95b70b68509f17aa2857863b6fa00bf21fc93674c7a8893de2f469f6aa7ca2f2"
+checksum = "96fa8ebb90271c4477f144354485b8068bd8f6b78b428b01ba892ca26caf0b63"
 dependencies = [
- "pin-project-internal 1.0.4",
+ "pin-project-internal 1.0.5",
 ]
 
 [[package]]
@@ -4636,9 +4637,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-internal"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "caa25a6393f22ce819b0f50e0be89287292fda8d425be38ee0ca14c4931d9e71"
+checksum = "758669ae3558c6f74bd2a18b41f7ac0b5a195aea6639d6a9b5e5d1ad5ba24c0b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -7601,9 +7602,9 @@ dependencies = [
 
 [[package]]
 name = "thread_local"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d8208a331e1cb318dd5bd76951d2b8fc48ca38a69f5f4e4af1b6a9f8c6236915"
+checksum = "8018d24e04c95ac8790716a5987d0fec4f8b27249ffa0f7d33f1369bdfb88cbd"
 dependencies = [
  "once_cell",
 ]
@@ -7977,9 +7978,9 @@ checksum = "360dfd1d6d30e05fda32ace2c8c70e9c0a9da713275777f5a4dbb8a1893930c6"
 
 [[package]]
 name = "tracing"
-version = "0.1.22"
+version = "0.1.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9f47026cdc4080c07e49b37087de021820269d996f581aac150ef9e5583eefe3"
+checksum = "f7d40a22fd029e33300d8d89a5cc8ffce18bb7c587662f54629e94c9de5487f3"
 dependencies = [
  "cfg-if 1.0.0",
  "log",
@@ -7990,9 +7991,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.11"
+version = "0.1.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "80e0ccfc3378da0cce270c946b676a376943f5cd16aeba64568e7939806f4ada"
+checksum = "43f080ea7e4107844ef4766459426fa2d5c1ada2e47edba05dc7fa99d9629f47"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8106,7 +8107,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04f8ab788026715fa63b31960869617cba39117e520eb415b0139543e325ab59"
 dependencies = [
  "cfg-if 0.1.10",
- "rand 0.3.23",
+ "rand 0.7.3",
  "static_assertions",
 ]
 
@@ -8231,7 +8232,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5909f2b0817350449ed73e8bcd81c8c3c8d9a7a5d8acba4b27db277f1868976e"
 dependencies = [
  "form_urlencoded",
- "idna 0.2.0",
+ "idna 0.2.1",
  "matches",
  "percent-encoding 2.1.0",
 ]
@@ -8610,18 +8611,18 @@ dependencies = [
 
 [[package]]
 name = "wast"
-version = "32.0.0"
+version = "33.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c24a3ee360d01d60ed0a0f960ab76a6acce64348cdb0bf8699c2a866fad57c7c"
+checksum = "1d04fe175c7f78214971293e7d8875673804e736092206a3a4544dbc12811c1b"
 dependencies = [
  "leb128",
 ]
 
 [[package]]
 name = "wat"
-version = "1.0.33"
+version = "1.0.34"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5e8f7f34773fa6318e8897283abf7941c1f250faae4e1a52f82df09c3bad7cce"
+checksum = "7ec9c6ee01ae07a26adadcdfed22c7a97e0b8cbee9c06e0e96076ece5aeb5cfe"
 dependencies = [
  "wast",
 ]
