@@ -22,6 +22,7 @@ extern crate alloc;
 extern crate static_assertions;
 
 pub mod anchor;
+pub mod attest;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmark_utils;
 pub mod blob;
@@ -109,6 +110,7 @@ pub enum StateChange {
     RemoveRegistry(revoke::RemoveRegistry),
     Blob(blob::Blob),
     MasterVote(master::Payload),
+    Attestation((did::Did, attest::Attestation)),
 }
 
 /// Opaque types. These are used by the CLI to instantiate machinery that don't need to know
@@ -326,10 +328,12 @@ impl revoke::Trait for Runtime {}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
+    pub const StorageWeight: Weight = 1100;
 }
 
 impl blob::Trait for Runtime {
     type MaxBlobSize = MaxBlobSize;
+    type StorageWeight = StorageWeight;
 }
 
 impl pallet_session::Trait for Runtime {
@@ -400,6 +404,10 @@ impl sudo::Trait for Runtime {
 
 impl anchor::Trait for Runtime {
     type Event = Event;
+}
+
+impl attest::Trait for Runtime {
+    type StorageWeight = StorageWeight;
 }
 
 /// This origin indicates that either >50% (simple majority) of Council members approved some dispatch (through a proposal)
@@ -590,6 +598,7 @@ construct_runtime!(
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
         Anchor: anchor::{Module, Call, Storage, Event<T>},
+        Attest: attest::{Module, Call, Storage},
         SimpleDemocracy: simple_democracy::{Module, Call, Event},
         Democracy: pallet_democracy::{Module, Call, Storage, Event<T>},
         Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},

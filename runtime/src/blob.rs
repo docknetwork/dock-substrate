@@ -28,6 +28,9 @@ pub struct Blob {
 pub trait Trait: system::Trait + did::Trait {
     /// Blobs larger than this will not be accepted.
     type MaxBlobSize: Get<u32>;
+    /// The cost charged by the network to store a single byte in chain-state for the life of the
+    /// chain.
+    type StorageWeight: Get<Weight>;
 }
 
 decl_error! {
@@ -54,7 +57,8 @@ decl_storage! {
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
         /// Create a new immutable blob.
-        #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight() + (1_100 * blob.blob.len()) as Weight]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight() +
+          (blob.blob.len() as Weight * T::StorageWeight::get())]
         pub fn new(
             origin,
             blob: dock::blob::Blob,
