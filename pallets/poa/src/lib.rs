@@ -8,12 +8,12 @@ use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail, runtime_print,
     sp_runtime::{
         print,
-        traits::{AccountIdConversion, OpaqueKeys, Saturating, Zero},
+        traits::{AccountIdConversion, CheckedSub, OpaqueKeys, Saturating, StaticLookup, Zero},
         ModuleId, SaturatedConversion,
     },
     traits::{
-        Currency, ExistenceRequirement::AllowDeath, Get, Imbalance, OnUnbalanced,
-        ReservableCurrency,
+        BalanceStatus::Reserved, Currency, ExistenceRequirement::AllowDeath, Get, Imbalance,
+        OnUnbalanced, ReservableCurrency,
     },
     weights::{Pays, Weight},
 };
@@ -32,10 +32,6 @@ pub mod runtime_api;
 pub type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;
-
-// XXX: Shortcut of keeping `Balance`'s type same as in the runtime. The correct approach would
-// be to use the `Balance` type of runtime and make `EpochDetail` and `ValidatorStatsPerEpoch` typed and
-// use T::Balance instead of Balance below
 
 type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
@@ -88,8 +84,8 @@ impl<Balance> EpochDetail<Balance> {
             starting_slot,
             expected_ending_slot,
             ending_slot: None,
-            emission_for_treasury: None,
             emission_for_validators: None,
+            emission_for_treasury: None,
         }
     }
 
@@ -262,7 +258,9 @@ decl_error! {
         EpochLengthCannotBe0,
         SwapOutFailed,
         SwapInFailed,
-        PercentageGreaterThan100
+        PercentageGreaterThan100,
+        InsufficientFreeBalance,
+        InsufficientReservedBalance
     }
 }
 
@@ -460,6 +458,20 @@ decl_module! {
                 Option::<BalanceOf<T>>::default()
             });
         }
+
+        /// Force a transfer using root to transfer balance of reserved as well as free kind.
+        /// This call is dangerous and can be abused by a malicious Root
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn force_transfer_both(
+            origin, source: <T::Lookup as StaticLookup>::Source, dest: <T::Lookup as StaticLookup>::Source,
+            #[compact] free: BalanceOf<T>, #[compact] reserved: BalanceOf<T>
+        ) -> dispatch::DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let source = T::Lookup::lookup(source)?;
+            let dest = T::Lookup::lookup(dest)?;
+            Self::force_transfer_both_(&source, &dest, free, reserved)?;
+            Ok(Pays::No.into())
+        }
     }
 }
 
@@ -613,6 +625,24 @@ impl<T: Trait> Module<T> {
         T::Currency::free_balance(&Self::treasury_account())
     }
 
+    fn force_transfer_both_(
+        source: &T::AccountId,
+        dest: &T::AccountId,
+        free: BalanceOf<T>,
+        reserved: BalanceOf<T>,
+    ) -> dispatch::DispatchResult {
+        T::Currency::free_balance(source)
+            .checked_sub(&free)
+            .ok_or_else(|| Error::<T>::InsufficientFreeBalance)?;
+        T::Currency::reserved_balance(source)
+            .checked_sub(&reserved)
+            .ok_or_else(|| Error::<T>::InsufficientReservedBalance)?;
+        // ensure!((T::Cuurency::free_balance(source) >= free && T::Cuurency::reserved_balance(source) >= reserved), Error::<T>::InSufficientFreeOrReservedBalance);
+        T::Currency::transfer(&source, &dest, free, AllowDeath)?;
+        T::Currency::repatriate_reserved(&source, &dest, reserved, Reserved)?;
+        Ok(())
+    }
+
     /// Return total (validators + treasury) emission rewards for given epoch
     pub fn get_total_emission_in_epoch(epoch_no: EpochNo) -> BalanceOf<T> {
         // No need to check if epoch detail of the epoch exists or not. If it does not, `EpochDetail`
@@ -620,10 +650,10 @@ impl<T: Trait> Module<T> {
         let epoch_detail = Self::get_epoch_detail(epoch_no);
         epoch_detail
             .emission_for_validators
-            .unwrap_or(BalanceOf::<T>::zero())
+            .unwrap_or_else(|| BalanceOf::<T>::zero())
             + epoch_detail
                 .emission_for_treasury
-                .unwrap_or(BalanceOf::<T>::zero())
+                .unwrap_or_else(|| BalanceOf::<T>::zero())
     }
 
     /// Takes a validator id and a mutable vector of validator ids and remove any occurrence from

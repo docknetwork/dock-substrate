@@ -39,6 +39,7 @@ ansible_ssh_private_key_file=<path of private key file>
 ansible_python_interpreter=<path to python binary, this should match python version on your host>
 libp2p_key=<libp2p key of the node with leading 0x>
 allow_ext_rpc=true
+allow_ext_prom=true
 #telemetry_url="'wss://telemetry.polkadot.io/submit/ 0'"
 reserved_only=false
 bootnodes=['/ip4/<some bootstrap node's ip>/tcp/30333/p2p/<boot node p2p public key>']

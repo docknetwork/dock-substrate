@@ -2,9 +2,9 @@ use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
     opaque::SessionKeys,
-    AuraConfig, Balance, BalancesConfig, DIDModuleConfig, GenesisConfig, GrandpaConfig,
-    MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig, MILLISECS_PER_BLOCK,
-    WASM_BINARY,
+    AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig, GenesisConfig,
+    GrandpaConfig, MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig,
+    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use sc_service::{ChainType, Properties};
@@ -102,6 +102,14 @@ fn get_mainnet_properties() -> Properties {
     properties
 }
 
+fn get_seed_vector_to_account_vector(seeds: Vec<&str>) -> Vec<AccountId> {
+    seeds
+        .iter()
+        .cloned()
+        .map(get_account_id_from_seed::<sr25519::Public>)
+        .collect()
+}
+
 pub fn development_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "Development",
@@ -110,7 +118,7 @@ pub fn development_config() -> ChainSpec {
         || {
             GenesisBuilder {
                 initial_authorities: vec![get_authority_keys_from_seed("Alice")],
-                endowed_accounts: [
+                endowed_accounts: get_seed_vector_to_account_vector(vec![
                     "Alice",
                     "Bob",
                     "Alice//stash",
@@ -119,11 +127,7 @@ pub fn development_config() -> ChainSpec {
                     "Dave",
                     "Eve",
                     "Ferdie",
-                ]
-                .iter()
-                .cloned()
-                .map(get_account_id_from_seed::<sr25519::Public>)
-                .collect(),
+                ]),
                 master: Membership {
                     members: [
                         b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -157,6 +161,12 @@ pub fn development_config() -> ChainSpec {
                 min_epoch_length: 8,
                 max_active_validators: 2,
                 emission_status: true,
+                council_members: get_seed_vector_to_account_vector(
+                    ["Alice//stash", "Bob//stash", "Charlie"].to_vec(),
+                ),
+                technical_committee_members: get_seed_vector_to_account_vector(
+                    ["Charlie", "Dave", "Eve"].to_vec(),
+                ),
             }
             .build()
         },
@@ -179,7 +189,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     get_authority_keys_from_seed("Alice"),
                     get_authority_keys_from_seed("Bob"),
                 ],
-                endowed_accounts: [
+                endowed_accounts: get_seed_vector_to_account_vector(vec![
                     "Alice",
                     "Bob",
                     "Charlie",
@@ -192,11 +202,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     "Dave//stash",
                     "Eve//stash",
                     "Ferdie//stash",
-                ]
-                .iter()
-                .cloned()
-                .map(get_account_id_from_seed::<sr25519::Public>)
-                .collect(),
+                ]),
                 master: Membership {
                     members: [
                         b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -230,6 +236,12 @@ pub fn local_testnet_config() -> ChainSpec {
                 min_epoch_length: 16,
                 max_active_validators: 5,
                 emission_status: true,
+                council_members: get_seed_vector_to_account_vector(
+                    ["Alice//stash", "Bob//stash", "Charlie"].to_vec(),
+                ),
+                technical_committee_members: get_seed_vector_to_account_vector(
+                    ["Charlie", "Dave", "Eve"].to_vec(),
+                ),
             }
             .build()
         },
@@ -328,6 +340,28 @@ pub fn testnet_config() -> ChainSpec {
                 min_epoch_length: 1000,
                 max_active_validators: 8,
                 emission_status: false,
+                council_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5GZL42dUZCUV85Uen9nyg5smj5zYSkHgi8gkHMD98enRyNHd",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5H8nZtbQKzrexiGzNC41KdmJXj9P3yAq4e8YTNuLrjuriyJc",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5GYLRk3bVaYg4Li2K6UxC1Rt52BGpfaJzGAZCqWTzqY4q7T3",
+                    ),
+                ],
+                technical_committee_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5EvDPEYFRe1WtUZKt8HNsmT3RrJDqsd6DNrB6UNLmj5Cv3KC",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5Hbk8LuBSQkKkFM96SuyYDB1xHi972dqoqzjX1KZKrWLZn7h",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "5Eng8QjwLmucywgXKhvUqNq5QWdwC9kJf5r4bZh43b4ZFLZQ",
+                    ),
+                ],
             }
             .build()
         },
@@ -422,6 +456,28 @@ pub fn mainnet_config() -> ChainSpec {
                 min_epoch_length,
                 max_active_validators,
                 emission_status,
+                council_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3EpgfUS2x744ZTFccNdkpRRSW1efbYyqNyw81x9eHqy7JuAS",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3EuDQ56g6hpZgdLNwkb4EzqhdGk6oPpd51KzHqSP8TXYuzeV",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3EBrJoDw8hbuCrww4mV8o1YzG8JtmWHh4MbHb5rKPYgAVA23",
+                    ),
+                ],
+                technical_committee_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3HPsdLzFNbffiQpgMxvztDPMfEixoyfbWioxzTSHg6Q1RKTr",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3H8WLyLk5LButFHsDJCN6CVP5bNWCKx3zcTpWEpMEpQwJgqd",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3DMtxe6rnXAMnut5vtDEzPEV1JzsUTCrbq9R6t9xPNwZmit6",
+                    ),
+                ],
             }
             .build()
         },
@@ -445,21 +501,20 @@ struct GenesisBuilder {
     min_epoch_length: u32,
     max_active_validators: u8,
     emission_status: bool,
+    council_members: Vec<AccountId>,
+    technical_committee_members: Vec<AccountId>,
 }
 
 impl GenesisBuilder {
     fn build(self) -> GenesisConfig {
-        // 1 token is 1000000 gas
-        let token_to_gas: Balance = 1_000_000;
         // 200M tokens
-        let emission_supply: Balance = token_to_gas.checked_mul(200_000_000).unwrap();
-        // TODO: This needs to be tweaked once we know all exchanges
+        let emission_supply: Balance = DOCK.checked_mul(200_000_000).unwrap();
         // 100M tokens
-        let per_member_endowment: Balance = token_to_gas.checked_mul(100_000_000).unwrap();
+        let per_member_endowment: Balance = DOCK.checked_mul(100_000_000).unwrap();
 
         // Max emission per validator in an epoch
-        // 30K tokens
-        let max_emm_validator_epoch: Balance = token_to_gas.checked_mul(15_000).unwrap();
+        // 15K tokens
+        let max_emm_validator_epoch: Balance = DOCK.checked_mul(15_000).unwrap();
 
         // Percentage of rewards given to Treasury
         let treasury_reward_pc = 60;
@@ -519,6 +574,16 @@ impl GenesisBuilder {
             }),
             did: Some(DIDModuleConfig { dids: self.dids }),
             sudo: Some(SudoConfig { key: self.sudo }),
+            pallet_collective_Instance1: Some(Default::default()),
+            pallet_membership_Instance1: Some(CouncilMembershipConfig {
+                members: self.council_members,
+                phantom: Default::default(),
+            }),
+            pallet_collective_Instance2: Some(Default::default()),
+            pallet_membership_Instance2: Some(TechnicalCommitteeMembershipConfig {
+                members: self.technical_committee_members,
+                phantom: Default::default(),
+            }),
         }
     }
 

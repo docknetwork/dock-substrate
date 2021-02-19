@@ -1,8 +1,8 @@
 # Scripts
 
-## Ansible playbook for testnode.
+## Ansible playbook for PoA node.
 
-The playbook [poa-1-testnet-node](poa-1-node.yml) is used to run a testnet node, be it a validator, sentry
+The playbook [poa-1-node](poa-1-node.yml) is used to run a testnet node, be it a validator, sentry
 or a full node. The playbook has only been tested on remotes running Ubuntu 18.04 and RHEL 8.2 using ansible 2.9.6 with python 3.8. 
 It requires python3 to be installed on the remote (where node will run) as well and sudo access to the remotes. It will setup Docker, 
 pull the testnet node image, start a container running a node. These are the parameters
@@ -11,6 +11,7 @@ pull the testnet node image, start a container running a node. These are the par
 1. node name as `node_name`
 1. libp2p secret key as `libp2p_key`, if not provided, the node will generate a random key
 1. whether to allow external RPC requests as `allow_ext_rpc`, defaults to false
+1. whether to allow external Prometheus interfaces as `allow_ext_prom`, defaults to false
 1. whether the node is running as a validator or not as `is_validator`, defaults to false
 1. if a node is a sentry of a validator as `sentry_of`, if not provided then ignored
 1. whether will only connect to its reserved (whitelisted nodes) as `reserved_only`, defaults to false

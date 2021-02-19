@@ -17,6 +17,9 @@
     ext_rpc_flag: "{{ allow_ext_rpc | default('false') | bool }}"  # External RPC is disabled by default
     external_rpc: "{{ '--rpc-external --ws-external --rpc-cors=all' if (ext_rpc_flag) else '' }}"
 
+    ext_prometheus_flag: "{{ allow_ext_prom | default('false') | bool }}"  # Listening to external Prometheus interfaces is disabled by default
+    external_prom: "{{ '--prometheus-external' if (ext_prometheus_flag) else '' }}"
+
     new_session_key: "{{ rotate_session_key | default('false') | bool }}"
     
     is_val_flag: "{{ is_validator | default('false') | bool }}"  # Is validator node or not
@@ -169,13 +172,18 @@
       state: started
       detach: yes
       published_ports:
+        # WS RPC
         - 9944:9944
+        # TCP RPC
         - 9933:9933
+        # Node P2P
         - 30333:30333
+        # Prometheus
+        - 9615:9615
       mounts:
       - source: 'dock-chain-data'
         target: '{{ mount_at }}'
-      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }}'
+      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }}'
 
   # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
   - name: Rotate session key
