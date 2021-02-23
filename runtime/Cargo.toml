@@ -14,6 +14,7 @@ smallvec = "1.4.1"
 pallet-ethereum = { default-features = false, version = '0.1.0', git = 'https://github.com/paritytech/frontier.git', rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'}
 pallet-evm = { default-features = false, version = '2.0.0', git = 'https://github.com/paritytech/frontier.git', rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e' }
 fp-rpc = { default-features = false, version = '0.1.0', git = 'https://github.com/paritytech/frontier.git', rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e' }
+evm = { version = '0.23.0', default-features = false, features = ['with-codec'] }
 
 [dependencies.aura]
 default-features = false
@@ -269,6 +270,11 @@ default-features = false
 path = '../pallets/core_mods'
 version = '0.1.0'
 
+[dependencies.price_feed]
+default-features = false
+path = '../pallets/price_feed'
+version = '0.0.1'
+
 [features]
 default = ['std']
 std = [
@@ -305,12 +311,15 @@ std = [
     'pallet-authorship/std',
     'pallet-utility/std',
     'pallet-collective/std',
+    'evm/std',
+    'evm/with-serde',
     'pallet-evm/std',
     'pallet-ethereum/std',
     'poa/std',
     'token_migration/std',
     'simple_democracy/std',
     'core_mods/std',
+    'price_feed/std',
 ]
 runtime-benchmarks = [
   'frame-benchmarking',

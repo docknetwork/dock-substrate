@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    'common',
     'node',
     'pallets/poa',
     'pallets/poa/rpc',
@@ -7,6 +8,7 @@ members = [
     'pallets/democracy',
     'pallets/simple_democracy',
     'pallets/core_mods',
+    'pallets/price_feed',
     'runtime',
 ]
 
