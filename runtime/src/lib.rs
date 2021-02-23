@@ -29,6 +29,7 @@ pub use core_mods::revoke;
 pub mod weight_to_fee;
 
 pub use poa;
+pub use price_feed;
 pub use simple_democracy;
 pub use token_migration;
 
@@ -71,6 +72,7 @@ use sp_runtime::{
 };
 use transaction_payment::CurrencyAdapter;
 
+use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
 use pallet_evm::{
     Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, HashedAddressMapping, Runner,
@@ -594,20 +596,10 @@ parameter_types! {
     pub const DockChainId: u64 = 2021;
 }
 
-/// Fixed gas price of `1`.
-pub struct FixedGasPrice;
-
-impl FeeCalculator for FixedGasPrice {
-    fn min_gas_price() -> U256 {
-        // Gas price is always one token per gas.
-        1.into()
-    }
-}
-
 impl pallet_evm::Config for Runtime {
-    // TODO: Define proper gas pricing
-    type FeeCalculator = FixedGasPrice;
-    // TODO: Define proper gas weight
+    /// Minimum gas price is 0 as the fee calculation for EVM transaction is done after mapping their gas to weight
+    type FeeCalculator = ();
+    /// 1:1 mapping of gas to weight
     type GasWeightMapping = ();
     type CallOrigin = EnsureAddressTruncated;
     type WithdrawOrigin = EnsureAddressTruncated;
@@ -617,6 +609,18 @@ impl pallet_evm::Config for Runtime {
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type Precompiles = ();
     type ChainId = DockChainId;
+    fn config() -> &'static EvmConfig {
+        // EvmConfig::frontier() has `create_contract_limit` set to None but causes runtime panic
+        static mut CFG: EvmConfig = EvmConfig::istanbul();
+        unsafe {
+            CFG.create_contract_limit = None;
+            &CFG
+        }
+    }
+}
+
+impl price_feed::Config for Runtime {
+    type Event = Event;
 }
 
 pub struct BaseFilter;
@@ -666,6 +670,7 @@ construct_runtime!(
         Attest: attest::{Module, Call, Storage},
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
+        PriceFeed: price_feed::{Module, Call, Storage, Event, Config},
     }
 );
 
