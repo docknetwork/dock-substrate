@@ -73,6 +73,8 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        type Error = Error<T>;
+
         #[weight = {
             T::DbWeight::get().reads_writes(2, 1)
                 + signature.weight()
