@@ -87,11 +87,6 @@ version = '2.0.1'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
-[dependencies.sc-keystore]
-version = '2.0.1'
-git = 'https://github.com/paritytech/substrate.git'
-branch = "frontier"
-
 [dependencies.sp-consensus]
 version = '0.8.1'
 git = 'https://github.com/paritytech/substrate.git'
