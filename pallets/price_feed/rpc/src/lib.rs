@@ -9,9 +9,11 @@ use std::sync::Arc;
 
 #[rpc]
 pub trait PriceFeedApi<BlockHash> {
+    /// Gets the price of Dock/USD from pallet's storage
     #[rpc(name = "price_feed_tokenUsdPrice")]
     fn token_usd_price(&self, at: Option<BlockHash>) -> Result<Option<u32>>;
 
+    /// Gets the price of Dock/USD from EVM contract
     #[rpc(name = "price_feed_tokenUsdPriceFromContract")]
     fn token_usd_price_from_contract(&self, at: Option<BlockHash>) -> Result<Option<u32>>;
 }

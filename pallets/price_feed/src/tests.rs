@@ -1,8 +1,8 @@
 use crate::{mock::*, ContractConfig, Error, ParamType, DUMMY_SOURCE, GAS_LIMIT, ZERO_VALUE};
+use common::PriceProvider;
 use frame_support::{assert_err, StorageValue};
 use pallet_evm::Runner;
 use sp_core::{H160, U256};
-use common::PriceProvider;
 
 /// Deploy contract and set contract config in this pallet
 fn setup_contract() -> H160 {
