@@ -15,8 +15,11 @@ use sp_std::{prelude::Vec, vec};
 
 // use ethabi::{decode as eth_decode, ParamType};
 
+pub mod runtime_api;
 pub mod util;
 use util::{decode as eth_decode, ParamType};
+
+use common::PriceProvider;
 
 #[cfg(test)]
 mod mock;
@@ -201,7 +204,7 @@ impl<T: Config> Module<T> {
         }
     }
 
-    /// Gets price of pair DOCK/USD from contract and update `Price`
+    /// Gets price of pair DOCK/USD from contract and update pallet storage item `Price`
     fn update_price_from_contract() -> Result<Weight, dispatch::DispatchError> {
         let (price, weight) = Self::get_price_from_contract()?;
         Price::put(price);
@@ -234,6 +237,7 @@ impl<T: Config> Module<T> {
             contract_config.address,
             contract_config.query_abi_encoded,
         )?;
+        // Ignoring the weight of this operation as its in-memory and cheap
         let price = Self::decode_evm_response_to_price(&contract_config.return_val_abi, &evm_resp)?;
         Ok((
             price,
@@ -291,5 +295,15 @@ impl<T: Config> Module<T> {
             fail!(Error::<T>::PriceIsZero)
         }
         Ok(price)
+    }
+}
+
+impl<T: Config> PriceProvider for Module<T> {
+    fn get_dock_usd_price() -> Option<(u32, u64)> {
+        Self::get_price_from_contract().map_or(None, |v| Some(v))
+    }
+
+    fn optimized_get_dock_usd_price() -> Option<(u32, u64)> {
+        Self::price().map(|p| (p, T::DbWeight::get().reads(1)))
     }
 }

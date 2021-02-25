@@ -275,6 +275,10 @@ default-features = false
 path = '../pallets/price_feed'
 version = '0.0.1'
 
+[dependencies.common]
+path = '../common'
+version = '0.0.1'
+
 [features]
 default = ['std']
 std = [

@@ -738,6 +738,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "common"
+version = "0.0.1"
+
+[[package]]
 name = "concurrent-queue"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1175,6 +1179,7 @@ dependencies = [
  "pallet-transaction-payment-rpc",
  "parking_lot 0.10.2",
  "poa_rpc",
+ "price_feed_rpc",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
@@ -1210,6 +1215,7 @@ dependencies = [
 name = "dock-runtime"
 version = "0.12.3"
 dependencies = [
+ "common",
  "core_mods",
  "evm",
  "forked-pallet-democracy",
@@ -4758,6 +4764,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 name = "price_feed"
 version = "0.0.1"
 dependencies = [
+ "common",
  "ethereum-types",
  "frame-support",
  "frame-system",
@@ -4767,10 +4774,27 @@ dependencies = [
  "pallet-timestamp",
  "parity-scale-codec",
  "serde",
+ "sp-api",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "price_feed_rpc"
+version = "0.0.1"
+dependencies = [
+ "jsonrpc-core 15.1.0",
+ "jsonrpc-core-client 15.1.0",
+ "jsonrpc-derive 15.1.0",
+ "parity-scale-codec",
+ "price_feed",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
 ]
 
 [[package]]

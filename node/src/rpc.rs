@@ -76,6 +76,7 @@ where
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
+    C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     <C::Api as sp_api::ApiErrorExt>::Error: fmt::Debug,
@@ -83,6 +84,7 @@ where
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use poa_rpc::{PoA, PoAApi};
+    use price_feed_rpc::{PriceFeed, PriceFeedApi};
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
     use fc_rpc::{
@@ -121,6 +123,9 @@ where
 
     // RPC calls for PoA pallet
     io.extend_with(PoAApi::to_delegate(PoA::new(client.clone())));
+
+    // RPC calls for Price Feed pallet
+    io.extend_with(PriceFeedApi::to_delegate(PriceFeed::new(client.clone())));
 
     io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
         GrandpaRpcHandler::new(
