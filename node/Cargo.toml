@@ -208,6 +208,10 @@ rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
 path = '../pallets/poa/rpc'
 version = '0.0.5'
 
+[dependencies.price_feed_rpc]
+path = '../pallets/price_feed/rpc'
+version = '0.0.1'
+
 [[bin]]
 name = 'dock-node'
 path = 'src/main.rs'

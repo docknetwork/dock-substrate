@@ -2,6 +2,7 @@ use crate::{mock::*, ContractConfig, Error, ParamType, DUMMY_SOURCE, GAS_LIMIT, 
 use frame_support::{assert_err, StorageValue};
 use pallet_evm::Runner;
 use sp_core::{H160, U256};
+use common::PriceProvider;
 
 /// Deploy contract and set contract config in this pallet
 fn setup_contract() -> H160 {
@@ -165,6 +166,8 @@ fn get_price_from_contract() {
 
         let (price, _) = PriceFeedModule::get_price_from_contract().unwrap();
         assert_eq!(price, 40);
+
+        // Fetching from contract does not update the price storage of this pallet
         assert!(PriceFeedModule::price().is_none());
     })
 }
@@ -180,8 +183,11 @@ fn storage_price_update() {
 
         PriceFeedModule::set_update_frequency(Origin::root(), 10).unwrap();
         System::set_block_number(1);
+
+        // Update pallet's stored price from contract
         PriceFeedModule::update_price_from_contract().unwrap();
 
+        // Pallet's storage is updated
         assert_eq!(PriceFeedModule::price().unwrap(), 15);
         assert_eq!(PriceFeedModule::last_price_update_at().unwrap(), 1);
 
@@ -202,7 +208,7 @@ fn storage_price_update() {
             evm_config,
         ).unwrap();
 
-        // Price unchanged when contract updated
+        // Price stored in this pallet unchanged when contract updated
         assert_eq!(PriceFeedModule::price().unwrap(), 15);
 
         // Price unchanged when it isn't stale
@@ -261,4 +267,48 @@ fn decoding_emv_resp() {
             Error::<Test>::ResponseParsingFailed
         );
     });
+}
+
+#[test]
+fn price_provider_api() {
+    new_test_ext().execute_with(|| {
+        assert!(PriceFeedModule::optimized_get_dock_usd_price().is_none());
+
+        let contract_address = setup_contract();
+
+        assert!(PriceFeedModule::optimized_get_dock_usd_price().is_none());
+
+        PriceFeedModule::update_price_from_contract().unwrap();
+
+        let (price_optmz, _) = PriceFeedModule::optimized_get_dock_usd_price().unwrap();
+        let (price, _) = PriceFeedModule::get_dock_usd_price().unwrap();
+        assert_eq!(PriceFeedModule::price().unwrap(), 15);
+        assert_eq!(price_optmz, 15);
+        assert_eq!(price, 15);
+
+        // Update the price in contract
+        let evm_config = <Test as pallet_evm::Config>::config();
+        // call `setData(13, 40, 1410, 1400, 13)`
+        let set_call = hex::decode("6444bd16000000000000000000000000000000000000000000000000000000000000000d000000000000000000000000000000000000000000000000000000000000002800000000000000000000000000000000000000000000000000000000000005820000000000000000000000000000000000000000000000000000000000000578000000000000000000000000000000000000000000000000000000000000000d").unwrap();
+        <Test as pallet_evm::Config>::Runner::call(
+            DUMMY_SOURCE,
+            contract_address,
+            set_call,
+            ZERO_VALUE,
+            GAS_LIMIT,
+            None,
+            None,
+            evm_config,
+        ).unwrap();
+
+        let (price_optmz, _) = PriceFeedModule::optimized_get_dock_usd_price().unwrap();
+        let (price, _) = PriceFeedModule::get_dock_usd_price().unwrap();
+        assert_eq!(PriceFeedModule::price().unwrap(), 15);
+        // Optimized get call still fetches the price from storage
+        assert_eq!(price_optmz, 15);
+        // Non-optimized get fetches from contract
+        let (price_ctr, _) = PriceFeedModule::get_price_from_contract().unwrap();
+        assert_eq!(price_ctr, 40);
+        assert_eq!(price, 40);
+    })
 }

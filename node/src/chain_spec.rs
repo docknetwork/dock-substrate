@@ -5,7 +5,7 @@ use dock_runtime::{
     price_feed::{util::ParamType, ContractConfig},
     AccountId, AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig,
     EVMConfig, EthereumConfig, GenesisConfig, GrandpaConfig, MasterConfig, PoAModuleConfig,
-    PriceFeedConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
+    PriceFeedModuleConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
     TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
 };
 use hex_literal::hex;
@@ -611,7 +611,7 @@ impl GenesisBuilder {
             pallet_evm: Some(EVMConfig {
                 accounts: BTreeMap::new(),
             }),
-            price_feed: Some(PriceFeedConfig {
+            price_feed: Some(PriceFeedModuleConfig {
                 contract_config: self.contract_config,
             }),
         }

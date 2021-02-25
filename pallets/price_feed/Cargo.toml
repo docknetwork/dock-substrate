@@ -62,9 +62,19 @@ version = '2.0.1'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.sp-api]
+default-features = false
+version = '2.0.1'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.ethereum-types]
 default-features = false
 version = '0.10.0'
+
+[dependencies.common]
+path = '../../common'
+version = '0.0.1'
 
 [dev-dependencies.sp-io]
 default-features = false
@@ -97,6 +107,7 @@ std = [
     'sp-core/std',
     'sp-std/std',
     'sp-runtime/std',
+    'sp-api/std',
     'pallet-evm/std',
     'ethereum-types/std',
 ]

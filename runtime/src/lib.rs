@@ -663,7 +663,7 @@ construct_runtime!(
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
-        PriceFeed: price_feed::{Module, Call, Storage, Event, Config},
+        PriceFeedModule: price_feed::{Module, Call, Storage, Event, Config},
     }
 );
 
@@ -969,6 +969,16 @@ impl_runtime_apis! {
 
         fn get_total_emission_in_epoch(epoch_no: poa::EpochNo) -> Balance {
             PoAModule::get_total_emission_in_epoch(epoch_no)
+        }
+    }
+
+    impl price_feed::runtime_api::PriceFeedApi<Block> for Runtime {
+        fn token_usd_price() -> Option<u32> {
+            PriceFeedModule::price()
+        }
+
+        fn token_usd_price_from_contract() -> Option<u32> {
+            PriceFeedModule::get_price_from_contract().map_or(None, |(v, _)| Some(v))
         }
     }
 

@@ -9,6 +9,7 @@ members = [
     'pallets/simple_democracy',
     'pallets/core_mods',
     'pallets/price_feed',
+    'pallets/price_feed/rpc',
     'runtime',
 ]
 
