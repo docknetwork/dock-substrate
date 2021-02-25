@@ -9,14 +9,6 @@ targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
 pallet-evm = { default-features = false, version = '2.0.0', git = 'https://github.com/paritytech/frontier.git', rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e' }
-#ethabi = "13.0.0"
-#web3 = "0.15.0"
-#ethers-core = "0.2.1"
-#ethabi-next = "13.1.0"
-
-#[dependencies.ethabi]
-#optional = true
-#version = '13.0.0'
 
 [dev-dependencies]
 hex = '0.4.2'
@@ -101,7 +93,6 @@ default = ['std']
 std = [
     'codec/std',
     'serde',
-#    'ethabi',
     'frame-support/std',
     'frame-system/std',
     'sp-core/std',

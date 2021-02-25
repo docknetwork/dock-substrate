@@ -182,16 +182,17 @@ fn storage_price_update() {
         let contract_address = setup_contract();
 
         PriceFeedModule::set_update_frequency(Origin::root(), 10).unwrap();
-        System::set_block_number(1);
+        System::set_block_number(10);
 
-        // Update pallet's stored price from contract
-        PriceFeedModule::update_price_from_contract().unwrap();
+        // Update pallet's stored price from contract. This is the first run of the update price and `LastPriceUpdateAt` isn't set
+        assert!(PriceFeedModule::last_price_update_at().is_none());
+        PriceFeedModule::update_price_if_stale(10).unwrap();
 
         // Pallet's storage is updated
         assert_eq!(PriceFeedModule::price().unwrap(), 15);
-        assert_eq!(PriceFeedModule::last_price_update_at().unwrap(), 1);
+        assert_eq!(PriceFeedModule::last_price_update_at().unwrap(), 10);
 
-        System::set_block_number(3);
+        System::set_block_number(14);
 
         let evm_config = <Test as pallet_evm::Config>::config();
 
@@ -212,13 +213,13 @@ fn storage_price_update() {
         assert_eq!(PriceFeedModule::price().unwrap(), 15);
 
         // Price unchanged when it isn't stale
-        PriceFeedModule::update_price_if_stale(3).unwrap();
+        PriceFeedModule::update_price_if_stale(14).unwrap();
         assert_eq!(PriceFeedModule::price().unwrap(), 15);
 
-        System::set_block_number(11);
+        System::set_block_number(21);
 
         // Price changed when its stale
-        PriceFeedModule::update_price_if_stale(11).unwrap();
+        PriceFeedModule::update_price_if_stale(21).unwrap();
         assert_eq!(PriceFeedModule::price().unwrap(), 40);
     })
 }

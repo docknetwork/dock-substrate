@@ -1,3 +1,6 @@
+//! Periodically fetches price of DOCK/USD from smart contract running on EVM and stores the price in its storage.
+//! The periodicity and contract configuration like address, query method and return value type can be configured by root.  
+
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::{Decode, Encode};
@@ -11,8 +14,6 @@ use pallet_evm::{GasWeightMapping, Runner};
 use sp_core::{H160, U256};
 use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 use sp_std::{prelude::Vec, vec};
-
-// use ethabi::{decode as eth_decode, ParamType};
 
 pub mod runtime_api;
 pub mod util;
@@ -163,8 +164,7 @@ impl<T: Config> Module<T> {
         if freq > 0 {
             let last_update = Self::last_price_update_at().unwrap_or(T::BlockNumber::zero());
             (
-                (last_update > T::BlockNumber::zero())
-                    && (current_block_no >= (last_update + T::BlockNumber::from(freq))),
+                current_block_no >= (last_update + T::BlockNumber::from(freq)),
                 T::DbWeight::get().reads(2),
             )
         } else {

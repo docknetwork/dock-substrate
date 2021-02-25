@@ -136,6 +136,17 @@
     "r": "H256",
     "s": "H256"
   },
+  "ParamType": {
+    "_enum": {
+      "Int": "u16",
+      "Uint": "u16"
+    }
+  },
+  "ContractConfig": {
+    "address": "H160",
+    "query_abi_encoded": "Vec<u8>",
+    "return_val_abi": "Vec<ParamType>"
+  },
   "StateChange": {
     "_enum": {
       "KeyUpdate": "KeyUpdate",
