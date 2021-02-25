@@ -125,14 +125,6 @@ decl_module! {
             Ok(Pays::No.into())
         }
 
-        // TODO: Remove this call
-        #[weight = 0]
-        pub fn get_(origin) -> dispatch::DispatchResultWithPostInfo {
-            ensure_signed(origin)?;
-            Self::get_price__()?;
-            Ok(Pays::No.into())
-        }
-
         fn on_initialize(current_block_no: T::BlockNumber) -> Weight {
             Self::update_price_if_stale(current_block_no).unwrap_or_else(|e| {
                 sp_runtime::print(e);
@@ -144,54 +136,7 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
-    // TODO: Remove
-    fn get_price__() -> dispatch::DispatchResult {
-        let config = <T as pallet_evm::Config>::config();
-        // let source = H160::from([0; 20]);
-        let contract_addr = H160::from_str("0x6677AE2e2Cc985446d42a5BDeE182702e85E8587").unwrap();
-        // let value = U256::from(0);
-        let input = vec![254, 175, 150, 140];
-        let ret_params = [
-            ParamType::Uint(80),
-            ParamType::Int(256),
-            ParamType::Uint(256),
-            ParamType::Uint(256),
-            ParamType::Uint(80),
-        ];
-        // let info = <T as pallet_evm::Config>::Runner::call(source, contract_addr, input, value, 100000000, None, None, config).map_err(|err| err.into())?;
-        let info = <T as pallet_evm::Config>::Runner::call(
-            DUMMY_SOURCE,
-            contract_addr,
-            input,
-            ZERO_VALUE,
-            GAS_LIMIT,
-            None,
-            None,
-            config,
-        )
-        .map_err(|err| err.into())?;
-        frame_support::debug::native::debug!("info is {:?}", info);
-
-        // let decoded = eth_decode(&[ParamType::Uint(80), ParamType::Int(256), ParamType::Uint(256), ParamType::Uint(256), ParamType::Uint(80)], &info.value).unwrap();
-        // frame_support::debug::native::debug!("answer token is {:?}", decoded[1]);
-        // let price = decoded[1].into_int();
-        // frame_support::debug::native::debug!("answer is {:?}", price);
-        // frame_support::debug::native::debug!("answer is {:?}", price.unwrap());
-
-        let decoded = eth_decode(&ret_params, &info.value).unwrap();
-        frame_support::debug::native::debug!("answer token is {:?}", decoded[1]);
-        let price = decoded[1].clone().into_int();
-        frame_support::debug::native::debug!("answer is {:?}", price);
-
-        let p = price.unwrap();
-        frame_support::debug::native::debug!("answer is {:?}", p);
-
-        frame_support::debug::native::debug!("answer is {:?}", p.low_u128());
-
-        // unimplemented!()
-        Ok(())
-    }
-
+    /// Update price in pallet's storage from contract if the price is stale
     fn update_price_if_stale(
         current_block_no: T::BlockNumber,
     ) -> Result<Weight, dispatch::DispatchError> {
@@ -299,10 +244,12 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> PriceProvider for Module<T> {
+    /// Gets the price of Dock/USD from pallet's storage
     fn get_dock_usd_price() -> Option<(u32, u64)> {
         Self::get_price_from_contract().map_or(None, |v| Some(v))
     }
 
+    /// Gets the price of Dock/USD from EVM contract
     fn optimized_get_dock_usd_price() -> Option<(u32, u64)> {
         Self::price().map(|p| (p, T::DbWeight::get().reads(1)))
     }
