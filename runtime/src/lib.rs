@@ -586,6 +586,7 @@ parameter_types! {
 }
 
 impl pallet_ethereum::Config for Runtime {
+    // TODO: Add trait similar to `OnChargeTransaction` which deducts the fees according to weight
     type Event = Event;
     type FindAuthor = EthereumFindAuthor<Aura>;
     type StateRoot = pallet_ethereum::IntermediateStateRoot;
@@ -596,7 +597,17 @@ parameter_types! {
     pub const DockChainId: u64 = 2021;
 }
 
+/// Fixed gas price of `1`.
+pub struct UnitGasPrice;
+impl FeeCalculator for UnitGasPrice {
+    fn min_gas_price() -> U256 {
+        // Gas price is always one token per gas.
+        1.into()
+    }
+}
+
 impl pallet_evm::Config for Runtime {
+    // TODO: Fix fee deduction
     /// Minimum gas price is 0 as the fee calculation for EVM transaction is done after mapping their gas to weight
     type FeeCalculator = ();
     /// 1:1 mapping of gas to weight
