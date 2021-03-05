@@ -75,7 +75,8 @@ use transaction_payment::CurrencyAdapter;
 use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
 use pallet_evm::{
-    Account as EVMAccount, EnsureAddressTruncated, FeeCalculator, HashedAddressMapping, Runner,
+    Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressTruncated, FeeCalculator,
+    HashedAddressMapping, Runner,
 };
 
 use crate::weight_to_fee::TxnFee;
@@ -607,9 +608,8 @@ impl FeeCalculator for UnitGasPrice {
 }
 
 impl pallet_evm::Config for Runtime {
-    // TODO: Fix fee deduction
     /// Minimum gas price is 0 as the fee calculation for EVM transaction is done after mapping their gas to weight
-    type FeeCalculator = ();
+    type FeeCalculator = UnitGasPrice;
     /// 1:1 mapping of gas to weight
     type GasWeightMapping = ();
     type CallOrigin = EnsureAddressTruncated;
@@ -620,6 +620,8 @@ impl pallet_evm::Config for Runtime {
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type Precompiles = ();
     type ChainId = DockChainId;
+    type OnChargeTransaction = EVMCurrencyAdapter<Balances, PoAModule>;
+
     fn config() -> &'static EvmConfig {
         // EvmConfig::frontier() has `create_contract_limit` set to None but causes runtime panic
         static mut CFG: EvmConfig = EvmConfig::istanbul();

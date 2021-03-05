@@ -58,6 +58,8 @@ pub struct FullDeps<C, P, B> {
     pub pending_transactions: PendingTransactions,
     /// EthFilterApi pool.
     pub filter_pool: Option<FilterPool>,
+    /// Backend.
+    pub backend: Arc<fc_db::Backend<Block>>,
 }
 
 /// Instantiate all full RPC extensions.
@@ -102,6 +104,7 @@ where
         network,
         pending_transactions,
         filter_pool,
+        backend,
     } = deps;
 
     let GrandpaDeps {
@@ -145,6 +148,7 @@ where
         network.clone(),
         pending_transactions.clone(),
         vec![],
+        backend,
         is_authority,
     )));
 

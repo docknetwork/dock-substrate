@@ -177,27 +177,38 @@ branch = "frontier"
 [dependencies.fc-consensus]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/client/consensus'
 
 [dependencies.fp-consensus]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/primitives/consensus'
 
 [dependencies.fc-rpc]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/primitives/rpc'
+
+[dependencies.fc-db]
+version = '0.1.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/client/db'
 
 [dependencies.poa_rpc]
 path = '../pallets/poa/rpc'

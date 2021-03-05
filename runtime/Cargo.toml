@@ -11,9 +11,6 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 static_assertions = "1.1.0"
 smallvec = "1.4.1"
-pallet-ethereum = { default-features = false, version = '0.1.0', git = 'https://github.com/paritytech/frontier.git', rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e'}
-pallet-evm = { default-features = false, version = '2.0.0', git = 'https://github.com/paritytech/frontier.git', rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e' }
-fp-rpc = { default-features = false, version = '0.1.0', git = 'https://github.com/paritytech/frontier.git', rev = 'b4ce6ecb0db923a173b9a19276437056e8d7ec0e' }
 evm = { version = '0.23.0', default-features = false, features = ['with-codec'] }
 
 [dependencies.aura]
@@ -243,6 +240,27 @@ branch = "frontier"
 [dependencies.hex-literal]
 version = "0.2.1"
 optional = true
+
+[dependencies.pallet-evm]
+default-features = false
+version = '2.0.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/frame/evm'
+
+[dependencies.pallet-ethereum]
+default-features = false
+version = '0.1.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/frame/ethereum'
+
+[dependencies.fp-rpc]
+default-features = false
+version = '0.1.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]
 default-features = false
