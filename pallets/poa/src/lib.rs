@@ -4,10 +4,10 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    debug::{debug, error, RuntimeLogger},
-    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail, runtime_print,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail, runtime_print, log,
     sp_runtime::{
         print,
+        runtime_logger::RuntimeLogger,
         traits::{AccountIdConversion, CheckedSub, OpaqueKeys, Saturating, StaticLookup, Zero},
         ModuleId, SaturatedConversion,
     },
@@ -767,7 +767,7 @@ impl<T: Trait> Module<T> {
 
         let active_validator_count = active_validators.len() as u8;
         if active_validator_set_changed {
-            debug!(
+            log::debug!(
                 target: "runtime",
                 "Active validator set changed, rotating session. Added {} and removed {}",
                 count_added, count_removed
@@ -830,7 +830,7 @@ impl<T: Trait> Module<T> {
                 Some(pre_run) => {
                     // Assumes that the 2nd element of tuple is for slot no.
                     let s = SlotNo::decode(&mut &pre_run.1[..]).unwrap();
-                    debug!(target: "runtime", "current slot no is {}", s);
+                    runtime_print!("current slot no is {}", s);
                     Some(s)
                 }
                 None => {
@@ -866,10 +866,11 @@ impl<T: Trait> Module<T> {
             current_slot_no + active_validator_count - rem
         };
         EpochEndsAt::put(epoch_ends_at);
-        debug!(
+        log::debug!(
             target: "runtime",
             "Epoch {} prematurely ending at slot {}",
-            current_epoch_no, epoch_ends_at
+            current_epoch_no,
+            epoch_ends_at
         );
         epoch_ends_at
     }
@@ -964,7 +965,7 @@ impl<T: Trait> Module<T> {
                     max_blocks = block_count;
                 }
             }
-            debug!(target: "runtime", "Validator {:?} has blocks {}", v, block_count);
+            log::debug!(target: "runtime", "Validator {:?} has blocks {}", v, block_count);
             validator_block_counts.insert(v, block_count);
         }
         (
@@ -1197,7 +1198,7 @@ impl<T: Trait> Module<T> {
         // abruptly terminates and some validators don't get a chance to produce blocks
         let max_bl = max_blocks.to_number();
         if max_bl.saturating_sub(slots_per_validator) > 1 {
-            error!(target: "panicking now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
+            log::error!(target: "panicking now", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
             panic!(
                 "THIS PANIC SHOULD NEVER TRIGGER: max_blocks.to_number() > slots_per_validator + 1"
             );
@@ -1230,7 +1231,7 @@ impl<T: Trait> Module<T> {
             return;
         }
         let ending_slot = current_slot_no - 1;
-        debug!(
+        log::debug!(
             target: "runtime",
             "Epoch {} ends at slot {}",
             current_epoch_no, ending_slot
@@ -1254,10 +1255,11 @@ impl<T: Trait> Module<T> {
         current_slot_no: SlotNo,
         active_validator_count: u8,
     ) {
-        debug!(
+        log::debug!(
             target: "runtime",
             "Epoch {} begins at slot {}",
-            current_epoch_no, current_slot_no
+            current_epoch_no,
+            current_slot_no
         );
         Epoch::put(current_epoch_no);
         let expected_ending = Self::epoch_ends_at();
@@ -1333,9 +1335,8 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         };
 
         let epoch_ends_at = Self::epoch_ends_at();
-        debug!(
+        log::debug!(
             target: "runtime",
-
             "epoch ends at {}",
             epoch_ends_at
         );
@@ -1365,7 +1366,7 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
 
             let last_slot_for_next_epoch =
                 Self::set_next_epoch_end(current_slot_no, active_validator_count);
-            debug!(
+            log::debug!(
                 target: "runtime",
                 "next epoch will end at {}",
                 last_slot_for_next_epoch
@@ -1388,7 +1389,7 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
         // The init will be called on beginning of each session.
         RuntimeLogger::init();
 
-        debug!(
+        log::debug!(
             target: "runtime",
             "Current session index {}",
             session_idx

@@ -1,9 +1,10 @@
 #![cfg(test)]
 
+use crate as poa;
 use super::*;
 
 use frame_support::{
-    assert_err, assert_ok, impl_outer_origin, parameter_types,
+    assert_err, assert_ok, parameter_types,
     sp_runtime::{
         testing::{Header, UintAuthorityId},
         traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
@@ -17,16 +18,22 @@ use pallet_evm::{AddressMapping, EVMCurrencyAdapter, EnsureAddressNever, FeeCalc
 use sp_core::{crypto::key_types, Hasher, H160, H256, U256};
 use sp_std::str::FromStr;
 
-impl_outer_origin! {
-    pub enum Origin for TestRuntime {}
-}
-
-#[derive(Clone, Eq, Debug, PartialEq)]
-pub struct TestRuntime;
-
-type PoAModule = Module<TestRuntime>;
-type System = system::Module<TestRuntime>;
-type Balances = balances::Module<TestRuntime>;
+// Configure a mock runtime to test the pallet.
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
+frame_support::construct_runtime!(
+    pub enum TestRuntime where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Balances: balances::{Module, Call, Storage},
+        Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
+        Authorship: pallet_authorship::{Module, Call, Storage},
+        PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
+    }
+);
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -43,7 +50,7 @@ parameter_types! {
 impl system::Config for TestRuntime {
     type BaseCallFilter = ();
     type Origin = Origin;
-    type Call = ();
+    type Call = Call;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -57,7 +64,7 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
@@ -179,7 +186,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
     let mut t = system::GenesisConfig::default()
         .build_storage::<TestRuntime>()
         .unwrap();
-    GenesisConfig::<TestRuntime> {
+    crate::GenesisConfig::<TestRuntime> {
         min_epoch_length: 25,
         max_active_validators: 4,
         // Most of the values are kept 0 as the tests below will set it.

@@ -1,3 +1,5 @@
+use crate as token_migration;
+
 use super::*;
 
 use super::Call as MigrateCall;
@@ -7,7 +9,7 @@ use frame_support::sp_runtime::{
     Perbill,
 };
 use frame_support::{
-    assert_err, assert_ok, impl_outer_dispatch, impl_outer_origin, parameter_types,
+    assert_err, assert_ok, parameter_types,
     sp_runtime::traits::{ConvertInto, SaturatedConversion},
     weights::{constants::WEIGHT_PER_SECOND, DispatchClass, DispatchInfo, Weight},
 };
@@ -15,23 +17,21 @@ use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
 use std::cell::RefCell;
 
-impl_outer_origin! {
-    pub enum Origin for TestRuntime {}
-}
-
-impl_outer_dispatch! {
-    pub enum Call for TestRuntime where origin: Origin {
-        system::System,
-        token_migration::MigrationModule,
+// Configure a mock runtime to test the pallet.
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
+type Block = frame_system::mocking::MockBlock<TestRuntime>;
+frame_support::construct_runtime!(
+    pub enum TestRuntime where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Balances: balances::{Module, Call, Storage},
+        MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
     }
-}
+);
 
-#[derive(Clone, Eq, Debug, PartialEq)]
-pub struct TestRuntime;
-
-type MigrationModule = Module<TestRuntime>;
-type System = system::Module<TestRuntime>;
-type Balances = balances::Module<TestRuntime>;
 type Balance = u64;
 
 parameter_types! {
@@ -59,7 +59,7 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();

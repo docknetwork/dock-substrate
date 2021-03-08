@@ -119,7 +119,7 @@ impl system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = ();
     type OnNewAccount = ();
     type OnKilledAccount = ();

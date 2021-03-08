@@ -14,7 +14,7 @@ hex = '0.4.2'
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
-version = '1.3.6'
+version = '2.0.0'
 
 [dependencies.serde]
 features = ['derive']
@@ -23,45 +23,45 @@ version = '1.0.119'
 
 [dependencies.frame-support]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-core]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-api]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-evm]
 default-features = false
-version = '2.0.0'
+version = '3.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../../frontier/frame/evm'
 
 [dependencies.common]
@@ -71,20 +71,20 @@ version = '0.0.1'
 [dev-dependencies.balances]
 package = 'pallet-balances'
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dev-dependencies.timestamp]
 package = 'pallet-timestamp'
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dev-dependencies.sp-io]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 

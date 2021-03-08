@@ -5,13 +5,15 @@
 
 #![warn(missing_docs)]
 
-use std::{fmt, sync::Arc};
+use std::{collections::BTreeMap, sync::Arc};
 
 use dock_runtime::{
     opaque::Block, AccountId, Balance, BlockNumber, Hash, Index, TransactionConverter,
 };
+use fc_rpc::{SchemaV1Override, StorageOverride};
 use fc_rpc_core::types::{FilterPool, PendingTransactions};
 use jsonrpc_pubsub::manager::SubscriptionManager;
+use pallet_ethereum::EthereumStorageSchema;
 use sc_client_api::{
     backend::{AuxStore, Backend, StateBackend, StorageProvider},
     client::BlockchainEvents,
@@ -70,7 +72,6 @@ pub fn create_full<C, P, B>(
 where
     B: Backend<Block> + Send + Sync + 'static,
     B::State: StateBackend<sp_runtime::traits::HashFor<Block>>,
-    // B::State: StateBackend<sp_runtime::traits::BlakeTwo256>,
     C: ProvideRuntimeApi<Block> + StorageProvider<Block, B> + AuxStore,
     C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
     C: BlockchainEvents<Block>,
@@ -81,7 +82,6 @@ where
     C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
-    <C::Api as sp_api::ApiErrorExt>::Error: fmt::Debug,
     P: TransactionPool<Block = Block> + 'static,
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
@@ -141,6 +141,12 @@ where
     ));
 
     // Below code is taken from frontier template
+    let mut overrides = BTreeMap::new();
+    overrides.insert(
+        EthereumStorageSchema::V1,
+        Box::new(SchemaV1Override::new(client.clone()))
+            as Box<dyn StorageOverride<_> + Send + Sync>,
+    );
     io.extend_with(EthApiServer::to_delegate(EthApi::new(
         client.clone(),
         pool.clone(),
@@ -148,6 +154,7 @@ where
         network.clone(),
         pending_transactions.clone(),
         vec![],
+        overrides,
         backend,
         is_authority,
     )));

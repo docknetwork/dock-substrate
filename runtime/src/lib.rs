@@ -691,7 +691,7 @@ construct_runtime!(
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
         PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
-        Aura: aura::{Module, Config<T>, Inherent},
+        Aura: aura::{Module, Config<T>},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
@@ -812,7 +812,7 @@ impl_runtime_apis! {
         }
 
         fn random_seed() -> <Block as BlockT>::Hash {
-            RandomnessCollectiveFlip::random_seed()
+            RandomnessCollectiveFlip::random_seed().0
         }
     }
 

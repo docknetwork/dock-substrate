@@ -46,7 +46,7 @@ impl system::Config for TestRuntime {
     type BlockWeights = ();
     type BlockLength = ();
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
@@ -284,15 +284,15 @@ frame_support::construct_runtime!(
 
 fn new_test_ext() -> sp_io::TestExternalities {
     let mut ext: sp_io::TestExternalities = GenesisConfig {
-        pallet_membership_Instance1: Some(pallet_membership::GenesisConfig {
+        pallet_membership_Instance1: pallet_membership::GenesisConfig {
             members: vec![1, 2, 3],
             phantom: Default::default(),
-        }),
-        pallet_membership_Instance2: Some(pallet_membership::GenesisConfig {
+        },
+        pallet_membership_Instance2: pallet_membership::GenesisConfig {
             members: vec![4, 5, 6],
             phantom: Default::default(),
-        }),
-        poa: Some(PoAModuleConfig {
+        },
+        poa: PoAModuleConfig {
             min_epoch_length: 25,
             max_active_validators: 4,
             active_validators: vec![],
@@ -301,7 +301,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
             treasury_reward_pc: 75,
             validator_reward_lock_pc: 50,
             emission_status: false,
-        }),
+        },
     }
     .build_storage()
     .unwrap()
