@@ -17,10 +17,11 @@
 
 //! The crate's tests.
 
+use crate as democracy;
 use super::*;
 use codec::Encode;
 use frame_support::{
-    assert_noop, assert_ok, impl_outer_dispatch, impl_outer_event, impl_outer_origin,
+    assert_noop, assert_ok,
     ord_parameter_types, parameter_types,
     traits::{Contains, Filter, OnInitialize},
     weights::Weight,
@@ -63,30 +64,21 @@ const BIG_NAY: Vote = Vote {
     conviction: Conviction::Locked1x,
 };
 
-impl_outer_origin! {
-    pub enum Origin for Test where system = frame_system {}
-}
-
-impl_outer_dispatch! {
-    pub enum Call for Test where origin: Origin {
-        frame_system::System,
-        pallet_balances::Balances,
-        democracy::Democracy,
-    }
-}
-
-mod democracy {
-    pub use crate::Event;
-}
-
-impl_outer_event! {
-    pub enum Event for Test {
-        system<T>,
-        pallet_balances<T>,
-        pallet_scheduler<T>,
-        democracy<T>,
-    }
-}
+// Configure a mock runtime to test the pallet.
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
+frame_support::construct_runtime!(
+	pub enum Test where
+		Block = Block,
+		NodeBlock = Block,
+		UncheckedExtrinsic = UncheckedExtrinsic,
+	{
+		System: frame_system::{Module, Call, Config, Storage, Event<T>},
+		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+		Scheduler: pallet_scheduler::{Module, Call, Storage, Config, Event<T>},
+		Democracy: democracy::{Module, Call, Storage, Config, Event<T>},
+	}
+);
 
 // Test that a filtered call can be dispatched.
 pub struct BaseFilter;
@@ -99,9 +91,6 @@ impl Filter<Call> for BaseFilter {
     }
 }
 
-// Workaround for https://github.com/rust-lang/rust/issues/26925 . Remove when sorted.
-#[derive(Clone, Eq, PartialEq, Debug)]
-pub struct Test;
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const MaximumBlockWeight: Weight = 1_000_000;
@@ -125,7 +114,7 @@ impl frame_system::Config for Test {
     type BlockWeights = ();
     type BlockLength = ();
     type Version = ();
-    type PalletInfo = ();
+    type PalletInfo = PalletInfo;
     type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
@@ -236,7 +225,7 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     }
     .assimilate_storage(&mut t)
     .unwrap();
-    GenesisConfig::default().assimilate_storage(&mut t).unwrap();
+    democracy::GenesisConfig::default().assimilate_storage(&mut t).unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| System::set_block_number(1));
     ext
@@ -247,11 +236,6 @@ pub fn new_test_ext_execute_with_cond(execute: impl FnOnce(bool) -> () + Clone) 
     new_test_ext().execute_with(|| (execute.clone())(false));
     new_test_ext().execute_with(|| execute(true));
 }
-
-type System = frame_system::Module<Test>;
-type Balances = pallet_balances::Module<Test>;
-type Scheduler = pallet_scheduler::Module<Test>;
-type Democracy = Module<Test>;
 
 #[test]
 fn params_should_work() {

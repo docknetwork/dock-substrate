@@ -548,11 +548,11 @@ impl GenesisBuilder {
         self.validate().unwrap();
 
         GenesisConfig {
-            system: Some(SystemConfig {
+            system: SystemConfig {
                 code: WASM_BINARY.unwrap().to_vec(),
                 changes_trie_config: Default::default(),
-            }),
-            pallet_session: Some(SessionConfig {
+            },
+            pallet_session: SessionConfig {
                 keys: self
                     .initial_authorities
                     .iter()
@@ -564,8 +564,8 @@ impl GenesisBuilder {
                         )
                     })
                     .collect::<Vec<_>>(),
-            }),
-            poa: Some(PoAModuleConfig {
+            },
+            poa: PoAModuleConfig {
                 min_epoch_length: self.min_epoch_length,
                 max_active_validators: self.max_active_validators,
                 active_validators: self
@@ -578,43 +578,43 @@ impl GenesisBuilder {
                 treasury_reward_pc,
                 validator_reward_lock_pc,
                 emission_status: self.emission_status,
-            }),
-            balances: Some(BalancesConfig {
+            },
+            balances: BalancesConfig {
                 balances: self
                     .endowed_accounts
                     .iter()
                     .cloned()
                     .map(|k| (k, per_member_endowment))
                     .collect(),
-            }),
-            aura: Some(AuraConfig {
+            },
+            aura: AuraConfig {
                 authorities: vec![],
-            }),
-            grandpa: Some(GrandpaConfig {
+            },
+            grandpa: GrandpaConfig {
                 authorities: vec![],
-            }),
-            master: Some(MasterConfig {
+            },
+            master: MasterConfig {
                 members: self.master,
-            }),
-            did: Some(DIDModuleConfig { dids: self.dids }),
-            sudo: Some(SudoConfig { key: self.sudo }),
-            pallet_collective_Instance1: Some(Default::default()),
-            pallet_membership_Instance1: Some(CouncilMembershipConfig {
+            },
+            did: DIDModuleConfig { dids: self.dids },
+            sudo: SudoConfig { key: self.sudo },
+            pallet_collective_Instance1: Default::default(),
+            pallet_membership_Instance1: CouncilMembershipConfig {
                 members: self.council_members,
                 phantom: Default::default(),
-            }),
-            pallet_collective_Instance2: Some(Default::default()),
-            pallet_membership_Instance2: Some(TechnicalCommitteeMembershipConfig {
+            },
+            pallet_collective_Instance2: Default::default(),
+            pallet_membership_Instance2: TechnicalCommitteeMembershipConfig {
                 members: self.technical_committee_members,
                 phantom: Default::default(),
-            }),
-            pallet_ethereum: Some(EthereumConfig {}),
-            pallet_evm: Some(EVMConfig {
+            },
+            pallet_ethereum: EthereumConfig {},
+            pallet_evm: EVMConfig {
                 accounts: BTreeMap::new(),
-            }),
-            price_feed: Some(PriceFeedModuleConfig {
+            },
+            price_feed: PriceFeedModuleConfig {
                 contract_config: self.contract_config,
-            }),
+            },
         }
     }
 

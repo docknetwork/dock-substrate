@@ -11,20 +11,19 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 static_assertions = "1.1.0"
 smallvec = "1.4.1"
-evm = { version = '0.23.0', default-features = false, features = ['with-codec'] }
-evm = { version = '0.23.0', default-features = false, features = ['with-codec'] }
+evm = { version = '0.25.0', default-features = false, features = ['with-codec'] }
 
 [dependencies.aura]
 default-features = false
 package = 'pallet-aura'
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.balances]
 default-features = false
 package = 'pallet-balances'
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
@@ -32,31 +31,31 @@ branch = "frontier"
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
-version = '1.3.6'
+version = '2.0.0'
 
 [dependencies.frame-executive]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-support]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.grandpa]
 default-features = false
 package = 'pallet-grandpa'
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.randomness-collective-flip]
 default-features = false
 package = 'pallet-randomness-collective-flip'
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
@@ -71,111 +70,111 @@ version = "0.3.0"
 
 [dependencies.sp-api]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-block-builder]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-consensus-aura]
 default-features = false
-version = '0.8.0'
+version = '0.9.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-core]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-inherents]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-io]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-offchain]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-session]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-std]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-transaction-pool]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-version]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-arithmetic]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-system-rpc-runtime-api]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.timestamp]
 default-features = false
 package = 'pallet-timestamp'
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.transaction-payment]
 default-features = false
 package = 'pallet-transaction-payment'
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-transaction-payment-rpc-runtime-api]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
@@ -184,83 +183,83 @@ version = '3.0.0'
 
 [dependencies.pallet-session]
 default_features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-sudo]
 default_features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-authorship]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-utility]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-system-benchmarking]
 optional = true
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-collective]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-membership]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-scheduler]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.hex-literal]
-version = "0.2.1"
+version = "0.3.1"
 optional = true
 
 [dependencies.pallet-evm]
 default-features = false
-version = '2.0.0'
+version = '3.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/frame/evm'
 
 [dependencies.pallet-ethereum]
 default-features = false
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.fp-rpc]
 default-features = false
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]
@@ -357,4 +356,4 @@ runtime-benchmarks = [
 ]
 
 [dev-dependencies]
-rand = "0.7.3"
+rand = "0.8.3"

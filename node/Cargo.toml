@@ -13,8 +13,8 @@ futures = '0.3.1'
 log = '0.4.8'
 parking_lot = '0.10.0'
 hex-literal = "0.3.0"
-jsonrpc-core = '15.0.0'
-jsonrpc-pubsub = '15.0.0'
+jsonrpc-core = '15.1.0'
+jsonrpc-pubsub = '15.1.0'
 serde = { version = '1.0.110', features = ['derive'] }
 serde_json = '1.0.41'
 
@@ -27,187 +27,200 @@ path = '../runtime'
 version = '0.12.3'
 
 [dependencies.sc-basic-authorship]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-cli]
 optional = true
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-client-api]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-consensus]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-consensus-aura]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-executor]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-finality-grandpa]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-finality-grandpa-rpc]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-network]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-service]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-transaction-pool]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-telemetry]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-consensus]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-consensus-aura]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-core]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-finality-grandpa]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-inherents]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-runtime]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-transaction-pool]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [build-dependencies.substrate-build-script-utils]
 optional = true
-version = '2.0.1'
+version = '3.0.0'
 
 [dependencies.sc-rpc]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-rpc-api]
-version = '0.8.1'
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-api]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-block-builder]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-blockchain]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.frame-benchmarking]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.frame-benchmarking-cli]
 optional = true
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.substrate-frame-rpc-system]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.pallet-transaction-payment-rpc]
-version = '2.0.1'
+version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
+
+[dependencies.pallet-ethereum]
+default-features = false
+version = '0.1.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
+#path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-consensus]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/client/consensus'
 
 [dependencies.fp-consensus]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/primitives/consensus'
 
 [dependencies.fc-rpc]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
+#path = '../../../frontier/client/db'
+
+[dependencies.fc-mapping-sync]
+version = '0.1.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../frontier/client/db'
 
 [dependencies.poa_rpc]
