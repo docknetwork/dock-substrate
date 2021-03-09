@@ -100,7 +100,51 @@ impl pallet_evm::Config for Test {
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type Precompiles = ();
     type ChainId = DockChainId;
+    type OnChargeTransaction = ();
 }
+
+/*/// Dummy session handler as the pallet's trait needs the session pallet's trait
+pub struct TestSessionHandler;
+type ValidatorId = u64;
+impl pallet_session::SessionHandler<ValidatorId> for TestSessionHandler {
+    const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
+
+    fn on_genesis_session<K: OpaqueKeys>(_validators: &[(ValidatorId, K)]) {}
+
+    fn on_new_session<K: OpaqueKeys>(
+        _changed: bool,
+        _validators: &[(ValidatorId, K)],
+        _queued_validators: &[(ValidatorId, K)],
+    ) {
+    }
+
+    fn on_disabled(_validator_index: usize) {}
+}
+
+impl pallet_session::Config for Test {
+    type Event = ();
+    type ValidatorId = AccountId;
+    type ValidatorIdOf = ();
+    type ShouldEndSession = PoAModule;
+    type NextSessionRotation = ();
+    type SessionManager = PoAModule;
+    type SessionHandler = TestSessionHandler;
+    type Keys = UintAuthorityId;
+    type DisabledValidatorsThreshold = ();
+    type WeightInfo = ();
+}
+
+impl pallet_authorship::Config for Test {
+    type FindAuthor = ();
+    type UncleGenerations = ();
+    type FilterUncle = ();
+    type EventHandler = ();
+}
+
+impl poa::Trait for TestRuntime {
+    type Event = ();
+    type Currency = balances::Module<Self>;
+}*/
 
 impl price_feed::Config for Test {
     type Event = ();

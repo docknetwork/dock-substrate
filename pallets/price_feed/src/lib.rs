@@ -35,9 +35,11 @@ const GAS_LIMIT: u64 = u64::MAX;
 pub struct ContractConfig {
     /// Address of the contract
     pub address: H160,
-    /// The ABI of the function to get the price, encoded
+    /// The ABI of the function to get the price, encoded.
+    /// At the time of writing, it is function `latestRoundData` of the contract.
     pub query_abi_encoded: Vec<u8>,
-    /// ABI of the return type of function corresponding to `query_abi_encoded`
+    /// ABI of the return type of function corresponding to `query_abi_encoded`.
+    /// At the time of writing, this is `[uint(80), int(256), uint(256), uint(256), uint(80)]`
     pub return_val_abi: Vec<ParamType>,
 }
 
@@ -142,7 +144,7 @@ impl<T: Config> Module<T> {
     ) -> Result<Weight, dispatch::DispatchError> {
         let (stale, mut weight) = Self::is_price_stale(current_block_no);
         if stale {
-            weight += Self::update_price_from_contract()?;
+            weight = weight.saturating_add(Self::update_price_from_contract()?);
             Ok(weight)
         } else {
             Ok(weight)

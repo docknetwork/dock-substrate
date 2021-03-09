@@ -4714,9 +4714,12 @@ version = "0.6.2"
 dependencies = [
  "frame-support",
  "frame-system",
+ "hex",
  "pallet-authorship",
  "pallet-balances",
+ "pallet-evm",
  "pallet-session",
+ "pallet-timestamp",
  "parity-scale-codec",
  "serde",
  "sp-api",
@@ -4799,6 +4802,7 @@ dependencies = [
  "serde",
  "sp-api",
  "sp-core",
+ "sp-io",
  "sp-runtime",
  "sp-std",
 ]

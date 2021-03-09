@@ -226,7 +226,6 @@ impl system::Config for Runtime {
     /// The identifier used to distinguish between accounts.
     type AccountId = AccountId;
     /// The lookup mechanism to get account ID from whatever is passed in dispatchers.
-    // type Lookup = IdentityLookup<AccountId>;
     type Lookup = AccountIdLookup<AccountId, ()>;
     /// The header type.
     type Header = generic::Header<BlockNumber, BlakeTwo256>;
@@ -587,7 +586,6 @@ parameter_types! {
 }
 
 impl pallet_ethereum::Config for Runtime {
-    // TODO: Add trait similar to `OnChargeTransaction` which deducts the fees according to weight
     type Event = Event;
     type FindAuthor = EthereumFindAuthor<Aura>;
     type StateRoot = pallet_ethereum::IntermediateStateRoot;
@@ -608,7 +606,7 @@ impl FeeCalculator for UnitGasPrice {
 }
 
 impl pallet_evm::Config for Runtime {
-    /// Minimum gas price is 0 as the fee calculation for EVM transaction is done after mapping their gas to weight
+    /// Minimum gas price is 1
     type FeeCalculator = UnitGasPrice;
     /// 1:1 mapping of gas to weight
     type GasWeightMapping = ();
@@ -620,6 +618,7 @@ impl pallet_evm::Config for Runtime {
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type Precompiles = ();
     type ChainId = DockChainId;
+    /// Deducted fee will be handled by the PoA module
     type OnChargeTransaction = EVMCurrencyAdapter<Balances, PoAModule>;
 
     fn config() -> &'static EvmConfig {

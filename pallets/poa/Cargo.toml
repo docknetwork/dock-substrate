@@ -8,6 +8,9 @@ license = 'Apache-2.0'
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
 
+[dev-dependencies]
+hex = '0.4.2'
+
 [dependencies.codec]
 default-features = false
 features = ['derive']
@@ -86,6 +89,19 @@ version = '2.0.1'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dev-dependencies.pallet-timestamp]
+default-features = false
+version = '2.0.1'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dev-dependencies.pallet-evm]
+default-features = false
+version = '2.0.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../../frontier/frame/evm'
+
 [features]
 default = ['std']
 std = [
@@ -102,4 +118,4 @@ std = [
     'sp-arithmetic/std',
 ]
 
-test = ['std', 'balances/std']
+test = ['std', 'balances/std', 'pallet-evm/std', 'pallet-timestamp/std']
