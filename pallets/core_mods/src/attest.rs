@@ -14,7 +14,7 @@ use frame_system::{self as system, ensure_signed};
 
 pub type Iri = Vec<u8>;
 
-pub trait Trait: system::Trait + did::Trait {
+pub trait Trait: system::Config + did::Trait {
     /// The cost charged by the network to store a single byte in chain-state for the life of the
     /// chain.
     type StorageWeight: Get<Weight>;
@@ -96,7 +96,7 @@ decl_module! {
 
 impl<T: Trait> Module<T> {
     fn set_claim_(
-        origin: <T as system::Trait>::Origin,
+        origin: <T as system::Config>::Origin,
         attester: Did,
         attests: Attestation,
         signature: DidSignature,

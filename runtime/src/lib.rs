@@ -22,6 +22,7 @@ extern crate alloc;
 extern crate static_assertions;
 
 pub use core_mods::anchor;
+pub use core_mods::attest;
 pub use core_mods::blob;
 pub use core_mods::did;
 pub use core_mods::master;

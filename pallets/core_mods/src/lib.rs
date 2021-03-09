@@ -17,6 +17,7 @@ pub enum StateChange {
     RemoveRegistry(revoke::RemoveRegistry),
     Blob(blob::Blob),
     MasterVote(master::Payload),
+    Attestation((did::Did, attest::Attestation)),
 }
 
 // This should be same as the type defined in runtime/src/lib.rs. Less than ideal shortcut as this module shouldn't
@@ -24,6 +25,7 @@ pub enum StateChange {
 pub type BlockNumber = u32;
 
 pub mod anchor;
+pub mod attest;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmark_utils;
 pub mod blob;
