@@ -6,7 +6,7 @@ use frame_support::{
     parameter_types,
     sp_runtime::{
         testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, Block as BlockT, Dispatchable, Hash, IdentityLookup, OpaqueKeys},
+        traits::{BlakeTwo256, Dispatchable, Hash, IdentityLookup, OpaqueKeys},
         BuildStorage, KeyTypeId, Perbill,
     },
     traits::OnInitialize,
@@ -517,8 +517,8 @@ fn execute_poa_config_proposal(start: u64, ref_id: ReferendumIndex, proposal: Ve
 #[test]
 fn change_council_membership() {
     new_test_ext().execute_with(|| {
-        let x = pallet_democracy::PublicPropCount::get();
-        let y = pallet_democracy::PublicProps::<TestRuntime>::get();
+        // let x = pallet_democracy::PublicPropCount::get();
+        // let y = pallet_democracy::PublicProps::<TestRuntime>::get();
 
         assert_eq!(Council::members(), vec![1, 2, 3]);
         assert_eq!(Council::proposals().len(), 0);
