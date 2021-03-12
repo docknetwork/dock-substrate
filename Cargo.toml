@@ -10,6 +10,7 @@ members = [
     'pallets/core_mods',
     'pallets/price_feed',
     'pallets/price_feed/rpc',
+    'pallets/fiat_filter',
     'runtime',
 ]
 

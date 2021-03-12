@@ -8,3 +8,5 @@
 
 .idea/
 tmp
+
+**/.cache/

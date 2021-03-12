@@ -27,6 +27,12 @@ pub struct Attestation {
     priority: u64,
     iri: Option<Iri>,
 }
+impl Attestation {
+    /// Create new Attestation
+    pub fn new(priority: u64, iri: Option<Iri>) -> Self {
+        Attestation { priority, iri }
+    }
+}
 
 decl_error! {
     /// Error for the attest module.

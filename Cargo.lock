@@ -1167,7 +1167,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.12.3"
+version = "0.13.0"
 dependencies = [
  "dock-runtime",
  "fc-consensus",
@@ -1220,11 +1220,12 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.12.3"
+version = "0.13.0"
 dependencies = [
  "common",
  "core_mods",
  "evm",
+ "fiat_filter",
  "forked-pallet-democracy",
  "fp-rpc",
  "frame-benchmarking",
@@ -1633,6 +1634,25 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c4c9e43643f5a3be4ca5b67d26b98031ff9db6806c3440ae32e02e3ceac3f1b"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "fiat_filter"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "core_mods",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "rand 0.7.3",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+ "tap",
 ]
 
 [[package]]
@@ -7613,6 +7633,12 @@ name = "take_mut"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f764005d11ee5f36500a149ace24e00e3da98b0158b3e2d53a7495660d3f4d60"
+
+[[package]]
+name = "tap"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "target-lexicon"
