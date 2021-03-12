@@ -10,9 +10,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch,
-    dispatch::IsSubType,
-    ensure, fail,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{
         traits::{
             CheckedAdd, CheckedSub, Convert, DispatchInfoOf, Saturating, SignedExtension,
@@ -23,7 +21,10 @@ use frame_support::{
         },
         RuntimeDebug,
     },
-    traits::{Currency, ExistenceRequirement::AllowDeath, Get, ReservableCurrency, WithdrawReason},
+    traits::{
+        Currency, ExistenceRequirement::AllowDeath, Get, IsSubType, ReservableCurrency,
+        WithdrawReasons,
+    },
     weights::{Pays, Weight},
 };
 use sp_std::marker::PhantomData;
@@ -34,7 +35,7 @@ extern crate alloc;
 use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::traits::ExistenceRequirement;
 
-type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Trait>::AccountId>>::Balance;
+type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
 #[cfg(test)]
 mod tests;
@@ -57,9 +58,9 @@ impl<Balance, BlockNumber> Bonus<Balance, BlockNumber> {
 }
 
 /// The pallet's configuration trait.
-pub trait Trait: system::Trait {
+pub trait Trait: system::Config {
     /// The overarching event type.
-    type Event: From<Event<Self>> + Into<<Self as system::Trait>::Event>;
+    type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 
     /// Currency type that supports locking
     type Currency: ReservableCurrency<Self::AccountId>;
@@ -97,9 +98,9 @@ decl_storage! {
 decl_event!(
     pub enum Event<T>
     where
-        AccountId = <T as system::Trait>::AccountId,
+        AccountId = <T as system::Config>::AccountId,
         Balance = BalanceOf<T>,
-        BlockNumber = <T as system::Trait>::BlockNumber,
+        BlockNumber = <T as system::Config>::BlockNumber,
     {
         /// Migrator transferred tokens
         Migration(AccountId, AccountId, Balance),
@@ -510,7 +511,7 @@ impl<T: Trait> Module<T> {
         ensure!(!bonuses.is_empty(), Error::<T>::NoVestingBonus);
 
         let now = <frame_system::Module<T>>::block_number();
-        let now_plus_1 = now + T::BlockNumber::from(1);
+        let now_plus_1 = now + T::BlockNumber::from(1u32);
 
         let vesting_duration = T::BlockNumber::from(T::VestingDuration::get());
         let vesting_milestones = T::BlockNumber::from(T::VestingMilestones::get() as u32);
@@ -623,7 +624,7 @@ impl<T: Trait> Module<T> {
         T::Currency::ensure_can_withdraw(
             migrator,
             to_transfer,
-            WithdrawReason::Transfer.into(),
+            WithdrawReasons::TRANSFER,
             new_free,
         )?;
 
@@ -644,11 +645,11 @@ impl<T: Trait + Send + Sync> sp_std::fmt::Debug for OnlyMigrator<T> {
 
 impl<T: Trait + Send + Sync> SignedExtension for OnlyMigrator<T>
 where
-    <T as system::Trait>::Call: IsSubType<Call<T>>,
+    <T as system::Config>::Call: IsSubType<Call<T>>,
 {
     const IDENTIFIER: &'static str = "OnlyMigrator";
     type AccountId = T::AccountId;
-    type Call = <T as system::Trait>::Call;
+    type Call = <T as system::Config>::Call;
     type AdditionalSigned = ();
     type Pre = ();
 

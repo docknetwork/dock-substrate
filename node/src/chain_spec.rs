@@ -2,28 +2,27 @@ use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
     opaque::SessionKeys,
-    AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig, GenesisConfig,
-    GrandpaConfig, MasterConfig, PoAModuleConfig, SessionConfig, SudoConfig, SystemConfig,
+    price_feed::{util::ParamType, ContractConfig},
+    AccountId, AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig,
+    EVMConfig, EthereumConfig, GenesisConfig, GrandpaConfig, MasterConfig, PoAModuleConfig,
+    PriceFeedModuleConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
     TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use sc_service::{ChainType, Properties};
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{sr25519, Pair, Public, H160};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
-use sp_runtime::{
-    traits::{IdentifyAccount, Verify},
-    MultiSignature,
-};
+use sp_runtime::traits::{IdentifyAccount, Verify};
 
 use serde_json::map::Map;
+
+use std::collections::BTreeMap;
 
 fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
     SessionKeys { aura, grandpa }
 }
-
-type AccountId = <<MultiSignature as Verify>::Signer as IdentifyAccount>::AccountId;
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
 pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
@@ -35,7 +34,7 @@ fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public
         .public()
 }
 
-type AccountPublic = <MultiSignature as Verify>::Signer;
+type AccountPublic = <Signature as Verify>::Signer;
 
 /// Helper function to generate an account ID from seed
 fn get_account_id_from_seed<TPublic: Public>(seed: &str) -> AccountId
@@ -110,6 +109,23 @@ fn get_seed_vector_to_account_vector(seeds: Vec<&str>) -> Vec<AccountId> {
         .collect()
 }
 
+fn get_dev_chain_price_feed_contract() -> ContractConfig {
+    ContractConfig {
+        address: H160::from([
+            102, 119, 174, 46, 44, 201, 133, 68, 109, 66, 165, 189, 238, 24, 39, 2, 232, 94, 133,
+            135,
+        ]),
+        query_abi_encoded: vec![254, 175, 150, 140],
+        return_val_abi: vec![
+            ParamType::Uint(80),
+            ParamType::Int(256),
+            ParamType::Uint(256),
+            ParamType::Uint(256),
+            ParamType::Uint(80),
+        ],
+    }
+}
+
 pub fn development_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "Development",
@@ -167,6 +183,7 @@ pub fn development_config() -> ChainSpec {
                 technical_committee_members: get_seed_vector_to_account_vector(
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
+                contract_config: get_dev_chain_price_feed_contract(),
             }
             .build()
         },
@@ -242,6 +259,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 technical_committee_members: get_seed_vector_to_account_vector(
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
+                contract_config: get_dev_chain_price_feed_contract(),
             }
             .build()
         },
@@ -362,6 +380,8 @@ pub fn testnet_config() -> ChainSpec {
                         "5Eng8QjwLmucywgXKhvUqNq5QWdwC9kJf5r4bZh43b4ZFLZQ",
                     ),
                 ],
+                // TODO: Set this after deploying contract to testnet
+                contract_config: get_dev_chain_price_feed_contract(),
             }
             .build()
         },
@@ -478,6 +498,8 @@ pub fn mainnet_config() -> ChainSpec {
                         "3DMtxe6rnXAMnut5vtDEzPEV1JzsUTCrbq9R6t9xPNwZmit6",
                     ),
                 ],
+                // TODO: Set this after deploying contract to mainnet
+                contract_config: get_dev_chain_price_feed_contract(),
             }
             .build()
         },
@@ -503,6 +525,7 @@ struct GenesisBuilder {
     emission_status: bool,
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
+    contract_config: ContractConfig,
 }
 
 impl GenesisBuilder {
@@ -583,6 +606,13 @@ impl GenesisBuilder {
             pallet_membership_Instance2: Some(TechnicalCommitteeMembershipConfig {
                 members: self.technical_committee_members,
                 phantom: Default::default(),
+            }),
+            pallet_ethereum: Some(EthereumConfig {}),
+            pallet_evm: Some(EVMConfig {
+                accounts: BTreeMap::new(),
+            }),
+            price_feed: Some(PriceFeedModuleConfig {
+                contract_config: self.contract_config,
             }),
         }
     }

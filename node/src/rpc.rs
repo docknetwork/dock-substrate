@@ -5,13 +5,22 @@
 
 #![warn(missing_docs)]
 
-use std::sync::Arc;
+use std::{fmt, sync::Arc};
 
-use dock_runtime::{opaque::Block, AccountId, Balance, BlockNumber, Hash, Index};
+use dock_runtime::{
+    opaque::Block, AccountId, Balance, BlockNumber, Hash, Index, TransactionConverter,
+};
+use fc_rpc_core::types::{FilterPool, PendingTransactions};
+use jsonrpc_pubsub::manager::SubscriptionManager;
+use sc_client_api::{
+    backend::{AuxStore, Backend, StateBackend, StorageProvider},
+    client::BlockchainEvents,
+};
 use sc_finality_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
 use sc_finality_grandpa_rpc::GrandpaRpcHandler;
+use sc_network::NetworkService;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
@@ -27,8 +36,6 @@ pub struct GrandpaDeps<B> {
     pub shared_authority_set: SharedAuthoritySet<Hash, BlockNumber>,
     /// Receives notifications about justification events from Grandpa.
     pub justification_stream: GrandpaJustificationStream<Block>,
-    /// Executor to drive the subscription manager in the Grandpa RPC handler.
-    pub subscription_executor: SubscriptionTaskExecutor,
     /// Finality proof provider.
     pub finality_proof_provider: Arc<FinalityProofProvider<B, Block>>,
 }
@@ -43,25 +50,49 @@ pub struct FullDeps<C, P, B> {
     pub deny_unsafe: DenyUnsafe,
     /// GRANDPA specific dependencies.
     pub grandpa: GrandpaDeps<B>,
+    /// The Node authority flag
+    pub is_authority: bool,
+    /// Network service
+    pub network: Arc<NetworkService<Block, Hash>>,
+    /// Ethereum pending transactions.
+    pub pending_transactions: PendingTransactions,
+    /// EthFilterApi pool.
+    pub filter_pool: Option<FilterPool>,
+    /// Backend.
+    pub backend: Arc<fc_db::Backend<Block>>,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P, B>(deps: FullDeps<C, P, B>) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+pub fn create_full<C, P, B>(
+    deps: FullDeps<C, P, B>,
+    subscription_executor: SubscriptionTaskExecutor,
+) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
 where
-    C: ProvideRuntimeApi<Block>,
+    B: Backend<Block> + Send + Sync + 'static,
+    B::State: StateBackend<sp_runtime::traits::HashFor<Block>>,
+    // B::State: StateBackend<sp_runtime::traits::BlakeTwo256>,
+    C: ProvideRuntimeApi<Block> + StorageProvider<Block, B> + AuxStore,
     C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
+    C: BlockchainEvents<Block>,
     C: Send + Sync + 'static,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
+    C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
     C::Api: BlockBuilder<Block>,
-    P: TransactionPool + 'static,
-    B: sc_client_api::Backend<Block> + Send + Sync + 'static,
-    B::State: sc_client_api::backend::StateBackend<sp_runtime::traits::HashFor<Block>>,
+    C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
+    <C::Api as sp_api::ApiErrorExt>::Error: fmt::Debug,
+    P: TransactionPool<Block = Block> + 'static,
 {
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use poa_rpc::{PoA, PoAApi};
+    use price_feed_rpc::{PriceFeed, PriceFeedApi};
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
+
+    use fc_rpc::{
+        EthApi, EthApiServer, EthFilterApi, EthFilterApiServer, EthPubSubApi, EthPubSubApiServer,
+        HexEncodedIdProvider, NetApi, NetApiServer, Web3Api, Web3ApiServer,
+    };
 
     let mut io = jsonrpc_core::IoHandler::default();
     let FullDeps {
@@ -69,19 +100,23 @@ where
         pool,
         deny_unsafe,
         grandpa,
+        is_authority,
+        network,
+        pending_transactions,
+        filter_pool,
+        backend,
     } = deps;
 
     let GrandpaDeps {
         shared_voter_state,
         shared_authority_set,
         justification_stream,
-        subscription_executor,
         finality_proof_provider,
     } = grandpa;
 
     io.extend_with(SystemApi::to_delegate(FullSystem::new(
         client.clone(),
-        pool,
+        pool.clone(),
         deny_unsafe,
     )));
 
@@ -90,17 +125,57 @@ where
     )));
 
     // RPC calls for PoA pallet
-    io.extend_with(PoAApi::to_delegate(PoA::new(client)));
+    io.extend_with(PoAApi::to_delegate(PoA::new(client.clone())));
+
+    // RPC calls for Price Feed pallet
+    io.extend_with(PriceFeedApi::to_delegate(PriceFeed::new(client.clone())));
 
     io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
         GrandpaRpcHandler::new(
             shared_authority_set,
             shared_voter_state,
             justification_stream,
-            subscription_executor,
+            subscription_executor.clone(),
             finality_proof_provider,
         ),
     ));
+
+    // Below code is taken from frontier template
+    io.extend_with(EthApiServer::to_delegate(EthApi::new(
+        client.clone(),
+        pool.clone(),
+        TransactionConverter,
+        network.clone(),
+        pending_transactions.clone(),
+        vec![],
+        backend,
+        is_authority,
+    )));
+
+    if let Some(filter_pool) = filter_pool {
+        io.extend_with(EthFilterApiServer::to_delegate(EthFilterApi::new(
+            client.clone(),
+            filter_pool.clone(),
+            500 as usize, // max stored filters
+        )));
+    }
+
+    io.extend_with(NetApiServer::to_delegate(NetApi::new(
+        client.clone(),
+        network.clone(),
+    )));
+
+    io.extend_with(Web3ApiServer::to_delegate(Web3Api::new(client.clone())));
+
+    io.extend_with(EthPubSubApiServer::to_delegate(EthPubSubApi::new(
+        pool.clone(),
+        client.clone(),
+        network.clone(),
+        SubscriptionManager::<HexEncodedIdProvider>::with_id_provider(
+            HexEncodedIdProvider::default(),
+            Arc::new(subscription_executor),
+        ),
+    )));
 
     io
 }

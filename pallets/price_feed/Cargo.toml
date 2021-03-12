@@ -1,16 +1,25 @@
 [package]
-name = "simple_democracy"
-version = "0.0.2"
+name = "price_feed"
+version = "0.0.1"
 authors = ["Dock.io"]
 edition = "2018"
+license = 'Apache-2.0'
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
+
+[dev-dependencies]
+hex = '0.4.2'
 
 [dependencies.codec]
 default-features = false
 features = ['derive']
 package = 'parity-scale-codec'
 version = '1.3.6'
+
+[dependencies.serde]
+features = ['derive']
+optional = true
+version = '1.0.119'
 
 [dependencies.frame-support]
 default-features = false
@@ -30,66 +39,54 @@ version = '2.0.1'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
-[dependencies.pallet-membership]
+[dependencies.sp-std]
 default-features = false
 version = '2.0.1'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
-[dependencies.pallet-collective]
+[dependencies.sp-core]
 default-features = false
 version = '2.0.1'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
-[dependencies.pallet-democracy]
-package = 'forked-pallet-democracy'
+[dependencies.sp-api]
 default-features = false
-path = '../democracy'
+version = '2.0.1'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.ethereum-types]
+default-features = false
+version = '0.10.0'
+
+[dependencies.pallet-evm]
+default-features = false
 version = '2.0.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = '42de7729389beac65879147959396e90eb68c12e'
+#path = '../../../../frontier/frame/evm'
 
-[dependencies.serde]
-features = ['derive']
-optional = true
-version = '1.0.119'
-
-[dependencies.poa]
-default-features = false
-path = '../poa'
-version = '0.6.0'
+[dependencies.common]
+path = '../../common'
+version = '0.0.1'
 
 [dev-dependencies.balances]
-default-features = false
-version = '2.0.1'
 package = 'pallet-balances'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
-[dev-dependencies.pallet-scheduler]
 default-features = false
 version = '2.0.1'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
-[dev-dependencies.sp-core]
+[dev-dependencies.timestamp]
+package = 'pallet-timestamp'
 default-features = false
 version = '2.0.1'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dev-dependencies.sp-io]
-default-features = false
-version = '2.0.1'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
-[dev-dependencies.pallet-session]
-default_features = false
-version = '2.0.1'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
-[dev-dependencies.pallet-authorship]
 default-features = false
 version = '2.0.1'
 git = "https://github.com/paritytech/substrate.git"
@@ -102,18 +99,10 @@ std = [
     'serde',
     'frame-support/std',
     'frame-system/std',
-    'sp-runtime/std',
-    'pallet-collective/std',
-    'pallet-membership/std',
-    'pallet-democracy/std',
-    'poa/std',
-]
-test = [
-    'std',
     'sp-core/std',
-    'sp-io/std',
-    'pallet-scheduler/std',
-    'balances/std',
-    'pallet-session/std',
-    'pallet-authorship/std',
+    'sp-std/std',
+    'sp-runtime/std',
+    'sp-api/std',
+    'pallet-evm/std',
+    'ethereum-types/std',
 ]

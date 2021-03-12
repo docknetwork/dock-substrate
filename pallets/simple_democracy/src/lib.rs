@@ -50,8 +50,8 @@ fn vote_existing(r: u32) -> Weight {
         .saturating_add(DbWeight::get().writes(2 as Weight))
 }
 
-pub trait Trait: system::Trait + pallet_democracy::Trait + poa::Trait {
-    type Event: From<Event> + Into<<Self as system::Trait>::Event>;
+pub trait Trait: system::Config + pallet_democracy::Trait + poa::Trait {
+    type Event: From<Event> + Into<<Self as system::Config>::Event>;
     /// Origin which can vote
     type VoterOrigin: EnsureOrigin<Self::Origin, Success = Self::AccountId>;
 }
@@ -234,7 +234,7 @@ decl_module! {
         }
 
         /// Enact a proposal from a referendum. For now we just make the weight be the maximum.
-        #[weight = T::MaximumBlockWeight::get()]
+        #[weight = T::BlockWeights::get().max_block]
         fn enact_proposal(origin, proposal_hash: T::Hash, index: ReferendumIndex) -> DispatchResult {
             <pallet_democracy::Module<T>>::enact_proposal(origin, proposal_hash, index)
         }
@@ -409,8 +409,8 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         if let AccountVote::Standard { vote, .. } = vote {
             match vote.aye {
-                true => tally.ayes -= 1.saturated_into(),
-                false => tally.nays -= 1.saturated_into(),
+                true => tally.ayes -= (1u32).saturated_into(),
+                false => tally.nays -= (1u32).saturated_into(),
             }
             Ok(())
         } else {
@@ -425,8 +425,8 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         if let AccountVote::Standard { vote, .. } = vote {
             match vote.aye {
-                true => tally.ayes += 1.saturated_into(),
-                false => tally.nays += 1.saturated_into(),
+                true => tally.ayes += (1u32).saturated_into(),
+                false => tally.nays += (1u32).saturated_into(),
             }
             Ok(())
         } else {

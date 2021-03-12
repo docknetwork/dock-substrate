@@ -13,7 +13,9 @@ use frame_support::{
     weights::{constants::WEIGHT_PER_SECOND, Weight},
 };
 use frame_system::{self as system, RawOrigin};
-use sp_core::{crypto::key_types, H256};
+use pallet_evm::{AddressMapping, EVMCurrencyAdapter, EnsureAddressNever, FeeCalculator, Runner};
+use sp_core::{crypto::key_types, Hasher, H160, H256, U256};
+use sp_std::str::FromStr;
 
 impl_outer_origin! {
     pub enum Origin for TestRuntime {}
@@ -23,8 +25,8 @@ impl_outer_origin! {
 pub struct TestRuntime;
 
 type PoAModule = Module<TestRuntime>;
-
 type System = system::Module<TestRuntime>;
+type Balances = balances::Module<TestRuntime>;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -32,9 +34,13 @@ parameter_types! {
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
     pub const TransactionByteFee: u64 = 1;
+    // Not accepting any uncles
+    pub const UncleGenerations: u32 = 0;
+    pub const DockChainId: u64 = 2021;
+    pub const MinimumPeriod: u64 = 1000;
 }
 
-impl system::Trait for TestRuntime {
+impl system::Config for TestRuntime {
     type BaseCallFilter = ();
     type Origin = Origin;
     type Call = ();
@@ -47,22 +53,19 @@ impl system::Trait for TestRuntime {
     type Header = Header;
     type Event = ();
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
+    type BlockWeights = ();
+    type BlockLength = ();
     type Version = ();
     type PalletInfo = ();
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
-impl balances::Trait for TestRuntime {
+impl balances::Config for TestRuntime {
     type Balance = u64;
     type DustRemoval = ();
     type Event = ();
@@ -74,7 +77,7 @@ impl balances::Trait for TestRuntime {
 
 impl Trait for TestRuntime {
     type Event = ();
-    type Currency = balances::Module<Self>;
+    type Currency = Balances;
 }
 
 pub type ValidatorId = u64;
@@ -97,9 +100,9 @@ impl pallet_session::SessionHandler<ValidatorId> for TestSessionHandler {
     fn on_disabled(_validator_index: usize) {}
 }
 
-impl pallet_session::Trait for TestRuntime {
+impl pallet_session::Config for TestRuntime {
     type Event = ();
-    type ValidatorId = <Self as system::Trait>::AccountId;
+    type ValidatorId = <Self as system::Config>::AccountId;
     type ValidatorIdOf = ConvertInto;
     type ShouldEndSession = PoAModule;
     type NextSessionRotation = ();
@@ -122,16 +125,54 @@ impl FindAuthor<ValidatorId> for TestAuthor {
     }
 }
 
-parameter_types! {
-    // Not accepting any uncles
-    pub const UncleGenerations: u32 = 0;
-}
-
-impl pallet_authorship::Trait for TestRuntime {
+impl pallet_authorship::Config for TestRuntime {
     type FindAuthor = TestAuthor;
     type UncleGenerations = UncleGenerations;
     type FilterUncle = ();
     type EventHandler = ();
+}
+
+impl pallet_timestamp::Config for TestRuntime {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = MinimumPeriod;
+    type WeightInfo = ();
+}
+
+pub struct TestAddressMapping<H>(sp_std::marker::PhantomData<H>);
+impl<H: Hasher<Out = H256>> AddressMapping<u64> for TestAddressMapping<H> {
+    fn into_account_id(address: H160) -> u64 {
+        // The result should be unique to avoid `CreateCollision` error
+        let a = address.as_bytes().to_vec();
+        let s: [u8; 8] = [a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]];
+        let b = u64::from_le_bytes(s);
+        b
+    }
+}
+
+/// Fixed gas price of `1`.
+pub struct UnitGasPrice;
+impl FeeCalculator for UnitGasPrice {
+    fn min_gas_price() -> U256 {
+        // Gas price is always one token per gas.
+        1.into()
+    }
+}
+
+// This is being implemented to test whether fees deducted by EVM module is received by the PoA module
+impl pallet_evm::Config for TestRuntime {
+    type FeeCalculator = UnitGasPrice;
+    type GasWeightMapping = ();
+    type CallOrigin = EnsureAddressNever<Self::AccountId>;
+    /// Don't care about this origin
+    type WithdrawOrigin = EnsureAddressNever<Self::AccountId>;
+    type AddressMapping = TestAddressMapping<BlakeTwo256>;
+    type Currency = Balances;
+    type Event = ();
+    type Runner = pallet_evm::runner::stack::Runner<Self>;
+    type Precompiles = ();
+    type ChainId = DockChainId;
+    type OnChargeTransaction = EVMCurrencyAdapter<Balances, PoAModule>;
 }
 
 fn new_test_ext() -> sp_io::TestExternalities {
@@ -1771,6 +1812,60 @@ fn force_transfer_both() {
         assert_eq!(
             <TestRuntime as Trait>::Currency::reserved_balance(&dest),
             520
+        );
+    });
+}
+
+#[test]
+fn evm_fees_are_received() {
+    // Check that fees charged by EVM are received by PoA module
+    new_test_ext().execute_with(|| {
+        let evm_addr = H160::from_str("0100000000000000000000000000000000000000").unwrap(); // Hex for value 1
+        let addr = 1; // Corresponds to above `evm_addr` according to `TestAddressMapping`
+
+        let evm_config = <TestRuntime as pallet_evm::Config>::config();
+
+        let initial_bal = 1000000;
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&addr, initial_bal);
+
+        // Txn fees for the block is 0 initially.
+        assert_eq!(<TxnFees<TestRuntime>>::get(), 0);
+
+        // Using arbitrary bytecode as i only need to check fees. This arbitrary code will consume max gas
+        <TestRuntime as pallet_evm::Config>::Runner::create(
+            evm_addr,
+            hex::decode("608060405234801561001057600080fd").unwrap(),
+            U256::zero(),
+            1000,
+            Some(U256::from(1)),
+            Some(U256::zero()),
+            evm_config,
+        )
+        .unwrap();
+
+        // Txn fees is received by the module
+        let fees = <TxnFees<TestRuntime>>::get();
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::free_balance(&addr),
+            initial_bal - fees
+        );
+
+        // Using arbitrary bytecode as i only need to check fees. This arbitrary code will consume max gas
+        <TestRuntime as pallet_evm::Config>::Runner::create(
+            evm_addr,
+            hex::decode("608060405234801561001057600080fd1010ff25").unwrap(),
+            U256::zero(),
+            1000,
+            Some(U256::from(1)),
+            Some(U256::zero()),
+            evm_config,
+        )
+        .unwrap();
+        // Txn fees is accumulated
+        let fees = <TxnFees<TestRuntime>>::get();
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::free_balance(&addr),
+            initial_bal - fees
         );
     });
 }

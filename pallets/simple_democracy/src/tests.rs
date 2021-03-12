@@ -29,7 +29,7 @@ parameter_types! {
     pub const AvailableBlockRatio: Perbill = Perbill::one();
 }
 
-impl system::Trait for TestRuntime {
+impl system::Config for TestRuntime {
     type BaseCallFilter = ();
     type Origin = Origin;
     type Call = Call;
@@ -42,26 +42,23 @@ impl system::Trait for TestRuntime {
     type Header = Header;
     type Event = ();
     type BlockHashCount = BlockHashCount;
-    type MaximumBlockWeight = MaximumBlockWeight;
     type DbWeight = ();
-    type BlockExecutionWeight = ();
-    type ExtrinsicBaseWeight = ();
-    type MaximumExtrinsicWeight = MaximumBlockWeight;
-    type MaximumBlockLength = MaximumBlockLength;
-    type AvailableBlockRatio = AvailableBlockRatio;
+    type BlockWeights = ();
+    type BlockLength = ();
     type Version = ();
     type PalletInfo = ();
     type AccountData = balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
+    type SS58Prefix = ();
 }
 
 parameter_types! {
     pub MaximumSchedulerWeight: Weight = Perbill::from_percent(80) * MaximumBlockWeight::get();
 }
 
-impl pallet_scheduler::Trait for TestRuntime {
+impl pallet_scheduler::Config for TestRuntime {
     type Event = ();
     type Origin = Origin;
     type PalletsOrigin = OriginCaller;
@@ -76,7 +73,7 @@ parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
 }
 
-impl balances::Trait for TestRuntime {
+impl balances::Config for TestRuntime {
     type MaxLocks = ();
     type Balance = u64;
     type Event = ();
@@ -158,7 +155,7 @@ parameter_types! {
 }
 
 type CouncilCollective = pallet_collective::Instance1;
-impl pallet_collective::Trait<CouncilCollective> for TestRuntime {
+impl pallet_collective::Config<CouncilCollective> for TestRuntime {
     type Origin = Origin;
     type Proposal = Call;
     type Event = ();
@@ -172,7 +169,7 @@ impl pallet_collective::Trait<CouncilCollective> for TestRuntime {
 /// This instance of the membership pallet corresponds to Council.
 /// Adding, removing, swapping, reseting members requires an approval of simple majority of the Council
 /// or `Root` origin
-impl pallet_membership::Trait<pallet_membership::Instance1> for TestRuntime {
+impl pallet_membership::Config<pallet_membership::Instance1> for TestRuntime {
     type Event = ();
     type AddOrigin = RootOrMoreThanHalfCouncil;
     type RemoveOrigin = RootOrMoreThanHalfCouncil;
@@ -190,7 +187,7 @@ parameter_types! {
 }
 
 type TechnicalCollective = pallet_collective::Instance2;
-impl pallet_collective::Trait<TechnicalCollective> for TestRuntime {
+impl pallet_collective::Config<TechnicalCollective> for TestRuntime {
     type Origin = Origin;
     type Proposal = Call;
     type Event = ();
@@ -204,7 +201,7 @@ impl pallet_collective::Trait<TechnicalCollective> for TestRuntime {
 /// This instance of the membership pallet corresponds to the Technical committee which can fast track proposals.
 /// Adding, removing, swapping, resetting members requires an approval of simple majority of the Council
 /// or `Root` origin, the technical committee itself cannot change its membership
-impl pallet_membership::Trait<pallet_membership::Instance2> for TestRuntime {
+impl pallet_membership::Config<pallet_membership::Instance2> for TestRuntime {
     type Event = ();
     type AddOrigin = RootOrMoreThanHalfCouncil;
     type RemoveOrigin = RootOrMoreThanHalfCouncil;
@@ -233,7 +230,7 @@ impl pallet_session::SessionHandler<ValidatorId> for TestSessionHandler {
     fn on_disabled(_validator_index: usize) {}
 }
 
-impl pallet_session::Trait for TestRuntime {
+impl pallet_session::Config for TestRuntime {
     type Event = ();
     type ValidatorId = AccountId;
     type ValidatorIdOf = ();
@@ -246,7 +243,7 @@ impl pallet_session::Trait for TestRuntime {
     type WeightInfo = ();
 }
 
-impl pallet_authorship::Trait for TestRuntime {
+impl pallet_authorship::Config for TestRuntime {
     type FindAuthor = ();
     type UncleGenerations = ();
     type FilterUncle = ();
@@ -520,6 +517,9 @@ fn execute_poa_config_proposal(start: u64, ref_id: ReferendumIndex, proposal: Ve
 #[test]
 fn change_council_membership() {
     new_test_ext().execute_with(|| {
+        let x = pallet_democracy::PublicPropCount::get();
+        let y = pallet_democracy::PublicProps::<TestRuntime>::get();
+
         assert_eq!(Council::members(), vec![1, 2, 3]);
         assert_eq!(Council::proposals().len(), 0);
 
