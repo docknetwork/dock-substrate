@@ -4,6 +4,7 @@
 
 use codec::{Decode, Encode};
 
+use sp_core::{H160, U256};
 use sp_std::prelude::Vec;
 
 /// Ethabi errors
@@ -18,20 +19,20 @@ pub enum Error {
 /// ABI word.
 pub type Word = [u8; 32];
 
-/*/// ABI address.
-pub type Address = ethereum_types::Address;
+/// ABI address.
+pub type EthAddress = H160;
 
-/// ABI fixed bytes.
+/*/// ABI fixed bytes.
 pub type FixedBytes = Vec<u8>;
 
 /// ABI bytes.
 pub type Bytes = Vec<u8>;*/
 
 /// ABI signed integer.
-pub type Int = ethereum_types::U256;
+pub type Int = U256;
 
 /// ABI unsigned integer.
-pub type Uint = ethereum_types::U256;
+pub type Uint = U256;
 
 struct DecodeResult {
     token: Token,
@@ -42,9 +43,9 @@ struct DecodeResult {
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ParamType {
-    /*/// Address.
+    /// Address.
     Address,
-    /// Bytes.
+    /*/// Bytes.
     Bytes,*/
     /// Signed integer. u16 is sufficient as largest EVM integer type is 256 bit
     Int(u16),
@@ -92,12 +93,12 @@ impl ParamType {
 /// Ethereum ABI params.
 #[derive(Debug, PartialEq, Clone)]
 pub enum Token {
-    /*/// Address.
+    /// Address.
     ///
     /// solidity name: address
     /// Encoded to left padded [0u8; 32].
-    Address(Address),
-    /// Vector of bytes with known size.
+    Address(EthAddress),
+    /*/// Vector of bytes with known size.
     ///
     /// solidity name eg.: bytes8, bytes32, bytes64, bytes1024
     /// Encoded to right padded [0u8; ((N + 31) / 32) * 32].
@@ -113,7 +114,7 @@ pub enum Token {
     ///
     /// solidity name: int
     Int(Int),
-    /// Unisnged integer.
+    /// Unsigned integer.
     ///
     /// solidity name: uint
     Uint(Uint),
@@ -143,6 +144,13 @@ pub enum Token {
 }
 
 impl Token {
+    pub fn into_address(self) -> Option<EthAddress> {
+        match self {
+            Token::Address(address) => Some(address),
+            _ => None,
+        }
+    }
+
     pub fn into_int(self) -> Option<Uint> {
         match self {
             Token::Int(int) => Some(int),
@@ -198,15 +206,18 @@ pub fn decode(types: &[ParamType], data: &[u8]) -> Result<Vec<Token>, Error> {
 
 fn decode_param(param: &ParamType, slices: &[Word], offset: usize) -> Result<DecodeResult, Error> {
     match *param {
-        /*ParamType::Address => {
+        ParamType::Address => {
             let slice = peek(slices, offset)?;
             let mut address = [0u8; 20];
             address.copy_from_slice(&slice[12..]);
 
-            let result = DecodeResult { token: Token::Address(address.into()), new_offset: offset + 1 };
+            let result = DecodeResult {
+                token: Token::Address(address.into()),
+                new_offset: offset + 1,
+            };
 
             Ok(result)
-        }*/
+        }
         ParamType::Int(_) => {
             let slice = peek(slices, offset)?;
 

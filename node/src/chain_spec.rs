@@ -115,7 +115,8 @@ fn get_dev_chain_price_feed_contract() -> ContractConfig {
             102, 119, 174, 46, 44, 201, 133, 68, 109, 66, 165, 189, 238, 24, 39, 2, 232, 94, 133,
             135,
         ]),
-        query_abi_encoded: vec![254, 175, 150, 140],
+        query_aggregator_abi_encoded: vec![36, 90, 123, 252],
+        query_price_abi_encoded: vec![254, 175, 150, 140],
         return_val_abi: vec![
             ParamType::Uint(80),
             ParamType::Int(256),

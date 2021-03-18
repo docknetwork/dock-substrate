@@ -4791,7 +4791,6 @@ name = "price_feed"
 version = "0.0.1"
 dependencies = [
  "common",
- "ethereum-types",
  "frame-support",
  "frame-system",
  "hex",
