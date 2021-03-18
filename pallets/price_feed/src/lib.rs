@@ -10,7 +10,7 @@ use frame_support::{
     weights::{Pays, Weight},
 };
 use frame_system::{self as system, ensure_root};
-use pallet_evm::{GasWeightMapping, Runner};
+use pallet_evm::{CallInfo, GasWeightMapping, Runner};
 use sp_core::{H160, U256};
 use sp_runtime::traits::{UniqueSaturatedInto, Zero};
 use sp_std::{prelude::Vec, vec};
@@ -33,11 +33,15 @@ const GAS_LIMIT: u64 = u64::MAX;
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ContractConfig {
-    /// Address of the contract
+    /// Address of the proxy contract
     pub address: H160,
+    /// ABI of the method `aggregator` of the proxy contract. This method is called to get the
+    /// address of the Aggregator contract from which price has to be checked. The return value of
+    /// this method is a single value which is an address.
+    pub query_aggregator_abi_encoded: Vec<u8>,
     /// The ABI of the function to get the price, encoded.
     /// At the time of writing, it is function `latestRoundData` of the contract.
-    pub query_abi_encoded: Vec<u8>,
+    pub query_price_abi_encoded: Vec<u8>,
     /// ABI of the return type of function corresponding to `query_abi_encoded`.
     /// At the time of writing, this is `[uint(80), int(256), uint(256), uint(256), uint(80)]`
     pub return_val_abi: Vec<ParamType>,
@@ -47,7 +51,8 @@ impl Default for ContractConfig {
     fn default() -> Self {
         ContractConfig {
             address: DUMMY_SOURCE,
-            query_abi_encoded: vec![],
+            query_aggregator_abi_encoded: vec![],
+            query_price_abi_encoded: vec![],
             return_val_abi: vec![],
         }
     }
@@ -94,6 +99,8 @@ decl_event!(
 decl_error! {
     pub enum Error for Module<T: Config> {
         ContractConfigNotFound,
+        ProxyContractCallFailed,
+        AddressParsingFailed,
         ContractCallFailed,
         ResponseParsingFailed,
         ResponseDoesNotHaveIntegerPrice,
@@ -179,32 +186,90 @@ impl<T: Config> Module<T> {
     pub fn get_price_from_contract() -> Result<(u32, Weight), dispatch::DispatchError> {
         let contract_config =
             Self::contract_config().ok_or_else(|| Error::<T>::ContractCallFailed)?;
-        let (evm_resp, used_gas) = Self::get_evm_call_response(
+        let (evm_resp, used_gas) = Self::get_response_from_evm(
             contract_config.address,
-            contract_config.query_abi_encoded,
+            contract_config.query_aggregator_abi_encoded,
+            contract_config.query_price_abi_encoded,
         )?;
         // Ignoring the weight of this operation as its in-memory and cheap
         let price = Self::decode_evm_response_to_price(&contract_config.return_val_abi, &evm_resp)?;
         Ok((
             price,
-            T::DbWeight::get().reads(1)
+            // Involves 2 reads, one to read the aggregator's address from proxy and one to read
+            // the price from aggregator contract
+            T::DbWeight::get().reads(2)
                 + <T as pallet_evm::Config>::GasWeightMapping::gas_to_weight(
                     used_gas.unique_saturated_into(),
                 ),
         ))
     }
 
-    /// Make an EVM `call` to the contract with address `contract_addr` and the call is described by `input`.
-    /// Returns the response and gas used in the call.
-    pub fn get_evm_call_response(
+    /// Make EVM `call`s (read) to get the price. Returns the response and gas used in the call
+    /// `contract_addr` is the address of a proxy contract which can be queried for the address of the
+    /// actual aggregator contract which is then queried for the price. The reason to have this proxy pattern
+    /// is to enable upgradability
+    pub fn get_response_from_evm(
         contract_addr: H160,
-        input: Vec<u8>,
+        query_aggregator_abi: Vec<u8>,
+        query_price_abi: Vec<u8>,
     ) -> Result<(Vec<u8>, U256), dispatch::DispatchError> {
+        let (aggregator_address, used_gas_a) =
+            Self::get_aggregator_address_from_proxy(contract_addr, query_aggregator_abi)?;
+
+        let (price, used_gas_p) =
+            Self::get_price_from_aggregator(aggregator_address, query_price_abi)?;
+
+        Ok((price, used_gas_a.saturating_add(used_gas_p)))
+    }
+
+    /// Get address of the aggregator contract from the proxy contract
+    pub fn get_aggregator_address_from_proxy(
+        proxy_contract_addr: H160,
+        query_aggregator_abi: Vec<u8>,
+    ) -> Result<(H160, U256), dispatch::DispatchError> {
+        // Get aggregator address from proxy
+        let info = Self::read_from_evm_contract(proxy_contract_addr, query_aggregator_abi)?;
+        if !info.exit_reason.is_succeed() {
+            // XXX: Would be better to not ignore the used gas even if failed.
+            fail!(Error::<T>::ProxyContractCallFailed)
+        }
+        let decoded = eth_decode(&[ParamType::Address], &info.value)
+            .map_err(|_| Error::<T>::AddressParsingFailed)?;
+        if decoded.len() < 1 {
+            fail!(Error::<T>::AddressParsingFailed)
+        }
+
+        let aggregator_address = decoded[0]
+            .clone()
+            .into_address()
+            .ok_or_else(|| Error::<T>::AddressParsingFailed)?;
+        Ok((aggregator_address, info.used_gas))
+    }
+
+    /// Get price from the aggregator contact.
+    pub fn get_price_from_aggregator(
+        aggregator_address: H160,
+        query_price_abi: Vec<u8>,
+    ) -> Result<(Vec<u8>, U256), dispatch::DispatchError> {
+        let info = Self::read_from_evm_contract(aggregator_address, query_price_abi)?;
+        if info.exit_reason.is_succeed() {
+            Ok((info.value, info.used_gas))
+        } else {
+            // XXX: Would be better to not ignore the used gas even if failed.
+            fail!(Error::<T>::ContractCallFailed)
+        }
+    }
+
+    /// Read from EVM contract with address `contract_address`. The function to call is ABI encoded as `input`
+    pub fn read_from_evm_contract(
+        contract_address: H160,
+        input: Vec<u8>,
+    ) -> Result<CallInfo, dispatch::DispatchError> {
         let evm_config = <T as pallet_evm::Config>::config();
         // As its a read call, the source can be any address and no gas price or nonce needs to be set.
-        let info = <T as pallet_evm::Config>::Runner::call(
+        <T as pallet_evm::Config>::Runner::call(
             DUMMY_SOURCE,
-            contract_addr,
+            contract_address,
             input,
             ZERO_VALUE,
             GAS_LIMIT,
@@ -212,12 +277,7 @@ impl<T: Config> Module<T> {
             None,
             evm_config,
         )
-        .map_err(|err| err.into())?;
-        if info.exit_reason.is_succeed() {
-            Ok((info.value, info.used_gas))
-        } else {
-            fail!(Error::<T>::ContractCallFailed)
-        }
+        .map_err(|err| err.into())
     }
 
     /// Decode return value of contract call to price.
