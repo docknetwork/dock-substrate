@@ -4,8 +4,11 @@ use frame_support::{assert_err, StorageValue};
 use pallet_evm::Runner;
 use sp_core::{H160, U256};
 
-/// Deploy contract and set contract config in this pallet
-fn setup_contract() -> H160 {
+const AGGREGATOR_QUERY_ABI: [u8; 4] = [36, 90, 123, 252];
+const PRICE_QUERY_ABI: [u8; 4] = [254, 175, 150, 140];
+
+/// Deploy aggregator and proxy contracts and set contract config in this pallet
+fn setup_contracts() -> (H160, H160) {
     let evm_config = <Test as pallet_evm::Config>::config();
 
     // Aggregator constructor call with arguments `10, 15, 1200, 1200, 10`
@@ -41,8 +44,6 @@ fn setup_contract() -> H160 {
     .unwrap();
     let proxy_address = info.value;
 
-    let aggregator_query_abi = vec![36, 90, 123, 252];
-    let price_query_abi = vec![254, 175, 150, 140];
     let return_val_abi = vec![
         ParamType::Uint(80),
         ParamType::Int(256),
@@ -52,14 +53,14 @@ fn setup_contract() -> H160 {
     ];
     let contract_config = ContractConfig {
         address: proxy_address,
-        query_aggregator_abi_encoded: aggregator_query_abi,
-        query_price_abi_encoded: price_query_abi,
+        query_aggregator_abi_encoded: AGGREGATOR_QUERY_ABI.to_vec(),
+        query_price_abi_encoded: PRICE_QUERY_ABI.to_vec(),
         return_val_abi,
     };
 
     PriceFeedModule::set_contract_config(Origin::root(), contract_config.clone()).unwrap();
 
-    aggregator_address
+    (aggregator_address, proxy_address)
 }
 
 #[test]
@@ -120,6 +121,21 @@ fn price_stale() {
 }
 
 #[test]
+fn get_aggregator_address_from_proxy() {
+    new_test_ext().execute_with(|| {
+        let (aggregator, proxy) = setup_contracts();
+
+        let (fetched_aggregator_address, _) = PriceFeedModule::get_aggregator_address_from_proxy(
+            proxy,
+            AGGREGATOR_QUERY_ABI.to_vec(),
+        )
+        .unwrap();
+
+        assert_eq!(fetched_aggregator_address, aggregator);
+    })
+}
+
+#[test]
 fn get_price_from_contract() {
     new_test_ext().execute_with(|| {
         // Bytecodes used in this test are taken from Readme which contains the contract as well
@@ -128,7 +144,7 @@ fn get_price_from_contract() {
         assert!(PriceFeedModule::get_price_from_contract().is_err());
         assert!(PriceFeedModule::price().is_none());
 
-        let contract_address = setup_contract();
+        let (contract_address, _) = setup_contracts();
 
         let (price, _) = PriceFeedModule::get_price_from_contract().unwrap();
         assert_eq!(price, 15);
@@ -199,7 +215,7 @@ fn storage_price_update() {
         assert!(PriceFeedModule::update_price_from_contract().is_err());
         assert!(PriceFeedModule::price().is_none());
 
-        let contract_address = setup_contract();
+        let (contract_address, _) = setup_contracts();
 
         PriceFeedModule::set_update_frequency(Origin::root(), 10).unwrap();
         System::set_block_number(10);
@@ -295,7 +311,7 @@ fn price_provider_api() {
     new_test_ext().execute_with(|| {
         assert!(PriceFeedModule::optimized_get_dock_usd_price().is_none());
 
-        let contract_address = setup_contract();
+        let (contract_address, _) = setup_contracts();
 
         assert!(PriceFeedModule::optimized_get_dock_usd_price().is_none());
 
