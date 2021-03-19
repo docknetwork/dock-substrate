@@ -81,7 +81,7 @@ use pallet_evm::{
 };
 
 use crate::weight_to_fee::TxnFee;
-use sp_std::{marker::PhantomData, prelude::*};
+use sp_std::{convert::TryFrom, marker::PhantomData, prelude::*};
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
@@ -597,20 +597,48 @@ parameter_types! {
     pub const DockChainId: u64 = 2021;
 }
 
-/// Fixed gas price of `1`.
-pub struct UnitGasPrice;
-impl FeeCalculator for UnitGasPrice {
+/*
+Considering the cost of following ops assuming 1 gas = 1 mirco-token.
+ERC token deploy - 891,328 gas = 0.8 tokens
+ERC token send - 28,500 gas = 0.0285 tokens
+Link token deploy - 951,000 gas = 0.951 tokens
+Link token send - 47,066 gas = 0.047 tokens
+AccessControlledAggregator - 4,425,900 gas = 4.425 tokens
+AggregatorProxy - 1,665,600 gas = 1.665 tokens
+Aggregator submit - 209,500 gas = 0.209 tokens
+Aggregator add access - 45,200 gas = 0.045 tokens
+Add oracle - 135,600 gas = 0.135 tokens
+EVM transfer DOCK token - 21,000 gas = 0.021 tokens
+
+The above is much lower than we would like. At this price it seems better to use EVM for token transfers.
+ */
+
+/// Fixed gas price
+pub struct GasPrice;
+impl FeeCalculator for GasPrice {
     fn min_gas_price() -> U256 {
-        // Gas price is always one token per gas.
-        1.into()
+        // Gas price is always 50 mirco-token (0.00005 token) per gas.
+        50.into()
+    }
+}
+
+pub const WEIGHT_PER_GAS: u64 = 50;
+
+pub struct GasWeightMap;
+impl pallet_evm::GasWeightMapping for GasWeightMap {
+    fn gas_to_weight(gas: u64) -> Weight {
+        gas.saturating_mul(WEIGHT_PER_GAS)
+    }
+    fn weight_to_gas(weight: Weight) -> u64 {
+        u64::try_from(weight.wrapping_div(WEIGHT_PER_GAS)).unwrap_or(u32::MAX as u64)
     }
 }
 
 impl pallet_evm::Config for Runtime {
-    /// Minimum gas price is 1
-    type FeeCalculator = UnitGasPrice;
-    /// 1:1 mapping of gas to weight
-    type GasWeightMapping = ();
+    /// Minimum gas price is 50
+    type FeeCalculator = GasPrice;
+    /// 1:20 mapping of gas to weight
+    type GasWeightMapping = GasWeightMap;
     type CallOrigin = EnsureAddressTruncated;
     type WithdrawOrigin = EnsureAddressTruncated;
     type AddressMapping = HashedAddressMapping<BlakeTwo256>;
