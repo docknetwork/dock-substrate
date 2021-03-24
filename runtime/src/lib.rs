@@ -27,8 +27,8 @@ pub use core_mods::blob;
 pub use core_mods::did;
 pub use core_mods::master;
 pub use core_mods::revoke;
-pub mod weight_to_fee;
 mod evm_test;
+pub mod weight_to_fee;
 
 pub use poa;
 pub use price_feed;
@@ -142,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 19,
+    spec_version: 20,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -180,7 +180,7 @@ parameter_types! {
     /// We allow for 1 seconds of compute with a 3 second average block time.
     pub const MaximumBlockWeight: Weight = WEIGHT_PER_SECOND;
     pub RuntimeBlockLength: BlockLength =
-		BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
+        BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
     pub const Version: RuntimeVersion = VERSION;
     /// After each block we
     /// - update stats, which is 1 read and 1 write
@@ -189,24 +189,24 @@ parameter_types! {
     /// - reset the storage item `TxnFees`, 1 write
     /// Thus in the worst case, we do 3 reads and 3 writes
     pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
-		.base_block(DefaultBlockExecutionWeight::get()  +
+        .base_block(DefaultBlockExecutionWeight::get()  +
         <Runtime as system::Config>::DbWeight::get().reads_writes(3, 3))
-		.for_class(DispatchClass::all(), |weights| {
-			weights.base_extrinsic = ExtrinsicBaseWeight::get();
-		})
-		.for_class(DispatchClass::Normal, |weights| {
-			weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
-		})
-		.for_class(DispatchClass::Operational, |weights| {
-			weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
-			// Operational transactions have some extra reserved space, so that they
-			// are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
-			weights.reserved = Some(
-				MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
-			);
-		})
-		.avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
-		.build_or_panic();
+        .for_class(DispatchClass::all(), |weights| {
+            weights.base_extrinsic = ExtrinsicBaseWeight::get();
+        })
+        .for_class(DispatchClass::Normal, |weights| {
+            weights.max_total = Some(NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT);
+        })
+        .for_class(DispatchClass::Operational, |weights| {
+            weights.max_total = Some(MAXIMUM_BLOCK_WEIGHT);
+            // Operational transactions have some extra reserved space, so that they
+            // are included even if block reached `MAXIMUM_BLOCK_WEIGHT`.
+            weights.reserved = Some(
+                MAXIMUM_BLOCK_WEIGHT - NORMAL_DISPATCH_RATIO * MAXIMUM_BLOCK_WEIGHT
+            );
+        })
+        .avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
+        .build_or_panic();
     pub const SS58Prefix: u8 = 42;
 }
 
@@ -664,7 +664,7 @@ impl pallet_evm::Config for Runtime {
 
 impl price_feed::Config for Runtime {
     type Event = Event;
-}*/
+}
 
 pub struct BaseFilter;
 

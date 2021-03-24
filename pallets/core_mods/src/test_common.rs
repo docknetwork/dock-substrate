@@ -1,18 +1,18 @@
 //! Boilerplate for runtime module unit tests
 
+use crate::anchor;
+use crate::attest;
+use crate::blob;
 use crate::did::{self, Did, DidSignature};
-use crate::anchor as anchor;
-use crate::revoke as revoke;
-use crate::attest as attest;
-use crate::blob as blob;
-use crate::master as master;
+use crate::master;
+use crate::revoke;
 
 use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::{Decode, Encode};
 use frame_support::{
     dispatch::{DispatchInfo, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
     parameter_types,
-    traits::{UnfilteredDispatchable, OnInitialize, OnFinalize},
+    traits::{OnFinalize, OnInitialize, UnfilteredDispatchable},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
 };
 use frame_system as system;

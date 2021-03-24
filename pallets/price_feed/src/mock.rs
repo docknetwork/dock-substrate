@@ -2,12 +2,12 @@ use crate as price_feed;
 
 use frame_support::parameter_types;
 use frame_system as system;
+use pallet_evm::{AddressMapping, EnsureAddressNever};
 use sp_core::{Hasher, H160, H256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use pallet_evm::{AddressMapping, EnsureAddressNever};
 
 // Configure a mock runtime to test the pallet.
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -100,34 +100,6 @@ impl pallet_evm::Config for Test {
     type ChainId = DockChainId;
     type OnChargeTransaction = ();
 }
-
-    fn on_disabled(_validator_index: usize) {}
-}
-
-impl pallet_session::Config for Test {
-    type Event = ();
-    type ValidatorId = AccountId;
-    type ValidatorIdOf = ();
-    type ShouldEndSession = PoAModule;
-    type NextSessionRotation = ();
-    type SessionManager = PoAModule;
-    type SessionHandler = TestSessionHandler;
-    type Keys = UintAuthorityId;
-    type DisabledValidatorsThreshold = ();
-    type WeightInfo = ();
-}
-
-impl pallet_authorship::Config for Test {
-    type FindAuthor = ();
-    type UncleGenerations = ();
-    type FilterUncle = ();
-    type EventHandler = ();
-}
-
-impl poa::Trait for TestRuntime {
-    type Event = ();
-    type Currency = balances::Module<Self>;
-}*/
 
 impl price_feed::Config for Test {
     type Event = ();

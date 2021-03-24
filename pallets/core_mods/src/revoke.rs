@@ -388,11 +388,14 @@ impl<T: Trait> Module<T> {
 /// For example, `#[test] fn invalidpolicy` exercises the RevErr::InvalidPolicy.
 mod errors {
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
-    use super::{Registry, RegistryId, Policy, Revoke, UnRevoke, RevokeId, RemoveRegistry, Did, DidSignature, RevErr};
+    use super::{
+        Did, DidSignature, Policy, Registry, RegistryId, RemoveRegistry, RevErr, Revoke, RevokeId,
+        UnRevoke,
+    };
     use crate::test_common::*;
+    use alloc::collections::{BTreeMap, BTreeSet};
     use frame_support::dispatch::DispatchError;
     use sp_core::sr25519;
-    use alloc::collections::{BTreeMap, BTreeSet};
 
     #[test]
     fn invalidpolicy() {
@@ -713,10 +716,13 @@ mod errors {
 /// For example, `#[test] fn new_registry` tests the happy path for Module::new_registry.
 mod calls {
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
-    use super::{Registries, Revocations, Registry, Policy, Revoke, UnRevoke, RevokeId, RemoveRegistry, Call as RevCall};
-    use frame_support::{StorageMap, StorageDoubleMap};
+    use super::{
+        Call as RevCall, Policy, Registries, Registry, RemoveRegistry, Revocations, Revoke,
+        RevokeId, UnRevoke,
+    };
     use crate::test_common::*;
     use alloc::collections::BTreeSet;
+    use frame_support::{StorageDoubleMap, StorageMap};
 
     #[test]
     fn new_registry() {
@@ -929,10 +935,10 @@ mod calls {
 /// Miscellaneous tests
 mod test {
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
-    use super::{Registry, Policy, Revoke, RevokeId, Did};
+    use super::{Did, Policy, Registry, Revoke, RevokeId};
     use crate::test_common::*;
-    use sp_core::sr25519;
     use alloc::collections::BTreeSet;
+    use sp_core::sr25519;
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.

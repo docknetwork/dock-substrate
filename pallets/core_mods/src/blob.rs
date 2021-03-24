@@ -99,9 +99,9 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Blobs, BlobId, Blob, BlobError, did, DispatchResult};
-    use frame_support::StorageMap;
+    use super::{did, Blob, BlobError, BlobId, Blobs, DispatchResult};
     use crate::test_common::*;
+    use frame_support::StorageMap;
     use sp_core::{sr25519, Pair};
 
     fn create_blob(

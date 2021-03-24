@@ -91,15 +91,15 @@ branch = "frontier"
 
 [dev-dependencies.pallet-timestamp]
 default-features = false
-version = '2.0.1'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dev-dependencies.pallet-evm]
 default-features = false
-version = '2.0.0'
+version = '3.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = '42de7729389beac65879147959396e90eb68c12e'
+rev = 'da8f7ba3b5222743322616891c2022749decf786'
 #path = '../../../../frontier/frame/evm'
 
 [features]

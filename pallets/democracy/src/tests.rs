@@ -17,12 +17,11 @@
 
 //! The crate's tests.
 
-use crate as democracy;
 use super::*;
+use crate as democracy;
 use codec::Encode;
 use frame_support::{
-    assert_noop, assert_ok,
-    ord_parameter_types, parameter_types,
+    assert_noop, assert_ok, ord_parameter_types, parameter_types,
     traits::{Contains, Filter, OnInitialize},
     weights::Weight,
 };
@@ -68,16 +67,16 @@ const BIG_NAY: Vote = Vote {
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
 type Block = frame_system::mocking::MockBlock<Test>;
 frame_support::construct_runtime!(
-	pub enum Test where
-		Block = Block,
-		NodeBlock = Block,
-		UncheckedExtrinsic = UncheckedExtrinsic,
-	{
-		System: frame_system::{Module, Call, Config, Storage, Event<T>},
-		Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
-		Scheduler: pallet_scheduler::{Module, Call, Storage, Config, Event<T>},
-		Democracy: democracy::{Module, Call, Storage, Config, Event<T>},
-	}
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Scheduler: pallet_scheduler::{Module, Call, Storage, Config, Event<T>},
+        Democracy: democracy::{Module, Call, Storage, Config, Event<T>},
+    }
 );
 
 // Test that a filtered call can be dispatched.
@@ -225,7 +224,9 @@ pub fn new_test_ext() -> sp_io::TestExternalities {
     }
     .assimilate_storage(&mut t)
     .unwrap();
-    democracy::GenesisConfig::default().assimilate_storage(&mut t).unwrap();
+    democracy::GenesisConfig::default()
+        .assimilate_storage(&mut t)
+        .unwrap();
     let mut ext = sp_io::TestExternalities::new(t);
     ext.execute_with(|| System::set_block_number(1));
     ext
