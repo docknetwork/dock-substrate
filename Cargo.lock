@@ -1300,19 +1300,28 @@ dependencies = [
  "jsonrpc-core 15.1.0",
  "jsonrpc-pubsub 15.1.0",
  "log",
+ "node-inspect",
+ "pallet-authority-discovery",
  "pallet-ethereum",
+ "pallet-im-online",
  "pallet-transaction-payment-rpc",
  "parking_lot 0.10.2",
  "poa_rpc",
  "price_feed_rpc",
+ "sc-authority-discovery",
  "sc-basic-authorship",
  "sc-cli",
  "sc-client-api",
  "sc-consensus",
  "sc-consensus-aura",
+ "sc-consensus-babe",
+ "sc-consensus-babe-rpc",
+ "sc-consensus-epochs",
+ "sc-consensus-slots",
  "sc-executor",
  "sc-finality-grandpa",
  "sc-finality-grandpa-rpc",
+ "sc-finality-grandpa-warp-sync",
  "sc-network",
  "sc-rpc",
  "sc-rpc-api",
@@ -1322,10 +1331,12 @@ dependencies = [
  "serde",
  "serde_json",
  "sp-api",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-blockchain",
  "sp-consensus",
  "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core",
  "sp-finality-grandpa",
  "sp-inherents",
@@ -1354,10 +1365,14 @@ dependencies = [
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
  "hex-literal",
+ "log",
  "pallet-aura",
+ "pallet-authority-discovery",
  "pallet-authorship",
+ "pallet-babe",
  "pallet-balances",
  "pallet-collective",
+ "pallet-election-provider-multi-phase",
  "pallet-ethereum",
  "pallet-evm",
  "pallet-evm-precompile-bn128",
@@ -1367,10 +1382,13 @@ dependencies = [
  "pallet-evm-precompile-sha3fips",
  "pallet-evm-precompile-simple",
  "pallet-grandpa",
+ "pallet-im-online",
  "pallet-membership",
+ "pallet-offences",
  "pallet-randomness-collective-flip",
  "pallet-scheduler",
  "pallet-session",
+ "pallet-staking",
  "pallet-sudo",
  "pallet-timestamp",
  "pallet-transaction-payment",
@@ -1386,14 +1404,17 @@ dependencies = [
  "smallvec 1.6.1",
  "sp-api",
  "sp-arithmetic",
+ "sp-authority-discovery",
  "sp-block-builder",
  "sp-consensus-aura",
+ "sp-consensus-babe",
  "sp-core",
  "sp-inherents",
  "sp-io",
  "sp-offchain",
  "sp-runtime",
  "sp-session",
+ "sp-staking",
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
@@ -2025,6 +2046,19 @@ dependencies = [
  "sp-runtime",
  "sp-state-machine",
  "structopt",
+]
+
+[[package]]
+name = "frame-election-provider-support"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "sp-arithmetic",
+ "sp-npos-elections",
+ "sp-std",
 ]
 
 [[package]]
@@ -4113,6 +4147,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "node-inspect"
+version = "0.8.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "derive_more",
+ "log",
+ "parity-scale-codec",
+ "sc-cli",
+ "sc-client-api",
+ "sc-service",
+ "sp-blockchain",
+ "sp-core",
+ "sp-runtime",
+ "structopt",
+]
+
+[[package]]
 name = "nodrop"
 version = "0.1.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4324,6 +4375,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-authority-discovery"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-session",
+ "parity-scale-codec",
+ "serde",
+ "sp-application-crypto",
+ "sp-authority-discovery",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-authorship"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
@@ -4335,6 +4402,30 @@ dependencies = [
  "sp-authorship",
  "sp-inherents",
  "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-babe"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "pallet-session",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "serde",
+ "sp-application-crypto",
+ "sp-consensus-babe",
+ "sp-consensus-vrf",
+ "sp-io",
+ "sp-runtime",
+ "sp-session",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -4367,6 +4458,25 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "pallet-election-provider-multi-phase"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "serde",
+ "sp-arithmetic",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-std",
+ "static_assertions",
 ]
 
 [[package]]
@@ -4519,6 +4629,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-im-online"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "parity-scale-codec",
+ "serde",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-membership"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
@@ -4529,6 +4658,22 @@ dependencies = [
  "serde",
  "sp-io",
  "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-offences"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-balances",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-staking",
  "sp-std",
 ]
 
@@ -4579,6 +4724,28 @@ dependencies = [
  "sp-staking",
  "sp-std",
  "sp-trie",
+]
+
+[[package]]
+name = "pallet-staking"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-election-provider-support",
+ "frame-support",
+ "frame-system",
+ "log",
+ "pallet-authorship",
+ "pallet-session",
+ "parity-scale-codec",
+ "serde",
+ "sp-application-crypto",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-staking",
+ "sp-std",
+ "static_assertions",
 ]
 
 [[package]]
@@ -5892,6 +6059,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-authority-discovery"
+version = "0.9.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "async-trait",
+ "derive_more",
+ "either",
+ "futures 0.3.13",
+ "futures-timer 3.0.2",
+ "libp2p",
+ "log",
+ "parity-scale-codec",
+ "prost",
+ "prost-build",
+ "rand 0.7.3",
+ "sc-client-api",
+ "sc-network",
+ "serde_json",
+ "sp-api",
+ "sp-authority-discovery",
+ "sp-blockchain",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
+ "substrate-prometheus-endpoint",
+]
+
+[[package]]
 name = "sc-basic-authorship"
 version = "0.9.0"
 source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
@@ -6154,6 +6349,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "sc-consensus-babe-rpc"
+version = "0.9.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "derive_more",
+ "futures 0.3.13",
+ "jsonrpc-core 15.1.0",
+ "jsonrpc-core-client 15.1.0",
+ "jsonrpc-derive 15.1.0",
+ "sc-consensus-babe",
+ "sc-consensus-epochs",
+ "sc-rpc-api",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-blockchain",
+ "sp-consensus",
+ "sp-consensus-babe",
+ "sp-core",
+ "sp-keystore",
+ "sp-runtime",
+]
+
+[[package]]
 name = "sc-consensus-epochs"
 version = "0.9.0"
 source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
@@ -6344,6 +6563,27 @@ dependencies = [
  "serde_json",
  "sp-blockchain",
  "sp-core",
+ "sp-runtime",
+]
+
+[[package]]
+name = "sc-finality-grandpa-warp-sync"
+version = "0.9.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "derive_more",
+ "futures 0.3.13",
+ "log",
+ "num-traits",
+ "parity-scale-codec",
+ "parking_lot 0.11.1",
+ "prost",
+ "sc-client-api",
+ "sc-finality-grandpa",
+ "sc-network",
+ "sc-service",
+ "sp-blockchain",
+ "sp-finality-grandpa",
  "sp-runtime",
 ]
 
@@ -7261,6 +7501,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "sp-authority-discovery"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "sp-authorship"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
@@ -7547,6 +7799,30 @@ dependencies = [
  "serde",
  "sp-core",
  "sp-externalities",
+]
+
+[[package]]
+name = "sp-npos-elections"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "parity-scale-codec",
+ "serde",
+ "sp-arithmetic",
+ "sp-core",
+ "sp-npos-elections-compact",
+ "sp-std",
+]
+
+[[package]]
+name = "sp-npos-elections-compact"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "proc-macro-crate 1.0.0",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

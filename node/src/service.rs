@@ -9,6 +9,7 @@ use futures::StreamExt;
 use sc_cli::SubstrateCli;
 use sc_client_api::{BlockchainEvents, ExecutorProvider, RemoteBackend};
 use sc_consensus_aura::{AuraBlockImport, ImportQueueParams, SlotProportion, StartAuraParams};
+use sc_consensus_babe::{BabeBlockImport, BabeLink, BabeParams};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
 use sc_finality_grandpa::{
@@ -33,6 +34,7 @@ native_executor_instance!(
 type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
+type FullGrandpaBlockImport = sc_finality_grandpa::GrandpaBlockImport<FullBackend, Block, FullClient, FullSelectChain>;
 
 fn get_telemetry_worker_from_config(
     config: &Configuration,
@@ -80,26 +82,23 @@ pub fn new_partial(
         sp_consensus::DefaultImportQueue<Block, FullClient>,
         sc_transaction_pool::FullPool<Block, FullClient>,
         (
-            AuraBlockImport<
+            BabeBlockImport<
                 Block,
                 FullClient,
                 FrontierBlockImport<
                     Block,
-                    sc_finality_grandpa::GrandpaBlockImport<
-                        FullBackend,
-                        Block,
-                        FullClient,
-                        FullSelectChain,
-                    >,
+                    FullGrandpaBlockImport,
                     FullClient,
-                >,
-                AuraPair,
+                >
             >,
             sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
+            BabeLink<Block>,
+            Option<Telemetry>,
+
+            // Frontier specific
             PendingTransactions,
             Option<FilterPool>,
             Arc<fc_db::Backend<Block>>,
-            Option<Telemetry>,
         ),
     >,
     ServiceError,
@@ -110,7 +109,7 @@ pub fn new_partial(
         )));
     }
 
-    let inherent_data_providers = sp_inherents::InherentDataProviders::new();
+    let inherent_data_providers = InherentDataProviders::new();
 
     let telemetry = get_telemetry_worker_from_config(&config)?;
 
@@ -155,10 +154,16 @@ pub fn new_partial(
         frontier_backend.clone(),
     );
 
-    let aura_block_import =
-        AuraBlockImport::<_, _, _, AuraPair>::new(frontier_block_import, client.clone());
+    /*let aura_block_import =
+        AuraBlockImport::<_, _, _, AuraPair>::new(frontier_block_import, client.clone());*/
 
-    let import_queue =
+    let (babe_block_import, babe_link) = sc_consensus_babe::block_import(
+        sc_consensus_babe::Config::get_or_compute(&*client)?,
+        frontier_block_import,
+        client.clone(),
+    )?;
+
+    /*let import_queue =
         sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
             slot_duration: sc_consensus_aura::slot_duration(&*client)?,
             block_import: aura_block_import.clone(),
@@ -172,7 +177,21 @@ pub fn new_partial(
             ),
             check_for_equivocation: Default::default(),
             telemetry: telemetry.as_ref().map(|x| x.handle()),
-        })?;
+        })?;*/
+
+    let import_queue =
+        sc_consensus_babe::import_queue(
+            babe_link.clone(),
+            babe_block_import.clone(),
+            Some(Box::new(justification_import)),
+            client.clone(),
+            select_chain.clone(),
+            inherent_data_providers.clone(),
+            &task_manager.spawn_essential_handle(),
+            config.prometheus_registry(),
+            sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone()),
+            telemetry.as_ref().map(|x| x.handle()),
+        )?;
 
     Ok(sc_service::PartialComponents {
         client,
@@ -184,12 +203,13 @@ pub fn new_partial(
         transaction_pool,
         inherent_data_providers,
         other: (
-            aura_block_import,
+            babe_block_import,
             grandpa_link,
+            babe_link,
+            telemetry,
             pending_transactions,
             filter_pool,
             frontier_backend,
-            telemetry,
         ),
     })
 }
@@ -209,10 +229,11 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
             (
                 block_import,
                 grandpa_link,
+                babe_link,
+                mut telemetry,
                 pending_transactions,
                 filter_pool,
                 frontier_backend,
-                mut telemetry,
             ),
     } = new_partial(&config)?;
 
@@ -227,6 +248,16 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         .network
         .extra_sets
         .push(sc_finality_grandpa::grandpa_peers_set_config());
+
+    #[cfg(feature = "cli")]
+    config.network.request_response_protocols.push(
+    sc_finality_grandpa_warp_sync::request_response_config_for_chain(
+            &config,
+            task_manager.spawn_handle(),
+            backend.clone(),
+            grandpa_link.shared_authority_set().clone(),
+        )
+    );
 
     let justification_stream = grandpa_link.justification_stream();
     let shared_authority_set = grandpa_link.shared_authority_set().clone();
@@ -265,22 +296,31 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 
     let grandpa_shared_voter_state = shared_voter_state.clone();
 
-    let subscription_task_executor =
-        sc_rpc::SubscriptionTaskExecutor::new(task_manager.spawn_handle());
-
     let rpc_extensions_builder = {
         let client = client.clone();
         let pool = transaction_pool.clone();
+        let select_chain = select_chain.clone();
         let network = network.clone();
+
+        let babe_config = babe_link.config().clone();
+        let shared_epoch_changes = babe_link.epoch_changes().clone();
+
+        // Frontier specific
         let pending = pending_transactions.clone();
         let filter_pool = filter_pool.clone();
         let frontier_backend = frontier_backend.clone();
 
-        Box::new(move |deny_unsafe, _| {
+        Box::new(move |deny_unsafe, subscription_task_executor| {
             let deps = crate::rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
+                select_chain: select_chain.clone(),
                 deny_unsafe,
+                babe: crate::rpc::BabeDeps {
+                    babe_config: babe_config.clone(),
+                    shared_epoch_changes: shared_epoch_changes.clone(),
+                    keystore: keystore.clone(),
+                },
                 grandpa: crate::rpc::GrandpaDeps {
                     shared_voter_state: shared_voter_state.clone(),
                     shared_authority_set: shared_authority_set.clone(),
@@ -354,6 +394,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
     }
 
     if is_authority {
+        // Spawn Babe proposer
         let proposer_factory = sc_basic_authorship::ProposerFactory::new(
             task_manager.spawn_handle(),
             client.clone(),
@@ -365,9 +406,27 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         let can_author_with =
             sp_consensus::CanAuthorWithNativeVersion::new(client.executor().clone());
 
-        let backoff_authoring_blocks: Option<()> = None;
+        let backoff_authoring_blocks =
+            Some(sc_consensus_slots::BackoffAuthoringOnFinalizedHeadLagging::default());
 
-        let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _>(
+        let babe_config = BabeParams {
+            keystore: keystore_container.sync_keystore(),
+            client: client.clone(),
+            select_chain,
+            env: proposer_factory,
+            block_import,
+            sync_oracle: network.clone(),
+            inherent_data_providers: inherent_data_providers.clone(),
+            force_authoring,
+            backoff_authoring_blocks,
+            babe_link,
+            can_author_with,
+            // TODO: Revisit SlotProportion value
+            block_proposal_slot_portion: SlotProportion::new(0.5),
+            telemetry: telemetry.as_ref().map(|x| x.handle()),
+        };
+
+        /*let aura = sc_consensus_aura::start_aura::<AuraPair, _, _, _, _, _, _, _, _, _>(
             StartAuraParams {
                 slot_duration: sc_consensus_aura::slot_duration(&*client)?,
                 client: client.clone(),
@@ -383,13 +442,36 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
                 block_proposal_slot_portion: SlotProportion::new(2f32 / 3f32),
                 telemetry: telemetry.as_ref().map(|x| x.handle()),
             },
-        )?;
+        )?;*/
 
         // the AURA authoring task is considered essential, i.e. if it
         // fails we take down the service with it.
-        task_manager
+        /*task_manager
             .spawn_essential_handle()
-            .spawn_blocking("aura", aura);
+            .spawn_blocking("aura", aura);*/
+
+        let babe = sc_consensus_babe::start_babe(babe_config)?;
+        task_manager.spawn_essential_handle().spawn_blocking("babe-proposer", babe);
+
+        // Spawn authority discovery module.
+
+        let authority_discovery_role = sc_authority_discovery::Role::PublishAndDiscover(
+            keystore_container.keystore(),
+        );
+        let dht_event_stream = network.event_stream("authority-discovery")
+            .filter_map(|e| async move { match e {
+                sc_network::Event::Dht(e) => Some(e),
+                _ => None,
+            }});
+        let (authority_discovery_worker, _service) = sc_authority_discovery::new_worker_and_service(
+            client.clone(),
+            network.clone(),
+            Box::pin(dht_event_stream),
+            authority_discovery_role,
+            prometheus_registry.clone(),
+        );
+
+        task_manager.spawn_handle().spawn("authority-discovery-worker", authority_discovery_worker.run());
     }
 
     // if the node isn't actively participating in consensus then it doesn't
@@ -477,7 +559,7 @@ pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError>
         telemetry.as_ref().map(|x| x.handle()),
     )?;
 
-    let aura_block_import =
+    /*let aura_block_import =
         AuraBlockImport::<_, _, _, AuraPair>::new(grandpa_block_import.clone(), client.clone());
 
     let import_queue =
@@ -492,7 +574,26 @@ pub fn new_light(mut config: Configuration) -> Result<TaskManager, ServiceError>
             can_author_with: sp_consensus::NeverCanAuthor,
             check_for_equivocation: Default::default(),
             telemetry: telemetry.as_ref().map(|x| x.handle()),
-        })?;
+        })?;*/
+
+    let (babe_block_import, babe_link) = sc_consensus_babe::block_import(
+        sc_consensus_babe::Config::get_or_compute(&*client)?,
+        grandpa_block_import.clone(),
+        client.clone(),
+    )?;
+
+    let import_queue = sc_consensus_babe::import_queue(
+        babe_link,
+        babe_block_import,
+        Some(Box::new(grandpa_block_import)),
+        client.clone(),
+        select_chain.clone(),
+        InherentDataProviders::new(),
+        &task_manager.spawn_essential_handle(),
+        config.prometheus_registry(),
+        sp_consensus::NeverCanAuthor,
+        telemetry.as_ref().map(|x| x.handle()),
+    )?;
 
     let (network, network_status_sinks, system_rpc_tx, network_starter) =
         sc_service::build_network(sc_service::BuildNetworkParams {

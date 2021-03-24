@@ -22,7 +22,7 @@ use sc_service::PartialComponents;
 
 impl SubstrateCli for Cli {
     fn impl_name() -> String {
-        "Dock Full Node".into()
+        "Dock Node".into()
     }
 
     fn impl_version() -> String {
@@ -148,6 +148,11 @@ pub fn run() -> sc_cli::Result<()> {
                 );
                 Ok(())
             }
+        },
+        Some(Subcommand::Inspect(cmd)) => {
+            let runner = cli.create_runner(cmd)?;
+
+            runner.sync_run(|config| cmd.run::<dock_runtime::Block, dock_runtime::RuntimeApi, service::Executor>(config))
         }
         None => {
             let runner = cli.create_runner(&cli.run)?;

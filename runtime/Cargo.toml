@@ -13,10 +13,17 @@ static_assertions = "1.1.0"
 smallvec = "1.4.1"
 evm = { version = '0.25.0', default-features = false, features = ['with-codec'] }
 fiat_filter = { path = '../pallets/fiat_filter', version = '0.1.0', default-features = false }
+log = { version = "0.4.14", default-features = false }
 
 [dependencies.aura]
 default-features = false
 package = 'pallet-aura'
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-babe]
+default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
@@ -87,6 +94,12 @@ version = '0.9.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.sp-consensus-babe]
+default-features = false
+version = '0.9.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.sp-core]
 default-features = false
 version = '3.0.0'
@@ -147,6 +160,18 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.sp-authority-discovery]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.sp-staking]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.frame-system]
 default-features = false
 version = '3.0.0'
@@ -184,6 +209,7 @@ version = '4.0.0'
 
 [dependencies.pallet-session]
 default_features = false
+features = ['historical']
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
@@ -233,6 +259,36 @@ git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-scheduler]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-authority-discovery]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-im-online]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-offences]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-staking]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-election-provider-multi-phase]
 default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
@@ -334,8 +390,10 @@ version = '0.0.1'
 default = ['std']
 std = [
     'aura/std',
+    'pallet-babe/std',
     'balances/std',
     'codec/std',
+    'log/std',
     'frame-executive/std',
     'frame-support/std',
     'frame-benchmarking/std',
@@ -345,7 +403,9 @@ std = [
     'serde-big-array',
     'sp-api/std',
     'sp-block-builder/std',
+    'sp-authority-discovery/std',
     'sp-consensus-aura/std',
+    'sp-consensus-babe/std',
     'sp-core/std',
     'sp-inherents/std',
     'sp-io/std',
@@ -356,6 +416,7 @@ std = [
     'sp-transaction-pool/std',
     'sp-version/std',
     'sp-arithmetic/std',
+    'sp-staking/std',
     'frame-system/std',
     'frame-system-rpc-runtime-api/std',
     'timestamp/std',
@@ -366,6 +427,11 @@ std = [
     'pallet-authorship/std',
     'pallet-utility/std',
     'pallet-collective/std',
+    'pallet-offences/std',
+    'pallet-authority-discovery/std',
+    'pallet-im-online/std',
+    'pallet-staking/std',
+    'pallet-election-provider-multi-phase/std',
     'evm/std',
     'evm/with-serde',
     'pallet-evm/std',

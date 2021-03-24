@@ -1,12 +1,13 @@
 use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
-    opaque::SessionKeys,
+    SessionKeys,
     price_feed::{util::ParamType, ContractConfig},
-    AccountId, AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig,
+    AccountId, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig,
     EVMConfig, EthereumConfig, GenesisConfig, GrandpaConfig, MasterConfig, PoAModuleConfig,
     PriceFeedModuleConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
-    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
+    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY, AuthorityDiscoveryConfig,
+    BabeConfig, ImOnlineConfig, StakerStatus, StakingConfig, BABE_GENESIS_EPOCH_CONFIG
 };
 use hex_literal::hex;
 use sc_service::{ChainType, Properties};
@@ -15,13 +16,17 @@ use sp_core::crypto::Ss58Codec;
 use sp_core::{sr25519, Pair, Public, H160};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
+use sp_consensus_babe::{AuthorityId as BabeId};
+use pallet_im_online::sr25519::{AuthorityId as ImOnlineId};
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 
 use serde_json::map::Map;
 
 use std::collections::BTreeMap;
+use sp_runtime::Perbill;
 
-fn session_keys(aura: AuraId, grandpa: GrandpaId) -> SessionKeys {
-    SessionKeys { aura, grandpa }
+fn session_keys(babe: BabeId, grandpa: GrandpaId, im_online: ImOnlineId, authority_discovery: AuthorityDiscoveryId) -> SessionKeys {
+    SessionKeys { babe, grandpa, im_online, authority_discovery }
 }
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
@@ -45,11 +50,14 @@ where
 }
 
 /// Helper function to generate an authority key for Aura and Grandpa
-fn get_authority_keys_from_seed(s: &str) -> (AccountId, AuraId, GrandpaId) {
+fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, BabeId, GrandpaId, ImOnlineId, AuthorityDiscoveryId) {
     (
-        get_account_id_from_seed::<sr25519::Public>(s),
-        get_from_seed::<AuraId>(s),
-        get_from_seed::<GrandpaId>(s),
+        get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
+        get_account_id_from_seed::<sr25519::Public>(seed),
+        get_from_seed::<BabeId>(seed),
+        get_from_seed::<GrandpaId>(seed),
+        get_from_seed::<ImOnlineId>(seed),
+        get_from_seed::<AuthorityDiscoveryId>(seed),
     )
 }
 
@@ -185,6 +193,7 @@ pub fn development_config() -> ChainSpec {
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
                 contract_config: get_dev_chain_price_feed_contract(),
+                stash: 100 * DOCK,
             }
             .build()
         },
@@ -261,6 +270,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
                 contract_config: get_dev_chain_price_feed_contract(),
+                stash: 100 * DOCK,
             }
             .build()
         },
@@ -281,25 +291,46 @@ pub fn testnet_config() -> ChainSpec {
             GenesisBuilder {
                 initial_authorities: vec![
                     (
+                        // TODO: Keeping stash and controller same for now. Fix later.
                         account_id_from_ss58::<sr25519::Public>(
                             "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
                         ),
-                        pubkey_from_ss58::<AuraId>(
+                        account_id_from_ss58::<sr25519::Public>(
+                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
                             "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
                         ),
                         pubkey_from_ss58::<GrandpaId>(
                             "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh",
+                        ),
+                        // TODO: Keeping same as BabeId. Fix later.
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
                         ),
                     ),
                     (
                         account_id_from_ss58::<sr25519::Public>(
                             "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
                         ),
-                        pubkey_from_ss58::<AuraId>(
+                        account_id_from_ss58::<sr25519::Public>(
+                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
                             "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
                         ),
                         pubkey_from_ss58::<GrandpaId>(
                             "5FJir6hEEWvVCt4PHJ95ygtw5MvgD2xoET9xqskTu4MZBC98",
+                        ),
+                        // TODO: Keeping same as BabeId. Fix later.
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
                         ),
                     ),
                 ],
@@ -383,6 +414,7 @@ pub fn testnet_config() -> ChainSpec {
                 ],
                 // TODO: Set this after deploying contract to testnet
                 contract_config: get_dev_chain_price_feed_contract(),
+                stash: 100 * DOCK,
             }
             .build()
         },
@@ -413,13 +445,20 @@ pub fn mainnet_config() -> ChainSpec {
         move || {
             GenesisBuilder {
                 initial_authorities: vec![(
+                    // TODO: Keeping stash and controller same for now. Fix later.
                     account_id_from_ss58::<sr25519::Public>(
                         "3Gb64wBURVBpAau5WVRRpAgNLPAnqsPR3CgoZPAK6diinaMp",
                     ),
-                    pubkey_from_ss58::<AuraId>("3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw"),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3Gb64wBURVBpAau5WVRRpAgNLPAnqsPR3CgoZPAK6diinaMp",
+                    ),
+                    pubkey_from_ss58::<BabeId>("3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw"),
                     pubkey_from_ss58::<GrandpaId>(
                         "3G4PHvp6EDBbmvfcDLEEkAQk1cRmvh3ZHp264pERRzcZzHwn",
                     ),
+                    // TODO: Keeping same as BabeId. Fix later.
+                    pubkey_from_ss58::<ImOnlineId>("3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw"),
+                    pubkey_from_ss58::<AuthorityDiscoveryId>("3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw"),
                 )],
                 endowed_accounts: [
                     "3EjNXTpMJieqEF5Fj5szwAqpvmmKFG3YtsY5eBazxaCkNtoz",
@@ -501,6 +540,8 @@ pub fn mainnet_config() -> ChainSpec {
                 ],
                 // TODO: Set this after deploying contract to mainnet
                 contract_config: get_dev_chain_price_feed_contract(),
+                // TODO: Temporary value
+                stash: 100 * DOCK,
             }
             .build()
         },
@@ -516,7 +557,7 @@ pub fn mainnet_config() -> ChainSpec {
 }
 
 struct GenesisBuilder {
-    initial_authorities: Vec<(AccountId, AuraId, GrandpaId)>,
+    initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId, AuthorityDiscoveryId)>,
     endowed_accounts: Vec<AccountId>,
     master: Membership,
     dids: Vec<(Did, KeyDetail)>,
@@ -527,6 +568,7 @@ struct GenesisBuilder {
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
     contract_config: ContractConfig,
+    stash: Balance
 }
 
 impl GenesisBuilder {
@@ -560,7 +602,7 @@ impl GenesisBuilder {
                         (
                             x.0.clone(),
                             x.0.clone(),
-                            session_keys(x.1.clone(), x.2.clone()),
+                            session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
                         )
                     })
                     .collect::<Vec<_>>(),
@@ -587,9 +629,6 @@ impl GenesisBuilder {
                     .map(|k| (k, per_member_endowment))
                     .collect(),
             },
-            aura: AuraConfig {
-                authorities: vec![],
-            },
             grandpa: GrandpaConfig {
                 authorities: vec![],
             },
@@ -614,6 +653,26 @@ impl GenesisBuilder {
             },
             price_feed: PriceFeedModuleConfig {
                 contract_config: self.contract_config,
+            },
+            pallet_staking: StakingConfig {
+                validator_count: self.initial_authorities.len() as u32 * 2,
+                minimum_validator_count: self.initial_authorities.len() as u32,
+                stakers: self.initial_authorities.iter().map(|x| {
+                    (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator)
+                }).collect(),
+                invulnerables: self.initial_authorities.iter().map(|x| x.0.clone()).collect(),
+                slash_reward_fraction: Perbill::from_percent(10),
+                .. Default::default()
+            },
+            pallet_babe: BabeConfig {
+                authorities: vec![],
+                epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
+            },
+            pallet_im_online: ImOnlineConfig {
+                keys: vec![],
+            },
+            pallet_authority_discovery: AuthorityDiscoveryConfig {
+                keys: vec![],
             },
         }
     }
