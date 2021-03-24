@@ -637,6 +637,13 @@ impl<T: Trait> Module<T> {
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
 pub struct OnlyMigrator<T: Trait + Send + Sync>(PhantomData<T>);
 
+impl<T: Trait + Send + Sync> OnlyMigrator<T> {
+    /// Create new `SignedExtension` to check runtime version.
+    pub fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
 impl<T: Trait + Send + Sync> sp_std::fmt::Debug for OnlyMigrator<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
         write!(f, "OnlyMigrator")

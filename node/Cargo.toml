@@ -37,6 +37,12 @@ version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
+[dependencies.sc-finality-grandpa-warp-sync]
+optional = true
+version = '0.9.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
 [dependencies.sc-client-api]
 version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
@@ -48,6 +54,26 @@ git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-consensus-aura]
+version = '0.9.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.sc-consensus-babe]
+version = '0.9.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.sc-consensus-babe-rpc]
+version = '0.9.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.sc-consensus-epochs]
+version = '0.9.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.sc-consensus-slots]
 version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
@@ -68,6 +94,11 @@ git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-network]
+version = '0.9.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.sc-authority-discovery]
 version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
@@ -97,6 +128,11 @@ version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
+[dependencies.sp-authority-discovery]
+version = '3.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
 [dependencies.sp-core]
 version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
@@ -104,6 +140,11 @@ branch = "frontier"
 
 [dependencies.sp-finality-grandpa]
 version = '3.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.sp-consensus-babe]
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
@@ -148,6 +189,24 @@ branch = "frontier"
 
 [dependencies.sp-blockchain]
 version = '3.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.pallet-im-online]
+default-features = false
+version = '3.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.pallet-authority-discovery]
+default-features = false
+version = '3.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.node-inspect]
+optional = true
+version = '0.8.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
@@ -225,9 +284,11 @@ path = 'src/main.rs'
 default = [ "wasmtime" ]
 cli = [
 	"sc-executor/wasmi-errno",
+	"node-inspect",
 	"sc-cli",
 	"frame-benchmarking-cli",
 	"sc-service/db",
+	"sc-finality-grandpa-warp-sync",
 	"structopt",
 	"substrate-build-script-utils",
 ]

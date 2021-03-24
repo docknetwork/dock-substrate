@@ -18,6 +18,9 @@ use sc_client_api::{
     backend::{AuxStore, Backend, StateBackend, StorageProvider},
     client::BlockchainEvents,
 };
+use sc_consensus_babe::{Config, Epoch};
+use sc_consensus_babe_rpc::BabeRpcHandler;
+use sc_consensus_epochs::SharedEpochChanges;
 use sc_finality_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
@@ -29,6 +32,17 @@ use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_transaction_pool::TransactionPool;
+use sp_consensus_babe::BabeApi;
+
+/// Extra dependencies for BABE.
+pub struct BabeDeps {
+    /// BABE protocol config.
+    pub babe_config: Config,
+    /// BABE pending epoch changes.
+    pub shared_epoch_changes: SharedEpochChanges<Block, Epoch>,
+    /// The keystore that manages the keys of the node.
+    pub keystore: SyncCryptoStorePtr,
+}
 
 /// Extra dependencies for GRANDPA
 pub struct GrandpaDeps<B> {
@@ -48,8 +62,12 @@ pub struct FullDeps<C, P, B> {
     pub client: Arc<C>,
     /// Transaction pool instance.
     pub pool: Arc<P>,
+    /// The SelectChain Strategy
+    pub select_chain: SC,
     /// Whether to deny unsafe calls
     pub deny_unsafe: DenyUnsafe,
+    /// BABE specific dependencies.
+    pub babe: BabeDeps,
     /// GRANDPA specific dependencies.
     pub grandpa: GrandpaDeps<B>,
     /// The Node authority flag
@@ -78,6 +96,7 @@ where
     C: HeaderBackend<Block> + HeaderMetadata<Block, Error = BlockChainError> + 'static,
     C: BlockchainEvents<Block>,
     C: Send + Sync + 'static,
+    C::Api: BabeApi<Block>,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
@@ -102,7 +121,9 @@ where
     let FullDeps {
         client,
         pool,
+        select_chain,
         deny_unsafe,
+        babe,
         grandpa,
         is_authority,
         network,
@@ -111,6 +132,12 @@ where
         backend,
         max_past_logs,
     } = deps;
+
+    let BabeDeps {
+        keystore,
+        babe_config,
+        shared_epoch_changes,
+    } = babe;
 
     let GrandpaDeps {
         shared_voter_state,
@@ -134,6 +161,19 @@ where
 
     // RPC calls for Price Feed pallet
     io.extend_with(PriceFeedApi::to_delegate(PriceFeed::new(client.clone())));
+
+    io.extend_with(
+        sc_consensus_babe_rpc::BabeApi::to_delegate(
+            BabeRpcHandler::new(
+                client.clone(),
+                shared_epoch_changes.clone(),
+                keystore,
+                babe_config,
+                select_chain,
+                deny_unsafe,
+            ),
+        )
+    );
 
     io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
         GrandpaRpcHandler::new(
