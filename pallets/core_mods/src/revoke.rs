@@ -387,10 +387,12 @@ impl<T: Trait> Module<T> {
 /// Tests in this module are named after the errors they check.
 /// For example, `#[test] fn invalidpolicy` exercises the RevErr::InvalidPolicy.
 mod errors {
-    use super::*;
+    // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
+    use super::{Registry, RegistryId, Policy, Revoke, UnRevoke, RevokeId, RemoveRegistry, Did, DidSignature, RevErr};
     use crate::test_common::*;
     use frame_support::dispatch::DispatchError;
     use sp_core::sr25519;
+    use alloc::collections::{BTreeMap, BTreeSet};
 
     #[test]
     fn invalidpolicy() {
@@ -710,8 +712,11 @@ mod errors {
 /// Tests in this module are named after the calls they check.
 /// For example, `#[test] fn new_registry` tests the happy path for Module::new_registry.
 mod calls {
-    use super::*;
+    // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
+    use super::{Registries, Revocations, Registry, Policy, Revoke, UnRevoke, RevokeId, RemoveRegistry, Call as RevCall};
+    use frame_support::{StorageMap, StorageDoubleMap};
     use crate::test_common::*;
+    use alloc::collections::BTreeSet;
 
     #[test]
     fn new_registry() {
@@ -909,13 +914,13 @@ mod calls {
 
     // Untested variants will be a match error.
     // To fix the match error, write a test for the variant then update the test.
-    fn _all_included(dummy: Call<Test>) {
+    fn _all_included(dummy: RevCall<Test>) {
         match dummy {
-            Call::new_registry(_, _)
-            | Call::revoke(_, _)
-            | Call::unrevoke(_, _)
-            | Call::remove_registry(_, _)
-            | Call::__PhantomItem(_, _) => {}
+            RevCall::new_registry(_, _)
+            | RevCall::revoke(_, _)
+            | RevCall::unrevoke(_, _)
+            | RevCall::remove_registry(_, _)
+            | RevCall::__PhantomItem(_, _) => {}
         }
     }
 }
@@ -923,9 +928,11 @@ mod calls {
 #[cfg(test)]
 /// Miscellaneous tests
 mod test {
-    use super::*;
+    // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
+    use super::{Registry, Policy, Revoke, RevokeId, Did};
     use crate::test_common::*;
     use sp_core::sr25519;
+    use alloc::collections::BTreeSet;
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.

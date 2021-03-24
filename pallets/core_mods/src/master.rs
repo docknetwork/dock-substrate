@@ -359,10 +359,13 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod test {
-    use super::*;
+    use codec::Encode;
+    // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
+    use super::{Members, Membership, Event, MasterError, Call as MasterCall, StateChange, Payload, DispatchError, Round};
     use crate::test_common::*;
-    type MasterMod = crate::master::Module<Test>;
-    use alloc::collections::BTreeMap;
+    use frame_support::StorageValue;
+    use frame_system as system;
+    use alloc::collections::{BTreeMap, BTreeSet};
     use sp_core::H256;
 
     // XXX: To check both `execute` and `execute_unchecked_weight`, we can simply test `execute_` but
@@ -381,7 +384,7 @@ mod test {
                 members: set(&[newdid().0]),
                 vote_requirement: 1,
             };
-            let call = TestCall::Master(Call::set_members(new_members.clone()));
+            let call = TestCall::Master(MasterCall::set_members(new_members.clone()));
             assert_eq!(Round::get(), 0);
             MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap();
             assert_eq!(Members::get(), new_members);
@@ -481,7 +484,7 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            let call = TestCall::Master(Call::<Test>::set_members(Membership {
+            let call = TestCall::Master(MasterCall::<Test>::set_members(Membership {
                 members: set(&[newdid().0]),
                 vote_requirement: 1,
             }));

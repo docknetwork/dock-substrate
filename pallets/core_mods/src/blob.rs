@@ -99,11 +99,10 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{Blobs, BlobId, Blob, BlobError, did, DispatchResult};
+    use frame_support::StorageMap;
     use crate::test_common::*;
     use sp_core::{sr25519, Pair};
-
-    type BlobMod = crate::blob::Module<Test>;
 
     fn create_blob(
         id: BlobId,
@@ -192,7 +191,7 @@ mod tests {
             let author = rand::random();
             let author_kp = gen_kp();
             let err = create_blob(rand::random(), random_bytes(10), author, author_kp).unwrap_err();
-            assert_eq!(err, BlobError::<Test>::DidDoesNotExist.into());
+            assert_eq!(err, did::Error::<Test>::DidDoesNotExist.into());
         });
     }
 

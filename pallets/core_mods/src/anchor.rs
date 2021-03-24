@@ -78,9 +78,12 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::{Anchors, Event, Error};
+    use frame_support::StorageMap;
+    use frame_system as system;
+    use sp_runtime::traits::Hash;
+
     use crate::test_common::*;
-    type Mod = crate::anchor::Module<Test>;
     use sp_core::H256;
 
     #[test]
@@ -89,7 +92,7 @@ mod tests {
             let bs = random_bytes(32);
             let h = <Test as system::Config>::Hashing::hash(&bs);
             assert!(Anchors::<Test>::get(h).is_none());
-            Mod::deploy(Origin::signed(ABBA), bs).unwrap();
+            AnchorMod::deploy(Origin::signed(ABBA), bs).unwrap();
             assert!(Anchors::<Test>::get(h).is_some());
         });
     }
@@ -98,8 +101,8 @@ mod tests {
     fn deploy_twice_error() {
         ext().execute_with(|| {
             let bs = random_bytes(32);
-            Mod::deploy(Origin::signed(ABBA), bs.clone()).unwrap();
-            let err = Mod::deploy(Origin::signed(ABBA), bs).unwrap_err();
+            AnchorMod::deploy(Origin::signed(ABBA), bs.clone()).unwrap();
+            let err = AnchorMod::deploy(Origin::signed(ABBA), bs).unwrap_err();
             assert_eq!(err, Error::<Test>::AnchorExists.into());
         });
     }
@@ -109,20 +112,20 @@ mod tests {
         ext().execute_with(|| {
             let bs = random_bytes(32);
             let h = <Test as system::Config>::Hashing::hash(&bs);
-            Mod::deploy(Origin::signed(ABBA), bs).unwrap();
+            AnchorMod::deploy(Origin::signed(ABBA), bs).unwrap();
             assert_eq!(
                 &anchor_events(),
                 &[Event::<Test>::AnchorDeployed(
                     h,
                     ABBA,
-                    <system::Module<Test>>::block_number()
+                    System::block_number()
                 )]
             );
         });
     }
 
     fn anchor_events() -> Vec<Event<Test>> {
-        system::Module::<Test>::events()
+        System::events()
             .iter()
             .filter_map(|event_record| {
                 let system::EventRecord::<TestEvent, H256> {

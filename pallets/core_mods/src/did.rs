@@ -542,91 +542,17 @@ mod tests {
     use super::*;
 
     use frame_support::{
-        assert_err, assert_ok, impl_outer_origin, parameter_types,
-        traits::{OnFinalize, OnInitialize},
-        weights::Weight,
+        assert_err, assert_ok,
     };
-    use sp_core::{Pair, H256};
-    use sp_runtime::{
-        testing::Header,
-        traits::{BlakeTwo256, IdentityLookup},
-        Perbill,
-    };
-
-    impl_outer_origin! {
-        pub enum Origin for Test {}
-    }
-
-    #[derive(Clone, Eq, Debug, PartialEq)]
-    pub struct Test;
-
-    parameter_types! {
-        pub const BlockHashCount: u64 = 250;
-        pub const MaximumBlockWeight: Weight = 1024;
-        pub const MaximumBlockLength: u32 = 2 * 1024;
-        pub const AvailableBlockRatio: Perbill = Perbill::one();
-    }
-
-    impl system::Config for Test {
-        type BaseCallFilter = ();
-        type Origin = Origin;
-        type Call = ();
-        type Index = u64;
-        // XXX: Why is it u64 when in lib.rs its u32
-        type BlockNumber = u64;
-        type Hash = H256;
-        type Hashing = BlakeTwo256;
-        type AccountId = u64;
-        type Lookup = IdentityLookup<Self::AccountId>;
-        type Header = Header;
-        type Event = ();
-        type BlockHashCount = BlockHashCount;
-        type DbWeight = ();
-        type BlockWeights = ();
-        type BlockLength = ();
-        type Version = ();
-        type PalletInfo = ();
-        type AccountData = ();
-        type OnNewAccount = ();
-        type OnKilledAccount = ();
-        type SystemWeightInfo = ();
-        type SS58Prefix = ();
-    }
-
-    impl super::Trait for Test {
-        type Event = ();
-    }
-
-    // This function basically just builds a genesis storage key/value store according to
-    // our desired mockup.
-    fn new_test_ext() -> sp_io::TestExternalities {
-        system::GenesisConfig::default()
-            .build_storage::<Test>()
-            .unwrap()
-            .into()
-    }
-
-    type DIDModule = super::Module<Test>;
-
-    pub type System = system::Module<Test>;
-
-    /// Changes the block number. Calls `on_finalize` and `on_initialize`
-    pub fn run_to_block(n: u64) {
-        while System::block_number() < n {
-            if System::block_number() > 1 {
-                System::on_finalize(System::block_number());
-            }
-            System::set_block_number(System::block_number() + 1);
-            System::on_initialize(System::block_number());
-        }
-    }
+    use sp_core::Pair;
+    use crate::test_common::*;
 
     #[test]
     fn signature_verification() {
         // Check that the signature should be wrapped in correct variant of enum `Signature`.
         // Trying to wrap a Sr25519 signature in a Signature::Ed25519 should fail.
         // Trying to wrap a Ed25519 signature in a Signature::Sr25519 should fail.
-        new_test_ext().execute_with(|| {
+        ext().execute_with(|| {
             let msg = vec![1u8; 24];
 
             // The macro checks that a signature verification only passes when sig wrapped in `$correct_sig_type`
@@ -668,7 +594,7 @@ mod tests {
     #[test]
     fn did_creation() {
         // DID must be unique. It must have an acceptable public size
-        new_test_ext().execute_with(|| {
+        ext().execute_with(|| {
             let alice = 10u64;
 
             let did = [1; DID_BYTE_SIZE];
@@ -701,7 +627,7 @@ mod tests {
     #[test]
     fn did_key_update_for_unregistered_did() {
         // Updating a DID that has not been registered yet should fail
-        new_test_ext().execute_with(|| {
+        ext().execute_with(|| {
             let alice = 100u64;
 
             let did = [1; DID_BYTE_SIZE];
@@ -730,7 +656,7 @@ mod tests {
     #[test]
     fn did_key_update_with_sr25519_ed25519_keys() {
         // DID's key must be updatable with the authorized key only. Check for sr25519 and ed25519
-        new_test_ext().execute_with(|| {
+        ext().execute_with(|| {
             let alice = 100u64;
 
             /// Macro to check the key update for ed25519 and sr25519
@@ -828,7 +754,7 @@ mod tests {
         // `pk_1` changes key to `pk_2` and `pk_2` changes key to `pk_3` and `pk_3` changes key back to `pk_1`.
         // It should not be possible to replay `pk_1`'s original message and change key to `pk_2`.
 
-        new_test_ext().execute_with(|| {
+        ext().execute_with(|| {
             let alice = 100u64;
 
             let did = [1; DID_BYTE_SIZE];
@@ -949,7 +875,7 @@ mod tests {
         // Registered Dids can only be removed by the authorized key
         // Removed Dids can be added again
 
-        new_test_ext().execute_with(|| {
+        ext().execute_with(|| {
             let alice = 100u64;
 
             let did = [1; DID_BYTE_SIZE];
@@ -980,7 +906,7 @@ mod tests {
 
             let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
             // The block number will be non zero as write was successful and will be 1 since its the first extrinsic
-            assert_eq!(modified_in_block, 0);
+            assert_eq!(modified_in_block, 1);
 
             // A key not controlling the DID but trying to remove the DID should fail
             let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
