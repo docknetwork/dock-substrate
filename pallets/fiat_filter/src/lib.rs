@@ -19,23 +19,17 @@ use sp_std::boxed::Box;
 #[allow(non_snake_case)]
 mod tests;
 
-/// Config option for updating the DockFiatRate
-pub trait UpdaterDockFiatRate {
-    /// Handler for updating the DockFiatRate
-    fn update_dock_fiat_rate() -> Result<(), &'static str>;
-}
-
-// /// The pallet's configuration trait
-// /// Configure the pallet by specifying the parameters and types on which it depends.
+/// The pallet's configuration trait
+/// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Config:
     system::Config + did::Trait + anchor::Trait + blob::Trait + revoke::Trait + attest::Trait
-// + common::PriceProvider
 {
     /// Because this pallet emits events, it depends on the runtime's definition of an event.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
     /// Config option for updating the DockFiatRate
     type PriceProvider: common::PriceProvider;
-    // type UpdaterDockFiatRate: UpdaterDockFiatRate;
+    /// The module's Currency type definition
+    type Currency: Currency<Self::AccountId>;
 
     /// The outer call (dispatchable) that this module is called with. It is possible to use another type here, but
     /// it's expected that your runtime::Call will be used.
@@ -48,8 +42,6 @@ pub trait Config:
         + IsSubType<blob::Call<Self>>
         + IsSubType<revoke::Call<Self>>
         + IsSubType<attest::Call<Self>>;
-    /// The module's Currency type definition
-    type Currency: Currency<Self::AccountId>;
 }
 
 // The pallet's runtime storage items.
@@ -59,6 +51,8 @@ decl_storage! {
     // ----------------------------------vvvvvvvvvvvvvv
     trait Store for Module<T: Config> as FiatFilterModule {
         /// price of one DOCK in fiat (for now, only USD)
+        // 22511/M is the price of a DOCK token at the time of writing this pallet.
+        // This price will get updated to the actual price by the Price feed pallet when deployed
         pub DockFiatRate get(fn dock_fiat_rate) config(): Permill = Permill::from_parts(22511);
         /// price update frequency (in number of blocks)
         pub UpdateFreq get(fn update_freq) config(): <T as system::Config>::BlockNumber = 10u32.into();
@@ -67,7 +61,7 @@ decl_storage! {
     }
 }
 
-// Pallets use events to inform users when important changes are made.
+// Events to inform subscribers of storage updates
 decl_event! {
     pub enum Event<T> where
         <T as frame_system::Config>::BlockNumber,
@@ -81,7 +75,6 @@ decl_event! {
     }
 }
 
-// Errors inform users that something went wrong.
 decl_error! {
     pub enum Error for Module<T: Config> {
         /// Failed calculation because of numeric type overflow
@@ -106,9 +99,6 @@ decl_module! {
             // update DockUsdRate if more than N blocks
             let current_block = <system::Module<T>>::block_number();
             if current_block - Self::last_updated_at() > Self::update_freq() {
-                // if let Err(e) = T::UpdaterDockFiatRate::update_dock_fiat_rate() {
-                //     sp_runtime::print(e);
-                // }
                 use common::PriceProvider;
                 if let Some((rate_per1000,_weight)) = T::PriceProvider::optimized_get_dock_usd_price() {
                     // the only implementation of PriceProvider returns a PerThousand value (as a u32)
@@ -156,6 +146,7 @@ impl<T: Config> Module<T> {
     fn get_call_fee_fiat_(
         call: &<T as Config>::Call,
     ) -> Result<AmountUsd, DispatchErrorWithPostInfo> {
+        // TODO make sure we discuss and decide the actual pricing for each call type
         match call.is_sub_type() {
             Some(did::Call::new(_did, _detail)) => return Ok(Permill::from_percent(50)),
             Some(did::Call::update_key(_key_update, _sig)) => return Ok(Permill::from_percent(51)),
