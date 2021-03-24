@@ -46,7 +46,7 @@ decl_error! {
 
 decl_storage! {
     trait Store for Module<T: Trait> as Blob {
-        // The priority value provides replay protection and also gives attestations a paritial
+        // The priority value provides replay protection and also gives attestations a partial
         // ordering. Signatures with lesser or equal priority to those previously posted by the same
         // entity are not accepted by the chain.
         //
@@ -58,11 +58,11 @@ decl_storage! {
         //   - Timestamps may be used as priority when available.
         //   - A timeline of future attestations may be constructed by encrypting multiple
         //     signatures, each with the output of a verifiable delay function. A "final"
-        //     attestation may be selected by assigning it the higest prority in the batch.
+        //     attestation may be selected by assigning it the highest priority in the batch.
         //     The "final" attestation will be acceptable by the runtime regardless of whether its
         //     predecessors were submitted.
         //
-        // An attestation on chain with iri set to None is sematically meaningless. Setting the
+        // An attestation on chain with iri set to None is semantically meaningless. Setting the
         // iri to None is equivalent to attesting to the empty claimgraph.
         //
         // When Attestations::get(did).iri == Some(dat) and dat is a valid utf-8 Iri:
@@ -123,7 +123,6 @@ mod test {
     use crate::test_common::*;
     use sp_core::sr25519;
 
-    type Mod = crate::attest::Module<Test>;
     type Er = crate::attest::Error<Test>;
 
     /// Trigger the PriorityTooLow error by submitting a priority 0 attestation.
@@ -135,7 +134,7 @@ mod test {
                 priority: 0,
                 iri: None,
             };
-            let err = Mod::set_claim(
+            let err = AttestMod::set_claim(
                 Origin::signed(0),
                 did,
                 att.clone(),
@@ -182,7 +181,7 @@ mod test {
             };
             let sig = sign(&StateChange::Attestation((dida, att.clone())), &kpa);
             att.priority += 1;
-            let err = Mod::set_claim(Origin::signed(0), dida, att, sig).unwrap_err();
+            let err = AttestMod::set_claim(Origin::signed(0), dida, att, sig).unwrap_err();
             assert_eq!(err, Er::InvalidSig.into());
         });
     }
@@ -197,7 +196,7 @@ mod test {
                 priority: 1,
                 iri: None,
             };
-            let err = Mod::set_claim(
+            let err = AttestMod::set_claim(
                 Origin::signed(0),
                 dida,
                 att.clone(),
@@ -366,7 +365,7 @@ mod test {
 
     /// helper
     fn set_claim(claimer: &did::Did, att: &Attestation, kp: &sr25519::Pair) -> DispatchResult {
-        Mod::set_claim(
+        AttestMod::set_claim(
             Origin::signed(0),
             claimer.clone(),
             att.clone(),

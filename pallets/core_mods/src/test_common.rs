@@ -1,12 +1,18 @@
 //! Boilerplate for runtime module unit tests
 
 use crate::did::{self, Did, DidSignature};
+use crate::anchor as anchor;
+use crate::revoke as revoke;
+use crate::attest as attest;
+use crate::blob as blob;
+use crate::master as master;
+
 use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::{Decode, Encode};
 use frame_support::{
     dispatch::{DispatchInfo, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
-    impl_outer_origin, parameter_types,
-    traits::UnfilteredDispatchable,
+    parameter_types,
+    traits::{UnfilteredDispatchable, OnInitialize, OnFinalize},
     weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
 };
 use frame_system as system;
@@ -18,11 +24,24 @@ use sp_runtime::{
 };
 pub use std::iter::once;
 
-pub type RevoMod = crate::revoke::Module<Test>;
-
-impl_outer_origin! {
-    pub enum Origin for Test {}
-}
+// Configure a mock runtime to test the pallet.
+type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
+type Block = frame_system::mocking::MockBlock<Test>;
+frame_support::construct_runtime!(
+    pub enum Test where
+        Block = Block,
+        NodeBlock = Block,
+        UncheckedExtrinsic = UncheckedExtrinsic,
+    {
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        DIDModule: did::{Module, Call, Storage, Event, Config},
+        RevoMod: revoke::{Module, Call, Storage},
+        BlobMod: blob::{Module, Call, Storage},
+        MasterMod: master::{Module, Call, Storage, Event<T>, Config},
+        AnchorMod: anchor::{Module, Call, Storage, Event<T>},
+        AttestMod: attest::{Module, Call, Storage},
+    }
+);
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum TestCall {
@@ -95,9 +114,6 @@ impl From<crate::anchor::Event<Test>> for TestEvent {
     }
 }
 
-#[derive(Clone, Eq, Debug, PartialEq)]
-pub struct Test;
-
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
 }
@@ -105,7 +121,7 @@ parameter_types! {
 impl system::Config for Test {
     type BaseCallFilter = ();
     type Origin = Origin;
-    type Call = ();
+    type Call = Call;
     type Index = u64;
     type BlockNumber = u64;
     type Hash = H256;
@@ -244,4 +260,15 @@ pub fn random_bytes(len: usize) -> Vec<u8> {
     let ret: Vec<u8> = (0..len).map(|_| rand::random()).collect();
     assert_eq!(ret.len(), len);
     ret
+}
+
+/// Changes the block number. Calls `on_finalize` and `on_initialize`
+pub fn run_to_block(n: u64) {
+    while System::block_number() < n {
+        if System::block_number() > 1 {
+            System::on_finalize(System::block_number());
+        }
+        System::set_block_number(System::block_number() + 1);
+        System::on_initialize(System::block_number());
+    }
 }
