@@ -103,21 +103,6 @@ impl pallet_evm::Config for Test {
     type OnChargeTransaction = ();
 }
 
-/*/// Dummy session handler as the pallet's trait needs the session pallet's trait
-pub struct TestSessionHandler;
-type ValidatorId = u64;
-impl pallet_session::SessionHandler<ValidatorId> for TestSessionHandler {
-    const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
-
-    fn on_genesis_session<K: OpaqueKeys>(_validators: &[(ValidatorId, K)]) {}
-
-    fn on_new_session<K: OpaqueKeys>(
-        _changed: bool,
-        _validators: &[(ValidatorId, K)],
-        _queued_validators: &[(ValidatorId, K)],
-    ) {
-    }
-
     fn on_disabled(_validator_index: usize) {}
 }
 

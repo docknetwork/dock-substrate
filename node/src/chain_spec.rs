@@ -6,7 +6,7 @@ use dock_runtime::{
     AccountId, AuraConfig, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig,
     EVMConfig, EthereumConfig, GenesisConfig, GrandpaConfig, MasterConfig, PoAModuleConfig,
     PriceFeedModuleConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
-    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
+    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY, EVMConfig
 };
 use hex_literal::hex;
 use sc_service::{ChainType, Properties};
