@@ -4,7 +4,7 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail, runtime_print, log,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail, log, runtime_print,
     sp_runtime::{
         print,
         runtime_logger::RuntimeLogger,

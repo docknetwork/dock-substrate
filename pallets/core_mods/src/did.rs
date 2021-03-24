@@ -541,11 +541,9 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
-    use frame_support::{
-        assert_err, assert_ok,
-    };
-    use sp_core::Pair;
     use crate::test_common::*;
+    use frame_support::{assert_err, assert_ok};
+    use sp_core::Pair;
 
     #[test]
     fn signature_verification() {

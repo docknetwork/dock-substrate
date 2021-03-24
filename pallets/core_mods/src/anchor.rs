@@ -78,7 +78,7 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod tests {
-    use super::{Anchors, Event, Error};
+    use super::{Anchors, Error, Event};
     use frame_support::StorageMap;
     use frame_system as system;
     use sp_runtime::traits::Hash;

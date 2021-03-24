@@ -1,7 +1,7 @@
 #![cfg(test)]
 
-use crate as poa;
 use super::*;
+use crate as poa;
 
 use frame_support::{
     assert_err, assert_ok, parameter_types,

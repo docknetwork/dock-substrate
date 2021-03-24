@@ -361,11 +361,14 @@ impl<T: Trait> Module<T> {
 mod test {
     use codec::Encode;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
-    use super::{Members, Membership, Event, MasterError, Call as MasterCall, StateChange, Payload, DispatchError, Round};
+    use super::{
+        Call as MasterCall, DispatchError, Event, MasterError, Members, Membership, Payload, Round,
+        StateChange,
+    };
     use crate::test_common::*;
+    use alloc::collections::{BTreeMap, BTreeSet};
     use frame_support::StorageValue;
     use frame_system as system;
-    use alloc::collections::{BTreeMap, BTreeSet};
     use sp_core::H256;
 
     // XXX: To check both `execute` and `execute_unchecked_weight`, we can simply test `execute_` but

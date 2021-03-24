@@ -3,7 +3,6 @@ use common::PriceProvider;
 use frame_support::{assert_err, StorageValue};
 use pallet_evm::Runner;
 use sp_core::{H160, U256};
-use common::PriceProvider;
 
 const AGGREGATOR_QUERY_ABI: [u8; 4] = [36, 90, 123, 252];
 const PRICE_QUERY_ABI: [u8; 4] = [254, 175, 150, 140];
