@@ -8,7 +8,6 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use sp_core::{ecdsa, ed25519, sr25519};
 use sp_runtime::traits::Verify;
-use sp_std::convert::TryFrom;
 use sp_std::fmt;
 
 /// Size of the Dock DID in bytes
@@ -35,7 +34,7 @@ decl_error! {
         /// in which the last update was performed.
         DifferentBlockNumber,
         /// Signature type does not match public key type
-        InvalidSigType,
+        IncomparSigPubkey,
         /// Signature verification failed while key update or did removal
         InvalidSig
     }
@@ -496,36 +495,43 @@ impl<T: Trait> Module<T> {
         message: &[u8],
         public_key: &PublicKey,
     ) -> Result<bool, DispatchError> {
-        Ok(match public_key {
-            PublicKey::Sr25519(bytes) => {
-                let signature = sr25519::Signature::try_from(
-                    signature
-                        .as_sr25519_sig_bytes()
-                        .map_err(|_| Error::<T>::InvalidSigType)?,
+        macro_rules! verify {
+            ( $message:ident, $sig_bytes:ident, $pk_bytes:ident, $sig_type:expr, $pk_type:expr ) => {{
+                let signature = $sig_type($sig_bytes.value);
+                let pk = $pk_type($pk_bytes.value);
+                signature.verify($message, &pk)
+            }};
+        }
+        Ok(match (public_key, signature) {
+            (PublicKey::Sr25519(pk_bytes), DidSignature::Sr25519(sig_bytes)) => {
+                verify!(
+                    message,
+                    sig_bytes,
+                    pk_bytes,
+                    sr25519::Signature,
+                    sr25519::Public
                 )
-                .map_err(|_| Error::<T>::InvalidSig)?;
-                let pk = sr25519::Public(bytes.value);
-                signature.verify(message, &pk)
             }
-            PublicKey::Ed25519(bytes) => {
-                let signature = ed25519::Signature::try_from(
-                    signature
-                        .as_ed25519_sig_bytes()
-                        .map_err(|_| Error::<T>::InvalidSigType)?,
+            (PublicKey::Ed25519(pk_bytes), DidSignature::Ed25519(sig_bytes)) => {
+                verify!(
+                    message,
+                    sig_bytes,
+                    pk_bytes,
+                    ed25519::Signature,
+                    ed25519::Public
                 )
-                .map_err(|_| Error::<T>::InvalidSig)?;
-                let pk = ed25519::Public(bytes.value);
-                signature.verify(message, &pk)
             }
-            PublicKey::Secp256k1(bytes) => {
-                let signature = ecdsa::Signature::try_from(
-                    signature
-                        .as_secp256k1_sig_bytes()
-                        .map_err(|_| Error::<T>::InvalidSigType)?,
+            (PublicKey::Secp256k1(pk_bytes), DidSignature::Secp256k1(sig_bytes)) => {
+                verify!(
+                    message,
+                    sig_bytes,
+                    pk_bytes,
+                    ecdsa::Signature,
+                    ecdsa::Public
                 )
-                .map_err(|_| Error::<T>::InvalidSig)?;
-                let pk = ecdsa::Public::from_raw(bytes.value);
-                signature.verify(message, &pk)
+            }
+            _ => {
+                fail!(Error::<T>::IncomparSigPubkey)
             }
         })
     }
@@ -630,10 +636,8 @@ mod tests {
 
                     let (pair, _, _) = $module::Pair::generate_with_phrase(None);
                     let pk_bytes = pair.public().0;
-                    println!("pk byes:{:?}", pk_bytes.to_vec());
                     let pk = $pk_type(Bytes32 { value: pk_bytes });
                     let sig_bytes = pair.sign(&msg).0;
-                    println!("sig bytes:{:?}", sig_bytes.to_vec());
                     let correct_sig = $correct_sig_type(Bytes64 {value: sig_bytes});
 
                     // Valid signature wrapped in a correct type works
@@ -643,7 +647,7 @@ mod tests {
                     let incorrect_sig = $incorrect_sig_type(Bytes64 {value: sig_bytes});
                     assert_err!(
                             DIDModule::verify_sig_with_public_key(&incorrect_sig, &msg, &pk),
-                            Error::<Test>::InvalidSigType
+                            Error::<Test>::IncomparSigPubkey
                     );
                 }}
             }
@@ -652,13 +656,12 @@ mod tests {
             check_sig_verification!(ed25519, PublicKey::Ed25519, DidSignature::Ed25519, DidSignature::Sr25519);
 
             let (pair_1, _, _) = ecdsa::Pair::generate_with_phrase(None);
-            let mut pk_bytes: [u8; 33] = [0; 33];
-            pk_bytes.clone_from_slice(pair_1.public().as_ref());
-            println!("pk byes:{:?}", pk_bytes.to_vec());
             let sig_bytes: [u8; 65] = pair_1.sign(&msg).into();
-            println!("sig bytes:{:?}", sig_bytes.to_vec());
+            let pk = PublicKey::Secp256k1(Bytes33 {value: pair_1.public().0 });
             let correct_sig = DidSignature::Secp256k1(Bytes65 {value: sig_bytes});
-            assert!(DIDModule::verify_sig_with_public_key(&correct_sig, &msg, &PublicKey::Secp256k1(Bytes33 {value: pk_bytes })).unwrap());
+            let incorrect_sig = DidSignature::Ed25519(Bytes64 {value: [1; 64]});
+            assert!(DIDModule::verify_sig_with_public_key(&correct_sig, &msg, &pk).unwrap());
+            assert_err!(DIDModule::verify_sig_with_public_key(&incorrect_sig, &msg, &pk), Error::<Test>::IncomparSigPubkey);
         });
     }
 
@@ -732,12 +735,10 @@ mod tests {
 
             /// Macro to check the key update for ed25519 and sr25519
             macro_rules! check_key_update {
-                ( $did:ident, $module:ident, $pk:expr, $sig_type:expr, $sig_bytearray_type:ident ) => {{
+                ( $did:ident, $module:ident, $pk:expr, $sig_type:expr, $pk_bytearray_type:ident, $sig_bytearray_type:ident ) => {{
                     let (pair_1, _, _) = $module::Pair::generate_with_phrase(None);
                     let pk_1 = pair_1.public().0;
-                    println!("update did:{:?}", $did.to_vec());
-                    println!("update pk_1:{:?}", pk_1.to_vec());
-                    let detail = KeyDetail::new($did.clone(), $pk(Bytes32 { value: pk_1 }));
+                    let detail = KeyDetail::new($did.clone(), $pk($pk_bytearray_type { value: pk_1 }));
 
                     // Add a DID
                     assert_ok!(DIDModule::new(
@@ -753,16 +754,13 @@ mod tests {
                     // Prepare a key update
                     let (pair_2, _, _) = $module::Pair::generate_with_phrase(None);
                     let pk_2 = pair_2.public().0;
-                    println!("update pk_2:{:?}", pk_2.to_vec());
                     let key_update = KeyUpdate::new(
                         $did.clone(),
-                        $pk(Bytes32 { value: pk_2 }),
+                        $pk($pk_bytearray_type { value: pk_2 }),
                         None,
                         modified_in_block as u32,
                     );
                     let sig_value = pair_1.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0;
-                    println!("update modified_in_block:{:?}", modified_in_block);
-                    println!("update sig_value:{:?}", sig_value.to_vec());
                     let sig = $sig_type($sig_bytearray_type {value: sig_value});
 
                     // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
@@ -780,7 +778,7 @@ mod tests {
                     // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
                     let key_update = KeyUpdate::new(
                         $did.clone(),
-                        $pk(Bytes32 { value: pk_1 }),
+                        $pk($pk_bytearray_type { value: pk_1 }),
                         None,
                         modified_in_block as u32,
                     );
@@ -795,7 +793,7 @@ mod tests {
                     let new_controller = [9; DID_BYTE_SIZE];
                     let key_update = KeyUpdate::new(
                         $did.clone(),
-                        $pk(Bytes32 { value: pk_2 }),
+                        $pk($pk_bytearray_type { value: pk_2 }),
                         Some(new_controller),
                         modified_in_block as u32,
                     );
@@ -813,81 +811,13 @@ mod tests {
             }
 
             let did = [1; DID_BYTE_SIZE];
-            check_key_update!(did, sr25519, PublicKey::Sr25519, DidSignature::Sr25519, Bytes64);
+            check_key_update!(did, sr25519, PublicKey::Sr25519, DidSignature::Sr25519, Bytes32, Bytes64);
 
             let did = [2; DID_BYTE_SIZE];
-            check_key_update!(did, ed25519, PublicKey::Ed25519, DidSignature::Ed25519, Bytes64);
-        });
-    }
+            check_key_update!(did, ed25519, PublicKey::Ed25519, DidSignature::Ed25519, Bytes32, Bytes64);
 
-    #[test]
-    fn did_key_update_with_ecdsa_key() {
-        // DID's key must be updatable with the authorized key only. Check for secp256k1.
-        // The logic is same as above test but the way to generate keys, sig is little different. By creating abstractions
-        // just for testing, above and this test can be merged.
-        new_test_ext().execute_with(|| {
-            let alice = 100u64;
-
-            let did = [1; DID_BYTE_SIZE];
-
-            let (pair_1, _, _) = ecdsa::Pair::generate_with_phrase(None);
-            let mut pk_1: [u8; 33] = [0; 33];
-            pk_1.clone_from_slice(pair_1.public().as_ref());
-            println!("update pk_1:{:?}", pk_1.to_vec());
-            let detail = KeyDetail::new(did.clone(), PublicKey::Secp256k1(Bytes33 { value: pk_1 }));
-
-            // Add a DID
-            assert_ok!(DIDModule::new(
-                Origin::signed(alice),
-                did.clone(),
-                detail.clone()
-            ));
-
-            let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
-
-            // Correctly update DID's key.
-            // Prepare a key update
-            let (pair_2, _, _) = ecdsa::Pair::generate_with_phrase(None);
-            let mut pk_2: [u8; 33] = [0; 33];
-            pk_2.clone_from_slice(pair_2.public().as_ref());
-            println!("update pk_2:{:?}", pk_2.to_vec());
-            let key_update = KeyUpdate::new(
-                did.clone(),
-                PublicKey::Secp256k1(Bytes33 { value: pk_2 }),
-                None,
-                modified_in_block as u32,
-            );
-
-            // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
-            let value: [u8; 65] = pair_1
-                .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
-                .into();
-            println!("update sig value:{:?}", value.to_vec());
-            let sig = DidSignature::Secp256k1(Bytes65 { value });
-            assert_ok!(DIDModule::update_key(
-                Origin::signed(alice),
-                key_update,
-                sig
-            ));
-
-            let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
-
-            // Maliciously update DID's key.
-            // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
-            let key_update = KeyUpdate::new(
-                did.clone(),
-                PublicKey::Secp256k1(Bytes33 { value: pk_1 }),
-                None,
-                modified_in_block as u32,
-            );
-            let value: [u8; 65] = pair_1
-                .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
-                .into();
-            let sig = DidSignature::Secp256k1(Bytes65 { value });
-            assert_err!(
-                DIDModule::update_key(Origin::signed(alice), key_update.clone(), sig),
-                Error::<Test>::InvalidSig
-            );
+            let did = [3; DID_BYTE_SIZE];
+            check_key_update!(did, ecdsa, PublicKey::Secp256k1, DidSignature::Secp256k1, Bytes33, Bytes65);
         });
     }
 

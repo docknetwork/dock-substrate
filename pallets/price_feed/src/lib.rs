@@ -1,5 +1,5 @@
 //! Periodically fetches price of DOCK/USD from smart contract running on EVM and stores the price in its storage.
-//! The periodicity and contract configuration like address, query method and return value type can be configured by root.  
+//! The periodicity and contract configuration like address, query method and return value type can be configured by root.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

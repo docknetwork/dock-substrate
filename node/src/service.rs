@@ -17,6 +17,8 @@ use sp_inherents::InherentDataProviders;
 use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use sc_keystore::LocalKeystore;
+use sc_telemetry::TelemetrySpan;
 
 // Our native executor instance.
 native_executor_instance!(
@@ -264,14 +266,14 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         })
     };
 
-    let (_rpc_handlers, telemetry_connection_notifier) =
-        sc_service::spawn_tasks(sc_service::SpawnTasksParams {
-            network: network.clone(),
+    let (_rpc_handlers, telemetry_connection_notifier) = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
+        network: network.clone(),
+        telemetry_span,
             telemetry_span,
             client: client.clone(),
             keystore: keystore_container.sync_keystore(),
-            task_manager: &mut task_manager,
-            transaction_pool: transaction_pool.clone(),
+        task_manager: &mut task_manager,
+        transaction_pool: transaction_pool.clone(),
             rpc_extensions_builder,
             on_demand: None,
             remote_blockchain: None,
