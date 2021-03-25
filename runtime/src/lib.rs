@@ -639,7 +639,7 @@ impl pallet_evm::GasWeightMapping for GasWeightMap {
 impl pallet_evm::Config for Runtime {
     /// Minimum gas price is 50
     type FeeCalculator = GasPrice;
-    /// 1:20 mapping of gas to weight
+    /// 1:50 mapping of gas to weight
     type GasWeightMapping = GasWeightMap;
     type CallOrigin = EnsureAddressTruncated;
     type WithdrawOrigin = EnsureAddressTruncated;
@@ -647,7 +647,15 @@ impl pallet_evm::Config for Runtime {
     type Currency = Balances;
     type Event = Event;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
-    type Precompiles = ();
+    type Precompiles = (
+        pallet_evm_precompile_simple::ECRecover,
+        pallet_evm_precompile_simple::Sha256,
+        pallet_evm_precompile_simple::Ripemd160,
+        pallet_evm_precompile_simple::Identity,
+        pallet_evm_precompile_simple::ECRecoverPublicKey,
+        pallet_evm_precompile_sha3fips::Sha3FIPS256,
+        pallet_evm_precompile_sha3fips::Sha3FIPS512,
+    );
     type ChainId = DockChainId;
     /// Deducted fee will be handled by the PoA module
     type OnChargeTransaction = EVMCurrencyAdapter<Balances, PoAModule>;

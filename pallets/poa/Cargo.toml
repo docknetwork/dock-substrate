@@ -99,7 +99,7 @@ branch = "frontier"
 default-features = false
 version = '3.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'da8f7ba3b5222743322616891c2022749decf786'
+rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
 #path = '../../../../frontier/frame/evm'
 
 [features]
