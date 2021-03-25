@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.12.3'
+version = '0.13.0'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
@@ -245,21 +245,33 @@ optional = true
 default-features = false
 version = '3.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'da8f7ba3b5222743322616891c2022749decf786'
+rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
 #path = '../../../frontier/frame/evm'
 
 [dependencies.pallet-ethereum]
 default-features = false
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'da8f7ba3b5222743322616891c2022749decf786'
+rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
 #path = '../../../frontier/frame/ethereum'
+
+[dependencies.pallet-evm-precompile-simple]
+default-features = false
+version = '3.0.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
+
+[dependencies.pallet-evm-precompile-sha3fips]
+default-features = false
+version = '3.0.0'
+git = 'https://github.com/paritytech/frontier.git'
+rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
 
 [dependencies.fp-rpc]
 default-features = false
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'da8f7ba3b5222743322616891c2022749decf786'
+rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]
@@ -337,6 +349,8 @@ std = [
     'evm/with-serde',
     'pallet-evm/std',
     'pallet-ethereum/std',
+    'pallet-evm-precompile-simple/std',
+    'pallet-evm-precompile-sha3fips/std',
     'poa/std',
     'token_migration/std',
     'simple_democracy/std',

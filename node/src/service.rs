@@ -2,10 +2,12 @@
 
 use dock_runtime::{self, opaque::Block, RuntimeApi};
 use fc_consensus::FrontierBlockImport;
+use fc_mapping_sync::MappingSyncWorker;
 use fc_rpc::EthTask;
 use fc_rpc_core::types::{FilterPool, PendingTransactions};
+use futures::StreamExt;
 use sc_cli::SubstrateCli;
-use sc_client_api::{ExecutorProvider, RemoteBackend};
+use sc_client_api::{BlockchainEvents, ExecutorProvider, RemoteBackend};
 use sc_consensus_aura::{AuraBlockImport, ImportQueueParams, SlotProportion, StartAuraParams};
 use sc_executor::native_executor_instance;
 pub use sc_executor::NativeExecutor;
@@ -32,9 +34,12 @@ type FullClient = sc_service::TFullClient<Block, RuntimeApi, Executor>;
 type FullBackend = sc_service::TFullBackend<Block>;
 type FullSelectChain = sc_consensus::LongestChain<FullBackend, Block>;
 
-
-fn get_telemetry_worker_from_config(config: &Configuration) -> Result<Option<(TelemetryWorker, Telemetry)>, sc_telemetry::Error> {
-    config.telemetry_endpoints.clone()
+fn get_telemetry_worker_from_config(
+    config: &Configuration,
+) -> Result<Option<(TelemetryWorker, Telemetry)>, sc_telemetry::Error> {
+    config
+        .telemetry_endpoints
+        .clone()
         .filter(|x| !x.is_empty())
         .map(|endpoints| -> Result<_, sc_telemetry::Error> {
             let worker = TelemetryWorker::new(16)?;
@@ -116,16 +121,16 @@ pub fn new_partial(
         )?;
     let client = Arc::new(client);
 
+    let telemetry = telemetry.map(|(worker, telemetry)| {
+        task_manager.spawn_handle().spawn("telemetry", worker.run());
+        telemetry
+    });
+
     let select_chain = sc_consensus::LongestChain::new(backend.clone());
 
     let pending_transactions: PendingTransactions = Some(Arc::new(Mutex::new(HashMap::new())));
 
     let filter_pool: Option<FilterPool> = Some(Arc::new(Mutex::new(BTreeMap::new())));
-
-    let telemetry = telemetry.map(|(worker, telemetry)| {
-        task_manager.spawn_handle().spawn("telemetry", worker.run());
-        telemetry
-    });
 
     let transaction_pool = sc_transaction_pool::BasicPool::new_full(
         config.transaction_pool.clone(),
@@ -260,14 +265,18 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
 
     let grandpa_shared_voter_state = shared_voter_state.clone();
 
+    let subscription_task_executor =
+        sc_rpc::SubscriptionTaskExecutor::new(task_manager.spawn_handle());
+
     let rpc_extensions_builder = {
         let client = client.clone();
         let pool = transaction_pool.clone();
         let network = network.clone();
         let pending = pending_transactions.clone();
         let filter_pool = filter_pool.clone();
+        let frontier_backend = frontier_backend.clone();
 
-        Box::new(move |deny_unsafe, subscription_executor| {
+        Box::new(move |deny_unsafe, _| {
             let deps = crate::rpc::FullDeps {
                 client: client.clone(),
                 pool: pool.clone(),
@@ -285,9 +294,21 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
                 backend: frontier_backend.clone(),
             };
 
-            crate::rpc::create_full(deps, subscription_executor)
+            crate::rpc::create_full(deps, subscription_task_executor.clone())
         })
     };
+
+    task_manager.spawn_essential_handle().spawn(
+        "frontier-mapping-sync-worker",
+        MappingSyncWorker::new(
+            client.import_notification_stream(),
+            Duration::new(6, 0),
+            client.clone(),
+            backend.clone(),
+            frontier_backend.clone(),
+        )
+        .for_each(|()| futures::future::ready(())),
+    );
 
     let _rpc_handlers = sc_service::spawn_tasks(sc_service::SpawnTasksParams {
         network: network.clone(),
@@ -315,7 +336,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
                 Arc::clone(&client),
                 filter_pool.unwrap(),
                 FILTER_RETAIN_THRESHOLD,
-            )
+            ),
         );
     }
 
