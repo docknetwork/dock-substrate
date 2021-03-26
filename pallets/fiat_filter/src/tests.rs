@@ -15,17 +15,17 @@ use sp_runtime::{
 };
 
 impl_outer_origin! {
-    pub enum Origin for Test where system = frame_system {}
+    pub enum Origin for TestRt where system = frame_system {}
 }
-type SystemMod = frame_system::Module<Test>;
-type DidMod = did::Module<Test>;
-type AnchorMod = anchor::Module<Test>;
-type BlobMod = blob::Module<Test>;
-type RevokeMod = revoke::Module<Test>;
-type AttestMod = attest::Module<Test>;
-type BalanceMod = pallet_balances::Module<Test>;
+type SystemMod = frame_system::Module<TestRt>;
+type DidMod = did::Module<TestRt>;
+type AnchorMod = anchor::Module<TestRt>;
+type BlobMod = blob::Module<TestRt>;
+type RevokeMod = revoke::Module<TestRt>;
+type AttestMod = attest::Module<TestRt>;
+type BalanceMod = pallet_balances::Module<TestRt>;
 impl_outer_dispatch! {
-    pub enum TestCall for Test where origin: Origin {
+    pub enum TestCall for TestRt where origin: Origin {
         did::DidMod,
         anchor::AnchorMod,
         blob::BlobMod,
@@ -38,7 +38,9 @@ impl_outer_dispatch! {
 
 // Configure a mock runtime to test the pallet.
 #[derive(Clone, Eq, PartialEq)]
-pub struct Test;
+pub struct TestRt {
+    pub rate: u32, // TODO rm if unneeded
+}
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
 }
@@ -56,7 +58,7 @@ impl Filter<TestCall> for BaseFilter {
         }
     }
 }
-impl system::Config for Test {
+impl system::Config for TestRt {
     type BaseCallFilter = BaseFilter;
     type Origin = Origin;
     type Call = TestCall;
@@ -80,15 +82,17 @@ impl system::Config for Test {
     type BlockLength = ();
     type SS58Prefix = ();
 }
-impl Config for Test {
+
+impl Config for TestRt {
     type PriceProvider = TestPriceProvider;
     type Call = TestCall;
     type Currency = pallet_balances::Module<Self>;
 }
+
 parameter_types! {
     pub const ExistentialDeposit: u64 = 1;
 }
-impl pallet_balances::Config for Test {
+impl pallet_balances::Config for TestRt {
     type MaxLocks = ();
     type Balance = u64;
     type Event = ();
@@ -97,24 +101,24 @@ impl pallet_balances::Config for Test {
     type AccountStore = SystemMod;
     type WeightInfo = ();
 }
-impl anchor::Trait for Test {
+impl anchor::Trait for TestRt {
     type Event = ();
 }
-impl did::Trait for Test {
+impl did::Trait for TestRt {
     type Event = ();
 }
-impl revoke::Trait for Test {}
+impl revoke::Trait for TestRt {}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
     pub const StorageWeight: Weight = 1100;
 }
-impl blob::Trait for Test {
+impl blob::Trait for TestRt {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
 }
 
-impl attest::Trait for Test {
+impl attest::Trait for TestRt {
     type StorageWeight = StorageWeight;
 }
 
@@ -122,7 +126,9 @@ impl attest::Trait for Test {
 // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK)
 // the rate is ~0.072224 USD/DOCK in 2021-03
 const RATE_DOCK_USD: u32 = 72;
-pub struct TestPriceProvider {}
+const RATE_DOCK_USD_2: u32 = 999;
+
+pub struct TestPriceProvider;
 impl common::PriceProvider for TestPriceProvider {
     fn get_dock_usd_price() -> Option<(u32, u64)> {
         Some((RATE_DOCK_USD, 0))
@@ -132,18 +138,28 @@ impl common::PriceProvider for TestPriceProvider {
     }
 }
 
-pub type FiatFilterModule = Module<Test>;
+pub type FiatFilterModule = Module<TestRt>;
 
 const ALICE: u64 = 100;
 const BOB: u64 = 200;
 // Build genesis storage according to the mock runtime.
 pub fn ext() -> sp_io::TestExternalities {
     let mut ret: sp_io::TestExternalities = system::GenesisConfig::default()
-        .build_storage::<Test>()
+        .build_storage::<TestRt>()
         .unwrap()
         .into();
     ret.execute_with(|| {
-        let _ = <Test as Config>::Currency::deposit_creating(&ALICE, 100_000_000_000);
+        let _ = <TestRt as Config>::Currency::deposit_creating(&ALICE, 100_000_000_000);
+    });
+    ret
+}
+pub fn ext_price2() -> sp_io::TestExternalities {
+    let mut ret: sp_io::TestExternalities = system::GenesisConfig::default()
+        .build_storage::<testrt_price2::TestRt>()
+        .unwrap()
+        .into();
+    ret.execute_with(|| {
+        let _ = <TestRt as Config>::Currency::deposit_creating(&ALICE, 100_000_000_000);
     });
     ret
 }
@@ -154,7 +170,7 @@ pub fn gen_kp() -> sr25519::Pair {
 }
 /// get the latest block number
 pub fn block_no() -> u64 {
-    system::Module::<Test>::block_number()
+    system::Module::<TestRt>::block_number()
 }
 // Create did for `did`. Return the randomly generated signing key.
 // The did public key is controlled by some non-existent account (normally a security
@@ -166,7 +182,7 @@ pub fn create_did(origin: u64, did: did::Did) -> sr25519::Pair {
     };
     let didpubkey = did::PublicKey::Sr25519(pubkey_bytes);
     let key_detail = did::KeyDetail::new(did, didpubkey);
-    did::Module::<Test>::new(Origin::signed(origin), did, key_detail).unwrap();
+    did::Module::<TestRt>::new(Origin::signed(origin), did, key_detail).unwrap();
     kp
 }
 /// create a did with a random id and random signing key
@@ -189,9 +205,9 @@ pub fn random_bytes(len: usize) -> Vec<u8> {
 }
 
 fn measure_fees(call: TestCall) -> (u64, DispatchResultWithPostInfo) {
-    let balance_pre = <Test as Config>::Currency::free_balance(ALICE);
+    let balance_pre = <TestRt as Config>::Currency::free_balance(ALICE);
     let executed = FiatFilterModule::execute_call(Origin::signed(ALICE), Box::new(call.clone()));
-    let balance_post = <Test as Config>::Currency::free_balance(ALICE);
+    let balance_post = <TestRt as Config>::Currency::free_balance(ALICE);
     let fees_paid_dock_permill = balance_pre - balance_post;
     return (fees_paid_dock_permill, executed);
 }
@@ -229,7 +245,7 @@ mod tests_did_calls {
                 }),
             );
 
-            let call = TestCall::DidMod(did::Call::<Test>::new(d.clone(), key_detail));
+            let call = TestCall::DidMod(did::Call::<TestRt>::new(d.clone(), key_detail));
             let (fee_microdock, executed) = measure_fees(call);
             assert_ok!(executed);
 
@@ -271,7 +287,7 @@ mod tests_did_calls {
             let sig = DidSignature::Sr25519(did::Bytes64 { value: sig_value });
 
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
-            let call = TestCall::DidMod(did::Call::<Test>::update_key(key_update, sig));
+            let call = TestCall::DidMod(did::Call::<TestRt>::update_key(key_update, sig));
             let expected_fees: u64 = PRICE_DID_OP / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
@@ -289,7 +305,7 @@ mod tests_did_calls {
                     .0,
             });
 
-            let call = TestCall::DidMod(did::Call::<Test>::remove(to_remove, sig));
+            let call = TestCall::DidMod(did::Call::<TestRt>::remove(to_remove, sig));
             let expected_fees: u64 = PRICE_DID_OP / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
@@ -303,7 +319,7 @@ fn call_anchor_deploy() {
     ext().execute_with(|| {
         let dat = (0..32).map(|_| rand::random()).collect();
 
-        let call = TestCall::AnchorMod(anchor::Call::<Test>::deploy(dat));
+        let call = TestCall::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
         let expected_fees: u64 = 32 * PRICE_ANCHOR_OP_PER_BYTE / RATE_DOCK_USD as u64;
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
     });
@@ -318,7 +334,7 @@ fn call_attest() {
         let att = Attestation::new(1, None);
         let sig = sign(&StateChange::Attestation((attester, att.clone())), &kp);
 
-        let call = TestCall::AttestMod(attest::Call::<Test>::set_claim(attester, att, sig));
+        let call = TestCall::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
         let expected_fees: u64 = (8 + 1) * PRICE_ATTEST_OP_PER_BYTE / RATE_DOCK_USD as u64;
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
     });
@@ -338,7 +354,7 @@ fn call_blob_new() {
         };
         let sig = sign(&StateChange::Blob(blob.clone()), &author_kp);
 
-        let call = TestCall::BlobMod(blob::Call::<Test>::new(blob, sig));
+        let call = TestCall::BlobMod(blob::Call::<TestRt>::new(blob, sig));
 
         let expected_fees: u64 = (64 + 999) * PRICE_BLOB_OP_PER_BYTE / RATE_DOCK_USD as u64;
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -393,7 +409,7 @@ mod tests_revoke_calls {
                 ))
                 .collect();
 
-                let call = TestCall::RevokeMod(revoke::Call::<Test>::revoke(revoke, proof));
+                let call = TestCall::RevokeMod(revoke::Call::<TestRt>::revoke(revoke, proof));
                 let expected_fees: u64 =
                     revocation_size * PRICE_REVOKE_REVOCATION_OP / RATE_DOCK_USD as u64;
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -461,7 +477,7 @@ mod tests_revoke_calls {
                 ))
                 .collect();
 
-                let call = TestCall::RevokeMod(revoke::Call::<Test>::unrevoke(unrevoke, proof));
+                let call = TestCall::RevokeMod(revoke::Call::<TestRt>::unrevoke(unrevoke, proof));
                 let expected_fees: u64 =
                     unrevoke_size * PRICE_REVOKE_REVOCATION_OP / RATE_DOCK_USD as u64;
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -491,16 +507,16 @@ mod tests_revoke_calls {
                 let reg_id = random();
                 let reg = Registry { policy, add_only };
 
-                let got_reg = <revoke::Module<Test>>::get_revocation_registry(reg_id);
+                let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
                 assert!(got_reg.is_none());
 
                 let call =
-                    TestCall::RevokeMod(revoke::Call::<Test>::new_registry(reg_id, reg.clone()));
+                    TestCall::RevokeMod(revoke::Call::<TestRt>::new_registry(reg_id, reg.clone()));
 
                 let expected_fees: u64 = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD as u64;
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
-                let got_reg = <revoke::Module<Test>>::get_revocation_registry(reg_id);
+                let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
                 assert!(got_reg.is_some());
                 let (created_reg, created_bloc) = got_reg.unwrap();
                 assert_eq!(created_reg, reg);
@@ -526,7 +542,7 @@ mod tests_revoke_calls {
             ))
             .collect();
 
-            let call = TestCall::RevokeMod(revoke::Call::<Test>::remove_registry(rem, proof));
+            let call = TestCall::RevokeMod(revoke::Call::<TestRt>::remove_registry(rem, proof));
 
             let expected_fees: u64 = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -538,62 +554,6 @@ mod tests_revoke_calls {
     }
 }
 
-// mod tests_root_calls {
-//     use super::*;
-//     use frame_support::dispatch::DispatchError;
-
-//     // #[test]
-//     // fn root_set_update_freq__OK() {
-//     //     ext().execute_with(|| {
-//     //         // Dispatch a signed extrinsic.
-//     //         let executed = FiatFilterModule::root_set_update_freq(RawOrigin::Root.into(), 42u64);
-//     //         assert_ok!(executed);
-//     //         // Read pallet storage and assert an expected result.
-//     //         assert_eq!(FiatFilterModule::update_freq(), 42u64);
-//     //     });
-//     // }
-
-//     // #[test]
-//     // fn root_set_update_freq__Err_NotRoot() {
-//     //     ext().execute_with(|| {
-//     //         // Ensure the expected error is thrown when no value is present.
-//     //         assert_noop!(
-//     //             FiatFilterModule::root_set_update_freq(Origin::signed(ALICE), 42u64),
-//     //             DispatchError::BadOrigin
-//     //         );
-//     //     });
-//     // }
-
-//     // #[test]
-//     // fn root_set_DockFiatRate__OK() {
-//     //     ext().execute_with(|| {
-//     //         // Dispatch a signed extrinsic.
-//     //         let executed = FiatFilterModule::root_set_dock_fiat_rate(
-//     //             RawOrigin::Root.into(),
-//     //             Permill::from_parts(500_000),
-//     //         );
-//     //         assert_ok!(executed);
-
-//     //         // Read pallet storage and assert an expected result.
-//     //         assert_eq!(
-//     //             FiatFilterModule::dock_fiat_rate(),
-//     //             Permill::from_parts(500_000)
-//     //         );
-//     //     });
-//     // }
-
-//     // #[test]
-//     // fn root_set_dock_fiat_rate__Err_NotRoot() {
-//     //     ext().execute_with(|| {
-//     //         // Ensure the expected error is thrown when no value is present.
-//     //         assert_noop!(
-//     //             FiatFilterModule::root_set_update_freq(Origin::signed(ALICE), 42u64),
-//     //             DispatchError::BadOrigin
-//     //         );
-//     //     });
-//     // }
-// }
-
 mod tests_fail_modes {
     use super::*;
     use anchor;
@@ -603,12 +563,12 @@ mod tests_fail_modes {
     fn anchor_new__Err_no_balance() {
         ext().execute_with(|| {
             // empty alice's balance
-            let _ = <Test as Config>::Currency::make_free_balance_be(&ALICE, 0);
+            let _ = <TestRt as Config>::Currency::make_free_balance_be(&ALICE, 0);
             // prepare data
             let dat = (0..32).map(|_| rand::random()).collect();
             // execute call
             let (_fee_microdock, executed) =
-                measure_fees(TestCall::AnchorMod(anchor::Call::<Test>::deploy(dat)));
+                measure_fees(TestCall::AnchorMod(anchor::Call::<TestRt>::deploy(dat)));
             assert_noop!(
                 executed,
                 DispatchError::Module {
@@ -624,12 +584,12 @@ mod tests_fail_modes {
     fn anchor_new__Err_insufficient_balance() {
         ext().execute_with(|| {
             // reduce alice's balance to just under the required fee
-            let _ = <Test as Config>::Currency::make_free_balance_be(&ALICE, 20);
+            let _ = <TestRt as Config>::Currency::make_free_balance_be(&ALICE, 20);
             // prepare data
             let dat = (0..32).map(|_| rand::random()).collect();
             // execute call
             let (_fee_microdock, executed) =
-                measure_fees(TestCall::AnchorMod(anchor::Call::<Test>::deploy(dat)));
+                measure_fees(TestCall::AnchorMod(anchor::Call::<TestRt>::deploy(dat)));
             assert_noop!(
                 executed,
                 DispatchError::Module {
@@ -641,45 +601,6 @@ mod tests_fail_modes {
         });
     }
 
-    // TODO possible to trigger overflow ?
-    // #[test]
-    // fn anchor_new__Err_overflow() {
-    //     ext().execute_with(|| {
-    //         // set the dock_fiat_rate to the minimum to trigger overflow
-    //         // let executed = FiatFilterModule::root_set_dock_fiat_rate(
-    //         //     RawOrigin::Root.into(),
-    //         //     Permill::from_parts(1),
-    //         // );
-    //         let rate_set = FiatFilterModule::PriceProvider::set_rate(651423);
-    //         assert_ok!(executed);
-    //         // prepare data
-    //         let dat = (0..32).map(|_| rand::random()).collect();
-    //         // execute call
-    //         let (_fee_microdock, executed) =
-    //             measure_fees(TestCall::AnchorMod(anchor::Call::<Test>::deploy(dat)));
-    //         assert_noop!(executed, Error::<Test>::ArithmeticOverflow);
-    //     });
-    // }
-
-    // TODO possible to divide by zero ?
-    // #[test]
-    // fn anchor_new__Err_div_by_zero() {
-    //     ext().execute_with(|| {
-    //         // set the dock_fiat_rate to zero to trigger divide error
-    //         let executed = FiatFilterModule::root_set_dock_fiat_rate(
-    //             RawOrigin::Root.into(),
-    //             Permill::from_parts(0),
-    //         );
-    //         assert_ok!(executed);
-    //         // prepare data
-    //         let dat = (0..32).map(|_| rand::random()).collect();
-    //         // execute call
-    //         let (_fee_microdock, executed) =
-    //             measure_fees(TestCall::AnchorMod(anchor::Call::<Test>::deploy(dat)));
-    //         assert_noop!(executed, Error::<Test>::DivideByZero);
-    //     });
-    // }
-
     #[test]
     fn anchor_new__Err_unsigned() {
         ext().execute_with(|| {
@@ -687,11 +608,11 @@ mod tests_fail_modes {
             let dat = (0..32).map(|_| rand::random()).collect();
 
             // execute call
-            let balance_pre = <Test as Config>::Currency::free_balance(ALICE);
-            let call = TestCall::AnchorMod(anchor::Call::<Test>::deploy(dat));
+            let balance_pre = <TestRt as Config>::Currency::free_balance(ALICE);
+            let call = TestCall::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
             let executed =
                 FiatFilterModule::execute_call(RawOrigin::None.into(), Box::new(call.clone()));
-            let balance_post = <Test as Config>::Currency::free_balance(ALICE);
+            let balance_post = <TestRt as Config>::Currency::free_balance(ALICE);
             let fee_microdock = balance_pre - balance_post;
 
             assert_noop!(executed, DispatchError::BadOrigin);
@@ -705,12 +626,12 @@ mod tests_fail_modes {
     fn balance_transfer__Err_unexpectedCall() {
         ext().execute_with(|| {
             // prepare data
-            let call = TestCall::BalanceMod(pallet_balances::Call::<Test>::transfer(BOB, 200));
+            let call = TestCall::BalanceMod(pallet_balances::Call::<TestRt>::transfer(BOB, 200));
 
             // execute call
             let (fee_microdock, executed) = measure_fees(call);
 
-            assert_noop!(executed, Error::<Test>::UnexpectedCall);
+            assert_noop!(executed, Error::<TestRt>::UnexpectedCall);
             let pdi = executed.unwrap_err();
             assert_eq!(pdi.post_info.pays_fee, Pays::Yes);
 
@@ -720,31 +641,164 @@ mod tests_fail_modes {
     }
 }
 
-// mod tests_dock_fiat_rate {
-//     use super::*;
-//     use anchor;
+mod tests_dock_fiat_rate {
+    use crate::*;
+    use frame_support::assert_ok;
 
-//     #[test]
-//     fn call_anchor_deploy__OK_different_rate() {
-//         ext().execute_with(|| {
-//             // set the dock_fiat_rate to zero to trigger divide error
-//             // let executed = FiatFilterModule::root_set_dock_fiat_rate(
-//             //     RawOrigin::Root.into(),
-//             //     Permill::from_parts(100_000),
-//             // );
-//             // assert_ok!(executed);
+    #[test]
+    fn call_anchor_deploy__OK_different_rate() {
+        super::ext_price2().execute_with(|| {
+            use super::testrt_price2::TestRt as TestRtPrice2;
+            use super::testrt_price2::*;
+            use super::{ALICE, RATE_DOCK_USD_2};
 
-//             // prepare data and call
-//             let dat = (0..32).map(|_| rand::random()).collect();
-//             let call = TestCall::AnchorMod(anchor::Call::<Test>::deploy(dat));
+            let dat = (0..32).map(|_| rand::random()).collect();
+            let call = TestCall::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
 
-//             let (fee_microdock, executed) = measure_fees(call);
-//             assert_ok!(executed);
+            let expected_fees: u64 = 32 * PRICE_ANCHOR_OP_PER_BYTE / RATE_DOCK_USD_2 as u64;
 
-//             let pdi = executed.unwrap();
-//             assert!(pdi.pays_fee == Pays::No);
-//             const _60_CENTS: u64 = 6000000; // at the new rate
-//             assert_eq!(fee_microdock, _60_CENTS);
-//         });
-//     }
-// }
+            let balance_pre = <TestRtPrice2 as Config>::Currency::free_balance(ALICE);
+            let executed =
+                FiatFilterModule::execute_call(Origin::signed(ALICE), Box::new(call.clone()));
+            let balance_post = <TestRtPrice2 as Config>::Currency::free_balance(ALICE);
+            let fee_microdock = balance_pre - balance_post;
+
+            assert_ok!(executed);
+            let pdi = executed.unwrap();
+            assert!(pdi.pays_fee == Pays::No);
+            assert_eq!(fee_microdock, expected_fees);
+        });
+    }
+}
+
+mod testrt_price2 {
+    use crate::*;
+    use core_mods::{anchor, did};
+    use frame_support::traits::Filter;
+    use frame_support::weights::Weight;
+    use frame_support::{impl_outer_dispatch, impl_outer_origin, parameter_types};
+    use frame_system as system;
+    use sp_core::H256;
+    use sp_runtime::{
+        testing::Header,
+        traits::{BlakeTwo256, IdentityLookup},
+    };
+
+    impl_outer_origin! {
+        pub enum Origin for TestRt where system = frame_system {}
+    }
+    type SystemMod = frame_system::Module<TestRt>;
+    type DidMod = did::Module<TestRt>;
+    type AnchorMod = anchor::Module<TestRt>;
+    type BlobMod = blob::Module<TestRt>;
+    type RevokeMod = revoke::Module<TestRt>;
+    type AttestMod = attest::Module<TestRt>;
+    type BalanceMod = pallet_balances::Module<TestRt>;
+    impl_outer_dispatch! {
+        pub enum TestCall for TestRt where origin: Origin {
+            did::DidMod,
+            anchor::AnchorMod,
+            blob::BlobMod,
+            revoke::RevokeMod,
+            attest::AttestMod,
+            system::SystemMod,
+            balance::BalanceMod,
+        }
+    }
+
+    // Configure a mock runtime to test the pallet.
+    #[derive(Clone, Eq, PartialEq)]
+    pub struct TestRt;
+    parameter_types! {
+        pub const BlockHashCount: u64 = 250;
+    }
+    pub struct BaseFilter;
+    impl Filter<TestCall> for BaseFilter {
+        fn filter(call: &TestCall) -> bool {
+            match call {
+                // filter out core_mods TestCalls so they're only done through fiat_filter
+                TestCall::AnchorMod(_) => false,
+                TestCall::BlobMod(_) => false,
+                TestCall::DidMod(_) => false,
+                TestCall::RevokeMod(_) => false,
+                TestCall::AttestMod(_) => false,
+                _ => true,
+            }
+        }
+    }
+    impl system::Config for TestRt {
+        type BaseCallFilter = BaseFilter;
+        type Origin = Origin;
+        type Call = TestCall;
+        type Index = u64;
+        type BlockNumber = u64;
+        type Hash = H256;
+        type Hashing = BlakeTwo256;
+        type AccountId = u64;
+        type Lookup = IdentityLookup<Self::AccountId>;
+        type Header = Header;
+        type Event = ();
+        type BlockHashCount = BlockHashCount;
+        type DbWeight = ();
+        type Version = ();
+        type PalletInfo = ();
+        type AccountData = pallet_balances::AccountData<u64>;
+        type OnNewAccount = ();
+        type OnKilledAccount = ();
+        type SystemWeightInfo = ();
+        type BlockWeights = ();
+        type BlockLength = ();
+        type SS58Prefix = ();
+    }
+
+    impl Config for TestRt {
+        type PriceProvider = TestPriceProvider2;
+        type Call = TestCall;
+        type Currency = pallet_balances::Module<Self>;
+    }
+
+    parameter_types! {
+        pub const ExistentialDeposit: u64 = 1;
+    }
+    impl pallet_balances::Config for TestRt {
+        type MaxLocks = ();
+        type Balance = u64;
+        type Event = ();
+        type DustRemoval = ();
+        type ExistentialDeposit = ExistentialDeposit;
+        type AccountStore = SystemMod;
+        type WeightInfo = ();
+    }
+    impl anchor::Trait for TestRt {
+        type Event = ();
+    }
+    impl did::Trait for TestRt {
+        type Event = ();
+    }
+    impl revoke::Trait for TestRt {}
+
+    parameter_types! {
+        pub const MaxBlobSize: u32 = 1024;
+        pub const StorageWeight: Weight = 1100;
+    }
+    impl blob::Trait for TestRt {
+        type MaxBlobSize = MaxBlobSize;
+        type StorageWeight = StorageWeight;
+    }
+
+    impl attest::Trait for TestRt {
+        type StorageWeight = StorageWeight;
+    }
+
+    pub struct TestPriceProvider2;
+    impl common::PriceProvider for TestPriceProvider2 {
+        fn get_dock_usd_price() -> Option<(u32, u64)> {
+            Some((super::RATE_DOCK_USD_2, 0))
+        }
+        fn optimized_get_dock_usd_price() -> Option<(u32, u64)> {
+            Some((super::RATE_DOCK_USD_2, 0))
+        }
+    }
+
+    pub type FiatFilterModule = Module<TestRt>;
+}
