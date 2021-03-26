@@ -637,7 +637,7 @@ impl price_feed::Config for Runtime {
 }
 
 impl fiat_filter::Config for Runtime {
-    type Event = Event;
+    // type Event = Event;
     type Call = Call;
     type PriceProvider = price_feed::Module<Runtime>;
     type Currency = balances::Module<Runtime>;
@@ -696,7 +696,7 @@ construct_runtime!(
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
         PriceFeedModule: price_feed::{Module, Call, Storage, Event, Config},
-        FiatFilter: fiat_filter::{Module, Call, Storage, Event<T>},
+        FiatFilter: fiat_filter::{Module, Call},
     }
 );
 

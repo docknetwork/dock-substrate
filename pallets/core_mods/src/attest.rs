@@ -25,7 +25,7 @@ pub trait Trait: system::Config + did::Trait {
 pub struct Attestation {
     #[codec(compact)]
     priority: u64,
-    iri: Option<Iri>,
+    pub iri: Option<Iri>,
 }
 impl Attestation {
     /// Create new Attestation
