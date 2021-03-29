@@ -1234,7 +1234,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.12.3"
+version = "0.12.4"
 dependencies = [
  "forked-pallet-democracy",
  "frame-benchmarking",
@@ -4404,7 +4404,7 @@ checksum = "feb3b2b1033b8a60b4da6ee470325f887758c95d5320f52f9ce0df055a55940e"
 
 [[package]]
 name = "poa"
-version = "0.6.2"
+version = "0.6.3"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -4423,7 +4423,7 @@ dependencies = [
 
 [[package]]
 name = "poa_rpc"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "jsonrpc-core",
  "jsonrpc-core-client",

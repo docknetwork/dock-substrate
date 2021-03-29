@@ -472,6 +472,26 @@ decl_module! {
             Self::force_transfer_both_(&source, &dest, free, reserved)?;
             Ok(Pays::No.into())
         }
+
+        /// Mint new tokens into a destination address and increase the total issuance.
+        /// This call is dangerous and can be abused by a malicious Root
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        pub fn mint(origin, dest: <T::Lookup as StaticLookup>::Source, #[compact] amount: BalanceOf<T>) -> dispatch::DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let dest = T::Lookup::lookup(dest)?;
+            T::Currency::deposit_creating(&dest, amount);
+            Ok(Pays::No.into())
+        }
+        
+        /// Burn existing tokens from a source address and decrease the total issuance.
+        /// This call is dangerous and can be abused by a malicious Root
+        #[weight = T::DbWeight::get().reads_writes(2, 2)]
+        pub fn burn(origin, source: <T::Lookup as StaticLookup>::Source, #[compact] amount: BalanceOf<T>) -> dispatch::DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            let source = T::Lookup::lookup(source)?;
+            T::Currency::slash(&source, amount);
+            Ok(Pays::No.into())
+        }
     }
 }
 
@@ -489,7 +509,7 @@ impl<T: Trait> Module<T> {
             // The new validator should be added in front of the queue if its not present
             // in the queue else move it front of the queue
             let mut validators = Self::validators_to_add();
-            // Remove all occurences of validator_id from queue
+            // Remove all occurrences of validator_id from queue
             Self::remove_validator_id(&validator_id, &mut validators);
             print("Adding a new validator at front");
 

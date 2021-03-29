@@ -25,6 +25,7 @@ pub struct TestRuntime;
 type PoAModule = Module<TestRuntime>;
 
 type System = system::Module<TestRuntime>;
+type Balances = balances::Module<TestRuntime>;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -1771,6 +1772,92 @@ fn force_transfer_both() {
         assert_eq!(
             <TestRuntime as Trait>::Currency::reserved_balance(&dest),
             520
+        );
+    });
+}
+
+#[test]
+fn mint_burn() {
+    new_test_ext().execute_with(|| {
+        let source = 1;
+        let dest = 2;
+
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&source, 1000);
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&dest, 2000);
+
+        assert_eq!(Balances::total_issuance(), 3000);
+
+        // Only Root can make the call
+        assert!(PoAModule::mint(Origin::signed(4), dest, 10).is_err());
+        assert!(PoAModule::burn(Origin::signed(5), source, 10).is_err());
+
+        // Minting tokens increases recipient's balance and total issuance.
+        PoAModule::mint(RawOrigin::Root.into(), dest,100).unwrap();
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&dest), 2100);
+        assert_eq!(Balances::total_issuance(), 3100);
+
+        // Burning tokens decreases target's balance and total issuance.
+        PoAModule::burn(RawOrigin::Root.into(), source,100).unwrap();
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&source), 900);
+        assert_eq!(Balances::total_issuance(), 3000);
+
+        // Burning more tokens than target's balance reduces target's balance to 0 and decreases total issuance.
+        PoAModule::burn(RawOrigin::Root.into(), source,1000).unwrap();
+        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&source), 0);
+        assert_eq!(Balances::total_issuance(), 2100);
+    });
+}
+
+#[test]
+fn evm_fees_are_received() {
+    // Check that fees charged by EVM are received by PoA module
+    new_test_ext().execute_with(|| {
+        let evm_addr = H160::from_str("0100000000000000000000000000000000000000").unwrap(); // Hex for value 1
+        let addr = 1; // Corresponds to above `evm_addr` according to `TestAddressMapping`
+
+        let evm_config = <TestRuntime as pallet_evm::Config>::config();
+
+        let initial_bal = 1000000;
+        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&addr, initial_bal);
+
+        // Txn fees for the block is 0 initially.
+        assert_eq!(<TxnFees<TestRuntime>>::get(), 0);
+
+        // Using arbitrary bytecode as i only need to check fees. This arbitrary code will consume max gas
+        <TestRuntime as pallet_evm::Config>::Runner::create(
+            evm_addr,
+            hex::decode("608060405234801561001057600080fd").unwrap(),
+            U256::zero(),
+            1000,
+            Some(U256::from(1)),
+            Some(U256::zero()),
+            evm_config,
+        )
+        .unwrap();
+
+        // Txn fees is received by the module
+        let fees = <TxnFees<TestRuntime>>::get();
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::free_balance(&addr),
+            initial_bal - fees
+        );
+
+        // Using arbitrary bytecode as i only need to check fees. This arbitrary code will consume max gas
+        <TestRuntime as pallet_evm::Config>::Runner::create(
+            evm_addr,
+            hex::decode("608060405234801561001057600080fd1010ff25").unwrap(),
+            U256::zero(),
+            1000,
+            Some(U256::from(1)),
+            Some(U256::zero()),
+            evm_config,
+        )
+        .unwrap();
+        // Txn fees is accumulated
+        let fees = <TxnFees<TestRuntime>>::get();
+        assert_eq!(
+            <TestRuntime as Trait>::Currency::free_balance(&addr),
+            initial_bal - fees
         );
     });
 }

@@ -23,7 +23,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = '../runtime'
-version = '0.12.3'
+version = '0.12.4'
 
 [dependencies.sc-basic-authorship]
 version = '0.8.1'
@@ -116,7 +116,7 @@ version = '2.0.1'
 
 [dependencies.poa_rpc]
 path = '../pallets/poa/rpc'
-version = '0.0.5'
+version = '0.0.6'
 
 [[bin]]
 name = 'dock-node'

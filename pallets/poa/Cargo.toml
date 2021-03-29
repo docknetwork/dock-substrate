@@ -1,6 +1,6 @@
 [package]
 name = "poa"
-version = "0.6.2"
+version = "0.6.3"
 authors = ["Dock.io"]
 edition = "2018"
 license = 'Apache-2.0'
