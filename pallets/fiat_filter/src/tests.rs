@@ -217,7 +217,6 @@ fn exec_assert_fees(call: TestCall, expected_fees: u64) -> (u64, DispatchResultW
 
     let pdi = executed.unwrap();
     assert!(pdi.pays_fee == Pays::No);
-    dbg!(fee_microdock, expected_fees); // TODO rm
     assert_eq!(fee_microdock, expected_fees);
     return (fee_microdock, executed);
 }
@@ -323,13 +322,36 @@ fn call_anchor_deploy() {
 }
 
 #[test]
-fn call_attest() {
+fn call_attest__iri_none() {
     use attest::Attestation;
 
     ext().execute_with(|| {
         let (attester, kp) = newdid(ALICE);
-        let att = Attestation::new(1, None);
+        let att = Attestation {
+            priority: 1,
+            iri: None,
+        };
         let size_attested: u64 = att.iri.clone().unwrap_or([1].to_vec()).len() as u64;
+        assert_eq!(size_attested, 1);
+        let sig = sign(&StateChange::Attestation((attester, att.clone())), &kp);
+
+        let call = TestCall::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
+        let expected_fees: u64 = size_attested * PRICE_ATTEST_PER_IRI_BYTE / RATE_DOCK_USD as u64;
+        let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
+    });
+}
+#[test]
+fn call_attest__iri_some() {
+    use attest::Attestation;
+
+    ext().execute_with(|| {
+        let (attester, kp) = newdid(ALICE);
+        let att = Attestation {
+            priority: 1,
+            iri: Some("http://hello.world".as_bytes().to_vec()),
+        };
+        let size_attested: u64 = att.iri.clone().unwrap_or([1].to_vec()).len() as u64;
+        assert_eq!(size_attested, 18);
         let sig = sign(&StateChange::Attestation((attester, att.clone())), &kp);
 
         let call = TestCall::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
