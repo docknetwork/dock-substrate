@@ -9,7 +9,7 @@ use frame_support::{
         UnfilteredDispatchable,
     },
     traits::{Currency, ExistenceRequirement, IsSubType, WithdrawReasons},
-    weights::{GetDispatchInfo, Pays},
+    weights::{GetDispatchInfo, Pays, Weight},
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
@@ -80,12 +80,18 @@ type BalanceOf<T> =
 type AmountUsd = u64;
 
 // all prices given in nUSD (billionth USD)
+// This unit is chosen to avoid multiplications later in compute_call_fee_dock_()
 pub const PRICE_DID_OP: u64 = 100_000; // 100_000/1B or 0.0001 USD
-pub const PRICE_ANCHOR_OP_PER_BYTE: u64 = 1000;
-pub const PRICE_BLOB_OP_PER_BYTE: u64 = 1000;
-pub const PRICE_REVOKE_REGISTRY_OP: u64 = 40_000;
-pub const PRICE_REVOKE_REVOCATION_OP: u64 = 20_000;
-pub const PRICE_ATTEST_OP_PER_BYTE: u64 = 1000;
+pub const PRICE_ANCHOR_OP_PER_BYTE: u64 = 2000;
+pub const PRICE_BLOB_OP_PER_BYTE: u64 = 2000;
+pub const PRICE_REVOKE_REGISTRY_OP: u64 = 100_000;
+pub const PRICE_REVOKE_OP_CONST_FACTOR: u64 = 50_000;
+pub const PRICE_REVOKE_PER_REVOCATION: u64 = 20_000;
+pub const PRICE_ATTEST_PER_IRI_BYTE: u64 = 2000;
+
+// minimum price, in case the price fetched from optimized_get_dock_usd_price is zero or an error
+// expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the aactual result from optimized_get_dock_usd_price
+pub const MIN_RATE_DOCK_USD: u32 = 1;
 
 // private helper functions
 impl<T: Config> Module<T>
@@ -106,14 +112,14 @@ where
         };
         match call.is_sub_type() {
             Some(anchor::Call::deploy(bytes)) => {
-                return Ok(PRICE_ANCHOR_OP_PER_BYTE * bytes.len() as u64)
+                return Ok(PRICE_ANCHOR_OP_PER_BYTE.saturating_mul(bytes.len() as u64))
             }
             _ => {}
         };
         match call.is_sub_type() {
             Some(blob::Call::new(blob, _sig)) => {
-                let size: u64 = 64 + blob.blob.len() as u64;
-                return Ok(PRICE_BLOB_OP_PER_BYTE * size);
+                let size: u64 = blob.blob.len() as u64;
+                return Ok(PRICE_BLOB_OP_PER_BYTE.saturating_mul(size));
             }
             _ => {}
         };
@@ -126,22 +132,21 @@ where
             }
 
             Some(revoke::Call::revoke(revocation, _proof)) => {
-                // 32 bytes for the registry_ID, 32 bytes per revocation
-                let size: u64 = 32 + 32 * revocation.revoke_ids.len() as u64;
-                return Ok(PRICE_REVOKE_REVOCATION_OP * size);
+                return Ok(PRICE_REVOKE_PER_REVOCATION
+                    .saturating_mul(revocation.revoke_ids.len() as u64)
+                    .saturating_add(PRICE_REVOKE_OP_CONST_FACTOR));
             }
             Some(revoke::Call::unrevoke(unrevoke, _proof)) => {
-                // 32 bytes for the registry_ID, 32 bytes per unrevocation
-                let size: u64 = 32 + 32 * unrevoke.revoke_ids.len() as u64;
-                return Ok(PRICE_REVOKE_REVOCATION_OP * size);
+                return Ok(PRICE_REVOKE_PER_REVOCATION
+                    .saturating_mul(unrevoke.revoke_ids.len() as u64)
+                    .saturating_add(PRICE_REVOKE_OP_CONST_FACTOR));
             }
             _ => {}
         };
         match call.is_sub_type() {
             Some(attest::Call::set_claim(_attester, attestation, _sig)) => {
-                // 8 bytes for the priority, plus IRI bytes
-                let size: u64 = 8 + attestation.iri.as_ref().unwrap_or(&[1].to_vec()).len() as u64;
-                return Ok(PRICE_ATTEST_OP_PER_BYTE * size);
+                let size: u64 = attestation.iri.as_ref().unwrap_or(&[1].to_vec()).len() as u64;
+                return Ok(PRICE_ATTEST_PER_IRI_BYTE.saturating_mul(size));
             }
             _ => {}
         }
@@ -153,16 +158,17 @@ where
 
     fn compute_call_fee_dock_(
         call: &<T as Config>::Call,
-    ) -> Result<BalanceOf<T>, DispatchErrorWithPostInfo> {
+    ) -> Result<(BalanceOf<T>, Weight), DispatchErrorWithPostInfo> {
         // the fee in fiat is expressed in nUSD (1 billionth USD)
         let fee_usd_billionth: AmountUsd = Self::get_call_fee_fiat_(call)?;
 
         // the DOCK/USD rate in the price_feed pallet is the price of 1DOCK,
         // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK)
-        let dock_usd1000th_rate: u32 =
+        let (dock_usd1000th_rate, weight): (u32, Weight) =
             match <T as Config>::PriceProvider::optimized_get_dock_usd_price() {
-                Some((rate, _weight)) => rate,
-                None => return Err(Error::<T>::NoPriceFound.into()),
+                Some((rate, weight)) => (sp_std::cmp::max(rate, MIN_RATE_DOCK_USD), weight),
+                // None => return Err(Error::<T>::NoPriceFound.into()),
+                None => (MIN_RATE_DOCK_USD, 10_000), // TODO remove error in Errors
             };
 
         // we want the result fee, expressed in µDOCK (1 millionth DOCK)
@@ -174,7 +180,7 @@ where
         // The token has 6 decimal places (defined in the runtime)
         // See in runtime: pub const DOCK: Balance = 1_000_000;
         // T::Balance is already expressed in µDOCK (1 millionth DOCK)
-        Ok(<BalanceOf<T>>::from(fee_microdock))
+        Ok((<BalanceOf<T>>::from(fee_microdock), weight))
     }
 
     fn charge_fees_(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
@@ -188,26 +194,26 @@ where
     }
 
     fn execute_call_(origin: T::Origin, call: &<T as Config>::Call) -> DispatchResultWithPostInfo {
-        let weight = call.get_dispatch_info().weight;
         // check signature before charging any fees
         let sender = ensure_signed(origin.clone())?;
 
         // calculate fee based on type of call
-        let fee_dock = Self::compute_call_fee_dock_(&call)?;
+        let (fee_dock, weight_get_price) = Self::compute_call_fee_dock_(&call)?;
         // deduct fees based on Currency::Withdraw
         Self::charge_fees_(sender, fee_dock)?;
 
+        let weight_total = call.get_dispatch_info().weight + weight_get_price;
         let dispatch_result = call.clone().dispatch_bypass_filter(origin);
         return match dispatch_result {
             Ok(_post_dispatch_info) => Ok(PostDispatchInfo {
-                actual_weight: Some(weight),
+                actual_weight: Some(weight_total),
                 pays_fee: Pays::No,
             }),
             Err(e) => {
                 frame_support::debug::info!("{:?}", &e);
                 Err(DispatchErrorWithPostInfo {
                     post_info: PostDispatchInfo {
-                        actual_weight: Some(weight),
+                        actual_weight: Some(weight_total),
                         pays_fee: Pays::No,
                     },
                     error: e.error,
