@@ -406,7 +406,7 @@ mod tests_did_calls {
             );
 
             let call = Call::DIDMod(did::Call::<TestRt>::new(d.clone(), key_detail));
-            let expected_fees: u64 = PRICE_DID_OP / RATE_DOCK_USD as u64;
+            let expected_fees = PRICE_DID_OP / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -444,7 +444,7 @@ mod tests_did_calls {
 
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
             let call = Call::DIDMod(did::Call::<TestRt>::update_key(key_update, sig));
-            let expected_fees: u64 = PRICE_DID_OP / RATE_DOCK_USD as u64;
+            let expected_fees = PRICE_DID_OP / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -462,7 +462,7 @@ mod tests_did_calls {
             });
 
             let call = Call::DIDMod(did::Call::<TestRt>::remove(to_remove, sig));
-            let expected_fees: u64 = PRICE_DID_OP / RATE_DOCK_USD as u64;
+            let expected_fees = PRICE_DID_OP / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -476,7 +476,7 @@ fn call_anchor_deploy() {
         let dat = (0..32).map(|_| rand::random()).collect();
 
         let call = Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
-        let expected_fees: u64 = 32 * PRICE_ANCHOR_OP_PER_BYTE / RATE_DOCK_USD as u64;
+        let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / RATE_DOCK_USD;
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
     });
 }
@@ -494,13 +494,13 @@ mod test_attest_calls {
                 priority: 1,
                 iri: None,
             };
-            let size_attested: u64 = att.iri.clone().unwrap_or([1].to_vec()).len() as u64;
+            let size_attested = att.iri.clone().unwrap_or([1].to_vec()).len() as u32;
             assert_eq!(size_attested, 1);
             let sig = sign(&StateChange::Attestation((attester, att.clone())), &kp);
 
             let call = Call::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
-            let expected_fees: u64 =
-                size_attested * PRICE_ATTEST_PER_IRI_BYTE / RATE_DOCK_USD as u64;
+            let expected_fees =
+                size_attested * PRICE_ATTEST_PER_IRI_BYTE / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -515,13 +515,13 @@ mod test_attest_calls {
                 priority: 1,
                 iri: Some("http://hello.world".as_bytes().to_vec()),
             };
-            let size_attested: u64 = att.iri.clone().unwrap_or([1].to_vec()).len() as u64;
+            let size_attested = att.iri.clone().unwrap_or([1].to_vec()).len() as u32;
             assert_eq!(size_attested, 18);
             let sig = sign(&StateChange::Attestation((attester, att.clone())), &kp);
 
             let call = Call::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
-            let expected_fees: u64 =
-                size_attested * PRICE_ATTEST_PER_IRI_BYTE / RATE_DOCK_USD as u64;
+            let expected_fees =
+                size_attested * PRICE_ATTEST_PER_IRI_BYTE / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -543,7 +543,7 @@ fn call_blob_new() {
 
         let call = Call::BlobMod(blob::Call::<TestRt>::new(blob, sig));
 
-        let expected_fees: u64 = 999 * PRICE_BLOB_OP_PER_BYTE / RATE_DOCK_USD as u64;
+        let expected_fees = 999 * PRICE_BLOB_OP_PER_BYTE / RATE_DOCK_USD;
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
     });
 }
@@ -589,7 +589,7 @@ mod tests_revoke_calls {
                     revoke_ids: ids.iter().cloned().collect(),
                     last_modified: block_no() as u32,
                 };
-                let revocation_size: u64 = ids.len() as u64;
+                let revocation_size = ids.len() as u32;
                 let proof = std::iter::once((
                     did_alice,
                     sign(&StateChange::Revoke(revoke.clone()), &kp_alice),
@@ -597,9 +597,9 @@ mod tests_revoke_calls {
                 .collect();
 
                 let call = Call::RevokeMod(revoke::Call::<TestRt>::revoke(revoke, proof));
-                let expected_fees_nusd: u64 =
+                let expected_fees_nusd =
                     PRICE_REVOKE_OP_CONST_FACTOR + revocation_size * PRICE_REVOKE_PER_REVOCATION;
-                let expected_fees: u64 = expected_fees_nusd / RATE_DOCK_USD as u64;
+                let expected_fees = expected_fees_nusd / RATE_DOCK_USD;
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
                 // assert ids in registry
@@ -658,7 +658,7 @@ mod tests_revoke_calls {
                     revoke_ids: revoke.revoke_ids.clone(),
                     last_modified,
                 };
-                let unrevoke_size: u64 = unrevoke.revoke_ids.len() as u64;
+                let unrevoke_size = unrevoke.revoke_ids.len() as u32;
                 let proof = std::iter::once((
                     did_alice,
                     sign(&StateChange::UnRevoke(unrevoke.clone()), &kp_alice),
@@ -666,9 +666,9 @@ mod tests_revoke_calls {
                 .collect();
 
                 let call = Call::RevokeMod(revoke::Call::<TestRt>::unrevoke(unrevoke, proof));
-                let expected_fees_nusd: u64 =
+                let expected_fees_nusd =
                     PRICE_REVOKE_OP_CONST_FACTOR + unrevoke_size * PRICE_REVOKE_PER_REVOCATION;
-                let expected_fees: u64 = expected_fees_nusd / RATE_DOCK_USD as u64;
+                let expected_fees = expected_fees_nusd / RATE_DOCK_USD;
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
                 // assert unrevoked
@@ -702,7 +702,7 @@ mod tests_revoke_calls {
                 let call =
                     Call::RevokeMod(revoke::Call::<TestRt>::new_registry(reg_id, reg.clone()));
 
-                let expected_fees: u64 = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD as u64;
+                let expected_fees = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD;
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
                 let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
@@ -733,7 +733,7 @@ mod tests_revoke_calls {
 
             let call = Call::RevokeMod(revoke::Call::<TestRt>::remove_registry(rem, proof));
 
-            let expected_fees: u64 = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD as u64;
+            let expected_fees = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
             // assert registry removed

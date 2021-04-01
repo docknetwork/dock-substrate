@@ -72,17 +72,17 @@ decl_module! {
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
-type AmountUsd = u64;
+type AmountUsd = u32;
 
 // all prices given in nUSD (billionth USD)
 // This unit is chosen to avoid multiplications later in compute_call_fee_dock_()
-pub const PRICE_DID_OP: u64 = 100_000; // 100_000/1B or 0.0001 USD
-pub const PRICE_ANCHOR_OP_PER_BYTE: u64 = 2000;
-pub const PRICE_BLOB_OP_PER_BYTE: u64 = 2000;
-pub const PRICE_REVOKE_REGISTRY_OP: u64 = 100_000;
-pub const PRICE_REVOKE_OP_CONST_FACTOR: u64 = 50_000;
-pub const PRICE_REVOKE_PER_REVOCATION: u64 = 20_000;
-pub const PRICE_ATTEST_PER_IRI_BYTE: u64 = 2000;
+pub const PRICE_DID_OP: u32 = 100_000; // 100_000/1B or 0.0001 USD
+pub const PRICE_ANCHOR_OP_PER_BYTE: u32 = 2000;
+pub const PRICE_BLOB_OP_PER_BYTE: u32 = 2000;
+pub const PRICE_REVOKE_REGISTRY_OP: u32 = 100_000;
+pub const PRICE_REVOKE_OP_CONST_FACTOR: u32 = 50_000;
+pub const PRICE_REVOKE_PER_REVOCATION: u32 = 20_000;
+pub const PRICE_ATTEST_PER_IRI_BYTE: u32 = 2000;
 
 // minimum price, in case the price fetched from optimized_get_dock_usd_price is zero or an error
 // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the aactual result from optimized_get_dock_usd_price
@@ -103,13 +103,13 @@ impl<T: Config> Module<T>
         };
         match call.is_sub_type() {
             Some(anchor::Call::deploy(bytes)) => {
-                return Ok(PRICE_ANCHOR_OP_PER_BYTE.saturating_mul(bytes.len() as u64))
+                return Ok(PRICE_ANCHOR_OP_PER_BYTE.saturating_mul(bytes.len() as u32))
             }
             _ => {}
         };
         match call.is_sub_type() {
             Some(blob::Call::new(blob, _sig)) => {
-                let size: u64 = blob.blob.len() as u64;
+                let size: u32 = blob.blob.len() as u32;
                 return Ok(PRICE_BLOB_OP_PER_BYTE.saturating_mul(size));
             }
             _ => {}
@@ -124,19 +124,19 @@ impl<T: Config> Module<T>
 
             Some(revoke::Call::revoke(revocation, _proof)) => {
                 return Ok(PRICE_REVOKE_PER_REVOCATION
-                    .saturating_mul(revocation.revoke_ids.len() as u64)
+                    .saturating_mul(revocation.revoke_ids.len() as u32)
                     .saturating_add(PRICE_REVOKE_OP_CONST_FACTOR));
             }
             Some(revoke::Call::unrevoke(unrevoke, _proof)) => {
                 return Ok(PRICE_REVOKE_PER_REVOCATION
-                    .saturating_mul(unrevoke.revoke_ids.len() as u64)
+                    .saturating_mul(unrevoke.revoke_ids.len() as u32)
                     .saturating_add(PRICE_REVOKE_OP_CONST_FACTOR));
             }
             _ => {}
         };
         match call.is_sub_type() {
             Some(attest::Call::set_claim(_attester, attestation, _sig)) => {
-                let size: u64 = attestation.iri.as_ref().unwrap_or(&[1].to_vec()).len() as u64;
+                let size: u32 = attestation.iri.as_ref().unwrap_or(&[1].to_vec()).len() as u32;
                 return Ok(PRICE_ATTEST_PER_IRI_BYTE.saturating_mul(size));
             }
             _ => {}
@@ -150,18 +150,6 @@ impl<T: Config> Module<T>
         call: &<T as Config>::Call,
     ) -> Result<(BalanceOf<T>, Weight), DispatchError> {
         // the fee in fiat is expressed in nUSD (1 billionth USD)
-        /*let fee_usd_billionth: AmountUsd = match Self::get_call_fee_fiat_(call) {
-            Ok(fee) => fee,
-            Err(e) => {
-                return Err(DispatchErrorWithPostInfo {
-                    post_info: PostDispatchInfo {
-                        actual_weight: None,
-                        pays_fee: Pays::No,
-                    },
-                    error: e.into(),
-                });
-            }
-        };*/
         let fee_usd_billionth: AmountUsd = Self::get_call_fee_fiat_(call)?;
 
         // the DOCK/USD rate in the price_feed pallet is the price of 1DOCK,
@@ -175,10 +163,7 @@ impl<T: Config> Module<T>
 
         // we want the result fee, expressed in µDOCK (1 millionth DOCK)
         // no need for any multiplication factor since (1/1B USD)/(1/1000 USD/DOCK) already == (1/1M DOCK)
-        /*let fee_microdock: u64 = fee_usd_billionth
-            .checked_div(dock_usd1000th_rate as u64)
-            .ok_or(Error::<T>::DivideByZero)?;*/
-        let fee_microdock: u64 = fee_usd_billionth / (dock_usd1000th_rate as u64);
+        let fee_microdock = fee_usd_billionth / dock_usd1000th_rate;
 
         // The token has 6 decimal places (defined in the runtime)
         // See in runtime: pub const DOCK: Balance = 1_000_000;

@@ -293,14 +293,14 @@ pub fn random_bytes(len: usize) -> Vec<u8> {
     ret
 }
 
-pub fn measure_fees(call: Call) -> (u64, DispatchResultWithPostInfo) {
+pub fn measure_fees(call: Call) -> (u32, DispatchResultWithPostInfo) {
     let balance_pre = <TestRt as Config>::Currency::free_balance(ALICE);
     let executed = FiatFilterModule::execute_call(Origin::signed(ALICE), Box::new(call.clone()));
     let balance_post = <TestRt as Config>::Currency::free_balance(ALICE);
-    let fee_microdock = balance_pre - balance_post;
+    let fee_microdock = (balance_pre - balance_post) as u32;
     return (fee_microdock, executed);
 }
-pub fn exec_assert_fees(call: Call, expected_fees: u64) -> (u64, DispatchResultWithPostInfo) {
+pub fn exec_assert_fees(call: Call, expected_fees: u32) -> (u32, DispatchResultWithPostInfo) {
     let (fee_microdock, executed) = measure_fees(call);
     assert_ok!(executed);
 
