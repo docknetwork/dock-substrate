@@ -179,7 +179,7 @@ git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [build-dependencies.substrate-wasm-builder]
-version = '3.0.0'
+version = '4.0.0'
 
 [dependencies.pallet-session]
 default_features = false
@@ -245,33 +245,33 @@ optional = true
 default-features = false
 version = '3.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
+rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
 #path = '../../../frontier/frame/evm'
 
 [dependencies.pallet-ethereum]
 default-features = false
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
+rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.pallet-evm-precompile-simple]
 default-features = false
 version = '3.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
+rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
 
 [dependencies.pallet-evm-precompile-sha3fips]
 default-features = false
 version = '3.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
+rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
 
 [dependencies.fp-rpc]
 default-features = false
 version = '0.1.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'ed80fba7abbcfa27cf232b05b129b63247b61088'
+rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]

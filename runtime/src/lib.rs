@@ -584,19 +584,16 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
     }
 }
 
-parameter_types! {
-    pub BlockGasLimit: U256 = U256::from(u32::max_value());
-}
-
 impl pallet_ethereum::Config for Runtime {
     type Event = Event;
     type FindAuthor = EthereumFindAuthor<Aura>;
     type StateRoot = pallet_ethereum::IntermediateStateRoot;
-    type BlockGasLimit = BlockGasLimit;
 }
 
 parameter_types! {
-    pub const DockChainId: u64 = 2021;
+    // Keeping 22 as its the ss58 prefix of mainnet
+    pub const DockChainId: u64 = 22;
+    pub BlockGasLimit: U256 = U256::from(u32::max_value());
 }
 
 /*
@@ -659,6 +656,8 @@ impl pallet_evm::Config for Runtime {
     type ChainId = DockChainId;
     /// Deducted fee will be handled by the PoA module
     type OnChargeTransaction = EVMCurrencyAdapter<Balances, PoAModule>;
+
+    type BlockGasLimit = BlockGasLimit;
 
     fn config() -> &'static EvmConfig {
         // EvmConfig::frontier() has `create_contract_limit` set to None but causes runtime panic

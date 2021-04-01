@@ -3,7 +3,7 @@ use crate as price_feed;
 use frame_support::parameter_types;
 use frame_system as system;
 use pallet_evm::{AddressMapping, EnsureAddressNever};
-use sp_core::{Hasher, H160, H256};
+use sp_core::{Hasher, H160, H256, U256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
@@ -30,6 +30,7 @@ parameter_types! {
     pub const SS58Prefix: u8 = 21;
     pub const DockChainId: u64 = 2021;
     pub const MinimumPeriod: u64 = 1000;
+    pub BlockGasLimit: U256 = U256::from(u32::max_value());
 }
 
 impl system::Config for Test {
@@ -99,6 +100,7 @@ impl pallet_evm::Config for Test {
     type Precompiles = ();
     type ChainId = DockChainId;
     type OnChargeTransaction = ();
+    type BlockGasLimit = BlockGasLimit;
 }
 
 impl price_feed::Config for Test {

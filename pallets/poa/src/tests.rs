@@ -45,6 +45,7 @@ parameter_types! {
     pub const UncleGenerations: u32 = 0;
     pub const DockChainId: u64 = 2021;
     pub const MinimumPeriod: u64 = 1000;
+    pub BlockGasLimit: U256 = U256::from(u32::max_value());
 }
 
 impl system::Config for TestRuntime {
@@ -180,6 +181,7 @@ impl pallet_evm::Config for TestRuntime {
     type Precompiles = ();
     type ChainId = DockChainId;
     type OnChargeTransaction = EVMCurrencyAdapter<Balances, PoAModule>;
+    type BlockGasLimit = BlockGasLimit;
 }
 
 fn new_test_ext() -> sp_io::TestExternalities {
