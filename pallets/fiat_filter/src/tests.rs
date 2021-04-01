@@ -17,7 +17,7 @@ mod old {
     // };
 
     // // impl_outer_dispatch! {
-    // //     pub enum TestCall for TestRt where origin: Origin {
+    // //     pub enum Call for TestRt where origin: Origin {
     // //         did::DIDMod,
     // //         anchor::AnchorMod,
     // //         blob::BlobMod,
@@ -373,7 +373,7 @@ use core_mods::StateChange;
 use core_mods::{anchor, attest, blob, did, revoke};
 use frame_support::traits::Currency;
 use frame_support::weights::Pays;
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok, assert_err};
 use frame_system::RawOrigin;
 use rand::random;
 use sp_core::{sr25519, Pair};
@@ -405,7 +405,7 @@ mod tests_did_calls {
                 }),
             );
 
-            let call = TestCall::Did(did::Call::<TestRt>::new(d.clone(), key_detail));
+            let call = Call::DIDMod(did::Call::<TestRt>::new(d.clone(), key_detail));
             let expected_fees: u64 = PRICE_DID_OP / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
@@ -443,7 +443,7 @@ mod tests_did_calls {
             let sig = DidSignature::Sr25519(did::Bytes64 { value: sig_value });
 
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
-            let call = TestCall::Did(did::Call::<TestRt>::update_key(key_update, sig));
+            let call = Call::DIDMod(did::Call::<TestRt>::update_key(key_update, sig));
             let expected_fees: u64 = PRICE_DID_OP / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
@@ -461,7 +461,7 @@ mod tests_did_calls {
                     .0,
             });
 
-            let call = TestCall::Did(did::Call::<TestRt>::remove(to_remove, sig));
+            let call = Call::DIDMod(did::Call::<TestRt>::remove(to_remove, sig));
             let expected_fees: u64 = PRICE_DID_OP / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
@@ -475,7 +475,7 @@ fn call_anchor_deploy() {
     ext().execute_with(|| {
         let dat = (0..32).map(|_| rand::random()).collect();
 
-        let call = TestCall::Anchor(anchor::Call::<TestRt>::deploy(dat));
+        let call = Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
         let expected_fees: u64 = 32 * PRICE_ANCHOR_OP_PER_BYTE / RATE_DOCK_USD as u64;
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
     });
@@ -498,7 +498,7 @@ mod test_attest_calls {
             assert_eq!(size_attested, 1);
             let sig = sign(&StateChange::Attestation((attester, att.clone())), &kp);
 
-            let call = TestCall::Attest(attest::Call::<TestRt>::set_claim(attester, att, sig));
+            let call = Call::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
             let expected_fees: u64 =
                 size_attested * PRICE_ATTEST_PER_IRI_BYTE / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -519,7 +519,7 @@ mod test_attest_calls {
             assert_eq!(size_attested, 18);
             let sig = sign(&StateChange::Attestation((attester, att.clone())), &kp);
 
-            let call = TestCall::Attest(attest::Call::<TestRt>::set_claim(attester, att, sig));
+            let call = Call::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
             let expected_fees: u64 =
                 size_attested * PRICE_ATTEST_PER_IRI_BYTE / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -541,7 +541,7 @@ fn call_blob_new() {
         };
         let sig = sign(&StateChange::Blob(blob.clone()), &author_kp);
 
-        let call = TestCall::Blob(blob::Call::<TestRt>::new(blob, sig));
+        let call = Call::BlobMod(blob::Call::<TestRt>::new(blob, sig));
 
         let expected_fees: u64 = 999 * PRICE_BLOB_OP_PER_BYTE / RATE_DOCK_USD as u64;
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -596,7 +596,7 @@ mod tests_revoke_calls {
                 ))
                 .collect();
 
-                let call = TestCall::Revoke(revoke::Call::<TestRt>::revoke(revoke, proof));
+                let call = Call::RevokeMod(revoke::Call::<TestRt>::revoke(revoke, proof));
                 let expected_fees_nusd: u64 =
                     PRICE_REVOKE_OP_CONST_FACTOR + revocation_size * PRICE_REVOKE_PER_REVOCATION;
                 let expected_fees: u64 = expected_fees_nusd / RATE_DOCK_USD as u64;
@@ -665,7 +665,7 @@ mod tests_revoke_calls {
                 ))
                 .collect();
 
-                let call = TestCall::Revoke(revoke::Call::<TestRt>::unrevoke(unrevoke, proof));
+                let call = Call::RevokeMod(revoke::Call::<TestRt>::unrevoke(unrevoke, proof));
                 let expected_fees_nusd: u64 =
                     PRICE_REVOKE_OP_CONST_FACTOR + unrevoke_size * PRICE_REVOKE_PER_REVOCATION;
                 let expected_fees: u64 = expected_fees_nusd / RATE_DOCK_USD as u64;
@@ -700,7 +700,7 @@ mod tests_revoke_calls {
                 assert!(got_reg.is_none());
 
                 let call =
-                    TestCall::Revoke(revoke::Call::<TestRt>::new_registry(reg_id, reg.clone()));
+                    Call::RevokeMod(revoke::Call::<TestRt>::new_registry(reg_id, reg.clone()));
 
                 let expected_fees: u64 = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD as u64;
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -731,7 +731,7 @@ mod tests_revoke_calls {
             ))
             .collect();
 
-            let call = TestCall::Revoke(revoke::Call::<TestRt>::remove_registry(rem, proof));
+            let call = Call::RevokeMod(revoke::Call::<TestRt>::remove_registry(rem, proof));
 
             let expected_fees: u64 = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD as u64;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
@@ -757,7 +757,7 @@ mod tests_fail_modes {
             let dat = (0..32).map(|_| rand::random()).collect();
             // execute call
             let (_fee_microdock, executed) =
-                measure_fees(TestCall::Anchor(anchor::Call::<TestRt>::deploy(dat)));
+                measure_fees(Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat)));
             assert_noop!(
                 executed,
                 DispatchError::Module {
@@ -778,7 +778,7 @@ mod tests_fail_modes {
             let dat = (0..32).map(|_| rand::random()).collect();
             // execute call
             let (_fee_microdock, executed) =
-                measure_fees(TestCall::Anchor(anchor::Call::<TestRt>::deploy(dat)));
+                measure_fees(Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat)));
             assert_noop!(
                 executed,
                 DispatchError::Module {
@@ -798,7 +798,7 @@ mod tests_fail_modes {
 
             // execute call
             let balance_pre = <TestRt as Config>::Currency::free_balance(ALICE);
-            let call = TestCall::Anchor(anchor::Call::<TestRt>::deploy(dat));
+            let call = Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
             let executed =
                 FiatFilterModule::execute_call(RawOrigin::None.into(), Box::new(call.clone()));
             let balance_post = <TestRt as Config>::Currency::free_balance(ALICE);
@@ -815,14 +815,16 @@ mod tests_fail_modes {
     fn balance_transfer__Err_unexpectedCall() {
         ext().execute_with(|| {
             // prepare data
-            let call = TestCall::Balance(pallet_balances::Call::<TestRt>::transfer(BOB, 200));
+            let call = Call::Balances(pallet_balances::Call::<TestRt>::transfer(BOB, 200));
 
             // // execute call
             let (fee_microdock, executed) = measure_fees(call);
 
-            assert_noop!(executed, Error::<TestRt>::UnexpectedCall);
             let pdi = executed.unwrap_err();
+            // Comparing error with assert_noop will be brittle as that would contain weight which can change over time
+            assert_eq!(pdi.error, DispatchError::from(Error::<TestRt>::UnexpectedCall));
             assert_eq!(pdi.post_info.pays_fee, Pays::Yes);
+            assert!(pdi.post_info.actual_weight.is_some());
 
             // the call signature isn't valid, we can't charge the account any fees
             assert_eq!(fee_microdock, 0);

@@ -3,7 +3,7 @@
 use common::PriceProvider;
 use core_mods::{anchor, attest, blob, did, revoke};
 use frame_support::{
-    decl_error, decl_module,
+    decl_error, decl_module, fail,
     dispatch::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo,
         UnfilteredDispatchable,
@@ -45,11 +45,7 @@ pub trait Config:
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> where BalanceOf<T>: From<u64> {
-        /// Failed calculation because of numeric type overflow
-        ArithmeticOverflow,
-        /// checked_div: tried to divide by zero
-        DivideByZero,
+    pub enum Error for Module<T: Config> {
         /// Call is not among the core_mods ones that should go through fiat_filter
         UnexpectedCall,
     }
@@ -60,8 +56,7 @@ decl_error! {
 decl_module! {
     pub struct Module<T: Config> for enum Call
     where
-        origin: T::Origin,
-        BalanceOf<T>: From<u64>,
+        origin: T::Origin
     {
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
@@ -95,12 +90,10 @@ pub const MIN_RATE_DOCK_USD: u32 = 1;
 
 // private helper functions
 impl<T: Config> Module<T>
-where
-    BalanceOf<T>: From<u64>,
 {
     /// Get fee in fiat unit for a given Call
     /// Result expressed in nUSD (billionth USD)
-    fn get_call_fee_fiat_(call: &<T as Config>::Call) -> Result<AmountUsd, Error<T>> {
+    fn get_call_fee_fiat_(call: &<T as Config>::Call) -> Result<AmountUsd, DispatchError> {
         // TODO make sure we discuss and decide the actual pricing for each call type
         match call.is_sub_type() {
             Some(did::Call::new(_did, _detail)) => return Ok(PRICE_DID_OP), // 50/1B or 0.00000005 USD
@@ -150,14 +143,14 @@ where
         }
 
         // return error if Call not in list
-        return Err(Error::<T>::UnexpectedCall);
+        fail!(Error::<T>::UnexpectedCall)
     }
 
     fn compute_call_fee_dock_(
         call: &<T as Config>::Call,
-    ) -> Result<(BalanceOf<T>, Weight), DispatchErrorWithPostInfo> {
+    ) -> Result<(BalanceOf<T>, Weight), DispatchError> {
         // the fee in fiat is expressed in nUSD (1 billionth USD)
-        let fee_usd_billionth: AmountUsd = match Self::get_call_fee_fiat_(call) {
+        /*let fee_usd_billionth: AmountUsd = match Self::get_call_fee_fiat_(call) {
             Ok(fee) => fee,
             Err(e) => {
                 return Err(DispatchErrorWithPostInfo {
@@ -168,7 +161,8 @@ where
                     error: e.into(),
                 });
             }
-        };
+        };*/
+        let fee_usd_billionth: AmountUsd = Self::get_call_fee_fiat_(call)?;
 
         // the DOCK/USD rate in the price_feed pallet is the price of 1DOCK,
         // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK)
@@ -181,14 +175,15 @@ where
 
         // we want the result fee, expressed in µDOCK (1 millionth DOCK)
         // no need for any multiplication factor since (1/1B USD)/(1/1000 USD/DOCK) already == (1/1M DOCK)
-        let fee_microdock: u64 = fee_usd_billionth
+        /*let fee_microdock: u64 = fee_usd_billionth
             .checked_div(dock_usd1000th_rate as u64)
-            .ok_or(Error::<T>::DivideByZero)?;
+            .ok_or(Error::<T>::DivideByZero)?;*/
+        let fee_microdock: u64 = fee_usd_billionth / (dock_usd1000th_rate as u64);
 
         // The token has 6 decimal places (defined in the runtime)
         // See in runtime: pub const DOCK: Balance = 1_000_000;
         // T::Balance is already expressed in µDOCK (1 millionth DOCK)
-        Ok((<BalanceOf<T>>::from(fee_microdock), weight))
+        Ok((<BalanceOf<T>>::from(fee_microdock as u32), weight))
     }
 
     fn charge_fees_(who: T::AccountId, amount: BalanceOf<T>) -> Result<(), DispatchError> {
@@ -209,13 +204,13 @@ where
         // calculate fee based on type of call
         let (fee_dock, weight_get_price) = match Self::compute_call_fee_dock_(&call) {
             Ok((f, w)) => (f, w),
-            Err(e) => {
+            Err(error) => {
                 return Err(DispatchErrorWithPostInfo {
                     post_info: PostDispatchInfo {
                         actual_weight: Some(weight_call),
                         pays_fee: Pays::Yes, // uses Pays::Yes to prevent spam
                     },
-                    error: e.error,
+                    error,
                 });
             }
         };

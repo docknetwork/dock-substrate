@@ -1,4 +1,4 @@
-// use crate::*;
+use crate as fiat_filter;
 pub use crate::{Config, Error, Module};
 use codec::{Decode, Encode};
 use core_mods::StateChange;
@@ -19,7 +19,7 @@ use sp_runtime::{
     traits::{BlakeTwo256, IdentityLookup},
 };
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+/*#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum TestCall {
     System(system::Call<TestRt>),
     Balance(pallet_balances::Call<TestRt>),
@@ -123,7 +123,8 @@ impl Filter<TestCall> for BaseFilter {
             _ => true,
         }
     }
-}
+}*/
+pub struct BaseFilter;
 impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
@@ -147,13 +148,14 @@ frame_support::construct_runtime!(
         BlobMod: blob::{Module, Call, Storage},
         AnchorMod: anchor::{Module, Call, Storage, Event<T>},
         AttestMod: attest::{Module, Call, Storage},
+        FiatFilterModule: fiat_filter::{Module, Call},
     }
 );
 
 impl Config for TestRt {
     type PriceProvider = TestPriceProvider;
-    type Call = TestCall;
-    type Currency = pallet_balances::Module<Self>;
+    type Call = Call;
+    type Currency = Balances;
 }
 
 parameter_types! {
@@ -233,7 +235,7 @@ impl common::PriceProvider for TestPriceProvider {
     }
 }
 
-pub type FiatFilterModule = Module<TestRt>;
+// pub type FiatFilterModule = Module<TestRt>;
 
 pub const ALICE: u64 = 100;
 pub const BOB: u64 = 200;
@@ -291,14 +293,14 @@ pub fn random_bytes(len: usize) -> Vec<u8> {
     ret
 }
 
-pub fn measure_fees(call: TestCall) -> (u64, DispatchResultWithPostInfo) {
+pub fn measure_fees(call: Call) -> (u64, DispatchResultWithPostInfo) {
     let balance_pre = <TestRt as Config>::Currency::free_balance(ALICE);
     let executed = FiatFilterModule::execute_call(Origin::signed(ALICE), Box::new(call.clone()));
     let balance_post = <TestRt as Config>::Currency::free_balance(ALICE);
     let fee_microdock = balance_pre - balance_post;
     return (fee_microdock, executed);
 }
-pub fn exec_assert_fees(call: TestCall, expected_fees: u64) -> (u64, DispatchResultWithPostInfo) {
+pub fn exec_assert_fees(call: Call, expected_fees: u64) -> (u64, DispatchResultWithPostInfo) {
     let (fee_microdock, executed) = measure_fees(call);
     assert_ok!(executed);
 
