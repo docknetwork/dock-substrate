@@ -24,8 +24,8 @@ pub trait Trait: system::Config + did::Trait {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Attestation {
     #[codec(compact)]
-    priority: u64,
-    iri: Option<Iri>,
+    pub priority: u64,
+    pub iri: Option<Iri>,
 }
 
 decl_error! {

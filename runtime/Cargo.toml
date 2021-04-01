@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.13.0'
+version = '0.13.1'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
@@ -12,6 +12,7 @@ targets = ['x86_64-unknown-linux-gnu']
 static_assertions = "1.1.0"
 smallvec = "1.4.1"
 evm = { version = '0.25.0', default-features = false, features = ['with-codec'] }
+fiat_filter = { path = '../pallets/fiat_filter', version = '0.1.0', default-features = false }
 
 [dependencies.aura]
 default-features = false
@@ -356,6 +357,7 @@ std = [
     'simple_democracy/std',
     'core_mods/std',
     'price_feed/std',
+    'fiat_filter/std',
 ]
 runtime-benchmarks = [
   'frame-benchmarking',

@@ -142,7 +142,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 20,
+    spec_version: 21,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -674,12 +674,23 @@ impl price_feed::Config for Runtime {
     type Event = Event;
 }
 
-pub struct BaseFilter;
+impl fiat_filter::Config for Runtime {
+    type Call = Call;
+    type PriceProvider = price_feed::Module<Runtime>;
+    type Currency = balances::Module<Runtime>;
+}
 
+pub struct BaseFilter;
 impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
             Call::Democracy(_) => false,
+            // filter out core_mods calls so they're only done through fiat_filter
+            Call::Anchor(_) => false,
+            Call::BlobStore(_) => false,
+            Call::DIDModule(_) => false,
+            Call::Revoke(_) => false,
+            Call::Attest(_) => false,
             _ => true,
         }
     }
@@ -722,6 +733,7 @@ construct_runtime!(
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
         PriceFeedModule: price_feed::{Module, Call, Storage, Event, Config},
+        FiatFilter: fiat_filter::{Module, Call},
     }
 );
 
