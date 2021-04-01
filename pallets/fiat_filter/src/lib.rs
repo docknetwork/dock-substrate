@@ -74,19 +74,23 @@ type BalanceOf<T> =
 
 type AmountUsd = u32;
 
-// all prices given in nUSD (billionth USD)
-// This unit is chosen to avoid multiplications later in compute_call_fee_dock_()
-pub const PRICE_DID_OP: u32 = 100_000; // 100_000/1B or 0.0001 USD
-pub const PRICE_ANCHOR_OP_PER_BYTE: u32 = 2000;
-pub const PRICE_BLOB_OP_PER_BYTE: u32 = 2000;
-pub const PRICE_REVOKE_REGISTRY_OP: u32 = 100_000;
-pub const PRICE_REVOKE_OP_CONST_FACTOR: u32 = 50_000;
-pub const PRICE_REVOKE_PER_REVOCATION: u32 = 20_000;
-pub const PRICE_ATTEST_PER_IRI_BYTE: u32 = 2000;
+pub mod fiat_rate {
+    // all prices given in nUSD (billionth USD)
+    // This unit is chosen to avoid multiplications later in compute_call_fee_dock_()
+    pub const PRICE_DID_OP: u32 = 100_000; // 100_000/1B or 0.0001 USD
+    pub const PRICE_ANCHOR_OP_PER_BYTE: u32 = 2000;
+    pub const PRICE_BLOB_OP_PER_BYTE: u32 = 2000;
+    pub const PRICE_REVOKE_REGISTRY_OP: u32 = 100_000;
+    pub const PRICE_REVOKE_OP_CONST_FACTOR: u32 = 50_000;
+    pub const PRICE_REVOKE_PER_REVOCATION: u32 = 20_000;
+    pub const PRICE_ATTEST_PER_IRI_BYTE: u32 = 2000;
 
-// minimum price, in case the price fetched from optimized_get_dock_usd_price is zero or an error
-// expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the aactual result from optimized_get_dock_usd_price
-pub const MIN_RATE_DOCK_USD: u32 = 1;
+    // minimum price, in case the price fetched from optimized_get_dock_usd_price is zero or an error
+    // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the aactual result from optimized_get_dock_usd_price
+    pub const MIN_RATE_DOCK_USD: u32 = 1;
+}
+
+
 
 // private helper functions
 impl<T: Config> Module<T>
@@ -96,48 +100,48 @@ impl<T: Config> Module<T>
     fn get_call_fee_fiat_(call: &<T as Config>::Call) -> Result<AmountUsd, DispatchError> {
         // TODO make sure we discuss and decide the actual pricing for each call type
         match call.is_sub_type() {
-            Some(did::Call::new(_did, _detail)) => return Ok(PRICE_DID_OP), // 50/1B or 0.00000005 USD
-            Some(did::Call::update_key(_key_update, _sig)) => return Ok(PRICE_DID_OP),
-            Some(did::Call::remove(_to_remove, _sig)) => return Ok(PRICE_DID_OP),
+            Some(did::Call::new(_did, _detail)) => return Ok(fiat_rate::PRICE_DID_OP), // 50/1B or 0.00000005 USD
+            Some(did::Call::update_key(_key_update, _sig)) => return Ok(fiat_rate::PRICE_DID_OP),
+            Some(did::Call::remove(_to_remove, _sig)) => return Ok(fiat_rate::PRICE_DID_OP),
             _ => {}
         };
         match call.is_sub_type() {
             Some(anchor::Call::deploy(bytes)) => {
-                return Ok(PRICE_ANCHOR_OP_PER_BYTE.saturating_mul(bytes.len() as u32))
+                return Ok(fiat_rate::PRICE_ANCHOR_OP_PER_BYTE.saturating_mul(bytes.len() as u32))
             }
             _ => {}
         };
         match call.is_sub_type() {
             Some(blob::Call::new(blob, _sig)) => {
                 let size: u32 = blob.blob.len() as u32;
-                return Ok(PRICE_BLOB_OP_PER_BYTE.saturating_mul(size));
+                return Ok(fiat_rate::PRICE_BLOB_OP_PER_BYTE.saturating_mul(size));
             }
             _ => {}
         };
         match call.is_sub_type() {
             Some(revoke::Call::new_registry(_id, _registry)) => {
-                return Ok(PRICE_REVOKE_REGISTRY_OP)
+                return Ok(fiat_rate::PRICE_REVOKE_REGISTRY_OP)
             }
             Some(revoke::Call::remove_registry(_rm, _proof)) => {
-                return Ok(PRICE_REVOKE_REGISTRY_OP)
+                return Ok(fiat_rate::PRICE_REVOKE_REGISTRY_OP)
             }
 
             Some(revoke::Call::revoke(revocation, _proof)) => {
-                return Ok(PRICE_REVOKE_PER_REVOCATION
+                return Ok(fiat_rate::PRICE_REVOKE_PER_REVOCATION
                     .saturating_mul(revocation.revoke_ids.len() as u32)
-                    .saturating_add(PRICE_REVOKE_OP_CONST_FACTOR));
+                    .saturating_add(fiat_rate::PRICE_REVOKE_OP_CONST_FACTOR));
             }
             Some(revoke::Call::unrevoke(unrevoke, _proof)) => {
-                return Ok(PRICE_REVOKE_PER_REVOCATION
+                return Ok(fiat_rate::PRICE_REVOKE_PER_REVOCATION
                     .saturating_mul(unrevoke.revoke_ids.len() as u32)
-                    .saturating_add(PRICE_REVOKE_OP_CONST_FACTOR));
+                    .saturating_add(fiat_rate::PRICE_REVOKE_OP_CONST_FACTOR));
             }
             _ => {}
         };
         match call.is_sub_type() {
             Some(attest::Call::set_claim(_attester, attestation, _sig)) => {
                 let size: u32 = attestation.iri.as_ref().unwrap_or(&[1].to_vec()).len() as u32;
-                return Ok(PRICE_ATTEST_PER_IRI_BYTE.saturating_mul(size));
+                return Ok(fiat_rate::PRICE_ATTEST_PER_IRI_BYTE.saturating_mul(size));
             }
             _ => {}
         }
@@ -156,9 +160,9 @@ impl<T: Config> Module<T>
         // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK)
         let (dock_usd1000th_rate, weight): (u32, Weight) =
             match <T as Config>::PriceProvider::optimized_get_dock_usd_price() {
-                Some((rate, weight)) => (sp_std::cmp::max(rate, MIN_RATE_DOCK_USD), weight),
+                Some((rate, weight)) => (sp_std::cmp::max(rate, fiat_rate::MIN_RATE_DOCK_USD), weight),
                 // None => return Err(Error::<T>::NoPriceFound.into()),
-                None => (MIN_RATE_DOCK_USD, 10_000), // TODO remove error in Errors
+                None => (fiat_rate::MIN_RATE_DOCK_USD, 10_000), // TODO remove error in Errors
             };
 
         // we want the result fee, expressed in µDOCK (1 millionth DOCK)
