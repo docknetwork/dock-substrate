@@ -1,7 +1,4 @@
-use crate::fiat_rate::{
-    PRICE_ANCHOR_OP_PER_BYTE, PRICE_ATTEST_PER_IRI_BYTE, PRICE_BLOB_OP_PER_BYTE, PRICE_DID_OP,
-    PRICE_REVOKE_OP_CONST_FACTOR, PRICE_REVOKE_PER_REVOCATION, PRICE_REVOKE_REGISTRY_OP,
-};
+use crate::fiat_rate::*;
 use crate::test_mock::*;
 use codec::Encode;
 use core_mods::StateChange;
