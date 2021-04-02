@@ -3,11 +3,12 @@
 use common::PriceProvider;
 use core_mods::{anchor, attest, blob, did, revoke};
 use frame_support::{
-    decl_error, decl_module, fail,
+    decl_error, decl_module,
     dispatch::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResultWithPostInfo, PostDispatchInfo,
         UnfilteredDispatchable,
     },
+    fail,
     traits::{Currency, ExistenceRequirement, IsSubType, WithdrawReasons},
     weights::{GetDispatchInfo, Pays, Weight},
     Parameter,
@@ -90,11 +91,8 @@ pub mod fiat_rate {
     pub const MIN_RATE_DOCK_USD: u32 = 1;
 }
 
-
-
 // private helper functions
-impl<T: Config> Module<T>
-{
+impl<T: Config> Module<T> {
     /// Get fee in fiat unit for a given Call
     /// Result expressed in nUSD (billionth USD)
     fn get_call_fee_fiat_(call: &<T as Config>::Call) -> Result<AmountUsd, DispatchError> {
@@ -160,9 +158,10 @@ impl<T: Config> Module<T>
         // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK)
         let (dock_usd1000th_rate, weight): (u32, Weight) =
             match <T as Config>::PriceProvider::optimized_get_dock_usd_price() {
-                Some((rate, weight)) => (sp_std::cmp::max(rate, fiat_rate::MIN_RATE_DOCK_USD), weight),
-                // None => return Err(Error::<T>::NoPriceFound.into()),
-                None => (fiat_rate::MIN_RATE_DOCK_USD, 10_000), // TODO remove error in Errors
+                Some((rate, weight)) => {
+                    (sp_std::cmp::max(rate, fiat_rate::MIN_RATE_DOCK_USD), weight)
+                }
+                None => (fiat_rate::MIN_RATE_DOCK_USD, 10_000),
             };
 
         // we want the result fee, expressed in µDOCK (1 millionth DOCK)
