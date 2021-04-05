@@ -19,7 +19,7 @@ pub mod runtime_api;
 pub mod util;
 use util::{decode as eth_decode, ParamType};
 
-use common::PriceProvider;
+use common::traits::PriceProvider;
 
 #[cfg(test)]
 mod mock;

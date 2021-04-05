@@ -1775,7 +1775,6 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "tap",
 ]
 
 [[package]]

@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use common::PriceProvider;
+use common::arith_utils::DivCeil;
+use common::traits::PriceProvider;
 use core_mods::{anchor, attest, blob, did, revoke};
 use frame_support::{
     decl_error, decl_module,
@@ -28,7 +29,7 @@ pub trait Config:
     system::Config + did::Trait + anchor::Trait + blob::Trait + revoke::Trait + attest::Trait
 {
     /// Config option for updating the DockFiatRate
-    type PriceProvider: common::PriceProvider;
+    type PriceProvider: common::traits::PriceProvider;
     /// The module's Currency type definition
     type Currency: Currency<Self::AccountId>;
 
@@ -49,8 +50,6 @@ decl_error! {
     pub enum Error for Module<T: Config> {
         /// Call is not among the core_mods ones that should go through fiat_filter
         UnexpectedCall,
-        /// Checked div error
-        CheckedDiv,
     }
 }
 
@@ -118,9 +117,7 @@ impl<T: Config> Module<T> {
             Some(blob::Call::new(blob, _sig)) => {
                 let size: u32 = blob.blob.len() as u32;
                 let price = PRICE_BLOB_OP_BASE.saturating_add(
-                    size.checked_div(100)
-                        .ok_or(Error::<T>::CheckedDiv)?
-                        .saturating_mul(PRICE_ATTEST_OP_PER_100_BYTES),
+                    (size.div_ceil(100)).saturating_mul(PRICE_ATTEST_OP_PER_100_BYTES),
                 );
                 return Ok(price);
             }
@@ -148,12 +145,12 @@ impl<T: Config> Module<T> {
         };
         match call.is_sub_type() {
             Some(attest::Call::set_claim(_attester, attestation, _sig)) => {
-                let iri_size: u32 = attestation.iri.as_ref().unwrap_or(&[1].to_vec()).len() as u32;
+                let iri_size_100bytes: u32 = attestation
+                    .iri
+                    .as_ref()
+                    .map_or_else(|| 1, |i| (i.len() as u32).div_ceil(100));
                 let price = PRICE_ATTEST_OP_BASE.saturating_add(
-                    iri_size
-                        .checked_div(100)
-                        .ok_or(Error::<T>::CheckedDiv)?
-                        .saturating_mul(PRICE_ATTEST_OP_PER_100_BYTES),
+                    iri_size_100bytes.saturating_mul(PRICE_ATTEST_OP_PER_100_BYTES),
                 );
                 return Ok(price);
             }
@@ -182,9 +179,7 @@ impl<T: Config> Module<T> {
 
         // we want the result fee, expressed in µDOCK (1 millionth DOCK)
         // no need for any multiplication factor since (1/1B USD)/(1/1000 USD/DOCK) already == (1/1M DOCK)
-        let fee_microdock = fee_usd_billionth
-            .checked_div(dock_usd1000th_rate)
-            .ok_or(Error::<T>::CheckedDiv)?;
+        let fee_microdock = fee_usd_billionth / dock_usd1000th_rate;
 
         // The token has 6 decimal places (defined in the runtime)
         // See in runtime: pub const DOCK: Balance = 1_000_000;

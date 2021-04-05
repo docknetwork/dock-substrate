@@ -1,6 +1,7 @@
 use crate::fiat_rate::*;
 use crate::test_mock::*;
 use codec::Encode;
+use common::arith_utils::DivCeil;
 use core_mods::StateChange;
 use core_mods::{anchor, attest, blob, did, revoke};
 use frame_support::traits::Currency;
@@ -125,7 +126,7 @@ mod test_attest_calls {
 
             let call = Call::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
             let expected_fees_nusd =
-                PRICE_ATTEST_OP_BASE + (size_attested / 100) * PRICE_ATTEST_OP_PER_100_BYTES;
+                PRICE_ATTEST_OP_BASE + size_attested.div_ceil(100) * PRICE_ATTEST_OP_PER_100_BYTES;
             let expected_fees_microdock = expected_fees_nusd / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees_microdock);
         });
@@ -147,7 +148,7 @@ mod test_attest_calls {
 
             let call = Call::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
             let expected_fees_nusd =
-                PRICE_ATTEST_OP_BASE + (size_attested / 100) * PRICE_ATTEST_OP_PER_100_BYTES;
+                PRICE_ATTEST_OP_BASE + size_attested.div_ceil(100) * PRICE_ATTEST_OP_PER_100_BYTES;
             let expected_fees_microdock = expected_fees_nusd / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees_microdock);
         });
@@ -171,7 +172,7 @@ fn call_blob_new() {
         let call = Call::BlobMod(blob::Call::<TestRt>::new(blob, sig));
         let blob_size = 999;
         let expected_fees_nusd =
-            PRICE_BLOB_OP_BASE + (blob_size / 100) * PRICE_BLOB_OP_PER_100_BYTES;
+            PRICE_BLOB_OP_BASE + blob_size.div_ceil(100) * PRICE_BLOB_OP_PER_100_BYTES;
         let expected_fees_microdock = expected_fees_nusd / RATE_DOCK_USD;
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees_microdock);
     });
@@ -465,21 +466,45 @@ mod tests_fail_modes {
 }
 
 mod tests_dock_fiat_rate {
-    use crate::fiat_rate::*;
-    use crate::test_mock::testrt_price2::{ext_price2, measure_fees};
-    use crate::test_mock::testrt_price2::{Call, TestRt as TestRt2};
-    use crate::test_mock::RATE_DOCK_USD_2;
-    use core_mods::anchor;
-    use frame_support::assert_ok;
-    use frame_support::weights::Pays;
-
     #[test]
     fn call_anchor_deploy__OK_different_rate() {
+        use crate::fiat_rate::*;
+        use crate::test_mock::testrt_price2::{ext_price2, measure_fees};
+        use crate::test_mock::testrt_price2::{Call, TestRt as TestRt2};
+        use crate::test_mock::RATE_DOCK_USD_2;
+        use core_mods::anchor;
+        use frame_support::assert_ok;
+        use frame_support::weights::Pays;
+
         ext_price2().execute_with(|| {
             let dat = (0..32).map(|_| rand::random()).collect();
             let call = Call::AnchorMod(anchor::Call::<TestRt2>::deploy(dat));
 
             let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / RATE_DOCK_USD_2;
+
+            let (fee_microdock, executed) = measure_fees(call);
+            assert_ok!(executed);
+
+            let pdi = executed.unwrap();
+            assert!(pdi.pays_fee == Pays::No);
+            assert_eq!(fee_microdock, expected_fees);
+        });
+    }
+
+    #[test]
+    fn call_anchor_deploy__OK_min_rate() {
+        use crate::fiat_rate::*;
+        use crate::test_mock::testrt_noprice::{ext_noprice, measure_fees};
+        use crate::test_mock::testrt_noprice::{Call, TestRt as TestRt2};
+        use core_mods::anchor;
+        use frame_support::assert_ok;
+        use frame_support::weights::Pays;
+
+        ext_noprice().execute_with(|| {
+            let dat = (0..32).map(|_| rand::random()).collect();
+            let call = Call::AnchorMod(anchor::Call::<TestRt2>::deploy(dat));
+
+            let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / MIN_RATE_DOCK_USD;
 
             let (fee_microdock, executed) = measure_fees(call);
             assert_ok!(executed);
