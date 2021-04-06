@@ -79,15 +79,18 @@ type AmountUsd = u32;
 pub mod fiat_rate {
     // all prices given in nUSD (billionth USD)
     // This unit is chosen to avoid multiplications later in compute_call_fee_dock_()
-    pub const PRICE_DID_OP: u32 = 100_000; // 100_000/1B or 0.0001 USD
-    pub const PRICE_ANCHOR_OP_PER_BYTE: u32 = 2000;
-    pub const PRICE_BLOB_OP_BASE: u32 = 30_000;
-    pub const PRICE_BLOB_OP_PER_100_BYTES: u32 = 25_000;
-    pub const PRICE_REVOKE_REGISTRY_OP: u32 = 100_000;
-    pub const PRICE_REVOKE_OP_CONST_FACTOR: u32 = 50_000;
-    pub const PRICE_REVOKE_PER_REVOCATION: u32 = 20_000;
-    pub const PRICE_ATTEST_OP_BASE: u32 = 30_000;
-    pub const PRICE_ATTEST_OP_PER_100_BYTES: u32 = 25_000;
+    pub const PRICE_DID_CREATE: u32 = 150_000_000; // 100_000/1B or 0.0001 USD
+    pub const PRICE_DID_KEY_UPDATE: u32 = 170_000_000; // TODO use and test
+    pub const PRICE_DID_REMOVE: u32 = 150_000_000;
+    pub const PRICE_ANCHOR_OP_PER_BYTE: u32 = 3438;
+    pub const PRICE_REVOKE_REGISTRY_CREATE: u32 = 130_000_000;
+    pub const PRICE_REVOKE_REGISTRY_REMOVE: u32 = 170_000_000;
+    pub const PRICE_REVOKE_OP_CONST_FACTOR: u32 = 150_000_000;
+    pub const PRICE_REVOKE_PER_REVOCATION: u32 = 30_000_000;
+    pub const PRICE_BLOB_OP_BASE: u32 = 55_000_000;
+    pub const PRICE_BLOB_OP_PER_100_BYTES: u32 = 27_500_000;
+    pub const PRICE_ATTEST_OP_BASE: u32 = PRICE_BLOB_OP_BASE;
+    pub const PRICE_ATTEST_OP_PER_100_BYTES: u32 = PRICE_BLOB_OP_PER_100_BYTES;
 
     // minimum price, in case the price fetched from optimized_get_dock_usd_price is zero or an error
     // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the aactual result from optimized_get_dock_usd_price
@@ -102,9 +105,9 @@ impl<T: Config> Module<T> {
         use fiat_rate::*;
         // TODO make sure we discuss and decide the actual pricing for each call type
         match call.is_sub_type() {
-            Some(did::Call::new(_did, _detail)) => return Ok(PRICE_DID_OP), // 50/1B or 0.00000005 USD
-            Some(did::Call::update_key(_key_update, _sig)) => return Ok(PRICE_DID_OP),
-            Some(did::Call::remove(_to_remove, _sig)) => return Ok(PRICE_DID_OP),
+            Some(did::Call::new(_did, _detail)) => return Ok(PRICE_DID_CREATE), // 50/1B or 0.00000005 USD
+            Some(did::Call::update_key(_key_update, _sig)) => return Ok(PRICE_DID_KEY_UPDATE),
+            Some(did::Call::remove(_to_remove, _sig)) => return Ok(PRICE_DID_REMOVE),
             _ => {}
         };
         match call.is_sub_type() {
@@ -125,10 +128,10 @@ impl<T: Config> Module<T> {
         };
         match call.is_sub_type() {
             Some(revoke::Call::new_registry(_id, _registry)) => {
-                return Ok(PRICE_REVOKE_REGISTRY_OP)
+                return Ok(PRICE_REVOKE_REGISTRY_CREATE)
             }
             Some(revoke::Call::remove_registry(_rm, _proof)) => {
-                return Ok(PRICE_REVOKE_REGISTRY_OP)
+                return Ok(PRICE_REVOKE_REGISTRY_REMOVE)
             }
 
             Some(revoke::Call::revoke(revocation, _proof)) => {

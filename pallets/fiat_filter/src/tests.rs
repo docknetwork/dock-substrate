@@ -32,7 +32,7 @@ mod tests_did_calls {
             );
 
             let call = Call::DIDMod(did::Call::<TestRt>::new(d.clone(), key_detail));
-            let expected_fees = PRICE_DID_OP / RATE_DOCK_USD;
+            let expected_fees = PRICE_DID_CREATE / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -70,7 +70,7 @@ mod tests_did_calls {
 
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
             let call = Call::DIDMod(did::Call::<TestRt>::update_key(key_update, sig));
-            let expected_fees = PRICE_DID_OP / RATE_DOCK_USD;
+            let expected_fees = PRICE_DID_KEY_UPDATE / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -88,7 +88,7 @@ mod tests_did_calls {
             });
 
             let call = Call::DIDMod(did::Call::<TestRt>::remove(to_remove, sig));
-            let expected_fees = PRICE_DID_OP / RATE_DOCK_USD;
+            let expected_fees = PRICE_DID_REMOVE / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -332,7 +332,7 @@ mod tests_revoke_calls {
                 let call =
                     Call::RevokeMod(revoke::Call::<TestRt>::new_registry(reg_id, reg.clone()));
 
-                let expected_fees = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD;
+                let expected_fees = PRICE_REVOKE_REGISTRY_CREATE / RATE_DOCK_USD;
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
                 let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
@@ -363,7 +363,7 @@ mod tests_revoke_calls {
 
             let call = Call::RevokeMod(revoke::Call::<TestRt>::remove_registry(rem, proof));
 
-            let expected_fees = PRICE_REVOKE_REGISTRY_OP / RATE_DOCK_USD;
+            let expected_fees = PRICE_REVOKE_REGISTRY_REMOVE / RATE_DOCK_USD;
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
             // assert registry removed
