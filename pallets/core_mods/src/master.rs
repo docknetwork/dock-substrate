@@ -387,7 +387,7 @@ mod test {
                 members: set(&[newdid().0]),
                 vote_requirement: 1,
             };
-            let call = TestCall::Master(MasterCall::set_members(new_members.clone()));
+            let call = Call::MasterMod(MasterCall::set_members(new_members.clone()));
             assert_eq!(Round::get(), 0);
             MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap();
             assert_eq!(Members::get(), new_members);
@@ -403,7 +403,7 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             assert_eq!(Round::get(), 0);
             MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
             assert_eq!(Round::get(), 1);
@@ -421,7 +421,7 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            let call = TestCall::System(system::Call::<Test>::remark(vec![]));
+            let call = Call::System(system::Call::<Test>::remark(vec![]));
             let err = MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap_err();
             assert_eq!(err.error, DispatchError::BadOrigin);
         });
@@ -442,7 +442,7 @@ mod test {
         });
 
         ext().execute_with(|| {
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             Members::set(Membership {
                 members: set(&[]),
                 vote_requirement: 0,
@@ -458,7 +458,7 @@ mod test {
             let (dida, didak) = newdid();
             let (didb, _didbk) = newdid();
             let (didc, didck) = newdid();
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
@@ -487,7 +487,7 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            let call = TestCall::Master(MasterCall::<Test>::set_members(Membership {
+            let call = Call::MasterMod(MasterCall::set_members(Membership {
                 members: set(&[newdid().0]),
                 vote_requirement: 1,
             }));
@@ -502,7 +502,7 @@ mod test {
         });
 
         ext().execute_with(|| {
-            let call = TestCall::System(system::Call::<Test>::remark(vec![]));
+            let call = Call::System(system::Call::<Test>::remark(vec![]));
             Members::set(Membership {
                 members: set(&[]),
                 vote_requirement: 0,
@@ -524,7 +524,7 @@ mod test {
     fn no_members() {
         ext().execute_with(|| {
             let (dida, didak) = newdid();
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
@@ -550,7 +550,7 @@ mod test {
             let (didb, _didbk) = newdid();
             let (didc, didck) = newdid();
             let kv = (vec![4; 200], vec![5; 200]);
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
             let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
@@ -577,7 +577,7 @@ mod test {
             let (dida, didak) = newdid();
             let (didb, didbk) = newdid();
             let (didc, didck) = newdid();
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
@@ -609,7 +609,7 @@ mod test {
                 members: set(&[dida, didb, didc]),
                 vote_requirement: 2,
             });
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
 
             {
                 let sc = StateChange::MasterVote(Payload {
@@ -649,7 +649,7 @@ mod test {
                 members: set(&[dida, didb]),
                 vote_requirement: 1,
             });
-            let call = Box::new(TestCall::System(system::Call::<Test>::set_storage(vec![])));
+            let call = Box::new(Call::System(system::Call::<Test>::set_storage(vec![])));
             let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: 0,
@@ -695,7 +695,7 @@ mod test {
                 members: set(&[dida]),
                 vote_requirement: 1,
             });
-            let call = Box::new(TestCall::System(system::Call::<Test>::set_storage(vec![])));
+            let call = Box::new(Call::System(system::Call::<Test>::set_storage(vec![])));
             let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: 0,
@@ -718,7 +718,7 @@ mod test {
                 members: set(&[dida]),
                 vote_requirement: 1,
             });
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),
@@ -746,7 +746,7 @@ mod test {
         ext().execute_with(|| {
             let (dida, didak) = newdid();
             let (didb, _didbk) = newdid();
-            let call = TestCall::System(system::Call::<Test>::set_storage(vec![]));
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             let sc = StateChange::MasterVote(Payload {
                 proposal: call.encode(),
                 round_no: Round::get(),

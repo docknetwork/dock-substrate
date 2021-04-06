@@ -10,10 +10,9 @@ use crate::revoke;
 use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::{Decode, Encode};
 use frame_support::{
-    dispatch::{DispatchInfo, DispatchResultWithPostInfo, Dispatchable, PostDispatchInfo},
     parameter_types,
-    traits::{OnFinalize, OnInitialize, UnfilteredDispatchable},
-    weights::{DispatchClass, GetDispatchInfo, Pays, Weight},
+    traits::{OnFinalize, OnInitialize},
+    weights::Weight,
 };
 use frame_system as system;
 pub use rand::random;
@@ -42,46 +41,6 @@ frame_support::construct_runtime!(
         AttestMod: attest::{Module, Call, Storage},
     }
 );
-
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
-pub enum TestCall {
-    Master(crate::master::Call<Test>),
-    System(system::Call<Test>),
-}
-
-impl Dispatchable for TestCall {
-    type Origin = Origin;
-    type Config = ();
-    type Info = ();
-    type PostInfo = PostDispatchInfo;
-    fn dispatch(self, origin: Self::Origin) -> sp_runtime::DispatchResultWithInfo<Self::PostInfo> {
-        match self {
-            TestCall::Master(mc) => mc.dispatch_bypass_filter(origin),
-            TestCall::System(sc) => sc.dispatch_bypass_filter(origin),
-        }
-    }
-}
-
-impl UnfilteredDispatchable for TestCall {
-    type Origin = Origin;
-
-    fn dispatch_bypass_filter(self, origin: Self::Origin) -> DispatchResultWithPostInfo {
-        match self {
-            TestCall::Master(mc) => mc.dispatch_bypass_filter(origin),
-            TestCall::System(sc) => sc.dispatch_bypass_filter(origin),
-        }
-    }
-}
-
-impl GetDispatchInfo for TestCall {
-    fn get_dispatch_info(&self) -> DispatchInfo {
-        DispatchInfo {
-            weight: 101u64,
-            class: DispatchClass::Normal,
-            pays_fee: Pays::Yes,
-        }
-    }
-}
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum TestEvent {
@@ -161,7 +120,7 @@ impl crate::blob::Trait for Test {
 
 impl crate::master::Trait for Test {
     type Event = TestEvent;
-    type Call = TestCall;
+    type Call = Call;
 }
 
 impl crate::anchor::Trait for Test {

@@ -176,51 +176,51 @@ branch = "frontier"
 
 [dependencies.pallet-ethereum]
 default-features = false
-version = '0.1.0'
+version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
+rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-consensus]
-version = '0.1.0'
+version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
+rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
 #path = '../../../frontier/client/consensus'
 
 [dependencies.fp-consensus]
-version = '0.1.0'
+version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
+rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
 #path = '../../../frontier/primitives/consensus'
 
 [dependencies.fc-rpc]
-version = '0.1.0'
+version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
+rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
 #path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
-version = '0.1.0'
+version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
+rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
 #path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
-version = '0.1.0'
+version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
+rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
-version = '0.1.0'
+version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
+rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
 #path = '../../../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
-version = '0.1.0'
+version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c0f073fbf577af47a50729952a8a928e3d4465df'
+rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
 #path = '../../../frontier/client/db'
 
 [dependencies.poa_rpc]

@@ -207,8 +207,8 @@ pub struct Bytes32(pub [u8;32]);*/
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct KeyDetail {
-    controller: Did,
-    public_key: PublicKey,
+    pub controller: Did,
+    pub public_key: PublicKey,
 }
 
 impl KeyDetail {
@@ -286,8 +286,9 @@ impl DidRemoval {
 
 decl_event!(
     pub enum Event {
-        DidAdded(dock::did::Did),
-        KeyUpdated(dock::did::Did),
+        DidAdded(dock::did::Did, dock::did::PublicKey),
+        // Logs DID and new public key
+        KeyUpdated(dock::did::Did, dock::did::PublicKey),
         DidRemoved(dock::did::Did),
     }
 );
@@ -332,8 +333,9 @@ decl_module! {
             ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
             let current_block_no = <system::Module<T>>::block_number();
+            let pk = detail.public_key.clone();
             Dids::<T>::insert(did, (detail, current_block_no));
-            Self::deposit_event(Event::DidAdded(did));
+            Self::deposit_event(Event::DidAdded(did, pk));
             Ok(())
         }
 
@@ -389,8 +391,9 @@ decl_module! {
                 current_key_detail.controller = ctrl;
             }
 
+            let pk = current_key_detail.public_key.clone();
             Dids::<T>::insert(key_update.did, (current_key_detail, current_block_no));
-            Self::deposit_event(Event::KeyUpdated(key_update.did));
+            Self::deposit_event(Event::KeyUpdated(key_update.did, pk));
             Ok(())
         }
 
