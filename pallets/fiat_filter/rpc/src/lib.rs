@@ -11,10 +11,10 @@ use std::sync::Arc;
 pub use fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi;
 
 #[rpc]
-pub trait FiatFeeApi<Balance> {
+pub trait FiatFeeApi<BlockHash, Balance> {
     /// Accepts a scale-encoded extrinsic, returns fee in µDOCK as Balance (u64)
     #[rpc(name = "fiat_filter_getCallFeeDock")]
-    fn get_call_fee_dock(&self, encoded_xt: Bytes) -> Result<Balance>;
+    fn get_call_fee_dock(&self, encoded_xt: Bytes, at: Option<BlockHash>) -> Result<Balance>;
 }
 
 /// Error type of this RPC api.
@@ -49,17 +49,23 @@ impl<Client, Block> FiatFeeServer<Client, Block> {
         }
     }
 }
-impl<Client, Block, Balance> FiatFeeApi<Balance> for FiatFeeServer<Client, Block>
+impl<Client, Block, Balance> FiatFeeApi<<Block as BlockT>::Hash, Balance>
+    for FiatFeeServer<Client, Block>
 where
     Block: BlockT,
     Client: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
     Client::Api: FiatFeeRuntimeApi<Block, Balance>,
     Balance: Codec + MaybeDisplay,
 {
-    fn get_call_fee_dock(&self, encoded_xt: Bytes) -> Result<Balance> {
+    fn get_call_fee_dock(
+        &self,
+        encoded_xt: Bytes,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Balance> {
         let api = self.client.runtime_api();
-        // automatically pick the latest/best block
-        let at = BlockId::<Block>::hash(self.client.info().best_hash);
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied, assume the latest/best block
+            self.client.info().best_hash));
 
         // decode extrinsic
         let uxt: Block::Extrinsic = Decode::decode(&mut &*encoded_xt).map_err(|e| RpcError {
