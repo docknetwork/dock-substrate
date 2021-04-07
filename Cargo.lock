@@ -1784,7 +1784,6 @@ name = "fiat_filter_rpc"
 version = "0.0.1"
 dependencies = [
  "fiat_filter_rpc_runtime_api",
- "frame-support",
  "jsonrpc-core 15.1.0",
  "jsonrpc-core-client 15.1.0",
  "jsonrpc-derive 15.1.0",

@@ -1,14 +1,11 @@
-// use frame_support::Parameter;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_core::Bytes;
-use sp_rpc::number::NumberOrHex;
 use sp_runtime::codec::{Codec, Decode};
 use sp_runtime::generic::BlockId;
 use sp_runtime::traits::{Block as BlockT, MaybeDisplay};
-use std::convert::TryInto;
 use std::sync::Arc;
 
 pub use fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi;
