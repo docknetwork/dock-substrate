@@ -80,10 +80,12 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
     C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
+    C::Api: fiat_filter_rpc::FiatFeeRuntimeApi<Block, Balance>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     P: TransactionPool<Block = Block> + 'static,
 {
+    use fiat_filter_rpc::{FiatFeeApi, FiatFeeServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use poa_rpc::{PoA, PoAApi};
     use price_feed_rpc::{PriceFeed, PriceFeedApi};
@@ -183,6 +185,8 @@ where
             Arc::new(subscription_executor),
         ),
     )));
+
+    io.extend_with(FiatFeeApi::to_delegate(FiatFeeServer::new(client.clone())));
 
     io
 }

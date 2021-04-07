@@ -231,6 +231,10 @@ version = '0.0.5'
 path = '../pallets/price_feed/rpc'
 version = '0.0.1'
 
+[dependencies.fiat_filter_rpc]
+path = '../pallets/fiat_filter/rpc'
+version = '0.0.1'
+
 [[bin]]
 name = 'dock-node'
 path = 'src/main.rs'

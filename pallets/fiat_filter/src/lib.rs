@@ -78,7 +78,7 @@ type AmountUsd = u32;
 
 pub mod fiat_rate {
     // all prices given in nUSD (billionth USD)
-    // This unit is chosen to avoid multiplications later in compute_call_fee_dock_()
+    // This unit is chosen to avoid multiplications later in get_call_fee_dock_()
     pub const PRICE_DID_CREATE: u32 = 150_000_000; // 150_000_000/1B or 0.15 USD
     pub const PRICE_DID_KEY_UPDATE: u32 = 170_000_000;
     pub const PRICE_DID_REMOVE: u32 = 150_000_000;
@@ -163,7 +163,7 @@ impl<T: Config> Module<T> {
         fail!(Error::<T>::UnexpectedCall)
     }
 
-    fn compute_call_fee_dock_(
+    pub fn get_call_fee_dock_(
         call: &<T as Config>::Call,
     ) -> Result<(BalanceOf<T>, Weight), DispatchError> {
         // the fee in fiat is expressed in nUSD (1 billionth USD)
@@ -205,7 +205,7 @@ impl<T: Config> Module<T> {
         let weight_call = call.get_dispatch_info().weight;
 
         // calculate fee based on type of call
-        let (fee_dock, weight_get_price) = match Self::compute_call_fee_dock_(&call) {
+        let (fee_dock, weight_get_price) = match Self::get_call_fee_dock_(&call) {
             Ok((f, w)) => (f, w),
             Err(error) => {
                 return Err(DispatchErrorWithPostInfo {
