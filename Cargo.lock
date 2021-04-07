@@ -1270,6 +1270,7 @@ dependencies = [
  "fc-mapping-sync",
  "fc-rpc",
  "fc-rpc-core",
+ "fiat_filter_rpc",
  "fp-consensus",
  "fp-rpc",
  "frame-benchmarking",
@@ -1323,6 +1324,7 @@ dependencies = [
  "core_mods",
  "evm",
  "fiat_filter",
+ "fiat_filter_rpc_runtime_api",
  "forked-pallet-democracy",
  "fp-rpc",
  "frame-benchmarking",
@@ -1775,6 +1777,31 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "fiat_filter_rpc"
+version = "0.0.1"
+dependencies = [
+ "fiat_filter_rpc_runtime_api",
+ "frame-support",
+ "jsonrpc-core 15.1.0",
+ "jsonrpc-core-client 15.1.0",
+ "jsonrpc-derive 15.1.0",
+ "sp-api",
+ "sp-blockchain",
+ "sp-core",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
+name = "fiat_filter_rpc_runtime_api"
+version = "0.0.1"
+dependencies = [
+ "parity-scale-codec",
+ "sp-api",
+ "sp-runtime",
 ]
 
 [[package]]
