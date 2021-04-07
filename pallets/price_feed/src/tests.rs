@@ -1,5 +1,5 @@
 use crate::{mock::*, ContractConfig, Error, ParamType, DUMMY_SOURCE, GAS_LIMIT, ZERO_VALUE};
-use common::PriceProvider;
+use common::traits::PriceProvider;
 use frame_support::{assert_err, StorageValue};
 use pallet_evm::Runner;
 use sp_core::{H160, U256};
