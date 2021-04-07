@@ -306,6 +306,11 @@ default-features = false
 path = '../pallets/price_feed'
 version = '0.0.1'
 
+[dependencies.fiat_filter_rpc_runtime_api]
+default-features = false
+path = '../pallets/fiat_filter/rpc/runtime_api'
+version = '0.0.1'
+
 [dependencies.common]
 path = '../common'
 version = '0.0.1'
