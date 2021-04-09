@@ -1,7 +1,7 @@
 {
   "Address": "MultiAddress",
   "LookupSource": "MultiAddress",
-  "Keys": "SessionKeys2",
+  "Keys": "SessionKeys4",
   "PerDispatchClassU32": {
     "normal": "u32",
     "operational": "u32",

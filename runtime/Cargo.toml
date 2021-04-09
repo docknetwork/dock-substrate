@@ -14,13 +14,6 @@ smallvec = "1.4.1"
 evm = { version = '0.25.0', default-features = false, features = ['with-codec'] }
 log = { version = "0.4.14", default-features = false }
 
-[dependencies.aura]
-default-features = false
-package = 'pallet-aura'
-version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
 [dependencies.pallet-babe]
 default-features = false
 version = '3.0.0'
@@ -84,12 +77,6 @@ branch = "frontier"
 [dependencies.sp-block-builder]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
-[dependencies.sp-consensus-aura]
-default-features = false
-version = '0.9.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
@@ -393,7 +380,6 @@ version = '0.0.1'
 [features]
 default = ['std']
 std = [
-    'aura/std',
     'pallet-babe/std',
     'balances/std',
     'codec/std',
@@ -407,7 +393,6 @@ std = [
     'sp-api/std',
     'sp-block-builder/std',
     'sp-authority-discovery/std',
-    'sp-consensus-aura/std',
     'sp-consensus-babe/std',
     'sp-core/std',
     'sp-inherents/std',

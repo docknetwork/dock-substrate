@@ -1,32 +1,41 @@
 use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
-    SessionKeys,
     price_feed::{util::ParamType, ContractConfig},
-    AccountId, Balance, BalancesConfig, CouncilMembershipConfig, DIDModuleConfig,
-    EVMConfig, EthereumConfig, GenesisConfig, GrandpaConfig, MasterConfig, PoAModuleConfig,
-    PriceFeedModuleConfig, SessionConfig, Signature, SudoConfig, SystemConfig,
-    TechnicalCommitteeMembershipConfig, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY, AuthorityDiscoveryConfig,
-    BabeConfig, ImOnlineConfig, StakerStatus, StakingConfig, BABE_GENESIS_EPOCH_CONFIG
+    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig,
+    CouncilMembershipConfig, DIDModuleConfig, EVMConfig, EthereumConfig, GenesisConfig,
+    GrandpaConfig, ImOnlineConfig, MasterConfig, PoAModuleConfig, PriceFeedModuleConfig,
+    SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
+    TechnicalCommitteeMembershipConfig, BABE_GENESIS_EPOCH_CONFIG, DOCK, MILLISECS_PER_BLOCK,
+    WASM_BINARY,
 };
 use hex_literal::hex;
+use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_service::{ChainType, Properties};
-use sp_consensus_aura::sr25519::AuthorityId as AuraId;
+use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
+use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::crypto::Ss58Codec;
 use sp_core::{sr25519, Pair, Public, H160};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
-use sp_consensus_babe::{AuthorityId as BabeId};
-use pallet_im_online::sr25519::{AuthorityId as ImOnlineId};
-use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 
 use serde_json::map::Map;
 
-use std::collections::BTreeMap;
 use sp_runtime::Perbill;
+use std::collections::BTreeMap;
 
-fn session_keys(babe: BabeId, grandpa: GrandpaId, im_online: ImOnlineId, authority_discovery: AuthorityDiscoveryId) -> SessionKeys {
-    SessionKeys { babe, grandpa, im_online, authority_discovery }
+fn session_keys(
+    babe: BabeId,
+    grandpa: GrandpaId,
+    im_online: ImOnlineId,
+    authority_discovery: AuthorityDiscoveryId,
+) -> SessionKeys {
+    SessionKeys {
+        babe,
+        grandpa,
+        im_online,
+        authority_discovery,
+    }
 }
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
@@ -49,8 +58,17 @@ where
     AccountPublic::from(get_from_seed::<TPublic>(seed)).into_account()
 }
 
-/// Helper function to generate an authority key for Aura and Grandpa
-fn get_authority_keys_from_seed(seed: &str) -> (AccountId, AccountId, BabeId, GrandpaId, ImOnlineId, AuthorityDiscoveryId) {
+/// Helper function to generate an authority key for Babe, Grandpa, ImOnline and Authority discovery
+fn get_authority_keys_from_seed(
+    seed: &str,
+) -> (
+    AccountId,
+    AccountId,
+    BabeId,
+    GrandpaId,
+    ImOnlineId,
+    AuthorityDiscoveryId,
+) {
     (
         get_account_id_from_seed::<sr25519::Public>(&format!("{}//stash", seed)),
         get_account_id_from_seed::<sr25519::Public>(seed),
@@ -454,8 +472,12 @@ pub fn mainnet_config() -> ChainSpec {
                         "3G4PHvp6EDBbmvfcDLEEkAQk1cRmvh3ZHp264pERRzcZzHwn",
                     ),
                     // TODO: Keeping same as BabeId. Fix later.
-                    pubkey_from_ss58::<ImOnlineId>("3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw"),
-                    pubkey_from_ss58::<AuthorityDiscoveryId>("3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw"),
+                    pubkey_from_ss58::<ImOnlineId>(
+                        "3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw",
+                    ),
+                    pubkey_from_ss58::<AuthorityDiscoveryId>(
+                        "3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw",
+                    ),
                 )],
                 endowed_accounts: [
                     "3EjNXTpMJieqEF5Fj5szwAqpvmmKFG3YtsY5eBazxaCkNtoz",
@@ -554,7 +576,14 @@ pub fn mainnet_config() -> ChainSpec {
 }
 
 struct GenesisBuilder {
-    initial_authorities: Vec<(AccountId, AccountId, BabeId, GrandpaId, ImOnlineId, AuthorityDiscoveryId)>,
+    initial_authorities: Vec<(
+        AccountId,
+        AccountId,
+        BabeId,
+        GrandpaId,
+        ImOnlineId,
+        AuthorityDiscoveryId,
+    )>,
     endowed_accounts: Vec<AccountId>,
     master: Membership,
     dids: Vec<(Did, KeyDetail)>,
@@ -565,7 +594,7 @@ struct GenesisBuilder {
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
     contract_config: ContractConfig,
-    stash: Balance
+    stash: Balance,
 }
 
 impl GenesisBuilder {
@@ -585,6 +614,8 @@ impl GenesisBuilder {
         let validator_reward_lock_pc = 50;
 
         self.validate().unwrap();
+
+        let stash = self.stash;
 
         GenesisConfig {
             system: SystemConfig {
@@ -654,23 +685,25 @@ impl GenesisBuilder {
             pallet_staking: StakingConfig {
                 validator_count: self.initial_authorities.len() as u32 * 2,
                 minimum_validator_count: self.initial_authorities.len() as u32,
-                stakers: self.initial_authorities.iter().map(|x| {
-                    (x.0.clone(), x.1.clone(), self.stash, StakerStatus::Validator)
-                }).collect(),
-                invulnerables: self.initial_authorities.iter().map(|x| x.0.clone()).collect(),
+                stakers: self
+                    .initial_authorities
+                    .iter()
+                    .map(|x| (x.0.clone(), x.1.clone(), stash, StakerStatus::Validator))
+                    .collect(),
+                invulnerables: self
+                    .initial_authorities
+                    .iter()
+                    .map(|x| x.0.clone())
+                    .collect(),
                 slash_reward_fraction: Perbill::from_percent(10),
-                .. Default::default()
+                ..Default::default()
             },
             pallet_babe: BabeConfig {
                 authorities: vec![],
                 epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
             },
-            pallet_im_online: ImOnlineConfig {
-                keys: vec![],
-            },
-            pallet_authority_discovery: AuthorityDiscoveryConfig {
-                keys: vec![],
-            },
+            pallet_im_online: ImOnlineConfig { keys: vec![] },
+            pallet_authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
         }
     }
 

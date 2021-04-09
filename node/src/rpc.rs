@@ -31,8 +31,10 @@ pub use sc_rpc_api::DenyUnsafe;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
-use sp_transaction_pool::TransactionPool;
+use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
+use sp_keystore::SyncCryptoStorePtr;
+use sp_transaction_pool::TransactionPool;
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
@@ -57,13 +59,15 @@ pub struct GrandpaDeps<B> {
 }
 
 /// Full client dependencies.
-pub struct FullDeps<C, P, B> {
+pub struct FullDeps<C, P, B, SC> {
     /// The client instance to use.
     pub client: Arc<C>,
     /// Transaction pool instance.
     pub pool: Arc<P>,
     /// The SelectChain Strategy
     pub select_chain: SC,
+    /// A copy of the chain spec.
+    pub chain_spec: Box<dyn sc_chain_spec::ChainSpec>,
     /// Whether to deny unsafe calls
     pub deny_unsafe: DenyUnsafe,
     /// BABE specific dependencies.
@@ -85,8 +89,8 @@ pub struct FullDeps<C, P, B> {
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P, B>(
-    deps: FullDeps<C, P, B>,
+pub fn create_full<C, P, B, SC>(
+    deps: FullDeps<C, P, B, SC>,
     subscription_executor: SubscriptionTaskExecutor,
 ) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
 where
@@ -105,6 +109,7 @@ where
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     P: TransactionPool<Block = Block> + 'static,
+    SC: SelectChain<Block> + 'static,
 {
     use fiat_filter_rpc::{FiatFeeApi, FiatFeeServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
@@ -122,6 +127,7 @@ where
         client,
         pool,
         select_chain,
+        chain_spec,
         deny_unsafe,
         babe,
         grandpa,
@@ -162,26 +168,34 @@ where
     // RPC calls for Price Feed pallet
     io.extend_with(PriceFeedApi::to_delegate(PriceFeed::new(client.clone())));
 
-    io.extend_with(
-        sc_consensus_babe_rpc::BabeApi::to_delegate(
-            BabeRpcHandler::new(
-                client.clone(),
-                shared_epoch_changes.clone(),
-                keystore,
-                babe_config,
-                select_chain,
-                deny_unsafe,
-            ),
-        )
-    );
+    io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
+        BabeRpcHandler::new(
+            client.clone(),
+            shared_epoch_changes.clone(),
+            keystore,
+            babe_config,
+            select_chain,
+            deny_unsafe,
+        ),
+    ));
 
     io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
         GrandpaRpcHandler::new(
-            shared_authority_set,
+            shared_authority_set.clone(),
             shared_voter_state,
             justification_stream,
             subscription_executor.clone(),
             finality_proof_provider,
+        ),
+    ));
+
+    io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
+        sc_sync_state_rpc::SyncStateRpcHandler::new(
+            chain_spec,
+            client.clone(),
+            shared_authority_set,
+            shared_epoch_changes,
+            deny_unsafe,
         ),
     ));
 
