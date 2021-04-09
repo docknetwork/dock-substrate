@@ -3,7 +3,7 @@ authors = ['Dock.io']
 build = 'build.rs'
 edition = '2018'
 name = 'dock-node'
-version = '0.13.1'
+version = '0.14.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -24,7 +24,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = '../runtime'
-version = '0.13.1'
+version = '0.14.0'
 
 [dependencies.sc-basic-authorship]
 version = '0.9.0'
@@ -176,51 +176,43 @@ branch = "frontier"
 
 [dependencies.pallet-ethereum]
 default-features = false
-version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
+rev = '15759a8bf6e2251b07ac958fe47981f7a7fe5785'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-consensus]
-version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
+rev = '15759a8bf6e2251b07ac958fe47981f7a7fe5785'
 #path = '../../../frontier/client/consensus'
 
 [dependencies.fp-consensus]
-version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
+rev = '15759a8bf6e2251b07ac958fe47981f7a7fe5785'
 #path = '../../../frontier/primitives/consensus'
 
 [dependencies.fc-rpc]
-version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
+rev = '15759a8bf6e2251b07ac958fe47981f7a7fe5785'
 #path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
-version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
+rev = '15759a8bf6e2251b07ac958fe47981f7a7fe5785'
 #path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
-version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
+rev = '15759a8bf6e2251b07ac958fe47981f7a7fe5785'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
-version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
+rev = '15759a8bf6e2251b07ac958fe47981f7a7fe5785'
 #path = '../../../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
-version = '1.0.0'
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'eb771d2ef24e80a6bf98e3cb46bcbffee90e2b25'
+rev = '15759a8bf6e2251b07ac958fe47981f7a7fe5785'
 #path = '../../../frontier/client/db'
 
 [dependencies.poa_rpc]

@@ -10,7 +10,7 @@ use std::{collections::BTreeMap, sync::Arc};
 use dock_runtime::{
     opaque::Block, AccountId, Balance, BlockNumber, Hash, Index, TransactionConverter,
 };
-use fc_rpc::{SchemaV1Override, StorageOverride};
+use fc_rpc::{OverrideHandle, RuntimeApiStorageOverride, SchemaV1Override, StorageOverride};
 use fc_rpc_core::types::{FilterPool, PendingTransactions};
 use jsonrpc_pubsub::manager::SubscriptionManager;
 use pallet_ethereum::EthereumStorageSchema;
@@ -143,12 +143,17 @@ where
     ));
 
     // Below code is taken from frontier template
-    let mut overrides = BTreeMap::new();
-    overrides.insert(
+    let mut overrides_map = BTreeMap::new();
+    overrides_map.insert(
         EthereumStorageSchema::V1,
         Box::new(SchemaV1Override::new(client.clone()))
             as Box<dyn StorageOverride<_> + Send + Sync>,
     );
+    let overrides = Arc::new(OverrideHandle {
+        schemas: overrides_map,
+        fallback: Box::new(RuntimeApiStorageOverride::new(client.clone())),
+    });
+
     io.extend_with(EthApiServer::to_delegate(EthApi::new(
         client.clone(),
         pool.clone(),
@@ -156,7 +161,7 @@ where
         network.clone(),
         pending_transactions.clone(),
         vec![],
-        overrides,
+        overrides.clone(),
         backend,
         is_authority,
     )));
@@ -166,6 +171,7 @@ where
             client.clone(),
             filter_pool.clone(),
             500 as usize, // max stored filters
+            overrides.clone(),
         )));
     }
 
@@ -184,6 +190,7 @@ where
             HexEncodedIdProvider::default(),
             Arc::new(subscription_executor),
         ),
+        overrides,
     )));
 
     io.extend_with(FiatFeeApi::to_delegate(FiatFeeServer::new(client.clone())));

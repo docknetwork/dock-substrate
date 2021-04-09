@@ -18,7 +18,7 @@ sp-io = { version = '3.0.0', git="https://github.com/paritytech/substrate.git", 
 serde = { version = '1.0.119', features = ['derive'] }
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features=false, features=['derive'] }
 # pallets
-core_mods = { path = "../core_mods", default_features=false, version="0.1.0" }
+core_mods = { path = "../core_mods", default_features=false, version="0.2.0" }
 pallet-balances = { version = "3.0.0", git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
 common = { path = '../../common', version = '0.0.1' }
 
