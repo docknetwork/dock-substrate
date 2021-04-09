@@ -144,7 +144,7 @@ version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
-[dependencies.sp-consensus]
+[dependencies.sc-sync-state-rpc]
 version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
@@ -213,6 +213,11 @@ version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 
+[dependencies.sc-chain-spec]
+version = '3.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
 [dependencies.sp-api]
 version = '3.0.0'
 git = 'https://github.com/paritytech/substrate.git'
@@ -225,6 +230,11 @@ branch = "frontier"
 
 [dependencies.sp-blockchain]
 version = '3.0.0'
+git = 'https://github.com/paritytech/substrate.git'
+branch = "frontier"
+
+[dependencies.sp-keystore]
+version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
 

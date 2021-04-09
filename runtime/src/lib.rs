@@ -37,7 +37,7 @@ pub use token_migration;
 use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{CurrencyToVote, Filter, FindAuthor, KeyOwnerProofSystem, Randomness, CurrencyToVote},
+    traits::{CurrencyToVote, Filter, FindAuthor, KeyOwnerProofSystem, Randomness},
     weights::{
         constants::{
             BlockExecutionWeight as DefaultBlockExecutionWeight, ExtrinsicBaseWeight,
@@ -304,9 +304,9 @@ impl system::Config for Runtime {
 }
 
 parameter_types! {
-	pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
+    pub const ImOnlineUnsignedPriority: TransactionPriority = TransactionPriority::max_value();
     /// We prioritize im-online heartbeats over election solution submission.
-	pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
+    pub const StakingUnsignedPriority: TransactionPriority = TransactionPriority::max_value() / 2;
 }
 
 impl<LocalCall> frame_system::offchain::CreateSignedTransaction<LocalCall> for Runtime
@@ -613,8 +613,8 @@ impl pallet_session::historical::Config for Runtime {
 }
 
 parameter_types! {
-	pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) *
-		RuntimeBlockWeights::get().max_block;
+    pub OffencesWeightSoftLimit: Weight = Perbill::from_percent(60) *
+        RuntimeBlockWeights::get().max_block;
 }
 
 impl pallet_offences::Config for Runtime {

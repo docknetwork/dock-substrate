@@ -407,7 +407,6 @@ std = [
     'sp-block-builder/std',
     'sp-authority-discovery/std',
     'sp-consensus-babe/std',
-    'sp-consensus-babe/std',
     'sp-core/std',
     'sp-inherents/std',
     'sp-io/std',
