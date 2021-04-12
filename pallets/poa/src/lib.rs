@@ -33,7 +33,7 @@ pub type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;
 
-type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::NegativeImbalance;
@@ -200,7 +200,7 @@ decl_storage! {
 
         /// Remaining emission supply. This reduces after each epoch as emissions happen unless
         /// emissions are disabled.
-        EmissionSupply get(fn emission_supply) config(): BalanceOf<T>;
+        pub EmissionSupply get(fn emission_supply) config(): BalanceOf<T>;
 
         /// Max emission per validator in an epoch
         MaxEmmValidatorEpoch get(fn max_emm_validator_epoch) config(): BalanceOf<T>;

@@ -156,13 +156,6 @@ pub fn run() -> sc_cli::Result<()> {
                 cmd.run::<dock_runtime::Block, dock_runtime::RuntimeApi, service::Executor>(config)
             })
         }
-        Some(Subcommand::Inspect(cmd)) => {
-            let runner = cli.create_runner(cmd)?;
-
-            runner.sync_run(|config| {
-                cmd.run::<dock_runtime::Block, dock_runtime::RuntimeApi, service::Executor>(config)
-            })
-        }
         None => {
             let runner = cli.create_runner(&cli.run.base)?;
             runner.run_node_until_exit(|config| async move {

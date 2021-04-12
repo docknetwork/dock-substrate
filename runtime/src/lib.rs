@@ -59,7 +59,7 @@ use pallet_session::historical as pallet_session_historical;
 use pallet_sudo as sudo;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::u32_trait::{_1, _2, _3, _4};
+use sp_core::u32_trait::{_1, _2, _3, _4, _5};
 use sp_core::{
     crypto::{KeyTypeId, Public},
     OpaqueMetadata, H160, H256, U256,
@@ -71,7 +71,7 @@ use sp_runtime::traits::{
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, MultiSignature, Perbill, SaturatedConversion,
+    ApplyExtrinsicResult, ModuleId, MultiSignature, Perbill, Percent, Permill, SaturatedConversion,
 };
 use transaction_payment::CurrencyAdapter;
 
@@ -90,6 +90,7 @@ use sp_version::RuntimeVersion;
 
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
+use sp_runtime::curve::PiecewiseLinear;
 
 /// An index to a block.
 pub type BlockNumber = u32;
@@ -183,7 +184,7 @@ pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
 // TODO: Configure epoch duration
-pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 10 * MINUTES;
+pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 4 * HOURS;
 pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
 
 /// The version information used to identify this runtime when compiled natively.
@@ -407,7 +408,7 @@ impl pallet_babe::Config for Runtime {
 }
 
 parameter_types! {
-    // TODO: Revisit these
+    // TODO: Revisit these. Current session duration is 4 hours making era of 1 day. Thus bonding duration and slash duration are very hght.
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
     pub const BondingDuration: pallet_staking::EraIndex = 24 * 28;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
@@ -456,7 +457,7 @@ impl pallet_staking::Config for Runtime {
     >;
     type SessionInterface = Self;
     // TODO: Set a reward curve
-    type EraPayout = ();
+    type EraPayout = StakingRewards;
     type NextNewSession = Session;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
     type ElectionLookahead = ElectionLookahead;
@@ -540,7 +541,7 @@ impl timestamp::Config for Runtime {
     type Moment = u64;
     type OnTimestampSet = Babe;
     type MinimumPeriod = MinimumPeriod;
-    type WeightInfo = ();
+    type WeightInfo = timestamp::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -837,6 +838,85 @@ impl pallet_democracy::Trait for Runtime {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    // TODO: Revisit values below
+    pub const ProposalBond: Permill = Permill::from_percent(5);
+    pub const ProposalBondMinimum: Balance = 1 * DOCK;
+    pub const SpendPeriod: BlockNumber = 1 * DAYS;
+    pub const Burn: Permill = Permill::from_percent(50);
+    pub const TipCountdown: BlockNumber = 1 * DAYS;
+    pub const TipFindersFee: Percent = Percent::from_percent(20);
+    pub const TipReportDepositBase: Balance = 1 * DOCK;
+    pub const DataDepositPerByte: Balance = DOCK / 100;
+    pub const BountyDepositBase: Balance = 1 * DOCK;
+    pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
+    /// Matches treasury account created during PoA.
+    pub const TreasuryModuleId: ModuleId = ModuleId(*b"Treasury");
+    pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
+    pub const MaximumReasonLength: u32 = 16384;
+    pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
+    pub const BountyValueMinimum: Balance = 5 * DOCK;
+}
+
+impl pallet_treasury::Config for Runtime {
+    type ModuleId = TreasuryModuleId;
+    type Currency = Balances;
+    type ApproveOrigin = EnsureOneOf<
+        AccountId,
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionAtLeast<_3, _5, AccountId, CouncilCollective>,
+    >;
+    type RejectOrigin = EnsureOneOf<
+        AccountId,
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
+    >;
+    type Event = Event;
+    type OnSlash = ();
+    type ProposalBond = ProposalBond;
+    type ProposalBondMinimum = ProposalBondMinimum;
+    type SpendPeriod = SpendPeriod;
+    type Burn = Burn;
+    type BurnDestination = ();
+    type SpendFunds = Bounties;
+    type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_bounties::Config for Runtime {
+    type Event = Event;
+    type BountyDepositBase = BountyDepositBase;
+    type BountyDepositPayoutDelay = BountyDepositPayoutDelay;
+    type BountyUpdatePeriod = BountyUpdatePeriod;
+    type BountyCuratorDeposit = BountyCuratorDeposit;
+    type BountyValueMinimum = BountyValueMinimum;
+    type DataDepositPerByte = DataDepositPerByte;
+    type MaximumReasonLength = MaximumReasonLength;
+    type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
+}
+
+pallet_staking_reward_curve::build! {
+    const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
+        min_inflation: 0_025_000,
+        max_inflation: 0_100_000,
+        ideal_stake: 0_750_000,
+        falloff: 0_050_000,
+        max_piece_count: 40,
+        test_precision: 0_005_000,
+    );
+}
+
+parameter_types! {
+    pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
+    pub const RewardDecayPct: u8 = 25;
+}
+
+impl staking_rewards::Config for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type RewardDecayPct = RewardDecayPct;
+    type RewardCurve = RewardCurve;
+}
+
 pub struct EthereumFindAuthor<F>(PhantomData<F>);
 impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
     fn find_author<'a, I>(digests: I) -> Option<H160>
@@ -1015,6 +1095,9 @@ construct_runtime!(
         Staking: pallet_staking::{Module, Call, Config<T>, Storage, Event<T>, ValidateUnsigned},
         ElectionProviderMultiPhase: pallet_election_provider_multi_phase::{Module, Call, Storage, Event<T>, ValidateUnsigned},
         Offences: pallet_offences::{Module, Call, Storage, Event},
+        Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
+        Bounties: pallet_bounties::{Module, Call, Storage, Event<T>},
+        StakingRewards: staking_rewards::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -1205,65 +1288,6 @@ impl_runtime_apis! {
             AuthorityDiscovery::authorities()
         }
     }
-
-    impl sp_consensus_babe::BabeApi<Block> for Runtime {
-		fn configuration() -> sp_consensus_babe::BabeGenesisConfiguration {
-			// The choice of `c` parameter (where `1 - c` represents the
-			// probability of a slot being empty), is done in accordance to the
-			// slot duration and expected target block time, for safely
-			// resisting network delays of maximum two seconds.
-			// <https://research.web3.foundation/en/latest/polkadot/BABE/Babe/#6-practical-results>
-			sp_consensus_babe::BabeGenesisConfiguration {
-				slot_duration: Babe::slot_duration(),
-				epoch_length: EpochDuration::get(),
-				c: BABE_GENESIS_EPOCH_CONFIG.c,
-				genesis_authorities: Babe::authorities(),
-				randomness: Babe::randomness(),
-				allowed_slots: BABE_GENESIS_EPOCH_CONFIG.allowed_slots,
-			}
-		}
-
-		fn current_epoch_start() -> sp_consensus_babe::Slot {
-			Babe::current_epoch_start()
-		}
-
-		fn current_epoch() -> sp_consensus_babe::Epoch {
-			Babe::current_epoch()
-		}
-
-		fn next_epoch() -> sp_consensus_babe::Epoch {
-			Babe::next_epoch()
-		}
-
-		fn generate_key_ownership_proof(
-			_slot: sp_consensus_babe::Slot,
-			authority_id: sp_consensus_babe::AuthorityId,
-		) -> Option<sp_consensus_babe::OpaqueKeyOwnershipProof> {
-			use codec::Encode;
-
-			Historical::prove((sp_consensus_babe::KEY_TYPE, authority_id))
-				.map(|p| p.encode())
-				.map(sp_consensus_babe::OpaqueKeyOwnershipProof::new)
-		}
-
-		fn submit_report_equivocation_unsigned_extrinsic(
-			equivocation_proof: sp_consensus_babe::EquivocationProof<<Block as BlockT>::Header>,
-			key_owner_proof: sp_consensus_babe::OpaqueKeyOwnershipProof,
-		) -> Option<()> {
-			let key_owner_proof = key_owner_proof.decode()?;
-
-			Babe::submit_unsigned_equivocation_report(
-				equivocation_proof,
-				key_owner_proof,
-			)
-		}
-	}
-
-	impl sp_authority_discovery::AuthorityDiscoveryApi<Block> for Runtime {
-		fn authorities() -> Vec<AuthorityDiscoveryId> {
-			AuthorityDiscovery::authorities()
-		}
-	}
 
     impl fg_primitives::GrandpaApi<Block> for Runtime {
         fn grandpa_authorities() -> GrandpaAuthorityList {

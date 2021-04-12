@@ -20,12 +20,6 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
-[dependencies.pallet-babe]
-default-features = false
-version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
 [dependencies.balances]
 default-features = false
 package = 'pallet-balances'
@@ -83,12 +77,6 @@ branch = "frontier"
 [dependencies.sp-block-builder]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
-[dependencies.sp-consensus-babe]
-default-features = false
-version = '0.9.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
@@ -286,7 +274,25 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.pallet-staking-reward-curve]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.pallet-election-provider-multi-phase]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-treasury]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-bounties]
 default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
@@ -389,10 +395,14 @@ version = '0.0.1'
 path = '../common'
 version = '0.0.1'
 
+[dependencies.staking_rewards]
+default-features = false
+path = '../pallets/staking_rewards'
+version = '0.1.0'
+
 [features]
 default = ['std']
 std = [
-    'pallet-babe/std',
     'pallet-babe/std',
     'balances/std',
     'codec/std',
@@ -424,6 +434,7 @@ std = [
     'transaction-payment/std',
     'pallet-transaction-payment-rpc-runtime-api/std',
     'pallet-session/std',
+    'pallet-scheduler/std',
     'pallet-sudo/std',
     'pallet-authorship/std',
     'pallet-utility/std',
@@ -433,6 +444,8 @@ std = [
     'pallet-im-online/std',
     'pallet-staking/std',
     'pallet-election-provider-multi-phase/std',
+    'pallet-treasury/std',
+    'pallet-bounties/std',
     'evm/std',
     'evm/with-serde',
     'pallet-evm/std',
@@ -450,6 +463,7 @@ std = [
     'price_feed/std',
     'fiat_filter/std',
     'fiat_filter_rpc_runtime_api/std',
+    'staking_rewards/std',
 ]
 runtime-benchmarks = [
   'frame-benchmarking',

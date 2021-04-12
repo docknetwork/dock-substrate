@@ -683,6 +683,7 @@ impl GenesisBuilder {
                 contract_config: self.contract_config,
             },
             pallet_staking: StakingConfig {
+                // TODO: Take `validator_count` and `minimum_validator_count` on self so that they can be changed per chain
                 validator_count: self.initial_authorities.len() as u32 * 2,
                 minimum_validator_count: self.initial_authorities.len() as u32,
                 stakers: self
@@ -704,6 +705,7 @@ impl GenesisBuilder {
             },
             pallet_im_online: ImOnlineConfig { keys: vec![] },
             pallet_authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+            pallet_treasury: Default::default(),
         }
     }
 
