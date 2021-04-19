@@ -27,7 +27,6 @@ pub use core_mods::blob;
 pub use core_mods::did;
 pub use core_mods::master;
 pub use core_mods::revoke;
-mod evm_test;
 pub mod weight_to_fee;
 
 pub use poa;
@@ -652,6 +651,12 @@ impl pallet_evm::Config for Runtime {
         pallet_evm_precompile_simple::ECRecoverPublicKey,
         pallet_evm_precompile_sha3fips::Sha3FIPS256,
         pallet_evm_precompile_sha3fips::Sha3FIPS512,
+        pallet_evm_precompile_ed25519::Ed25519Verify,
+        pallet_evm_precompile_modexp::Modexp,
+        pallet_evm_precompile_bn128::Bn128Add,
+        pallet_evm_precompile_bn128::Bn128Mul,
+        pallet_evm_precompile_bn128::Bn128Pairing,
+        pallet_evm_precompile_dispatch::Dispatch<Self>,
     );
     type ChainId = DockChainId;
     /// Deducted fee will be handled by the PoA module
@@ -1051,8 +1056,8 @@ impl_runtime_apis! {
         }
     }
 
-    impl fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi<Block,Balance> for Runtime {
-        fn get_call_fee_dock(uxt: <Block as BlockT>::Extrinsic) -> Result<Balance,fiat_filter_rpc_runtime_api::Error> {
+    impl fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi<Block, Balance> for Runtime {
+        fn get_call_fee_dock(uxt: <Block as BlockT>::Extrinsic) -> Result<Balance, fiat_filter_rpc_runtime_api::Error> {
             match FiatFilterModule::get_call_fee_dock_(&uxt.function) {
                 Ok((fee_microdock,_weight)) => Ok(fee_microdock),
                 Err(e) => Err(fiat_filter_rpc_runtime_api::Error::new_getcallfeedock(e))
