@@ -1189,7 +1189,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.12.3"
+version = "0.12.4"
 dependencies = [
  "dock-runtime",
  "frame-benchmarking",
@@ -1233,7 +1233,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.12.3"
+version = "0.12.4"
 dependencies = [
  "forked-pallet-democracy",
  "frame-benchmarking",

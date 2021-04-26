@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.12.3'
+version = '0.12.4'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
@@ -204,7 +204,6 @@ std = [
     'codec/std',
     'frame-executive/std',
     'frame-support/std',
-    'frame-benchmarking/std',
     'grandpa/std',
     'randomness-collective-flip/std',
     'serde',

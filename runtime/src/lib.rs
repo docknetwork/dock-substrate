@@ -142,8 +142,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 21,
-    impl_version: 2,
+    spec_version: 22,
+    impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
