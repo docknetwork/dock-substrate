@@ -409,8 +409,8 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         if let AccountVote::Standard { vote, .. } = vote {
             match vote.aye {
-                true => tally.ayes -= 1.saturated_into(),
-                false => tally.nays -= 1.saturated_into(),
+                true => tally.ayes -= 1u32.saturated_into(),
+                false => tally.nays -= 1u32.saturated_into(),
             }
             Ok(())
         } else {
@@ -425,8 +425,8 @@ impl<T: Trait> Module<T> {
     ) -> DispatchResult {
         if let AccountVote::Standard { vote, .. } = vote {
             match vote.aye {
-                true => tally.ayes += 1.saturated_into(),
-                false => tally.nays += 1.saturated_into(),
+                true => tally.ayes += 1u32.saturated_into(),
+                false => tally.nays += 1u32.saturated_into(),
             }
             Ok(())
         } else {

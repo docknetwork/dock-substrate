@@ -510,7 +510,7 @@ impl<T: Trait> Module<T> {
         ensure!(!bonuses.is_empty(), Error::<T>::NoVestingBonus);
 
         let now = <frame_system::Module<T>>::block_number();
-        let now_plus_1 = now + T::BlockNumber::from(1);
+        let now_plus_1 = now + T::BlockNumber::from(1u32);
 
         let vesting_duration = T::BlockNumber::from(T::VestingDuration::get());
         let vesting_milestones = T::BlockNumber::from(T::VestingMilestones::get() as u32);
