@@ -327,7 +327,8 @@ impl did::Trait for Runtime {
 impl revoke::Trait for Runtime {}
 
 parameter_types! {
-    pub const MaxBlobSize: u32 = 1024;
+    // 8KB
+    pub const MaxBlobSize: u32 = 8192;
     pub const StorageWeight: Weight = 1100;
 }
 
@@ -439,7 +440,7 @@ impl pallet_collective::Trait<CouncilCollective> for Runtime {
 }
 
 /// This instance of the membership pallet corresponds to Council.
-/// Adding, removing, swapping, reseting members requires an approval of simple majority of the Council
+/// Adding, removing, swapping, resetting members requires an approval of simple majority of the Council
 /// or `Root` origin
 impl pallet_membership::Trait<pallet_membership::Instance1> for Runtime {
     type Event = Event;
