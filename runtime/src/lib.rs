@@ -141,7 +141,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 21,
+    spec_version: 22,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -333,7 +333,8 @@ impl did::Trait for Runtime {
 impl revoke::Trait for Runtime {}
 
 parameter_types! {
-    pub const MaxBlobSize: u32 = 1024;
+    // 8KB
+    pub const MaxBlobSize: u32 = 8192;
     pub const StorageWeight: Weight = 1100;
 }
 
@@ -445,7 +446,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
 }
 
 /// This instance of the membership pallet corresponds to Council.
-/// Adding, removing, swapping, reseting members requires an approval of simple majority of the Council
+/// Adding, removing, swapping, resetting members requires an approval of simple majority of the Council
 /// or `Root` origin
 impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
     type Event = Event;
