@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.14.1'
+version = '0.14.2'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]

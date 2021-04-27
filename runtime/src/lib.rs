@@ -141,7 +141,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-main-runtime"),
     impl_name: create_runtime_str!("dock-main-runtime"),
     authoring_version: 1,
-    spec_version: 22,
+    spec_version: 23,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -690,12 +690,8 @@ impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
             Call::Democracy(_) => false,
-            // filter out core_mods calls so they're only done through fiat_filter
-            Call::Anchor(_) => false,
-            Call::BlobStore(_) => false,
-            Call::DIDModule(_) => false,
-            Call::Revoke(_) => false,
-            Call::Attest(_) => false,
+            // Disable fiat_filter for now
+            Call::FiatFilterModule(_) => false,
             _ => true,
         }
     }

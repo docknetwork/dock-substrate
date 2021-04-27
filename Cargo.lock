@@ -1284,7 +1284,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "dock-runtime",
  "fc-consensus",
@@ -1340,7 +1340,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.14.1"
+version = "0.14.2"
 dependencies = [
  "common",
  "core_mods",
