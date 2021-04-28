@@ -32,7 +32,7 @@ mod tests_did_calls {
             );
 
             let call = Call::DIDMod(did::Call::<TestRt>::new(d.clone(), key_detail));
-            let expected_fees = PRICE_DID_CREATE / RATE_DOCK_USD;
+            let expected_fees = PRICE_DID_CREATE / TestPriceProvider::get().unwrap();
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -70,7 +70,7 @@ mod tests_did_calls {
 
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
             let call = Call::DIDMod(did::Call::<TestRt>::update_key(key_update, sig));
-            let expected_fees = PRICE_DID_KEY_UPDATE / RATE_DOCK_USD;
+            let expected_fees = PRICE_DID_KEY_UPDATE / TestPriceProvider::get().unwrap();
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -88,7 +88,7 @@ mod tests_did_calls {
             });
 
             let call = Call::DIDMod(did::Call::<TestRt>::remove(to_remove, sig));
-            let expected_fees = PRICE_DID_REMOVE / RATE_DOCK_USD;
+            let expected_fees = PRICE_DID_REMOVE / TestPriceProvider::get().unwrap();
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -102,7 +102,7 @@ fn call_anchor_deploy() {
         let dat = (0..32).map(|_| rand::random()).collect();
 
         let call = Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
-        let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / RATE_DOCK_USD;
+        let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / TestPriceProvider::get().unwrap();
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
     });
 }
@@ -127,7 +127,7 @@ mod test_attest_calls {
             let call = Call::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
             let expected_fees_nusd =
                 PRICE_ATTEST_OP_BASE + size_attested.div_ceil(100) * PRICE_ATTEST_OP_PER_100_BYTES;
-            let expected_fees_microdock = expected_fees_nusd / RATE_DOCK_USD;
+            let expected_fees_microdock = expected_fees_nusd / TestPriceProvider::get().unwrap();
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees_microdock);
         });
     }
@@ -149,7 +149,7 @@ mod test_attest_calls {
             let call = Call::AttestMod(attest::Call::<TestRt>::set_claim(attester, att, sig));
             let expected_fees_nusd =
                 PRICE_ATTEST_OP_BASE + size_attested.div_ceil(100) * PRICE_ATTEST_OP_PER_100_BYTES;
-            let expected_fees_microdock = expected_fees_nusd / RATE_DOCK_USD;
+            let expected_fees_microdock = expected_fees_nusd / TestPriceProvider::get().unwrap();
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees_microdock);
         });
     }
@@ -173,7 +173,7 @@ fn call_blob_new() {
         let blob_size = 999;
         let expected_fees_nusd =
             PRICE_BLOB_OP_BASE + blob_size.div_ceil(100) * PRICE_BLOB_OP_PER_100_BYTES;
-        let expected_fees_microdock = expected_fees_nusd / RATE_DOCK_USD;
+        let expected_fees_microdock = expected_fees_nusd / TestPriceProvider::get().unwrap();
         let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees_microdock);
     });
 }
@@ -229,7 +229,8 @@ mod tests_revoke_calls {
                 let call = Call::RevokeMod(revoke::Call::<TestRt>::revoke(revoke, proof));
                 let expected_fees_nusd =
                     PRICE_REVOKE_OP_CONST_FACTOR + revocation_size * PRICE_REVOKE_PER_REVOCATION;
-                let expected_fees_microdock = expected_fees_nusd / RATE_DOCK_USD;
+                let expected_fees_microdock =
+                    expected_fees_nusd / TestPriceProvider::get().unwrap();
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees_microdock);
 
                 // assert ids in registry
@@ -298,7 +299,7 @@ mod tests_revoke_calls {
                 let call = Call::RevokeMod(revoke::Call::<TestRt>::unrevoke(unrevoke, proof));
                 let expected_fees_nusd =
                     PRICE_REVOKE_OP_CONST_FACTOR + unrevoke_size * PRICE_REVOKE_PER_REVOCATION;
-                let expected_fees = expected_fees_nusd / RATE_DOCK_USD;
+                let expected_fees = expected_fees_nusd / TestPriceProvider::get().unwrap();
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
                 // assert unrevoked
@@ -332,7 +333,8 @@ mod tests_revoke_calls {
                 let call =
                     Call::RevokeMod(revoke::Call::<TestRt>::new_registry(reg_id, reg.clone()));
 
-                let expected_fees = PRICE_REVOKE_REGISTRY_CREATE / RATE_DOCK_USD;
+                let expected_fees =
+                    PRICE_REVOKE_REGISTRY_CREATE / TestPriceProvider::get().unwrap();
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
                 let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
@@ -363,7 +365,7 @@ mod tests_revoke_calls {
 
             let call = Call::RevokeMod(revoke::Call::<TestRt>::remove_registry(rem, proof));
 
-            let expected_fees = PRICE_REVOKE_REGISTRY_REMOVE / RATE_DOCK_USD;
+            let expected_fees = PRICE_REVOKE_REGISTRY_REMOVE / TestPriceProvider::get().unwrap();
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
             // assert registry removed
@@ -468,19 +470,18 @@ mod tests_fail_modes {
 mod tests_dock_fiat_rate {
     #[test]
     fn call_anchor_deploy__OK_different_rate() {
-        use crate::fiat_rate::*;
-        use crate::test_mock::testrt_price2::{ext_price2, measure_fees};
-        use crate::test_mock::testrt_price2::{Call, TestRt as TestRt2};
-        use crate::test_mock::RATE_DOCK_USD_2;
+        use super::*;
         use core_mods::anchor;
         use frame_support::assert_ok;
         use frame_support::weights::Pays;
 
-        ext_price2().execute_with(|| {
-            let dat = (0..32).map(|_| rand::random()).collect();
-            let call = Call::AnchorMod(anchor::Call::<TestRt2>::deploy(dat));
+        RATE_DOCK_USD.with(|v| v.replace(Some(999)));
 
-            let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / RATE_DOCK_USD_2;
+        ext().execute_with(|| {
+            let dat = (0..32).map(|_| rand::random()).collect();
+            let call = Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
+
+            let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / TestPriceProvider::get().unwrap();
 
             let (fee_microdock, executed) = measure_fees(call);
             assert_ok!(executed);
@@ -493,16 +494,16 @@ mod tests_dock_fiat_rate {
 
     #[test]
     fn call_anchor_deploy__OK_min_rate() {
-        use crate::fiat_rate::*;
-        use crate::test_mock::testrt_noprice::{ext_noprice, measure_fees};
-        use crate::test_mock::testrt_noprice::{Call, TestRt as TestRt2};
+        use super::*;
         use core_mods::anchor;
         use frame_support::assert_ok;
         use frame_support::weights::Pays;
 
-        ext_noprice().execute_with(|| {
+        RATE_DOCK_USD.with(|v| v.replace(None));
+
+        ext().execute_with(|| {
             let dat = (0..32).map(|_| rand::random()).collect();
-            let call = Call::AnchorMod(anchor::Call::<TestRt2>::deploy(dat));
+            let call = Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
 
             let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / MIN_RATE_DOCK_USD;
 
