@@ -56,6 +56,10 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+        const MaxBlobSize: u32 = T::MaxBlobSize::get();
+
+        const StorageWeight: Weight = T::StorageWeight::get();
+
         /// Create a new immutable blob.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight() +
           (blob.blob.len() as Weight * T::StorageWeight::get())]

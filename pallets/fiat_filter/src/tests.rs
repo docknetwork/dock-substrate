@@ -505,7 +505,7 @@ mod tests_dock_fiat_rate {
             let dat = (0..32).map(|_| rand::random()).collect();
             let call = Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat));
 
-            let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / MIN_RATE_DOCK_USD;
+            let expected_fees = 32 * PRICE_ANCHOR_OP_PER_BYTE / MinDockFiatRate::get();
 
             let (fee_microdock, executed) = measure_fees(call);
             assert_ok!(executed);

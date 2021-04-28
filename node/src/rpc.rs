@@ -62,6 +62,8 @@ pub struct FullDeps<C, P, B> {
     pub filter_pool: Option<FilterPool>,
     /// Backend.
     pub backend: Arc<fc_db::Backend<Block>>,
+    /// Maximum number of logs in a query.
+    pub max_past_logs: u32,
 }
 
 /// Instantiate all full RPC extensions.
@@ -107,6 +109,7 @@ where
         pending_transactions,
         filter_pool,
         backend,
+        max_past_logs,
     } = deps;
 
     let GrandpaDeps {
@@ -164,6 +167,7 @@ where
         overrides.clone(),
         backend,
         is_authority,
+        max_past_logs,
     )));
 
     if let Some(filter_pool) = filter_pool {
@@ -172,12 +176,14 @@ where
             filter_pool.clone(),
             500 as usize, // max stored filters
             overrides.clone(),
+            max_past_logs,
         )));
     }
 
     io.extend_with(NetApiServer::to_delegate(NetApi::new(
         client.clone(),
         network.clone(),
+        true,
     )));
 
     io.extend_with(Web3ApiServer::to_delegate(Web3Api::new(client.clone())));

@@ -679,10 +679,16 @@ impl price_feed::Config for Runtime {
     type Event = Event;
 }
 
+parameter_types! {
+    /// Price of Dock/USD pair as 10th of cent. Value of 10 means 1 cent
+    pub const MinDockFiatRate: u32 = 10;
+}
+
 impl fiat_filter::Config for Runtime {
     type Call = Call;
     type PriceProvider = price_feed::Module<Runtime>;
     type Currency = balances::Module<Runtime>;
+    type MinDockFiatRate = MinDockFiatRate;
 }
 
 pub struct BaseFilter;
@@ -723,6 +729,7 @@ construct_runtime!(
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
         Anchor: anchor::{Module, Call, Storage, Event<T>},
+        Attest: attest::{Module, Call, Storage},
         SimpleDemocracy: simple_democracy::{Module, Call, Event},
         Democracy: pallet_democracy::{Module, Call, Storage, Event<T>},
         Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
@@ -730,7 +737,6 @@ construct_runtime!(
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TechnicalCommitteeMembership: pallet_membership::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        Attest: attest::{Module, Call, Storage},
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
         PriceFeedModule: price_feed::{Module, Call, Storage, Event, Config},

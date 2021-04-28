@@ -45,10 +45,14 @@ frame_support::construct_runtime!(
     }
 );
 
+parameter_types! {
+    pub const MinDockFiatRate: u32 = 1;
+}
 impl Config for TestRt {
     type PriceProvider = TestPriceProvider;
     type Call = Call;
     type Currency = Balances;
+    type MinDockFiatRate = MinDockFiatRate;
 }
 
 parameter_types! {

@@ -22,6 +22,8 @@ use std::collections::{BTreeMap, HashMap};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
+use crate::cli::Cli;
+
 // Our native executor instance.
 native_executor_instance!(
     pub Executor,
@@ -195,7 +197,7 @@ pub fn new_partial(
 }
 
 /// Builds a new service for a full client.
-pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> {
+pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, ServiceError> {
     let sc_service::PartialComponents {
         client,
         backend,
@@ -275,6 +277,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
         let pending = pending_transactions.clone();
         let filter_pool = filter_pool.clone();
         let frontier_backend = frontier_backend.clone();
+        let max_past_logs = cli.run.max_past_logs;
 
         Box::new(move |deny_unsafe, _| {
             let deps = crate::rpc::FullDeps {
@@ -292,6 +295,7 @@ pub fn new_full(mut config: Configuration) -> Result<TaskManager, ServiceError> 
                 pending_transactions: pending.clone(),
                 filter_pool: filter_pool.clone(),
                 backend: frontier_backend.clone(),
+                max_past_logs,
             };
 
             crate::rpc::create_full(deps, subscription_task_executor.clone())

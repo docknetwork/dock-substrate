@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.14.2'
+version = '0.14.3'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
@@ -245,49 +245,49 @@ optional = true
 [dependencies.pallet-evm]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 #path = '../../../frontier/frame/evm'
 
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.pallet-evm-precompile-simple]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 
 [dependencies.pallet-evm-precompile-sha3fips]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 
 [dependencies.pallet-evm-precompile-ed25519]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 
 [dependencies.pallet-evm-precompile-modexp]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 
 [dependencies.pallet-evm-precompile-bn128]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 
 [dependencies.pallet-evm-precompile-dispatch]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 
 [dependencies.fp-rpc]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = 'c34edf6de13e16665eb61f671e685c48ef4d2b57'
+rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]

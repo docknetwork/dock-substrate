@@ -3,6 +3,7 @@
 use common::arith_utils::DivCeil;
 use common::traits::PriceProvider;
 use core_mods::{anchor, attest, blob, did, revoke};
+use frame_support::traits::Get;
 use frame_support::{
     decl_error, decl_module,
     dispatch::{
@@ -44,6 +45,10 @@ pub trait Config:
         + IsSubType<blob::Call<Self>>
         + IsSubType<revoke::Call<Self>>
         + IsSubType<attest::Call<Self>>;
+
+    /// Minimum price, in case the price fetched from optimized_get_dock_usd_price is zero or an error
+    /// expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the actual result from optimized_get_dock_usd_price
+    type MinDockFiatRate: Get<u32>;
 }
 
 decl_error! {
@@ -60,6 +65,8 @@ decl_module! {
     where
         origin: T::Origin
     {
+        const MinDockFiatRate: u32 = T::MinDockFiatRate::get();
+
         // Errors must be initialized if they are used by the pallet.
         type Error = Error<T>;
 
@@ -91,10 +98,6 @@ pub mod fiat_rate {
     pub const PRICE_BLOB_OP_PER_100_BYTES: u32 = 55_000_000;
     pub const PRICE_ATTEST_OP_BASE: u32 = PRICE_BLOB_OP_BASE;
     pub const PRICE_ATTEST_OP_PER_100_BYTES: u32 = PRICE_BLOB_OP_PER_100_BYTES;
-
-    // minimum price, in case the price fetched from optimized_get_dock_usd_price is zero or an error
-    // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the aactual result from optimized_get_dock_usd_price
-    pub const MIN_RATE_DOCK_USD: u32 = 1;
 }
 
 // private helper functions
@@ -173,10 +176,8 @@ impl<T: Config> Module<T> {
         // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK)
         let (dock_usd1000th_rate, weight): (u32, Weight) =
             match <T as Config>::PriceProvider::optimized_get_dock_usd_price() {
-                Some((rate, weight)) => {
-                    (sp_std::cmp::max(rate, fiat_rate::MIN_RATE_DOCK_USD), weight)
-                }
-                None => (fiat_rate::MIN_RATE_DOCK_USD, 10_000),
+                Some((rate, weight)) => (sp_std::cmp::max(rate, T::MinDockFiatRate::get()), weight),
+                None => (T::MinDockFiatRate::get(), 10_000),
             };
 
         // we want the result fee, expressed in µDOCK (1 millionth DOCK)

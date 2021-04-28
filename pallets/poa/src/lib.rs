@@ -221,7 +221,6 @@ decl_event!(
     pub enum Event<T>
     where
         AccountId = <T as system::Config>::AccountId,
-        BlockNumber = <T as system::Config>::BlockNumber,
         Balance = BalanceOf<T>,
     {
         // New validator added in front of queue.
@@ -242,8 +241,8 @@ decl_event!(
         // Epoch ends at slot
         EpochEnds(EpochNo, SlotNo),
 
-        // Txn fees given to block author for a block no, (block no, validator id, fees)
-        TxnFeesGiven(BlockNumber, AccountId, Balance),
+        // Txn fees given to block author, (validator id, fees)
+        TxnFeesGiven(AccountId, Balance),
     }
 );
 
@@ -445,7 +444,7 @@ decl_module! {
 
         /// Awards the complete txn fees to the block author if any and increment block count for
         /// current epoch and who authored it.
-        fn on_finalize(block_no: T::BlockNumber) {
+        fn on_finalize(_block_no: T::BlockNumber) {
             // Get the current block author
             let author = <pallet_authorship::Module<T>>::author();
 
@@ -454,7 +453,7 @@ decl_module! {
             Self::increment_current_epoch_block_count(author.clone());
 
             fees.and_then(|f| {
-                Self::deposit_event(RawEvent::TxnFeesGiven(block_no, author, f));
+                Self::deposit_event(RawEvent::TxnFeesGiven(author, f));
                 Option::<BalanceOf<T>>::default()
             });
         }
