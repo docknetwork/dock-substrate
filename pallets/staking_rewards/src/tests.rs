@@ -192,6 +192,32 @@ fn test_emission_status_set_get() {
 }
 
 #[test]
+fn test_treasury_reward_pct_set_get() {
+    new_test_ext().execute_with(|| {
+        assert_eq!(StakingRewards::treasury_reward_pc(), 0);
+
+        assert_noop!(
+            StakingRewards::set_treasury_reward_pc(Origin::signed(4), 25),
+            BadOrigin
+        );
+        assert_eq!(StakingRewards::treasury_reward_pc(), 0);
+
+        // Only root can enable/disable emissions
+        assert_ok!(StakingRewards::set_treasury_reward_pc(
+            RawOrigin::Root.into(),
+            25
+        ));
+        assert_eq!(StakingRewards::treasury_reward_pc(), 25);
+
+        assert_noop!(
+            StakingRewards::set_treasury_reward_pc(Origin::signed(5), 30),
+            BadOrigin
+        );
+        assert_eq!(StakingRewards::treasury_reward_pc(), 25);
+    })
+}
+
+#[test]
 fn test_yearly_rewards() {
     // Test yearly rewards at different staking rates
     new_test_ext().execute_with(|| {
@@ -563,6 +589,7 @@ fn test_era_payout() {
         assert!(total_reward > 0);
         assert_eq!(StakingRewards::staking_emission_supply(), 0);
     })
+    // TODO: Check for treasury split
 }
 
 #[test]
@@ -595,4 +622,6 @@ fn test_initial_emission_supply_on_runtime_upgrade() {
         );
         assert_eq!(PoAModule::emission_supply(), 0);
     })
+
+    // TODO: Check for treasury percentage as well
 }

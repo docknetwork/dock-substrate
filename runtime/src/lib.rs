@@ -408,8 +408,9 @@ impl pallet_babe::Config for Runtime {
 }
 
 parameter_types! {
-    // TODO: Revisit these. Current session duration is 4 hours making era of 1 day. Thus bonding duration and slash duration are very hght.
+    // TODO: Revisit these. Current session duration is 1 hour making era of 6 hours. Thus bonding duration and slash duration are very high.
     pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+    /// Bonding duration is in number of era
     pub const BondingDuration: pallet_staking::EraIndex = 24 * 28;
     pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
     pub const MaxNominatorRewardedPerValidator: u32 = 256;
@@ -456,7 +457,6 @@ impl pallet_staking::Config for Runtime {
         pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>,
     >;
     type SessionInterface = Self;
-    // TODO: Set a reward curve
     type EraPayout = StakingRewards;
     type NextNewSession = Session;
     type MaxNominatorRewardedPerValidator = MaxNominatorRewardedPerValidator;
@@ -1487,11 +1487,13 @@ impl_runtime_apis! {
             // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency issues.
             // To get around that, we separated the Session benchmarks into its own crate, which is why
             // we need these two lines below.
-            // use pallet_session_benchmarking::Module as SessionBench;
-            use frame_system_benchmarking::Module as SystemBench;
+            use pallet_session_benchmarking::Module as SessionBench;
+			use pallet_offences_benchmarking::Module as OffencesBench;
+			use frame_system_benchmarking::Module as SystemBench;
 
-            // impl pallet_session_benchmarking::Trait for Runtime {}
-            impl frame_system_benchmarking::Config for Runtime {}
+			impl pallet_session_benchmarking::Config for Runtime {}
+			impl pallet_offences_benchmarking::Config for Runtime {}
+			impl frame_system_benchmarking::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number

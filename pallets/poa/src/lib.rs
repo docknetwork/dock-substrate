@@ -206,7 +206,7 @@ decl_storage! {
         MaxEmmValidatorEpoch get(fn max_emm_validator_epoch) config(): BalanceOf<T>;
 
         /// Percentage of emission rewards for treasury in each epoch
-        TreasuryRewardsPercent get(fn treasury_reward_pc) config(): u8;
+        pub TreasuryRewardsPercent get(fn treasury_reward_pc) config(): u8;
 
         /// Percentage of emission rewards locked per epoch for validators
         ValidatorRewardsLockPercent get(fn validator_reward_lock_pc) config(): u8;

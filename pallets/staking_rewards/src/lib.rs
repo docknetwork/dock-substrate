@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    decl_event, decl_module, decl_storage, dispatch,
+    decl_event, decl_module, decl_storage, dispatch, ensure, decl_error,
     traits::{Currency, Get},
     weights::{Pays, Weight},
 };
@@ -41,7 +41,10 @@ decl_storage! {
 
         /// Boolean flag determining whether to generate emission rewards or not. Name is intentionally
         /// kept different from `EmissionStatus` from poa module.
-        StakingEmissionStatus get(fn staking_emission_status) config(): bool;
+        StakingEmissionStatus get(fn staking_emission_status): bool;
+
+        /// Percentage of emission rewards for treasury in each epoch
+        TreasuryRewardsPercent get(fn treasury_reward_pc): u8;
     }
 }
 
@@ -55,6 +58,13 @@ decl_event!(
     }
 );
 
+decl_error! {
+    /// Errors for the module.
+    pub enum Error for Module<T: Config> {
+        PercentageGreaterThan100,
+    }
+}
+
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
@@ -67,15 +77,36 @@ decl_module! {
             Ok(Pays::No.into())
         }
 
+        /// Set percentage of emission rewards for treasury in each epoch
+        #[weight = T::DbWeight::get().writes(1)]
+        pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResultWithPostInfo {
+            ensure_root(origin)?;
+            ensure!(
+                reward_pc <= 100,
+                Error::<T>::PercentageGreaterThan100
+            );
+            TreasuryRewardsPercent::put(reward_pc);
+            Ok(Pays::No.into())
+        }
+
         /// Called to set emission supply from PoA module when the runtime is upgraded. Before upgrading
         /// the runtime with PoS, PoA emissions will be disabled after short terminating the epoch.
+        /// Ensure to remove this runtime upgrade immediately after PoS upgrade.
         fn on_runtime_upgrade() -> Weight {
-            Self::set_emission_supply_from_poa()
+            let weight = Self::set_emission_supply_from_poa();
+            if (Self::treasury_reward_pc() == 0) {
+                let pct = poa::TreasuryRewardsPercent::get();
+                TreasuryRewardsPercent::put(pct);
+                weight + T::DbWeight::get().reads_writes(2, 1)
+            } else {
+                weight + T::DbWeight::get().reads(1)
+            }
         }
     }
 }
 
 impl<T: Config> Module<T> {
+    // TODO: Needed as RPC?
     /// Compute emission reward of an era. It considers the remaining emission supply and the decay in
     /// addition to NPoS inflation. Returns the emission reward and the reduced emission supply after
     /// emitting the rewards.
@@ -106,6 +137,7 @@ impl<T: Config> Module<T> {
         (emission_reward, remaining)
     }
 
+    // TODO: Needed as RPC?
     /// Get yearly emission reward as per NPoS and remaining emission supply. The reward is taken
     /// from remaining emission supply and is proportional to the ratio of current NPoS inflation to
     /// maximum NPoS inflation
@@ -152,6 +184,7 @@ impl<T: Config> Module<T> {
         reward_curve.calculate_for_fraction_times_denominator(total_staked, total_issuance)
     }
 
+    // TODO: Needed as RPC?
     /// Get maximum emission per year according to the decay percentage and given emission supply
     fn get_max_yearly_emission(emission_supply: BalanceOf<T>) -> BalanceOf<T> {
         // Emission supply decreases by "decay percentage" of the remaining emission supply per year
@@ -188,6 +221,11 @@ impl<T: Config> Module<T> {
 }
 
 impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
+    /// Compute era payout for validators and treasury and reduce the remaining emission supply.
+    /// It is assumed and expected that this is called only when a payout of an era has to computed
+    /// and isn't called twice for the same era as it has a side-effect (reducing remaining supply).
+    /// Currently it doesn't seem possible to avoid this side effect as there is no way for this pallet
+    /// to be notified if an era payout was successfully done.
     fn era_payout(
         total_staked: BalanceOf<T>,
         total_issuance: BalanceOf<T>,
@@ -208,6 +246,7 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
             (BalanceOf::<T>::zero(), remaining)
         } else {
             Self::set_new_emission_supply(remaining);
+            // TODO: Split `emission_reward` for treasury and validators according to TreasuryRewardsPercent
             (emission_reward, BalanceOf::<T>::zero())
         }
     }
