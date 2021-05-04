@@ -37,7 +37,10 @@ pub use token_migration;
 use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, parameter_types,
-    traits::{CurrencyToVote, Filter, FindAuthor, KeyOwnerProofSystem, Randomness},
+    traits::{
+        Currency, CurrencyToVote, Filter, FindAuthor, Imbalance, KeyOwnerProofSystem, OnUnbalanced,
+        Randomness,
+    },
     weights::{
         constants::{
             BlockExecutionWeight as DefaultBlockExecutionWeight, ExtrinsicBaseWeight,
@@ -71,7 +74,7 @@ use sp_runtime::traits::{
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, ModuleId, MultiSignature, Perbill, Percent, Permill, SaturatedConversion,
+    ApplyExtrinsicResult, ModuleId, MultiSignature, Perbill, Permill, SaturatedConversion,
 };
 use transaction_payment::CurrencyAdapter;
 
@@ -183,8 +186,8 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-// TODO: Configure epoch duration
-pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 4 * HOURS;
+// TODO: Configure epoch duration, keeping it small for testing
+pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
 pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
 
 /// The version information used to identify this runtime when compiled natively.
@@ -380,6 +383,7 @@ impl pallet_im_online::Config for Runtime {
 parameter_types! {
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
+    /// Specifies the number of blocks for which the equivocation is valid.
     pub const ReportLongevity: u64 =
         BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
 }
@@ -408,11 +412,11 @@ impl pallet_babe::Config for Runtime {
 }
 
 parameter_types! {
-    // TODO: Revisit these. Current session duration is 1 hour making era of 6 hours. Thus bonding duration and slash duration are very high.
-    pub const SessionsPerEra: sp_staking::SessionIndex = 6;
+    // TODO: Revisit these. Setting small values for testing
+    pub const SessionsPerEra: sp_staking::SessionIndex = 3;
     /// Bonding duration is in number of era
-    pub const BondingDuration: pallet_staking::EraIndex = 24 * 28;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+    pub const BondingDuration: pallet_staking::EraIndex = 24 * 8;
+    pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 2; // 1/4 the bonding duration.
     pub const MaxNominatorRewardedPerValidator: u32 = 256;
     pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
     pub const MaxIterations: u32 = 10;
@@ -441,11 +445,9 @@ impl pallet_staking::Config for Runtime {
     type UnixTime = Timestamp;
     // Our balance type is u64
     type CurrencyToVote = U64CurrencyToVote;
-    // TODO: Set to treasury once integrated
-    type RewardRemainder = ();
+    type RewardRemainder = Treasury;
     type Event = Event;
-    // TODO: Set to treasury once integrated
-    type Slash = (); // send the slashed funds to the treasury.
+    type Slash = Treasury; // send the slashed funds to the treasury.
     type Reward = (); // rewards are minted from the void
     type SessionsPerEra = SessionsPerEra;
     type BondingDuration = BondingDuration;
@@ -478,6 +480,7 @@ parameter_types! {
     pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
 
     // fallback: no need to do on-chain phragmen initially.
+    // TODO: Experiment with on-chain phragmen
     pub const Fallback: pallet_election_provider_multi_phase::FallbackStrategy =
         pallet_election_provider_multi_phase::FallbackStrategy::Nothing;
 
@@ -568,7 +571,7 @@ parameter_types! {
 
 impl transaction_payment::Config for Runtime {
     /// Transaction fees is handled by PoA module
-    type OnChargeTransaction = CurrencyAdapter<Balances, PoAModule>;
+    type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = TxnFee<Balance>;
     type FeeMultiplierUpdate = ();
@@ -844,9 +847,6 @@ parameter_types! {
     pub const ProposalBondMinimum: Balance = 1 * DOCK;
     pub const SpendPeriod: BlockNumber = 1 * DAYS;
     pub const Burn: Permill = Permill::from_percent(50);
-    pub const TipCountdown: BlockNumber = 1 * DAYS;
-    pub const TipFindersFee: Percent = Percent::from_percent(20);
-    pub const TipReportDepositBase: Balance = 1 * DOCK;
     pub const DataDepositPerByte: Balance = DOCK / 100;
     pub const BountyDepositBase: Balance = 1 * DOCK;
     pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
@@ -856,6 +856,25 @@ parameter_types! {
     pub const MaximumReasonLength: u32 = 16384;
     pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
     pub const BountyValueMinimum: Balance = 5 * DOCK;
+}
+
+type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
+
+pub struct DealWithFees;
+impl OnUnbalanced<NegativeImbalance> for DealWithFees {
+    fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
+        // for fees and tips, if any, 60% to treasury, 40% to author
+        let treasury_share = TreasuryRewardsPct::get() as u32;
+        let validator_share = 100 - treasury_share;
+        if let Some(fees) = fees_then_tips.next() {
+            let mut split = fees.ration(treasury_share, validator_share);
+            if let Some(tips) = fees_then_tips.next() {
+                tips.ration_merge_into(treasury_share, validator_share, &mut split);
+            }
+            Treasury::on_unbalanced(split.0);
+            Balances::resolve_creating(&Authorship::author(), split.1);
+        }
+    }
 }
 
 impl pallet_treasury::Config for Runtime {
@@ -908,12 +927,14 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const RewardDecayPct: u8 = 25;
+    pub const TreasuryRewardsPct: u8 = 60;
 }
 
 impl staking_rewards::Config for Runtime {
     type Event = Event;
     type Currency = Balances;
     type RewardDecayPct = RewardDecayPct;
+    type TreasuryRewardsPct = TreasuryRewardsPct;
     type RewardCurve = RewardCurve;
 }
 
@@ -1009,7 +1030,7 @@ impl pallet_evm::Config for Runtime {
     );
     type ChainId = DockChainId;
     /// Deducted fee will be handled by the PoA module
-    type OnChargeTransaction = EVMCurrencyAdapter<Balances, PoAModule>;
+    type OnChargeTransaction = EVMCurrencyAdapter<Balances, DealWithFees>;
 
     type BlockGasLimit = BlockGasLimit;
 
@@ -1488,12 +1509,12 @@ impl_runtime_apis! {
             // To get around that, we separated the Session benchmarks into its own crate, which is why
             // we need these two lines below.
             use pallet_session_benchmarking::Module as SessionBench;
-			use pallet_offences_benchmarking::Module as OffencesBench;
-			use frame_system_benchmarking::Module as SystemBench;
+            use pallet_offences_benchmarking::Module as OffencesBench;
+            use frame_system_benchmarking::Module as SystemBench;
 
-			impl pallet_session_benchmarking::Config for Runtime {}
-			impl pallet_offences_benchmarking::Config for Runtime {}
-			impl frame_system_benchmarking::Config for Runtime {}
+            impl pallet_session_benchmarking::Config for Runtime {}
+            impl pallet_offences_benchmarking::Config for Runtime {}
+            impl frame_system_benchmarking::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number

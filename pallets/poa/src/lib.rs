@@ -33,7 +33,8 @@ pub type EpochNo = u32;
 type EpochLen = u32;
 type SlotNo = u64;
 
-pub type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+pub type BalanceOf<T> =
+    <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 /// Negative imbalance used to transfer transaction fess to block author
 type NegativeImbalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::NegativeImbalance;

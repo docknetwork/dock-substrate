@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    decl_event, decl_module, decl_storage, dispatch, ensure, decl_error,
+    decl_error, decl_event, decl_module, decl_storage, dispatch,
     traits::{Currency, Get},
     weights::{Pays, Weight},
 };
@@ -27,6 +27,8 @@ pub trait Config: system::Config + poa::Trait {
     type Currency: Currency<Self::AccountId>;
     /// The percentage by which remaining emission supply decreases
     type RewardDecayPct: Get<u8>;
+    /// The percentage of rewards going to treasury
+    type TreasuryRewardsPct: Get<u8>;
     /// The NPoS reward curve where the first 2 points (of `points` field) correspond to the lowest
     ///and highest inflation and the subsequent points correspond to decreasing inflation
     type RewardCurve: Get<&'static PiecewiseLinear<'static>>;
@@ -42,9 +44,6 @@ decl_storage! {
         /// Boolean flag determining whether to generate emission rewards or not. Name is intentionally
         /// kept different from `EmissionStatus` from poa module.
         StakingEmissionStatus get(fn staking_emission_status): bool;
-
-        /// Percentage of emission rewards for treasury in each epoch
-        TreasuryRewardsPercent get(fn treasury_reward_pc): u8;
     }
 }
 
@@ -77,30 +76,11 @@ decl_module! {
             Ok(Pays::No.into())
         }
 
-        /// Set percentage of emission rewards for treasury in each epoch
-        #[weight = T::DbWeight::get().writes(1)]
-        pub fn set_treasury_reward_pc(origin, reward_pc: u8) -> dispatch::DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            ensure!(
-                reward_pc <= 100,
-                Error::<T>::PercentageGreaterThan100
-            );
-            TreasuryRewardsPercent::put(reward_pc);
-            Ok(Pays::No.into())
-        }
-
         /// Called to set emission supply from PoA module when the runtime is upgraded. Before upgrading
         /// the runtime with PoS, PoA emissions will be disabled after short terminating the epoch.
         /// Ensure to remove this runtime upgrade immediately after PoS upgrade.
         fn on_runtime_upgrade() -> Weight {
-            let weight = Self::set_emission_supply_from_poa();
-            if (Self::treasury_reward_pc() == 0) {
-                let pct = poa::TreasuryRewardsPercent::get();
-                TreasuryRewardsPercent::put(pct);
-                weight + T::DbWeight::get().reads_writes(2, 1)
-            } else {
-                weight + T::DbWeight::get().reads(1)
-            }
+            Self::set_emission_supply_from_poa()
         }
     }
 }
@@ -241,13 +221,15 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
         Self::deposit_event(RawEvent::RewardsEmitted(emission_reward, remaining));
 
         if emission_reward.is_zero() {
-            // No emission reward. This marks the end of emission rewards.
-            Self::set_new_emission_supply(BalanceOf::<T>::zero());
-            (BalanceOf::<T>::zero(), remaining)
+            (BalanceOf::<T>::zero(), BalanceOf::<T>::zero())
         } else {
             Self::set_new_emission_supply(remaining);
-            // TODO: Split `emission_reward` for treasury and validators according to TreasuryRewardsPercent
-            (emission_reward, BalanceOf::<T>::zero())
+            let treasury_share = T::TreasuryRewardsPct::get();
+            let treasury_reward = Percent::from_percent(treasury_share) * emission_reward;
+            (
+                emission_reward.saturating_sub(treasury_reward),
+                treasury_reward,
+            )
         }
     }
 }

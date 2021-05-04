@@ -44,6 +44,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 21;
+    pub const TreasuryRewardsPct: u8 = 60;
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 }
 
@@ -102,6 +103,7 @@ impl staking_rewards::Config for Test {
     type Event = ();
     type Currency = Balances;
     type RewardDecayPct = RewardDecayPct;
+    type TreasuryRewardsPct = TreasuryRewardsPct;
     type RewardCurve = RewardCurve;
 }
 
@@ -188,32 +190,6 @@ fn test_emission_status_set_get() {
             BadOrigin
         );
         assert_eq!(StakingRewards::staking_emission_status(), true);
-    })
-}
-
-#[test]
-fn test_treasury_reward_pct_set_get() {
-    new_test_ext().execute_with(|| {
-        assert_eq!(StakingRewards::treasury_reward_pc(), 0);
-
-        assert_noop!(
-            StakingRewards::set_treasury_reward_pc(Origin::signed(4), 25),
-            BadOrigin
-        );
-        assert_eq!(StakingRewards::treasury_reward_pc(), 0);
-
-        // Only root can enable/disable emissions
-        assert_ok!(StakingRewards::set_treasury_reward_pc(
-            RawOrigin::Root.into(),
-            25
-        ));
-        assert_eq!(StakingRewards::treasury_reward_pc(), 25);
-
-        assert_noop!(
-            StakingRewards::set_treasury_reward_pc(Origin::signed(5), 30),
-            BadOrigin
-        );
-        assert_eq!(StakingRewards::treasury_reward_pc(), 25);
     })
 }
 
@@ -567,29 +543,59 @@ fn test_era_payout() {
         StakingRewards::set_emission_status(RawOrigin::Root.into(), true).unwrap();
 
         let mut total_staked = 1000;
-        let mut total_reward = 0;
-        loop {
-            // For running the test in reasonable time, era duration is 1/4 of a year
-            let (emission_reward, remaining) =
-                StakingRewards::era_payout(total_staked, total_issuance, MILLISECONDS_PER_YEAR / 4);
-            emission_supply -= emission_reward;
+        let mut total_validator_reward = 0;
+        let mut total_treasury_reward = 0;
 
-            if emission_reward == 0 {
-                assert_eq!(StakingRewards::staking_emission_supply(), 0);
+        // Keep the total_staked increasing or decreasing but keep within min_staked and max_staked
+        let mut stake_change_direction = true;
+        let max_staked = 100_000;
+        let min_staked = 10_000;
+
+        // The following loop might continue for ever
+        let mut iterations = 0;
+        loop {
+            if iterations == 10000 {
                 break;
-            } else {
-                assert_eq!(StakingRewards::staking_emission_supply(), emission_supply);
-                assert_eq!(remaining, 0);
             }
-            total_reward += emission_reward;
+            // For running the test in reasonable time, era duration is 1/4 of a year
+            let (validator_reward, treasury_reward) =
+                StakingRewards::era_payout(total_staked, total_issuance, MILLISECONDS_PER_YEAR / 4);
+            let total_reward = validator_reward + treasury_reward;
+            emission_supply -= total_reward;
+
+            assert_eq!(StakingRewards::staking_emission_supply(), emission_supply);
+            assert_eq!(
+                Percent::from_percent(<Test as staking_rewards::Config>::TreasuryRewardsPct::get())
+                    * total_reward,
+                treasury_reward
+            );
+
+            total_validator_reward += validator_reward;
+            total_treasury_reward += treasury_reward;
             total_issuance += total_reward;
-            total_staked += 1000;
+
+            // Stake was increasing, now decrease
+            if total_staked >= max_staked && stake_change_direction {
+                stake_change_direction = false;
+            }
+
+            // Stake was decreasing, now increase
+            if total_staked <= min_staked && !stake_change_direction {
+                stake_change_direction = true;
+            }
+
+            if stake_change_direction {
+                total_staked += 1000;
+            } else {
+                total_staked -= 1000;
+            }
+
+            iterations += 1;
         }
 
-        assert!(total_reward > 0);
-        assert_eq!(StakingRewards::staking_emission_supply(), 0);
+        assert!(total_validator_reward > 0);
+        assert!(total_treasury_reward > 0);
     })
-    // TODO: Check for treasury split
 }
 
 #[test]
@@ -622,6 +628,4 @@ fn test_initial_emission_supply_on_runtime_upgrade() {
         );
         assert_eq!(PoAModule::emission_supply(), 0);
     })
-
-    // TODO: Check for treasury percentage as well
 }

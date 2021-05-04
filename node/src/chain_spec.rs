@@ -211,6 +211,7 @@ pub fn development_config() -> ChainSpec {
                 ),
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
+                validator_count: 50,
             }
             .build()
         },
@@ -288,6 +289,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 ),
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
+                validator_count: 50,
             }
             .build()
         },
@@ -432,6 +434,7 @@ pub fn testnet_config() -> ChainSpec {
                 // TODO: Set this after deploying contract to testnet
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
+                validator_count: 50,
             }
             .build()
         },
@@ -561,6 +564,7 @@ pub fn mainnet_config() -> ChainSpec {
                 contract_config: get_dev_chain_price_feed_contract(),
                 // TODO: Temporary value
                 stash: 100 * DOCK,
+                validator_count: 50,
             }
             .build()
         },
@@ -594,7 +598,10 @@ struct GenesisBuilder {
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
     contract_config: ContractConfig,
+    /// Balance that would be locked for the initial authorities
     stash: Balance,
+    /// Maximum allowed validators
+    validator_count: u16,
 }
 
 impl GenesisBuilder {
@@ -683,8 +690,7 @@ impl GenesisBuilder {
                 contract_config: self.contract_config,
             },
             pallet_staking: StakingConfig {
-                // TODO: Take `validator_count` and `minimum_validator_count` on self so that they can be changed per chain
-                validator_count: self.initial_authorities.len() as u32 * 2,
+                validator_count: self.validator_count as u32,
                 minimum_validator_count: self.initial_authorities.len() as u32,
                 stakers: self
                     .initial_authorities
@@ -696,6 +702,8 @@ impl GenesisBuilder {
                     .iter()
                     .map(|x| x.0.clone())
                     .collect(),
+                // 10% of slashed amount goes as reward to the reporters of bad behavior.
+                // TODO: Consider increasing it in the beginning
                 slash_reward_fraction: Perbill::from_percent(10),
                 ..Default::default()
             },
