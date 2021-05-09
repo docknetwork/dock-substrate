@@ -27,7 +27,7 @@ use alloc::collections::{BTreeMap, BTreeSet};
 
 pub mod runtime_api;
 
-// TODO: Remove all print statements and panics before releasing for mainnet
+// TODO: Remove txn fees collecting mechanism and update tests as well.
 
 pub type EpochNo = u32;
 type EpochLen = u32;
@@ -358,6 +358,7 @@ decl_module! {
             Ok(Pays::No.into())
         }
 
+        // TODO: This should be removed treasury pallet is integrated now.
         /// Withdraw from treasury. Only Master is allowed to withdraw
         /// # <weight>
         /// 1 read-write for treasury and 1 read-write for recipient.

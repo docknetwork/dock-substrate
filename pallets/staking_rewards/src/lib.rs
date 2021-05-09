@@ -35,7 +35,7 @@ pub trait Config: system::Config + poa::Trait {
 }
 
 decl_storage! {
-    trait Store for Module<T: Config> as PriceFeedModule {
+    trait Store for Module<T: Config> as StakingRewards {
         /// Remaining emission supply. This reduces after each era as emissions happen unless
         /// emissions are disabled. Name is intentionally kept different from `EmissionSupply` from
         /// poa module.
@@ -53,7 +53,7 @@ decl_event!(
         Balance = BalanceOf<T>,
     {
         /// Rewards emitted and remaining
-        RewardsEmitted(Balance, Balance),
+        EmissionRewards(Balance, Balance),
     }
 );
 
@@ -66,6 +66,11 @@ decl_error! {
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
+        /// The percentage by which remaining emission supply decreases
+        const RewardDecayPct: u8 = T::RewardDecayPct::get();
+        /// The percentage of rewards going to treasury
+        const TreasuryRewardsPct: u8 = T::TreasuryRewardsPct::get();
+
         fn deposit_event() = default;
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
@@ -218,7 +223,7 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
             total_issuance,
             era_duration_millis,
         );
-        Self::deposit_event(RawEvent::RewardsEmitted(emission_reward, remaining));
+        Self::deposit_event(RawEvent::EmissionRewards(emission_reward, remaining));
 
         if emission_reward.is_zero() {
             (BalanceOf::<T>::zero(), BalanceOf::<T>::zero())

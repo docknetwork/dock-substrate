@@ -298,6 +298,24 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.pallet-tips]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-democracy]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-elections-phragmen]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.hex-literal]
 version = "0.3.1"
 optional = true
@@ -359,17 +377,6 @@ version = '0.6.2'
 default-features = false
 path = '../pallets/token_migration'
 version = '0.1.2'
-
-[dependencies.pallet-democracy]
-package = 'forked-pallet-democracy'
-default-features = false
-path = '../pallets/democracy'
-version = '2.0.1'
-
-[dependencies.simple_democracy]
-default-features = false
-path = '../pallets/simple_democracy'
-version = '0.0.2'
 
 [dependencies.core_mods]
 default-features = false
@@ -438,6 +445,7 @@ std = [
     'pallet-sudo/std',
     'pallet-authorship/std',
     'pallet-utility/std',
+    'pallet-membership/std',
     'pallet-collective/std',
     'pallet-offences/std',
     'pallet-authority-discovery/std',
@@ -446,6 +454,9 @@ std = [
     'pallet-election-provider-multi-phase/std',
     'pallet-treasury/std',
     'pallet-bounties/std',
+    'pallet-tips/std',
+    'pallet-democracy/std',
+    'pallet-elections-phragmen/std',
     'evm/std',
     'evm/with-serde',
     'pallet-evm/std',
@@ -458,7 +469,6 @@ std = [
     'pallet-evm-precompile-dispatch/std',
     'poa/std',
     'token_migration/std',
-    'simple_democracy/std',
     'core_mods/std',
     'price_feed/std',
     'fiat_filter/std',

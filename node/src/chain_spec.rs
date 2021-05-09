@@ -2,12 +2,11 @@ use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
     price_feed::{util::ParamType, ContractConfig},
-    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig,
-    CouncilMembershipConfig, DIDModuleConfig, EVMConfig, EthereumConfig, GenesisConfig,
-    GrandpaConfig, ImOnlineConfig, MasterConfig, PoAModuleConfig, PriceFeedModuleConfig,
-    SessionConfig, SessionKeys, Signature, StakerStatus, StakingConfig, SudoConfig, SystemConfig,
-    TechnicalCommitteeMembershipConfig, BABE_GENESIS_EPOCH_CONFIG, DOCK, MILLISECS_PER_BLOCK,
-    WASM_BINARY,
+    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
+    EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig,
+    MasterConfig, PoAModuleConfig, PriceFeedModuleConfig, SessionConfig, SessionKeys, Signature,
+    StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    BABE_GENESIS_EPOCH_CONFIG, DOCK, MAX_ALLOWED_VALIDATORS, MILLISECS_PER_BLOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -211,7 +210,7 @@ pub fn development_config() -> ChainSpec {
                 ),
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
-                validator_count: 50,
+                validator_count: 3,
             }
             .build()
         },
@@ -289,7 +288,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 ),
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
-                validator_count: 50,
+                validator_count: 20,
             }
             .build()
         },
@@ -564,7 +563,7 @@ pub fn mainnet_config() -> ChainSpec {
                 contract_config: get_dev_chain_price_feed_contract(),
                 // TODO: Temporary value
                 stash: 100 * DOCK,
-                validator_count: 50,
+                validator_count: MAX_ALLOWED_VALIDATORS,
             }
             .build()
         },
@@ -673,15 +672,11 @@ impl GenesisBuilder {
             did: DIDModuleConfig { dids: self.dids },
             sudo: SudoConfig { key: self.sudo },
             pallet_collective_Instance1: Default::default(),
-            pallet_membership_Instance1: CouncilMembershipConfig {
-                members: self.council_members,
-                phantom: Default::default(),
-            },
-            pallet_collective_Instance2: Default::default(),
-            pallet_membership_Instance2: TechnicalCommitteeMembershipConfig {
+            pallet_collective_Instance2: TechnicalCommitteeConfig {
                 members: self.technical_committee_members,
                 phantom: Default::default(),
             },
+            pallet_membership_Instance1: Default::default(),
             pallet_ethereum: EthereumConfig {},
             pallet_evm: EVMConfig {
                 accounts: BTreeMap::new(),
@@ -714,6 +709,14 @@ impl GenesisBuilder {
             pallet_im_online: ImOnlineConfig { keys: vec![] },
             pallet_authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
             pallet_treasury: Default::default(),
+            pallet_elections_phragmen: ElectionsConfig {
+                members: self
+                    .council_members
+                    .iter()
+                    .cloned()
+                    .map(|member| (member, stash))
+                    .collect(),
+            },
         }
     }
 

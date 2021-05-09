@@ -31,15 +31,14 @@ pub mod weight_to_fee;
 
 pub use poa;
 pub use price_feed;
-pub use simple_democracy;
 pub use token_migration;
 
 use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, parameter_types,
     traits::{
-        Currency, CurrencyToVote, Filter, FindAuthor, Imbalance, KeyOwnerProofSystem, OnUnbalanced,
-        Randomness,
+        Currency, CurrencyToVote, Filter, FindAuthor, Imbalance, KeyOwnerProofSystem,
+        LockIdentifier, OnUnbalanced, Randomness,
     },
     weights::{
         constants::{
@@ -74,7 +73,7 @@ use sp_runtime::traits::{
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, ModuleId, MultiSignature, Perbill, Permill, SaturatedConversion,
+    ApplyExtrinsicResult, ModuleId, MultiSignature, Perbill, Percent, Permill, SaturatedConversion,
 };
 use transaction_payment::CurrencyAdapter;
 
@@ -186,9 +185,93 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-// TODO: Configure epoch duration, keeping it small for testing
-pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
-pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
+// The modules `test_durations` is used to generate runtimes with small duration events like epochs, eras,
+// bonding durations, etc for testing purposes. They should NOT be used in production.
+
+#[allow(dead_code)]
+mod test_durations {
+    use super::{BlockNumber, DAYS, MINUTES};
+
+    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
+    pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
+    pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
+    /// Bonding duration is in number of era
+    pub const BONDING_DURATION: pallet_staking::EraIndex = 24 * 8;
+    pub const SLASH_DEFER_DURATION: pallet_staking::EraIndex = 24 * 2; // 1/4 the bonding duration.
+    /// Specifies the number of blocks for which the equivocation is valid.
+    pub const REPORT_LONGEVITY: u64 =
+        BONDING_DURATION as u64 * SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_SLOTS;
+    /// The number of blocks before the end of the era from which election submissions are allowed. Used for validator elections.
+    pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
+
+    /// How long each seat is kept for elections. Used for gov.
+    pub const TERM_DURATION: BlockNumber = 7 * DAYS;
+    /// The time-out for council motions.
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
+    /// The time-out for technical committee motions.
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
+    /// Delay after which an accepted proposal executes
+    pub const ENACTMENT_PERIOD: BlockNumber = 1 * MINUTES;
+    /// How often new public referrenda are launched
+    pub const LAUNCH_PERIOD: BlockNumber = 15 * MINUTES;
+    pub const VOTING_PERIOD: BlockNumber = 10 * MINUTES;
+    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 2 * MINUTES;
+    pub const COOLOFF_PERIOD: BlockNumber = 60 * MINUTES;
+
+    /// Duration after which funds from treasury are spent for approved bounties
+    pub const SPEND_PERIOD: BlockNumber = 15 * MINUTES;
+    /// The delay period for which a bounty beneficiary need to wait before claim the payout.
+    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = 1 * MINUTES;
+    /// The period for which a tip remains open after is has achieved threshold tippers.
+    pub const TIP_COUNTDOWN: BlockNumber = 1 * MINUTES;
+    /// Bounty duration in blocks.
+    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 5 * MINUTES;
+}
+
+#[allow(dead_code)]
+mod prod_durations {
+    use super::{BlockNumber, DAYS, HOURS, MINUTES};
+
+    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 1 * HOURS;
+    pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
+
+    // TODO: Revisit values below
+    pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 6;
+    /// Bonding duration is in number of era
+    pub const BONDING_DURATION: pallet_staking::EraIndex = 24 * 28;
+    pub const SLASH_DEFER_DURATION: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+    /// Specifies the number of blocks for which the equivocation is valid.
+    pub const REPORT_LONGEVITY: u64 =
+        BONDING_DURATION as u64 * SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_SLOTS;
+    /// The number of blocks before the end of the era from which election submissions are allowed. Used for validator elections.
+    pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
+
+    /// How long each seat is kept for elections. Used for gov.
+    pub const TERM_DURATION: BlockNumber = 7 * DAYS;
+    /// The time-out for council motions.
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = 7 * DAYS;
+    /// The time-out for technical committee motions.
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 7 * DAYS;
+    /// Delay after which an accepted proposal executes
+    pub const ENACTMENT_PERIOD: BlockNumber = 2 * DAYS;
+    /// How often new public referrenda are launched
+    pub const LAUNCH_PERIOD: BlockNumber = 20 * DAYS;
+    pub const VOTING_PERIOD: BlockNumber = 15 * DAYS;
+    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 3 * HOURS;
+    pub const COOLOFF_PERIOD: BlockNumber = 28 * 24 * 60 * MINUTES;
+
+    /// Duration after which funds from treasury are spent for approved bounties
+    pub const SPEND_PERIOD: BlockNumber = 1 * DAYS;
+    /// The delay period for which a bounty beneficiary need to wait before claim the payout.
+    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = 1 * DAYS;
+    /// The period for which a tip remains open after is has achieved threshold tippers.
+    pub const TIP_COUNTDOWN: BlockNumber = 1 * DAYS;
+    /// Bounty duration in blocks.
+    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 14 * DAYS;
+}
+
+// TODO: Use module `prod_durations`
+use test_durations::*;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -384,8 +467,7 @@ parameter_types! {
     pub const EpochDuration: u64 = EPOCH_DURATION_IN_SLOTS;
     pub const ExpectedBlockTime: Moment = MILLISECS_PER_BLOCK;
     /// Specifies the number of blocks for which the equivocation is valid.
-    pub const ReportLongevity: u64 =
-        BondingDuration::get() as u64 * SessionsPerEra::get() as u64 * EpochDuration::get();
+    pub const ReportLongevity: u64 = REPORT_LONGEVITY;
 }
 
 impl pallet_babe::Config for Runtime {
@@ -411,14 +493,16 @@ impl pallet_babe::Config for Runtime {
     type WeightInfo = ();
 }
 
+pub const MAX_ALLOWED_VALIDATORS: u16 = 50;
+
 parameter_types! {
-    // TODO: Revisit these. Setting small values for testing
-    pub const SessionsPerEra: sp_staking::SessionIndex = 3;
+    pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
     /// Bonding duration is in number of era
-    pub const BondingDuration: pallet_staking::EraIndex = 24 * 8;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = 24 * 2; // 1/4 the bonding duration.
-    pub const MaxNominatorRewardedPerValidator: u32 = 256;
-    pub const ElectionLookahead: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
+    pub const BondingDuration: pallet_staking::EraIndex = BONDING_DURATION;
+    pub const SlashDeferDuration: pallet_staking::EraIndex = SLASH_DEFER_DURATION; // 1/4 the bonding duration.
+    /// A validator will only have 1024 nominators, so max (rewarded) nominators is 1024*50 = 51200
+    pub const MaxNominatorRewardedPerValidator: u32 = 1024;
+    pub const ElectionLookahead: BlockNumber = ELECTION_LOOKAHEAD;
     pub const MaxIterations: u32 = 10;
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
     pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
@@ -696,10 +780,57 @@ type RootOrMoreThanHalfCouncil = EnsureOneOf<
     pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
 >;
 
+/// This origin indicates that either >66.66% of Council members approved some dispatch (through a proposal)
+/// or the dispatch was done as `Root` (by sudo or master)
+type RootOrMoreThanTwoThirdCouncil = EnsureOneOf<
+    AccountId,
+    EnsureRoot<AccountId>,
+    pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, CouncilCollective>,
+>;
+
 type CouncilMember = pallet_collective::EnsureMember<AccountId, CouncilCollective>;
 
+const fn deposit(items: u32, bytes: u32) -> Balance {
+    items as Balance * 15 * (DOCK / 100) + (bytes as Balance) * 6 * (DOCK / 100)
+}
+
 parameter_types! {
-    pub const CouncilMotionDuration: BlockNumber = 7 * DAYS;
+    pub const CandidacyBond: Balance = 10 * DOCK;
+    // 1 storage item created, key size is 32 bytes, value size is 16+16.
+    pub const VotingBondBase: Balance = deposit(1, 64);
+    // additional data per vote is 32 bytes (account id).
+    pub const VotingBondFactor: Balance = deposit(0, 32);
+    pub const TermDuration: BlockNumber = TERM_DURATION;
+    pub const DesiredMembers: u32 = 13;
+    pub const DesiredRunnersUp: u32 = 7;
+    pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
+}
+
+// Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
+const_assert!(DesiredMembers::get() <= CouncilMaxMembers::get());
+
+impl pallet_elections_phragmen::Config for Runtime {
+    type Event = Event;
+    type ModuleId = ElectionsPhragmenModuleId;
+    type Currency = Balances;
+    type ChangeMembers = Council;
+    // NOTE: this implies that council's genesis members cannot be set directly and must come from
+    // this module.
+    type InitializeMembers = Council;
+    type CurrencyToVote = U64CurrencyToVote;
+    type CandidacyBond = CandidacyBond;
+    type VotingBondBase = VotingBondBase;
+    type VotingBondFactor = VotingBondFactor;
+    type LoserCandidate = ();
+    type KickedMember = ();
+    type DesiredMembers = DesiredMembers;
+    type DesiredRunnersUp = DesiredRunnersUp;
+    type TermDuration = TermDuration;
+    type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+    pub const CouncilMotionDuration: BlockNumber = COUNCIL_MOTION_DURATION;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 30;
 }
@@ -713,7 +844,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = CouncilMaxMembers;
     type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
-    type WeightInfo = ();
+    type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 }
 
 /// This instance of the membership pallet corresponds to Council.
@@ -731,7 +862,7 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 }
 
 parameter_types! {
-    pub const TechnicalMotionDuration: BlockNumber = 7 * DAYS;
+    pub const TechnicalMotionDuration: BlockNumber = TECHNICAL_MOTION_DURATION;
     pub const TechnicalMaxProposals: u32 = 100;
     pub const TechnicalMaxMembers: u32 = 50;
 }
@@ -746,20 +877,6 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
     type MaxMembers = TechnicalMaxMembers;
     type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
     type WeightInfo = ();
-}
-
-/// This instance of the membership pallet corresponds to the Technical committee which can fast track proposals.
-/// Adding, removing, swapping, resetting members requires an approval of simple majority of the Council
-/// or `Root` origin, the technical committee itself cannot change its membership
-impl pallet_membership::Config<pallet_membership::Instance2> for Runtime {
-    type Event = Event;
-    type AddOrigin = RootOrMoreThanHalfCouncil;
-    type RemoveOrigin = RootOrMoreThanHalfCouncil;
-    type SwapOrigin = RootOrMoreThanHalfCouncil;
-    type ResetOrigin = RootOrMoreThanHalfCouncil;
-    type PrimeOrigin = RootOrMoreThanHalfCouncil;
-    type MembershipInitialized = TechnicalCommittee;
-    type MembershipChanged = TechnicalCommittee;
 }
 
 parameter_types! {
@@ -778,10 +895,10 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-    pub const EnactmentPeriod: BlockNumber = 2 * DAYS;
-    pub const LaunchPeriod: BlockNumber = 20 * DAYS;
-    pub const VotingPeriod: BlockNumber = 15 * DAYS;
-    pub const FastTrackVotingPeriod: BlockNumber = 3 * HOURS;
+    pub const EnactmentPeriod: BlockNumber = ENACTMENT_PERIOD;
+    pub const LaunchPeriod: BlockNumber = LAUNCH_PERIOD;
+    pub const VotingPeriod: BlockNumber = VOTING_PERIOD;
+    pub const FastTrackVotingPeriod: BlockNumber = FAST_TRACK_VOTING_PERIOD;
     /// 1000 tokens
     pub const MinimumDeposit: Balance = 1_000 * DOCK;
     /// 0.1 token
@@ -789,28 +906,28 @@ parameter_types! {
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
     pub const InstantAllowed: bool = true;
+    pub const CooloffPeriod: BlockNumber = COOLOFF_PERIOD;
 }
 
-impl simple_democracy::Trait for Runtime {
-    type Event = Event;
-    /// Only council members can vote
-    type VoterOrigin = CouncilMember;
-}
-
-impl pallet_democracy::Trait for Runtime {
+impl pallet_democracy::Config for Runtime {
     type Proposal = Call;
     type Event = Event;
     type Currency = Balances;
     type EnactmentPeriod = EnactmentPeriod;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
-    type CooloffPeriod = ();
+    type CooloffPeriod = CooloffPeriod;
     type MinimumDeposit = MinimumDeposit;
-    /// Only specified to compile, not used however.
-    type ExternalOrigin = CouncilMember;
-    type ExternalMajorityOrigin = CouncilMember;
-    /// Only specified to compile, not used however.
-    type ExternalDefaultOrigin = RootOrMoreThanHalfCouncil;
+    /// A straight majority of the council can decide what their next motion is.
+    type ExternalOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _2, AccountId, CouncilCollective>;
+    /// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
+    type ExternalMajorityOrigin =
+        pallet_collective::EnsureProportionAtLeast<_3, _4, AccountId, CouncilCollective>;
+    /// A unanimous council can have the next scheduled referendum be a straight default-carries
+    /// (NTB) vote.
+    type ExternalDefaultOrigin =
+        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
     type FastTrackOrigin = EnsureOneOf<
@@ -818,44 +935,54 @@ impl pallet_democracy::Trait for Runtime {
         pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, TechnicalCollective>,
         EnsureRoot<AccountId>,
     >;
-    /// Root or the Council unanimously agreeing can make a Council proposal a referendum instantly.
+    /// Root or the Technical committee unanimously agreeing can make a Council proposal a referendum instantly.
     type InstantOrigin = EnsureOneOf<
         AccountId,
         EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, CouncilCollective>,
+        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCollective>,
     >;
     type InstantAllowed = InstantAllowed;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
-    type CancellationOrigin = RootOrMoreThanHalfCouncil;
-    /// Any council member can cancel a public proposal
-    type CancelProposalOrigin = CouncilMember;
+    /// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
+    type CancellationOrigin = RootOrMoreThanTwoThirdCouncil;
+    // To cancel a proposal before it has been passed, the technical committee must be unanimous or
+    // Root must agree.
+    type CancelProposalOrigin = EnsureOneOf<
+        AccountId,
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionAtLeast<_1, _1, AccountId, TechnicalCollective>,
+    >;
     type PreimageByteDeposit = PreimageByteDeposit;
-    /// Slashes are handled by Democracy
-    type Slash = SimpleDemocracy;
+    type Slash = Treasury;
     type OperationalPreimageOrigin = CouncilMember;
+    type BlacklistOrigin = EnsureRoot<AccountId>;
+    // Any single technical committee member may veto a coming council proposal, however they can
+    // only do it once and it lasts only for the cool-off period.
     type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
     type Scheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
     type MaxVotes = MaxVotes;
     type MaxProposals = MaxProposals;
-    type WeightInfo = ();
+    type WeightInfo = pallet_democracy::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
-    // TODO: Revisit values below
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub const ProposalBondMinimum: Balance = 1 * DOCK;
-    pub const SpendPeriod: BlockNumber = 1 * DAYS;
+    pub const SpendPeriod: BlockNumber = SPEND_PERIOD;
     pub const Burn: Permill = Permill::from_percent(50);
     pub const DataDepositPerByte: Balance = DOCK / 100;
     pub const BountyDepositBase: Balance = 1 * DOCK;
-    pub const BountyDepositPayoutDelay: BlockNumber = 1 * DAYS;
-    /// Matches treasury account created during PoA.
-    pub const TreasuryModuleId: ModuleId = ModuleId(*b"Treasury");
-    pub const BountyUpdatePeriod: BlockNumber = 14 * DAYS;
-    pub const MaximumReasonLength: u32 = 16384;
+    pub const BountyDepositPayoutDelay: BlockNumber = BOUNTY_DEPOSIT_PAYOUT_DELAY;
     pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
     pub const BountyValueMinimum: Balance = 5 * DOCK;
+    pub const TipCountdown: BlockNumber = TIP_COUNTDOWN;
+    pub const TipFindersFee: Percent = Percent::from_percent(20);
+    pub const TipReportDepositBase: Balance = 1 * DOCK;
+    /// Matches treasury account created during PoA.
+    pub const TreasuryModuleId: ModuleId = ModuleId(*b"Treasury");
+    pub const BountyUpdatePeriod: BlockNumber = BOUNTY_UPDATE_PERIOD;
+    pub const MaximumReasonLength: u32 = 16384;
 }
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
@@ -899,6 +1026,17 @@ impl pallet_treasury::Config for Runtime {
     type BurnDestination = ();
     type SpendFunds = Bounties;
     type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
+}
+
+impl pallet_tips::Config for Runtime {
+    type Event = Event;
+    type DataDepositPerByte = DataDepositPerByte;
+    type MaximumReasonLength = MaximumReasonLength;
+    type Tippers = Elections;
+    type TipCountdown = TipCountdown;
+    type TipFindersFee = TipFindersFee;
+    type TipReportDepositBase = TipReportDepositBase;
+    type WeightInfo = pallet_tips::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_bounties::Config for Runtime {
@@ -1064,7 +1202,6 @@ pub struct BaseFilter;
 impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
-            Call::Democracy(_) => false,
             // Disable fiat_filter for now
             Call::FiatFilterModule(_) => false,
             _ => true,
@@ -1098,12 +1235,10 @@ construct_runtime!(
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
         Anchor: anchor::{Module, Call, Storage, Event<T>},
         Attest: attest::{Module, Call, Storage},
-        SimpleDemocracy: simple_democracy::{Module, Call, Event},
         Democracy: pallet_democracy::{Module, Call, Storage, Event<T>},
         Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        CouncilMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
-        TechnicalCommitteeMembership: pallet_membership::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
+        TechnicalCommitteeMembership: pallet_membership::<Instance1>::{Module, Call, Storage, Event<T>, Config<T>},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
@@ -1119,6 +1254,8 @@ construct_runtime!(
         Treasury: pallet_treasury::{Module, Call, Storage, Config, Event<T>},
         Bounties: pallet_bounties::{Module, Call, Storage, Event<T>},
         StakingRewards: staking_rewards::{Module, Call, Storage, Event<T>},
+        Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
+        Tips: pallet_tips::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -1542,6 +1679,11 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_collective, Council);
             add_benchmark!(params, batches, pallet_democracy, Democracy);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+
+            add_benchmark!(params, batches, pallet_babe, Babe);
+            add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
+            add_benchmark!(params, batches, pallet_grandpa, Grandpa);
+            add_benchmark!(params, batches, pallet_im_online, ImOnline);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

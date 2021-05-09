@@ -1369,7 +1369,6 @@ dependencies = [
  "evm",
  "fiat_filter",
  "fiat_filter_rpc_runtime_api",
- "forked-pallet-democracy",
  "fp-rpc",
  "frame-benchmarking",
  "frame-executive",
@@ -1385,7 +1384,9 @@ dependencies = [
  "pallet-balances",
  "pallet-bounties",
  "pallet-collective",
+ "pallet-democracy",
  "pallet-election-provider-multi-phase",
+ "pallet-elections-phragmen",
  "pallet-ethereum",
  "pallet-evm",
  "pallet-evm-precompile-bn128",
@@ -1405,6 +1406,7 @@ dependencies = [
  "pallet-staking-reward-curve",
  "pallet-sudo",
  "pallet-timestamp",
+ "pallet-tips",
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
@@ -1415,7 +1417,6 @@ dependencies = [
  "rand 0.8.3",
  "serde",
  "serde-big-array",
- "simple_democracy",
  "smallvec 1.6.1",
  "sp-api",
  "sp-arithmetic",
@@ -1931,26 +1932,6 @@ version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
 dependencies = [
  "parity-scale-codec",
-]
-
-[[package]]
-name = "forked-pallet-democracy"
-version = "2.0.1"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "hex-literal",
- "pallet-balances",
- "pallet-scheduler",
- "parity-scale-codec",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "sp-storage",
- "substrate-test-utils",
 ]
 
 [[package]]
@@ -4481,6 +4462,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "pallet-democracy"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "pallet-election-provider-multi-phase"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
@@ -4497,6 +4493,21 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "static_assertions",
+]
+
+[[package]]
+name = "pallet-elections-phragmen"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "log",
+ "parity-scale-codec",
+ "serde",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -4809,6 +4820,20 @@ dependencies = [
  "sp-runtime",
  "sp-std",
  "sp-timestamp",
+]
+
+[[package]]
+name = "pallet-tips"
+version = "3.0.0"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-treasury",
+ "parity-scale-codec",
+ "serde",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]
@@ -7340,27 +7365,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "simple_democracy"
-version = "0.0.2"
-dependencies = [
- "forked-pallet-democracy",
- "frame-support",
- "frame-system",
- "pallet-authorship",
- "pallet-balances",
- "pallet-collective",
- "pallet-membership",
- "pallet-scheduler",
- "pallet-session",
- "parity-scale-codec",
- "poa",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
-]
-
-[[package]]
 name = "slab"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8255,28 +8259,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "substrate-test-utils"
-version = "3.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f46809281d923956cdfdb2f95e07fa2437884f2a18096c4371a3fa48f8d082a"
-dependencies = [
- "futures 0.3.15",
- "substrate-test-utils-derive",
- "tokio 0.2.25",
-]
-
-[[package]]
-name = "substrate-test-utils-derive"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "988016ca49cfc763fecf97dfa9dee7dbbff1a2145b003d07681278dddefd1a0e"
-dependencies = [
- "proc-macro-crate 0.1.5",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "substrate-wasm-builder"
 version = "4.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8527,7 +8509,6 @@ dependencies = [
  "pin-project-lite 0.1.12",
  "signal-hook-registry",
  "slab",
- "tokio-macros",
  "winapi 0.3.9",
 ]
 
@@ -8593,17 +8574,6 @@ dependencies = [
  "bytes 0.4.12",
  "futures 0.1.31",
  "log",
-]
-
-[[package]]
-name = "tokio-macros"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e44da00bfc73a25f814cd8d7e57a68a5c31b74b3152a0a1d1f590c97ed06265a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
