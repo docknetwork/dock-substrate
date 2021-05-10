@@ -1,6 +1,6 @@
 [package]
 name = "poa_rpc"
-version = "0.0.5"
+version = "0.0.6"
 authors = ["Dock.io"]
 edition = "2018"
 license = 'Apache-2.0'
@@ -18,4 +18,4 @@ sp-rpc = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git
 sp-runtime = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
 sp-api = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
 sp-blockchain = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
-poa = { version = '0.6.2', path = '..' }
+poa = { version = '0.7.0', path = '..' }

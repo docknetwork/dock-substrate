@@ -1,15 +1,12 @@
 [package]
 name = "poa"
-version = "0.6.2"
+version = "0.7.0"
 authors = ["Dock.io"]
 edition = "2018"
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
-
-[dev-dependencies]
-hex = '0.4.2'
 
 [dependencies.codec]
 default-features = false
@@ -95,12 +92,6 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
-[dev-dependencies.pallet-evm]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
-#path = '../../../../frontier/frame/evm'
-
 [features]
 default = ['std']
 std = [
@@ -117,4 +108,4 @@ std = [
     'sp-arithmetic/std',
 ]
 
-test = ['std', 'balances/std', 'pallet-evm/std', 'pallet-timestamp/std']
+test = ['std', 'balances/std', 'pallet-timestamp/std']

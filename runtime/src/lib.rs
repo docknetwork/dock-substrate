@@ -33,6 +33,9 @@ pub use poa;
 pub use price_feed;
 pub use token_migration;
 
+/*#[cfg(test)]
+mod tests;*/
+
 use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, parameter_types,
@@ -987,20 +990,32 @@ parameter_types! {
 
 type NegativeImbalance = <Balances as Currency<AccountId>>::NegativeImbalance;
 
+/// Deals with transaction fees
 pub struct DealWithFees;
+
+impl DealWithFees {
+    /// Credit fee and tip, if any, to treasury and block author in a ratio
+    fn credit_to_treasury_and_block_author(fee_and_tip: NegativeImbalance) {
+        let treasury_share = TreasuryRewardsPct::get() as u32;
+        let block_author_share = 100 - treasury_share;
+        let split = fee_and_tip.ration(treasury_share, block_author_share);
+        Treasury::on_unbalanced(split.0);
+        Balances::resolve_creating(&Authorship::author(), split.1);
+    }
+}
+
 impl OnUnbalanced<NegativeImbalance> for DealWithFees {
     fn on_unbalanceds<B>(mut fees_then_tips: impl Iterator<Item = NegativeImbalance>) {
-        // for fees and tips, if any, 60% to treasury, 40% to author
-        let treasury_share = TreasuryRewardsPct::get() as u32;
-        let validator_share = 100 - treasury_share;
-        if let Some(fees) = fees_then_tips.next() {
-            let mut split = fees.ration(treasury_share, validator_share);
+        if let Some(mut fees) = fees_then_tips.next() {
             if let Some(tips) = fees_then_tips.next() {
-                tips.ration_merge_into(treasury_share, validator_share, &mut split);
+                fees.subsume(tips);
             }
-            Treasury::on_unbalanced(split.0);
-            Balances::resolve_creating(&Authorship::author(), split.1);
+            DealWithFees::credit_to_treasury_and_block_author(fees);
         }
+    }
+
+    fn on_unbalanced(amount: NegativeImbalance) {
+        DealWithFees::credit_to_treasury_and_block_author(amount);
     }
 }
 
@@ -1695,6 +1710,8 @@ impl_runtime_apis! {
 mod tests {
     use super::*;
     use frame_system::offchain::CreateSignedTransaction;
+    use sp_core::crypto::AccountId32;
+    use std::str::FromStr;
 
     #[test]
     fn validate_transaction_submitter_bounds() {
@@ -1705,5 +1722,100 @@ mod tests {
         }
 
         is_submit_signed_transaction::<Runtime>();
+    }
+
+    fn new_test_ext() -> sp_io::TestExternalities {
+        system::GenesisConfig::default()
+            .build_storage::<Runtime>()
+            .unwrap()
+            .into()
+    }
+
+    #[test]
+    fn deal_with_fees() {
+        // Check that `DealWithFees` works as intended
+        new_test_ext().execute_with(|| {
+            let treasury_account = Treasury::account_id();
+
+            let treasury_balance1 =
+                <Balances as Currency<AccountId>>::free_balance(&treasury_account);
+            assert_eq!(treasury_balance1, 0);
+
+            let ed = ExistentialDeposit::get();
+            let amount1 = 1000;
+            assert!(amount1 > ed);
+            DealWithFees::on_unbalanced(NegativeImbalance::new(amount1));
+            let treasury_balance2 =
+                <Balances as Currency<AccountId>>::free_balance(&treasury_account);
+            assert_eq!(treasury_balance2, 600);
+
+            let amount2 = 6000;
+            let amount3 = 4000;
+            assert!((amount2 + amount3) > ed);
+
+            DealWithFees::on_unbalanceds(
+                Some(NegativeImbalance::new(amount2))
+                    .into_iter()
+                    .chain(Some(NegativeImbalance::new(amount3))),
+            );
+            let treasury_balance3 =
+                <Balances as Currency<AccountId>>::free_balance(&treasury_account);
+            assert_eq!(treasury_balance3, 6600);
+        })
+    }
+
+    #[test]
+    fn evm_fees_are_received() {
+        // Check that fees charged by EVM are received by treasury
+        new_test_ext().execute_with(|| {
+            let evm_addr = H160::from_str("0100000000000000000000000000000000000000").unwrap(); // Hex for value 1
+            let addr = AccountId32::new([
+                180, 11, 49, 203, 236, 115, 188, 178, 72, 85, 227, 29, 52, 227, 100, 236, 220, 72,
+                200, 30, 69, 13, 32, 68, 73, 174, 159, 113, 36, 62, 136, 8,
+            ]); // Corresponds to above `evm_addr` according to `TestAddressMapping`
+
+            let evm_config = <Runtime as pallet_evm::Config>::config();
+
+            let initial_bal = 1000000000;
+            let gas_price = GasPrice::min_gas_price();
+            let _ = <Balances as Currency<AccountId>>::deposit_creating(&addr, initial_bal);
+
+            let treasury_account = Treasury::account_id();
+            let treasury_balance1 =
+                <Balances as Currency<AccountId>>::free_balance(&treasury_account);
+
+            // Using arbitrary bytecode as i only need to check fees. This arbitrary code will consume max gas
+            <Runtime as pallet_evm::Config>::Runner::create(
+                evm_addr,
+                hex::decode("608060405234801561001057600080fd").unwrap(),
+                U256::zero(),
+                1000,
+                Some(gas_price),
+                Some(U256::zero()),
+                evm_config,
+            )
+            .unwrap();
+
+            // Txn fees is received by the module
+            let treasury_balance2 =
+                <Balances as Currency<AccountId>>::free_balance(&treasury_account);
+            assert!(treasury_balance2 > treasury_balance1);
+
+            // Using arbitrary bytecode as i only need to check fees. This arbitrary code will consume max gas
+            <Runtime as pallet_evm::Config>::Runner::create(
+                evm_addr,
+                hex::decode("608060405234801561001057600080fd1010ff25").unwrap(),
+                U256::zero(),
+                1000,
+                Some(gas_price),
+                Some(U256::zero()),
+                evm_config,
+            )
+            .unwrap();
+
+            let treasury_balance3 =
+                <Balances as Currency<AccountId>>::free_balance(&treasury_account);
+            assert!(treasury_balance3 > treasury_balance2);
+        });
     }
 }

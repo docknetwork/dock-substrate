@@ -1296,7 +1296,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.14.4"
+version = "0.15.4"
 dependencies = [
  "dock-runtime",
  "fc-db",
@@ -1362,7 +1362,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.14.4"
+version = "0.15.4"
 dependencies = [
  "common",
  "core_mods",
@@ -1376,6 +1376,7 @@ dependencies = [
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "hex",
  "hex-literal",
  "log",
  "pallet-authority-discovery",
@@ -5310,14 +5311,12 @@ checksum = "989d43012e2ca1c4a02507c67282691a0a3207f9dc67cec596b43fe925b3d325"
 
 [[package]]
 name = "poa"
-version = "0.6.2"
+version = "0.7.0"
 dependencies = [
  "frame-support",
  "frame-system",
- "hex",
  "pallet-authorship",
  "pallet-balances",
- "pallet-evm",
  "pallet-session",
  "pallet-timestamp",
  "parity-scale-codec",
@@ -5332,7 +5331,7 @@ dependencies = [
 
 [[package]]
 name = "poa_rpc"
-version = "0.0.5"
+version = "0.0.6"
 dependencies = [
  "jsonrpc-core 15.1.0",
  "jsonrpc-core-client 15.1.0",

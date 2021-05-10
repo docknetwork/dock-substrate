@@ -12,8 +12,8 @@ use frame_support::{
         ModuleId, SaturatedConversion,
     },
     traits::{
-        BalanceStatus::Reserved, Currency, ExistenceRequirement::AllowDeath, Get, Imbalance,
-        OnUnbalanced, ReservableCurrency,
+        BalanceStatus::Reserved, Currency, ExistenceRequirement::AllowDeath, Get,
+        ReservableCurrency,
     },
     weights::{Pays, Weight},
 };
@@ -35,9 +35,6 @@ type SlotNo = u64;
 
 pub type BalanceOf<T> =
     <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
-/// Negative imbalance used to transfer transaction fess to block author
-type NegativeImbalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::NegativeImbalance;
 
 #[cfg(test)]
 mod tests;
@@ -358,19 +355,6 @@ decl_module! {
             Ok(Pays::No.into())
         }
 
-        // TODO: This should be removed treasury pallet is integrated now.
-        /// Withdraw from treasury. Only Master is allowed to withdraw
-        /// # <weight>
-        /// 1 read-write for treasury and 1 read-write for recipient.
-        /// 70 µs transfer cost copied from balance pallet's `transfer` dispatchable
-        /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(2, 2) + 70_000_000]
-        pub fn withdraw_from_treasury(origin, recipient: T::AccountId, amount: BalanceOf<T>) -> dispatch::DispatchResultWithPostInfo {
-            ensure_root(origin)?;
-            Self::withdraw_from_treasury_(recipient, amount)?;
-            Ok(Pays::No.into())
-        }
-
         /// Enable/disable emission rewards by calling this function with true or false respectively.
         /// Only Master can call this.
         #[weight = T::DbWeight::get().writes(1)]
@@ -450,14 +434,7 @@ decl_module! {
             // Get the current block author
             let author = <pallet_authorship::Module<T>>::author();
 
-            let fees = Self::award_txn_fees_if_any(&author);
-
             Self::increment_current_epoch_block_count(author.clone());
-
-            fees.and_then(|f| {
-                Self::deposit_event(RawEvent::TxnFeesGiven(author, f));
-                Option::<BalanceOf<T>>::default()
-            });
         }
 
         /// Force a transfer using root to transfer balance of reserved as well as free kind.
@@ -604,16 +581,6 @@ impl<T: Trait> Module<T> {
             new_validator_id,
         ));
         Ok(())
-    }
-
-    /// Transfer `amount` from treasury to the `recipient`.
-    fn withdraw_from_treasury_(
-        recipient: T::AccountId,
-        amount: BalanceOf<T>,
-    ) -> dispatch::DispatchResult {
-        // AllowDeath is fine as the account would be back in state when it gets rewards
-        T::Currency::transfer(&Self::treasury_account(), &recipient, amount, AllowDeath)
-            .map_err(|_| dispatch::DispatchError::Other("Can't withdraw from treasury"))
     }
 
     /// The account ID that holds the Treasury's funds
@@ -874,18 +841,6 @@ impl<T: Trait> Module<T> {
             epoch_ends_at
         );
         epoch_ends_at
-    }
-
-    /// If there is any transaction fees, credit it to the given author
-    fn award_txn_fees_if_any(block_author: &T::AccountId) -> Option<BalanceOf<T>> {
-        let txn_fees = <TxnFees<T>>::take();
-        if txn_fees > BalanceOf::<T>::zero() {
-            // `deposit_creating` will do the issuance of tokens burnt during transaction fees
-            T::Currency::deposit_creating(block_author, txn_fees);
-            Some(txn_fees)
-        } else {
-            None
-        }
     }
 
     /// Increment count of authored block for the current epoch by the given author
@@ -1301,16 +1256,6 @@ impl<T: Trait> Module<T> {
             None => Self::update_active_validators_if_needed(),
         }
     }
-
-    /// Accumulate txn fees for the block. Whenever a negative imbalance is creates (because txn
-    /// fees is being paid), the fees gets added to `TxnFees` which is emptied (zeroed) when block is
-    /// fully formed, i.e. `on_finalize`
-    fn update_txn_fees_for_block(current_fees: BalanceOf<T>) {
-        // Fees for other extrinsics so far in the block.
-        let existing_fees_for_block = <TxnFees<T>>::take();
-        let total_fees_in_block = existing_fees_for_block.saturating_add(current_fees);
-        <TxnFees<T>>::put(total_fees_in_block);
-    }
 }
 
 /// Indicates to the session module if the session should be rotated.
@@ -1428,17 +1373,4 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
 
     fn end_session(_: u32) {}
     fn start_session(_: u32) {}
-}
-
-/// Transfer complete transaction fees (including tip) to the block author
-impl<T: Trait> OnUnbalanced<NegativeImbalanceOf<T>> for Module<T> {
-    /// There is only 1 way to have an imbalance in the system right now which is txn fees
-    /// This function will store txn fees for the block in storage which is "taken out" of storage
-    /// in `on_finalize`. Not retrieving block author here as that is unreliable and gives a different
-    /// author than the block's.
-    fn on_nonzero_unbalanced(amount: NegativeImbalanceOf<T>) {
-        let current_fees = amount.peek();
-
-        Self::update_txn_fees_for_block(current_fees);
-    }
 }

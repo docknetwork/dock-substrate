@@ -3,7 +3,7 @@ authors = ['Dock.io']
 build = 'build.rs'
 edition = '2018'
 name = 'dock-node'
-version = '0.14.4'
+version = '0.15.4'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -24,7 +24,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = '../runtime'
-version = '0.14.4'
+version = '0.15.4'
 
 [dependencies.sc-basic-authorship]
 version = '0.9.0'
@@ -271,7 +271,7 @@ rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
 
 [dependencies.poa_rpc]
 path = '../pallets/poa/rpc'
-version = '0.0.5'
+version = '0.0.6'
 
 [dependencies.price_feed_rpc]
 path = '../pallets/price_feed/rpc'

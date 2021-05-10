@@ -14,9 +14,7 @@ use frame_support::{
     weights::{constants::WEIGHT_PER_SECOND, Weight},
 };
 use frame_system::{self as system, RawOrigin};
-use pallet_evm::{AddressMapping, EVMCurrencyAdapter, EnsureAddressNever, FeeCalculator, Runner};
-use sp_core::{crypto::key_types, Hasher, H160, H256, U256};
-use sp_std::str::FromStr;
+use sp_core::{crypto::key_types, H256};
 
 // Configure a mock runtime to test the pallet.
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -43,9 +41,7 @@ parameter_types! {
     pub const TransactionByteFee: u64 = 1;
     // Not accepting any uncles
     pub const UncleGenerations: u32 = 0;
-    pub const DockChainId: u64 = 2021;
     pub const MinimumPeriod: u64 = 1000;
-    pub BlockGasLimit: U256 = U256::from(u32::max_value());
 }
 
 impl system::Config for TestRuntime {
@@ -145,43 +141,6 @@ impl pallet_timestamp::Config for TestRuntime {
     type OnTimestampSet = ();
     type MinimumPeriod = MinimumPeriod;
     type WeightInfo = ();
-}
-
-pub struct TestAddressMapping<H>(sp_std::marker::PhantomData<H>);
-impl<H: Hasher<Out = H256>> AddressMapping<u64> for TestAddressMapping<H> {
-    fn into_account_id(address: H160) -> u64 {
-        // The result should be unique to avoid `CreateCollision` error
-        let a = address.as_bytes().to_vec();
-        let s: [u8; 8] = [a[0], a[1], a[2], a[3], a[4], a[5], a[6], a[7]];
-        let b = u64::from_le_bytes(s);
-        b
-    }
-}
-
-/// Fixed gas price of `1`.
-pub struct UnitGasPrice;
-impl FeeCalculator for UnitGasPrice {
-    fn min_gas_price() -> U256 {
-        // Gas price is always one token per gas.
-        1.into()
-    }
-}
-
-// This is being implemented to test whether fees deducted by EVM module is received by the PoA module
-impl pallet_evm::Config for TestRuntime {
-    type FeeCalculator = UnitGasPrice;
-    type GasWeightMapping = ();
-    type CallOrigin = EnsureAddressNever<Self::AccountId>;
-    /// Don't care about this origin
-    type WithdrawOrigin = EnsureAddressNever<Self::AccountId>;
-    type AddressMapping = TestAddressMapping<BlakeTwo256>;
-    type Currency = Balances;
-    type Event = ();
-    type Runner = pallet_evm::runner::stack::Runner<Self>;
-    type Precompiles = ();
-    type ChainId = DockChainId;
-    type OnChargeTransaction = EVMCurrencyAdapter<Balances, PoAModule>;
-    type BlockGasLimit = BlockGasLimit;
 }
 
 fn new_test_ext() -> sp_io::TestExternalities {
@@ -643,93 +602,6 @@ fn add_remove_swap_validator() {
 }
 
 #[test]
-fn txn_fees() {
-    new_test_ext().execute_with(|| {
-        // Txn fees for the block is 0 initially.
-        assert_eq!(<TxnFees<TestRuntime>>::get(), 0);
-
-        // Deposits should increase the accumulated fees
-        PoAModule::update_txn_fees_for_block(5);
-        assert_eq!(<TxnFees<TestRuntime>>::get(), 5);
-
-        // More deposits increase the accumulated fees more
-        PoAModule::update_txn_fees_for_block(20);
-        assert_eq!(<TxnFees<TestRuntime>>::get(), 25);
-
-        // Clean up
-        <TxnFees<TestRuntime>>::take();
-
-        // Max validators allowed is 4
-        let val_id1 = 1;
-        let val_id2 = 2;
-
-        for id in &[val_id1, val_id2] {
-            PoAModule::add_validator_(*id, false).unwrap();
-        }
-        PoAModule::update_active_validators_if_needed();
-
-        let balance_id1 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u64>();
-        let balance_id2 =
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u64>();
-
-        // Since no fees yet, `award_txn_fees_if_any` would return None
-        assert!(PoAModule::award_txn_fees_if_any(&val_id1).is_none());
-        assert!(PoAModule::award_txn_fees_if_any(&val_id2).is_none());
-
-        // Balance does not change
-        assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u64>()
-                - balance_id1,
-            0
-        );
-        assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u64>()
-                - balance_id2,
-            0
-        );
-
-        // Put some txn fees to award
-        let fees = 100;
-        <TxnFees<TestRuntime>>::put(fees);
-
-        // Award fees to author
-        assert_eq!(
-            PoAModule::award_txn_fees_if_any(&val_id1),
-            Some(fees as u64)
-        );
-
-        // Only the author's balance should change
-        assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u64>()
-                - balance_id1,
-            fees
-        );
-        assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u64>()
-                - balance_id2,
-            0
-        );
-
-        // Calling the function again has no more impact
-        assert!(PoAModule::award_txn_fees_if_any(&val_id1).is_none());
-        assert!(PoAModule::award_txn_fees_if_any(&val_id2).is_none());
-
-        // Balance same as before
-        assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&val_id1).saturated_into::<u64>()
-                - balance_id1,
-            fees
-        );
-        assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&val_id2).saturated_into::<u64>()
-                - balance_id2,
-            0
-        );
-    });
-}
-
-#[test]
 fn epoch_details_and_block_count() {
     new_test_ext().execute_with(|| {
         // Max validators allowed is 4
@@ -1075,35 +947,6 @@ fn treasury_emission_reward() {
             assert_eq!(balance_new - balance_current, reward);
             balance_current = balance_new;
         }
-    });
-}
-
-#[test]
-fn treasury_withdrawal() {
-    new_test_ext().execute_with(|| {
-        TreasuryRewardsPercent::put(60);
-        let acc_id = 1;
-
-        assert_eq!(PoAModule::treasury_balance(), 0);
-        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&acc_id), 0);
-
-        PoAModule::mint_treasury_emission_rewards(1000);
-        assert_eq!(PoAModule::treasury_balance(), 600);
-
-        PoAModule::withdraw_from_treasury_(acc_id, 100).unwrap();
-        assert_eq!(PoAModule::treasury_balance(), 500);
-        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&acc_id), 100);
-
-        PoAModule::mint_treasury_emission_rewards(200);
-        assert_eq!(PoAModule::treasury_balance(), 620);
-
-        PoAModule::withdraw_from_treasury_(acc_id, 600).unwrap();
-        assert_eq!(PoAModule::treasury_balance(), 20);
-        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&acc_id), 700);
-
-        // Cannot withdraw beyond the treasury's balance
-        assert!(PoAModule::withdraw_from_treasury_(acc_id, 21).is_err());
-        assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&acc_id), 700);
     });
 }
 
@@ -1821,60 +1664,6 @@ fn force_transfer_both() {
         assert_eq!(
             <TestRuntime as Trait>::Currency::reserved_balance(&dest),
             520
-        );
-    });
-}
-
-#[test]
-fn evm_fees_are_received() {
-    // Check that fees charged by EVM are received by PoA module
-    new_test_ext().execute_with(|| {
-        let evm_addr = H160::from_str("0100000000000000000000000000000000000000").unwrap(); // Hex for value 1
-        let addr = 1; // Corresponds to above `evm_addr` according to `TestAddressMapping`
-
-        let evm_config = <TestRuntime as pallet_evm::Config>::config();
-
-        let initial_bal = 1000000;
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&addr, initial_bal);
-
-        // Txn fees for the block is 0 initially.
-        assert_eq!(<TxnFees<TestRuntime>>::get(), 0);
-
-        // Using arbitrary bytecode as i only need to check fees. This arbitrary code will consume max gas
-        <TestRuntime as pallet_evm::Config>::Runner::create(
-            evm_addr,
-            hex::decode("608060405234801561001057600080fd").unwrap(),
-            U256::zero(),
-            1000,
-            Some(U256::from(1)),
-            Some(U256::zero()),
-            evm_config,
-        )
-        .unwrap();
-
-        // Txn fees is received by the module
-        let fees = <TxnFees<TestRuntime>>::get();
-        assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&addr),
-            initial_bal - fees
-        );
-
-        // Using arbitrary bytecode as i only need to check fees. This arbitrary code will consume max gas
-        <TestRuntime as pallet_evm::Config>::Runner::create(
-            evm_addr,
-            hex::decode("608060405234801561001057600080fd1010ff25").unwrap(),
-            U256::zero(),
-            1000,
-            Some(U256::from(1)),
-            Some(U256::zero()),
-            evm_config,
-        )
-        .unwrap();
-        // Txn fees is accumulated
-        let fees = <TxnFees<TestRuntime>>::get();
-        assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&addr),
-            initial_bal - fees
         );
     });
 }
