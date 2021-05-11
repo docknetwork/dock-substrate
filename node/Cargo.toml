@@ -177,42 +177,42 @@ branch = "frontier"
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
+rev = '661729585eb5d8c897c053f26d341944599d40fe'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-consensus]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
+rev = '661729585eb5d8c897c053f26d341944599d40fe'
 #path = '../../../frontier/client/consensus'
 
 [dependencies.fp-consensus]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
+rev = '661729585eb5d8c897c053f26d341944599d40fe'
 #path = '../../../frontier/primitives/consensus'
 
 [dependencies.fc-rpc]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
+rev = '661729585eb5d8c897c053f26d341944599d40fe'
 #path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
+rev = '661729585eb5d8c897c053f26d341944599d40fe'
 #path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
+rev = '661729585eb5d8c897c053f26d341944599d40fe'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
+rev = '661729585eb5d8c897c053f26d341944599d40fe'
 #path = '../../../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '369143c998bc6eadc44ce6003482495ae25b7e55'
+rev = '661729585eb5d8c897c053f26d341944599d40fe'
 #path = '../../../frontier/client/db'
 
 [dependencies.poa_rpc]
