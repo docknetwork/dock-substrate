@@ -11,7 +11,10 @@ use frame_support::{
         ConsensusEngineId, KeyTypeId, Perbill,
     },
     traits::FindAuthor,
-    weights::{constants::WEIGHT_PER_SECOND, Weight},
+    weights::{
+        constants::{RocksDbWeight, WEIGHT_PER_SECOND},
+        Weight,
+    },
 };
 use frame_system::{self as system, RawOrigin};
 use sp_core::{crypto::key_types, H256};
@@ -57,7 +60,7 @@ impl system::Config for TestRuntime {
     type Header = Header;
     type Event = ();
     type BlockHashCount = BlockHashCount;
-    type DbWeight = ();
+    type DbWeight = RocksDbWeight;
     type BlockWeights = ();
     type BlockLength = ();
     type Version = ();
@@ -1666,4 +1669,445 @@ fn force_transfer_both() {
             520
         );
     });
+}
+
+fn create_epoch_detail(expected_ending: u64, validator_reward: Option<u64>) -> EpochDetail<u64> {
+    EpochDetail {
+        validator_count: 4, // doesn't matter
+        starting_slot: 100, // doesn't matter
+        expected_ending_slot: expected_ending,
+        ending_slot: Some(expected_ending), // doesn't matter
+        emission_for_validators: validator_reward,
+        emission_for_treasury: None, // doesn't matter
+    }
+}
+
+fn create_val_stats(blocks: u32, locked: Option<u64>) -> ValidatorStatsPerEpoch<u64> {
+    ValidatorStatsPerEpoch {
+        block_count: blocks,
+        locked_reward: locked,
+        unlocked_reward: locked.map(|l| l),
+    }
+}
+
+#[test]
+fn next_epoch_unlock() {
+    new_test_ext().execute_with(|| {
+        let epoch_details = vec![
+            create_epoch_detail(200, None),
+            create_epoch_detail(300, Some(1)),
+            create_epoch_detail(400, Some(100)),
+            create_epoch_detail(500, None),
+            create_epoch_detail(600, Some(60)),
+            create_epoch_detail(700, Some(0)),
+            create_epoch_detail(800, Some(50)),
+        ];
+
+        for (i, epoch) in epoch_details.into_iter().enumerate() {
+            let ep = (i + 1) as EpochNo;
+            <Epochs<TestRuntime>>::insert(ep, epoch);
+        }
+
+        let mut weight = 0;
+        let mut old_weight = weight;
+
+        assert_eq!(
+            PoAModule::find_next_epoch_to_unlock(1, &mut weight),
+            Some(2)
+        );
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(2)
+        );
+        old_weight = weight;
+
+        assert_eq!(
+            PoAModule::find_next_epoch_to_unlock(2, &mut weight),
+            Some(2)
+        );
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+        old_weight = weight;
+
+        assert_eq!(
+            PoAModule::find_next_epoch_to_unlock(3, &mut weight),
+            Some(3)
+        );
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+        old_weight = weight;
+
+        assert_eq!(
+            PoAModule::find_next_epoch_to_unlock(4, &mut weight),
+            Some(5)
+        );
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(2)
+        );
+        old_weight = weight;
+
+        assert_eq!(
+            PoAModule::find_next_epoch_to_unlock(5, &mut weight),
+            Some(5)
+        );
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+        old_weight = weight;
+
+        assert_eq!(
+            PoAModule::find_next_epoch_to_unlock(6, &mut weight),
+            Some(7)
+        );
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(2)
+        );
+        old_weight = weight;
+
+        assert_eq!(
+            PoAModule::find_next_epoch_to_unlock(7, &mut weight),
+            Some(7)
+        );
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+        old_weight = weight;
+
+        assert_eq!(PoAModule::find_next_epoch_to_unlock(8, &mut weight), None);
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+        old_weight = weight;
+
+        assert_eq!(PoAModule::find_next_epoch_to_unlock(9, &mut weight), None);
+        assert_eq!(
+            weight - old_weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+    })
+}
+
+#[test]
+fn new_epoch_unlock() {
+    new_test_ext().execute_with(|| {
+        let epoch_details = vec![
+            create_epoch_detail(200, None),
+            create_epoch_detail(300, Some(40)),
+            create_epoch_detail(400, Some(40)),
+        ];
+        let stats = vec![
+            vec![
+                create_val_stats(10, None),
+                create_val_stats(10, None),
+                create_val_stats(10, None),
+                create_val_stats(10, None),
+            ],
+            vec![
+                create_val_stats(10, Some(10)),
+                create_val_stats(5, Some(10)),
+                create_val_stats(25, Some(10)),
+                create_val_stats(15, Some(10)),
+            ],
+            vec![
+                create_val_stats(50, Some(10)),
+                create_val_stats(60, Some(10)),
+                create_val_stats(35, Some(10)),
+                create_val_stats(30, Some(10)),
+            ],
+        ];
+
+        for (i, epoch) in epoch_details.into_iter().enumerate() {
+            let ep = (i + 1) as EpochNo;
+            <Epochs<TestRuntime>>::insert(ep, epoch);
+            for (j, stat) in stats[i].clone().into_iter().enumerate() {
+                <ValidatorStats<TestRuntime>>::insert(ep, j as u64, stat);
+            }
+        }
+
+        assert!(PoAModule::next_epoch_to_reward().is_none());
+
+        PoAModule::find_and_setup_next_epoch_to_unlock(1, 100);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((2, 124, false)));
+
+        PoAModule::find_and_setup_next_epoch_to_unlock(3, 125);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((3, 184, false)));
+
+        PoAModule::find_and_setup_next_epoch_to_unlock(4, 185);
+        assert_eq!(PoAModule::next_epoch_to_reward().unwrap().2, true);
+    })
+}
+
+#[test]
+fn unlocking_validator_rewards() {
+    new_test_ext().execute_with(|| {
+        // Generate test data
+        let epoch_details = vec![
+            create_epoch_detail(200, None),
+            create_epoch_detail(300, None),
+            create_epoch_detail(400, Some(125)),
+            create_epoch_detail(500, Some(15)),
+            create_epoch_detail(600, Some(11)),
+            create_epoch_detail(700, Some(60)),
+            create_epoch_detail(800, None),
+            create_epoch_detail(900, Some(0)),
+            create_epoch_detail(1000, Some(120)),
+        ];
+        let stats = vec![
+            vec![
+                create_val_stats(10, None),
+                create_val_stats(10, None),
+                create_val_stats(8, None),
+            ],
+            vec![
+                create_val_stats(50, None),
+                create_val_stats(5, None),
+                create_val_stats(18, None),
+            ],
+            vec![
+                create_val_stats(10, Some(50)),
+                create_val_stats(10, Some(50)),
+                create_val_stats(5, Some(25)),
+            ],
+            vec![
+                create_val_stats(0, Some(0)),
+                create_val_stats(2, Some(10)),
+                create_val_stats(3, Some(5)),
+            ],
+            vec![
+                create_val_stats(1, Some(5)),
+                create_val_stats(1, Some(5)),
+                create_val_stats(1, Some(5)),
+            ],
+            vec![
+                create_val_stats(0, None),
+                create_val_stats(3, Some(20)),
+                create_val_stats(6, Some(40)),
+            ],
+            vec![
+                create_val_stats(1, None),
+                create_val_stats(2, None),
+                create_val_stats(3, None),
+            ],
+            vec![
+                create_val_stats(2, Some(0)),
+                create_val_stats(2, Some(0)),
+                create_val_stats(2, Some(0)),
+            ],
+            vec![
+                create_val_stats(10, Some(100)),
+                create_val_stats(0, None),
+                create_val_stats(2, Some(20)),
+            ],
+        ];
+
+        // Prepare balances and storage
+        for (i, epoch) in epoch_details.into_iter().enumerate() {
+            let ep = (i + 1) as EpochNo;
+            <Epochs<TestRuntime>>::insert(ep, epoch);
+            for (j, stat) in stats[i].clone().into_iter().enumerate() {
+                let v = j as u64;
+                // Reserve balance to simulate the locked balance
+                <TestRuntime as Trait>::Currency::deposit_creating(
+                    &v,
+                    stat.locked_reward.unwrap_or(0),
+                );
+                <TestRuntime as Trait>::Currency::reserve(&v, stat.locked_reward.unwrap_or(0))
+                    .unwrap();
+
+                <ValidatorStats<TestRuntime>>::insert(ep, v, stat);
+            }
+        }
+
+        assert!(PoAModule::next_epoch_to_reward().is_none());
+
+        fn check_bal_0() {
+            // 0..3 since only 3 validators
+            for i in 0..3 {
+                assert_eq!(<TestRuntime as Trait>::Currency::free_balance(&i), 0);
+            }
+        }
+
+        fn checked_locked_0(epoch: u32) {
+            // 0..3 since only 3 validators
+            for i in 0..3 {
+                assert_eq!(
+                    <ValidatorStats<TestRuntime>>::get(epoch, i)
+                        .locked_reward
+                        .or(Some(0)),
+                    Some(0)
+                );
+            }
+        }
+
+        fn checked_locked_not_0(epoch: u32) {
+            // 0..3 since only 3 validators
+            for i in 0..3 {
+                assert_ne!(
+                    <ValidatorStats<TestRuntime>>::get(epoch, i).locked_reward,
+                    Some(0)
+                );
+            }
+        }
+
+        check_bal_0();
+
+        PoAModule::unlock_validator_rewards_if_needed(100);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((3, 109, false)));
+        check_bal_0();
+        checked_locked_not_0(3);
+
+        PoAModule::unlock_validator_rewards_if_needed(101);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((3, 109, false)));
+        check_bal_0();
+        checked_locked_not_0(3);
+
+        PoAModule::unlock_validator_rewards_if_needed(102);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((3, 109, false)));
+        check_bal_0();
+        checked_locked_not_0(3);
+
+        PoAModule::unlock_validator_rewards_if_needed(109);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((3, 109, false)));
+        check_bal_0();
+        checked_locked_not_0(3);
+
+        fn get_unlocked(epoch: u32) -> Vec<u64> {
+            (0..3)
+                .map(|i| {
+                    <ValidatorStats<TestRuntime>>::get(epoch, i)
+                        .unlocked_reward
+                        .unwrap_or(0)
+                })
+                .collect()
+        }
+
+        fn get_reserved_bal() -> Vec<u64> {
+            (0..3)
+                .map(|i| <TestRuntime as Trait>::Currency::reserved_balance(i))
+                .collect()
+        }
+
+        fn get_free_bal() -> Vec<u64> {
+            (0..3)
+                .map(|i| <TestRuntime as Trait>::Currency::free_balance(i))
+                .collect()
+        }
+
+        fn check_unlocked_increase(
+            epoch: u32,
+            old_unlocked: Vec<u64>,
+            recently_unlocked: Vec<u64>,
+        ) {
+            // 0..3 since only 3 validators
+            for i in 0..3usize {
+                assert_eq!(
+                    <ValidatorStats<TestRuntime>>::get(epoch, i as u64)
+                        .unlocked_reward
+                        .unwrap_or(0)
+                        - old_unlocked[i],
+                    recently_unlocked[i]
+                );
+            }
+        }
+
+        fn check_reserved_decrease(old_reserved: Vec<u64>, recently_unlocked: Vec<u64>) {
+            // 0..3 since only 3 validators
+            for i in 0..3usize {
+                assert_eq!(
+                    old_reserved[i] - <TestRuntime as Trait>::Currency::reserved_balance(i as u64),
+                    recently_unlocked[i]
+                );
+            }
+        }
+
+        fn check_free_increase(old_free: Vec<u64>, recently_unlocked: Vec<u64>) {
+            // 0..3 since only 3 validators
+            for i in 0..3usize {
+                assert_eq!(
+                    <TestRuntime as Trait>::Currency::free_balance(i as u64) - old_free[i],
+                    recently_unlocked[i]
+                );
+            }
+        }
+
+        fn check_unlocking(
+            current_block: u64,
+            unlocked_epoch: u32,
+            next_epoch: u32,
+            ending_block: u64,
+            all_epochs_unlocked: bool,
+            unlocked_rewards: Vec<u64>,
+        ) -> Weight {
+            let unlocked = get_unlocked(unlocked_epoch);
+            let reserved = get_reserved_bal();
+            let free = get_free_bal();
+            let weight = PoAModule::unlock_validator_rewards_if_needed(current_block);
+            assert_eq!(
+                PoAModule::next_epoch_to_reward(),
+                Some((next_epoch, ending_block, all_epochs_unlocked))
+            );
+
+            checked_locked_0(unlocked_epoch);
+            check_unlocked_increase(unlocked_epoch, unlocked, unlocked_rewards.clone());
+            check_reserved_decrease(reserved, unlocked_rewards.clone());
+            check_free_increase(free, unlocked_rewards.clone());
+            weight
+        }
+
+        check_unlocking(110, 3, 4, 112, false, vec![50, 50, 25]);
+
+        PoAModule::unlock_validator_rewards_if_needed(111);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((4, 112, false)));
+
+        PoAModule::unlock_validator_rewards_if_needed(112);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((4, 112, false)));
+
+        check_unlocking(113, 4, 5, 113, false, vec![0, 10, 5]);
+
+        check_unlocking(114, 5, 6, 119, false, vec![5, 5, 5]);
+
+        PoAModule::unlock_validator_rewards_if_needed(115);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((6, 119, false)));
+        PoAModule::unlock_validator_rewards_if_needed(116);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((6, 119, false)));
+
+        let weight = check_unlocking(120, 6, 9, 129, false, vec![0, 20, 40]);
+        assert!(weight > <TestRuntime as system::Config>::DbWeight::get().reads(1));
+
+        PoAModule::unlock_validator_rewards_if_needed(121);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((9, 129, false)));
+        PoAModule::unlock_validator_rewards_if_needed(125);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((9, 129, false)));
+        PoAModule::unlock_validator_rewards_if_needed(129);
+        assert_eq!(PoAModule::next_epoch_to_reward(), Some((9, 129, false)));
+
+        let weight = check_unlocking(130, 9, 9, 129, true, vec![100, 0, 20]);
+        assert!(weight > <TestRuntime as system::Config>::DbWeight::get().reads(1));
+
+        // Further unlocking attempts don't have an impact on balances
+        let weight = check_unlocking(131, 10, 9, 129, true, vec![0, 0, 0]);
+        assert_eq!(
+            weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+        let weight = check_unlocking(132, 11, 9, 129, true, vec![0, 0, 0]);
+        assert_eq!(
+            weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+        let weight = check_unlocking(133, 12, 9, 129, true, vec![0, 0, 0]);
+        assert_eq!(
+            weight,
+            <TestRuntime as system::Config>::DbWeight::get().reads(1)
+        );
+    })
 }

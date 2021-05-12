@@ -262,6 +262,12 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.pallet-identity]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.pallet-offences]
 default-features = false
 version = '3.0.0'
@@ -450,6 +456,7 @@ std = [
     'pallet-offences/std',
     'pallet-authority-discovery/std',
     'pallet-im-online/std',
+    'pallet-identity/std',
     'pallet-staking/std',
     'pallet-election-provider-multi-phase/std',
     'pallet-treasury/std',

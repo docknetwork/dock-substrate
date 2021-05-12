@@ -1,4 +1,6 @@
-//! Pallet to add/remove validators, give transaction fees to block author and do emission rewards.
+//! Pallet to add/remove validators and do emission rewards.
+//! UPDATE: Adding removing validators and emission rewards is no more done by this pallet. The only
+//! reason for this pallet's existence is to unlock the locked emission rewards.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 
@@ -26,8 +28,6 @@ extern crate alloc;
 use alloc::collections::{BTreeMap, BTreeSet};
 
 pub mod runtime_api;
-
-// TODO: Remove txn fees collecting mechanism and update tests as well.
 
 pub type EpochNo = u32;
 type EpochLen = u32;
@@ -211,6 +211,13 @@ decl_storage! {
 
         /// Boolean flag determining whether to generate emission rewards or not
         EmissionStatus get(fn emission_status) config(): bool;
+
+        /// Used to track information to unlock validator rewards.
+        /// `EpochNo` is for which epoch number to unlock next
+        /// `T::BlockNumber` for which is the last block number for the epoch
+        /// `bool` set to true if all epochs that needed to be unlocked are processed. Used to avoid
+        /// looking for more epochs
+        NextEpochToReward get(fn next_epoch_to_reward): Option<(EpochNo, T::BlockNumber, bool)>;
     }
 }
 
@@ -221,26 +228,29 @@ decl_event!(
         AccountId = <T as system::Config>::AccountId,
         Balance = BalanceOf<T>,
     {
-        // New validator added in front of queue.
+        /// New validator added in front of queue.
         ValidatorQueuedInFront(AccountId),
 
-        // New validator added at back of queue.
+        /// New validator added at back of queue.
         ValidatorQueued(AccountId),
 
-        // Validator removed.
+        /// Validator removed.
         ValidatorRemoved(AccountId),
 
-        // Validator swapped. Swapped out validator id and swapped in validator id
+        /// Validator swapped. Swapped out validator id and swapped in validator id
         ValidatorSwapped(AccountId, AccountId),
 
-        // Epoch begins at slot and expected to end at slot
+        /// Epoch begins at slot and expected to end at slot
         EpochBegins(EpochNo, SlotNo, SlotNo),
 
-        // Epoch ends at slot
+        /// Epoch ends at slot
         EpochEnds(EpochNo, SlotNo),
 
-        // Txn fees given to block author, (validator id, fees)
+        /// Txn fees given to block author, (validator id, fees)
         TxnFeesGiven(AccountId, Balance),
+
+        /// Emission reward unlocked for validator in certain epoch
+        RewardUnlocked(EpochNo, AccountId, Balance),
     }
 );
 
@@ -428,15 +438,6 @@ decl_module! {
             Ok(Pays::No.into())
         }
 
-        /// Awards the complete txn fees to the block author if any and increment block count for
-        /// current epoch and who authored it.
-        fn on_finalize(_block_no: T::BlockNumber) {
-            // Get the current block author
-            let author = <pallet_authorship::Module<T>>::author();
-
-            Self::increment_current_epoch_block_count(author.clone());
-        }
-
         /// Force a transfer using root to transfer balance of reserved as well as free kind.
         /// This call is dangerous and can be abused by a malicious Root
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
@@ -449,6 +450,10 @@ decl_module! {
             let dest = T::Lookup::lookup(dest)?;
             Self::force_transfer_both_(&source, &dest, free, reserved)?;
             Ok(Pays::No.into())
+        }
+
+        fn on_initialize(block_no: T::BlockNumber) -> Weight {
+            Self::unlock_validator_rewards_if_needed(block_no)
         }
     }
 }
@@ -1256,7 +1261,145 @@ impl<T: Trait> Module<T> {
             None => Self::update_active_validators_if_needed(),
         }
     }
+
+    /// Unlock emission rewards for validators. Checks if there is any epoch for which rewards need to
+    /// be unlocked and if it does then unlocks the reward for all validators for that epoch and also sets
+    /// up next epoch which should be unlocked. Return the the weight (only DB weight is considered)
+    fn unlock_validator_rewards_if_needed(current_block_no: T::BlockNumber) -> Weight {
+        let mut weight = T::DbWeight::get().reads(1); // For reading `NextEpochToReward`
+
+        if let Some((epoch_no, ending_block, all_epochs_unlocked)) = Self::next_epoch_to_reward() {
+            if !all_epochs_unlocked && (current_block_no > ending_block) {
+                weight += Self::unlock_rewards_for_validators(epoch_no);
+                Self::find_and_setup_next_epoch_to_unlock(epoch_no + 1, current_block_no);
+            }
+        } else {
+            weight += Self::find_and_setup_next_epoch_to_unlock(1, current_block_no);
+        }
+        weight
+    }
+
+    /// Find next epoch to unlock and set storage `NextEpochToReward` accordingly and return weight
+    fn find_and_setup_next_epoch_to_unlock(
+        start_from_epoch: EpochNo,
+        current_block_no: T::BlockNumber,
+    ) -> Weight {
+        let mut weight = 0;
+        let epoch_no = Self::find_next_epoch_to_unlock(start_from_epoch, &mut weight);
+        weight += epoch_no.map_or_else(
+            || {
+                // No more epoch to unlock, set false in NextEpochToReward
+                <NextEpochToReward<T>>::mutate(|n| {
+                    if let Some((_, _, all_epochs_unlocked)) = n {
+                        *all_epochs_unlocked = true;
+                    }
+                });
+                T::DbWeight::get().writes(1)
+            },
+            |e| Self::setup_new_epoch_to_unlock(e, current_block_no),
+        );
+        weight
+    }
+
+    /// Starting from `start_from` epoch (inclusive), finds the next epoch to unlock. Returns None
+    /// if there are no more epochs to unlock. The weight argument is updated with the weight consumed.
+    fn find_next_epoch_to_unlock(start_from: EpochNo, weight: &mut Weight) -> Option<EpochNo> {
+        let mut epoch_no = start_from;
+        loop {
+            let epoch = Self::get_epoch_detail(epoch_no);
+            *weight += T::DbWeight::get().reads(1);
+            if epoch.expected_ending_slot == 0 {
+                // No more epochs to unlock as the `expected_ending_slot` is always set to non-zero
+                return None;
+            }
+            // If an epoch had no rewards for validators likely due to disabling of emission rewards,
+            // then it doesn't make sense to include that delay in the unlocking period.
+            if epoch
+                .emission_for_validators
+                .unwrap_or(BalanceOf::<T>::zero())
+                > BalanceOf::<T>::zero()
+            {
+                // Epoch has rewards for validator, need to unlock this
+                break;
+            }
+            // Check next epoch
+            epoch_no += 1;
+        }
+        Some(epoch_no)
+    }
+
+    /// Setup storage item `NextEpochToReward` with the next epoch to unlock
+    fn setup_new_epoch_to_unlock(epoch_no: EpochNo, current_block_no: T::BlockNumber) -> Weight {
+        let mut weight = 0;
+        let max_block_count = Self::max_block_count_in_epoch(epoch_no, &mut weight);
+        let ending_block = if max_block_count > 0 {
+            current_block_no + T::BlockNumber::from(max_block_count - 1)
+        } else {
+            // Probably means the end of tracked epochs. It should not be the case that an epoch did not
+            // have any blocks but just in case
+            current_block_no
+        };
+        <NextEpochToReward<T>>::put((epoch_no, ending_block, false));
+        weight += T::DbWeight::get().writes(1);
+        weight
+    }
+
+    /// Unlocks rewards for all validators for the given epoch and return the weight (only DB weight
+    /// is considered). As part of unlock, it sets the `locked_reward` field to 0 and increments the
+    /// `unlocked_reward` field.
+    fn unlock_rewards_for_validators(epoch_no: EpochNo) -> Weight {
+        let mut reads = 0;
+        let mut writes = 0;
+        for (validator_account, mut stats) in <ValidatorStats<T>>::iter_prefix(epoch_no) {
+            reads += 1;
+            if let Some(locked) = stats.locked_reward {
+                if locked > BalanceOf::<T>::zero() {
+                    let rem = T::Currency::unreserve(&validator_account, locked);
+                    if !rem.is_zero() {
+                        // This should never happen
+                        log::error!(
+                            target: "runtime",
+                            "For epoch {}, unreserving locked reward of {:?} returned {:?}",
+                            epoch_no, validator_account, locked
+                        );
+                    }
+                    let actual_reward = locked.saturating_sub(rem);
+                    Self::deposit_event(RawEvent::RewardUnlocked(
+                        epoch_no,
+                        validator_account.clone(),
+                        actual_reward,
+                    ));
+                    stats.locked_reward = Some(BalanceOf::<T>::zero());
+                    stats.unlocked_reward = stats.unlocked_reward.map(|u| u + actual_reward);
+                    <ValidatorStats<T>>::insert(epoch_no, validator_account, stats);
+                    writes += 2;
+                } else {
+                    log::info!(
+                        target: "runtime",
+                        "For epoch {}, locked reward of {:?} wasn't greater than 0",
+                        epoch_no, validator_account
+                    );
+                }
+            }
+        }
+        T::DbWeight::get().reads_writes(reads, writes)
+    }
+
+    /// Return maximum blocks produced by a validator in the given epoch. It accepts a mutable which
+    /// is incremented with the weight of DB read calls made during the process.
+    fn max_block_count_in_epoch(epoch_no: EpochNo, weight: &mut Weight) -> EpochLen {
+        let mut max_block_count = 0;
+        for stats in <ValidatorStats<T>>::iter_prefix_values(epoch_no) {
+            *weight += T::DbWeight::get().reads(1);
+            if max_block_count < stats.block_count {
+                max_block_count = stats.block_count
+            }
+        }
+        max_block_count
+    }
 }
+
+// NOTE: Session handling is no more done by this pallet.
 
 /// Indicates to the session module if the session should be rotated.
 /// The following query function modifies the state as well. If an epoch is ending it calculates the

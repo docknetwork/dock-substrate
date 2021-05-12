@@ -175,7 +175,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     authoring_version: 1,
     spec_version: 25,
     impl_version: 1,
-    transaction_version: 1,
+    transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
 };
 
@@ -1066,6 +1066,33 @@ impl pallet_bounties::Config for Runtime {
     type WeightInfo = pallet_bounties::weights::SubstrateWeight<Runtime>;
 }
 
+parameter_types! {
+    pub const BasicDeposit: Balance = 10 * DOCK;       // 258 bytes on-chain
+    pub const FieldDeposit: Balance = 2 * DOCK;        // 66 bytes on-chain
+    pub const SubAccountDeposit: Balance = 2 * DOCK;   // 53 bytes on-chain
+    pub const MaxSubAccounts: u32 = 100;
+    pub const MaxAdditionalFields: u32 = 100;
+    pub const MaxRegistrars: u32 = 20;
+}
+
+impl pallet_identity::Config for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type BasicDeposit = BasicDeposit;
+    type FieldDeposit = FieldDeposit;
+    type SubAccountDeposit = SubAccountDeposit;
+    type MaxSubAccounts = MaxSubAccounts;
+    type MaxAdditionalFields = MaxAdditionalFields;
+    type MaxRegistrars = MaxRegistrars;
+    /// Slashed funds go to treasury
+    type Slashed = Treasury;
+    /// Root or >50% Council required to kill identity and slash
+    type ForceOrigin = RootOrMoreThanHalfCouncil;
+    /// Root or >50% Council required to add new registrar
+    type RegistrarOrigin = RootOrMoreThanHalfCouncil;
+    type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
+}
+
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
         min_inflation: 0_025_000,
@@ -1086,8 +1113,11 @@ parameter_types! {
 impl staking_rewards::Config for Runtime {
     type Event = Event;
     type Currency = Balances;
+    /// Emission rewards decay by this % each year
     type RewardDecayPct = RewardDecayPct;
+    /// Treasury gets this much % out of emission rewards for each era
     type TreasuryRewardsPct = TreasuryRewardsPct;
+    /// NPoS reward curve
     type RewardCurve = RewardCurve;
 }
 
@@ -1271,6 +1301,7 @@ construct_runtime!(
         StakingRewards: staking_rewards::{Module, Call, Storage, Event<T>},
         Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
         Tips: pallet_tips::{Module, Call, Storage, Event<T>},
+        Identity: pallet_identity::{Module, Call, Storage, Event<T>},
     }
 );
 
