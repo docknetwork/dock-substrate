@@ -245,6 +245,8 @@ runtime-benchmarks = [
   'token_migration/runtime-benchmarks',
   'hex-literal',
 ]
+testnet = []
+mainnet = []
 
 [dev-dependencies]
 rand = "0.7.3"

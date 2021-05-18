@@ -139,8 +139,11 @@ pub mod opaque {
 
 /// This runtime version.
 pub const VERSION: RuntimeVersion = RuntimeVersion {
+    #[cfg(not(feature = "testnet"))]
     spec_name: create_runtime_str!("dock-main-runtime"),
-    impl_name: create_runtime_str!("dock-main-runtime"),
+    #[cfg(feature = "testnet")]
+    spec_name: create_runtime_str!("dock-test-runtime"),
+    impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
     spec_version: 22,
     impl_version: 1,
