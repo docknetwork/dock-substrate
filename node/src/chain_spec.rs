@@ -88,7 +88,6 @@ fn get_dev_properties() -> Properties {
     properties
 }
 
-#[allow(dead_code)]
 fn get_testnet_properties() -> Properties {
     let mut properties = get_common_properties_map();
     properties.insert("ss58Format".into(), 21.into());
@@ -274,44 +273,44 @@ pub fn local_testnet_config() -> ChainSpec {
 
 pub fn testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "Poa Testnet",
-        "poa_testnet",
+        "Dock Testnet",
+        "dock_testnet",
         ChainType::Live,
         || {
             GenesisBuilder {
                 initial_authorities: vec![
                     (
                         account_id_from_ss58::<sr25519::Public>(
-                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+                            "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr",
                         ),
                         pubkey_from_ss58::<AuraId>(
-                            "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                            "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
                         ),
                         pubkey_from_ss58::<GrandpaId>(
-                            "5CemoFcouqEdmBgMYjQwkFjBFPzLRc5jcXyjD8dKvqBWwhfh",
+                            "377vNRFLqisNUxBcXYwSpL9FgCzAGkroenLyHn81CshH2qQT",
                         ),
                     ),
                     (
                         account_id_from_ss58::<sr25519::Public>(
-                            "5HR2ytqigzQdbthhWA2g5K9JQayczEPwhAfSqAwSyb8Etmqh",
+                            "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5",
                         ),
                         pubkey_from_ss58::<AuraId>(
-                            "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
+                            "388a33rXJryeWxzN6YHaHAu3um5r97YSaoJ8qJKFYdA7s5qK",
                         ),
                         pubkey_from_ss58::<GrandpaId>(
-                            "5FJir6hEEWvVCt4PHJ95ygtw5MvgD2xoET9xqskTu4MZBC98",
+                            "39msRGKmAQZDveZeG7fb3mK1WAvW4BjsGhXCvXF9B6sKGVMi",
                         ),
                     ),
                 ],
                 endowed_accounts: [
-                    "5CUrmmBsA7oPP2uJ58yPTjZn7dUpFzD1MtRuwLdoPQyBnyWM",
-                    "5DS9inxHmk3qLvTu1ZDWF9GrvkJRCR2xeWdCfa1k7dwwL1e2",
-                    "5Fq9cARnUAWxKGU9w5UngNNMsfjcxenAAuBn8zYJwyidSnuU",
-                    "5DcxJv1LRAiEmpR41xKUNbmefmutQ7WBEKEsS5xBxh8wQ99J",
-                    "5E7BHnwo9LoKP6bAJseeqZgnWSbsFmiZxMAsEd7zGJfDoCCr",
-                    "5DkS3AbP8mXWVUg8o9R7Y8czAPoi9JTYmS3FPzKx1z6735nd",
-                    "5C89W6aJTdBBbXPhyLrefGSB97kXKWAo5NkqBvG8U9MKhEkP",
-                    "5GpPMM3Mw1eAqniXQsRHdjd7dshmiudU46sELyRfGEbBoJu5",
+                    "36x1LvpQ61S86oQZ3xVtXoyrYSUe78z5Q8oA1z8UfTUwtRkL",
+                    "37uJHxaphdga4gy9zNk1KDgwMZJF3Zp2gkzSkDWRPgThR4nN",
+                    "3AJJBL4KQ49h32yQuu1HkSnSJUjSooZED9Z2De2zE2EPXxbN",
+                    "3866t5dsM4LyVavJzmqySgBj6auiFGHFGZc7WjSsEjehVSpM",
+                    "38aKrxaL5ES46s6RHhB9ue6rwFbh6vVdzbY7KGcfYMAytWNS",
+                    "38DacLDv4fAFDFBPmxwccD34bCoXzTEcogQVUdpdJ2bs8RRo",
+                    "36bJ5GCqPWovKHtxxAP9jLrFZvkMAews7d85GZkokBs5nTGy",
+                    "3BHXvWftruGuZZDnPgwnhp3C4ghba4QY6MEURcvLYH6wtcwQ",
                 ]
                 .iter()
                 .cloned()
@@ -354,31 +353,31 @@ pub fn testnet_config() -> ChainSpec {
                 .collect(),
                 // In mainnet, this will be a public key (0s) that no one knows private key for
                 sudo: account_id_from_ss58::<sr25519::Public>(
-                    "5CFfPovgr1iLJ4fekiTPmtGMyg7XGmLxUnTvd1Y4GigwPqzH",
+                    "36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN",
                 ),
                 min_epoch_length: 1000,
                 max_active_validators: 8,
                 emission_status: false,
                 council_members: vec![
                     account_id_from_ss58::<sr25519::Public>(
-                        "5GZL42dUZCUV85Uen9nyg5smj5zYSkHgi8gkHMD98enRyNHd",
+                        "3B2UdCG1V67DqqyukyKUkAHr9tzNHu4kkP3zMzhpQhJC4phU",
                     ),
                     account_id_from_ss58::<sr25519::Public>(
-                        "5H8nZtbQKzrexiGzNC41KdmJXj9P3yAq4e8YTNuLrjuriyJc",
+                        "3Bbw94DwFtVPgUnFM1aWPiBNxY9Cu7wu6tVnY2Q28nRcp8ZY",
                     ),
                     account_id_from_ss58::<sr25519::Public>(
-                        "5GYLRk3bVaYg4Li2K6UxC1Rt52BGpfaJzGAZCqWTzqY4q7T3",
+                        "3B1Uzug8RUBQn7DHHv1TG5qxVqB6fpMP2WXoHV19Gt3pvETt",
                     ),
                 ],
                 technical_committee_members: vec![
                     account_id_from_ss58::<sr25519::Public>(
-                        "5EvDPEYFRe1WtUZKt8HNsmT3RrJDqsd6DNrB6UNLmj5Cv3KC",
+                        "39PMxQAnMXeFcF4arwoswqs7rfJ3h2QAFdDRB7s23may1G6v",
                     ),
                     account_id_from_ss58::<sr25519::Public>(
-                        "5Hbk8LuBSQkKkFM96SuyYDB1xHi972dqoqzjX1KZKrWLZn7h",
+                        "3C4thWXiNJP4U1rQ5GSUcHb6P6hxxBQur6MybepEbu26evDf",
                     ),
                     account_id_from_ss58::<sr25519::Public>(
-                        "5Eng8QjwLmucywgXKhvUqNq5QWdwC9kJf5r4bZh43b4ZFLZQ",
+                        "39FphaNUGfYMhiBnJXSyuTF9qKdm3JXNhLDJgDBjKdaKLJCe",
                     ),
                 ],
                 // TODO: Set this after deploying contract to testnet
@@ -392,9 +391,7 @@ pub fn testnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        // The chain is already deployed so can't use new prefix. If we ever choose to redeploy it, we
-        // should use correct properties and update account addresses
-        Some(get_dev_properties()),
+        Some(get_testnet_properties()),
         None,
     )
 }

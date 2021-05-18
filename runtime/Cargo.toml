@@ -394,6 +394,8 @@ runtime-benchmarks = [
   'core_mods/runtime-benchmarks',
   'hex-literal',
 ]
+testnet = []
+mainnet = []
 
 [dev-dependencies]
 rand = "0.8.3"

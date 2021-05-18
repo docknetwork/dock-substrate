@@ -2,6 +2,9 @@ FROM ubuntu:bionic AS builder
 
 # The node will be built in this directory
 WORKDIR /dock-node
+RUN echo 'focus now >>>>>>>>'
+ARG feat
+RUN echo this is $feat
 
 RUN apt -y update && \
 	apt install -y --no-install-recommends \
@@ -39,7 +42,9 @@ COPY Cargo.lock .
 
 # Build node.
 RUN cargo fetch # cache the result of the fetch in case the build gets interrupted
-RUN cargo build --release
+# Pass the features while building image as `--build-arg features='--features mainnet'` or `--build-arg features='--features testnet'`
+ARG features
+RUN cargo build --release $features
 
 # Final stage. Copy the node executable and the script
 FROM debian:stretch-slim
