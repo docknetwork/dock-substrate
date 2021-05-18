@@ -2,9 +2,6 @@ FROM ubuntu:bionic AS builder
 
 # The node will be built in this directory
 WORKDIR /dock-node
-RUN echo 'focus now >>>>>>>>'
-ARG feat
-RUN echo this is $feat
 
 RUN apt -y update && \
 	apt install -y --no-install-recommends \
