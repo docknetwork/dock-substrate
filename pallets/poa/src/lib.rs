@@ -4,10 +4,9 @@
 
 use codec::{Decode, Encode};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail, log,
+    decl_error, decl_event, decl_module, decl_storage, dispatch, ensure, fail,
     sp_runtime::{
         print,
-        runtime_logger::RuntimeLogger,
         traits::{AccountIdConversion, CheckedSub, OpaqueKeys, Saturating, StaticLookup, Zero},
         ModuleId, SaturatedConversion,
     },
@@ -16,6 +15,7 @@ use frame_support::{
         OnUnbalanced, ReservableCurrency,
     },
     weights::{Pays, Weight},
+    debug::RuntimeLogger
 };
 
 use frame_system::{self as system, ensure_root, RawOrigin};
@@ -766,11 +766,11 @@ impl<T: Trait> Module<T> {
 
         let active_validator_count = active_validators.len() as u8;
         if active_validator_set_changed {
-            log::debug!(
+            /*log::debug!(
                 target: "runtime",
                 "Active validator set changed, rotating session. Added {} and removed {}",
                 count_added, count_removed
-            );
+            );*/
             <ActiveValidators<T>>::put(active_validators);
         }
         (active_validator_set_changed, active_validator_count)
@@ -829,7 +829,7 @@ impl<T: Trait> Module<T> {
                 Some(pre_run) => {
                     // Assumes that the 2nd element of tuple is for slot no.
                     let s = SlotNo::decode(&mut &pre_run.1[..]).unwrap();
-                    log::debug!(target: "runtime", "current slot no is {}", s);
+                    // log::debug!(target: "runtime", "current slot no is {}", s);
                     Some(s)
                 }
                 None => {
@@ -865,12 +865,12 @@ impl<T: Trait> Module<T> {
             current_slot_no + active_validator_count - rem
         };
         EpochEndsAt::put(epoch_ends_at);
-        log::debug!(
+        /*log::debug!(
             target: "runtime",
             "Epoch {} prematurely ending at slot {}",
             current_epoch_no,
             epoch_ends_at
-        );
+        );*/
         epoch_ends_at
     }
 
@@ -907,22 +907,22 @@ impl<T: Trait> Module<T> {
         if epoch_detail.expected_ending_slot >= ending_slot {
             // Epoch was either short circuited or ended in the expected slot
             if epoch_detail.expected_ending_slot > ending_slot {
-                log::debug!(
+                /*log::debug!(
                     target: "runtime",
                     "Epoch ending early. Swap or epoch short circuited. Ending slot {}",
                     ending_slot
-                );
+                );*/
             }
             // This can be slightly disadvantageous for the highest block producer(s) if the following
             // division leaves a remainder (in case of shorter epoch). The disadvantage is loss of emission reward on 1 block.
             ((ending_slot - epoch_detail.starting_slot + 1)
                 / epoch_detail.validator_count as SlotNo) as EpochLen
         } else {
-            log::debug!(
+            /*log::debug!(
                 target: "runtime",
                 "Epoch ending late. This means the network stopped in between. Ending slot {}",
                 ending_slot
-            );
+            );*/
             match block_count {
                 BlockCount::MaxBlocks(max_blocks) => {
                     // At least one of the validator produced more blocks than the rest
@@ -966,7 +966,7 @@ impl<T: Trait> Module<T> {
                     max_blocks = block_count;
                 }
             }
-            log::debug!(target: "runtime", "Validator {:?} has blocks {}", v, block_count);
+            // log::debug!(target: "runtime", "Validator {:?} has blocks {}", v, block_count);
             validator_block_counts.insert(v, block_count);
         }
         (
@@ -1191,7 +1191,7 @@ impl<T: Trait> Module<T> {
         // Get slots received by each validator
         let slots_per_validator =
             Self::get_slots_per_validator(&epoch_detail, ending_slot, &max_blocks);
-        log::debug!(target: "runtime", "slots_per_validator {}", slots_per_validator);
+        // log::debug!(target: "runtime", "slots_per_validator {}", slots_per_validator);
 
         // It might happen that `slots_per_validator` > `max_blocks` as the network went down for
         // a brief moment of time but a validator should not be able to produce any more than 1 blocks
@@ -1199,7 +1199,7 @@ impl<T: Trait> Module<T> {
         // abruptly terminates and some validators don't get a chance to produce blocks
         let max_bl = max_blocks.to_number();
         if max_bl.saturating_sub(slots_per_validator) > 1 {
-            log::error!(target: "poa", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
+            // log::error!(target: "poa", "slots_per_validator={} max_blocks.to_number()={}", slots_per_validator, max_bl);
             panic!(
                 "THIS PANIC SHOULD NEVER TRIGGER: max_blocks.to_number() > slots_per_validator + 1"
             );
@@ -1232,15 +1232,15 @@ impl<T: Trait> Module<T> {
             return;
         }
         let ending_slot = current_slot_no - 1;
-        log::debug!(
+        /*log::debug!(
             target: "runtime",
             "Epoch {} ends at slot {}",
             current_epoch_no, ending_slot
-        );
+        );*/
         let mut epoch_detail = Self::get_epoch_detail(current_epoch_no);
         epoch_detail.ending_slot = Some(ending_slot);
 
-        log::debug!(target: "runtime", "Epoch {} ending at slot {}", current_epoch_no, ending_slot);
+        // log::debug!(target: "runtime", "Epoch {} ending at slot {}", current_epoch_no, ending_slot);
 
         Self::mint_emission_rewards_if_needed(current_epoch_no, ending_slot, &mut epoch_detail);
 
@@ -1256,12 +1256,12 @@ impl<T: Trait> Module<T> {
         current_slot_no: SlotNo,
         active_validator_count: u8,
     ) {
-        log::debug!(
+        /*log::debug!(
             target: "runtime",
             "Epoch {} begins at slot {}",
             current_epoch_no,
             current_slot_no
-        );
+        );*/
         Epoch::put(current_epoch_no);
         let expected_ending = Self::epoch_ends_at();
 
@@ -1336,11 +1336,11 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
         };
 
         let epoch_ends_at = Self::epoch_ends_at();
-        log::debug!(
+        /*log::debug!(
             target: "runtime",
             "epoch ends at {}",
             epoch_ends_at
-        );
+        );*/
 
         // Unless the epoch has had the required number of blocks, or hot swap is triggered, continue the session.
         let swap = <HotSwap<T>>::take();
@@ -1367,11 +1367,11 @@ impl<T: Trait> pallet_session::ShouldEndSession<T::BlockNumber> for Module<T> {
 
             let last_slot_for_next_epoch =
                 Self::set_next_epoch_end(current_slot_no, active_validator_count);
-            log::debug!(
+            /*log::debug!(
                 target: "runtime",
                 "next epoch will end at {}",
                 last_slot_for_next_epoch
-            );
+            );*/
             true
         } else {
             false
@@ -1390,11 +1390,11 @@ impl<T: Trait> pallet_session::SessionManager<T::AccountId> for Module<T> {
         // The init will be called on beginning of each session.
         RuntimeLogger::init();
 
-        log::debug!(
+        /*log::debug!(
             target: "runtime",
             "Current session index {}",
             session_idx
-        );
+        );*/
 
         let validators = Self::active_validators();
         if validators.is_empty() {

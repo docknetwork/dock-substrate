@@ -30,7 +30,8 @@ pub use core_mods::revoke;
 pub mod weight_to_fee;
 
 pub use poa;
-pub use price_feed;
+// pub use price_feed;
+// pub use fiat_filter;
 pub use simple_democracy;
 pub use token_migration;
 
@@ -73,12 +74,12 @@ use sp_runtime::{
 };
 use transaction_payment::CurrencyAdapter;
 
-use evm::Config as EvmConfig;
+/*use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
 use pallet_evm::{
     Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressTruncated, FeeCalculator,
     HashedAddressMapping, Runner,
-};
+};*/
 
 use crate::weight_to_fee::TxnFee;
 use sp_std::{convert::TryFrom, marker::PhantomData, prelude::*};
@@ -586,7 +587,7 @@ impl pallet_democracy::Trait for Runtime {
     type WeightInfo = ();
 }
 
-pub struct EthereumFindAuthor<F>(PhantomData<F>);
+/*pub struct EthereumFindAuthor<F>(PhantomData<F>);
 impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
     fn find_author<'a, I>(digests: I) -> Option<H160>
     where
@@ -610,7 +611,7 @@ parameter_types! {
     // Keeping 22 as its the ss58 prefix of mainnet
     pub const DockChainId: u64 = 22;
     pub BlockGasLimit: U256 = U256::from(u32::max_value());
-}
+}*/
 
 /*
 Considering the cost of following ops assuming 1 gas = 1 mirco-token.
@@ -628,7 +629,7 @@ EVM transfer DOCK token - 21,000 gas = 0.021 tokens
 The above is much lower than we would like. At this price it seems better to use EVM for token transfers.
  */
 
-/// Fixed gas price
+/*/// Fixed gas price
 pub struct GasPrice;
 impl FeeCalculator for GasPrice {
     fn min_gas_price() -> U256 {
@@ -705,7 +706,7 @@ impl fiat_filter::Config for Runtime {
     type PriceProvider = price_feed::Module<Runtime>;
     type Currency = balances::Module<Runtime>;
     type MinDockFiatRate = MinDockFiatRate;
-}
+}*/
 
 pub struct BaseFilter;
 impl Filter<Call> for BaseFilter {
@@ -713,7 +714,7 @@ impl Filter<Call> for BaseFilter {
         match call {
             Call::Democracy(_) => false,
             // Disable fiat_filter for now
-            Call::FiatFilterModule(_) => false,
+            // Call::FiatFilterModule(_) => false,
             _ => true,
         }
     }
@@ -753,14 +754,14 @@ construct_runtime!(
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TechnicalCommitteeMembership: pallet_membership::<Instance2>::{Module, Call, Storage, Event<T>, Config<T>},
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
-        Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
-        EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
-        PriceFeedModule: price_feed::{Module, Call, Storage, Event, Config},
-        FiatFilterModule: fiat_filter::{Module, Call},
+        // Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
+        // EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
+        // PriceFeedModule: price_feed::{Module, Call, Storage, Event, Config},
+        // FiatFilterModule: fiat_filter::{Module, Call},
     }
 );
 
-pub struct TransactionConverter;
+/*pub struct TransactionConverter;
 
 impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
     fn convert_transaction(&self, transaction: pallet_ethereum::Transaction) -> UncheckedExtrinsic {
@@ -782,7 +783,7 @@ impl fp_rpc::ConvertTransaction<opaque::UncheckedExtrinsic> for TransactionConve
         opaque::UncheckedExtrinsic::decode(&mut &encoded[..])
             .expect("Encoded extrinsic is always valid")
     }
-}
+}*/
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
@@ -855,7 +856,7 @@ impl_runtime_apis! {
         }
 
         fn random_seed() -> <Block as BlockT>::Hash {
-            RandomnessCollectiveFlip::random_seed().0
+            RandomnessCollectiveFlip::random_seed()
         }
     }
 
@@ -928,7 +929,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
+    /*impl fp_rpc::EthereumRuntimeRPCApi<Block> for Runtime {
         fn chain_id() -> u64 {
             <Runtime as pallet_evm::Config>::ChainId::get()
         }
@@ -1036,7 +1037,7 @@ impl_runtime_apis! {
                 Ethereum::current_transaction_statuses()
             )
         }
-    }
+    }*/
 
     impl pallet_transaction_payment_rpc_runtime_api::TransactionPaymentApi<Block, Balance> for Runtime {
         fn query_info(
@@ -1065,7 +1066,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl price_feed::runtime_api::PriceFeedApi<Block> for Runtime {
+    /*impl price_feed::runtime_api::PriceFeedApi<Block> for Runtime {
         fn token_usd_price() -> Option<u32> {
             PriceFeedModule::price()
         }
@@ -1082,7 +1083,7 @@ impl_runtime_apis! {
                 Err(e) => Err(fiat_filter_rpc_runtime_api::Error::new_getcallfeedock(e))
             }
         }
-    }
+    }*/
 
     #[cfg(feature = "runtime-benchmarks")]
     impl frame_benchmarking::Benchmark<Block> for Runtime {

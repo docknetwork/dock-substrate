@@ -20,38 +20,38 @@ version = '2.0.0'
 [dependencies.frame-support]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dev-dependencies.sp-core]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-io]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-std]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.pallet-session]
 default_features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.serde]
 features = ['derive']
@@ -61,45 +61,45 @@ version = '1.0.119'
 [dependencies.pallet-authorship]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-arithmetic]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-api]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dev-dependencies.balances]
 default-features = false
 package = 'pallet-balances'
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dev-dependencies.pallet-timestamp]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
-[dev-dependencies.pallet-evm]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-#path = '../../../../frontier/frame/evm'
+#[dev-dependencies.pallet-evm]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+##path = '../../../../frontier/frame/evm'
 
 [features]
 default = ['std']
@@ -117,4 +117,4 @@ std = [
     'sp-arithmetic/std',
 ]
 
-test = ['std', 'balances/std', 'pallet-evm/std', 'pallet-timestamp/std']
+test = ['std', 'balances/std', 'pallet-timestamp/std']

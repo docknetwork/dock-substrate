@@ -8,11 +8,11 @@ members = [
     'pallets/democracy',
     'pallets/simple_democracy',
     'pallets/core_mods',
-    'pallets/price_feed',
-    'pallets/price_feed/rpc',
-    'pallets/fiat_filter',
-    'pallets/fiat_filter/rpc',
-    'pallets/fiat_filter/rpc/runtime_api',
+#    'pallets/price_feed',
+#    'pallets/price_feed/rpc',
+#    'pallets/fiat_filter',
+#    'pallets/fiat_filter/rpc',
+#    'pallets/fiat_filter/rpc/runtime_api',
     'runtime',
 ]
 

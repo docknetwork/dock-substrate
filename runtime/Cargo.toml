@@ -12,21 +12,20 @@ targets = ['x86_64-unknown-linux-gnu']
 static_assertions = "1.1.0"
 smallvec = "1.4.1"
 evm = { version = '0.25.0', default-features = false, features = ['with-codec'] }
-fiat_filter = { path = '../pallets/fiat_filter', version = '0.1.0', default-features = false }
 
 [dependencies.aura]
 default-features = false
 package = 'pallet-aura'
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.balances]
 default-features = false
 package = 'pallet-balances'
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.codec]
 default-features = false
@@ -37,28 +36,28 @@ version = '2.0.0'
 [dependencies.frame-executive]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.frame-support]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.grandpa]
 default-features = false
 package = 'pallet-grandpa'
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.randomness-collective-flip]
 default-features = false
 package = 'pallet-randomness-collective-flip'
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.serde]
 features = ['derive']
@@ -72,112 +71,112 @@ version = "0.3.0"
 [dependencies.sp-api]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.sp-block-builder]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-consensus-aura]
 default-features = false
 version = '0.9.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.sp-core]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.sp-inherents]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.sp-io]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.sp-offchain]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-session]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-std]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-transaction-pool]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-version]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.sp-arithmetic]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.frame-system-rpc-runtime-api]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.timestamp]
 default-features = false
 package = 'pallet-timestamp'
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.transaction-payment]
 default-features = false
 package = 'pallet-transaction-payment'
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.pallet-transaction-payment-rpc-runtime-api]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [build-dependencies.substrate-wasm-builder]
 version = '4.0.0'
@@ -185,110 +184,110 @@ version = '4.0.0'
 [dependencies.pallet-session]
 default_features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.pallet-sudo]
 default_features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.pallet-authorship]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.pallet-utility]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.frame-system-benchmarking]
 optional = true
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.pallet-collective]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.pallet-membership]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.pallet-scheduler]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
 
 [dependencies.hex-literal]
 version = "0.3.1"
 optional = true
 
-[dependencies.pallet-evm]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-#path = '../../../frontier/frame/evm'
-
-[dependencies.pallet-ethereum]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-#path = '../../../frontier/frame/ethereum'
-
-[dependencies.pallet-evm-precompile-simple]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-
-[dependencies.pallet-evm-precompile-sha3fips]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-
-[dependencies.pallet-evm-precompile-ed25519]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-
-[dependencies.pallet-evm-precompile-modexp]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-
-[dependencies.pallet-evm-precompile-bn128]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-
-[dependencies.pallet-evm-precompile-dispatch]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-
-[dependencies.fp-rpc]
-default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '661729585eb5d8c897c053f26d341944599d40fe'
-#path = '../../../frontier/primitives/rpc'
+#[dependencies.pallet-evm]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+##path = '../../../frontier/frame/evm'
+#
+#[dependencies.pallet-ethereum]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+##path = '../../../frontier/frame/ethereum'
+#
+#[dependencies.pallet-evm-precompile-simple]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+#
+#[dependencies.pallet-evm-precompile-sha3fips]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+#
+#[dependencies.pallet-evm-precompile-ed25519]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+#
+#[dependencies.pallet-evm-precompile-modexp]
+#default-features = false
+##git = "https://github.com/paritytech/substrate.git"
+##branch = "frontier"
+#
+#[dependencies.pallet-evm-precompile-bn128]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+#
+#[dependencies.pallet-evm-precompile-dispatch]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+#
+#[dependencies.fp-rpc]
+#default-features = false
+#git = 'https://github.com/paritytech/frontier.git'
+#rev = '661729585eb5d8c897c053f26d341944599d40fe'
+##path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]
 default-features = false
@@ -316,15 +315,20 @@ default-features = false
 path = '../pallets/core_mods'
 version = '0.2.0'
 
-[dependencies.price_feed]
-default-features = false
-path = '../pallets/price_feed'
-version = '0.0.1'
+#[dependencies.price_feed]
+#default-features = false
+#path = '../pallets/price_feed'
+#version = '0.0.1'
+#
+#[dependencies.fiat_filter]
+#default-features = false
+#path = '../pallets/fiat_filter'
+#version = '0.0.1'
 
-[dependencies.fiat_filter_rpc_runtime_api]
-default-features = false
-path = '../pallets/fiat_filter/rpc/runtime_api'
-version = '0.0.1'
+#[dependencies.fiat_filter_rpc_runtime_api]
+#default-features = false
+#path = '../pallets/fiat_filter/rpc/runtime_api'
+#version = '0.0.1'
 
 [dependencies.common]
 path = '../common'
@@ -367,21 +371,21 @@ std = [
     'pallet-collective/std',
     'evm/std',
     'evm/with-serde',
-    'pallet-evm/std',
-    'pallet-ethereum/std',
-    'pallet-evm-precompile-simple/std',
-    'pallet-evm-precompile-sha3fips/std',
-    'pallet-evm-precompile-ed25519/std',
-    'pallet-evm-precompile-modexp/std',
-    'pallet-evm-precompile-bn128/std',
-    'pallet-evm-precompile-dispatch/std',
+#    'pallet-evm/std',
+#    'pallet-ethereum/std',
+#    'pallet-evm-precompile-simple/std',
+#    'pallet-evm-precompile-sha3fips/std',
+#    'pallet-evm-precompile-ed25519/std',
+#    'pallet-evm-precompile-modexp/std',
+#    'pallet-evm-precompile-bn128/std',
+#    'pallet-evm-precompile-dispatch/std',
     'poa/std',
     'token_migration/std',
     'simple_democracy/std',
     'core_mods/std',
-    'price_feed/std',
-    'fiat_filter/std',
-    'fiat_filter_rpc_runtime_api/std',
+#    'price_feed/std',
+#    'fiat_filter/std',
+#    'fiat_filter_rpc_runtime_api/std',
 ]
 runtime-benchmarks = [
   'frame-benchmarking',

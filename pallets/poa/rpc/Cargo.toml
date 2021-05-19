@@ -14,8 +14,8 @@ jsonrpc-core = "15.1.0"
 jsonrpc-core-client = "15.1.0"
 jsonrpc-derive = "15.1.0"
 serde = { version = "1.0.119", features = ["derive"], optional = true }
-sp-rpc = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
-sp-runtime = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
-sp-api = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
-sp-blockchain = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+sp-rpc = { version = '3.0.0'}
+sp-runtime = { version = '3.0.0'}
+sp-api = { version = '3.0.0' }
+sp-blockchain = { version = '3.0.0' }
 poa = { version = '0.6.2', path = '..' }
