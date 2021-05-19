@@ -13,21 +13,21 @@ readme = "README.md"
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-serde = { version = "1.0.101", optional = true, features = ["derive"] }
+serde = { version = "1.0.110", optional = true, features = ["derive"] }
 codec = { package = "parity-scale-codec", version = "1.3.4", default-features = false, features = ["derive"] }
-sp-std = { version = "2.0.1", default-features = false }
-sp-io = { version = "2.0.1", default-features = false }
-sp-runtime = { version = "2.0.1", default-features = false }
-frame-benchmarking = { version = "2.0.1", default-features = false, optional = true }
-frame-support = { version = "2.0.1", default-features = false }
-frame-system = { version = "2.0.1", default-features = false }
+sp-std = { version = "3.0.0", default-features = false }
+sp-io = { version = "3.0.0", default-features = false }
+sp-runtime = { version = "3.0.0", default-features = false }
+frame-benchmarking = { version = "3.0.0", default-features = false, optional = true }
+frame-support = { version = "3.0.0", default-features = false }
+frame-system = { version = "3.0.0", default-features = false }
 
 [dev-dependencies]
-sp-core = { version = "2.0.1" }
-pallet-balances = { version = "2.0.1" }
-pallet-scheduler = { version = "2.0.1" }
-sp-storage = { version = "2.0.1" }
-substrate-test-utils = { version = "2.0.1" }
+sp-core = { version = "3.0.0" }
+pallet-balances = { version = "3.0.0" }
+pallet-scheduler = { version = "3.0.0" }
+sp-storage = { version = "3.0.0" }
+substrate-test-utils = { version = "3.0.0" }
 hex-literal = "0.3.1"
 
 [features]
