@@ -136,12 +136,16 @@ pub mod opaque {
     }
 }
 
-/// This runtime version.
+/// This runtime version. Whe compiling with feature "mainnet", `spec_name` will be "dock-main-runtime",
+/// when compiling with feature "testnet", `spec_name` will be "dock-test-runtime", when not using either
+/// of those, `spec_name` will be "dock-dev-runtime"
 pub const VERSION: RuntimeVersion = RuntimeVersion {
-    #[cfg(not(feature = "testnet"))]
+    #[cfg(feature = "mainnet")]
     spec_name: create_runtime_str!("dock-main-runtime"),
     #[cfg(feature = "testnet")]
     spec_name: create_runtime_str!("dock-test-runtime"),
+    #[cfg(not(any(feature = "testnet", feature = "mainnet")))]
+    spec_name: create_runtime_str!("dock-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
     spec_version: 24,
