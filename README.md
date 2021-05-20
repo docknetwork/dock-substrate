@@ -26,7 +26,7 @@ To view possible command line arguments:
 docker run docknetwork/dock-substrate --help
 ```
 
-## Building
+## Build
 
 To build the node executable yourself, you'll need to install the following dependencies.
 
@@ -79,6 +79,11 @@ docker build --build-arg features='--features mainnet' .
 ```
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
+
+## Releases
+The testnet and mainnet codebases are tagged as `testnet` and `mainnet` respectively. On the releases page, you will only 
+find mainnet releases. Similarly the docker images corresponding to testnet and mainnet are tagged as `testnet` and `mainnet` 
+respectively, and you can find pull them as `docker pull docknetwork/dock-substrate:testnet` or `docker pull docknetwork/dock-substrate:mainnet`
 
 ## Recipes
 
