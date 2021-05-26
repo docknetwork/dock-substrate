@@ -41,6 +41,8 @@ rustup update nightly
 rustup target add wasm32-unknown-unknown --toolchain nightly
 ```
 
+The project is known to build with cargo 1.51.0 and rust 1.51.0. Upgrade to these versions if unable to build
+
 Now you can build the node binary.
 
 ```bash

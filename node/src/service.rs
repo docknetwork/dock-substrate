@@ -1,7 +1,6 @@
 //! Service and ServiceFactory implementation. Specialized wrapper over substrate service.
 
 use dock_runtime::{self, opaque::Block, RuntimeApi};
-use fc_consensus::FrontierBlockImport;
 use fc_mapping_sync::MappingSyncWorker;
 use fc_rpc::EthTask;
 use fc_rpc_core::types::{FilterPool, PendingTransactions};
@@ -85,15 +84,11 @@ pub fn new_partial(
             AuraBlockImport<
                 Block,
                 FullClient,
-                FrontierBlockImport<
+                sc_finality_grandpa::GrandpaBlockImport<
+                    FullBackend,
                     Block,
-                    sc_finality_grandpa::GrandpaBlockImport<
-                        FullBackend,
-                        Block,
-                        FullClient,
-                        FullSelectChain,
-                    >,
                     FullClient,
+                    FullSelectChain,
                 >,
                 AuraPair,
             >,
@@ -151,14 +146,8 @@ pub fn new_partial(
 
     let frontier_backend = open_frontier_backend(config)?;
 
-    let frontier_block_import = FrontierBlockImport::new(
-        grandpa_block_import.clone(),
-        client.clone(),
-        frontier_backend.clone(),
-    );
-
     let aura_block_import =
-        AuraBlockImport::<_, _, _, AuraPair>::new(frontier_block_import, client.clone());
+        AuraBlockImport::<_, _, _, AuraPair>::new(grandpa_block_import.clone(), client.clone());
 
     let import_queue =
         sc_consensus_aura::import_queue::<AuraPair, _, _, _, _, _>(ImportQueueParams {
