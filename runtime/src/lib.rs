@@ -33,9 +33,6 @@ pub use poa;
 pub use price_feed;
 pub use token_migration;
 
-/*#[cfg(test)]
-mod tests;*/
-
 use codec::{Decode, Encode};
 use frame_support::{
     construct_runtime, parameter_types,
@@ -173,9 +170,9 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 25,
+    spec_version: 26,
     impl_version: 1,
-    transaction_version: 2,
+    transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
 

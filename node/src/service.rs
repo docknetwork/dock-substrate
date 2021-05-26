@@ -83,11 +83,7 @@ pub fn new_partial(
         sp_consensus::DefaultImportQueue<Block, FullClient>,
         sc_transaction_pool::FullPool<Block, FullClient>,
         (
-            BabeBlockImport<
-                Block,
-                FullClient,
-                FullGrandpaBlockImport,
-            >,
+            BabeBlockImport<Block, FullClient, FullGrandpaBlockImport>,
             sc_finality_grandpa::LinkHalf<Block, FullClient, FullSelectChain>,
             BabeLink<Block>,
             Option<Telemetry>,

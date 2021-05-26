@@ -1296,7 +1296,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.15.4"
+version = "0.15.0"
 dependencies = [
  "dock-runtime",
  "fc-db",
@@ -1362,7 +1362,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.15.4"
+version = "0.15.0"
 dependencies = [
  "common",
  "core_mods",
