@@ -160,6 +160,7 @@ fn new_test_ext() -> sp_io::TestExternalities {
         treasury_reward_pc: 0,
         validator_reward_lock_pc: 0,
         emission_status: true,
+        poa_last_block: H256::zero(),
     }
     .assimilate_storage(&mut t)
     .unwrap();

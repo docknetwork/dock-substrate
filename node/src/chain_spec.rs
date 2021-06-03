@@ -3,7 +3,7 @@ use dock_runtime::{
     master::Membership,
     price_feed::{util::ParamType, ContractConfig},
     AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
-    EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, ImOnlineConfig,
+    EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
     MasterConfig, PoAModuleConfig, PriceFeedModuleConfig, SessionConfig, SessionKeys, Signature,
     StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
     BABE_GENESIS_EPOCH_CONFIG, DOCK, MAX_ALLOWED_VALIDATORS, MILLISECS_PER_BLOCK, WASM_BINARY,
@@ -211,6 +211,8 @@ pub fn development_config() -> ChainSpec {
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
                 validator_count: 3,
+                // TODO: Fix
+                poa_last_block: Hash::repeat_byte(42),
             }
             .build()
         },
@@ -289,6 +291,8 @@ pub fn local_testnet_config() -> ChainSpec {
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
                 validator_count: 20,
+                // TODO: Fix
+                poa_last_block: Hash::repeat_byte(42),
             }
             .build()
         },
@@ -300,10 +304,11 @@ pub fn local_testnet_config() -> ChainSpec {
     )
 }
 
-pub fn testnet_config() -> ChainSpec {
+/// Configuration for the PoS testnet
+pub fn pos_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "Dock Testnet",
-        "dock_testnet",
+        "dock_pos_testnet",
         ChainType::Live,
         || {
             GenesisBuilder {
@@ -434,6 +439,8 @@ pub fn testnet_config() -> ChainSpec {
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
                 validator_count: 50,
+                // TODO: Fix
+                poa_last_block: Hash::repeat_byte(22),
             }
             .build()
         },
@@ -448,8 +455,8 @@ pub fn testnet_config() -> ChainSpec {
     )
 }
 
-/// Configuration for the mainnet
-pub fn mainnet_config() -> ChainSpec {
+/// Configuration for the PoS mainnet
+pub fn pos_mainnet_config() -> ChainSpec {
     // Epoch is of ~10 days, 864000000 ms in 10 days
     let min_epoch_length = (864000000 / MILLISECS_PER_BLOCK) as u32;
     let max_active_validators = 11;
@@ -457,7 +464,7 @@ pub fn mainnet_config() -> ChainSpec {
 
     ChainSpec::from_genesis(
         "Dock Mainnet", // This will be used in the Telemetry so keeping the word "Dock" in there
-        "dock_mainnet",
+        "dock_pos_mainnet",
         ChainType::Live,
         move || {
             GenesisBuilder {
@@ -564,6 +571,8 @@ pub fn mainnet_config() -> ChainSpec {
                 // TODO: Temporary value
                 stash: 100 * DOCK,
                 validator_count: MAX_ALLOWED_VALIDATORS,
+                // TODO: Fix
+                poa_last_block: Hash::repeat_byte(22),
             }
             .build()
         },
@@ -601,6 +610,7 @@ struct GenesisBuilder {
     stash: Balance,
     /// Maximum allowed validators
     validator_count: u16,
+    poa_last_block: Hash,
 }
 
 impl GenesisBuilder {
@@ -654,6 +664,7 @@ impl GenesisBuilder {
                 treasury_reward_pc,
                 validator_reward_lock_pc,
                 emission_status: self.emission_status,
+                poa_last_block: self.poa_last_block,
             },
             balances: BalancesConfig {
                 balances: self

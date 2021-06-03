@@ -163,11 +163,11 @@ pub const BABE_GENESIS_EPOCH_CONFIG: sp_consensus_babe::BabeEpochConfiguration =
 /// of those, `spec_name` will be "dock-dev-runtime"
 pub const VERSION: RuntimeVersion = RuntimeVersion {
     #[cfg(feature = "mainnet")]
-    spec_name: create_runtime_str!("dock-main-runtime"),
+    spec_name: create_runtime_str!("dock-pos-main-runtime"),
     #[cfg(feature = "testnet")]
-    spec_name: create_runtime_str!("dock-test-runtime"),
+    spec_name: create_runtime_str!("dock-pos-test-runtime"),
     #[cfg(not(any(feature = "testnet", feature = "mainnet")))]
-    spec_name: create_runtime_str!("dock-dev-runtime"),
+    spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
     spec_version: 26,

@@ -218,6 +218,9 @@ decl_storage! {
         /// `bool` set to true if all epochs that needed to be unlocked are processed. Used to avoid
         /// looking for more epochs
         NextEpochToReward get(fn next_epoch_to_reward): Option<(EpochNo, T::BlockNumber, bool)>;
+
+        /// PoA chain's last block's hash. Not storing genesis block hash of PoA chain.
+        PoALastBlock get(fn poa_last_block) config(): T::Hash
     }
 }
 

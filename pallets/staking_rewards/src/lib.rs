@@ -54,6 +54,9 @@ decl_event!(
     {
         /// Rewards emitted and remaining
         EmissionRewards(Balance, Balance),
+        /// Emission supply moved from PoA module to this module
+        // TODO: This event is not getting emitted maybe because it happens during runtime upgrade
+        EmissionSupplyTakenFromPoA(Balance),
     }
 );
 
@@ -198,6 +201,7 @@ impl<T: Config> Module<T> {
         if Self::staking_emission_supply().is_zero() {
             let supply = <poa::EmissionSupply<T>>::take();
             Self::set_new_emission_supply(supply);
+            Self::deposit_event(RawEvent::EmissionSupplyTakenFromPoA(supply));
             T::DbWeight::get().reads_writes(2, 2)
         } else {
             T::DbWeight::get().reads(1)
