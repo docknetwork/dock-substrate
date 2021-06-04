@@ -568,8 +568,8 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 ],
                 // TODO: Set this after deploying contract to mainnet
                 contract_config: get_dev_chain_price_feed_contract(),
-                // TODO: Temporary value
-                stash: 100 * DOCK,
+                // Initial stakers/validators should have at least this amount as balance
+                stash: 1_000 * DOCK,
                 validator_count: MAX_ALLOWED_VALIDATORS,
                 // TODO: Fix
                 poa_last_block: Hash::repeat_byte(22),
@@ -610,6 +610,7 @@ struct GenesisBuilder {
     stash: Balance,
     /// Maximum allowed validators
     validator_count: u16,
+    /// Hash of the last block of PoA chain
     poa_last_block: Hash,
 }
 
