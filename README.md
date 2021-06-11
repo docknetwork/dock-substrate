@@ -17,7 +17,7 @@ docker run -p 9944:9944 -p 30333:30333 docknetwork/dock-substrate:latest --chain
     Expose websocket port          Use the node image from dockerhub                     Listen for rpc over websocket
 ```
 
-The above command will run a mainnet node. To run a testnet node, use the chainspec `danforth_raw.json` in place of `vulcan_raw.json`
+The above command will run a mainnet node. To run a testnet node, use the chainspec `knox_raw.json` in place of `vulcan_raw.json`
 and image `docknetwork/dock-substrate:testnet` in place of `docknetwork/dock-substrate:latest` in the above command.
 
 To view possible command line arguments:
