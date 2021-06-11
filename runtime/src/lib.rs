@@ -232,14 +232,13 @@ mod test_durations {
 mod prod_durations {
     use super::{BlockNumber, DAYS, HOURS, MINUTES};
 
-    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 1 * HOURS;
+    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 3 * HOURS;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
 
-    // TODO: Revisit values below
-    pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 6;
+    pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 4; // 12 hours
     /// Bonding duration is in number of era
-    pub const BONDING_DURATION: pallet_staking::EraIndex = 24 * 28;
-    pub const SLASH_DEFER_DURATION: pallet_staking::EraIndex = 24 * 7; // 1/4 the bonding duration.
+    pub const BONDING_DURATION: pallet_staking::EraIndex = 8 * 7; // 7 days
+    pub const SLASH_DEFER_DURATION: pallet_staking::EraIndex = 2 * 7; // 1/4 the bonding duration.
     /// Specifies the number of blocks for which the equivocation is valid.
     pub const REPORT_LONGEVITY: u64 =
         BONDING_DURATION as u64 * SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_SLOTS;
@@ -270,8 +269,7 @@ mod prod_durations {
     pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 14 * DAYS;
 }
 
-// TODO: Use module `prod_durations`
-use test_durations::*;
+use prod_durations::*;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -492,8 +490,6 @@ impl pallet_babe::Config for Runtime {
 
     type WeightInfo = ();
 }
-
-pub const MAX_ALLOWED_VALIDATORS: u16 = 50;
 
 parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
@@ -1125,7 +1121,6 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
         I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
     {
         if let Some(author_index) = F::find_author(digests) {
-            // TODO: Check if AuthorityDiscovery::current_authorities is safe to use
             let authority_id = Babe::authorities()[author_index as usize].clone();
             return Some(H160::from_slice(&authority_id.0.to_raw_vec()[4..24]));
         }

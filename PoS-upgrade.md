@@ -1,9 +1,9 @@
 # PoS upgrade
 As there is no way to change consensus algorithm from Aura to Babe through a forkless upgrade, we will fork the chain with 
 a process [re-genesis](https://github.com/paritytech/substrate/issues/7458), i.e. we will start a new chain with new 
-genesis but the state (and not the blocks) of the old chain (PoA) will be included in the new chain's genesis so that account balances, 
+genesis, but the state (and not the blocks) of the old chain (PoA) will be included in the new chain's genesis so that account balances, 
 contracts, DIDs, etc are not lost. This new genesis will also include the PoA chain's last block hash. The new chain-will have 
-new `spec_name` such that a client can simultaneously connect to both chains (we will be hosting a PoA chain for a while). Below 
+new `spec_name` so that a client can simultaneously connect to both chains (we will be hosting a PoA chain for a while). Below 
 are the steps needed for re-genesis
 1. Short-circuit epoch of PoA chain so that pending rewards are given to validators and treasury.
 2. Disable emission rewards in PoA module so that emission stops
@@ -12,7 +12,7 @@ are the steps needed for re-genesis
 5. Brick the chain, i.e. the chain will not produce any block and can't be used anymore. This is done by setting the wasm code to empty bytes (using `setCodeWithoutChecks`).
 6. Take the chain's last block hash and put in the `chain_spec.rs` to make the new genesis have the PoA chain's last block.
 7. Use the [fork-off script](https://github.com/lovesh/fork-off-substrate) to generate the new (PoS) genesis file and download old 
-chain's state. Make sure the neccessary files like metadata, binary, runtime wasm, types, etc are present and env variables are set before 
+chain's state. Make sure the necessary files like metadata, binary, runtime wasm, types, etc are present and env variables are set before 
 running the script  
 8. Start nodes with the new genesis file.
 9. Download the state of the new chain with script from step 4 and compare the JSON is same (there will be minor difference; in sudo account's nonce and in genesis accounts' locks)

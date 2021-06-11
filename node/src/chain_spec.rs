@@ -6,7 +6,7 @@ use dock_runtime::{
     EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
     MasterConfig, PoAModuleConfig, PriceFeedModuleConfig, SessionConfig, SessionKeys, Signature,
     StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
-    BABE_GENESIS_EPOCH_CONFIG, DOCK, MAX_ALLOWED_VALIDATORS, MILLISECS_PER_BLOCK, WASM_BINARY,
+    BABE_GENESIS_EPOCH_CONFIG, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -102,7 +102,7 @@ fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, KeyDetail) {
 
 fn get_common_properties_map() -> Properties {
     let mut properties = Map::new();
-    properties.insert("tokenSymbol".into(), "DCK".into());
+    properties.insert("tokenSymbol".into(), "DOCK".into());
     properties.insert("tokenDecimals".into(), 6.into());
     properties
 }
@@ -199,9 +199,6 @@ pub fn development_config() -> ChainSpec {
                 .map(|(name, sk)| did_from_seed(name, sk))
                 .collect(),
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
-                min_epoch_length: 8,
-                max_active_validators: 2,
-                emission_status: true,
                 council_members: get_seed_vector_to_account_vector(
                     ["Alice//stash", "Bob//stash", "Charlie"].to_vec(),
                 ),
@@ -279,9 +276,6 @@ pub fn local_testnet_config() -> ChainSpec {
                 .map(|(name, sk)| did_from_seed(name, sk))
                 .collect(),
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
-                min_epoch_length: 16,
-                max_active_validators: 5,
-                emission_status: true,
                 council_members: get_seed_vector_to_account_vector(
                     ["Alice//stash", "Bob//stash", "Charlie"].to_vec(),
                 ),
@@ -307,19 +301,19 @@ pub fn local_testnet_config() -> ChainSpec {
 /// Configuration for the PoS testnet
 pub fn pos_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "Dock Testnet",
+        "Dock PoS Testnet",
         "dock_pos_testnet",
         ChainType::Live,
         || {
             GenesisBuilder {
                 initial_authorities: vec![
                     (
-                        // TODO: Keeping stash and controller same for now. Fix later.
-                        account_id_from_ss58::<sr25519::Public>(
-                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
-                        ),
+                        // Dock V1
                         account_id_from_ss58::<sr25519::Public>(
                             "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "38TGisDkCrzzkANAXVoFQwmAR7dNWs3E94axqn6nxKBcmGp4",
                         ),
                         pubkey_from_ss58::<BabeId>(
                             "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
@@ -327,20 +321,20 @@ pub fn pos_testnet_config() -> ChainSpec {
                         pubkey_from_ss58::<GrandpaId>(
                             "377vNRFLqisNUxBcXYwSpL9FgCzAGkroenLyHn81CshH2qQT",
                         ),
-                        // TODO: Keeping same as BabeId. Fix later.
                         pubkey_from_ss58::<ImOnlineId>(
-                            "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                            "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
                         ),
                         pubkey_from_ss58::<AuthorityDiscoveryId>(
-                            "5FkKCjCwd36ztkEKatp3cAbuUWjUECi4y5rQnpkoEeagTimD",
+                            "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
                         ),
                     ),
                     (
+                        // Dock V2
                         account_id_from_ss58::<sr25519::Public>(
                             "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5",
                         ),
                         account_id_from_ss58::<sr25519::Public>(
-                            "5DjPH6m1x4QLc4YaaxtVX752nQWZzBHZzwNhn5TztyMDgz8t",
+                            "39RyWxyEjqUYGZy8ZbiQh3XhW8wzLjKj6m6eL7VxWKAHvMw4",
                         ),
                         pubkey_from_ss58::<BabeId>(
                             "388a33rXJryeWxzN6YHaHAu3um5r97YSaoJ8qJKFYdA7s5qK",
@@ -348,12 +342,74 @@ pub fn pos_testnet_config() -> ChainSpec {
                         pubkey_from_ss58::<GrandpaId>(
                             "39msRGKmAQZDveZeG7fb3mK1WAvW4BjsGhXCvXF9B6sKGVMi",
                         ),
-                        // TODO: Keeping same as BabeId. Fix later.
                         pubkey_from_ss58::<ImOnlineId>(
-                            "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
+                            "388a33rXJryeWxzN6YHaHAu3um5r97YSaoJ8qJKFYdA7s5qK",
                         ),
                         pubkey_from_ss58::<AuthorityDiscoveryId>(
-                            "5DfRTtDzNyLuoCV77im5D6UyUx62HxmNYYvtkepaGaeMmoKu",
+                            "388a33rXJryeWxzN6YHaHAu3um5r97YSaoJ8qJKFYdA7s5qK",
+                        ),
+                    ),
+                    (
+                        // Sebastian
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3CCZY1mGhqEdtVhfnvEvqBohPBfNbQc1JMz4SKs3rWReVmsf",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "38JhC6JdunZd7vAPJ4kmR4tyEMkYtW5q2ESjd4rDQP1k6mou",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3Aej5Em814Ae2ftTNn5g9gES4rEwsEkb3enEawLnxdrD2fKK",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "36zgzyR71dgEuPyJ9rGhJenh4WJuedBnBKBsg4Dih6x1VSL8",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "36zFkJ7V5Kbbn3qTNdPSoTMmg9sTyYDEL47YqybTasGS6Dfg",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "388p7zBmpQWhcTLdLuiDn7RkfQz54ALKYkwrFHA1uzAH8Xk7",
+                        ),
+                    ),
+                    (
+                        // Ryabina
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3A2DZfNptCYwPK91AhfDUDv4YmmBp155xKpkai4nrzSpsvg1",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3BbzsmamgoNRGWLRoW5PgJ75AozNAdzdSmFq85WZkzaGdgxS",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3C9iQYXyZWahEYtTemtk6N6inuA2bpbhouBMeT7X6jJ747Y8",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3AVmJaz6sJ3C7Q7KcYUbtWFiHToZM3m2CfWUafo4CZrhX1LZ",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "38zPVFvo8xTN1Y1Cqr6kKiYjSRykQ5Lso9DNnm149ByyUR4n",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3AHfEnMGg6mmiGb4BZrxodqVV9V5VaZ19hprpfxcWw3VjGH5",
+                        ),
+                    ),
+                    (
+                        // Pathrock
+                        account_id_from_ss58::<sr25519::Public>(
+                            "38VaFJZznPEEKwiEAyejFNzVR3oQaoPATS7fEpX4UnEupb18",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "38cmpTpZddmDcyTtLH2UAuZWUCyL4dFyz7eHPz528MfkARKk",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "37B7mHwqsTU4vBDBCNLDHqaXgnK2Mz7YqauX1dKuGu7rmbNb",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3AsAnE916vsJqKU8NN6i4oe2nYKxU3CktxfY5RQjybhhj6FC",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3BvMJbiVFVYSwkhzBCzjrtgtYNasnU7YnFZeR5EXZoQ8xVGW",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "36YyGD57E5Z57mbTBiFhzXAfYvzuDV3n99BMdxUEX78AJWYT",
                         ),
                     ),
                 ],
@@ -410,9 +466,6 @@ pub fn pos_testnet_config() -> ChainSpec {
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN",
                 ),
-                min_epoch_length: 1000,
-                max_active_validators: 8,
-                emission_status: false,
                 council_members: vec![
                     account_id_from_ss58::<sr25519::Public>(
                         "3B2UdCG1V67DqqyukyKUkAHr9tzNHu4kkP3zMzhpQhJC4phU",
@@ -435,17 +488,16 @@ pub fn pos_testnet_config() -> ChainSpec {
                         "39FphaNUGfYMhiBnJXSyuTF9qKdm3JXNhLDJgDBjKdaKLJCe",
                     ),
                 ],
-                // TODO: Set this after deploying contract to testnet
                 contract_config: get_dev_chain_price_feed_contract(),
-                stash: 100 * DOCK,
+                stash: 1_000 * DOCK,
                 validator_count: 50,
                 // TODO: Fix
-                poa_last_block: Hash::repeat_byte(22),
+                poa_last_block: Hash::repeat_byte(21),
             }
             .build()
         },
-        vec!["/dns4/testnet-1.dock.io/tcp/30333/p2p/\
-             12D3KooWSbaqC655sjBSk7bNMghWsKdy1deCKRL6aRf6xcmm9dwW"
+        vec!["/dns4/knox-1.dock.io/tcp/30333/p2p/\
+             12D3KooWFWhaZ8DxgwN7KJyFBPuQTL838amWqNKPTFtJJ8ZtZpPQ"
             .parse()
             .unwrap()],
         None,
@@ -457,13 +509,8 @@ pub fn pos_testnet_config() -> ChainSpec {
 
 /// Configuration for the PoS mainnet
 pub fn pos_mainnet_config() -> ChainSpec {
-    // Epoch is of ~10 days, 864000000 ms in 10 days
-    let min_epoch_length = (864000000 / MILLISECS_PER_BLOCK) as u32;
-    let max_active_validators = 11;
-    let emission_status = false;
-
     ChainSpec::from_genesis(
-        "Dock Mainnet", // This will be used in the Telemetry so keeping the word "Dock" in there
+        "Dock PoS Mainnet", // This will be used in the Telemetry so keeping the word "Dock" in there
         "dock_pos_mainnet",
         ChainType::Live,
         move || {
@@ -541,9 +588,6 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "3HqoTXW3HBQJoFpvRaAaJoNsWTBZs3CuGRqT9xxfv497k8fs",
                 ),
-                min_epoch_length,
-                max_active_validators,
-                emission_status,
                 council_members: vec![
                     account_id_from_ss58::<sr25519::Public>(
                         "3EpgfUS2x744ZTFccNdkpRRSW1efbYyqNyw81x9eHqy7JuAS",
@@ -570,7 +614,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 contract_config: get_dev_chain_price_feed_contract(),
                 // Initial stakers/validators should have at least this amount as balance
                 stash: 1_000 * DOCK,
-                validator_count: MAX_ALLOWED_VALIDATORS,
+                validator_count: 50,
                 // TODO: Fix
                 poa_last_block: Hash::repeat_byte(22),
             }
@@ -600,9 +644,6 @@ struct GenesisBuilder {
     master: Membership,
     dids: Vec<(Did, KeyDetail)>,
     sudo: AccountId,
-    min_epoch_length: u32,
-    max_active_validators: u8,
-    emission_status: bool,
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
     contract_config: ContractConfig,
@@ -653,8 +694,8 @@ impl GenesisBuilder {
                     .collect::<Vec<_>>(),
             },
             poa: PoAModuleConfig {
-                min_epoch_length: self.min_epoch_length,
-                max_active_validators: self.max_active_validators,
+                min_epoch_length: 1,      // Doesn't matter
+                max_active_validators: 1, // Doesn't matter
                 active_validators: self
                     .initial_authorities
                     .iter()
@@ -664,7 +705,7 @@ impl GenesisBuilder {
                 max_emm_validator_epoch,
                 treasury_reward_pc,
                 validator_reward_lock_pc,
-                emission_status: self.emission_status,
+                emission_status: false, // Doesn't matter
                 poa_last_block: self.poa_last_block,
             },
             balances: BalancesConfig {
@@ -710,8 +751,7 @@ impl GenesisBuilder {
                     .map(|x| x.0.clone())
                     .collect(),
                 // 10% of slashed amount goes as reward to the reporters of bad behavior.
-                // TODO: Consider increasing it in the beginning
-                slash_reward_fraction: Perbill::from_percent(10),
+                slash_reward_fraction: Perbill::from_percent(20),
                 ..Default::default()
             },
             pallet_babe: BabeConfig {

@@ -1,8 +1,8 @@
 # Scripts
 
-## Ansible playbook for PoA node.
+## Ansible playbook for running a node.
 
-The playbook [poa-1-node](poa-1-node.yml) is used to run a testnet node, be it a validator, sentry
+The playbook [run-node](run-node.yml) is used to run a testnet node, be it a validator, sentry
 or a full node. The playbook has only been tested on remotes running Ubuntu 18.04 and RHEL 8.2 using ansible 2.9.6 with python 3.8. 
 It requires python3 to be installed on the remote (where node will run) as well and sudo access to the remotes. It will setup Docker, 
 pull the testnet node image, start a container running a node. These are the parameters
@@ -39,21 +39,21 @@ The playbook uses the `host` variable to select the details of the node to run. 
 
 1. To run a validator, use
 ```
-ansible-playbook -i <hosts file> poa-1-node.yml --extra-vars "host=validator rotate_session_key=true"
+ansible-playbook -i <hosts file> run-node.yml --extra-vars "host=validator rotate_session_key=true"
 ```
 The `rotate_session_key=true` is only passed when session key needs to be rotated. This must be passed the first time node is being set.
 The libp2p key, telemetry url, reserved nodes, etc can be provided in cli or through host file. They are shown in sample hosts file as an example.
 
 2. To run a sentry, use
 ```
-ansible-playbook -i <hosts file> poa-1-node.yml --extra-vars "host=sentry"
+ansible-playbook -i <hosts file> run-node.yml --extra-vars "host=sentry"
 ```
 This will run a sentry node. The `sentry_of` argument is used to set the libp2p peer id of the validator this node is sentry for.
 As above, the libp2p key, telemetry url, reserved nodes, etc can be provided in cli or through host file. They are shown in sample hosts file as an example.
 
 3. To run a full node, use
 ```
-ansible-playbook -i <hosts file> poa-1-node.yml --extra-vars "host=fullnode"
+ansible-playbook -i <hosts file> run-node.yml --extra-vars "host=fullnode"
 ```
 This will run a full node. 
 As above, the libp2p key, telemetry url can be provided in cli or through host file. They are shown in sample hosts file as an example.
