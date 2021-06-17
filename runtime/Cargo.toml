@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.15.0'
+version = '0.15.2'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
@@ -11,7 +11,7 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies]
 static_assertions = "1.1.0"
 smallvec = "1.4.1"
-evm = { version = '0.25.0', default-features = false, features = ['with-codec'] }
+evm = { version = '0.27.0', default-features = false, features = ['with-codec'] }
 log = { version = "0.4.14", default-features = false }
 
 [dependencies.pallet-babe]
@@ -329,49 +329,49 @@ optional = true
 [dependencies.pallet-evm]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/frame/evm'
 
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.pallet-evm-precompile-simple]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 
 [dependencies.pallet-evm-precompile-sha3fips]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 
 [dependencies.pallet-evm-precompile-ed25519]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 
 [dependencies.pallet-evm-precompile-modexp]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 
 [dependencies.pallet-evm-precompile-bn128]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 
 [dependencies.pallet-evm-precompile-dispatch]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 
 [dependencies.fp-rpc]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]
@@ -493,8 +493,13 @@ runtime-benchmarks = [
   'core_mods/runtime-benchmarks',
   'hex-literal',
 ]
+
+# For building testnet, affects spec name and ss58 prefix
 testnet = []
+# For building mainnet, affects spec name and ss58 prefix
 mainnet = []
+# For building test nodes with small durations for staking, elections, voting, etc
+small_durations = []
 
 [dev-dependencies]
 rand = '0.8.3'

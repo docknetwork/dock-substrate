@@ -1,6 +1,7 @@
 //! Pallet to add/remove validators and do emission rewards.
 //! UPDATE: Adding removing validators and emission rewards is no more done by this pallet. The only
-//! reason for this pallet's existence is to unlock the locked emission rewards.
+//! reason for this pallet's existence is to unlock the locked emission rewards and tracking last
+//! block of PoA chain.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 

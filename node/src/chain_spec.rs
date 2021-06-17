@@ -6,7 +6,7 @@ use dock_runtime::{
     EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
     MasterConfig, PoAModuleConfig, PriceFeedModuleConfig, SessionConfig, SessionKeys, Signature,
     StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
-    BABE_GENESIS_EPOCH_CONFIG, DOCK, MILLISECS_PER_BLOCK, WASM_BINARY,
+    BABE_GENESIS_EPOCH_CONFIG, DOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -22,6 +22,7 @@ use serde_json::map::Map;
 
 use sp_runtime::Perbill;
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
 fn session_keys(
     babe: BabeId,
@@ -414,14 +415,11 @@ pub fn pos_testnet_config() -> ChainSpec {
                     ),
                 ],
                 endowed_accounts: [
-                    "36x1LvpQ61S86oQZ3xVtXoyrYSUe78z5Q8oA1z8UfTUwtRkL",
-                    "37uJHxaphdga4gy9zNk1KDgwMZJF3Zp2gkzSkDWRPgThR4nN",
-                    "3AJJBL4KQ49h32yQuu1HkSnSJUjSooZED9Z2De2zE2EPXxbN",
-                    "3866t5dsM4LyVavJzmqySgBj6auiFGHFGZc7WjSsEjehVSpM",
-                    "38aKrxaL5ES46s6RHhB9ue6rwFbh6vVdzbY7KGcfYMAytWNS",
-                    "38DacLDv4fAFDFBPmxwccD34bCoXzTEcogQVUdpdJ2bs8RRo",
-                    "36bJ5GCqPWovKHtxxAP9jLrFZvkMAews7d85GZkokBs5nTGy",
-                    "3BHXvWftruGuZZDnPgwnhp3C4ghba4QY6MEURcvLYH6wtcwQ",
+                    "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr",
+                    "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5",
+                    "3CCZY1mGhqEdtVhfnvEvqBohPBfNbQc1JMz4SKs3rWReVmsf",
+                    "3A2DZfNptCYwPK91AhfDUDv4YmmBp155xKpkai4nrzSpsvg1",
+                    "38VaFJZznPEEKwiEAyejFNzVR3oQaoPATS7fEpX4UnEupb18",
                 ]
                 .iter()
                 .cloned()
@@ -468,13 +466,10 @@ pub fn pos_testnet_config() -> ChainSpec {
                 ),
                 council_members: vec![
                     account_id_from_ss58::<sr25519::Public>(
-                        "3B2UdCG1V67DqqyukyKUkAHr9tzNHu4kkP3zMzhpQhJC4phU",
+                        "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr",
                     ),
                     account_id_from_ss58::<sr25519::Public>(
-                        "3Bbw94DwFtVPgUnFM1aWPiBNxY9Cu7wu6tVnY2Q28nRcp8ZY",
-                    ),
-                    account_id_from_ss58::<sr25519::Public>(
-                        "3B1Uzug8RUBQn7DHHv1TG5qxVqB6fpMP2WXoHV19Gt3pvETt",
+                        "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5",
                     ),
                 ],
                 technical_committee_members: vec![
@@ -491,8 +486,10 @@ pub fn pos_testnet_config() -> ChainSpec {
                 contract_config: get_dev_chain_price_feed_contract(),
                 stash: 1_000 * DOCK,
                 validator_count: 50,
-                // TODO: Fix
-                poa_last_block: Hash::repeat_byte(21),
+                poa_last_block: Hash::from_str(
+                    "0d84a546e4fdde4bf7c56c764a42457ee05b45bdc0c20e765903ab96465b8b3e",
+                )
+                .unwrap(),
             }
             .build()
         },

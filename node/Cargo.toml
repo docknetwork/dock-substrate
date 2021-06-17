@@ -3,7 +3,7 @@ authors = ['Dock.io']
 build = 'build.rs'
 edition = '2018'
 name = 'dock-node'
-version = '0.15.0'
+version = '0.15.2'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -24,7 +24,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = '../runtime'
-version = '0.15.0'
+version = '0.15.2'
 
 [dependencies.sc-basic-authorship]
 version = '0.9.0'
@@ -241,32 +241,32 @@ branch = "frontier"
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-rpc]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../frontier/client/db'
 
 [dependencies.poa_rpc]
@@ -279,6 +279,10 @@ version = '0.0.1'
 
 [dependencies.fiat_filter_rpc]
 path = '../pallets/fiat_filter/rpc'
+version = '0.0.1'
+
+[dependencies.staking_rewards_rpc]
+path = '../pallets/staking_rewards/rpc'
 version = '0.0.1'
 
 [[bin]]

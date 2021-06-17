@@ -21,6 +21,8 @@ pull the testnet node image, start a container running a node. These are the par
 1. if session key should be rotated, as `rotate_session_key`, defaults to false. If true, session key will be stored 
 in a file called session_key.txt on the host.
 1. pruning mode for the node, as `pruning`, this can be either `archive` or a positive integer.
+1. chain spec file name present in `cspec` directory of this repo's root as `chain_spec_file`
+1. tag of the docker image to download as `docker_image_tag`
 
 The [sample hosts file](hosts.sample) can be checked for the parameters. Note that the sample file has several 
 placeholders enclosed in angle brackets, i.e. like `<validator node ip>` or `<path of private key file>`, all of these 

@@ -170,7 +170,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 27,
+    spec_version: 28,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -185,11 +185,10 @@ pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
 
-// The modules `test_durations` is used to generate runtimes with small duration events like epochs, eras,
+// The modules `small_durations` is used to generate runtimes with small duration events like epochs, eras,
 // bonding durations, etc for testing purposes. They should NOT be used in production.
-
 #[allow(dead_code)]
-mod test_durations {
+mod small_durations {
     use super::{BlockNumber, DAYS, MINUTES};
 
     pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
@@ -237,8 +236,8 @@ mod prod_durations {
 
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 4; // 12 hours
     /// Bonding duration is in number of era
-    pub const BONDING_DURATION: pallet_staking::EraIndex = 8 * 7; // 7 days
-    pub const SLASH_DEFER_DURATION: pallet_staking::EraIndex = 2 * 7; // 1/4 the bonding duration.
+    pub const BONDING_DURATION: pallet_staking::EraIndex = 2 * 7; // 7 days
+    pub const SLASH_DEFER_DURATION: pallet_staking::EraIndex = 7; // 1/2 the bonding duration.
     /// Specifies the number of blocks for which the equivocation is valid.
     pub const REPORT_LONGEVITY: u64 =
         BONDING_DURATION as u64 * SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_SLOTS;
@@ -269,7 +268,10 @@ mod prod_durations {
     pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 14 * DAYS;
 }
 
+#[cfg(not(feature = "small_durations"))]
 use prod_durations::*;
+#[cfg(feature = "small_durations")]
+use small_durations::*;
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -1105,7 +1107,6 @@ parameter_types! {
 
 impl staking_rewards::Config for Runtime {
     type Event = Event;
-    type Currency = Balances;
     /// Emission rewards decay by this % each year
     type RewardDecayPct = RewardDecayPct;
     /// Treasury gets this much % out of emission rewards for each era
@@ -1670,6 +1671,16 @@ impl_runtime_apis! {
                 Ok((fee_microdock,_weight)) => Ok(fee_microdock),
                 Err(e) => Err(fiat_filter_rpc_runtime_api::Error::new_getcallfeedock(e))
             }
+        }
+    }
+
+    impl staking_rewards::runtime_api::StakingRewardsApi<Block, Balance> for Runtime {
+        fn yearly_emission(total_staked: Balance, total_issuance: Balance) -> Balance {
+            StakingRewards::yearly_emission(total_staked, total_issuance)
+        }
+
+        fn max_yearly_emission() -> Balance {
+            StakingRewards::max_yearly_emission()
         }
     }
 

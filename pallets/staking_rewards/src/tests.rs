@@ -101,7 +101,6 @@ impl balances::Config for Test {
 
 impl staking_rewards::Config for Test {
     type Event = ();
-    type Currency = Balances;
     type RewardDecayPct = RewardDecayPct;
     type TreasuryRewardsPct = TreasuryRewardsPct;
     type RewardCurve = RewardCurve;

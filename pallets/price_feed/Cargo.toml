@@ -60,7 +60,7 @@ branch = "frontier"
 [dependencies.pallet-evm]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '8ccd335b21ac1909dc3925943a367b3ff83083f4'
+rev = '76b8b04849e3891eda468b2cd676286b474874ce'
 #path = '../../../../frontier/frame/evm'
 
 [dependencies.common]

@@ -36,6 +36,12 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.sp-api]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.pallet-staking]
 default-features = false
 version = '3.0.0'
@@ -92,6 +98,7 @@ std = [
     'frame-support/std',
     'frame-system/std',
     'sp-runtime/std',
+    'sp-api/std',
     'pallet-staking/std',
     'poa/std',
 ]

@@ -12,6 +12,7 @@ members = [
     'pallets/fiat_filter/rpc',
     'pallets/fiat_filter/rpc/runtime_api',
     'pallets/staking_rewards',
+    'pallets/staking_rewards/rpc',
     'runtime',
 ]
 

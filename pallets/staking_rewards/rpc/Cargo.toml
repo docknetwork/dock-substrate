@@ -1,0 +1,21 @@
+[package]
+name = "staking_rewards_rpc"
+version = "0.0.1"
+authors = ["Dock.io"]
+edition = "2018"
+license = 'Apache-2.0'
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0.0" }
+jsonrpc-core = "15.1.0"
+jsonrpc-core-client = "15.1.0"
+jsonrpc-derive = "15.1.0"
+serde = { version = "1.0.119", features = ["derive"], optional = true }
+sp-rpc = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
+sp-runtime = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
+sp-api = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+sp-blockchain = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+staking_rewards = { version = '0.1.0', path = '..' }

@@ -41,7 +41,7 @@ rustup update nightly
 rustup target add wasm32-unknown-unknown --toolchain nightly
 ```
 
-The project is known to build with cargo 1.51.0 and rust 1.51.0. Upgrade to these versions if unable to build
+The project is known to build with cargo 1.51.0 and rust 1.51.0. Upgrade to these versions or higher if unable to build
 
 Now you can build the node binary.
 
@@ -66,6 +66,18 @@ The `spec_name` with the above command will be `dock-main-runtime` and ss58 pref
 
 Running without any features will result in `spec_name` of `dock-dev-runtime`
 
+### Building a node for testing staking, governance
+
+Testing staking, elections, governance, etc capabilities requires quite some time as the duration of corresponding 
+operations varies between a few hours to few days. Eg. an epoch is 3 hours long, era is 12 hours long, it takes 7 days to unbond, 
+a new referendum is launched every 20 days, voting lasts for 15 days, and so on. To test these features in a reasonable time, these 
+durations need to be small. Such a node can be built by using feature `small_durations` as shown below. This feature can be combined 
+with feature `testnet` or `mainnet`. 
+
+```
+cargo build --release --features small_durations
+```
+
 ### Building Docker image
 
 To build image for testnet node, run the following from the repository's root
@@ -84,7 +96,7 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
 
 ## Releases
 The testnet and mainnet codebases are tagged as `testnet` and `mainnet` respectively. On the releases page, you will only 
-find mainnet releases. Similarly the docker images corresponding to testnet and mainnet are tagged as `testnet` and `mainnet` 
+find mainnet releases. Similarly, the docker images corresponding to testnet and mainnet are tagged as `testnet` and `mainnet` 
 respectively, and you can find pull them as `docker pull docknetwork/dock-substrate:testnet` or `docker pull docknetwork/dock-substrate:mainnet`
 
 ## Recipes

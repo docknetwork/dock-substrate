@@ -106,6 +106,7 @@ where
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
     C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
     C::Api: fiat_filter_rpc::FiatFeeRuntimeApi<Block, Balance>,
+    C::Api: staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     P: TransactionPool<Block = Block> + 'static,
@@ -115,6 +116,7 @@ where
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use poa_rpc::{PoA, PoAApi};
     use price_feed_rpc::{PriceFeed, PriceFeedApi};
+    use staking_rewards_rpc::{StakingRewards, StakingRewardsApi};
     use substrate_frame_rpc_system::{FullSystem, SystemApi};
 
     use fc_rpc::{
@@ -167,6 +169,11 @@ where
 
     // RPC calls for Price Feed pallet
     io.extend_with(PriceFeedApi::to_delegate(PriceFeed::new(client.clone())));
+
+    // RPC calls for Staking rewards pallet
+    io.extend_with(StakingRewardsApi::to_delegate(StakingRewards::new(
+        client.clone(),
+    )));
 
     io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
         BabeRpcHandler::new(

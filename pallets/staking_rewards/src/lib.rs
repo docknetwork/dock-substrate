@@ -2,7 +2,7 @@
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch,
-    traits::{Currency, Get},
+    traits::Get,
     weights::{Pays, Weight},
 };
 use frame_system::{self as system, ensure_root};
@@ -14,6 +14,8 @@ use sp_runtime::{
     Perbill, Percent,
 };
 
+pub mod runtime_api;
+
 #[cfg(test)]
 mod tests;
 
@@ -23,8 +25,6 @@ const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 pub trait Config: system::Config + poa::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
-    /// Module's currency type
-    type Currency: Currency<Self::AccountId>;
     /// The percentage by which remaining emission supply decreases
     type RewardDecayPct: Get<u8>;
     /// The percentage of rewards going to treasury
@@ -94,6 +94,23 @@ decl_module! {
 }
 
 impl<T: Config> Module<T> {
+    /// This function can fetch `total_staked` and `total_issuance` from storage but that would make this pallet dependent on staking pallet
+    pub fn yearly_emission(
+        total_staked: BalanceOf<T>,
+        total_issuance: BalanceOf<T>,
+    ) -> BalanceOf<T> {
+        Self::get_yearly_emission_reward(
+            T::RewardCurve::get(),
+            total_staked,
+            total_issuance,
+            Self::staking_emission_supply(),
+        )
+    }
+
+    pub fn max_yearly_emission() -> BalanceOf<T> {
+        Percent::from_percent(T::RewardDecayPct::get()) * Self::staking_emission_supply()
+    }
+
     // TODO: Needed as RPC?
     /// Compute emission reward of an era. It considers the remaining emission supply and the decay in
     /// addition to NPoS inflation. Returns the emission reward and the reduced emission supply after
@@ -172,7 +189,6 @@ impl<T: Config> Module<T> {
         reward_curve.calculate_for_fraction_times_denominator(total_staked, total_issuance)
     }
 
-    // TODO: Needed as RPC?
     /// Get maximum emission per year according to the decay percentage and given emission supply
     fn get_max_yearly_emission(emission_supply: BalanceOf<T>) -> BalanceOf<T> {
         // Emission supply decreases by "decay percentage" of the remaining emission supply per year
