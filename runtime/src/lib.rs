@@ -489,9 +489,11 @@ parameter_types! {
     pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
     /// Bonding duration is in number of era
     pub const BondingDuration: pallet_staking::EraIndex = BONDING_DURATION;
-    pub const SlashDeferDuration: pallet_staking::EraIndex = SLASH_DEFER_DURATION; // 1/4 the bonding duration.
-    /// A validator will only have 1024 nominators, so max (rewarded) nominators is 1024*50 = 51200
-    pub const MaxNominatorRewardedPerValidator: u32 = 1024;
+    pub const SlashDeferDuration: pallet_staking::EraIndex = SLASH_DEFER_DURATION;
+    /// A validator will only have 256 nominators, so max (rewarded) nominators is 256*50 = 12800.
+    /// This number is smaller than current token holders (20K) but not all holder participate. Keeping
+    /// it small to batch payout extrinsics
+    pub const MaxNominatorRewardedPerValidator: u32 = 256;
     pub const ElectionLookahead: BlockNumber = ELECTION_LOOKAHEAD;
     pub const MaxIterations: u32 = 10;
     // 0.05%. The higher the value, the more strict solution acceptance becomes.
