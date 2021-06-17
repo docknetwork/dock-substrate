@@ -41,10 +41,7 @@ use frame_support::{
         LockIdentifier, OnUnbalanced, Randomness,
     },
     weights::{
-        constants::{
-            BlockExecutionWeight as DefaultBlockExecutionWeight, ExtrinsicBaseWeight,
-            RocksDbWeight, WEIGHT_PER_SECOND,
-        },
+        constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
         DispatchClass, Weight,
     },
     ConsensusEngineId,
@@ -298,15 +295,8 @@ parameter_types! {
     pub RuntimeBlockLength: BlockLength =
         BlockLength::max_with_normal_ratio(5 * 1024 * 1024, NORMAL_DISPATCH_RATIO);
     pub const Version: RuntimeVersion = VERSION;
-    /// After each block we
-    /// - update stats, which is 1 read and 1 write
-    /// - check if there is any fees in storage item `TxnFees`, which is 1 read
-    /// - credit fees to block author's account which is 1 read and 1 write
-    /// - reset the storage item `TxnFees`, 1 write
-    /// Thus in the worst case, we do 3 reads and 3 writes
     pub RuntimeBlockWeights: BlockWeights = BlockWeights::builder()
-        .base_block(DefaultBlockExecutionWeight::get()  +
-        <Runtime as system::Config>::DbWeight::get().reads_writes(3, 3))
+        .base_block(BlockExecutionWeight::get())
         .for_class(DispatchClass::all(), |weights| {
             weights.base_extrinsic = ExtrinsicBaseWeight::get();
         })
@@ -324,6 +314,8 @@ parameter_types! {
         .avg_block_initialization(AVERAGE_ON_INITIALIZE_RATIO)
         .build_or_panic();
 }
+
+const_assert!(NORMAL_DISPATCH_RATIO.deconstruct() >= AVERAGE_ON_INITIALIZE_RATIO.deconstruct());
 
 #[cfg(feature = "testnet")]
 parameter_types! {
@@ -507,7 +499,7 @@ parameter_types! {
     pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
         .get(DispatchClass::Normal)
         .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
-        .saturating_sub(DefaultBlockExecutionWeight::get());
+        .saturating_sub(BlockExecutionWeight::get());
 }
 
 pub struct U64CurrencyToVote;
@@ -574,7 +566,7 @@ parameter_types! {
     pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
         .get(DispatchClass::Normal)
         .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
-        .saturating_sub(DefaultBlockExecutionWeight::get());
+        .saturating_sub(BlockExecutionWeight::get());
 }
 
 impl pallet_election_provider_multi_phase::Config for Runtime {
