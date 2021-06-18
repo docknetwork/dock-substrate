@@ -271,11 +271,11 @@ use prod_durations::*;
 #[cfg(feature = "small_durations")]
 use small_durations::*;
 
-/// Era duration should be less than a year
+/// Era duration should be less than or equal year
 // Milliseconds per year for the Julian year (365.25 days).
 const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 const_assert!(
-    SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_BLOCKS as u64 * MILLISECS_PER_BLOCK
+    (SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_BLOCKS as u64 * MILLISECS_PER_BLOCK)
         <= MILLISECONDS_PER_YEAR
 );
 
