@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.15.2'
+version = '0.15.3'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
@@ -48,13 +48,6 @@ branch = "frontier"
 [dependencies.grandpa]
 default-features = false
 package = 'pallet-grandpa'
-version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
-[dependencies.randomness-collective-flip]
-default-features = false
-package = 'pallet-randomness-collective-flip'
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
@@ -411,7 +404,7 @@ version = '0.0.1'
 [dependencies.staking_rewards]
 default-features = false
 path = '../pallets/staking_rewards'
-version = '0.1.0'
+version = '0.2.0'
 
 [features]
 default = ['std']
@@ -423,7 +416,6 @@ std = [
     'frame-executive/std',
     'frame-support/std',
     'grandpa/std',
-    'randomness-collective-flip/std',
     'serde',
     'serde-big-array',
     'sp-api/std',

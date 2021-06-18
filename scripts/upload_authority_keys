@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# This key requires "Unsafe" access to the validator as the keys are sent on an unencrypted channel.
+
 set -ueo pipefail
 
 DOCK_NODE_HTTP=${DOCK_NODE_HTTP:-http://localhost:9933}

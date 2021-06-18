@@ -1,6 +1,6 @@
 [package]
 name = "staking_rewards"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Dock.io"]
 edition = "2018"
 license = 'Apache-2.0'

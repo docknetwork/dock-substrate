@@ -77,7 +77,7 @@ pub struct UnRevoke {
     pub last_modified: crate::BlockNumber,
 }
 
-/// Command to remove an entire registy. Removes all revocations in the registry as well as
+/// Command to remove an entire registry. Removes all revocations in the registry as well as
 /// registry metadata.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -198,7 +198,7 @@ decl_module! {
         /// Returns an error if `unrevoke.last_modified` does not match the block number when the
         /// registry referenced by `revoke.registry_id` was last modified.
         ///
-        /// Returns an error if `proof` does not satisfy the policy requirements of the registy
+        /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `unrevoke.registry_id`.
         #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn unrevoke(
@@ -209,8 +209,8 @@ decl_module! {
             Module::<T>::unrevoke_(origin, unrevoke, proof)
         }
 
-        /// Delete an entire registry. Deletes all revcations within the registry, as well as
-        /// registry metadata. Once the registy is deleted, it can be reclaimed by any party using
+        /// Delete an entire registry. Deletes all revocations within the registry, as well as
+        /// registry metadata. Once the registry is deleted, it can be reclaimed by any party using
         /// a call to `new_registry`.
         ///
         /// # Errors
@@ -220,7 +220,7 @@ decl_module! {
         /// Returns an error if `removal.last_modified` does not match the block number when the
         /// registry referenced by `removal.registry_id` was last modified.
         ///
-        /// Returns an error if `proof` does not satisfy the policy requirements of the registy
+        /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `removal.registry_id`.
         #[weight = T::DbWeight::get().reads_writes(1, 2) + 100_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn remove_registry(
@@ -338,7 +338,7 @@ impl<T: Trait> Module<T> {
 
     /// Check whether `proof` authorizes `command` according to `policy`.
     ///
-    /// Returns Ok if command is authorzed, otherwise returns Err.
+    /// Returns Ok if command is authorized, otherwise returns Err.
     fn ensure_auth(command: &crate::StateChange, proof: &PAuth, policy: &Policy) -> DispatchResult {
         // check the signer set satisfies policy
         match policy {

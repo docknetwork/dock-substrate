@@ -1374,7 +1374,9 @@ impl<T: Trait> Module<T> {
                         actual_reward,
                     ));
                     stats.locked_reward = Some(BalanceOf::<T>::zero());
-                    stats.unlocked_reward = stats.unlocked_reward.map(|u| u + actual_reward);
+                    stats.unlocked_reward = stats
+                        .unlocked_reward
+                        .map_or(Some(actual_reward), |u| Some(u + actual_reward));
                     <ValidatorStats<T>>::insert(epoch_no, validator_account, stats);
                     writes += 2;
                 } else {

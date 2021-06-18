@@ -44,22 +44,22 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 21;
-    pub const TreasuryRewardsPct: u8 = 60;
+    pub const TreasuryRewardsPct: Percent = Percent::from_percent(60);
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 }
 
 // For testing, setting `RewardDecayPct` this way so it can be changed during tests
 thread_local! {
-    static REWARD_DECAY_PCT: RefCell<u8> = RefCell::new(10);
+    static REWARD_DECAY_PCT: RefCell<Percent> = RefCell::new(Percent::from_percent(10));
 }
 pub struct RewardDecayPct;
 impl RewardDecayPct {
-    fn set(value: u8) {
+    fn set(value: Percent) {
         REWARD_DECAY_PCT.with(|v| v.replace(value));
     }
 }
-impl Get<u8> for RewardDecayPct {
-    fn get() -> u8 {
+impl Get<Percent> for RewardDecayPct {
+    fn get() -> Percent {
         REWARD_DECAY_PCT.with(|v| *v.borrow())
     }
 }
@@ -314,15 +314,15 @@ fn test_yearly_rewards() {
         t(10_000, 10_000 / 10);
 
         // Decay is set to 20%
-        <Test as Config>::RewardDecayPct::set(20);
+        <Test as Config>::RewardDecayPct::set(Percent::from_percent(20));
         t(10_000, 10_000 / 5);
 
         // Decay is set to 25%
-        <Test as Config>::RewardDecayPct::set(25);
+        <Test as Config>::RewardDecayPct::set(Percent::from_percent(25));
         t(10_000, 10_000 / 4);
 
         // Decay is set to 50%
-        <Test as Config>::RewardDecayPct::set(50);
+        <Test as Config>::RewardDecayPct::set(Percent::from_percent(50));
         t(10_000, 10_000 / 2);
     })
 }
@@ -334,7 +334,7 @@ fn test_yearly_rewards_with_increasing_staking() {
         let mut total_issuance = 100_000u64;
         let mut emission_supply = 10_000u64;
         let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
-        let decay_pct = <Test as staking_rewards::Config>::RewardDecayPct::get() as u32;
+        let decay_pct = <Test as staking_rewards::Config>::RewardDecayPct::get();
 
         for total_staked in (1000u64..=(total_issuance + emission_supply)).step_by(1000) {
             let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
@@ -359,7 +359,10 @@ fn test_yearly_rewards_with_increasing_staking() {
                 emission_supply,
             );
             let max_yearly = StakingRewards::get_max_yearly_emission(emission_supply);
-            assert!(yearly_rewards <= Perbill::from_percent(decay_pct) * emission_supply);
+            assert!(
+                yearly_rewards
+                    <= Perbill::from_percent(decay_pct.deconstruct() as u32) * emission_supply
+            );
             assert!(yearly_rewards <= max_yearly);
             assert_eq!(npos_reward_prop * max_yearly, yearly_rewards);
 
@@ -374,7 +377,7 @@ fn test_yearly_rewards_with_constant_staking() {
     // Test emission rewards with amount of staked tokens remaining constant
     new_test_ext().execute_with(|| {
         let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
-        let decay_pct = <Test as staking_rewards::Config>::RewardDecayPct::get() as u32;
+        let decay_pct = <Test as staking_rewards::Config>::RewardDecayPct::get();
 
         for total_staked in vec![10_000, 50_000, 75_000, 100_000] {
             let mut total_issuance = 100_000u64;
@@ -404,7 +407,10 @@ fn test_yearly_rewards_with_constant_staking() {
                     emission_supply,
                 );
                 let max_yearly = StakingRewards::get_max_yearly_emission(emission_supply);
-                assert!(yearly_rewards <= Perbill::from_percent(decay_pct) * emission_supply);
+                assert!(
+                    yearly_rewards
+                        <= Perbill::from_percent(decay_pct.deconstruct() as u32) * emission_supply
+                );
                 assert!(yearly_rewards <= max_yearly);
                 assert_eq!(npos_reward_prop * max_yearly, yearly_rewards);
 
@@ -564,8 +570,7 @@ fn test_era_payout() {
 
             assert_eq!(StakingRewards::staking_emission_supply(), emission_supply);
             assert_eq!(
-                Percent::from_percent(<Test as staking_rewards::Config>::TreasuryRewardsPct::get())
-                    * total_reward,
+                <Test as staking_rewards::Config>::TreasuryRewardsPct::get() * total_reward,
                 treasury_reward
             );
 

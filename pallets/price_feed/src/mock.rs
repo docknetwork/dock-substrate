@@ -21,7 +21,7 @@ frame_support::construct_runtime!(
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         Balances: balances::{Module, Call, Storage},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
-        PriceFeedModule: price_feed::{Module, Call, Storage, Event, Config},
+        PriceFeedModule: price_feed::{Module, Call, Storage, Event},
     }
 );
 

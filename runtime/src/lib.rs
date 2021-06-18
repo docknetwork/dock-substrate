@@ -70,9 +70,10 @@ use sp_runtime::traits::{
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
-    ApplyExtrinsicResult, ModuleId, MultiSignature, Perbill, Percent, Permill, SaturatedConversion,
+    ApplyExtrinsicResult, FixedPointNumber, ModuleId, MultiSignature, Perbill, Percent, Permill,
+    Perquintill, SaturatedConversion,
 };
-use transaction_payment::CurrencyAdapter;
+use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
@@ -167,7 +168,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 28,
+    spec_version: 29,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -269,6 +270,14 @@ mod prod_durations {
 use prod_durations::*;
 #[cfg(feature = "small_durations")]
 use small_durations::*;
+
+/// Era duration should be less than a year
+// Milliseconds per year for the Julian year (365.25 days).
+const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+const_assert!(
+    SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_BLOCKS as u64 * MILLISECS_PER_BLOCK
+        <= MILLISECONDS_PER_YEAR
+);
 
 /// The version information used to identify this runtime when compiled natively.
 #[cfg(feature = "std")]
@@ -378,7 +387,7 @@ impl system::Config for Runtime {
     /// What to do if an account is fully reaped from the system.
     type OnKilledAccount = ();
     /// Weight information for the extrinsics of this pallet.
-    type SystemWeightInfo = ();
+    type SystemWeightInfo = frame_system::weights::SubstrateWeight<Runtime>;
     type SS58Prefix = SS58Prefix;
 }
 
@@ -636,13 +645,16 @@ impl balances::Config for Runtime {
     type Event = Event;
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
-    type WeightInfo = ();
+    type WeightInfo = balances::weights::SubstrateWeight<Runtime>;
     type MaxLocks = MaxLocks;
 }
 
 parameter_types! {
     /// .01 token
     pub const TransactionByteFee: Balance = DOCK / 100;
+    pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
+    pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
+    pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
 }
 
 impl transaction_payment::Config for Runtime {
@@ -650,7 +662,9 @@ impl transaction_payment::Config for Runtime {
     type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = TxnFee<Balance>;
-    type FeeMultiplierUpdate = ();
+    /// This would be useless after enabling fiat filter
+    type FeeMultiplierUpdate =
+        TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 }
 
 impl did::Trait for Runtime {
@@ -743,7 +757,7 @@ impl pallet_authorship::Config for Runtime {
 impl pallet_utility::Config for Runtime {
     type Event = Event;
     type Call = Call;
-    type WeightInfo = ();
+    type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
 impl master::Trait for Runtime {
@@ -772,12 +786,12 @@ type RootOrMoreThanHalfCouncil = EnsureOneOf<
     pallet_collective::EnsureProportionMoreThan<_1, _2, AccountId, CouncilCollective>,
 >;
 
-/// This origin indicates that either >66.66% of Council members approved some dispatch (through a proposal)
+/// This origin indicates that either >=66.66% of Council members approved some dispatch (through a proposal)
 /// or the dispatch was done as `Root` (by sudo or master)
-type RootOrMoreThanTwoThirdCouncil = EnsureOneOf<
+type RootOrTwoThirdCouncil = EnsureOneOf<
     AccountId,
     EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<_2, _3, AccountId, CouncilCollective>,
+    pallet_collective::EnsureProportionAtLeast<_2, _3, AccountId, CouncilCollective>,
 >;
 
 type CouncilMember = pallet_collective::EnsureMember<AccountId, CouncilCollective>;
@@ -849,8 +863,8 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
     type SwapOrigin = RootOrMoreThanHalfCouncil;
     type ResetOrigin = RootOrMoreThanHalfCouncil;
     type PrimeOrigin = RootOrMoreThanHalfCouncil;
-    type MembershipInitialized = Council;
-    type MembershipChanged = Council;
+    type MembershipInitialized = TechnicalCommittee;
+    type MembershipChanged = TechnicalCommittee;
 }
 
 parameter_types! {
@@ -868,7 +882,7 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
     type MaxProposals = TechnicalMaxProposals;
     type MaxMembers = TechnicalMaxMembers;
     type DefaultVote = pallet_collective::MoreThanMajorityThenPrimeDefaultVote;
-    type WeightInfo = ();
+    type WeightInfo = pallet_collective::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -883,7 +897,7 @@ impl pallet_scheduler::Config for Runtime {
     type MaximumWeight = MaximumBlockWeight;
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
-    type WeightInfo = ();
+    type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
 }
 
 parameter_types! {
@@ -936,7 +950,7 @@ impl pallet_democracy::Config for Runtime {
     type InstantAllowed = InstantAllowed;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     /// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-    type CancellationOrigin = RootOrMoreThanTwoThirdCouncil;
+    type CancellationOrigin = RootOrTwoThirdCouncil;
     // To cancel a proposal before it has been passed, the technical committee must be unanimous or
     // Root must agree.
     type CancelProposalOrigin = EnsureOneOf<
@@ -985,7 +999,7 @@ pub struct DealWithFees;
 impl DealWithFees {
     /// Credit fee and tip, if any, to treasury and block author in a ratio
     fn credit_to_treasury_and_block_author(fee_and_tip: NegativeImbalance) {
-        let treasury_share = TreasuryRewardsPct::get() as u32;
+        let treasury_share = TreasuryRewardsPct::get().deconstruct() as u32;
         let block_author_share = 100 - treasury_share;
         let split = fee_and_tip.ration(treasury_share, block_author_share);
         Treasury::on_unbalanced(split.0);
@@ -1095,8 +1109,8 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const RewardDecayPct: u8 = 25;
-    pub const TreasuryRewardsPct: u8 = 60;
+    pub const RewardDecayPct: Percent = Percent::from_percent(25);
+    pub const TreasuryRewardsPct: Percent = Percent::from_percent(60);
 }
 
 impl staking_rewards::Config for Runtime {
@@ -1250,7 +1264,6 @@ construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic
     {
         System: system::{Module, Call, Config, Storage, Event<T>},
-        RandomnessCollectiveFlip: randomness_collective_flip::{Module, Call, Storage},
         Timestamp: timestamp::{Module, Call, Storage, Inherent},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
@@ -1274,7 +1287,7 @@ construct_runtime!(
         Scheduler: pallet_scheduler::{Module, Call, Storage, Event<T>},
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
-        PriceFeedModule: price_feed::{Module, Call, Storage, Event, Config},
+        PriceFeedModule: price_feed::{Module, Call, Storage, Event},
         FiatFilterModule: fiat_filter::{Module, Call},
         AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config},
         Historical: pallet_session_historical::{Module},
@@ -1390,7 +1403,7 @@ impl_runtime_apis! {
         }
 
         fn random_seed() -> <Block as BlockT>::Hash {
-            RandomnessCollectiveFlip::random_seed().0
+            pallet_babe::RandomnessFromOneEpochAgo::<Runtime>::random_seed().0
         }
     }
 
@@ -1486,23 +1499,27 @@ impl_runtime_apis! {
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
-            _equivocation_proof: fg_primitives::EquivocationProof<
+            equivocation_proof: fg_primitives::EquivocationProof<
                 <Block as BlockT>::Hash,
                 NumberFor<Block>,
             >,
-            _key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
+            key_owner_proof: fg_primitives::OpaqueKeyOwnershipProof,
         ) -> Option<()> {
-            None
+            let key_owner_proof = key_owner_proof.decode()?;
+
+            Grandpa::submit_unsigned_equivocation_report(
+                equivocation_proof,
+                key_owner_proof,
+            )
         }
 
         fn generate_key_ownership_proof(
             _set_id: fg_primitives::SetId,
-            _authority_id: GrandpaId,
+            authority_id: GrandpaId,
         ) -> Option<fg_primitives::OpaqueKeyOwnershipProof> {
-            // NOTE: this is the only implementation possible since we've
-            // defined our key owner proof type as a bottom type (i.e. a type
-            // with no values).
-            None
+            Historical::prove((fg_primitives::KEY_TYPE, authority_id))
+                .map(|p| p.encode())
+                .map(fg_primitives::OpaqueKeyOwnershipProof::new)
         }
     }
 

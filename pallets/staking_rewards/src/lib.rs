@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch,
+    decl_event, decl_module, decl_storage, dispatch,
     traits::Get,
     weights::{Pays, Weight},
 };
@@ -26,9 +26,9 @@ pub trait Config: system::Config + poa::Trait {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
     /// The percentage by which remaining emission supply decreases
-    type RewardDecayPct: Get<u8>;
+    type RewardDecayPct: Get<Percent>;
     /// The percentage of rewards going to treasury
-    type TreasuryRewardsPct: Get<u8>;
+    type TreasuryRewardsPct: Get<Percent>;
     /// The NPoS reward curve where the first 2 points (of `points` field) correspond to the lowest
     ///and highest inflation and the subsequent points correspond to decreasing inflation
     type RewardCurve: Get<&'static PiecewiseLinear<'static>>;
@@ -60,19 +60,12 @@ decl_event!(
     }
 );
 
-decl_error! {
-    /// Errors for the module.
-    pub enum Error for Module<T: Config> {
-        PercentageGreaterThan100,
-    }
-}
-
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin {
         /// The percentage by which remaining emission supply decreases
-        const RewardDecayPct: u8 = T::RewardDecayPct::get();
+        const RewardDecayPct: Percent = T::RewardDecayPct::get();
         /// The percentage of rewards going to treasury
-        const TreasuryRewardsPct: u8 = T::TreasuryRewardsPct::get();
+        const TreasuryRewardsPct: Percent = T::TreasuryRewardsPct::get();
 
         fn deposit_event() = default;
 
@@ -108,7 +101,7 @@ impl<T: Config> Module<T> {
     }
 
     pub fn max_yearly_emission() -> BalanceOf<T> {
-        Percent::from_percent(T::RewardDecayPct::get()) * Self::staking_emission_supply()
+        Self::get_max_yearly_emission(Self::staking_emission_supply())
     }
 
     // TODO: Needed as RPC?
@@ -192,7 +185,7 @@ impl<T: Config> Module<T> {
     /// Get maximum emission per year according to the decay percentage and given emission supply
     fn get_max_yearly_emission(emission_supply: BalanceOf<T>) -> BalanceOf<T> {
         // Emission supply decreases by "decay percentage" of the remaining emission supply per year
-        Percent::from_percent(T::RewardDecayPct::get()) * emission_supply
+        T::RewardDecayPct::get() * emission_supply
     }
 
     /// Given yearly emission rewards, calculate for an era.
@@ -229,7 +222,7 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
     /// Compute era payout for validators and treasury and reduce the remaining emission supply.
     /// It is assumed and expected that this is called only when a payout of an era has to computed
     /// and isn't called twice for the same era as it has a side-effect (reducing remaining supply).
-    /// Currently it doesn't seem possible to avoid this side effect as there is no way for this pallet
+    /// Currently, it doesn't seem possible to avoid this side effect as there is no way for this pallet
     /// to be notified if an era payout was successfully done.
     fn era_payout(
         total_staked: BalanceOf<T>,
@@ -249,8 +242,7 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
             (BalanceOf::<T>::zero(), BalanceOf::<T>::zero())
         } else {
             Self::set_new_emission_supply(remaining);
-            let treasury_share = T::TreasuryRewardsPct::get();
-            let treasury_reward = Percent::from_percent(treasury_share) * emission_reward;
+            let treasury_reward = T::TreasuryRewardsPct::get() * emission_reward;
             (
                 emission_reward.saturating_sub(treasury_reward),
                 treasury_reward,

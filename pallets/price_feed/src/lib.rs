@@ -79,13 +79,6 @@ decl_storage! {
         /// the storage item `Price` is updated unless update frequency is set to `None` or 0.
         PriceUpdateFreq get(fn price_update_freq): Option<u32>;
     }
-
-    add_extra_genesis {
-        config(contract_config): ContractConfig;
-        build(|config| {
-            ContractConfigStore::put(config.contract_config.clone());
-        })
-    }
 }
 
 decl_event!(

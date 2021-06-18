@@ -1,12 +1,11 @@
 use dock_runtime::{
     did::{self, Did, KeyDetail},
     master::Membership,
-    price_feed::{util::ParamType, ContractConfig},
     AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
     EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
-    MasterConfig, PoAModuleConfig, PriceFeedModuleConfig, SessionConfig, SessionKeys, Signature,
-    StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
-    BABE_GENESIS_EPOCH_CONFIG, DOCK, WASM_BINARY,
+    MasterConfig, PoAModuleConfig, SessionConfig, SessionKeys, Signature, StakerStatus,
+    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
+    DOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -14,7 +13,7 @@ use sc_service::{ChainType, Properties};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::AuthorityId as BabeId;
 use sp_core::crypto::Ss58Codec;
-use sp_core::{sr25519, Pair, Public, H160};
+use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
@@ -134,24 +133,6 @@ fn get_seed_vector_to_account_vector(seeds: Vec<&str>) -> Vec<AccountId> {
         .collect()
 }
 
-fn get_dev_chain_price_feed_contract() -> ContractConfig {
-    ContractConfig {
-        address: H160::from([
-            102, 119, 174, 46, 44, 201, 133, 68, 109, 66, 165, 189, 238, 24, 39, 2, 232, 94, 133,
-            135,
-        ]),
-        query_aggregator_abi_encoded: vec![36, 90, 123, 252],
-        query_price_abi_encoded: vec![254, 175, 150, 140],
-        return_val_abi: vec![
-            ParamType::Uint(80),
-            ParamType::Int(256),
-            ParamType::Uint(256),
-            ParamType::Uint(256),
-            ParamType::Uint(80),
-        ],
-    }
-}
-
 pub fn development_config() -> ChainSpec {
     ChainSpec::from_genesis(
         "Development",
@@ -206,7 +187,6 @@ pub fn development_config() -> ChainSpec {
                 technical_committee_members: get_seed_vector_to_account_vector(
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
-                contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
                 validator_count: 3,
                 // TODO: Fix
@@ -283,7 +263,6 @@ pub fn local_testnet_config() -> ChainSpec {
                 technical_committee_members: get_seed_vector_to_account_vector(
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
-                contract_config: get_dev_chain_price_feed_contract(),
                 stash: 100 * DOCK,
                 validator_count: 20,
                 // TODO: Fix
@@ -483,7 +462,6 @@ pub fn pos_testnet_config() -> ChainSpec {
                         "39FphaNUGfYMhiBnJXSyuTF9qKdm3JXNhLDJgDBjKdaKLJCe",
                     ),
                 ],
-                contract_config: get_dev_chain_price_feed_contract(),
                 stash: 1_000 * DOCK,
                 validator_count: 50,
                 poa_last_block: Hash::from_str(
@@ -607,8 +585,6 @@ pub fn pos_mainnet_config() -> ChainSpec {
                         "3DMtxe6rnXAMnut5vtDEzPEV1JzsUTCrbq9R6t9xPNwZmit6",
                     ),
                 ],
-                // TODO: Set this after deploying contract to mainnet
-                contract_config: get_dev_chain_price_feed_contract(),
                 // Initial stakers/validators should have at least this amount as balance
                 stash: 1_000 * DOCK,
                 validator_count: 50,
@@ -643,7 +619,6 @@ struct GenesisBuilder {
     sudo: AccountId,
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
-    contract_config: ContractConfig,
     /// Balance that would be locked for the initial authorities
     stash: Balance,
     /// Maximum allowed validators
@@ -730,9 +705,6 @@ impl GenesisBuilder {
             pallet_ethereum: EthereumConfig {},
             pallet_evm: EVMConfig {
                 accounts: BTreeMap::new(),
-            },
-            price_feed: PriceFeedModuleConfig {
-                contract_config: self.contract_config,
             },
             pallet_staking: StakingConfig {
                 validator_count: self.validator_count as u32,
