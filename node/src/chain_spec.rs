@@ -463,7 +463,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                     ),
                 ],
                 stash: 1_000 * DOCK,
-                validator_count: 50,
+                validator_count: 20,
                 poa_last_block: Hash::from_str(
                     "0d84a546e4fdde4bf7c56c764a42457ee05b45bdc0c20e765903ab96465b8b3e",
                 )
@@ -587,7 +587,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 ],
                 // Initial stakers/validators should have at least this amount as balance
                 stash: 1_000 * DOCK,
-                validator_count: 50,
+                validator_count: 7,
                 // TODO: Fix
                 poa_last_block: Hash::repeat_byte(22),
             }
