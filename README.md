@@ -78,6 +78,13 @@ with feature `testnet` or `mainnet`.
 cargo build --release --features small_durations
 ```
 
+### Building a node for faster block production
+For **testing** with SDK, faster block production is needed, i.e. < 1sec. Use the `fastblock` feature to achieve that.  
+
+```bash
+cargo build --release --features fastblock
+```
+
 ### Building Docker image
 
 To build image for testnet node, run the following from the repository's root

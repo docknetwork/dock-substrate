@@ -174,6 +174,13 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     apis: RUNTIME_API_VERSIONS,
 };
 
+/// `fastblock` reduces the block time for faster testing. It isn't recommended for production.
+/// Also build the node in release mode to support small block times (< 1 sec)
+/// TODO: Support instant seal
+#[cfg(feature = "fastblock")]
+pub const MILLISECS_PER_BLOCK: u64 = 600;
+
+#[cfg(not(feature = "fastblock"))]
 pub const MILLISECS_PER_BLOCK: u64 = 3000;
 
 const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;

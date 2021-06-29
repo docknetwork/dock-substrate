@@ -492,6 +492,8 @@ testnet = []
 mainnet = []
 # For building test nodes with small durations for staking, elections, voting, etc
 small_durations = []
+# Faster block production. Not recommended for production
+fastblock = []
 
 [dev-dependencies]
 rand = '0.8.3'
