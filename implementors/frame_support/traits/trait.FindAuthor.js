@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["dock_runtime"] = [{"text":"impl&lt;F:&nbsp;FindAuthor&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.u32.html\">u32</a>&gt;&gt; FindAuthor&lt;H160&gt; for <a class=\"struct\" href=\"dock_runtime/struct.EthereumFindAuthor.html\" title=\"struct dock_runtime::EthereumFindAuthor\">EthereumFindAuthor</a>&lt;F&gt;","synthetic":false,"types":["dock_runtime::EthereumFindAuthor"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

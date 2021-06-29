@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["dock_runtime"] = [{"text":"impl CurrencyToVote&lt;<a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.u64.html\">u64</a>&gt; for <a class=\"struct\" href=\"dock_runtime/struct.U64CurrencyToVote.html\" title=\"struct dock_runtime::U64CurrencyToVote\">U64CurrencyToVote</a>","synthetic":false,"types":["dock_runtime::U64CurrencyToVote"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["FiatFeeRpcError","Error type of this RPC api."]],"mod":[["gen_client","The generated client module."]],"struct":[["FiatFeeServer","A struct that implements the FiatFeeApi"]],"trait":[["FiatFeeApi",""],["FiatFeeRuntimeApi",""]]});

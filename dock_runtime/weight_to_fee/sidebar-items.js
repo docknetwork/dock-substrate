@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["TxnFee","Implementor of `WeightToFeePolynomial` that maps weight to fee. The fee would be 0.5% of the weight, 5 million parts per billion"]]});

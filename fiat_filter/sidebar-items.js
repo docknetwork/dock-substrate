@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Call","Dispatchable calls."],["Error",""]],"mod":[["fiat_rate",""]],"struct":[["Module",""]],"trait":[["Config","The pallet’s configuration trait Configure the pallet by specifying the parameters and types on which it depends."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["gen_client","The generated client module."]],"struct":[["StakingRewards","A struct that implements the [`StakingRewardsApi`]."],["StakingRewardsClient","The Client."]],"trait":[["StakingRewardsApi",""],["StakingRewardsRuntimeApi",""]]});

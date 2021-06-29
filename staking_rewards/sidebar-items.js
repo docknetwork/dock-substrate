@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Call","Dispatchable calls."],["RawEvent","Events for this module."]],"mod":[["runtime_api",""]],"struct":[["Module",""]],"trait":[["Config",""]],"type":[["BalanceOf",""],["Event","`RawEvent` specialized for the configuration `Config`"]]});

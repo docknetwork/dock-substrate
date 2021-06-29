@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["dock_runtime"] = [{"text":"impl FeeCalculator for <a class=\"struct\" href=\"dock_runtime/struct.GasPrice.html\" title=\"struct dock_runtime::GasPrice\">GasPrice</a>","synthetic":false,"types":["dock_runtime::GasPrice"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["PriceProvider","Trait to provide price of currency pairs. The price is multiplied by 1000 and rounded to make it integer"]]});

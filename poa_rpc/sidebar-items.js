@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["gen_client","The generated client module."]],"struct":[["PoA","A struct that implements the [`PoAApi`]."],["PoAClient","The Client."]],"trait":[["PoAApi",""],["PoARuntimeApi",""]],"type":[["EpochNo",""]]});

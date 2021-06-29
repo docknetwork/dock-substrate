@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["price_feed"] = [{"text":"impl&lt;T:&nbsp;<a class=\"trait\" href=\"price_feed/trait.Config.html\" title=\"trait price_feed::Config\">Config</a>&gt; <a class=\"trait\" href=\"common/traits/trait.PriceProvider.html\" title=\"trait common::traits::PriceProvider\">PriceProvider</a> for <a class=\"struct\" href=\"price_feed/struct.Module.html\" title=\"struct price_feed::Module\">Module</a>&lt;T&gt;","synthetic":false,"types":["price_feed::Module"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

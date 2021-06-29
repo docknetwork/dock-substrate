@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["poa"] = [{"text":"impl&lt;T:&nbsp;<a class=\"trait\" href=\"poa/trait.Trait.html\" title=\"trait poa::Trait\">Trait</a>&gt; ShouldEndSession&lt;&lt;T as Config&gt;::BlockNumber&gt; for <a class=\"struct\" href=\"poa/struct.Module.html\" title=\"struct poa::Module\">Module</a>&lt;T&gt;","synthetic":false,"types":["poa::Module"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

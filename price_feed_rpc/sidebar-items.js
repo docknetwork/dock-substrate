@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["gen_client","The generated client module."]],"struct":[["PriceFeed","A struct that implements the [`PriceFeedApi`]."],["PriceFeedClient","The Client."]],"trait":[["PriceFeedApi",""],["PriceFeedRuntimeApi",""]]});

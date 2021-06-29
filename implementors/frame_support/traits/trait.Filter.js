@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["dock_runtime"] = [{"text":"impl Filter&lt;<a class=\"enum\" href=\"dock_runtime/enum.Call.html\" title=\"enum dock_runtime::Call\">Call</a>&gt; for <a class=\"struct\" href=\"dock_runtime/struct.BaseFilter.html\" title=\"struct dock_runtime::BaseFilter\">BaseFilter</a>","synthetic":false,"types":["dock_runtime::BaseFilter"]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

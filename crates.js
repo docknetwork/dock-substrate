@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["common","core_mods","dock_node","dock_runtime","fiat_filter","fiat_filter_rpc","fiat_filter_rpc_runtime_api","poa","poa_rpc","price_feed","price_feed_rpc","staking_rewards","staking_rewards_rpc","token_migration"];
