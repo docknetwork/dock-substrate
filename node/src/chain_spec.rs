@@ -490,35 +490,122 @@ pub fn pos_mainnet_config() -> ChainSpec {
         ChainType::Live,
         move || {
             GenesisBuilder {
-                initial_authorities: vec![(
-                    // TODO: Keeping stash and controller same for now. Fix later.
-                    account_id_from_ss58::<sr25519::Public>(
-                        "3Gb64wBURVBpAau5WVRRpAgNLPAnqsPR3CgoZPAK6diinaMp",
+                initial_authorities: vec![
+                    (
+                        // Dock
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3Gb64wBURVBpAau5WVRRpAgNLPAnqsPR3CgoZPAK6diinaMp",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3CtFE8uweavb7NLxT8M6XXrqmPAHwnZzLLjGFaZaUT3TsLFc",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3G4PHvp6EDBbmvfcDLEEkAQk1cRmvh3ZHp264pERRzcZzHwn",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw",
+                        ),
                     ),
-                    account_id_from_ss58::<sr25519::Public>(
-                        "3Gb64wBURVBpAau5WVRRpAgNLPAnqsPR3CgoZPAK6diinaMp",
+                    (
+                        // Sebastian
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3EnG2iod8ThS7dhh9wygvi7qMjBPKBgfvA1ksQmy7Kh8q3Jn",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3Gu97k8voXQgXSfyyLmveiyzaSTgRbNrmZaESgbsAeteLRob",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3Gg76YYbXVfPTkNF2UttthHohfZbAt7FhyRDZDdHCpWia2zU",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3GohMRgRysfkJYjTktKNYjbXkN4CXwyCE1wxWT1zU5GcCW9h",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3D71ST82aNxJMXQEiX4xvwZJRDRViLtsoGjXowU8LHmsWA4w",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3D3tZb7UMwyysLJK2ib4LzYUXrZWziZnX2JsipZKaTNzH3HQ",
+                        ),
                     ),
-                    pubkey_from_ss58::<BabeId>("3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw"),
-                    pubkey_from_ss58::<GrandpaId>(
-                        "3G4PHvp6EDBbmvfcDLEEkAQk1cRmvh3ZHp264pERRzcZzHwn",
+                    (
+                        // Ryabina
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3GfPebPXY4DrgmcxmkbKgCTc3gQDLffGNAbGJL4QGegWDFvr",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3DMxY4BAXVKQyPzD2ptVTtWBFPYetuUzxZNnhxwGDxEU4hVr",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3DZRiAxXrRQvyPMWusAaCSdUhHrg8mvSURuWsYfuKvym5enV",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3D7myE1PhvgRZifaepPiAoKHxtJKvtTw8YDdUiQSWmT3Nkcm",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3Gcgfe7v3d2vkFgUMvc81UeRnZ3jbJRsNr9cuZyrkwuHN47X",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3G3FC3MzqqtUcG8mt37ivYYpWAHMfEhoq2sWJgMdENhJevuH",
+                        ),
                     ),
-                    // TODO: Keeping same as BabeId. Fix later.
-                    pubkey_from_ss58::<ImOnlineId>(
-                        "3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw",
+                    (
+                        // Pathrock
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3Fx3GPCR6F3Wc8EyoJY7fxEJv2ch1bHXCy8AKUCEKfQRbifD",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3HJXQkYFoqeoYLba4PiQDLARY9Fk8Hj7y2mrYShPLhgUFpYp",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3Fr7kyamDqAmi9VbejgSZzkMnCjeHHiabKNKAEVzMYJB5X58",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3FLqrfaGUzyPT7m3hvZztzBHKsTK9N5ged941zYuyB7QficR",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3FSnbCYv6J3ayjo4gF7gFqEwiaF3w8Sit1kGj2G78b2L8fQF",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3GiiWVL2DMPc9UoMv8ryoogY4RnHvKVHr4jaC8maPRbwmpch",
+                        ),
                     ),
-                    pubkey_from_ss58::<AuthorityDiscoveryId>(
-                        "3Gr7uEiA7jis4DdijeSTQnXoU4tc8DUZkjpy3mshhgyx3Hyw",
+                    (
+                        // Ovrhd
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3GXbRJNihSi4wogCVGLjCVZQtpzcuPGW5WnyDpx3orNh4UyW",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3GifWRvo5dhuzxtH81r1kiTkZzy7PMgnhN6pfKNxPEjdQMkD",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3ETxxJtV6ip69sBftRvsB4wiv7x1MPHgiGyv6mM7woaGsxgu",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3GosAKwfLsdCPETtMyWobMU29v6XMTuhhryYnk5xfXhgqMra",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3FGZUCKy14c8DG99GgScHNJgvLJEqoDLMSfJ55hTxipxSASS",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3Cs7TsVMhbmVuKp43mrSvJTScE8VCgtpUa1hthyUdYBDkyQy",
+                        ),
                     ),
-                )],
+                ],
                 endowed_accounts: [
-                    "3EjNXTpMJieqEF5Fj5szwAqpvmmKFG3YtsY5eBazxaCkNtoz",
-                    "3HmNvFfZey63mdUdKrQ2iTdbYB6ic5y9QaAZCQZ7aWMBnUu8",
-                    "3CjsvaK2h1AkimGohPCZuykuykpp5SU5NvM2d8VLEmzt2Pd6",
-                    "3FYRYvGLaatYrLMgU68frrptGbnMZCCakZaFQNDQy3WrEeAb",
-                    "3J4zBr2jCttvBJrkks1U2Rquhmgk4pmSgEboNPPbmPp7fuSb",
-                    "3D9gQig8SD3veR6n4Yjy8CeLAeVVrEN49UXia7Wztu4go4sF",
-                    "3EQqc6uyguP1RsvJvQxzoz3stbvMuZoWA9vKX18u9su17Lu3",
-                    "3HGY9pJWZfhXKhCzr8fYW989bf21Gk6PoWKcPSy9ewNKJXrJ",
+                    "3Gb64wBURVBpAau5WVRRpAgNLPAnqsPR3CgoZPAK6diinaMp",
+                    "3EnG2iod8ThS7dhh9wygvi7qMjBPKBgfvA1ksQmy7Kh8q3Jn",
+                    "3GfPebPXY4DrgmcxmkbKgCTc3gQDLffGNAbGJL4QGegWDFvr",
+                    "3Fx3GPCR6F3Wc8EyoJY7fxEJv2ch1bHXCy8AKUCEKfQRbifD",
+                    "3GXbRJNihSi4wogCVGLjCVZQtpzcuPGW5WnyDpx3orNh4UyW",
+                    "3EpgfUS2x744ZTFccNdkpRRSW1efbYyqNyw81x9eHqy7JuAS",
+                    "3EuDQ56g6hpZgdLNwkb4EzqhdGk6oPpd51KzHqSP8TXYuzeV",
+                    "3EBrJoDw8hbuCrww4mV8o1YzG8JtmWHh4MbHb5rKPYgAVA23",
                 ]
                 .iter()
                 .cloned()

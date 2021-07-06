@@ -171,6 +171,8 @@
       image: 'docknetwork/dock-substrate:{{ image_tag }}'
       state: started
       detach: yes
+      restart_policy: always
+      restart_retries: 10
       published_ports:
         # WS RPC
         - 9944:9944
