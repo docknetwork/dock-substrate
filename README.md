@@ -10,14 +10,14 @@ The dock blockchain serves as registry for [Decentralized Identifiers](https://w
 Docker can be used to quickly spin up a node (may require sudo):
 
 ```
-docker run -p 9944:9944 -p 30333:30333 docknetwork/dock-substrate:latest --chain ./cspec/vulcan_raw.json --ws-external
+docker run -p 9944:9944 -p 30333:30333 docknetwork/dock-substrate:latest --chain ./cspec/knox_raw.json --ws-external
              |            |                       |                         |                              |
              |     Expose p2p port                |                 Join the mainnet                       |
              |                                    |                                                        |
     Expose websocket port          Use the node image from dockerhub                     Listen for rpc over websocket
 ```
 
-The above command will run a mainnet node. To run a testnet node, use the chainspec `knox_raw.json` in place of `vulcan_raw.json`
+The above command will run a mainnet node. To run a testnet node, use the chainspec `knox_test_raw.json` in place of `knox_raw.json`
 and image `docknetwork/dock-substrate:testnet` in place of `docknetwork/dock-substrate:latest` in the above command.
 
 To view possible command line arguments:
@@ -56,13 +56,13 @@ features `testnet` and `mainnet` respectively as below
 cargo build --release --features testnet
 ```
 
-The `spec_name` with the above command will be `dock-test-runtime` and ss58 prefix will be 21. 
+The `spec_name` with the above command will be `dock-pos-test-runtime` and ss58 prefix will be 21. 
 
 ```bash
 cargo build --release --features mainnet
 ```
 
-The `spec_name` with the above command will be `dock-main-runtime` and ss58 prefix will be 22.
+The `spec_name` with the above command will be `dock-pos-main-runtime` and ss58 prefix will be 22.
 
 Running without any features will result in `spec_name` of `dock-dev-runtime`
 
