@@ -676,7 +676,10 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 stash: 1_000 * DOCK,
                 validator_count: 7,
                 // TODO: Fix
-                poa_last_block: Hash::from_str("16e8d1eec1f20b755bf850dd584bb516ff2a5e4d95e0bff61eb99efd8cb2d1ce").unwrap(),
+                poa_last_block: Hash::from_str(
+                    "16e8d1eec1f20b755bf850dd584bb516ff2a5e4d95e0bff61eb99efd8cb2d1ce",
+                )
+                .unwrap(),
             }
             .build()
         },

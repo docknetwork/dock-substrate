@@ -77,6 +77,7 @@ use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
+use pallet_ethereum::{Call::transact, Transaction as EthereumTransaction};
 use pallet_evm::{
     Account as EVMAccount, EVMCurrencyAdapter, EnsureAddressTruncated, FeeCalculator,
     HashedAddressMapping, Runner,
@@ -168,7 +169,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 29,
+    spec_version: 30,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -1105,7 +1106,7 @@ impl pallet_identity::Config for Runtime {
 
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
-        min_inflation: 0_025_000,
+        min_inflation: 0_050_000,
         max_inflation: 0_100_000,
         ideal_stake: 0_750_000,
         falloff: 0_050_000,
@@ -1130,8 +1131,8 @@ impl staking_rewards::Config for Runtime {
     type RewardCurve = RewardCurve;
 }
 
-pub struct EthereumFindAuthor<F>(PhantomData<F>);
-impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
+pub struct FindAuthorTruncated<F>(PhantomData<F>);
+impl<F: FindAuthor<u32>> FindAuthor<H160> for FindAuthorTruncated<F> {
     fn find_author<'a, I>(digests: I) -> Option<H160>
     where
         I: 'a + IntoIterator<Item = (ConsensusEngineId, &'a [u8])>,
@@ -1146,7 +1147,6 @@ impl<F: FindAuthor<u32>> FindAuthor<H160> for EthereumFindAuthor<F> {
 
 impl pallet_ethereum::Config for Runtime {
     type Event = Event;
-    type FindAuthor = EthereumFindAuthor<Babe>;
     type StateRoot = pallet_ethereum::IntermediateStateRoot;
 }
 
@@ -1224,6 +1224,8 @@ impl pallet_evm::Config for Runtime {
     type OnChargeTransaction = EVMCurrencyAdapter<Balances, DealWithFees>;
 
     type BlockGasLimit = BlockGasLimit;
+    type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping;
+    type FindAuthor = FindAuthorTruncated<Babe>;
 
     fn config() -> &'static EvmConfig {
         // EvmConfig::frontier() has `create_contract_limit` set to None but causes runtime panic
@@ -1554,7 +1556,7 @@ impl_runtime_apis! {
         }
 
         fn author() -> H160 {
-            <pallet_ethereum::Module<Runtime>>::find_author()
+            <pallet_evm::Module<Runtime>>::find_author()
         }
 
         fn storage_at(address: H160, index: U256) -> H256 {
@@ -1643,6 +1645,15 @@ impl_runtime_apis! {
                 Ethereum::current_receipts(),
                 Ethereum::current_transaction_statuses()
             )
+        }
+
+        fn extrinsic_filter(
+            xts: Vec<<Block as BlockT>::Extrinsic>,
+        ) -> Vec<EthereumTransaction> {
+            xts.into_iter().filter_map(|xt| match xt.function {
+                Call::Ethereum(transact(t)) => Some(t),
+                _ => None
+            }).collect::<Vec<EthereumTransaction>>()
         }
     }
 

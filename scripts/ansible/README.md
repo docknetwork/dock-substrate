@@ -59,3 +59,10 @@ ansible-playbook -i <hosts file> run-node.yml --extra-vars "host=fullnode"
 ```
 This will run a full node. 
 As above, the libp2p key, telemetry url can be provided in cli or through host file. They are shown in sample hosts file as an example.
+
+Sometime setting up a new node can take time and to prevent timeouts, specify a timeout in seconds explicitly with the `t` flag like below. 
+The following command will timeout in 45 seconds. 
+
+```
+ansible-playbook -i <hosts file> run-node.yml --extra-vars "... blah blah" -t 45
+```
