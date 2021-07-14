@@ -3,7 +3,7 @@ authors = ['Dock.io']
 build = 'build.rs'
 edition = '2018'
 name = 'dock-node'
-version = '0.15.3'
+version = '0.15.4'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -24,7 +24,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = '../runtime'
-version = '0.15.3'
+version = '0.15.4'
 
 [dependencies.sc-basic-authorship]
 version = '0.9.0'
@@ -241,32 +241,32 @@ branch = "frontier"
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/paritytech/frontier.git'
-rev = '76b8b04849e3891eda468b2cd676286b474874ce'
+rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-rpc]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '76b8b04849e3891eda468b2cd676286b474874ce'
+rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
 #path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '76b8b04849e3891eda468b2cd676286b474874ce'
+rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
 #path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '76b8b04849e3891eda468b2cd676286b474874ce'
+rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '76b8b04849e3891eda468b2cd676286b474874ce'
+rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
 #path = '../../../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
 git = 'https://github.com/paritytech/frontier.git'
-rev = '76b8b04849e3891eda468b2cd676286b474874ce'
+rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
 #path = '../../../frontier/client/db'
 
 [dependencies.poa_rpc]

@@ -101,6 +101,8 @@ impl pallet_evm::Config for Test {
     type ChainId = DockChainId;
     type OnChargeTransaction = ();
     type BlockGasLimit = BlockGasLimit;
+    type BlockHashMapping = pallet_evm::SubstrateBlockHashMapping<Self>;
+    type FindAuthor = ();
 }
 
 impl price_feed::Config for Test {
