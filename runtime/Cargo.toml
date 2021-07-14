@@ -270,14 +270,16 @@ branch = "frontier"
 [dependencies.pallet-staking]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
+path = '../pallets/staking'
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "frontier"
+path = '../pallets/staking/reward-curve'
 
 [dependencies.pallet-election-provider-multi-phase]
 default-features = false
