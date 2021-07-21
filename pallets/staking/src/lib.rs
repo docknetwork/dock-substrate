@@ -1170,6 +1170,11 @@ decl_storage! {
         /// TWO_PHASE_NOTE: should be removed once we switch to multi-phase.
         pub IsCurrentSessionFinal get(fn is_current_session_final): bool = false;
 
+        // TODO: Set initial values in storage
+        pub MinNominatorBond get(fn min_nominator_bond): BalanceOf<T>;
+
+        pub MinValidatorBond get(fn min_validator_bond): BalanceOf<T>;
+
         /// True if network has been upgraded to this version.
         /// Storage version of the pallet.
         ///
@@ -1340,6 +1345,8 @@ decl_error! {
         TooManyTargets,
         /// A nomination target was supplied that was blocked or otherwise not a validator.
         BadTarget,
+        /// Can not bond with value less than minimum required.
+		InsufficientBond,
     }
 }
 
@@ -1671,6 +1678,18 @@ decl_module! {
                     ledger.active = Zero::zero();
                 }
 
+                let min_active_bond = if Nominators::<T>::contains_key(&ledger.stash) {
+					MinNominatorBond::<T>::get()
+				} else if Validators::<T>::contains_key(&ledger.stash) {
+					MinValidatorBond::<T>::get()
+				} else {
+					Zero::zero()
+				};
+
+                // Make sure that the user maintains enough active bond for their role.
+				// If a user runs into this error, they should chill first.
+				ensure!(ledger.active >= min_active_bond, Error::<T>::InsufficientBond);
+
                 // Note: in case there is no current era it is fine to bond one era more.
                 let era = Self::current_era().unwrap_or(0) + T::BondingDuration::get();
                 ledger.unlocking.push(UnlockChunk { value, era });
@@ -1770,6 +1789,10 @@ decl_module! {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
+            ensure!(ledger.active >= MinValidatorBond::<T>::get(), Error::<T>::InsufficientBond);
+
+            // TODO: Missing a check, look into substrate master
+
             let stash = &ledger.stash;
             <Nominators<T>>::remove(stash);
             <Validators<T>>::insert(stash, prefs);
@@ -1799,9 +1822,13 @@ decl_module! {
             ensure!(Self::era_election_status().is_closed(), Error::<T>::CallNotAllowed);
             let controller = ensure_signed(origin)?;
             let ledger = Self::ledger(&controller).ok_or(Error::<T>::NotController)?;
+            ensure!(ledger.active >= MinNominatorBond::<T>::get(), Error::<T>::InsufficientBond);
             let stash = &ledger.stash;
+
             ensure!(!targets.is_empty(), Error::<T>::EmptyTargets);
             ensure!(targets.len() <= MAX_NOMINATIONS, Error::<T>::TooManyTargets);
+
+            // TODO: Missing a check, look into substrate master
 
             let old = Nominators::<T>::get(stash).map_or_else(Vec::new, |x| x.targets);
 

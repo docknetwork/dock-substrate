@@ -262,7 +262,7 @@ mod prod_durations {
     pub const LAUNCH_PERIOD: BlockNumber = 20 * DAYS;
     pub const VOTING_PERIOD: BlockNumber = 15 * DAYS;
     pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 3 * HOURS;
-    pub const COOLOFF_PERIOD: BlockNumber = 28 * 24 * 60 * MINUTES;
+    pub const COOLOFF_PERIOD: BlockNumber = 28 * DAYS;
 
     /// Duration after which funds from treasury are spent for approved bounties
     pub const SPEND_PERIOD: BlockNumber = 1 * DAYS;
@@ -809,7 +809,7 @@ const fn deposit(items: u32, bytes: u32) -> Balance {
 }
 
 parameter_types! {
-    pub const CandidacyBond: Balance = 10 * DOCK;
+    pub const CandidacyBond: Balance = 1_000 * DOCK;
     // 1 storage item created, key size is 32 bytes, value size is 16+16.
     pub const VotingBondBase: Balance = deposit(1, 64);
     // additional data per vote is 32 bytes (account id).
