@@ -169,7 +169,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 30,
+    spec_version: 31,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -984,7 +984,8 @@ parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
     pub const ProposalBondMinimum: Balance = 1 * DOCK;
     pub const SpendPeriod: BlockNumber = SPEND_PERIOD;
-    pub const Burn: Permill = Permill::from_percent(50);
+    /// We are fixed supply token, we don't burn any tokens
+    pub const Burn: Permill = Permill::from_percent(0);
     pub const DataDepositPerByte: Balance = DOCK / 100;
     pub const BountyDepositBase: Balance = 1 * DOCK;
     pub const BountyDepositPayoutDelay: BlockNumber = BOUNTY_DEPOSIT_PAYOUT_DELAY;
@@ -1049,7 +1050,7 @@ impl pallet_treasury::Config for Runtime {
     type ProposalBondMinimum = ProposalBondMinimum;
     type SpendPeriod = SpendPeriod;
     type Burn = Burn;
-    type BurnDestination = ();
+    type BurnDestination = Treasury;
     type SpendFunds = Bounties;
     type WeightInfo = pallet_treasury::weights::SubstrateWeight<Runtime>;
 }
@@ -1107,7 +1108,7 @@ impl pallet_identity::Config for Runtime {
 pallet_staking_reward_curve::build! {
     const REWARD_CURVE: PiecewiseLinear<'static> = curve!(
         min_inflation: 0_050_000,
-        max_inflation: 0_100_000,
+        max_inflation: 0_053_200,
         ideal_stake: 0_400_000,
         falloff: 0_050_000,
         max_piece_count: 40,
