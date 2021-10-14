@@ -169,7 +169,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 31,
+    spec_version: 32,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -1119,7 +1119,7 @@ pallet_staking_reward_curve::build! {
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const RewardDecayPct: Percent = Percent::from_percent(25);
-    pub const TreasuryRewardsPct: Percent = Percent::from_percent(60);
+    pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
 }
 
 impl staking_rewards::Config for Runtime {
@@ -1811,7 +1811,7 @@ mod tests {
             DealWithFees::on_unbalanced(NegativeImbalance::new(amount1));
             let treasury_balance2 =
                 <Balances as Currency<AccountId>>::free_balance(&treasury_account);
-            assert_eq!(treasury_balance2, 600);
+            assert_eq!(treasury_balance2, 500);
 
             let amount2 = 6000;
             let amount3 = 4000;
@@ -1824,7 +1824,7 @@ mod tests {
             );
             let treasury_balance3 =
                 <Balances as Currency<AccountId>>::free_balance(&treasury_account);
-            assert_eq!(treasury_balance3, 6600);
+            assert_eq!(treasury_balance3, 5500);
         })
     }
 
