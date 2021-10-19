@@ -2,13 +2,11 @@ use crate as staking_rewards;
 
 use frame_support::{assert_noop, assert_ok, parameter_types};
 use frame_system::{self as system, RawOrigin};
-use sp_core::crypto::{key_types, KeyTypeId};
 use sp_core::H256;
 use sp_runtime::curve::PiecewiseLinear;
-use sp_runtime::testing::UintAuthorityId;
 use sp_runtime::{
     testing::Header,
-    traits::{BadOrigin, BlakeTwo256, IdentityLookup, OpaqueKeys},
+    traits::{BadOrigin, BlakeTwo256, IdentityLookup},
     Perbill, Percent,
 };
 use staking_rewards::*;
@@ -25,7 +23,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         Balances: balances::{Module, Call, Storage},
-        PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
+        PoAModule: poa::{Module, Call, Storage, Config<T>},
         StakingRewards: staking_rewards::{Module, Call, Storage, Event<T>},
     }
 );
@@ -106,46 +104,7 @@ impl staking_rewards::Config for Test {
     type RewardCurve = RewardCurve;
 }
 
-/// Dummy session handler as the pallet's trait needs the session pallet's trait
-pub struct TestSessionHandler;
-type ValidatorId = u64;
-impl pallet_session::SessionHandler<ValidatorId> for TestSessionHandler {
-    const KEY_TYPE_IDS: &'static [KeyTypeId] = &[key_types::DUMMY];
-
-    fn on_genesis_session<K: OpaqueKeys>(_validators: &[(ValidatorId, K)]) {}
-
-    fn on_new_session<K: OpaqueKeys>(
-        _changed: bool,
-        _validators: &[(ValidatorId, K)],
-        _queued_validators: &[(ValidatorId, K)],
-    ) {
-    }
-
-    fn on_disabled(_validator_index: usize) {}
-}
-
-impl pallet_session::Config for Test {
-    type Event = ();
-    type ValidatorId = u64;
-    type ValidatorIdOf = ();
-    type ShouldEndSession = PoAModule;
-    type NextSessionRotation = ();
-    type SessionManager = PoAModule;
-    type SessionHandler = TestSessionHandler;
-    type Keys = UintAuthorityId;
-    type DisabledValidatorsThreshold = ();
-    type WeightInfo = ();
-}
-
-impl pallet_authorship::Config for Test {
-    type FindAuthor = ();
-    type UncleGenerations = ();
-    type FilterUncle = ();
-    type EventHandler = ();
-}
-
 impl poa::Trait for Test {
-    type Event = ();
     type Currency = Balances;
 }
 

@@ -1,6 +1,6 @@
 [package]
 name = "poa"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Dock.io"]
 edition = "2018"
 license = 'Apache-2.0'
@@ -44,22 +44,10 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
-[dependencies.pallet-session]
-default_features = false
-version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
 [dependencies.serde]
 features = ['derive']
 optional = true
 version = '1.0.119'
-
-[dependencies.pallet-authorship]
-default-features = false
-version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
 
 [dependencies.sp-arithmetic]
 default-features = false
@@ -86,12 +74,6 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
-[dev-dependencies.pallet-timestamp]
-default-features = false
-version = '3.0.0'
-git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
-
 [features]
 default = ['std']
 std = [
@@ -103,9 +85,7 @@ std = [
     'sp-api/std',
     'sp-io/std',
     'serde',
-    'pallet-session/std',
-    'pallet-authorship/std',
     'sp-arithmetic/std',
 ]
 
-test = ['std', 'balances/std', 'pallet-timestamp/std']
+test = ['std', 'balances/std']

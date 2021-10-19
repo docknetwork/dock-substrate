@@ -2,7 +2,7 @@
 authors = ['Dock.io']
 edition = '2018'
 name = 'dock-runtime'
-version = '0.15.5'
+version = '0.16.0'
 license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
@@ -370,7 +370,7 @@ rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
 [dependencies.poa]
 default-features = false
 path = '../pallets/poa'
-version = '0.7.0'
+version = '0.8.0'
 
 [dependencies.token_migration]
 default-features = false

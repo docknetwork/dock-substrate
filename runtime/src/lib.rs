@@ -169,7 +169,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 32,
+    spec_version: 33,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -666,7 +666,6 @@ parameter_types! {
 }
 
 impl transaction_payment::Config for Runtime {
-    /// Transaction fees is handled by PoA module
     type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
     type TransactionByteFee = TransactionByteFee;
     type WeightToFee = TxnFee<Balance>;
@@ -727,7 +726,6 @@ impl pallet_offences::Config for Runtime {
 }
 
 impl poa::Trait for Runtime {
-    type Event = Event;
     type Currency = balances::Module<Runtime>;
 }
 
@@ -1221,7 +1219,6 @@ impl pallet_evm::Config for Runtime {
         pallet_evm_precompile_dispatch::Dispatch<Self>,
     );
     type ChainId = DockChainId;
-    /// Deducted fee will be handled by the PoA module
     type OnChargeTransaction = EVMCurrencyAdapter<Balances, DealWithFees>;
 
     type BlockGasLimit = BlockGasLimit;
@@ -1277,7 +1274,7 @@ construct_runtime!(
         Timestamp: timestamp::{Module, Call, Storage, Inherent},
         Balances: balances::{Module, Call, Storage, Config<T>, Event<T>},
         Session: pallet_session::{Module, Call, Storage, Event, Config<T>},
-        PoAModule: poa::{Module, Call, Storage, Event<T>, Config<T>},
+        PoAModule: poa::{Module, Call, Storage, Config<T>},
         Grandpa: grandpa::{Module, Call, Storage, Config, Event},
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
@@ -1678,10 +1675,6 @@ impl_runtime_apis! {
 
         fn get_treasury_balance() -> Balance {
             PoAModule::treasury_balance()
-        }
-
-        fn get_total_emission_in_epoch(epoch_no: poa::EpochNo) -> Balance {
-            PoAModule::get_total_emission_in_epoch(epoch_no)
         }
     }
 

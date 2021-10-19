@@ -724,15 +724,6 @@ impl GenesisBuilder {
         // 100M tokens
         let per_member_endowment: Balance = DOCK.checked_mul(100_000_000).unwrap();
 
-        // Max emission per validator in an epoch
-        // 15K tokens
-        let max_emm_validator_epoch: Balance = DOCK.checked_mul(15_000).unwrap();
-
-        // Percentage of rewards given to Treasury
-        let treasury_reward_pc = 60;
-        // Percentage of validator rewards that will be locked
-        let validator_reward_lock_pc = 50;
-
         self.validate().unwrap();
 
         let stash = self.stash;
@@ -756,18 +747,7 @@ impl GenesisBuilder {
                     .collect::<Vec<_>>(),
             },
             poa: PoAModuleConfig {
-                min_epoch_length: 1,      // Doesn't matter
-                max_active_validators: 1, // Doesn't matter
-                active_validators: self
-                    .initial_authorities
-                    .iter()
-                    .map(|x| x.0.clone())
-                    .collect::<Vec<_>>(),
                 emission_supply,
-                max_emm_validator_epoch,
-                treasury_reward_pc,
-                validator_reward_lock_pc,
-                emission_status: false, // Doesn't matter
                 poa_last_block: self.poa_last_block,
             },
             balances: BalancesConfig {

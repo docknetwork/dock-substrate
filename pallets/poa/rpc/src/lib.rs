@@ -3,7 +3,6 @@ use codec::Codec;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 pub use poa::runtime_api::PoAApi as PoARuntimeApi;
-pub use poa::EpochNo;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -24,14 +23,6 @@ pub trait PoAApi<BlockHash, AccountId, Balance> {
     /// get the account address with above call and query the chain.
     #[rpc(name = "poa_treasuryBalance")]
     fn treasury_balance(&self, at: Option<BlockHash>) -> Result<Balance>;
-
-    /// Return total (validators + treasury) emission rewards for given epoch
-    #[rpc(name = "poa_getTotalEmissionInEpoch")]
-    fn get_total_emission_in_epoch(
-        &self,
-        epoch_no: EpochNo,
-        at: Option<BlockHash>,
-    ) -> Result<Balance>;
 }
 
 /// A struct that implements the [`PoAApi`].
@@ -81,22 +72,5 @@ where
             message: "Unable to query treasury account balance.".into(),
             data: Some(format!("{:?}", e).into()),
         })
-    }
-
-    fn get_total_emission_in_epoch(
-        &self,
-        epoch_no: EpochNo,
-        at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Balance> {
-        let api = self.client.runtime_api();
-        let at = BlockId::hash(at.unwrap_or_else(||
-            // If the block hash is not supplied assume the best block.
-            self.client.info().best_hash));
-        api.get_total_emission_in_epoch(&at, epoch_no)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(3),
-                message: "Unable to query emission rewards for epoch.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
     }
 }
