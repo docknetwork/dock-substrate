@@ -1,0 +1,19 @@
+[package]
+name = "core_mods_rpc"
+version = "0.0.1"
+edition = "2018"
+
+[package.metadata.docs.rs]
+targets = ['x86_64-unknown-linux-gnu']
+
+[dependencies]
+codec = { package = "parity-scale-codec", version = "2.0.0" }
+jsonrpc-core = "15.1.0"
+jsonrpc-core-client = "15.1.0"
+jsonrpc-derive = "15.1.0"
+serde = { version = "1.0.119", features = ["derive"], optional = true }
+sp-rpc = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
+sp-runtime = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
+sp-api = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+sp-blockchain = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+core_mods = { version = '0.2.0', path = '..' }

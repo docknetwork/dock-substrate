@@ -2,6 +2,7 @@
 
 use crate::anchor;
 use crate::attest;
+use crate::bbs_plus;
 use crate::blob;
 use crate::did::{self, Did, DidSignature};
 use crate::master;
@@ -39,6 +40,7 @@ frame_support::construct_runtime!(
         MasterMod: master::{Module, Call, Storage, Event<T>, Config},
         AnchorMod: anchor::{Module, Call, Storage, Event<T>},
         AttestMod: attest::{Module, Call, Storage},
+        BBSPlusMod: bbs_plus::{Module, Call, Storage, Event}
     }
 );
 
@@ -111,6 +113,10 @@ impl crate::revoke::Trait for Test {}
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
     pub const StorageWeight: Weight = 1100;
+    pub const ParamsMaxSize: u32 = 512;
+    pub const ParamsPerByteWeight: Weight = 10;
+    pub const PublicKeyMaxSize: u32 = 128;
+    pub const PublicKeyPerByteWeight: Weight = 10;
 }
 
 impl crate::blob::Trait for Test {
@@ -129,6 +135,14 @@ impl crate::anchor::Trait for Test {
 
 impl crate::attest::Trait for Test {
     type StorageWeight = StorageWeight;
+}
+
+impl crate::bbs_plus::Config for Test {
+    type Event = ();
+    type ParamsMaxSize = ParamsMaxSize;
+    type ParamsPerByteWeight = ParamsPerByteWeight;
+    type PublicKeyMaxSize = PublicKeyMaxSize;
+    type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
 }
 
 pub const ABBA: u64 = 0;

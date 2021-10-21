@@ -107,11 +107,13 @@ where
     C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
     C::Api: fiat_filter_rpc::FiatFeeRuntimeApi<Block, Balance>,
     C::Api: staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
+    C::Api: core_mods_rpc::CoreModsRuntimeApi<Block>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     P: TransactionPool<Block = Block> + 'static,
     SC: SelectChain<Block> + 'static,
 {
+    use core_mods_rpc::{CoreMods, CoreModsApi};
     use fiat_filter_rpc::{FiatFeeApi, FiatFeeServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use poa_rpc::{PoA, PoAApi};
@@ -174,6 +176,9 @@ where
     io.extend_with(StakingRewardsApi::to_delegate(StakingRewards::new(
         client.clone(),
     )));
+
+    // RPC calls for core mods pallet
+    io.extend_with(CoreModsApi::to_delegate(CoreMods::new(client.clone())));
 
     io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
         BabeRpcHandler::new(

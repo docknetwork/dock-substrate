@@ -23,6 +23,7 @@ extern crate static_assertions;
 
 pub use core_mods::anchor;
 pub use core_mods::attest;
+pub use core_mods::bbs_plus;
 pub use core_mods::blob;
 pub use core_mods::did;
 pub use core_mods::master;
@@ -73,6 +74,7 @@ use sp_runtime::{
     ApplyExtrinsicResult, FixedPointNumber, ModuleId, MultiSignature, Perbill, Percent, Permill,
     Perquintill, SaturatedConversion,
 };
+use sp_std::collections::btree_map::BTreeMap;
 use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
@@ -680,10 +682,22 @@ impl did::Trait for Runtime {
 
 impl revoke::Trait for Runtime {}
 
+impl bbs_plus::Config for Runtime {
+    type Event = Event;
+    type ParamsMaxSize = ParamsMaxSize;
+    type ParamsPerByteWeight = ParamsPerByteWeight;
+    type PublicKeyMaxSize = PublicKeyMaxSize;
+    type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
+}
+
 parameter_types! {
     // 8KB
     pub const MaxBlobSize: u32 = 8192;
     pub const StorageWeight: Weight = 1100;
+    pub const ParamsMaxSize: u32 = 65536;
+    pub const ParamsPerByteWeight: Weight = 10;
+    pub const PublicKeyMaxSize: u32 = 128;
+    pub const PublicKeyPerByteWeight: Weight = 10;
 }
 
 impl blob::Trait for Runtime {
@@ -1309,6 +1323,7 @@ construct_runtime!(
         Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
         Tips: pallet_tips::{Module, Call, Storage, Event<T>},
         Identity: pallet_identity::{Module, Call, Storage, Event<T>},
+        BBSPlus: bbs_plus::{Module, Call, Storage, Event},
     }
 );
 
@@ -1704,6 +1719,24 @@ impl_runtime_apis! {
 
         fn max_yearly_emission() -> Balance {
             StakingRewards::max_yearly_emission()
+        }
+    }
+
+    impl core_mods::runtime_api::CoreModsApi<Block> for Runtime {
+        fn bbs_plus_params(id: bbs_plus::ParametersStorageKey) -> Option<bbs_plus::BBSPlusParameters> {
+            BBSPlus::get_params(id.0, id.1)
+        }
+
+        fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {
+            BBSPlus::get_public_key_with_params(&id)
+        }
+
+        fn bbs_plus_params_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::BBSPlusParameters> {
+            BBSPlus::get_params_by_did(&did)
+        }
+
+        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::PublicKeyWithParams> {
+            BBSPlus::get_public_key_by_did(&did)
         }
     }
 

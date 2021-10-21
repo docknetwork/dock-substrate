@@ -880,10 +880,27 @@ dependencies = [
  "rand 0.7.3",
  "serde",
  "serde-big-array",
+ "sp-api",
  "sp-core",
  "sp-io",
  "sp-runtime",
  "sp-std",
+]
+
+[[package]]
+name = "core_mods_rpc"
+version = "0.0.1"
+dependencies = [
+ "core_mods",
+ "jsonrpc-core 15.1.0",
+ "jsonrpc-core-client 15.1.0",
+ "jsonrpc-derive 15.1.0",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
 ]
 
 [[package]]
@@ -1299,6 +1316,7 @@ dependencies = [
 name = "dock-node"
 version = "0.16.0"
 dependencies = [
+ "core_mods_rpc",
  "dock-runtime",
  "fc-db",
  "fc-mapping-sync",

@@ -6,6 +6,7 @@ members = [
     'pallets/poa/rpc',
     'pallets/token_migration',
     'pallets/core_mods',
+    'pallets/core_mods/rpc',
     'pallets/price_feed',
     'pallets/price_feed/rpc',
     'pallets/fiat_filter',
