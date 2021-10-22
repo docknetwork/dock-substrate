@@ -2,48 +2,57 @@
 
 use crate::did;
 use crate::did::DidSignature;
+use crate::types::CurveType;
 use codec::{Decode, Encode};
-use frame_support::dispatch::Weight;
-use frame_support::traits::Get;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    decl_error, decl_event, decl_module, decl_storage,
+    dispatch::{DispatchResult, Weight},
+    ensure,
+    traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum CurveType {
-    /// BLS12-381
-    Bls12381,
-}
-
 pub type ParametersStorageKey = (did::Did, u32);
 pub type PublicKeyStorageKey = (did::Did, u32);
-pub type PublicKeyWithParams = (BbsPlusPublicKey, Option<BBSPlusParameters>);
+pub type PublicKeyWithParams = (BbsPlusPublicKey, Option<BbsPlusParameters>);
 
+/// Signature params in G1 for BBS+ signatures
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct BBSPlusParameters {
+pub struct BbsPlusParameters {
     /// The label (generating string) used to generate the params
     pub label: Option<Vec<u8>>,
     pub curve_type: CurveType,
     pub bytes: Vec<u8>,
 }
 
+/// Public key in G2 for BBS+ signatures
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BbsPlusPublicKey {
+    /// The public key should be for the same curve as the parameters but a public key might not have
+    /// parameters on chain
     pub curve_type: CurveType,
     pub bytes: Vec<u8>,
+    /// The params used to generate the public key (`g2` comes from params)
     pub params_ref: Option<ParametersStorageKey>,
 }
 
 /// The module's configuration trait.
 pub trait Config: system::Config + did::Trait {
+    /// Maximum size of the label
+    type LabelMaxSize: Get<u32>;
+    /// Weight consumed per byte of the label.
+    type LabelPerByteWeight: Get<Weight>;
+    /// Maximum byte size of the parameters. This depends on the chosen elliptic curve and the number
+    /// of messages that can be signed.
     type ParamsMaxSize: Get<u32>;
+    /// Weight consumed per byte of the params. This will determine the cost of the transaction.
     type ParamsPerByteWeight: Get<Weight>;
+    /// Maximum byte size of the public key. This depends only on the chosen elliptic curve.
     type PublicKeyMaxSize: Get<u32>;
+    /// Weight consumed per byte of the public key. This will determine the cost of the transaction.
     type PublicKeyPerByteWeight: Get<Weight>;
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Config>::Event>;
@@ -59,9 +68,9 @@ decl_event!(
 );
 
 decl_error! {
-    /// Error for the DID module.
     pub enum Error for Module<T: Config> {
         InvalidSig,
+        LabelTooBig,
         ParamsTooBig,
         PublicKeyTooBig,
         ParamsDontExist,
@@ -71,13 +80,20 @@ decl_error! {
 
 decl_storage! {
     trait Store for Module<T: Config> as BBSPlusModule {
+        /// Pair of counters where each is used to assign unique id to parameters and public keys
+        /// respectively. On adding new params or keys, corresponding counter is increased by 1 but
+        /// the counters don't decrease on removal
         pub DidCounters get(fn did_counters):
             map hasher(blake2_128_concat) did::Did => (u32, u32);
 
-        pub BBSPlusParams get(fn get_params):
-            double_map hasher(blake2_128_concat) did::Did, hasher(identity) u32 => Option<BBSPlusParameters>;
+        /// Parameters are stored as key value (did, counter) -> params
+        pub BbsPlusParams get(fn get_params):
+            double_map hasher(blake2_128_concat) did::Did, hasher(identity) u32 => Option<BbsPlusParameters>;
 
-        pub BBSPlusKeys get(fn get_key):
+        /// Public keys are stored as key value (did, counter) -> public key
+        /// Its assumed that the public keys are always members of G2. It does impact any logic on the
+        /// chain but makes up for one less storage value
+        pub BbsPlusKeys get(fn get_key):
             double_map hasher(blake2_128_concat) did::Did, hasher(identity) u32 => Option<BbsPlusPublicKey>;
     }
 }
@@ -88,17 +104,26 @@ decl_module! {
 
         type Error = Error<T>;
 
+        const LabelMaxSize: u32 = T::LabelMaxSize::get();
+        const LabelPerByteWeight: Weight = T::LabelPerByteWeight::get();
         const ParamsMaxSize: u32 = T::ParamsMaxSize::get();
         const ParamsPerByteWeight: Weight = T::ParamsPerByteWeight::get();
         const PublicKeyMaxSize: u32 = T::ParamsMaxSize::get();
         const PublicKeyPerByteWeight: Weight = T::PublicKeyPerByteWeight::get();
 
-        // TODO: Fix weight
+        // Note: The weights for the dispatchables below consider only the major contributions, i.e. storage
+        // reads and writes, signature verifications and any major contributors to the size of the arguments.
+        // Weights are not yet determined by benchmarks and thus ignore processing time and also event storage
+        // cost
 
-        #[weight = 10_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 2)
+            + signature.weight()
+            + params.bytes.len() as u64 * T::ParamsPerByteWeight::get()
+            + params.label.as_ref().map_or_else(|| 0, |l| l.len()) as u64 * T::LabelPerByteWeight::get()
+        ]
         pub fn add_params(
             origin,
-            params: BBSPlusParameters,
+            params: BbsPlusParameters,
             signer: did::Did,
             signature: DidSignature,
         ) -> DispatchResult {
@@ -106,7 +131,10 @@ decl_module! {
             Module::<T>::add_params_(params, signer, signature)
         }
 
-        #[weight = 10_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 2)
+            + {if public_key.params_ref.is_some() { 1 } else {0}} + signature.weight()
+            + public_key.bytes.len() as u64 * T::PublicKeyPerByteWeight::get()
+        ]
         pub fn add_public_key(
             origin,
             public_key: BbsPlusPublicKey,
@@ -117,7 +145,7 @@ decl_module! {
             Module::<T>::add_public_key_(public_key, signer, signature)
         }
 
-        #[weight = 10_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
         pub fn remove_params(
             origin,
             params_ref: ParametersStorageKey,
@@ -127,7 +155,7 @@ decl_module! {
             Module::<T>::remove_params_(params_ref, signature)
         }
 
-        #[weight = 10_000]
+        #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
         pub fn remove_public_key(
             origin,
             public_key_ref: PublicKeyStorageKey,
@@ -141,10 +169,14 @@ decl_module! {
 
 impl<T: Config> Module<T> {
     fn add_params_(
-        params: BBSPlusParameters,
+        params: BbsPlusParameters,
         signer: did::Did,
         signature: DidSignature,
     ) -> DispatchResult {
+        ensure!(
+            T::LabelMaxSize::get() as usize >= params.label.as_ref().map_or_else(|| 0, |l| l.len()),
+            Error::<T>::LabelTooBig
+        );
         ensure!(
             T::ParamsMaxSize::get() as usize >= params.bytes.len(),
             Error::<T>::ParamsTooBig
@@ -172,9 +204,12 @@ impl<T: Config> Module<T> {
         match public_key.params_ref {
             Some(params_ref) => {
                 ensure!(
-                    BBSPlusParams::contains_key(&params_ref.0, &params_ref.1),
+                    BbsPlusParams::contains_key(&params_ref.0, &params_ref.1),
                     Error::<T>::ParamsDontExist
                 );
+
+                // Note: Once we have more than 1 curve type, it should check that params and key
+                // both have same curve type
             }
             None => (),
         }
@@ -191,7 +226,7 @@ impl<T: Config> Module<T> {
 
     fn remove_params_(params_ref: ParametersStorageKey, signature: DidSignature) -> DispatchResult {
         ensure!(
-            BBSPlusParams::contains_key(&params_ref.0, &params_ref.1),
+            BbsPlusParams::contains_key(&params_ref.0, &params_ref.1),
             Error::<T>::ParamsDontExist
         );
 
@@ -199,7 +234,7 @@ impl<T: Config> Module<T> {
         let valid = did::Module::<T>::verify_sig_from_did(&signature, &payload, &params_ref.0)?;
         ensure!(valid, Error::<T>::InvalidSig);
 
-        BBSPlusParams::remove(&params_ref.0, &params_ref.1);
+        BbsPlusParams::remove(&params_ref.0, &params_ref.1);
 
         Self::deposit_event(Event::ParamsRemoved(params_ref.0, params_ref.1));
         Ok(())
@@ -210,7 +245,7 @@ impl<T: Config> Module<T> {
         signature: DidSignature,
     ) -> DispatchResult {
         ensure!(
-            BBSPlusKeys::contains_key(&public_key_ref.0, &public_key_ref.1),
+            BbsPlusKeys::contains_key(&public_key_ref.0, &public_key_ref.1),
             Error::<T>::PublicKeyDoesntExist
         );
 
@@ -218,7 +253,7 @@ impl<T: Config> Module<T> {
         let valid = did::Module::<T>::verify_sig_from_did(&signature, &payload, &public_key_ref.0)?;
         ensure!(valid, Error::<T>::InvalidSig);
 
-        BBSPlusKeys::remove(&public_key_ref.0, &public_key_ref.1);
+        BbsPlusKeys::remove(&public_key_ref.0, &public_key_ref.1);
 
         Self::deposit_event(Event::KeyRemoved(public_key_ref.0, public_key_ref.1));
         Ok(())
@@ -227,18 +262,18 @@ impl<T: Config> Module<T> {
     pub fn get_public_key_with_params(
         key_ref: &PublicKeyStorageKey,
     ) -> Option<PublicKeyWithParams> {
-        BBSPlusKeys::get(&key_ref.0, &key_ref.1).map(|pk| {
+        BbsPlusKeys::get(&key_ref.0, &key_ref.1).map(|pk| {
             let params = match &pk.params_ref {
-                Some(r) => BBSPlusParams::get(r.0, r.1),
+                Some(r) => BbsPlusParams::get(r.0, r.1),
                 _ => None,
             };
             (pk, params)
         })
     }
 
-    pub fn get_params_by_did(id: &did::Did) -> BTreeMap<u32, BBSPlusParameters> {
+    pub fn get_params_by_did(id: &did::Did) -> BTreeMap<u32, BbsPlusParameters> {
         let mut params = BTreeMap::new();
-        for (idx, val) in BBSPlusParams::iter_prefix(id) {
+        for (idx, val) in BbsPlusParams::iter_prefix(id) {
             params.insert(idx, val);
         }
         params
@@ -246,9 +281,9 @@ impl<T: Config> Module<T> {
 
     pub fn get_public_key_by_did(id: &did::Did) -> BTreeMap<u32, PublicKeyWithParams> {
         let mut keys = BTreeMap::new();
-        for (idx, pk) in BBSPlusKeys::iter_prefix(id) {
+        for (idx, pk) in BbsPlusKeys::iter_prefix(id) {
             let params = match &pk.params_ref {
-                Some(r) => BBSPlusParams::get(r.0, r.1),
+                Some(r) => BbsPlusParams::get(r.0, r.1),
                 _ => None,
             };
             keys.insert(idx, (pk, params));
@@ -256,18 +291,20 @@ impl<T: Config> Module<T> {
         keys
     }
 
-    fn on_new_params(params: BBSPlusParameters, signer: &did::Did) -> u32 {
+    /// When new params are added. 1 read and 2 writes
+    fn on_new_params(params: BbsPlusParameters, signer: &did::Did) -> u32 {
         let (params_count, key_count) = Self::did_counters(&signer);
         let new_param_count = params_count + 1;
-        BBSPlusParams::insert(&signer, new_param_count, params);
+        BbsPlusParams::insert(&signer, new_param_count, params);
         DidCounters::insert(&signer, (new_param_count, key_count));
         new_param_count
     }
 
+    /// When new public key is added. 1 read and 2 writes
     fn on_new_key(public_key: BbsPlusPublicKey, signer: &did::Did) -> u32 {
         let (params_count, key_count) = Self::did_counters(&signer);
         let new_key_count = key_count + 1;
-        BBSPlusKeys::insert(&signer, new_key_count, public_key);
+        BbsPlusKeys::insert(&signer, new_key_count, public_key);
         DidCounters::insert(&signer, (params_count, new_key_count));
         new_key_count
     }
@@ -279,16 +316,11 @@ mod test {
     use crate::did::Bytes64;
     use crate::test_common::*;
     use frame_support::assert_err;
-    use sp_core::{sr25519, Pair};
+    use sp_core::{sr25519, Pair, H256};
 
-    fn sign(keypair: &sr25519::Pair, payload: crate::StateChange) -> DidSignature {
-        let sig_bytes = keypair.sign(&payload.encode()).0;
-        return DidSignature::Sr25519(Bytes64 { value: sig_bytes });
-    }
-
-    fn sign_add_params(keypair: &sr25519::Pair, params: BBSPlusParameters) -> DidSignature {
+    fn sign_add_params(keypair: &sr25519::Pair, params: BbsPlusParameters) -> DidSignature {
         let payload = crate::StateChange::AddBBSPlusParams(params);
-        sign(keypair, payload)
+        sign(&payload, keypair)
     }
 
     fn sign_remove_params(
@@ -296,17 +328,34 @@ mod test {
         params_ref: ParametersStorageKey,
     ) -> DidSignature {
         let payload = crate::StateChange::RemoveBBSPlusParams(params_ref);
-        sign(keypair, payload)
+        sign(&payload, keypair)
     }
 
     fn sign_add_key(keypair: &sr25519::Pair, key: BbsPlusPublicKey) -> DidSignature {
         let payload = crate::StateChange::AddBBSPlusPublicKey(key);
-        sign(keypair, payload)
+        sign(&payload, keypair)
     }
 
     fn sign_remove_key(keypair: &sr25519::Pair, key_ref: PublicKeyStorageKey) -> DidSignature {
         let payload = crate::StateChange::RemoveBBSPlusPublicKey(key_ref);
-        sign(keypair, payload)
+        sign(&payload, keypair)
+    }
+
+    fn bbs_plus_events() -> Vec<super::Event> {
+        System::events()
+            .iter()
+            .filter_map(|event_record| {
+                let system::EventRecord::<TestEvent, H256> {
+                    phase: _p,
+                    event,
+                    topics: _t,
+                } = event_record;
+                match event {
+                    TestEvent::BBSPlus(e) => Some(e.clone()),
+                    _ => None,
+                }
+            })
+            .collect()
     }
 
     #[test]
@@ -314,7 +363,7 @@ mod test {
         ext().execute_with(|| {
             let (author, author_kp) = newdid();
             let params_bytes = vec![1u8; 600];
-            let mut params = BBSPlusParameters {
+            let mut params = BbsPlusParameters {
                 label: Some(vec![0, 1, 2, 3]),
                 curve_type: CurveType::Bls12381,
                 bytes: params_bytes,
@@ -332,6 +381,7 @@ mod test {
                 Error::<Test>::ParamsTooBig
             );
             assert_eq!(DidCounters::get(&author), (0, 0));
+            assert!(!bbs_plus_events().contains(&super::Event::ParamsAdded(author, 1)));
 
             params.bytes = vec![1u8; 500];
 
@@ -345,15 +395,18 @@ mod test {
                 Error::<Test>::InvalidSig
             );
             assert_eq!(DidCounters::get(&author), (0, 0));
-            assert_eq!(BBSPlusParams::get(&author, 1), None);
+            assert_eq!(BbsPlusParams::get(&author, 1), None);
+            assert!(!bbs_plus_events().contains(&super::Event::ParamsAdded(author, 1)));
 
             let sig = sign_add_params(&author_kp, params.clone());
             BBSPlusMod::add_params(Origin::signed(1), params.clone(), author.clone(), sig).unwrap();
             assert_eq!(DidCounters::get(&author), (1, 0));
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
 
-            assert_eq!(BBSPlusParams::get(&author, 2), None);
-            let params_1 = BBSPlusParameters {
+            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(author, 1)));
+
+            assert_eq!(BbsPlusParams::get(&author, 2), None);
+            let params_1 = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
                 bytes: vec![1u8; 100],
@@ -362,25 +415,27 @@ mod test {
             BBSPlusMod::add_params(Origin::signed(1), params_1.clone(), author.clone(), sig)
                 .unwrap();
             assert_eq!(DidCounters::get(&author), (2, 0));
-            assert_eq!(BBSPlusParams::get(&author, 2), Some(params_1));
+            assert_eq!(BbsPlusParams::get(&author, 2), Some(params_1));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(author, 2)));
 
             let (author_1, author_kp_1) = newdid();
-            let params_2 = BBSPlusParameters {
+            let params_2 = BbsPlusParameters {
                 label: Some(vec![0, 9, 1]),
                 curve_type: CurveType::Bls12381,
                 bytes: vec![9u8; 100],
             };
             let sig = sign_add_params(&author_kp_1, params_2.clone());
             assert_eq!(DidCounters::get(&author_1), (0, 0));
-            assert_eq!(BBSPlusParams::get(&author_1, 1), None);
+            assert_eq!(BbsPlusParams::get(&author_1, 1), None);
             BBSPlusMod::add_params(Origin::signed(1), params_2.clone(), author_1.clone(), sig)
                 .unwrap();
             assert_eq!(DidCounters::get(&author_1), (1, 0));
-            assert_eq!(BBSPlusParams::get(&author_1, 1), Some(params_2.clone()));
+            assert_eq!(BbsPlusParams::get(&author_1, 1), Some(params_2.clone()));
             assert_eq!(DidCounters::get(&author), (2, 0));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(author_1, 1)));
 
-            assert_eq!(BBSPlusParams::get(&author, 3), None);
-            let params_3 = BBSPlusParameters {
+            assert_eq!(BbsPlusParams::get(&author, 3), None);
+            let params_3 = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
                 bytes: vec![8u8; 100],
@@ -389,7 +444,8 @@ mod test {
             BBSPlusMod::add_params(Origin::signed(1), params_3.clone(), author.clone(), sig)
                 .unwrap();
             assert_eq!(DidCounters::get(&author), (3, 0));
-            assert_eq!(BBSPlusParams::get(&author, 3), Some(params_3.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 3), Some(params_3.clone()));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(author, 3)));
 
             let rf = (author.clone(), 5);
             let sig = sign_remove_params(&author_kp, rf.clone());
@@ -404,11 +460,12 @@ mod test {
             // Counter doesn't go back
             assert_eq!(DidCounters::get(&author), (3, 0));
             // Entry gone from storage
-            assert_eq!(BBSPlusParams::get(&author, 2), None);
+            assert_eq!(BbsPlusParams::get(&author, 2), None);
             // Other entries remain as it is
-            assert_eq!(BBSPlusParams::get(&author, 3), Some(params_3.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
-            assert_eq!(BBSPlusParams::get(&author_1, 1), Some(params_2));
+            assert_eq!(BbsPlusParams::get(&author, 3), Some(params_3.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author_1, 1), Some(params_2));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(author, 2)));
 
             // Cannot remove as already removed
             assert_err!(
@@ -422,10 +479,11 @@ mod test {
             // Counter doesn't go back
             assert_eq!(DidCounters::get(&author_1), (1, 0));
             // Entry gone from storage
-            assert_eq!(BBSPlusParams::get(&author_1, 1), None);
+            assert_eq!(BbsPlusParams::get(&author_1, 1), None);
             // Other entries remain as it is
-            assert_eq!(BBSPlusParams::get(&author, 3), Some(params_3));
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 3), Some(params_3));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(author_1, 1)));
 
             // Cannot remove as already removed
             assert_err!(
@@ -439,9 +497,10 @@ mod test {
             // Counter doesn't go back
             assert_eq!(DidCounters::get(&author), (3, 0));
             // Entry gone from storage
-            assert_eq!(BBSPlusParams::get(&author, 3), None);
+            assert_eq!(BbsPlusParams::get(&author, 3), None);
             // Other entries remain as it is
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(author, 3)));
 
             let rf = (author.clone(), 1);
             let sig = sign_remove_params(&author_kp, rf.clone());
@@ -449,7 +508,8 @@ mod test {
             // Counter doesn't go back
             assert_eq!(DidCounters::get(&author), (3, 0));
             // Entry gone from storage
-            assert_eq!(BBSPlusParams::get(&author, 1), None);
+            assert_eq!(BbsPlusParams::get(&author, 1), None);
+            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(author, 1)));
         });
     }
 
@@ -475,6 +535,7 @@ mod test {
                 Error::<Test>::PublicKeyTooBig
             );
             assert_eq!(DidCounters::get(&author), (0, 0));
+            assert!(!bbs_plus_events().contains(&super::Event::KeyAdded(author, 1)));
 
             key.bytes = vec![1u8; 100];
 
@@ -488,15 +549,17 @@ mod test {
                 Error::<Test>::InvalidSig
             );
             assert_eq!(DidCounters::get(&author), (0, 0));
-            assert_eq!(BBSPlusKeys::get(&author, 1), None);
+            assert_eq!(BbsPlusKeys::get(&author, 1), None);
+            assert!(!bbs_plus_events().contains(&super::Event::KeyAdded(author, 1)));
 
             let sig = sign_add_key(&author_kp, key.clone());
             BBSPlusMod::add_public_key(Origin::signed(1), key.clone(), author.clone(), sig)
                 .unwrap();
             assert_eq!(DidCounters::get(&author), (0, 1));
-            assert_eq!(BBSPlusKeys::get(&author, 1), Some(key.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 1), Some(key.clone()));
+            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author, 1)));
 
-            assert_eq!(BBSPlusKeys::get(&author, 2), None);
+            assert_eq!(BbsPlusKeys::get(&author, 2), None);
             let key_1 = BbsPlusPublicKey {
                 params_ref: None,
                 curve_type: CurveType::Bls12381,
@@ -506,7 +569,8 @@ mod test {
             BBSPlusMod::add_public_key(Origin::signed(1), key_1.clone(), author.clone(), sig)
                 .unwrap();
             assert_eq!(DidCounters::get(&author), (0, 2));
-            assert_eq!(BBSPlusKeys::get(&author, 2), Some(key_1));
+            assert_eq!(BbsPlusKeys::get(&author, 2), Some(key_1));
+            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author, 2)));
 
             let (author_1, author_kp_1) = newdid();
             let key_2 = BbsPlusPublicKey {
@@ -516,14 +580,14 @@ mod test {
             };
             let sig = sign_add_key(&author_kp_1, key_2.clone());
             assert_eq!(DidCounters::get(&author_1), (0, 0));
-            assert_eq!(BBSPlusKeys::get(&author_1, 1), None);
+            assert_eq!(BbsPlusKeys::get(&author_1, 1), None);
             BBSPlusMod::add_public_key(Origin::signed(1), key_2.clone(), author_1.clone(), sig)
                 .unwrap();
             assert_eq!(DidCounters::get(&author_1), (0, 1));
-            assert_eq!(BBSPlusKeys::get(&author_1, 1), Some(key_2.clone()));
+            assert_eq!(BbsPlusKeys::get(&author_1, 1), Some(key_2.clone()));
             assert_eq!(DidCounters::get(&author), (0, 2));
 
-            assert_eq!(BBSPlusParams::get(&author, 3), None);
+            assert_eq!(BbsPlusParams::get(&author, 3), None);
             let key_3 = BbsPlusPublicKey {
                 params_ref: None,
                 curve_type: CurveType::Bls12381,
@@ -533,7 +597,7 @@ mod test {
             BBSPlusMod::add_public_key(Origin::signed(1), key_3.clone(), author.clone(), sig)
                 .unwrap();
             assert_eq!(DidCounters::get(&author), (0, 3));
-            assert_eq!(BBSPlusKeys::get(&author, 3), Some(key_3.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 3), Some(key_3.clone()));
 
             let rf = (author.clone(), 5);
             let sig = sign_remove_key(&author_kp, rf.clone());
@@ -548,11 +612,11 @@ mod test {
             // Counter doesn't go back
             assert_eq!(DidCounters::get(&author), (0, 3));
             // Entry gone from storage
-            assert_eq!(BBSPlusKeys::get(&author, 2), None);
+            assert_eq!(BbsPlusKeys::get(&author, 2), None);
             // Other entries remain as it is
-            assert_eq!(BBSPlusKeys::get(&author, 3), Some(key_3.clone()));
-            assert_eq!(BBSPlusKeys::get(&author, 1), Some(key.clone()));
-            assert_eq!(BBSPlusKeys::get(&author_1, 1), Some(key_2));
+            assert_eq!(BbsPlusKeys::get(&author, 3), Some(key_3.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 1), Some(key.clone()));
+            assert_eq!(BbsPlusKeys::get(&author_1, 1), Some(key_2));
 
             // Cannot remove as already removed
             assert_err!(
@@ -566,10 +630,11 @@ mod test {
             // Counter doesn't go back
             assert_eq!(DidCounters::get(&author_1), (0, 1));
             // Entry gone from storage
-            assert_eq!(BBSPlusKeys::get(&author_1, 1), None);
+            assert_eq!(BbsPlusKeys::get(&author_1, 1), None);
             // Other entries remain as it is
-            assert_eq!(BBSPlusKeys::get(&author, 3), Some(key_3));
-            assert_eq!(BBSPlusKeys::get(&author, 1), Some(key.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 3), Some(key_3));
+            assert_eq!(BbsPlusKeys::get(&author, 1), Some(key.clone()));
+            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(author_1, 1)));
 
             // Cannot remove as already removed
             assert_err!(
@@ -583,9 +648,10 @@ mod test {
             // Counter doesn't go back
             assert_eq!(DidCounters::get(&author), (0, 3));
             // Entry gone from storage
-            assert_eq!(BBSPlusKeys::get(&author, 3), None);
+            assert_eq!(BbsPlusKeys::get(&author, 3), None);
             // Other entries remain as it is
-            assert_eq!(BBSPlusKeys::get(&author, 1), Some(key));
+            assert_eq!(BbsPlusKeys::get(&author, 1), Some(key));
+            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(author, 3)));
 
             let rf = (author.clone(), 1);
             let sig = sign_remove_key(&author_kp, rf.clone());
@@ -593,9 +659,10 @@ mod test {
             // Counter doesn't go back
             assert_eq!(DidCounters::get(&author), (0, 3));
             // Entry gone from storage
-            assert_eq!(BBSPlusKeys::get(&author, 1), None);
+            assert_eq!(BbsPlusKeys::get(&author, 1), None);
+            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(author, 1)));
 
-            let params = BBSPlusParameters {
+            let params = BbsPlusParameters {
                 label: Some(vec![0, 1, 2, 3]),
                 curve_type: CurveType::Bls12381,
                 bytes: vec![19; 100],
@@ -603,7 +670,7 @@ mod test {
             let sig = sign_add_params(&author_kp, params.clone());
             BBSPlusMod::add_params(Origin::signed(1), params.clone(), author.clone(), sig).unwrap();
             assert_eq!(DidCounters::get(&author), (1, 3));
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
 
             // Add key with reference to non-existent params
             let key_4 = BbsPlusPublicKey {
@@ -658,12 +725,12 @@ mod test {
             let (author_1, _) = newdid();
             let (author_2, _) = newdid();
 
-            let params = BBSPlusParameters {
+            let params = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
                 bytes: vec![5; 100],
             };
-            let params_1 = BBSPlusParameters {
+            let params_1 = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
                 bytes: vec![6; 100],
@@ -691,59 +758,59 @@ mod test {
 
             assert_eq!(BBSPlusMod::on_new_params(params.clone(), &author), 1);
             assert_eq!(DidCounters::get(&author), (1, 0));
-            assert_eq!(BBSPlusKeys::get(&author, 1), None);
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 1), None);
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
 
             assert_eq!(BBSPlusMod::on_new_key(key.clone(), &author), 1);
             assert_eq!(DidCounters::get(&author), (1, 1));
-            assert_eq!(BBSPlusKeys::get(&author, 1), Some(key.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 2), None);
+            assert_eq!(BbsPlusKeys::get(&author, 1), Some(key.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 2), None);
 
             assert_eq!(BBSPlusMod::on_new_key(key_1.clone(), &author), 2);
             assert_eq!(DidCounters::get(&author), (1, 2));
-            assert_eq!(BBSPlusKeys::get(&author, 1), Some(key.clone()));
-            assert_eq!(BBSPlusKeys::get(&author, 2), Some(key_1.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 2), None);
-            assert_eq!(BBSPlusParams::get(&author, 3), None);
+            assert_eq!(BbsPlusKeys::get(&author, 1), Some(key.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 2), Some(key_1.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 2), None);
+            assert_eq!(BbsPlusParams::get(&author, 3), None);
 
             assert_eq!(BBSPlusMod::on_new_key(key_2.clone(), &author), 3);
             assert_eq!(DidCounters::get(&author), (1, 3));
-            assert_eq!(BBSPlusKeys::get(&author, 1), Some(key.clone()));
-            assert_eq!(BBSPlusKeys::get(&author, 2), Some(key_1.clone()));
-            assert_eq!(BBSPlusKeys::get(&author, 3), Some(key_2.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 2), None);
-            assert_eq!(BBSPlusParams::get(&author, 3), None);
+            assert_eq!(BbsPlusKeys::get(&author, 1), Some(key.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 2), Some(key_1.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 3), Some(key_2.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 2), None);
+            assert_eq!(BbsPlusParams::get(&author, 3), None);
 
             assert_eq!(BBSPlusMod::on_new_params(params_1.clone(), &author), 2);
             assert_eq!(DidCounters::get(&author), (2, 3));
-            assert_eq!(BBSPlusKeys::get(&author, 1), Some(key.clone()));
-            assert_eq!(BBSPlusKeys::get(&author, 2), Some(key_1.clone()));
-            assert_eq!(BBSPlusKeys::get(&author, 3), Some(key_2.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 1), Some(params.clone()));
-            assert_eq!(BBSPlusParams::get(&author, 2), Some(params_1.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 1), Some(key.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 2), Some(key_1.clone()));
+            assert_eq!(BbsPlusKeys::get(&author, 3), Some(key_2.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author, 2), Some(params_1.clone()));
 
             assert_eq!(DidCounters::get(&author_1), (0, 0));
             assert_eq!(DidCounters::get(&author_2), (0, 0));
 
             assert_eq!(BBSPlusMod::on_new_key(key.clone(), &author_1), 1);
             assert_eq!(DidCounters::get(&author_1), (0, 1));
-            assert_eq!(BBSPlusKeys::get(&author_1, 1), Some(key.clone()));
-            assert_eq!(BBSPlusParams::get(&author_1, 1), None);
+            assert_eq!(BbsPlusKeys::get(&author_1, 1), Some(key.clone()));
+            assert_eq!(BbsPlusParams::get(&author_1, 1), None);
 
             assert_eq!(BBSPlusMod::on_new_params(params.clone(), &author_1), 1);
             assert_eq!(DidCounters::get(&author_1), (1, 1));
-            assert_eq!(BBSPlusKeys::get(&author_1, 1), Some(key.clone()));
-            assert_eq!(BBSPlusParams::get(&author_1, 1), Some(params.clone()));
+            assert_eq!(BbsPlusKeys::get(&author_1, 1), Some(key.clone()));
+            assert_eq!(BbsPlusParams::get(&author_1, 1), Some(params.clone()));
 
             assert_eq!(BBSPlusMod::on_new_key(key_1.clone(), &author_1), 2);
             assert_eq!(DidCounters::get(&author_1), (1, 2));
-            assert_eq!(BBSPlusKeys::get(&author_1, 1), Some(key.clone()));
-            assert_eq!(BBSPlusKeys::get(&author_1, 2), Some(key_1.clone()));
-            assert_eq!(BBSPlusParams::get(&author_1, 1), Some(params.clone()));
-            assert_eq!(BBSPlusParams::get(&author_1, 2), None);
+            assert_eq!(BbsPlusKeys::get(&author_1, 1), Some(key.clone()));
+            assert_eq!(BbsPlusKeys::get(&author_1, 2), Some(key_1.clone()));
+            assert_eq!(BbsPlusParams::get(&author_1, 1), Some(params.clone()));
+            assert_eq!(BbsPlusParams::get(&author_1, 2), None);
 
             assert_eq!(DidCounters::get(&author_2), (0, 0));
         });
@@ -755,17 +822,17 @@ mod test {
             let (author, _) = newdid();
             let (author_1, _) = newdid();
 
-            let params = BBSPlusParameters {
+            let params = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
                 bytes: vec![5; 100],
             };
-            let params_1 = BBSPlusParameters {
+            let params_1 = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
                 bytes: vec![6; 100],
             };
-            let params_2 = BBSPlusParameters {
+            let params_2 = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
                 bytes: vec![7; 100],
@@ -840,7 +907,7 @@ mod test {
                 m
             });
 
-            BBSPlusParams::remove(&author, &1);
+            BbsPlusParams::remove(&author, &1);
 
             assert_eq!(BBSPlusMod::get_params_by_did(&author).len(), 0);
 

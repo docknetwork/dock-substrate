@@ -16,4 +16,4 @@ sp-rpc = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git
 sp-runtime = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
 sp-api = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
 sp-blockchain = { version = '3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
-core_mods = { version = '0.2.0', path = '..' }
+core_mods = { version = '0.3.0', path = '..' }

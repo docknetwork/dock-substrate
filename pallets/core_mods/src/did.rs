@@ -7,7 +7,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_core::{ecdsa, ed25519, sr25519};
-use sp_runtime::traits::Verify;
+use sp_runtime::traits::{Hash, Verify};
 use sp_std::fmt;
 
 /// Size of the Dock DID in bytes
@@ -335,7 +335,11 @@ decl_module! {
             let current_block_no = <system::Module<T>>::block_number();
             let pk = detail.public_key.clone();
             Dids::<T>::insert(did, (detail, current_block_no));
-            Self::deposit_event(Event::DidAdded(did, pk));
+            <system::Module<T>>::deposit_event_indexed(
+                &[<T as system::Config>::Hashing::hash(&did)],
+                <T as Trait>::Event::from(Event::DidAdded(did, pk))
+                .into()
+            );
             Ok(())
         }
 
@@ -393,7 +397,11 @@ decl_module! {
 
             let pk = current_key_detail.public_key.clone();
             Dids::<T>::insert(key_update.did, (current_key_detail, current_block_no));
-            Self::deposit_event(Event::KeyUpdated(key_update.did, pk));
+            <system::Module<T>>::deposit_event_indexed(
+                &[<T as system::Config>::Hashing::hash(&key_update.did)],
+                <T as Trait>::Event::from(Event::KeyUpdated(key_update.did, pk))
+                .into()
+            );
             Ok(())
         }
 
@@ -442,7 +450,11 @@ decl_module! {
 
             // Remove DID
             Dids::<T>::remove(did);
-            Self::deposit_event(Event::DidRemoved(did));
+            <system::Module<T>>::deposit_event_indexed(
+                &[<T as system::Config>::Hashing::hash(&did)],
+                <T as Trait>::Event::from(Event::DidRemoved(did))
+                .into()
+            );
             Ok(())
         }
     }

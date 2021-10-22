@@ -828,7 +828,6 @@ mod test {
                     topics,
                 } = event_record;
                 assert_eq!(phase, &system::Phase::Initialization);
-                assert_eq!(topics, &vec![]);
                 match event {
                     TestEvent::Master(e) => Some(e.clone()),
                     _ => None,
