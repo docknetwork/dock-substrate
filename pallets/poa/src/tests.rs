@@ -4,20 +4,19 @@ use super::*;
 use crate as poa;
 
 use frame_support::{
-    assert_err, assert_ok, parameter_types,
+    parameter_types,
     sp_runtime::{
-        testing::{Header, UintAuthorityId},
-        traits::{BlakeTwo256, ConvertInto, IdentityLookup, OpaqueKeys},
-        ConsensusEngineId, KeyTypeId, Perbill,
+        testing::Header,
+        traits::{BlakeTwo256, IdentityLookup},
+        Perbill,
     },
-    traits::FindAuthor,
     weights::{
         constants::{RocksDbWeight, WEIGHT_PER_SECOND},
         Weight,
     },
 };
-use frame_system::{self as system, RawOrigin};
-use sp_core::{crypto::key_types, H256};
+use frame_system::{self as system};
+use sp_core::H256;
 
 // Configure a mock runtime to test the pallet.
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<TestRuntime>;
@@ -82,20 +81,6 @@ impl balances::Config for TestRuntime {
 
 impl Trait for TestRuntime {
     type Currency = Balances;
-}
-
-fn new_test_ext() -> sp_io::TestExternalities {
-    let mut t = system::GenesisConfig::default()
-        .build_storage::<TestRuntime>()
-        .unwrap();
-    crate::GenesisConfig::<TestRuntime> {
-        emission_supply: 0,
-        poa_last_block: H256::zero(),
-    }
-    .assimilate_storage(&mut t)
-    .unwrap();
-    let ext: sp_io::TestExternalities = t.into();
-    ext
 }
 
 #[test]

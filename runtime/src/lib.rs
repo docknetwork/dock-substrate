@@ -21,6 +21,7 @@ extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
 
+pub use core_mods::accumulator;
 pub use core_mods::anchor;
 pub use core_mods::attest;
 pub use core_mods::bbs_plus;
@@ -181,7 +182,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
 /// Also build the node in release mode to support small block times (< 1 sec)
 /// TODO: Support instant seal
 #[cfg(feature = "fastblock")]
-pub const MILLISECS_PER_BLOCK: u64 = 600;
+pub const MILLISECS_PER_BLOCK: u64 = 500;
 
 #[cfg(not(feature = "fastblock"))]
 pub const MILLISECS_PER_BLOCK: u64 = 3000;
@@ -690,14 +691,34 @@ impl bbs_plus::Config for Runtime {
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
 }
 
+impl accumulator::Config for Runtime {
+    type Event = Event;
+    type ParamsMaxSize = AccumulatorParamsMaxSize;
+    type ParamsPerByteWeight = AccumulatorParamsPerByteWeight;
+    type PublicKeyMaxSize = PublicKeyMaxSize;
+    type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
+    type AccumulatedMaxSize = AccumulatedMaxSize;
+    type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
+    type AccumulatorUpdateMaxSize = AccumulatorUpdateMaxSize;
+    type AccumulatorUpdatePerByteWeight = AccumulatorUpdatePerByteWeight;
+}
+
 parameter_types! {
     // 8KB
     pub const MaxBlobSize: u32 = 8192;
     pub const StorageWeight: Weight = 1100;
+    // 16KB
     pub const ParamsMaxSize: u32 = 65536;
     pub const ParamsPerByteWeight: Weight = 10;
-    pub const PublicKeyMaxSize: u32 = 128;
+    pub const PublicKeyMaxSize: u32 = 256;
     pub const PublicKeyPerByteWeight: Weight = 10;
+    pub const AccumulatorParamsMaxSize: u32 = 512;
+    pub const AccumulatorParamsPerByteWeight: Weight = 10;
+    pub const AccumulatedMaxSize: u32 = 128;
+    pub const AccumulatedPerByteWeight: Weight = 10;
+    // 1MB
+    pub const AccumulatorUpdateMaxSize: u32 = 1048576;
+    pub const AccumulatorUpdatePerByteWeight: Weight = 10;
 }
 
 impl blob::Trait for Runtime {
@@ -1323,7 +1344,8 @@ construct_runtime!(
         Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
         Tips: pallet_tips::{Module, Call, Storage, Event<T>},
         Identity: pallet_identity::{Module, Call, Storage, Event<T>},
-        BBSPlus: bbs_plus::{Module, Call, Storage, Event},
+        BbsPlus: bbs_plus::{Module, Call, Storage, Event},
+        Accumulator: accumulator::{Module, Call, Storage, Event},
     }
 );
 
@@ -1723,20 +1745,24 @@ impl_runtime_apis! {
     }
 
     impl core_mods::runtime_api::CoreModsApi<Block> for Runtime {
-        fn bbs_plus_params(id: bbs_plus::ParametersStorageKey) -> Option<bbs_plus::BBSPlusParameters> {
-            BBSPlus::get_params(id.0, id.1)
-        }
-
         fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {
-            BBSPlus::get_public_key_with_params(&id)
+            BbsPlus::get_public_key_with_params(&id)
         }
 
-        fn bbs_plus_params_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::BBSPlusParameters> {
-            BBSPlus::get_params_by_did(&did)
+        fn bbs_plus_params_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::BbsPlusParameters> {
+            BbsPlus::get_params_by_did(&did)
         }
 
         fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::PublicKeyWithParams> {
-            BBSPlus::get_public_key_by_did(&did)
+            BbsPlus::get_public_key_by_did(&did)
+        }
+
+        fn accumulator_public_key_with_params(id: accumulator::PublicKeyStorageKey) -> Option<accumulator::PublicKeyWithParams> {
+            Accumulator::get_public_key_with_params(&id)
+        }
+
+        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::PublicKeyWithParams>)> {
+            Accumulator::get_accumulator_with_public_key_and_params(&id)
         }
     }
 

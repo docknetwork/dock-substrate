@@ -1,5 +1,6 @@
 //! Boilerplate for runtime module unit tests
 
+use crate::accumulator;
 use crate::anchor;
 use crate::attest;
 use crate::bbs_plus;
@@ -40,7 +41,8 @@ frame_support::construct_runtime!(
         MasterMod: master::{Module, Call, Storage, Event<T>, Config},
         AnchorMod: anchor::{Module, Call, Storage, Event<T>},
         AttestMod: attest::{Module, Call, Storage},
-        BBSPlusMod: bbs_plus::{Module, Call, Storage, Event}
+        BBSPlusMod: bbs_plus::{Module, Call, Storage, Event},
+        AccumMod: accumulator::{Module, Call, Storage, Event}
     }
 );
 
@@ -49,6 +51,8 @@ pub enum TestEvent {
     Master(crate::master::Event<Test>),
     Anchor(crate::anchor::Event<Test>),
     Unknown,
+    BBSPlus(bbs_plus::Event),
+    Accum(accumulator::Event),
 }
 
 impl From<system::Event<Test>> for TestEvent {
@@ -72,6 +76,18 @@ impl From<crate::master::Event<Test>> for TestEvent {
 impl From<crate::anchor::Event<Test>> for TestEvent {
     fn from(other: crate::anchor::Event<Test>) -> Self {
         Self::Anchor(other)
+    }
+}
+
+impl From<bbs_plus::Event> for TestEvent {
+    fn from(other: bbs_plus::Event) -> Self {
+        Self::BBSPlus(other)
+    }
+}
+
+impl From<accumulator::Event> for TestEvent {
+    fn from(other: accumulator::Event) -> Self {
+        Self::Accum(other)
     }
 }
 
@@ -117,6 +133,10 @@ parameter_types! {
     pub const ParamsPerByteWeight: Weight = 10;
     pub const PublicKeyMaxSize: u32 = 128;
     pub const PublicKeyPerByteWeight: Weight = 10;
+    pub const AccumulatedMaxSize: u32 = 256;
+    pub const AccumulatedPerByteWeight: Weight = 10;
+    pub const AccumulatorUpdateMaxSize: u32 = 500;
+    pub const AccumulatorUpdatePerByteWeight: Weight = 10;
 }
 
 impl crate::blob::Trait for Test {
@@ -137,12 +157,24 @@ impl crate::attest::Trait for Test {
     type StorageWeight = StorageWeight;
 }
 
-impl crate::bbs_plus::Config for Test {
-    type Event = ();
+impl bbs_plus::Config for Test {
+    type Event = TestEvent;
     type ParamsMaxSize = ParamsMaxSize;
     type ParamsPerByteWeight = ParamsPerByteWeight;
     type PublicKeyMaxSize = PublicKeyMaxSize;
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
+}
+
+impl accumulator::Config for Test {
+    type Event = TestEvent;
+    type ParamsMaxSize = ParamsMaxSize;
+    type ParamsPerByteWeight = ParamsPerByteWeight;
+    type PublicKeyMaxSize = PublicKeyMaxSize;
+    type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
+    type AccumulatedMaxSize = AccumulatedMaxSize;
+    type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
+    type AccumulatorUpdateMaxSize = AccumulatorUpdateMaxSize;
+    type AccumulatorUpdatePerByteWeight = AccumulatorUpdatePerByteWeight;
 }
 
 pub const ABBA: u64 = 0;
