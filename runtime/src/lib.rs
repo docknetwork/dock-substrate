@@ -677,6 +677,24 @@ impl transaction_payment::Config for Runtime {
         TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 }
 
+parameter_types! {
+    // 8KB
+    pub const MaxBlobSize: u32 = 8192;
+    pub const StorageWeight: Weight = 1100;
+    // 128 bytes, for large labels, hash of a label can be used
+    pub const LabelMaxSize: u32 = 128;
+    pub const LabelPerByteWeight: Weight = 10;
+    // 16KB
+    pub const ParamsMaxSize: u32 = 65536;
+    pub const ParamsPerByteWeight: Weight = 10;
+    pub const PublicKeyMaxSize: u32 = 256;
+    pub const PublicKeyPerByteWeight: Weight = 10;
+    pub const AccumulatorParamsMaxSize: u32 = 512;
+    pub const AccumulatorParamsPerByteWeight: Weight = 10;
+    pub const AccumulatedMaxSize: u32 = 128;
+    pub const AccumulatedPerByteWeight: Weight = 10;
+}
+
 impl did::Trait for Runtime {
     type Event = Event;
 }
@@ -703,29 +721,6 @@ impl accumulator::Config for Runtime {
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
     type AccumulatedMaxSize = AccumulatedMaxSize;
     type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
-    type AccumulatorUpdateMaxSize = AccumulatorUpdateMaxSize;
-    type AccumulatorUpdatePerByteWeight = AccumulatorUpdatePerByteWeight;
-}
-
-parameter_types! {
-    // 8KB
-    pub const MaxBlobSize: u32 = 8192;
-    pub const StorageWeight: Weight = 1100;
-    // 128 bytes, for large labels, hash of a label can be used
-    pub const LabelMaxSize: u32 = 128;
-    pub const LabelPerByteWeight: Weight = 10;
-    // 16KB
-    pub const ParamsMaxSize: u32 = 65536;
-    pub const ParamsPerByteWeight: Weight = 10;
-    pub const PublicKeyMaxSize: u32 = 256;
-    pub const PublicKeyPerByteWeight: Weight = 10;
-    pub const AccumulatorParamsMaxSize: u32 = 512;
-    pub const AccumulatorParamsPerByteWeight: Weight = 10;
-    pub const AccumulatedMaxSize: u32 = 128;
-    pub const AccumulatedPerByteWeight: Weight = 10;
-    // 1MB
-    pub const AccumulatorUpdateMaxSize: u32 = 1048576;
-    pub const AccumulatorUpdatePerByteWeight: Weight = 10;
 }
 
 impl blob::Trait for Runtime {

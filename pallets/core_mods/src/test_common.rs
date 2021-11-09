@@ -137,8 +137,6 @@ parameter_types! {
     pub const PublicKeyPerByteWeight: Weight = 10;
     pub const AccumulatedMaxSize: u32 = 256;
     pub const AccumulatedPerByteWeight: Weight = 10;
-    pub const AccumulatorUpdateMaxSize: u32 = 500;
-    pub const AccumulatorUpdatePerByteWeight: Weight = 10;
 }
 
 impl crate::blob::Trait for Test {
@@ -179,8 +177,6 @@ impl accumulator::Config for Test {
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
     type AccumulatedMaxSize = AccumulatedMaxSize;
     type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
-    type AccumulatorUpdateMaxSize = AccumulatorUpdateMaxSize;
-    type AccumulatorUpdatePerByteWeight = AccumulatorUpdatePerByteWeight;
 }
 
 pub const ABBA: u64 = 0;

@@ -151,12 +151,6 @@ pub trait Config: system::Config + did::Trait {
     /// Maximum byte size of the accumulated value which is just one group element (not the number of members)
     type AccumulatedMaxSize: Get<u32>;
     type AccumulatedPerByteWeight: Get<Weight>;
-    /// Maximum byte size of the accumulator updates sent in a single transaction. Includes byte sizes
-    /// of all additions, removals and witness update infos
-    type AccumulatorUpdateMaxSize: Get<u32>;
-    /// Weight consumed per byte of the update. This will determine the cost of the transaction.
-    type AccumulatorUpdatePerByteWeight: Get<Weight>;
-    /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Config>::Event>;
 }
 
@@ -183,7 +177,6 @@ decl_error! {
         AccumulatedTooBig,
         AccumulatorDoesntExist,
         AccumulatorAlreadyExists,
-        AccumulatorUpdatesTooBig,
         DifferentBlockNumber,
     }
 }
@@ -229,8 +222,6 @@ decl_module! {
         const PublicKeyPerByteWeight: Weight = T::PublicKeyPerByteWeight::get();
         const AccumulatedMaxSize: u32 = T::AccumulatedMaxSize::get();
         const AccumulatedPerByteWeight: Weight = T::AccumulatedPerByteWeight::get();
-        const AccumulatorUpdateMaxSize: u32 = T::AccumulatorUpdateMaxSize::get();
-        const AccumulatorUpdatePerByteWeight: Weight = T::AccumulatorUpdatePerByteWeight::get();
 
         // Note: The weights for the dispatchables below consider only the major contributions, i.e. storage
         // reads and writes, signature verifications and any major contributors to the size of the arguments.
@@ -311,7 +302,6 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(2, 1)
             + signature.weight()
             + update.new_accumulated.len() as u64 * T::AccumulatedPerByteWeight::get()
-            + update.update_size() as u64 * T::AccumulatorUpdatePerByteWeight::get()
         ]
         pub fn update_accumulator(
             origin,
@@ -472,10 +462,6 @@ impl<T: Config> Module<T> {
         ensure!(
             T::AccumulatedMaxSize::get() as usize >= update.new_accumulated.len(),
             Error::<T>::AccumulatedTooBig
-        );
-        ensure!(
-            T::AccumulatorUpdateMaxSize::get() as usize >= update.update_size(),
-            Error::<T>::AccumulatorUpdatesTooBig
         );
 
         let accumulator = Accumulators::<T>::get(&update.id);
@@ -742,44 +728,6 @@ mod test {
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
                 Error::<Test>::AccumulatedTooBig
-            );
-
-            update_accum.new_accumulated = vec![5; 100];
-            update_accum.additions = Some(vec![
-                vec![89; 20],
-                vec![45; 60],
-                vec![55; 80],
-                vec![56; 40],
-                vec![57; 50],
-            ]);
-            update_accum.removals = Some(vec![vec![10; 50], vec![5; 80], vec![35; 20]]);
-            update_accum.witness_update_info = Some(vec![11; 500]);
-            let sig = sign_update_accum(&author_kp, update_accum.clone());
-            assert_err!(
-                AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                Error::<Test>::AccumulatorUpdatesTooBig
-            );
-
-            update_accum.new_accumulated = vec![5; 100];
-            update_accum.additions = Some(vec![
-                vec![89; 20],
-                vec![45; 60],
-                vec![55; 80],
-                vec![56; 40],
-                vec![57; 50],
-                vec![10; 50],
-                vec![5; 80],
-                vec![35; 20],
-                vec![11; 40],
-                vec![15; 44],
-                vec![25; 58],
-            ]);
-            update_accum.removals = None;
-            update_accum.witness_update_info = None;
-            let sig = sign_update_accum(&author_kp, update_accum.clone());
-            assert_err!(
-                AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                Error::<Test>::AccumulatorUpdatesTooBig
             );
 
             update_accum.new_accumulated = vec![5; 100];
