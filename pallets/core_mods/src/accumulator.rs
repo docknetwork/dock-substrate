@@ -54,6 +54,7 @@ pub struct AccumulatorCommon {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct UniversalAccumulator {
     pub common: AccumulatorCommon,
+    /// This is not enforced on chain and serves as metadata only
     pub max_size: u64,
 }
 
@@ -68,7 +69,14 @@ pub struct AddAccumulator {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemoveAccumulator {
     pub id: AccumulatorId,
-    pub last_modified: BlockNumber,
+    /// When the accumulator was created. The accumulator id and created_at can be used to uniquely identify
+    /// any accumulator across time as there can be only one accumulator with a given id at any point of time.
+    /// Eg accumulator with id `xyz` was created at block no 5, removed at block 10, again created at
+    /// block 12 (by someone else). Now any update sent between blocks 5 to 10 for id `xyz` cannot be replayed
+    /// for accumulator created on block 12
+    pub created_at: BlockNumber,
+    /// Next valid nonce, i.e. 1 greater than currently stored
+    pub nonce: u32,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
@@ -79,7 +87,14 @@ pub struct AccumulatorUpdate {
     pub additions: Option<Vec<Vec<u8>>>,
     pub removals: Option<Vec<Vec<u8>>>,
     pub witness_update_info: Option<Vec<u8>>,
-    pub last_modified: BlockNumber,
+    /// When the accumulator was created. The accumulator id and created_at can be used to uniquely identify
+    /// any accumulator across time as there can be only one accumulator with a given id at any point of time.
+    /// Eg accumulator with id `xyz` was created at block no 5, removed at block 10, again created at
+    /// block 12 (by someone else). Now any update sent between blocks 5 to 10 for id `xyz` cannot be replayed
+    /// for accumulator created on block 12
+    pub created_at: BlockNumber,
+    /// Next valid nonce, i.e. 1 greater than currently stored
+    pub nonce: u32,
 }
 
 impl Accumulator {
@@ -114,26 +129,6 @@ impl Accumulator {
     }
 }
 
-impl AccumulatorUpdate {
-    /// Byte size of the update. Considers additions, removals and witness update info
-    fn update_size(&self) -> usize {
-        let mut size = 0;
-        size += match &self.additions {
-            Some(a) => a.iter().map(|v| v.len()).sum(),
-            _ => 0,
-        };
-        size += match &self.removals {
-            Some(a) => a.iter().map(|v| v.len()).sum(),
-            _ => 0,
-        };
-        size += self
-            .witness_update_info
-            .as_ref()
-            .map_or_else(|| 0, |l| l.len());
-        size
-    }
-}
-
 /// The module's configuration trait.
 pub trait Config: system::Config + did::Trait {
     /// Maximum size of the label
@@ -150,6 +145,7 @@ pub trait Config: system::Config + did::Trait {
     type PublicKeyPerByteWeight: Get<Weight>;
     /// Maximum byte size of the accumulated value which is just one group element (not the number of members)
     type AccumulatedMaxSize: Get<u32>;
+    /// Weight consumed per byte of accumulated.
     type AccumulatedPerByteWeight: Get<Weight>;
     type Event: From<Event> + Into<<Self as system::Config>::Event>;
 }
@@ -177,7 +173,8 @@ decl_error! {
         AccumulatedTooBig,
         AccumulatorDoesntExist,
         AccumulatorAlreadyExists,
-        DifferentBlockNumber,
+        DifferentCreationBlockNo,
+        IncorrectNonce,
     }
 }
 
@@ -195,16 +192,20 @@ decl_storage! {
         pub AccumulatorKeys get(fn get_key):
             double_map hasher(blake2_128_concat) did::Did, hasher(identity) u32 => Option<AccumulatorPublicKey>;
 
-        /// Stores latest accumulator as key value: accumulator id -> (created_at, last_updated_at, Accumulator)
+        /// Stores latest accumulator as key value: accumulator id -> (created_at, last_updated_at, nonce, Accumulator)
         /// `created_at` is the block number when the accumulator was created and is intended to serve as a starting
-        /// point for anyone looking for all updates to the accumulator
+        /// point for anyone looking for all updates to the accumulator. `last_updated_at` is the block number when
+        /// the last update was sent. `created_at` and `last_updated_at` together indicate which blocks should be
+        /// considered for finding accumulator updates.
+        /// `nonce` is the an always incrementing number starting at 0 to help with replay protection. Each new
+        /// update is supposed to have 1 higher nonce than the current one.
         /// Historical values and updates are persisted as events indexed with the accumulator id. The reason for
         /// not storing past values is to save storage in chain state. Another option could have been to store
         /// block numbers for the updates so that each block from `created_at` doesn't need to be scanned but
         /// even that requires large storage as we expect millions of updates.
         /// Just keeping the latest accumulated value allows for any potential on chain verification as well.
         pub Accumulators get(fn get_accumulator):
-            map hasher(blake2_128_concat) AccumulatorId => Option<(T::BlockNumber, T::BlockNumber, Accumulator)>;
+            map hasher(blake2_128_concat) AccumulatorId => Option<(T::BlockNumber, T::BlockNumber, u32, Accumulator)>;
     }
 }
 
@@ -281,6 +282,7 @@ decl_module! {
         /// refers to a public key. It is assumed that the accumulator is owned by the DID that owns the public key.
         /// It logs an event with the accumulator id and accumulated value. For each new accumulator, its creation block
         /// is recorded in state to indicate from which block, the chain should be scanned for the accumulator's updates.
+        /// Note: Weight is same for both kinds of accumulator even when universal takes a bit more space
         #[weight = T::DbWeight::get().reads_writes(2, 1)
             + signature.weight()
             + add_accumulator.accumulator.get_accumulated().len() as u64 * T::AccumulatedPerByteWeight::get()
@@ -446,6 +448,7 @@ impl<T: Config> Module<T> {
             (
                 current_block_no,
                 current_block_no,
+                0,
                 add_accumulator.accumulator,
             ),
         );
@@ -467,11 +470,12 @@ impl<T: Config> Module<T> {
         let accumulator = Accumulators::<T>::get(&update.id);
         ensure!(accumulator.is_some(), Error::<T>::AccumulatorDoesntExist);
 
-        let (created_at, last_modified, mut accumulator) = accumulator.unwrap();
+        let (created_at, _, nonce, mut accumulator) = accumulator.unwrap();
         ensure!(
-            last_modified == T::BlockNumber::from(update.last_modified),
-            Error::<T>::DifferentBlockNumber
+            created_at == T::BlockNumber::from(update.created_at),
+            Error::<T>::DifferentCreationBlockNo
         );
+        ensure!(nonce + 1 == update.nonce, Error::<T>::IncorrectNonce);
 
         let payload = crate::StateChange::UpdateAccumulator(update.clone()).encode();
         let valid = did::Module::<T>::verify_sig_from_did(
@@ -483,7 +487,10 @@ impl<T: Config> Module<T> {
 
         accumulator.set_new_accumulated(update.new_accumulated.clone());
         let current_block_no = <system::Module<T>>::block_number();
-        Accumulators::<T>::insert(&update.id, (created_at, current_block_no, accumulator));
+        Accumulators::<T>::insert(
+            &update.id,
+            (created_at, current_block_no, nonce + 1, accumulator),
+        );
 
         // The event stores only the accumulated value which can be used by the verifier.
         // For witness update, that information is retrieved by looking at the block and parsing the extrinsic.
@@ -502,11 +509,12 @@ impl<T: Config> Module<T> {
         let accumulator = Accumulators::<T>::get(&remove.id);
         ensure!(accumulator.is_some(), Error::<T>::AccumulatorDoesntExist);
 
-        let (_, last_modified, accumulator) = accumulator.unwrap();
+        let (created_at, _, nonce, accumulator) = accumulator.unwrap();
         ensure!(
-            last_modified == T::BlockNumber::from(remove.last_modified),
-            Error::<T>::DifferentBlockNumber
+            created_at == T::BlockNumber::from(remove.created_at),
+            Error::<T>::DifferentCreationBlockNo
         );
+        ensure!(nonce + 1 == remove.nonce, Error::<T>::IncorrectNonce);
 
         let payload = crate::StateChange::RemoveAccumulator(remove.clone()).encode();
         let valid = did::Module::<T>::verify_sig_from_did(
@@ -541,7 +549,7 @@ impl<T: Config> Module<T> {
     pub fn get_accumulator_with_public_key_and_params(
         id: &AccumulatorId,
     ) -> Option<(Vec<u8>, Option<PublicKeyWithParams>)> {
-        Accumulators::<T>::get(&id).map(|(_, _, a)| {
+        Accumulators::<T>::get(&id).map(|(_, _, _, a)| {
             let pk_p = Self::get_public_key_with_params(&a.get_key_ref());
             (a.get_accumulated().to_vec(), pk_p)
         })
@@ -702,7 +710,8 @@ mod test {
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: Some(vec![vec![9, 4]]),
                 witness_update_info: Some(vec![1, 1, 2, 3]),
-                last_modified: 5,
+                created_at: 5,
+                nonce: 1,
             };
             let sig = sign_update_accum(&author_kp, update_accum.clone());
             assert_err!(
@@ -722,7 +731,8 @@ mod test {
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: Some(vec![vec![9, 4]]),
                 witness_update_info: Some(vec![1, 1, 2, 3]),
-                last_modified: 6,
+                created_at: 5,
+                nonce: 2,
             };
             let sig = sign_update_accum(&author_kp, update_accum.clone());
             assert_err!(
@@ -746,6 +756,34 @@ mod test {
             ]);
             update_accum.removals = None;
             update_accum.witness_update_info = Some(vec![11, 12, 21, 23, 35, 50]);
+            let sig = sign_update_accum(&author_kp, update_accum.clone());
+            AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
+
+            run_to_block(20);
+
+            update_accum.created_at = 5;
+            update_accum.nonce = 2;
+            let sig = sign_update_accum(&author_kp, update_accum.clone());
+            assert_err!(
+                AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
+                Error::<Test>::IncorrectNonce
+            );
+
+            update_accum.nonce = 3;
+            let sig = sign_update_accum(&author_kp, update_accum.clone());
+            AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
+
+            run_to_block(25);
+
+            update_accum.nonce = 4;
+            update_accum.created_at = 20;
+            let sig = sign_update_accum(&author_kp, update_accum.clone());
+            assert_err!(
+                AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
+                Error::<Test>::DifferentCreationBlockNo
+            );
+
+            update_accum.created_at = 5;
             let sig = sign_update_accum(&author_kp, update_accum.clone());
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
         });
@@ -790,7 +828,7 @@ mod test {
             AccumMod::add_accumulator(Origin::signed(1), add_accum.clone(), sig).unwrap();
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some((5, 5, accumulator.clone()))
+                Some((5, 5, 0, accumulator.clone()))
             );
             assert!(accumulator_events().contains(&(
                 super::Event::AccumulatorAdded(id.clone(), accumulator.get_accumulated().to_vec()),
@@ -805,22 +843,39 @@ mod test {
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: Some(vec![vec![9, 4]]),
                 witness_update_info: Some(vec![1, 2, 3, 4]),
-                last_modified: 4,
+                created_at: 4,
+                nonce: 1,
             };
             let sig = sign_update_accum(&author_kp, update_accum.clone());
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                Error::<Test>::DifferentBlockNumber
+                Error::<Test>::DifferentCreationBlockNo
             );
 
-            update_accum.last_modified = 6;
+            update_accum.created_at = 6;
             let sig = sign_update_accum(&author_kp, update_accum.clone());
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                Error::<Test>::DifferentBlockNumber
+                Error::<Test>::DifferentCreationBlockNo
             );
 
-            update_accum.last_modified = 5;
+            update_accum.created_at = 5;
+            update_accum.nonce = 2;
+            let sig = sign_update_accum(&author_kp, update_accum.clone());
+            assert_err!(
+                AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
+                Error::<Test>::IncorrectNonce
+            );
+
+            update_accum.created_at = 5;
+            update_accum.nonce = 0;
+            let sig = sign_update_accum(&author_kp, update_accum.clone());
+            assert_err!(
+                AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
+                Error::<Test>::IncorrectNonce
+            );
+
+            update_accum.nonce = 1;
             let sig = sign_update_accum(&author_kp, update_accum.clone());
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
             let accumulator = Accumulator::Positive(AccumulatorCommon {
@@ -829,7 +884,7 @@ mod test {
             });
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some((5, 8, accumulator.clone()))
+                Some((5, 8, 1, accumulator.clone()))
             );
             assert!(accumulator_events().contains(&(
                 super::Event::AccumulatorUpdated(
@@ -847,7 +902,8 @@ mod test {
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: None,
                 witness_update_info: Some(vec![1, 1, 0, 11, 8, 19]),
-                last_modified: 8,
+                created_at: 5,
+                nonce: 2,
             };
             let sig = sign_update_accum(&author_kp, update_accum.clone());
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
@@ -857,7 +913,7 @@ mod test {
             });
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some((5, 10, accumulator.clone()))
+                Some((5, 10, 2, accumulator.clone()))
             );
             assert!(accumulator_events().contains(&(
                 super::Event::AccumulatorUpdated(
@@ -871,22 +927,31 @@ mod test {
 
             let mut rem_accum = RemoveAccumulator {
                 id: id.clone(),
-                last_modified: 9,
+                created_at: 5,
+                nonce: 2,
             };
             let sig = sign_remove_accum(&author_kp, rem_accum.clone());
             assert_err!(
                 AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig),
-                Error::<Test>::DifferentBlockNumber
+                Error::<Test>::IncorrectNonce
             );
 
-            rem_accum.last_modified = 11;
+            rem_accum.nonce = 4;
             let sig = sign_remove_accum(&author_kp, rem_accum.clone());
             assert_err!(
                 AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig),
-                Error::<Test>::DifferentBlockNumber
+                Error::<Test>::IncorrectNonce
             );
 
-            rem_accum.last_modified = 10;
+            rem_accum.created_at = 6;
+            rem_accum.nonce = 3;
+            let sig = sign_remove_accum(&author_kp, rem_accum.clone());
+            assert_err!(
+                AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig),
+                Error::<Test>::DifferentCreationBlockNo
+            );
+
+            rem_accum.created_at = 5;
             let sig = sign_remove_accum(&author_kp, rem_accum.clone());
             AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig).unwrap();
             assert_eq!(Accumulators::<Test>::get(&id), None);
