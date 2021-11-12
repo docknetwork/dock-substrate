@@ -11,3 +11,7 @@ Two files `prometheus.yaml` and `alerting-rules.yaml` are used for prometheus an
 ## Setup guide
 
 The good people at robonomics have created a nice guide to get you started: https://github.com/hubobubo/robonomics/wiki/Robonomics-(XRT)-metrics-using-Prometheus-and-Grafana - you can follow this and import the dashboard JSON here or their panel from Grafana.
+
+## Healthcheck Lambda
+There is an AWS Lambda running as a healthcheck for all PoS nodes (full and validator).
+The code for it is in `./healthcheck-lambda.js`. 
