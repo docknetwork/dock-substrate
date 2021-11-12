@@ -1,26 +1,16 @@
 const https = require('https');
 const http = require('http');
 const url = require('url');
-const webhookUrl = '{SLACK NOTIFCATION WEBHOOK URL}';
+const webhookUrl = process.env.SLACK_NOTIFCATION_WEBHOOK_URL;
 const port = 9933;
-const apiUrls = [
-  {
-    network: 'Mainnet',
-    url: '{PUT IP/HOSTNAME HERE}',
-    name: 'PoS Validator #1',
-    region: 'us-east-2'
-  },
-  {
-    network: 'Mainnet',
-    url: '{PUT IP/HOSTNAME HERE}',
-    name: 'PoS Full Node',
-    region: 'us-west-1'
-  }
-];
 
-async function parseStatus(status, node) {
-  if (status.result && status.result.startsWith('0x')) return; // If good we dont want to hear about it
+async function hasErrorStatus(status) {
+  if (status.result && status.result.startsWith('0x')) return false;
 
+  return true;
+}
+
+async function sendSlackAlert(status, node) {
   const slackBlocks = {
     blocks: [
       {
@@ -59,24 +49,28 @@ async function parseStatus(status, node) {
     }]
   };
 
-  if (status.error && status.error.code) {
-    slackBlocks.attachments[0].blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Code:* ${status.error.code}`,
-      }
-    });
+  if (status.error) {
+    if (status.error.code) {
+      slackBlocks.attachments[0].blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Code:* ${status.error.code}`,
+        }
+      });
+    }
+
+    if (status.error.message) {
+      slackBlocks.attachments[0].blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Message:* ${status.error.message}`,
+        }
+      });
+    }
   }
-  if (status.error && status.error.message) {
-    slackBlocks.attachments[0].blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: `*Message:* ${status.error.message}`,
-      }
-    });
-  }
+
   await httpPOST(webhookUrl, slackBlocks, https);
 }
 
@@ -97,7 +91,7 @@ function httpPOST(urlStr, jsonData, protocol) {
     };
 
     const req = protocol.request(options, res => {
-      if (res.statusCode === 200 || res.statusCode === 400) {
+      if (res.statusCode === 200) {
         res.on('data', d => {
           resolve(d.toString());
         });
@@ -135,7 +129,11 @@ async function checkAPIStatus(node) {
   const status = await httpPOST(`http://${node.url}:${port}`, blockNumberReq, http)
     .then(async status => {
       console.log(`${node.network} - ${node.name} status: ${status}`);
-      await parseStatus(JSON.parse(status), node);
+
+      if (hasErrorStatus(JSON.parse(status), node)) {
+        sendSlackAlert(status, node);
+      }
+
       return { status, node };
     })
     .catch(async err => {
@@ -146,7 +144,7 @@ async function checkAPIStatus(node) {
         }
       };
 
-      await parseStatus(errStatus, node);
+      await hasErrorStatus(errStatus, node);
       return {
         status: errStatus,
         node
@@ -158,7 +156,9 @@ async function checkAPIStatus(node) {
 
 exports.handler = async function (event) {
   const promises = [];
-  apiUrls.forEach(node => {
+  console.log(`nodeUrls=${process.env.nodeUrls}`);
+  const nodeUrls = JSON.parse(process.env.NODE_URLS);
+  nodeUrls.forEach(node => {
     console.log(`checking ${node.network} - ${node.name}...`);
     promises.push(checkAPIStatus(node));
   });
