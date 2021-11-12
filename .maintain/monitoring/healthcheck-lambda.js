@@ -1,13 +1,12 @@
 const https = require('https');
 const http = require('http');
 const url = require('url');
+const internal = require('stream');
 const webhookUrl = process.env.SLACK_NOTIFCATION_WEBHOOK_URL;
 const port = 9933;
 
-async function hasErrorStatus(status) {
-  if (status.result && status.result.startsWith('0x')) return false;
-
-  return true;
+async function statusIsValid(status) {
+  return status.result && status.result.currentBlock && !isNaN(status.result.currentBlock);
 }
 
 async function sendSlackAlert(status, node) {
@@ -103,8 +102,9 @@ function httpPOST(urlStr, jsonData, protocol) {
     req.on('timeout', function () {
       req.abort();
       req.destroy();
-      reject(new Error(`Timeout after ${options.timeout} milliseconds.`, {
-        message: `Timeout after ${options.timeout} milliseconds.`,
+      const msg = `Timeout after ${options.timeout} milliseconds. (uri: ${JSON.stringify(uri)})`;
+      reject(new Error(msg, {
+        message: msg,
         url: uri
       }));
     });
@@ -123,14 +123,14 @@ async function checkAPIStatus(node) {
   const blockNumberReq = {
     id: 1,
     jsonrpc: '2.0',
-    method: 'eth_blockNumber'
+    method: 'system_syncState'
   };
 
   const status = await httpPOST(`http://${node.url}:${port}`, blockNumberReq, http)
     .then(async status => {
       console.log(`${node.network} - ${node.name} status: ${status}`);
 
-      if (hasErrorStatus(JSON.parse(status), node)) {
+      if (!statusIsValid(JSON.parse(status))) {
         sendSlackAlert(status, node);
       }
 
@@ -144,7 +144,8 @@ async function checkAPIStatus(node) {
         }
       };
 
-      await hasErrorStatus(errStatus, node);
+      sendSlackAlert(errStatus, node);
+
       return {
         status: errStatus,
         node
@@ -156,7 +157,6 @@ async function checkAPIStatus(node) {
 
 exports.handler = async function (event) {
   const promises = [];
-  console.log(`nodeUrls=${process.env.nodeUrls}`);
   const nodeUrls = JSON.parse(process.env.NODE_URLS);
   nodeUrls.forEach(node => {
     console.log(`checking ${node.network} - ${node.name}...`);
