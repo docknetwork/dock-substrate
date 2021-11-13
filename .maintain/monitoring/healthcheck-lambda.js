@@ -5,7 +5,7 @@ const internal = require('stream');
 const webhookUrl = process.env.SLACK_NOTIFCATION_WEBHOOK_URL;
 const port = 9933;
 
-async function statusIsValid(status) {
+function statusIsValid(status) {
   return status.result && status.result.currentBlock && !isNaN(status.result.currentBlock);
 }
 
@@ -70,7 +70,12 @@ async function sendSlackAlert(status, node) {
     }
   }
 
-  await httpPOST(webhookUrl, slackBlocks, https);
+  console.log("Sending alert to slack...");
+  try {
+    await httpPOST(webhookUrl, slackBlocks, https);
+  } catch (err) {
+    console.log(`Sending to slack failed. ${err}`);
+  }
 }
 
 function httpPOST(urlStr, jsonData, protocol) {
@@ -131,7 +136,7 @@ async function checkAPIStatus(node) {
       console.log(`${node.network} - ${node.name} status: ${status}`);
 
       if (!statusIsValid(JSON.parse(status))) {
-        sendSlackAlert(status, node);
+        await sendSlackAlert(status, node);
       }
 
       return { status, node };
@@ -144,7 +149,7 @@ async function checkAPIStatus(node) {
         }
       };
 
-      sendSlackAlert(errStatus, node);
+      await sendSlackAlert(errStatus, node);
 
       return {
         status: errStatus,
