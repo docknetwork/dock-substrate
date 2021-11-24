@@ -3,7 +3,7 @@ authors = ['Dock.io']
 build = 'build.rs'
 edition = '2018'
 name = 'dock-node'
-version = '0.16.0'
+version = '0.17.0'
 
 [package.metadata.docs.rs]
 targets = ['x86_64-unknown-linux-gnu']
@@ -24,7 +24,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = '../runtime'
-version = '0.16.0'
+version = '0.17.0'
 
 [dependencies.sc-basic-authorship]
 version = '0.9.0'
@@ -52,6 +52,8 @@ branch = "frontier"
 version = '0.9.0'
 git = 'https://github.com/paritytech/substrate.git'
 branch = "frontier"
+
+
 
 [dependencies.sc-consensus-babe]
 version = '0.9.0'
@@ -287,7 +289,7 @@ version = '0.0.1'
 
 [dependencies.core_mods_rpc]
 path = '../pallets/core_mods/rpc'
-version = '0.0.1'
+version = '0.0.2'
 
 [[bin]]
 name = 'dock-node'

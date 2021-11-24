@@ -6,9 +6,10 @@ use frame_support::{
     dispatch::DispatchResult, ensure, fail, traits::Get, weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_core::{ecdsa, ed25519, sr25519};
+use sha2::{Digest, Sha256};
+use sp_core::{ed25519, sr25519};
 use sp_runtime::traits::{Hash, Verify};
-use sp_std::fmt;
+use sp_std::{convert::TryInto, fmt};
 
 /// Size of the Dock DID in bytes
 pub const DID_BYTE_SIZE: usize = 32;
@@ -537,13 +538,13 @@ impl<T: Trait> Module<T> {
                 )
             }
             (PublicKey::Secp256k1(pk_bytes), DidSignature::Secp256k1(sig_bytes)) => {
-                verify!(
-                    message,
-                    sig_bytes,
-                    pk_bytes,
-                    ecdsa::Signature,
-                    ecdsa::Public
-                )
+                let hash = Sha256::digest(message).try_into().unwrap();
+                let m = libsecp256k1::Message::parse(&hash);
+                let sig = libsecp256k1::Signature::parse_overflowing(
+                    sig_bytes.value[0..64].try_into().unwrap(),
+                );
+                let p = libsecp256k1::PublicKey::parse_compressed(&pk_bytes.value).unwrap();
+                libsecp256k1::verify(&m, &sig, &p)
             }
             _ => {
                 fail!(Error::<T>::IncomparSigPubkey)
@@ -566,7 +567,7 @@ mod tests {
         // Trying to wrap a Sr25519 signature in a Signature::Ed25519 should fail.
         // Trying to wrap a Ed25519 signature in a Signature::Sr25519 should fail.
         ext().execute_with(|| {
-            let msg = vec![1u8; 24];
+            let msg = vec![1u8; 350];
 
             // The macro checks that a signature verification only passes when sig wrapped in `$correct_sig_type`
             // but fails when wrapped in `$incorrect_sig_type`
@@ -594,9 +595,15 @@ mod tests {
             check_sig_verification!(sr25519, PublicKey::Sr25519, DidSignature::Sr25519, DidSignature::Ed25519);
             check_sig_verification!(ed25519, PublicKey::Ed25519, DidSignature::Ed25519, DidSignature::Sr25519);
 
-            let (pair_1, _, _) = ecdsa::Pair::generate_with_phrase(None);
-            let sig_bytes: [u8; 65] = pair_1.sign(&msg).into();
-            let pk = PublicKey::Secp256k1(Bytes33 {value: pair_1.public().0 });
+            let sk = libsecp256k1::SecretKey::parse(&[1; 32]).unwrap();
+            let hash = Sha256::digest(&msg).try_into().unwrap();
+            let m = libsecp256k1::Message::parse(&hash);
+            let sig = libsecp256k1::sign(&m, &sk);
+            let mut sig_bytes: [u8; 65] = [0; 65];
+            sig_bytes[0..64].copy_from_slice(&sig.0.serialize()[..]);
+            sig_bytes[64] = sig.1.serialize();
+            let pk = PublicKey::Secp256k1(Bytes33 {value: libsecp256k1::PublicKey::from_secret_key(&sk).serialize_compressed() });
+
             let correct_sig = DidSignature::Secp256k1(Bytes65 {value: sig_bytes});
             let incorrect_sig = DidSignature::Ed25519(Bytes64 {value: [1; 64]});
             assert!(DIDModule::verify_sig_with_public_key(&correct_sig, &msg, &pk).unwrap());
@@ -672,7 +679,7 @@ mod tests {
         ext().execute_with(|| {
             let alice = 100u64;
 
-            /// Macro to check the key update for ed25519 and sr25519
+            /// Macro to check the key update
             macro_rules! check_key_update {
                 ( $did:ident, $module:ident, $pk:expr, $sig_type:expr, $pk_bytearray_type:ident, $sig_bytearray_type:ident ) => {{
                     let (pair_1, _, _) = $module::Pair::generate_with_phrase(None);
@@ -754,9 +761,45 @@ mod tests {
 
             let did = [2; DID_BYTE_SIZE];
             check_key_update!(did, ed25519, PublicKey::Ed25519, DidSignature::Ed25519, Bytes32, Bytes64);
+        });
+    }
 
-            let did = [3; DID_BYTE_SIZE];
-            check_key_update!(did, ecdsa, PublicKey::Secp256k1, DidSignature::Secp256k1, Bytes33, Bytes65);
+    #[test]
+    fn did_key_update_with_secp_key() {
+        ext().execute_with(|| {
+            let sk1 = libsecp256k1::SecretKey::parse(&[1; 32]).unwrap();
+            let sk2 = libsecp256k1::SecretKey::parse(&[2; 32]).unwrap();
+
+            let did = [1; DID_BYTE_SIZE];
+            let pk1 = PublicKey::Secp256k1(Bytes33 {
+                value: libsecp256k1::PublicKey::from_secret_key(&sk1).serialize_compressed(),
+            });
+            let detail = KeyDetail::new(did.clone(), pk1);
+
+            // Add a DID
+            assert_ok!(DIDModule::new(
+                Origin::signed(1),
+                did.clone(),
+                detail.clone()
+            ));
+
+            let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
+
+            let pk2 = PublicKey::Secp256k1(Bytes33 {
+                value: libsecp256k1::PublicKey::from_secret_key(&sk2).serialize_compressed(),
+            });
+            let key_update = KeyUpdate::new(did.clone(), pk2, None, modified_in_block as u32);
+            let hash = Sha256::digest(&StateChange::KeyUpdate(key_update.clone()).encode())
+                .try_into()
+                .unwrap();
+            let m = libsecp256k1::Message::parse(&hash);
+            let s = libsecp256k1::sign(&m, &sk1);
+            let mut sig_bytes: [u8; 65] = [0; 65];
+            sig_bytes[0..64].copy_from_slice(&s.0.serialize()[..]);
+            sig_bytes[64] = s.1.serialize();
+
+            let sig = DidSignature::Secp256k1(Bytes65 { value: sig_bytes });
+            assert_ok!(DIDModule::update_key(Origin::signed(1), key_update, sig));
         });
     }
 
