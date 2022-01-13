@@ -32,7 +32,7 @@ popd
 # build chainspecs
 ./scripts/run_node_in_docker build-spec > /dev/null
 ./scripts/run_node_in_docker build-spec --chain=dev > /dev/null
-./scripts/run_node_in_docker build-spec --chain=local_poa_testnet > /dev/null
+./scripts/run_node_in_docker build-spec --chain=local_testnet > /dev/null
 ./scripts/run_node_in_docker build-spec --chain=testnet > /dev/null
 ./scripts/run_node_in_docker build-spec --chain=mainnet > /dev/null
 
