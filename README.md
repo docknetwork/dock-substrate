@@ -99,6 +99,16 @@ To build image for mainnet node, run the following from the repository's root
 docker build --build-arg features='--features mainnet' .
 ```
 
+### Building chain spec
+
+To build chain spec, use the `build-spec` command as shown below. The below commands show the spec being built 
+for `testnet` (defined in `load_spec` of `Cli`) chain spec. Always use the raw chainspec (`knox_test_raw`) to run the 
+chain
+```
+./target/release/dock-node build-spec --chain=testnet > knox_test.json
+./target/release/dock-node build-spec --chain=knox_test.json --raw > knox_test_raw.json
+```
+
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for contribution guidelines.
 
 ## Releases

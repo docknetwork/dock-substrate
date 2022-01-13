@@ -11,7 +11,7 @@ use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_service::{ChainType, Properties};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_consensus_babe::AuthorityId as BabeId;
+use sp_consensus_babe::{AuthorityId as BabeId, BabeEpochConfiguration};
 use sp_core::crypto::Ss58Codec;
 use sp_core::{sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
@@ -191,6 +191,7 @@ pub fn development_config() -> ChainSpec {
                 validator_count: 3,
                 // TODO: Fix
                 poa_last_block: Hash::repeat_byte(42),
+                babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,
             }
             .build()
         },
@@ -204,8 +205,8 @@ pub fn development_config() -> ChainSpec {
 
 pub fn local_testnet_config() -> ChainSpec {
     ChainSpec::from_genesis(
-        "Local Poa Testnet",
-        "local_poa_testnet",
+        "Local Testnet",
+        "local_testnet",
         ChainType::Local,
         || {
             GenesisBuilder {
@@ -263,10 +264,11 @@ pub fn local_testnet_config() -> ChainSpec {
                 technical_committee_members: get_seed_vector_to_account_vector(
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
-                stash: 100 * DOCK,
-                validator_count: 20,
+                stash: 1000 * DOCK,
+                validator_count: 10,
                 // TODO: Fix
                 poa_last_block: Hash::repeat_byte(42),
+                babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,
             }
             .build()
         },
@@ -286,119 +288,34 @@ pub fn pos_testnet_config() -> ChainSpec {
         ChainType::Live,
         || {
             GenesisBuilder {
-                initial_authorities: vec![
-                    (
-                        // Dock V1
-                        account_id_from_ss58::<sr25519::Public>(
-                            "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr",
-                        ),
-                        account_id_from_ss58::<sr25519::Public>(
-                            "38TGisDkCrzzkANAXVoFQwmAR7dNWs3E94axqn6nxKBcmGp4",
-                        ),
-                        pubkey_from_ss58::<BabeId>(
-                            "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
-                        ),
-                        pubkey_from_ss58::<GrandpaId>(
-                            "377vNRFLqisNUxBcXYwSpL9FgCzAGkroenLyHn81CshH2qQT",
-                        ),
-                        pubkey_from_ss58::<ImOnlineId>(
-                            "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
-                        ),
-                        pubkey_from_ss58::<AuthorityDiscoveryId>(
-                            "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
-                        ),
+                initial_authorities: vec![(
+                    // Dock V1
+                    account_id_from_ss58::<sr25519::Public>(
+                        "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr",
                     ),
-                    (
-                        // Dock V2
-                        account_id_from_ss58::<sr25519::Public>(
-                            "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5",
-                        ),
-                        account_id_from_ss58::<sr25519::Public>(
-                            "39RyWxyEjqUYGZy8ZbiQh3XhW8wzLjKj6m6eL7VxWKAHvMw4",
-                        ),
-                        pubkey_from_ss58::<BabeId>(
-                            "388a33rXJryeWxzN6YHaHAu3um5r97YSaoJ8qJKFYdA7s5qK",
-                        ),
-                        pubkey_from_ss58::<GrandpaId>(
-                            "39msRGKmAQZDveZeG7fb3mK1WAvW4BjsGhXCvXF9B6sKGVMi",
-                        ),
-                        pubkey_from_ss58::<ImOnlineId>(
-                            "388a33rXJryeWxzN6YHaHAu3um5r97YSaoJ8qJKFYdA7s5qK",
-                        ),
-                        pubkey_from_ss58::<AuthorityDiscoveryId>(
-                            "388a33rXJryeWxzN6YHaHAu3um5r97YSaoJ8qJKFYdA7s5qK",
-                        ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "38TGisDkCrzzkANAXVoFQwmAR7dNWs3E94axqn6nxKBcmGp4",
                     ),
-                    (
-                        // Sebastian
-                        account_id_from_ss58::<sr25519::Public>(
-                            "3CCZY1mGhqEdtVhfnvEvqBohPBfNbQc1JMz4SKs3rWReVmsf",
-                        ),
-                        account_id_from_ss58::<sr25519::Public>(
-                            "38JhC6JdunZd7vAPJ4kmR4tyEMkYtW5q2ESjd4rDQP1k6mou",
-                        ),
-                        pubkey_from_ss58::<BabeId>(
-                            "3Aej5Em814Ae2ftTNn5g9gES4rEwsEkb3enEawLnxdrD2fKK",
-                        ),
-                        pubkey_from_ss58::<GrandpaId>(
-                            "36zgzyR71dgEuPyJ9rGhJenh4WJuedBnBKBsg4Dih6x1VSL8",
-                        ),
-                        pubkey_from_ss58::<ImOnlineId>(
-                            "36zFkJ7V5Kbbn3qTNdPSoTMmg9sTyYDEL47YqybTasGS6Dfg",
-                        ),
-                        pubkey_from_ss58::<AuthorityDiscoveryId>(
-                            "388p7zBmpQWhcTLdLuiDn7RkfQz54ALKYkwrFHA1uzAH8Xk7",
-                        ),
+                    pubkey_from_ss58::<BabeId>("3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug"),
+                    pubkey_from_ss58::<GrandpaId>(
+                        "377vNRFLqisNUxBcXYwSpL9FgCzAGkroenLyHn81CshH2qQT",
                     ),
-                    (
-                        // Ryabina
-                        account_id_from_ss58::<sr25519::Public>(
-                            "3A2DZfNptCYwPK91AhfDUDv4YmmBp155xKpkai4nrzSpsvg1",
-                        ),
-                        account_id_from_ss58::<sr25519::Public>(
-                            "3BbzsmamgoNRGWLRoW5PgJ75AozNAdzdSmFq85WZkzaGdgxS",
-                        ),
-                        pubkey_from_ss58::<BabeId>(
-                            "3C9iQYXyZWahEYtTemtk6N6inuA2bpbhouBMeT7X6jJ747Y8",
-                        ),
-                        pubkey_from_ss58::<GrandpaId>(
-                            "3AVmJaz6sJ3C7Q7KcYUbtWFiHToZM3m2CfWUafo4CZrhX1LZ",
-                        ),
-                        pubkey_from_ss58::<ImOnlineId>(
-                            "38zPVFvo8xTN1Y1Cqr6kKiYjSRykQ5Lso9DNnm149ByyUR4n",
-                        ),
-                        pubkey_from_ss58::<AuthorityDiscoveryId>(
-                            "3AHfEnMGg6mmiGb4BZrxodqVV9V5VaZ19hprpfxcWw3VjGH5",
-                        ),
+                    pubkey_from_ss58::<ImOnlineId>(
+                        "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
                     ),
-                    (
-                        // Pathrock
-                        account_id_from_ss58::<sr25519::Public>(
-                            "38VaFJZznPEEKwiEAyejFNzVR3oQaoPATS7fEpX4UnEupb18",
-                        ),
-                        account_id_from_ss58::<sr25519::Public>(
-                            "38cmpTpZddmDcyTtLH2UAuZWUCyL4dFyz7eHPz528MfkARKk",
-                        ),
-                        pubkey_from_ss58::<BabeId>(
-                            "37B7mHwqsTU4vBDBCNLDHqaXgnK2Mz7YqauX1dKuGu7rmbNb",
-                        ),
-                        pubkey_from_ss58::<GrandpaId>(
-                            "3AsAnE916vsJqKU8NN6i4oe2nYKxU3CktxfY5RQjybhhj6FC",
-                        ),
-                        pubkey_from_ss58::<ImOnlineId>(
-                            "3BvMJbiVFVYSwkhzBCzjrtgtYNasnU7YnFZeR5EXZoQ8xVGW",
-                        ),
-                        pubkey_from_ss58::<AuthorityDiscoveryId>(
-                            "36YyGD57E5Z57mbTBiFhzXAfYvzuDV3n99BMdxUEX78AJWYT",
-                        ),
+                    pubkey_from_ss58::<AuthorityDiscoveryId>(
+                        "3ADTmtqUYvjjcWjaZiLYgF1yuKjJ5MV91LDesUFUWh6SYtug",
                     ),
-                ],
+                )],
                 endowed_accounts: [
-                    "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr",
-                    "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5",
-                    "3CCZY1mGhqEdtVhfnvEvqBohPBfNbQc1JMz4SKs3rWReVmsf",
-                    "3A2DZfNptCYwPK91AhfDUDv4YmmBp155xKpkai4nrzSpsvg1",
-                    "38VaFJZznPEEKwiEAyejFNzVR3oQaoPATS7fEpX4UnEupb18",
+                    "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr", // Dock V1
+                    "36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN", // Sudo
+                    "3BHXvWftruGuZZDnPgwnhp3C4ghba4QY6MEURcvLYH6wtcwQ",
+                    "37uJHxaphdga4gy9zNk1KDgwMZJF3Zp2gkzSkDWRPgThR4nN",
+                    "3AJJBL4KQ49h32yQuu1HkSnSJUjSooZED9Z2De2zE2EPXxbN",
+                    "3866t5dsM4LyVavJzmqySgBj6auiFGHFGZc7WjSsEjehVSpM",
+                    "38aKrxaL5ES46s6RHhB9ue6rwFbh6vVdzbY7KGcfYMAytWNS",
+                    "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5", // Council 2
                 ]
                 .iter()
                 .cloned()
@@ -463,11 +380,12 @@ pub fn pos_testnet_config() -> ChainSpec {
                     ),
                 ],
                 stash: 1_000 * DOCK,
-                validator_count: 20,
+                validator_count: 3,
                 poa_last_block: Hash::from_str(
                     "0d84a546e4fdde4bf7c56c764a42457ee05b45bdc0c20e765903ab96465b8b3e",
                 )
                 .unwrap(),
+                babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,
             }
             .build()
         },
@@ -680,6 +598,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                     "16e8d1eec1f20b755bf850dd584bb516ff2a5e4d95e0bff61eb99efd8cb2d1ce",
                 )
                 .unwrap(),
+                babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,
             }
             .build()
         },
@@ -715,6 +634,7 @@ struct GenesisBuilder {
     validator_count: u16,
     /// Hash of the last block of PoA chain
     poa_last_block: Hash,
+    babe_epoch_config: BabeEpochConfiguration,
 }
 
 impl GenesisBuilder {
@@ -795,7 +715,7 @@ impl GenesisBuilder {
             },
             pallet_babe: BabeConfig {
                 authorities: vec![],
-                epoch_config: Some(BABE_GENESIS_EPOCH_CONFIG),
+                epoch_config: Some(self.babe_epoch_config),
             },
             pallet_im_online: ImOnlineConfig { keys: vec![] },
             pallet_authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
