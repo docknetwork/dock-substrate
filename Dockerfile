@@ -56,7 +56,7 @@ RUN apt -y update \
 	&& apt install -y --no-install-recommends curl \
 	&& rm -rf /var/lib/apt/lists/*
 
-# might need these for uploads to keytore
+# might need these for uploads to keystore
 COPY scripts scripts
 
 # include official chainspecs
