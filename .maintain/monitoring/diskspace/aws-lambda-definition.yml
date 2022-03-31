@@ -11,8 +11,7 @@ Resources:
       Description: ''
       MemorySize: 128
       Timeout: 3
-      Role: >-
-        arn:aws:iam::781149024146:role/service-role/blockchainCloudWatchAlarm-role-asj0v9pf
+      Role:
       Events:
         SNS1:
           Type: SNS
@@ -23,6 +22,5 @@ Resources:
         Variables:
           BLOCKCHAIN_ENVIRONMENT: Testnet
           SLACK_NOTIFCATION_WEBHOOK_URL: >-
-            https://hooks.slack.com/services/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
   SNSTopic1:
     Type: 'AWS::SNS::Topic'
