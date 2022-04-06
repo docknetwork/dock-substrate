@@ -2,7 +2,11 @@
 
 ## Disk Space Monitoring
 Disk space can be monitored by installing the AWS CloudWatch Agent on the EC2 instance.
-Installation instructions: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Install-CloudWatch-Agent.html
+
+### Installation instructions:
+* https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Install-CloudWatch-Agent.html
+* Install collectd: `sudo apt-get install collectd`
+* Setup the EC2 instance with an IAM Role that contains the `CloudWatchAgentServerPolicy`
 
 An example of a CloudWatch Agent config file is included in this folder ![./cloudwatch-agent-config.json](cloudwatch-agent-config.json).
 If using this file you will need to rename it to `config.json` and place it (on Linux) here: `/opt/aws/amazon-cloudwatch-agent/bin/config.json`.
