@@ -4,8 +4,10 @@
 use sp_std::prelude::Vec;
 
 use crate::blob::ID_BYTE_SIZE;
-use crate::did::{Bytes32, Bytes33, Bytes64, Bytes65};
-use crate::did::{DidSignature, PublicKey, DID_BYTE_SIZE};
+use crate::did::DID_BYTE_SIZE;
+use crate::did::{Bytes33, Bytes64, Bytes65};
+use crate::keys_and_sigs::{PublicKey, SigValue};
+use crate::util::Bytes32;
 
 /// Size of array of hardcoded data for DIDs
 pub const DID_DATA_SIZE: usize = 3;
@@ -19,7 +21,7 @@ pub const BLOB_DATA_SIZE: usize = 3;
 pub fn get_data_for_key_update(
     typ: u8,
     index: usize,
-) -> (u32, [u8; DID_BYTE_SIZE], PublicKey, PublicKey, DidSignature) {
+) -> (u32, [u8; DID_BYTE_SIZE], PublicKey, PublicKey, SigValue) {
     assert!(typ < 3);
     assert!(index < DID_DATA_SIZE);
     if typ == 0 {
@@ -90,7 +92,7 @@ pub fn get_data_for_key_update(
             PublicKey::Sr25519(Bytes32 {
                 value: data[index].3,
             }),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: data[index].4,
             }),
         )
@@ -162,7 +164,7 @@ pub fn get_data_for_key_update(
             PublicKey::Ed25519(Bytes32 {
                 value: data[index].3,
             }),
-            DidSignature::Ed25519(Bytes64 {
+            SigValue::Ed25519(Bytes64 {
                 value: data[index].4,
             }),
         )
@@ -234,7 +236,7 @@ pub fn get_data_for_key_update(
             PublicKey::Secp256k1(Bytes33 {
                 value: data[index].3,
             }),
-            DidSignature::Secp256k1(Bytes65 {
+            SigValue::Secp256k1(Bytes65 {
                 value: data[index].4,
             }),
         )
@@ -246,7 +248,7 @@ pub fn get_data_for_key_update(
 pub fn get_data_for_did_removal(
     typ: u8,
     index: usize,
-) -> (u32, [u8; DID_BYTE_SIZE], PublicKey, DidSignature) {
+) -> (u32, [u8; DID_BYTE_SIZE], PublicKey, SigValue) {
     assert!(typ < 3);
     assert!(index < DID_DATA_SIZE);
     if typ == 0 {
@@ -302,7 +304,7 @@ pub fn get_data_for_did_removal(
             PublicKey::Sr25519(Bytes32 {
                 value: data[index].2,
             }),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: data[index].3,
             }),
         )
@@ -312,7 +314,7 @@ pub fn get_data_for_did_removal(
 }
 
 /// Get hardcoded message, public key and signature for signature verification
-pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSignature) {
+pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, SigValue) {
     assert!(typ < 3);
     assert!(index < DID_DATA_SIZE);
     let msg_1 = [1 as u8; 8];
@@ -365,7 +367,7 @@ pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSi
             PublicKey::Sr25519(Bytes32 {
                 value: data[index].1,
             }),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: data[index].2,
             }),
         )
@@ -416,7 +418,7 @@ pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSi
             PublicKey::Ed25519(Bytes32 {
                 value: data[index].1,
             }),
-            DidSignature::Ed25519(Bytes64 {
+            SigValue::Ed25519(Bytes64 {
                 value: data[index].2,
             }),
         )
@@ -467,7 +469,7 @@ pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSi
             PublicKey::Secp256k1(Bytes33 {
                 value: data[index].1,
             }),
-            DidSignature::Secp256k1(Bytes65 {
+            SigValue::Secp256k1(Bytes65 {
                 value: data[index].2,
             }),
         )
@@ -475,7 +477,7 @@ pub fn get_data_for_sig_ver(typ: u8, index: usize) -> (Vec<u8>, PublicKey, DidSi
 }
 
 /// Get hardcoded nonce, public key, revocation ids and signature for revocation
-pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, DidSignature) {
+pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, SigValue) {
     assert!(index < REV_DATA_SIZE);
     let pk: [u8; 32] = [
         76, 225, 1, 67, 209, 37, 80, 206, 149, 171, 152, 161, 19, 69, 190, 41, 234, 55, 4, 245, 42,
@@ -491,7 +493,7 @@ pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, 
                 170, 213, 148, 129, 180, 209, 65, 191, 27, 135, 171, 224, 214, 26,
             ]]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     122, 144, 87, 55, 186, 27, 172, 246, 135, 31, 106, 203, 228, 33, 91, 24, 57,
                     172, 56, 28, 76, 171, 109, 208, 106, 88, 174, 141, 100, 248, 181, 118, 29, 73,
@@ -516,7 +518,7 @@ pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, 
                 ],
             ]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     102, 18, 178, 139, 148, 97, 233, 110, 205, 50, 41, 28, 91, 108, 66, 30, 91,
                     221, 157, 207, 39, 63, 11, 68, 205, 152, 224, 106, 125, 135, 24, 117, 152, 198,
@@ -545,7 +547,7 @@ pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, 
                 ],
             ]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     56, 21, 0, 86, 123, 202, 111, 129, 160, 120, 15, 134, 207, 143, 175, 3, 20,
                     188, 110, 77, 226, 139, 248, 122, 86, 128, 240, 185, 193, 198, 240, 121, 203,
@@ -558,7 +560,7 @@ pub fn get_data_for_revocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, 
 }
 
 /// Get hardcoded nonce, public key, revocation ids and signature for unrevocation
-pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, DidSignature) {
+pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>, SigValue) {
     assert!(index < REV_DATA_SIZE);
     let pk: [u8; 32] = [
         86, 125, 238, 179, 191, 9, 254, 36, 131, 157, 20, 17, 237, 106, 7, 66, 47, 82, 68, 19, 0,
@@ -574,7 +576,7 @@ pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>
                 202, 55, 77, 239, 33, 178, 86, 157, 173, 238, 39, 31, 146, 253, 133,
             ]]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     88, 197, 120, 7, 48, 55, 62, 222, 203, 170, 50, 21, 250, 238, 175, 167, 161,
                     76, 156, 151, 219, 254, 223, 34, 219, 11, 128, 0, 142, 8, 182, 110, 254, 18,
@@ -599,7 +601,7 @@ pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>
                 ],
             ]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     228, 160, 123, 42, 226, 3, 237, 61, 118, 78, 32, 199, 65, 95, 143, 191, 251,
                     210, 95, 160, 147, 16, 97, 228, 90, 30, 213, 239, 222, 32, 51, 5, 16, 64, 95,
@@ -628,7 +630,7 @@ pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>
                 ],
             ]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     208, 77, 15, 48, 218, 134, 34, 60, 65, 113, 176, 110, 48, 4, 164, 73, 61, 163,
                     77, 228, 94, 35, 85, 76, 34, 63, 219, 14, 35, 218, 97, 54, 236, 33, 246, 133,
@@ -641,7 +643,7 @@ pub fn get_data_for_unrevocation(index: usize) -> (u32, PublicKey, Vec<[u8; 32]>
 }
 
 /// Get hardcoded nonce, public key and signature for registry removal
-pub fn get_data_for_remove() -> (u32, PublicKey, DidSignature) {
+pub fn get_data_for_remove() -> (u32, PublicKey, SigValue) {
     let pk: [u8; 32] = [
         218, 250, 63, 166, 122, 73, 74, 124, 18, 228, 65, 176, 211, 158, 182, 63, 53, 223, 199,
         104, 161, 75, 74, 142, 55, 207, 193, 118, 124, 214, 192, 92,
@@ -655,7 +657,7 @@ pub fn get_data_for_remove() -> (u32, PublicKey, DidSignature) {
     (
         0,
         PublicKey::Sr25519(Bytes32 { value: pk }),
-        DidSignature::Sr25519(Bytes64 { value: sig }),
+        SigValue::Sr25519(Bytes64 { value: sig }),
     )
 }
 
@@ -667,7 +669,7 @@ pub fn get_data_for_blob(
     PublicKey,
     [u8; ID_BYTE_SIZE],
     Vec<u8>,
-    DidSignature,
+    SigValue,
 ) {
     assert!(index < BLOB_DATA_SIZE);
     if index == 0 {
@@ -746,7 +748,7 @@ pub fn get_data_for_blob(
                 168, 211, 11, 21, 36, 169, 38, 102, 58, 176, 207, 45,
             ]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     230, 57, 231, 134, 108, 185, 119, 244, 58, 154, 253, 13, 128, 235, 70, 163,
                     203, 59, 186, 32, 168, 4, 199, 57, 203, 208, 125, 135, 76, 218, 229, 37, 19,
@@ -831,7 +833,7 @@ pub fn get_data_for_blob(
                 139, 209, 86, 50, 52, 96, 117, 71, 176, 86, 5, 178, 214, 50, 19, 161,
             ]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     56, 57, 92, 40, 154, 148, 72, 30, 91, 212, 140, 74, 255, 195, 128, 18, 196, 71,
                     88, 95, 4, 112, 237, 209, 78, 185, 58, 63, 88, 131, 3, 119, 45, 33, 37, 246,
@@ -917,7 +919,7 @@ pub fn get_data_for_blob(
                 77, 109, 132,
             ]
             .to_vec(),
-            DidSignature::Sr25519(Bytes64 {
+            SigValue::Sr25519(Bytes64 {
                 value: [
                     132, 220, 90, 210, 253, 178, 123, 247, 224, 241, 218, 160, 101, 56, 167, 139,
                     138, 73, 226, 151, 57, 229, 253, 163, 89, 6, 149, 243, 164, 54, 165, 67, 80,

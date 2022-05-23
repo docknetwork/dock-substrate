@@ -172,7 +172,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 34,
+    spec_version: 35,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -693,10 +693,14 @@ parameter_types! {
     pub const AccumulatorParamsPerByteWeight: Weight = 10;
     pub const AccumulatedMaxSize: u32 = 128;
     pub const AccumulatedPerByteWeight: Weight = 10;
+    pub const MaxDidDocUriSize: u32 = 256;
+    pub const DidDocUriPerByteWeight: Weight = 10;
 }
 
 impl did::Trait for Runtime {
     type Event = Event;
+    type MaxDidDocUriSize = MaxDidDocUriSize;
+    type DidDocUriPerByteWeight = DidDocUriPerByteWeight;
 }
 
 impl revoke::Trait for Runtime {}

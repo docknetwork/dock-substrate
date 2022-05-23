@@ -1,15 +1,15 @@
 use super::{BlockNumber, StateChange};
 use crate as dock;
+use crate::keys_and_sigs::{PublicKey, SigValue};
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
     dispatch::DispatchResult, ensure, fail, traits::Get, weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sha2::{Digest, Sha256};
-use sp_core::{ed25519, sr25519};
-use sp_runtime::traits::{Hash, Verify};
-use sp_std::{convert::TryInto, fmt};
+use sp_runtime::traits::{Hash, One};
+
+// TODO: This module is getting too big and might be useful to others without all the other stuff in this pallet. Consider making it a separate pallet
 
 /// Size of the Dock DID in bytes
 pub const DID_BYTE_SIZE: usize = 32;
@@ -20,6 +20,9 @@ pub type Did = [u8; DID_BYTE_SIZE];
 pub trait Trait: system::Config {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Config>::Event>;
+    /// Maximum byte size of URI of an off-chain DID Doc.
+    type MaxDidDocUriSize: Get<u32>;
+    type DidDocUriPerByteWeight: Get<Weight>;
 }
 
 decl_error! {
@@ -35,231 +38,265 @@ decl_error! {
         /// in which the last update was performed.
         DifferentBlockNumber,
         /// Signature type does not match public key type
-        IncomparSigPubkey,
+        IncompatSigPubkey,
         /// Signature verification failed while key update or did removal
-        InvalidSig
+        InvalidSig,
+        DidDocUriTooBig,
+        NotAnOffChainDid,
+        DidNotOwnedByAccount,
+        NoControllerProvided,
+        IncompatableVerificationRelation,
+        CannotGetDetailForOffChainDid,
+        NoKeyProvided,
+        IncorrectNonce,
+        OnlyControllerCanUpdate,
+        NoKeyForDid,
+        InsufficientVerificationRelationship
     }
 }
 
-// XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
-/// A wrapper over 32-byte array
+/// Different verification relation types specified in the DID spec
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Bytes32 {
-    pub value: [u8; 32],
+pub enum VerRelType {
+    Authentication,
+    Assertion,
+    CapabilityInvocation,
+    KeyAgreement,
 }
 
-impl Bytes32 {
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.value
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DidKey {
+    /// The public key
+    key: PublicKey,
+    /// The different verification relationships the above key has with the DID.
+    ver_rels: Vec<VerRelType>,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DidSignature {
+    /// The DID that created this signature
+    did: Did,
+    /// The key-id of above DID used to verify the signature
+    key_id: u32,
+    /// The actual signature
+    sig: SigValue,
+}
+
+/// Stores details of an on-chain DID
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DidDetail<T: Trait> {
+    /// The nonce is set to the current block number when a DID is registered. Subsequent updates/removal
+    /// should supply a nonce 1 more than the current nonce of the DID and on successful update, the
+    /// new nonce is stored with the DID. The reason for starting the nonce with current block number
+    /// and not 0 is to prevent replay attack where a signed payload of removed DID is used to perform
+    /// replay on the same DID created again as nonce would be reset to 0 for new DIDs.
+    nonce: T::BlockNumber,
+    /// No of keys added for this DID so far.
+    key_counter: u32,
+    /// No of controllers added for this DID so far.
+    controller_counter: u32,
+}
+
+/// Enum describing the storage of the DID
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum DidDetailStorage<T: Trait> {
+    /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
+    /// the caller account and Substrate takes care of replay protection. This it stores the data
+    /// about off-chain DID (URI or anything) and the account that owns it.
+    OffChain(T::AccountId, Vec<u8>),
+    /// For on-chain DID, all data is stored on the chain.
+    OnChain(DidDetail<T>),
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AddKeys {
+    did: Did,
+    keys: Vec<DidKey>,
+    nonce: BlockNumber,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RemoveKeys {
+    did: Did,
+    /// Key ids to remove
+    keys: Vec<u32>,
+    nonce: BlockNumber,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AddControllers {
+    did: Did,
+    controllers: Vec<Did>,
+    nonce: BlockNumber,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RemoveControllers {
+    did: Did,
+    /// Controllers ids to remove
+    controllers: Vec<u32>,
+    nonce: BlockNumber,
+}
+
+impl<T: Trait> DidDetailStorage<T> {
+    pub fn is_on_chain(&self) -> bool {
+        match self {
+            DidDetailStorage::OnChain(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_off_chain(&self) -> bool {
+        !self.is_on_chain()
+    }
+
+    pub fn to_on_chain_did_detail(self) -> DidDetail<T> {
+        match self {
+            DidDetailStorage::OnChain(d) => d,
+            _ => panic!("This should never happen"),
+        }
+    }
+
+    pub fn from_on_chain_detail(
+        key_counter: u32,
+        controller_counter: u32,
+        nonce: T::BlockNumber,
+    ) -> Self {
+        DidDetailStorage::OnChain(DidDetail {
+            key_counter,
+            controller_counter,
+            nonce,
+        })
+    }
+
+    pub fn to_off_chain_did_owner_and_uri(self) -> (T::AccountId, Vec<u8>) {
+        match self {
+            DidDetailStorage::OffChain(owner, uri) => (owner, uri),
+            _ => panic!("This should never happen"),
+        }
     }
 }
 
-#[cfg(feature = "serde")]
-serde_big_array::big_array! {
-    BigArray;
-    33, 64, 65
+impl VerRelType {
+    pub fn is_for_signing(&self) -> bool {
+        match self {
+            VerRelType::KeyAgreement => false,
+            _ => true,
+        }
+    }
 }
 
-// XXX: These could have been a tuple structs. Keeping them normal struct for Substrate UI
-/// Creates a struct named `$name` which contains only 1 element which is a bytearray, useful when
-/// wrapping arrays of size > 32. `$size` is the size of the underlying bytearray. Implements the `Default`,
-/// `sp_std::fmt::Debug`, `PartialEq` and `Eq` trait as they will not be automatically implemented for arrays of size > 32.
-macro_rules! struct_over_byte_array {
-    ( $name:ident, $size:tt ) => {
-        /// A wrapper over a byte array
-        #[derive(Encode, Decode, Clone)]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        pub struct $name {
-            #[cfg_attr(feature = "serde", serde(with = "BigArray"))]
-            pub value: [u8; $size],
+impl DidKey {
+    /// Add all possible verification relationships for a given key
+    pub fn new_with_all_relationships(public_key: PublicKey) -> Self {
+        let ver_rels = if public_key.can_sign() {
+            // We might add more relationships in future but these 3 are all we care about now.
+            let mut rels = Vec::with_capacity(3);
+            rels.push(VerRelType::Authentication);
+            rels.push(VerRelType::Assertion);
+            rels.push(VerRelType::CapabilityInvocation);
+            rels
+        } else {
+            // This is true for the current key type, X25519, used for key agreement but might
+            // change in future.
+            let mut rels = Vec::with_capacity(1);
+            rels.push(VerRelType::KeyAgreement);
+            rels
+        };
+        DidKey {
+            key: public_key,
+            ver_rels,
         }
+    }
 
-        /// Implementing Default as it cannot be automatically derived for arrays of size > 32
-        impl Default for $name {
-            fn default() -> Self {
-                Self { value: [0; $size] }
-            }
+    /// Checks if the public key has valid verification relationships. Currently, the keys used for
+    /// key-agreement cannot (without converting) be used for signing and vice versa
+    pub fn is_valid(&self) -> bool {
+        if self.key.can_sign() {
+            self.ver_rels.iter().all(|v| v.is_for_signing())
+        } else {
+            self.ver_rels.iter().all(|v| !v.is_for_signing())
         }
+    }
 
-        /// Implementing Debug as it cannot be automatically derived for arrays of size > 32
-        impl fmt::Debug for $name {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                self.value[..].fmt(f)
-            }
-        }
+    pub fn can_control(&self) -> bool {
+        self.key.can_sign()
+            && self.ver_rels.iter().any(|v| match v {
+                VerRelType::CapabilityInvocation => true,
+                _ => false,
+            })
+    }
 
-        /// Implementing PartialEq as it cannot be automatically derived for arrays of size > 32
-        impl PartialEq for $name {
-            fn eq(&self, other: &Self) -> bool {
-                self.value[..] == other.value[..]
-            }
-        }
+    pub fn can_authenticate(&self) -> bool {
+        self.key.can_sign()
+            && self.ver_rels.iter().any(|v| match v {
+                VerRelType::Authentication => true,
+                _ => false,
+            })
+    }
 
-        impl Eq for $name {}
+    pub fn can_sign(&self) -> bool {
+        self.key.can_sign()
+    }
 
-        impl $name {
-            /// Return a slice to the underlying bytearray
-            pub fn as_bytes(&self) -> &[u8] {
-                &self.value
-            }
-        }
-    };
+    pub fn for_key_agreement(&self) -> bool {
+        self.ver_rels.iter().any(|v| match v {
+            VerRelType::KeyAgreement => true,
+            _ => false,
+        })
+    }
+
+    pub fn can_authenticate_or_control(&self) -> bool {
+        self.key.can_sign()
+            && self.ver_rels.iter().any(|v| match v {
+                VerRelType::Authentication | VerRelType::CapabilityInvocation => true,
+                _ => false,
+            })
+    }
 }
-
-struct_over_byte_array!(Bytes33, 33);
-struct_over_byte_array!(Bytes64, 64);
-struct_over_byte_array!(Bytes65, 65);
-
-/// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
-/// byte array
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum PublicKey {
-    /// Public key for Sr25519 is 32 bytes
-    Sr25519(Bytes32),
-    /// Public key for Ed25519 is 32 bytes
-    Ed25519(Bytes32),
-    /// Compressed public key for Secp256k1 is 33 bytes
-    Secp256k1(Bytes33),
-}
-
-/// An abstraction for a signature.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum DidSignature {
-    /// Signature for Sr25519 is 64 bytes
-    Sr25519(Bytes64),
-    /// Signature for Ed25519 is 64 bytes
-    Ed25519(Bytes64),
-    /// Signature for Secp256k1 is 65 bytes
-    Secp256k1(Bytes65),
-}
-
-// Weight for Sr25519 sig verification
-pub const SR25519_WEIGHT: Weight = 140_000_000;
-// Weight for Ed25519 sig verification
-pub const ED25519_WEIGHT: Weight = 152_000_000;
-// Weight for ecdsa using secp256k1 sig verification
-pub const SECP256K1_WEIGHT: Weight = 456_000_000;
 
 impl DidSignature {
-    /// Try to get reference to the bytes if its a Sr25519 signature. Return error if its not.
-    pub fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
-        match self {
-            DidSignature::Sr25519(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(()),
-        }
-    }
-
-    /// Try to get reference to the bytes if its a Ed25519 signature. Return error if its not.
-    pub fn as_ed25519_sig_bytes(&self) -> Result<&[u8], ()> {
-        match self {
-            DidSignature::Ed25519(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(()),
-        }
-    }
-
-    /// Try to get reference to the bytes if its a Secp256k1 signature. Return error if its not.
-    pub fn as_secp256k1_sig_bytes(&self) -> Result<&[u8], ()> {
-        match self {
-            DidSignature::Secp256k1(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(()),
-        }
-    }
-
-    /// Get weight for signature verification.
-    /// Considers the type of signature. Disregards message size as messages are hashed giving the
-    /// same output size and hashing itself is very cheap. The extrinsic using it might decide to
-    /// consider adding some weight proportional to the message size.
-    pub fn weight(&self) -> Weight {
-        match self {
-            DidSignature::Sr25519(_) => SR25519_WEIGHT,
-            DidSignature::Ed25519(_) => ED25519_WEIGHT,
-            DidSignature::Secp256k1(_) => SECP256K1_WEIGHT,
-        }
+    fn verify<T: Trait>(
+        &self,
+        message: &[u8],
+        public_key: &PublicKey,
+    ) -> Result<bool, DispatchError> {
+        self.sig
+            .verify(message, public_key)
+            .map_err(|_| Error::<T>::IncompatSigPubkey.into())
     }
 }
 
-// XXX: Substrate UI can't parse them. Maybe later versions will fix it.
-/*
-/// Size of a Sr25519 public key in bytes.
-pub const Sr25519_PK_BYTE_SIZE: usize = 32;
-/// Size of a Ed25519 public key in bytes.
-pub const Ed25519_PK_BYTE_SIZE: usize = 32;
-
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-pub enum PublicKey {
-    Sr25519([u8; 32]),
-    Ed25519([u8; 32])
-}*/
-
-/*#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-pub enum PublicKey {
-    Sr25519(Bytes32),
-    Ed25519(Bytes32)
-}
-
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-pub struct Bytes32(pub [u8;32]);*/
-
-/// `controller` is the controller of the DID and its value might be same as the DID.
-/// `public_key` is the public key and it is accepted and stored as raw bytes.
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct KeyDetail {
-    pub controller: Did,
-    pub public_key: PublicKey,
-}
-
-impl KeyDetail {
-    /// Create new key detail
-    pub fn new(controller: Did, public_key: PublicKey) -> Self {
-        KeyDetail {
-            controller,
-            public_key,
-        }
+impl AddKeys {
+    pub fn len(&self) -> u32 {
+        self.keys.len() as u32
     }
 }
 
-/// This struct is passed as an argument while updating the key for a DID.
-/// `did` is the DID whose key is being updated.
-/// `public_key` the new public key
-/// `controller` If provided None, the controller is unchanged. While serializing, use literal
-/// "None" when controller is None.
-/// The last_modified_in_block is the block number when this DID was last modified. It is used to
-/// prevent replay attacks. This approach allows easy submission of 1 update transaction in a block.
-/// It's theoretically possible to submit more than one txn per block, but the method is
-/// non-trivial and potentially unreliable.
-/// An alternate approach can be to have a nonce associated to each detail which is incremented on each
-/// successful extrinsic and the chain requiring the extrinsic's nonce to be higher than current.
-/// This is little more involved as it involves a ">" check
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct KeyUpdate {
-    pub did: Did,
-    pub public_key: PublicKey,
-    pub controller: Option<Did>,
-    // TODO: `BlockNumber` should be changed to `T::BlockNumber` to guard against accidental change
-    // to BlockNumber type. Will require this struct to be typed
-    pub last_modified_in_block: BlockNumber,
+impl RemoveKeys {
+    pub fn len(&self) -> u32 {
+        self.keys.len() as u32
+    }
 }
 
-impl KeyUpdate {
-    /// Create new key update to update key of the `did`.
-    /// Pass `controller` as None when not wishing to change the existing controller
-    pub fn new(
-        did: Did,
-        public_key: PublicKey,
-        controller: Option<Did>,
-        last_modified_in_block: BlockNumber,
-    ) -> Self {
-        KeyUpdate {
-            did,
-            public_key,
-            controller,
-            last_modified_in_block,
-        }
+impl AddControllers {
+    pub fn len(&self) -> u32 {
+        self.controllers.len() as u32
+    }
+}
+
+impl RemoveControllers {
+    pub fn len(&self) -> u32 {
+        self.controllers.len() as u32
     }
 }
 
@@ -287,20 +324,28 @@ impl DidRemoval {
 
 decl_event!(
     pub enum Event {
-        DidAdded(dock::did::Did, dock::did::PublicKey),
-        // Logs DID and new public key
-        KeyUpdated(dock::did::Did, dock::did::PublicKey),
-        DidRemoved(dock::did::Did),
+        OffChainDidAdded(dock::did::Did, Vec<u8>),
+        OffChainDidUpdated(dock::did::Did, Vec<u8>),
+        OffChainDidRemoved(dock::did::Did),
+        OnChainDidAdded(dock::did::Did),
+        DidKeysAdded(dock::did::Did),
+        DidControllersAdded(dock::did::Did),
     }
 );
 
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule {
+        /// Stores details of off-chain and on-chain DIDs
         pub Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did
-            => Option<(dock::did::KeyDetail, T::BlockNumber)>;
+            => Option<DidDetailStorage<T>>;
+        /// Stores keys of a DID as (DID, counter) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
+        pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) u32 => Option<DidKey>;
+        /// Stores controllers of a DID as (DID, counter) -> DID.
+        pub DidControllers get(fn did_contoller): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) u32 => Option<Did>;
     }
-    add_extra_genesis {
-        config(dids): Vec<(Did, KeyDetail)>;
+    // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
+    /*add_extra_genesis {
+        config(dids): Vec<(Did, DidDetail)>;
         build(|slef: &Self| {
             debug_assert!({
                 let mut dedup: Vec<&Did> = slef.dids.iter().map(|(d, _kd)| d).collect();
@@ -313,7 +358,7 @@ decl_storage! {
                 Dids::<T>::insert(did, (deet, block_no));
             }
         })
-    }
+    }*/
 }
 
 decl_module! {
@@ -322,234 +367,361 @@ decl_module! {
 
         type Error = Error<T>;
 
-        /// Create a new DID.
-        /// `did` is the new DID to create. The method will fail if `did` is already registered.
-        /// `detail` is the details of the key like its type, controller and value. The controller DID
-        /// is not required to exist in the state.
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + 36_000_000]
-        pub fn new(origin, did: dock::did::Did, detail: dock::did::KeyDetail) -> DispatchResult {
-            ensure_signed(origin)?;
+        const MaxDidDocUriSize: u32 = T::MaxDidDocUriSize::get();
+        const DidDocUriPerByteWeight: Weight = T::DidDocUriPerByteWeight::get();
 
-            // DID is not registered already
-            ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
-
-            let current_block_no = <system::Module<T>>::block_number();
-            let pk = detail.public_key.clone();
-            Dids::<T>::insert(did, (detail, current_block_no));
-            <system::Module<T>>::deposit_event_indexed(
-                &[<T as system::Config>::Hashing::hash(&did)],
-                <T as Trait>::Event::from(Event::DidAdded(did, pk))
-                .into()
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_uri.len() as u64 * T::DidDocUriPerByteWeight::get()]
+        pub fn new_offchain(origin, did: dock::did::Did, did_doc_uri: Vec<u8>) -> DispatchResult {
+            // Only `did_owner` can update or remove this DID
+            let did_owner = ensure_signed(origin)?;
+            ensure!(
+                T::MaxDidDocUriSize::get() as usize >= did_doc_uri.len(),
+                Error::<T>::DidDocUriTooBig
             );
-            Ok(())
+            Self::new_offchain_(did_owner, did, did_doc_uri)
         }
 
-        /// Sets the single publicKey (and possibly its controller) stored in this DID.
-        ///
-        /// `key_update` specifies which DID's key needs to be updated. The new controller DID
-        /// is not required to exist in the state.
-        /// `signature` is the signature on a serialized [StateChange][statechange] that wraps the
-        /// [KeyUpdate][keyupdate] struct
-        ///
-        /// During execution this function checks for a signature over [StateChange][statechange]
-        /// and verifies the given signature with the stored key.
-        ///
-        /// [statechange]: ../enum.StateChange.html
-        /// [keyupdate]: ./struct.KeyUpdate.html
-        /// # <weight>
-        /// This call requires a signature verification and the cost of verification varies by type
-        /// of signature
-        /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + signature.weight()]
-        pub fn update_key(
-            origin,
-            key_update: dock::did::KeyUpdate,
-            signature: dock::did::DidSignature,
-        ) -> DispatchResult {
-            ensure_signed(origin)?;
-
-            // DID is registered and the update is not being replayed
-            let mut current_key_detail = Self::ensure_did_registered_and_payload_fresh(
-                &key_update.did,
-                key_update.last_modified_in_block,
-            )?;
-
-            // serialize `KeyUpdate` to bytes
-            let serz_key_update = StateChange::KeyUpdate(key_update.clone()).encode();
-
-            // Verify signature on the serialized `KeyUpdate` with the current public key
-            let sig_ver = Self::verify_sig_with_public_key(
-                &signature,
-                &serz_key_update,
-                &current_key_detail.public_key,
-            )?;
-
-            // Throw error if signature is invalid
-            ensure!(sig_ver, Error::<T>::InvalidSig);
-
-            // Key update is safe to do, update the block number as well.
-            let current_block_no = <system::Module<T>>::block_number();
-            current_key_detail.public_key = key_update.public_key;
-
-            // If key update specified a controller, then only update the current controller
-            if let Some(ctrl) = key_update.controller {
-                current_key_detail.controller = ctrl;
-            }
-
-            let pk = current_key_detail.public_key.clone();
-            Dids::<T>::insert(key_update.did, (current_key_detail, current_block_no));
-            <system::Module<T>>::deposit_event_indexed(
-                &[<T as system::Config>::Hashing::hash(&key_update.did)],
-                <T as Trait>::Event::from(Event::KeyUpdated(key_update.did, pk))
-                .into()
+        // TODO: Fix weight
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_uri.len() as u64 * T::DidDocUriPerByteWeight::get()]
+        pub fn set_offchain_did_uri(origin, did: dock::did::Did, did_doc_uri: Vec<u8>) -> DispatchResult {
+            let caller = ensure_signed(origin)?;
+            ensure!(
+                T::MaxDidDocUriSize::get() as usize >= did_doc_uri.len(),
+                Error::<T>::DidDocUriTooBig
             );
-            Ok(())
+            Self::set_offchain_did_uri_(caller, did, did_doc_uri)
         }
 
-        /// Deletes a DID from chain storage. Once the DID is deleted, anyone can call new to claim
-        /// it for their own.
-        ///
-        /// `to_remove` contains the DID to be removed
-        /// `signature` is the signature on a serialized [StateChange][statechange] that wraps the
-        /// [DidRemoval][didremoval] struct
-        ///
-        /// During execution this function checks for a signature over [StateChange][statechange]
-        /// and verifies the given signature with the stored key.
-        ///
-        /// [statechange]: ../enum.StateChange.html
-        /// [didremoval]: ./struct.DidRemoval.html
-        // TODO: Makes sense to give some fees back?
-        /// # <weight>
-        /// This call requires a signature verification and the cost of verification varies by type
-        /// of signature
-        /// # </weight>
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + signature.weight()]
-        pub fn remove(
-            origin,
-            to_remove: dock::did::DidRemoval,
-            signature: dock::did::DidSignature
-        ) -> DispatchResult {
+        // TODO: Fix weight
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn remove_offchain_did(origin, did: dock::did::Did) -> DispatchResult {
+            let caller = ensure_signed(origin)?;
+            Self::remove_offchain_did_(caller, did)
+        }
+
+        /// Create new DID.
+        /// If no `keys` are provided, then its a keyless DID and at least 1 `controllers` must be provided.
+        /// If any `keys` are provided, but they have an empty `ver_rel`, then its set to a vector with variants
+        /// `Authentication`, `Assertion` and `CapabilityInvocation`. This is because keys without any verification
+        /// relation won't be usable and these 3 keep the logic most similar to before. Avoiding more
+        /// explicit argument to keep the caller's experience simple.
+        // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
+        #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight + controllers.len() as Weight + 1)]
+        pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<DidKey>, controllers: Vec<Did>) -> DispatchResult {
             ensure_signed(origin)?;
+            Module::<T>::new_onchain_(did, keys, controllers)
+        }
 
-            // DID is registered and the removal is not being replayed
-            let current_key_detail =
-                Self::ensure_did_registered_and_payload_fresh(&to_remove.did, to_remove.last_modified_in_block)?;
+        /// Add more keys from DID doc.
+        // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
+        #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
+        fn add_keys(origin, keys: AddKeys, sig: DidSignature) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
+            Module::<T>::add_keys_(keys, sig)
+        }
 
-            let did = to_remove.did;
-            // serialize `DIDRemoval` to bytes
-            let serz_rem = StateChange::DIDRemoval(to_remove).encode();
-
-            // Verify signature on the serialized `DidRemoval` with the current public key
-            let sig_ver = Self::verify_sig_with_public_key(
-                &signature,
-                &serz_rem,
-                &current_key_detail.public_key,
-            )?;
-
-            // Throw error if signature is invalid
-            ensure!(sig_ver, Error::<T>::InvalidSig);
-
-            // Remove DID
-            Dids::<T>::remove(did);
-            <system::Module<T>>::deposit_event_indexed(
-                &[<T as system::Config>::Hashing::hash(&did)],
-                <T as Trait>::Event::from(Event::DidRemoved(did))
-                .into()
-            );
-            Ok(())
+        /// Add new controllers
+        // TODO: Fix weights
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        fn add_controllers(origin, controllers: AddControllers, sig: DidSignature) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
+            Module::<T>::add_controllers_(controllers, sig)
         }
     }
 }
 
 impl<T: Trait> Module<T> {
-    /// Ensure that the DID is registered and this is not a replayed payload by checking the equality
-    /// with stored block number when the DID was last modified.
-    fn ensure_did_registered_and_payload_fresh(
-        did: &Did,
-        last_modified_in_block: BlockNumber,
-    ) -> Result<KeyDetail, DispatchError> {
-        let (current_key_detail, last_modified) = Self::get_key_detail(did)?;
+    fn new_offchain_(caller: T::AccountId, did: Did, did_doc_uri: Vec<u8>) -> DispatchResult {
+        // DID is not registered already
+        ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
-        // replay protection: the command should contain the last block in which the DID was modified
-        ensure!(
-            last_modified == T::BlockNumber::from(last_modified_in_block),
-            Error::<T>::DifferentBlockNumber
+        Dids::<T>::insert(did, DidDetailStorage::OffChain(caller, did_doc_uri.clone()));
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::OffChainDidAdded(did, did_doc_uri)).into(),
         );
-
-        Ok(current_key_detail)
+        Ok(())
     }
 
-    /// Get the key detail and the block number of last modification of the given DID.
-    /// It assumes that the DID has only 1 public key which is true for now but will change later.
-    /// This function will then be modified to indicate which key(s) of the DID should be used.
-    /// If DID is not registered an error is raised.
-    pub fn get_key_detail(did: &Did) -> Result<(KeyDetail, T::BlockNumber), DispatchError> {
-        if let Some((current_key_detail, last_modified)) = Dids::<T>::get(did) {
-            Ok((current_key_detail, last_modified))
+    fn set_offchain_did_uri_(
+        caller: T::AccountId,
+        did: Did,
+        did_doc_uri: Vec<u8>,
+    ) -> DispatchResult {
+        Self::ensure_offchain_did_be_updated(&caller, &did)?;
+        Dids::<T>::insert(did, DidDetailStorage::OffChain(caller, did_doc_uri.clone()));
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::OffChainDidUpdated(did, did_doc_uri)).into(),
+        );
+        Ok(())
+    }
+
+    fn remove_offchain_did_(caller: T::AccountId, did: Did) -> DispatchResult {
+        Self::ensure_offchain_did_be_updated(&caller, &did)?;
+        Dids::<T>::remove(did);
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::OffChainDidRemoved(did)).into(),
+        );
+        Ok(())
+    }
+
+    fn new_onchain_(did: Did, keys: Vec<DidKey>, mut controllers: Vec<Did>) -> DispatchResult {
+        // DID is not registered already
+        ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
+
+        if keys.is_empty() && controllers.is_empty() {
+            fail!(Error::<T>::NoControllerProvided)
+        }
+
+        let (keys_to_insert, is_self_controlled) = Self::prepare_keys_to_insert(keys, false)?;
+
+        if is_self_controlled {
+            controllers.push(did);
+        }
+
+        // Nonce will start from current block number
+        let nonce = <system::Module<T>>::block_number();
+        Dids::<T>::insert(
+            did,
+            DidDetailStorage::from_on_chain_detail(
+                keys_to_insert.len() as u32,
+                controllers.len() as u32,
+                nonce,
+            ),
+        );
+
+        for (i, key) in keys_to_insert.into_iter().enumerate() {
+            DidKeys::insert(&did, i as u32 + 1, key)
+        }
+        for (i, cnt) in controllers.into_iter().enumerate() {
+            DidControllers::insert(&did, i as u32 + 1, cnt)
+        }
+
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::OnChainDidAdded(did)).into(),
+        );
+        Ok(())
+    }
+
+    fn add_keys_(keys: AddKeys, sig: DidSignature) -> DispatchResult {
+        let did = &keys.did;
+        let signer = &sig.did;
+
+        let did_detail = Self::get_on_chain_did_detail_for_update(did, keys.nonce)?;
+
+        let serz_add_keys = StateChange::AddKeys(keys.clone()).encode();
+
+        ensure!(
+            Self::verify_sig_from_controller(did, &serz_add_keys, signer, &sig)?,
+            Error::<T>::InvalidSig
+        );
+
+        // If DID was not self controlled first, check if it can become by looking
+        let was_self_controlled = Self::is_self_controlled(did);
+        let (keys_to_insert, is_self_controlled) =
+            Self::prepare_keys_to_insert(keys.keys, was_self_controlled)?;
+
+        // Make self controlled if need be
+        let mut controller_counter = did_detail.controller_counter;
+        if !was_self_controlled && is_self_controlled {
+            DidControllers::insert(&did, controller_counter + 1, did);
+            controller_counter += 1;
+        }
+
+        let old_key_count = did_detail.key_counter;
+        Dids::<T>::insert(
+            did,
+            DidDetailStorage::from_on_chain_detail(
+                old_key_count + (keys_to_insert.len() as u32),
+                controller_counter,
+                T::BlockNumber::from(keys.nonce),
+            ),
+        );
+
+        for (i, key) in keys_to_insert.into_iter().enumerate() {
+            DidKeys::insert(did, i as u32 + old_key_count + 1, key)
+        }
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(did)],
+            <T as Trait>::Event::from(Event::DidKeysAdded(*did)).into(),
+        );
+        Ok(())
+    }
+
+    fn add_controllers_(controllers: AddControllers, sig: DidSignature) -> DispatchResult {
+        let did = &controllers.did;
+        let signer = &sig.did;
+
+        let did_detail = Self::get_on_chain_did_detail_for_update(did, controllers.nonce)?;
+
+        let serz_add_controllers = StateChange::AddControllers(controllers.clone()).encode();
+
+        ensure!(
+            Self::verify_sig_from_controller(did, &serz_add_controllers, signer, &sig)?,
+            Error::<T>::InvalidSig
+        );
+
+        let old_cnt_count = did_detail.controller_counter;
+
+        Dids::<T>::insert(
+            did,
+            DidDetailStorage::from_on_chain_detail(
+                did_detail.key_counter,
+                old_cnt_count + (controllers.len() as u32),
+                T::BlockNumber::from(controllers.nonce),
+            ),
+        );
+
+        for (i, cnt) in controllers.controllers.into_iter().enumerate() {
+            DidControllers::insert(&did, i as u32 + old_cnt_count + 1, cnt)
+        }
+
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(did)],
+            <T as Trait>::Event::from(Event::DidControllersAdded(*did)).into(),
+        );
+
+        Ok(())
+    }
+
+    /// Prepare `DidKey`s to insert. The DID is assumed to be self controlled as well if there is any key
+    /// that is capable of either authenticating or invoking a capability. Returns the keys and whether any
+    /// key can make the DID a controller. The following logic is contentious
+    fn prepare_keys_to_insert(
+        keys: Vec<DidKey>,
+        is_self_controlled: bool,
+    ) -> Result<(Vec<DidKey>, bool), DispatchError> {
+        let mut keys_to_insert = Vec::with_capacity(keys.len());
+        let mut is_self_controlled = is_self_controlled;
+        for key in keys {
+            if key.ver_rels.is_empty() {
+                is_self_controlled = is_self_controlled || key.can_sign();
+                keys_to_insert.push(DidKey::new_with_all_relationships(key.key));
+            } else {
+                if !key.is_valid() {
+                    fail!(Error::<T>::IncompatableVerificationRelation)
+                }
+                if !is_self_controlled && key.can_control() {
+                    is_self_controlled = true;
+                }
+                keys_to_insert.push(key);
+            }
+        }
+        Ok((keys_to_insert, is_self_controlled))
+    }
+
+    /// Throw an error if `controller` is not the controller of `controlled`
+    pub fn ensure_controller(controlled: &Did, controller: &Did) -> DispatchResult {
+        if !Self::is_controller(controlled, controller) {
+            fail!(Error::<T>::OnlyControllerCanUpdate)
+        }
+        Ok(())
+    }
+
+    /// Is `controller` the controller of `controlled`
+    pub fn is_controller(controlled: &Did, controller: &Did) -> bool {
+        let mut found = false;
+        for (_, val) in DidControllers::iter_prefix(controlled) {
+            if val == *controller {
+                found = true;
+                break;
+            }
+        }
+        found
+    }
+
+    /// Returns true if `did` controls itself, else false.
+    pub fn is_self_controlled(did: &Did) -> bool {
+        Self::is_controller(did, did)
+    }
+
+    /// Return `did`'s key with id `key_id` only if it can control otherwise throw error
+    pub fn get_key_for_control(did: &Did, key_id: u32) -> Result<PublicKey, DispatchError> {
+        if let Some(did_key) = DidKeys::get(did, key_id) {
+            if did_key.can_control() {
+                Ok(did_key.key)
+            } else {
+                fail!(Error::<T>::InsufficientVerificationRelationship)
+            }
+        } else {
+            fail!(Error::<T>::NoKeyForDid)
+        }
+    }
+
+    /// Verify a `DidSignature` created by `signer` only if `signer` is a controller of `did` and has an
+    /// appropriate key. To update a DID (add/remove keys, add/remove controllers), the updater must be a
+    /// controller of the DID and must have a key with `CapabilityInvocation` verification relationship
+    pub fn verify_sig_from_controller(
+        did: &Did,
+        msg: &[u8],
+        signer: &Did,
+        sig: &DidSignature,
+    ) -> Result<bool, DispatchError> {
+        Self::ensure_controller(did, signer)?;
+        let signer_pubkey = Self::get_key_for_control(signer, sig.key_id)?;
+
+        sig.verify::<T>(msg, &signer_pubkey)
+    }
+
+    /// Get DID detail for on-chain DID if given nonce is correct, i.e. 1 more than the current nonce.
+    /// This is used for update
+    pub fn get_on_chain_did_detail_for_update(
+        did: &Did,
+        new_nonce: u32,
+    ) -> Result<DidDetail<T>, DispatchError> {
+        let did_detail_storage = Self::get_on_chain_did_detail(did)?;
+        let new_nonce = T::BlockNumber::from(new_nonce);
+        if new_nonce != (did_detail_storage.nonce + T::BlockNumber::one()) {
+            fail!(Error::<T>::IncorrectNonce)
+        }
+        Ok(did_detail_storage)
+    }
+
+    /// Get DID detail of an on-chain DID. Throws error if DID does not exist or is off-chain.
+    pub fn get_on_chain_did_detail(did: &Did) -> Result<DidDetail<T>, DispatchError> {
+        if let Some(did_detail_storage) = Dids::<T>::get(did) {
+            if did_detail_storage.is_off_chain() {
+                fail!(Error::<T>::CannotGetDetailForOffChainDid)
+            }
+            Ok(did_detail_storage.to_on_chain_did_detail())
         } else {
             fail!(Error::<T>::DidDoesNotExist)
         }
     }
 
-    /// Verify given signature on the given message with the given DID's only public key.
-    /// It assumes that the DID has only 1 public key which is true for now but will change later.
-    /// This function will then be modified to indicate which key(s) of the DID should be used.
-    /// If DID is not registered an error is raised.
-    /// This function is intended to be used by other modules as well to check the signature from a DID.
-    pub fn verify_sig_from_did(
-        signature: &DidSignature,
-        message: &[u8],
-        did: &Did,
-    ) -> Result<bool, DispatchError> {
-        let (current_key_detail, _) = Self::get_key_detail(did)?;
-        Self::verify_sig_with_public_key(signature, message, &current_key_detail.public_key)
+    pub fn is_onchain_did(did: &Did) -> Result<bool, Error<T>> {
+        if let Some(did_detail_storage) = Dids::<T>::get(did) {
+            Ok(did_detail_storage.is_on_chain())
+        } else {
+            fail!(Error::<T>::DidDoesNotExist)
+        }
     }
 
-    /// Verify given signature on the given message with given public key
-    pub fn verify_sig_with_public_key(
-        signature: &DidSignature,
-        message: &[u8],
-        public_key: &PublicKey,
-    ) -> Result<bool, DispatchError> {
-        macro_rules! verify {
-            ( $message:ident, $sig_bytes:ident, $pk_bytes:ident, $sig_type:expr, $pk_type:expr ) => {{
-                let signature = $sig_type($sig_bytes.value);
-                let pk = $pk_type($pk_bytes.value);
-                signature.verify($message, &pk)
-            }};
+    pub fn is_offchain_did(did: &Did) -> Result<bool, Error<T>> {
+        Self::is_onchain_did(did).map(|r| !r)
+    }
+
+    /// Check that given DID is off-chain and owned by the caller
+    pub fn ensure_offchain_did_be_updated(
+        caller: &T::AccountId,
+        did: &Did,
+    ) -> Result<(), DispatchError> {
+        if let Some(did_detail_storage) = Dids::<T>::get(did) {
+            match did_detail_storage {
+                DidDetailStorage::OnChain(_) => fail!(Error::<T>::NotAnOffChainDid),
+                DidDetailStorage::OffChain(account, _) => {
+                    ensure!(account == *caller, Error::<T>::DidNotOwnedByAccount);
+                    Ok(())
+                }
+            }
+        } else {
+            fail!(Error::<T>::DidDoesNotExist)
         }
-        Ok(match (public_key, signature) {
-            (PublicKey::Sr25519(pk_bytes), DidSignature::Sr25519(sig_bytes)) => {
-                verify!(
-                    message,
-                    sig_bytes,
-                    pk_bytes,
-                    sr25519::Signature,
-                    sr25519::Public
-                )
-            }
-            (PublicKey::Ed25519(pk_bytes), DidSignature::Ed25519(sig_bytes)) => {
-                verify!(
-                    message,
-                    sig_bytes,
-                    pk_bytes,
-                    ed25519::Signature,
-                    ed25519::Public
-                )
-            }
-            (PublicKey::Secp256k1(pk_bytes), DidSignature::Secp256k1(sig_bytes)) => {
-                let hash = Sha256::digest(message).try_into().unwrap();
-                let m = libsecp256k1::Message::parse(&hash);
-                let sig = libsecp256k1::Signature::parse_overflowing(
-                    sig_bytes.value[0..64].try_into().unwrap(),
-                );
-                let p = libsecp256k1::PublicKey::parse_compressed(&pk_bytes.value).unwrap();
-                libsecp256k1::verify(&m, &sig, &p)
-            }
-            _ => {
-                fail!(Error::<T>::IncomparSigPubkey)
-            }
-        })
     }
 }
 
@@ -557,375 +729,1406 @@ impl<T: Trait> Module<T> {
 mod tests {
     use super::*;
 
+    use crate::keys_and_sigs::get_secp256k1_keypair;
     use crate::test_common::*;
+    use crate::util::{Bytes64, Bytes65};
     use frame_support::{assert_err, assert_ok};
-    use sp_core::Pair;
+    use sp_core::{ed25519, sr25519, Pair};
 
-    #[test]
-    fn signature_verification() {
-        // Check that the signature should be wrapped in correct variant of enum `Signature`.
-        // Trying to wrap a Sr25519 signature in a Signature::Ed25519 should fail.
-        // Trying to wrap a Ed25519 signature in a Signature::Sr25519 should fail.
-        ext().execute_with(|| {
-            let msg = vec![1u8; 350];
+    fn not_key_agreement(key: &DidKey) {
+        assert!(key.can_sign());
+        assert!(key.can_authenticate());
+        assert!(key.can_control());
+        assert!(key.can_authenticate_or_control());
+        assert!(!key.for_key_agreement());
+    }
 
-            // The macro checks that a signature verification only passes when sig wrapped in `$correct_sig_type`
-            // but fails when wrapped in `$incorrect_sig_type`
-            macro_rules! check_sig_verification {
-                ( $module:ident, $pk_type:expr, $correct_sig_type:expr, $incorrect_sig_type:expr ) => {{
+    fn only_key_agreement(key: &DidKey) {
+        assert!(!key.can_sign());
+        assert!(!key.can_authenticate());
+        assert!(!key.can_control());
+        assert!(!key.can_authenticate_or_control());
+        assert!(key.for_key_agreement());
+    }
 
-                    let (pair, _, _) = $module::Pair::generate_with_phrase(None);
-                    let pk_bytes = pair.public().0;
-                    let pk = $pk_type(Bytes32 { value: pk_bytes });
-                    let sig_bytes = pair.sign(&msg).0;
-                    let correct_sig = $correct_sig_type(Bytes64 {value: sig_bytes});
-
-                    // Valid signature wrapped in a correct type works
-                    assert!(DIDModule::verify_sig_with_public_key(&correct_sig, &msg, &pk).unwrap());
-
-                    // Valid signature wrapped in an incorrect type does not work
-                    let incorrect_sig = $incorrect_sig_type(Bytes64 {value: sig_bytes});
-                    assert_err!(
-                            DIDModule::verify_sig_with_public_key(&incorrect_sig, &msg, &pk),
-                            Error::<Test>::IncomparSigPubkey
-                    );
-                }}
-            }
-
-            check_sig_verification!(sr25519, PublicKey::Sr25519, DidSignature::Sr25519, DidSignature::Ed25519);
-            check_sig_verification!(ed25519, PublicKey::Ed25519, DidSignature::Ed25519, DidSignature::Sr25519);
-
-            let sk = libsecp256k1::SecretKey::parse(&[1; 32]).unwrap();
-            let hash = Sha256::digest(&msg).try_into().unwrap();
-            let m = libsecp256k1::Message::parse(&hash);
-            let sig = libsecp256k1::sign(&m, &sk);
-            let mut sig_bytes: [u8; 65] = [0; 65];
-            sig_bytes[0..64].copy_from_slice(&sig.0.serialize()[..]);
-            sig_bytes[64] = sig.1.serialize();
-            let pk = PublicKey::Secp256k1(Bytes33 {value: libsecp256k1::PublicKey::from_secret_key(&sk).serialize_compressed() });
-
-            let correct_sig = DidSignature::Secp256k1(Bytes65 {value: sig_bytes});
-            let incorrect_sig = DidSignature::Ed25519(Bytes64 {value: [1; 64]});
-            assert!(DIDModule::verify_sig_with_public_key(&correct_sig, &msg, &pk).unwrap());
-            assert_err!(DIDModule::verify_sig_with_public_key(&incorrect_sig, &msg, &pk), Error::<Test>::IncomparSigPubkey);
-        });
+    fn check_did_detail(did: &Did, key_counter: u32, controller_counter: u32, nonce: BlockNumber) {
+        let did_detail = DIDModule::get_on_chain_did_detail(did).unwrap();
+        assert_eq!(did_detail.key_counter, key_counter);
+        assert_eq!(did_detail.controller_counter, controller_counter);
+        assert_eq!(
+            did_detail.nonce,
+            <Test as system::Config>::BlockNumber::from(nonce)
+        );
     }
 
     #[test]
-    fn did_creation() {
-        // DID must be unique. It must have an acceptable public size
+    fn off_chain_did() {
+        // Creating an off-chain DID
         ext().execute_with(|| {
-            let alice = 10u64;
+            let alice = 1u64;
+            let did = [5; DID_BYTE_SIZE];
+            let uri = vec![129; 60];
+            let too_big_uri = vec![129; 300];
 
-            let did = [1; DID_BYTE_SIZE];
-            let pk = PublicKey::Sr25519(Bytes32 { value: [0; 32] });
-            let detail = KeyDetail::new(did.clone(), pk);
+            assert_err!(
+                DIDModule::new_offchain(Origin::signed(alice), did.clone(), too_big_uri.clone()),
+                Error::<Test>::DidDocUriTooBig
+            );
 
             // Add a DID
-            assert_ok!(DIDModule::new(
+            assert_ok!(DIDModule::new_offchain(
                 Origin::signed(alice),
                 did.clone(),
-                detail.clone()
+                uri.clone()
             ));
 
-            // Try to add the same DID and same key detail again and fail
+            // Try to add the same DID and same uri again and fail
             assert_err!(
-                DIDModule::new(Origin::signed(alice), did.clone(), detail.clone()),
+                DIDModule::new_offchain(Origin::signed(alice), did.clone(), uri.clone()),
                 Error::<Test>::DidAlreadyExists
             );
 
-            // Try to add the same DID again but with different key detail and fail
-            let pk = PublicKey::Ed25519(Bytes32 { value: [0; 32] });
-            let detail = KeyDetail::new(did.clone(), pk);
+            // Try to add the same DID and different uri and fail
+            let uri_1 = vec![205; 99];
             assert_err!(
-                DIDModule::new(Origin::signed(alice), did, detail),
+                DIDModule::new_offchain(Origin::signed(alice), did, uri_1),
                 Error::<Test>::DidAlreadyExists
             );
+
+            assert!(DIDModule::is_offchain_did(&did).unwrap());
+            assert!(!DIDModule::is_onchain_did(&did).unwrap());
+
+            assert_err!(
+                DIDModule::get_on_chain_did_detail(&did),
+                Error::<Test>::CannotGetDetailForOffChainDid
+            );
+
+            let did_detail_storage = Dids::<Test>::get(&did).unwrap();
+            let (owner, fetched_uri) = did_detail_storage.to_off_chain_did_owner_and_uri();
+            assert_eq!(owner, alice);
+            assert_eq!(fetched_uri, uri);
+
+            let bob = 2u64;
+            let new_uri = vec![235; 99];
+            assert_err!(
+                DIDModule::set_offchain_did_uri(Origin::signed(bob), did, new_uri.clone()),
+                Error::<Test>::DidNotOwnedByAccount
+            );
+
+            assert_err!(
+                DIDModule::set_offchain_did_uri(Origin::signed(alice), did.clone(), too_big_uri),
+                Error::<Test>::DidDocUriTooBig
+            );
+
+            assert_ok!(DIDModule::set_offchain_did_uri(
+                Origin::signed(alice),
+                did.clone(),
+                new_uri.clone()
+            ));
+            let did_detail_storage = Dids::<Test>::get(&did).unwrap();
+            let (_, fetched_uri) = did_detail_storage.to_off_chain_did_owner_and_uri();
+            assert_eq!(fetched_uri, new_uri);
+
+            assert_err!(
+                DIDModule::remove_offchain_did(Origin::signed(bob), did),
+                Error::<Test>::DidNotOwnedByAccount
+            );
+
+            assert_ok!(DIDModule::remove_offchain_did(Origin::signed(alice), did));
+            assert!(Dids::<Test>::get(&did).is_none());
         });
     }
 
     #[test]
-    fn did_key_update_for_unregistered_did() {
-        // Updating a DID that has not been registered yet should fail
+    fn on_chain_keyless_did_creation() {
+        // Creating an on-chain DID with no keys but only controllers, i.e. DID is controlled by other DIDs
         ext().execute_with(|| {
-            let alice = 100u64;
-
-            let did = [1; DID_BYTE_SIZE];
-
-            let (pair, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk = pair.public().0;
-            let key_update = KeyUpdate::new(
-                did.clone(),
-                PublicKey::Sr25519(Bytes32 { value: pk }),
-                None,
-                2u32,
-            );
-            let sig = DidSignature::Sr25519(Bytes64 {
-                value: pair
-                    .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
-                    .0,
-            });
+            let alice = 1u64;
+            let did_1 = [5; DID_BYTE_SIZE];
+            let did_2 = [3; DID_BYTE_SIZE];
+            let controller_1 = [7; DID_BYTE_SIZE];
+            let controller_2 = [20; DID_BYTE_SIZE];
 
             assert_err!(
-                DIDModule::update_key(Origin::signed(alice), key_update, sig),
+                DIDModule::new_onchain(Origin::signed(alice), did_1.clone(), vec![], vec![]),
+                Error::<Test>::NoControllerProvided
+            );
+
+            run_to_block(20);
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_1.clone(),
+                vec![],
+                vec![controller_1]
+            ));
+
+            assert!(!DIDModule::is_offchain_did(&did_1).unwrap());
+            assert!(DIDModule::is_onchain_did(&did_1).unwrap());
+
+            assert!(!DIDModule::is_self_controlled(&did_1));
+            assert!(!DIDModule::is_controller(&did_1, &controller_2));
+            assert!(DIDModule::is_controller(&did_1, &controller_1));
+
+            check_did_detail(&did_1, 0, 1, 20);
+
+            assert_err!(
+                DIDModule::new_onchain(
+                    Origin::signed(alice),
+                    did_1.clone(),
+                    vec![],
+                    vec![controller_1]
+                ),
+                Error::<Test>::DidAlreadyExists
+            );
+
+            run_to_block(55);
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_2.clone(),
+                vec![],
+                vec![did_1, controller_1, controller_2]
+            ));
+
+            assert!(!DIDModule::is_offchain_did(&did_2).unwrap());
+            assert!(DIDModule::is_onchain_did(&did_2).unwrap());
+
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            assert!(DIDModule::is_controller(&did_2, &did_1));
+            assert!(DIDModule::is_controller(&did_2, &controller_1));
+            assert!(DIDModule::is_controller(&did_2, &controller_2));
+
+            check_did_detail(&did_2, 0, 3, 55);
+        });
+    }
+
+    #[test]
+    fn on_chain_keyed_did_creation_with_self_control() {
+        // Creating an on-chain DID with keys but no other controllers
+        ext().execute_with(|| {
+            let alice = 1u64;
+            let did_1 = [5; DID_BYTE_SIZE];
+            let did_2 = [4; DID_BYTE_SIZE];
+            let did_3 = [3; DID_BYTE_SIZE];
+            let did_4 = [2; DID_BYTE_SIZE];
+            let did_5 = [11; DID_BYTE_SIZE];
+            let did_6 = [111; DID_BYTE_SIZE];
+            let did_7 = [71; DID_BYTE_SIZE];
+            let did_8 = [82; DID_BYTE_SIZE];
+            let did_9 = [83; DID_BYTE_SIZE];
+            let did_10 = [84; DID_BYTE_SIZE];
+            let did_11 = [85; DID_BYTE_SIZE];
+
+            let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr = pair_sr.public().0;
+            let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed = pair_ed.public().0;
+            let (_, pk_secp) = get_secp256k1_keypair(&[21; 32]);
+
+            run_to_block(5);
+
+            // DID controls itself when adding keys capable of signing without specifying any verificatiion relationship
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_1.clone(),
+                vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr),
+                    ver_rels: vec![]
+                }],
+                vec![]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_1));
+            check_did_detail(&did_1, 1, 1, 5);
+
+            let key_1 = DidKeys::get(&did_1, 1).unwrap();
+            not_key_agreement(&key_1);
+
+            run_to_block(6);
+
+            // DID controls itself and specifies another controller as well
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_2.clone(),
+                vec![DidKey {
+                    key: PublicKey::ed25519(pk_ed),
+                    ver_rels: vec![]
+                }],
+                vec![did_1]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 1, 2, 6);
+
+            let key_2 = DidKeys::get(&did_2, 1).unwrap();
+            not_key_agreement(&key_2);
+
+            run_to_block(7);
+
+            // DID controls itself and specifies multiple another controllers as well
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_3.clone(),
+                vec![DidKey {
+                    key: pk_secp.clone(),
+                    ver_rels: vec![]
+                }],
+                vec![did_1, did_2]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_3));
+            check_did_detail(&did_3, 1, 3, 7);
+
+            let key_3 = DidKeys::get(&did_3, 1).unwrap();
+            not_key_agreement(&key_3);
+
+            run_to_block(8);
+
+            // Adding x25519 key does not make the DID self controlled
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_4.clone(),
+                vec![DidKey {
+                    key: PublicKey::x25519(pk_ed),
+                    ver_rels: vec![]
+                }],
+                vec![]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_4));
+            check_did_detail(&did_4, 1, 0, 8);
+
+            let key_4 = DidKeys::get(&did_4, 1).unwrap();
+            only_key_agreement(&key_4);
+
+            // x25519 key cannot be added for incompatible relationship types
+            for vr in vec![
+                VerRelType::Authentication,
+                VerRelType::Assertion,
+                VerRelType::CapabilityInvocation,
+            ] {
+                assert_err!(
+                    DIDModule::new_onchain(
+                        Origin::signed(alice),
+                        did_5.clone(),
+                        vec![DidKey {
+                            key: PublicKey::x25519(pk_ed),
+                            ver_rels: vec![vr]
+                        }],
+                        vec![]
+                    ),
+                    Error::<Test>::IncompatableVerificationRelation
+                );
+            }
+
+            for pk in vec![
+                PublicKey::sr25519(pk_sr),
+                PublicKey::ed25519(pk_ed),
+                pk_secp.clone(),
+            ] {
+                assert_err!(
+                    DIDModule::new_onchain(
+                        Origin::signed(alice),
+                        did_5.clone(),
+                        vec![DidKey {
+                            key: pk,
+                            ver_rels: vec![VerRelType::KeyAgreement]
+                        }],
+                        vec![]
+                    ),
+                    Error::<Test>::IncompatableVerificationRelation
+                );
+            }
+
+            run_to_block(10);
+
+            // Add single key and specify relationship as `capabilityInvocation`
+            for (did, pk) in vec![
+                (did_5, PublicKey::sr25519(pk_sr)),
+                (did_6, PublicKey::ed25519(pk_ed)),
+                (did_7, pk_secp.clone()),
+            ] {
+                assert_ok!(DIDModule::new_onchain(
+                    Origin::signed(alice),
+                    did.clone(),
+                    vec![DidKey {
+                        key: pk,
+                        ver_rels: vec![VerRelType::CapabilityInvocation]
+                    }],
+                    vec![]
+                ));
+                assert!(DIDModule::is_self_controlled(&did));
+                let key = DidKeys::get(&did, 1).unwrap();
+                assert!(key.can_sign());
+                assert!(!key.can_authenticate());
+                assert!(key.can_control());
+                assert!(key.can_authenticate_or_control());
+                assert!(!key.for_key_agreement());
+                check_did_detail(&did, 1, 1, 10);
+            }
+
+            run_to_block(13);
+
+            // Add single key with single relationship and but do not specify relationship as `capabilityInvocation`
+            for (did, pk, vr) in vec![
+                (
+                    [72; DID_BYTE_SIZE],
+                    PublicKey::sr25519(pk_sr),
+                    VerRelType::Assertion,
+                ),
+                (
+                    [73; DID_BYTE_SIZE],
+                    PublicKey::ed25519(pk_ed),
+                    VerRelType::Assertion,
+                ),
+                ([74; DID_BYTE_SIZE], pk_secp.clone(), VerRelType::Assertion),
+                (
+                    [75; DID_BYTE_SIZE],
+                    PublicKey::sr25519(pk_sr),
+                    VerRelType::Authentication,
+                ),
+                (
+                    [76; DID_BYTE_SIZE],
+                    PublicKey::ed25519(pk_ed),
+                    VerRelType::Authentication,
+                ),
+                (
+                    [77; DID_BYTE_SIZE],
+                    pk_secp.clone(),
+                    VerRelType::Authentication,
+                ),
+            ] {
+                assert_ok!(DIDModule::new_onchain(
+                    Origin::signed(alice),
+                    did.clone(),
+                    vec![DidKey {
+                        key: pk,
+                        ver_rels: vec![vr.clone()]
+                    }],
+                    vec![]
+                ));
+                assert!(!DIDModule::is_self_controlled(&did));
+                let key = DidKeys::get(&did, 1).unwrap();
+                assert!(key.can_sign());
+                assert!(!key.can_control());
+                if vr == VerRelType::Authentication {
+                    assert!(key.can_authenticate());
+                    assert!(key.can_authenticate_or_control());
+                }
+                assert!(!key.for_key_agreement());
+                check_did_detail(&did, 1, 0, 13);
+            }
+
+            run_to_block(19);
+
+            // Add single key, specify multiple relationships and but do not specify relationship as `capabilityInvocation`
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_8.clone(),
+                vec![DidKey {
+                    key: PublicKey::ed25519(pk_ed),
+                    ver_rels: vec![VerRelType::Authentication, VerRelType::Assertion]
+                }],
+                vec![]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_8));
+            let key_8 = DidKeys::get(&did_8, 1).unwrap();
+            assert!(key_8.can_sign());
+            assert!(key_8.can_authenticate());
+            assert!(!key_8.can_control());
+            check_did_detail(&did_8, 1, 0, 19);
+
+            run_to_block(20);
+
+            // Add multiple keys and specify multiple relationships
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_9.clone(),
+                vec![
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed),
+                        ver_rels: vec![VerRelType::Authentication]
+                    },
+                    DidKey {
+                        key: PublicKey::sr25519(pk_sr),
+                        ver_rels: vec![VerRelType::Assertion]
+                    },
+                    DidKey {
+                        key: pk_secp.clone(),
+                        ver_rels: vec![VerRelType::Assertion, VerRelType::Authentication]
+                    },
+                ],
+                vec![]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_9));
+            let key_9_1 = DidKeys::get(&did_9, 1).unwrap();
+            assert!(key_9_1.can_sign());
+            assert!(key_9_1.can_authenticate());
+            assert!(!key_9_1.can_control());
+            let key_9_2 = DidKeys::get(&did_9, 2).unwrap();
+            assert!(key_9_2.can_sign());
+            assert!(!key_9_2.can_authenticate());
+            assert!(!key_9_2.can_control());
+            let key_9_3 = DidKeys::get(&did_9, 3).unwrap();
+            assert!(key_9_3.can_sign());
+            assert!(key_9_3.can_authenticate());
+            assert!(!key_9_3.can_control());
+            check_did_detail(&did_9, 3, 0, 20);
+
+            run_to_block(22);
+
+            // Add multiple keys and specify multiple relationships
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_10.clone(),
+                vec![
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed),
+                        ver_rels: vec![VerRelType::Authentication, VerRelType::Assertion]
+                    },
+                    DidKey {
+                        key: PublicKey::sr25519(pk_sr),
+                        ver_rels: vec![VerRelType::Assertion]
+                    },
+                    DidKey {
+                        key: pk_secp,
+                        ver_rels: vec![VerRelType::CapabilityInvocation]
+                    },
+                ],
+                vec![]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_10));
+            let key_10_1 = DidKeys::get(&did_10, 1).unwrap();
+            assert!(key_10_1.can_sign());
+            assert!(key_10_1.can_authenticate());
+            assert!(!key_10_1.can_control());
+            let key_10_2 = DidKeys::get(&did_10, 2).unwrap();
+            assert!(key_10_2.can_sign());
+            assert!(!key_10_2.can_authenticate());
+            assert!(!key_10_2.can_control());
+            let key_10_3 = DidKeys::get(&did_10, 3).unwrap();
+            assert!(key_10_3.can_sign());
+            assert!(!key_10_3.can_authenticate());
+            assert!(key_10_3.can_control());
+            check_did_detail(&did_10, 3, 1, 22);
+
+            run_to_block(23);
+
+            // Add multiple keys, specify multiple relationships and other controllers as well
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_11.clone(),
+                vec![
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed),
+                        ver_rels: vec![VerRelType::Authentication, VerRelType::Assertion]
+                    },
+                    DidKey {
+                        key: PublicKey::sr25519(pk_sr),
+                        ver_rels: vec![VerRelType::CapabilityInvocation]
+                    },
+                ],
+                vec![did_1, did_2]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_11));
+            let key_11_1 = DidKeys::get(&did_11, 1).unwrap();
+            assert!(key_11_1.can_sign());
+            assert!(key_11_1.can_authenticate());
+            assert!(!key_11_1.can_control());
+            let key_11_2 = DidKeys::get(&did_11, 2).unwrap();
+            assert!(key_11_2.can_sign());
+            assert!(!key_11_2.can_authenticate());
+            assert!(key_11_2.can_control());
+            check_did_detail(&did_11, 2, 3, 23);
+        });
+    }
+
+    #[test]
+    fn on_chain_keyed_did_creation_with_and_without_self_control() {
+        // Creating an on-chain DID with keys and other controllers
+        ext().execute_with(|| {
+            let alice = 1u64;
+            let did_1 = [51; DID_BYTE_SIZE];
+            let did_2 = [52; DID_BYTE_SIZE];
+            let did_3 = [54; DID_BYTE_SIZE];
+            let did_4 = [55; DID_BYTE_SIZE];
+            let did_5 = [56; DID_BYTE_SIZE];
+            let did_6 = [57; DID_BYTE_SIZE];
+
+            let controller_1 = [61; DID_BYTE_SIZE];
+            let controller_2 = [62; DID_BYTE_SIZE];
+            let controller_3 = [63; DID_BYTE_SIZE];
+            let controller_4 = [64; DID_BYTE_SIZE];
+
+            let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr = pair_sr.public().0;
+            let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed = pair_ed.public().0;
+            let (_, pk_secp) = get_secp256k1_keypair(&[21; 32]);
+
+            run_to_block(10);
+
+            // DID does not control itself, some other DID does
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_1.clone(),
+                vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr),
+                    ver_rels: vec![VerRelType::Authentication]
+                }],
+                vec![controller_1]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_1));
+            assert!(DIDModule::is_controller(&did_1, &controller_1));
+            check_did_detail(&did_1, 1, 1, 10);
+
+            run_to_block(11);
+
+            // DID does not control itself, some other DID does
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_2.clone(),
+                vec![DidKey {
+                    key: PublicKey::ed25519(pk_ed),
+                    ver_rels: vec![VerRelType::Assertion]
+                }],
+                vec![controller_2]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            assert!(DIDModule::is_controller(&did_2, &controller_2));
+            check_did_detail(&did_2, 1, 1, 11);
+
+            run_to_block(12);
+
+            // DID does not control itself, some other DID does
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_3.clone(),
+                vec![DidKey {
+                    key: PublicKey::x25519(pk_ed),
+                    ver_rels: vec![VerRelType::KeyAgreement]
+                }],
+                vec![controller_3]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_3));
+            assert!(DIDModule::is_controller(&did_3, &controller_3));
+            check_did_detail(&did_3, 1, 1, 12);
+
+            run_to_block(13);
+
+            // DID does not control itself, some other DID does
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_4.clone(),
+                vec![
+                    DidKey {
+                        key: PublicKey::sr25519(pk_sr),
+                        ver_rels: vec![VerRelType::Authentication]
+                    },
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed),
+                        ver_rels: vec![VerRelType::Assertion]
+                    }
+                ],
+                vec![controller_4]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_4));
+            assert!(DIDModule::is_controller(&did_4, &controller_4));
+            check_did_detail(&did_4, 2, 1, 13);
+
+            run_to_block(14);
+
+            // DID is controlled by itself and another DID as well
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_5.clone(),
+                vec![
+                    DidKey {
+                        key: pk_secp.clone(),
+                        ver_rels: vec![
+                            VerRelType::Authentication,
+                            VerRelType::CapabilityInvocation
+                        ]
+                    },
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed),
+                        ver_rels: vec![VerRelType::Assertion]
+                    }
+                ],
+                vec![controller_1]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_5));
+            assert!(DIDModule::is_controller(&did_5, &controller_1));
+            check_did_detail(&did_5, 2, 2, 14);
+
+            run_to_block(15);
+
+            // DID has 2 keys to control itself and another DID
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_6.clone(),
+                vec![
+                    DidKey {
+                        key: pk_secp,
+                        ver_rels: vec![
+                            VerRelType::Authentication,
+                            VerRelType::CapabilityInvocation
+                        ]
+                    },
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed),
+                        ver_rels: vec![VerRelType::Assertion, VerRelType::CapabilityInvocation]
+                    }
+                ],
+                vec![controller_1]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_6));
+            assert!(DIDModule::is_controller(&did_6, &controller_1));
+            check_did_detail(&did_6, 2, 2, 15);
+        });
+    }
+
+    #[test]
+    fn add_keys_to_did() {
+        ext().execute_with(|| {
+            let alice = 1u64;
+            let did_1 = [51; DID_BYTE_SIZE];
+            let did_2 = [52; DID_BYTE_SIZE];
+
+            // Add keys to a DID that has not been registered yet should fail
+            let (pair_sr_1, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr_1 = pair_sr_1.public().0;
+            let (pair_sr_2, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr_2 = pair_sr_2.public().0;
+            let (pair_ed_1, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed_1 = pair_ed_1.public().0;
+            let (pair_ed_2, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed_2 = pair_ed_2.public().0;
+            let (_, pk_secp_1) = get_secp256k1_keypair(&[21; 32]);
+            let (_, pk_secp_2) = get_secp256k1_keypair(&[22; 32]);
+
+            run_to_block(5);
+
+            // At least one key must be provided
+            let add_keys = AddKeys {
+                did: did_1.clone(),
+                keys: vec![],
+                nonce: 5,
+            };
+            let sig =
+                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            assert_err!(
+                DIDModule::add_keys(
+                    Origin::signed(alice),
+                    add_keys,
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 1,
+                        sig
+                    }
+                ),
+                Error::<Test>::NoKeyProvided
+            );
+
+            // DID must exist for keys to be added
+            let add_keys = AddKeys {
+                did: did_1.clone(),
+                keys: vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr_1),
+                    ver_rels: vec![],
+                }],
+                nonce: 5,
+            };
+            let sig =
+                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            assert_err!(
+                DIDModule::add_keys(
+                    Origin::signed(alice),
+                    add_keys,
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 1,
+                        sig
+                    }
+                ),
                 Error::<Test>::DidDoesNotExist
             );
-        });
-    }
 
-    #[test]
-    fn did_key_update_with_sr25519_ed25519_keys() {
-        // DID's key must be updatable with the authorized key only. Check for sr25519 and ed25519
-        ext().execute_with(|| {
-            let alice = 100u64;
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_1.clone(),
+                vec![
+                    DidKey {
+                        key: PublicKey::sr25519(pk_sr_1),
+                        ver_rels: vec![]
+                    },
+                    DidKey {
+                        key: PublicKey::sr25519(pk_sr_2),
+                        ver_rels: vec![]
+                    },
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed_2),
+                        ver_rels: vec![VerRelType::Authentication]
+                    },
+                ],
+                vec![]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_1));
+            check_did_detail(&did_1, 3, 1, 5);
 
-            /// Macro to check the key update
-            macro_rules! check_key_update {
-                ( $did:ident, $module:ident, $pk:expr, $sig_type:expr, $pk_bytearray_type:ident, $sig_bytearray_type:ident ) => {{
-                    let (pair_1, _, _) = $module::Pair::generate_with_phrase(None);
-                    let pk_1 = pair_1.public().0;
-                    let detail = KeyDetail::new($did.clone(), $pk($pk_bytearray_type { value: pk_1 }));
+            run_to_block(7);
 
-                    // Add a DID
-                    assert_ok!(DIDModule::new(
-                        Origin::signed(alice),
-                        $did.clone(),
-                        detail.clone()
-                    ));
+            // This DID does not control itself
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_2.clone(),
+                vec![DidKey {
+                    key: PublicKey::ed25519(pk_ed_1),
+                    ver_rels: vec![VerRelType::Authentication]
+                }],
+                vec![did_1]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 1, 1, 7);
 
-                    let (current_detail, modified_in_block) = DIDModule::get_key_detail(&$did).unwrap();
-                    assert_eq!(current_detail.controller, $did);
+            run_to_block(10);
 
-                    // Correctly update DID's key.
-                    // Prepare a key update
-                    let (pair_2, _, _) = $module::Pair::generate_with_phrase(None);
-                    let pk_2 = pair_2.public().0;
-                    let key_update = KeyUpdate::new(
-                        $did.clone(),
-                        $pk($pk_bytearray_type { value: pk_2 }),
-                        None,
-                        modified_in_block as u32,
-                    );
-                    let sig_value = pair_1.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0;
-                    let sig = $sig_type($sig_bytearray_type {value: sig_value});
-
-                    // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
-                    assert_ok!(DIDModule::update_key(
-                        Origin::signed(alice),
-                        key_update,
+            // Since did_2 does not control itself, it cannot add keys to itself
+            let add_keys = AddKeys {
+                did: did_2.clone(),
+                keys: vec![DidKey {
+                    key: pk_secp_1.clone(),
+                    ver_rels: vec![],
+                }],
+                nonce: 7 + 1,
+            };
+            let sig =
+                SigValue::ed25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_ed_1);
+            assert_err!(
+                DIDModule::add_keys(
+                    Origin::signed(alice),
+                    add_keys,
+                    DidSignature {
+                        did: did_2.clone(),
+                        key_id: 1,
                         sig
-                    ));
+                    }
+                ),
+                Error::<Test>::OnlyControllerCanUpdate
+            );
 
-                    let (current_detail, modified_in_block) = DIDModule::get_key_detail(&$did).unwrap();
-                    // Since key update passed None for the controller, it should not change
-                    assert_eq!(current_detail.controller, $did);
-
-                    // Maliciously update DID's key.
-                    // Signing with the old key (`pair_1`) to update to the new key (`pair_2`)
-                    let key_update = KeyUpdate::new(
-                        $did.clone(),
-                        $pk($pk_bytearray_type { value: pk_1 }),
-                        None,
-                        modified_in_block as u32,
-                    );
-                    let sig = $sig_type($sig_bytearray_type {value: pair_1.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0});
-
-                    assert_err!(
-                        DIDModule::update_key(Origin::signed(alice), key_update, sig),
-                        Error::<Test>::InvalidSig
-                    );
-
-                    // Keep the public key same but update the controller
-                    let new_controller = [9; DID_BYTE_SIZE];
-                    let key_update = KeyUpdate::new(
-                        $did.clone(),
-                        $pk($pk_bytearray_type { value: pk_2 }),
-                        Some(new_controller),
-                        modified_in_block as u32,
-                    );
-                    let sig = $sig_type($sig_bytearray_type {value: pair_2.sign(&StateChange::KeyUpdate(key_update.clone()).encode()).0});
-                    assert_ok!(DIDModule::update_key(
+            // Nonce should be 1 greater than existing 7, i.e. 8
+            for nonce in vec![6, 7, 9, 10, 100, 10245] {
+                let add_keys = AddKeys {
+                    did: did_2.clone(),
+                    keys: vec![DidKey {
+                        key: pk_secp_1.clone(),
+                        ver_rels: vec![],
+                    }],
+                    nonce,
+                };
+                let sig =
+                    SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+                assert_err!(
+                    DIDModule::add_keys(
                         Origin::signed(alice),
-                        key_update,
-                        sig
-                    ));
-
-                    // Since key update passed a new controller, it should be reflected
-                    let (current_detail, _) = DIDModule::get_key_detail(&$did).unwrap();
-                    assert_eq!(current_detail.controller, new_controller);
-                }};
+                        add_keys,
+                        DidSignature {
+                            did: did_1.clone(),
+                            key_id: 1,
+                            sig
+                        }
+                    ),
+                    Error::<Test>::IncorrectNonce
+                );
             }
 
-            let did = [1; DID_BYTE_SIZE];
-            check_key_update!(did, sr25519, PublicKey::Sr25519, DidSignature::Sr25519, Bytes32, Bytes64);
-
-            let did = [2; DID_BYTE_SIZE];
-            check_key_update!(did, ed25519, PublicKey::Ed25519, DidSignature::Ed25519, Bytes32, Bytes64);
-        });
-    }
-
-    #[test]
-    fn did_key_update_with_secp_key() {
-        ext().execute_with(|| {
-            let sk1 = libsecp256k1::SecretKey::parse(&[1; 32]).unwrap();
-            let sk2 = libsecp256k1::SecretKey::parse(&[2; 32]).unwrap();
-
-            let did = [1; DID_BYTE_SIZE];
-            let pk1 = PublicKey::Secp256k1(Bytes33 {
-                value: libsecp256k1::PublicKey::from_secret_key(&sk1).serialize_compressed(),
-            });
-            let detail = KeyDetail::new(did.clone(), pk1);
-
-            // Add a DID
-            assert_ok!(DIDModule::new(
-                Origin::signed(1),
-                did.clone(),
-                detail.clone()
-            ));
-
-            let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
-
-            let pk2 = PublicKey::Secp256k1(Bytes33 {
-                value: libsecp256k1::PublicKey::from_secret_key(&sk2).serialize_compressed(),
-            });
-            let key_update = KeyUpdate::new(did.clone(), pk2, None, modified_in_block as u32);
-            let hash = Sha256::digest(&StateChange::KeyUpdate(key_update.clone()).encode())
-                .try_into()
-                .unwrap();
-            let m = libsecp256k1::Message::parse(&hash);
-            let s = libsecp256k1::sign(&m, &sk1);
-            let mut sig_bytes: [u8; 65] = [0; 65];
-            sig_bytes[0..64].copy_from_slice(&s.0.serialize()[..]);
-            sig_bytes[64] = s.1.serialize();
-
-            let sig = DidSignature::Secp256k1(Bytes65 { value: sig_bytes });
-            assert_ok!(DIDModule::update_key(Origin::signed(1), key_update, sig));
-        });
-    }
-
-    #[test]
-    fn did_key_update_replay_protection() {
-        // A `KeyUpdate` payload should not be replayable
-        // Add a DID with `pk_1`.
-        // `pk_1` changes key to `pk_2` and `pk_2` changes key to `pk_3` and `pk_3` changes key back to `pk_1`.
-        // It should not be possible to replay `pk_1`'s original message and change key to `pk_2`.
-
-        ext().execute_with(|| {
-            let alice = 100u64;
-
-            let did = [1; DID_BYTE_SIZE];
-
-            let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_1 = pair_1.public().0;
-
-            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_1 }));
-
-            // Add a DID with key `pk_1`
-            assert_ok!(DIDModule::new(
-                Origin::signed(alice),
-                did.clone(),
-                detail.clone()
-            ));
-
-            // Block number should increase to 1 as extrinsic is successful
-            run_to_block(1);
-            assert_eq!(System::block_number(), 1);
-
-            let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
-
-            let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_2 = pair_2.public().0;
-
-            // The following key update and signature will be included in a replay attempt to change key to `pk_2` without `pk_1`'s intent
-            let key_update_to_be_replayed = KeyUpdate::new(
-                did.clone(),
-                PublicKey::Sr25519(Bytes32 { value: pk_2 }),
-                None,
-                modified_in_block as u32,
-            );
-
-            // Update key from `pk_1` to `pk_2` using `pk_1`'s signature
-            let sig_to_be_replayed = DidSignature::Sr25519(Bytes64 {
-                value: pair_1
-                    .sign(&StateChange::KeyUpdate(key_update_to_be_replayed.clone()).encode())
-                    .0,
-            });
-            assert_ok!(DIDModule::update_key(
-                Origin::signed(alice),
-                key_update_to_be_replayed.clone(),
-                sig_to_be_replayed.clone()
-            ));
-
-            // Block number should increase to 2 as extrinsic is successful
-            run_to_block(2);
-            assert_eq!(System::block_number(), 2);
-
-            let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
-
-            let (pair_3, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_3 = pair_3.public().0;
-
-            let key_update = KeyUpdate::new(
-                did.clone(),
-                PublicKey::Sr25519(Bytes32 { value: pk_3 }),
-                None,
-                modified_in_block as u32,
-            );
-
-            // Update key from `pk_2` to `pk_3` using `pk_2`'s signature
-            let sig = DidSignature::Sr25519(Bytes64 {
-                value: pair_2
-                    .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
-                    .0,
-            });
-            assert_ok!(DIDModule::update_key(
-                Origin::signed(alice),
-                key_update,
-                sig
-            ));
-
-            // Block number should increase to 3 as extrinsic is successful
-            run_to_block(3);
-            assert_eq!(System::block_number(), 3);
-
-            let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
-
-            let key_update = KeyUpdate::new(
-                did.clone(),
-                PublicKey::Sr25519(Bytes32 { value: pk_1 }),
-                None,
-                modified_in_block as u32,
-            );
-
-            // Update key from `pk_3` to `pk_1` using `pk_3`'s signature
-            let sig = DidSignature::Sr25519(Bytes64 {
-                value: pair_3
-                    .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
-                    .0,
-            });
-            assert_ok!(DIDModule::update_key(
-                Origin::signed(alice),
-                key_update,
-                sig
-            ));
-
-            // Block number should increase to 4 as extrinsic is successful
-            run_to_block(4);
-            assert_eq!(System::block_number(), 4);
-
-            // Attempt to replay `pk_1`'s older payload for key update to `pk_2`
+            // Invalid signature should fail
+            let add_keys = AddKeys {
+                did: did_2.clone(),
+                keys: vec![DidKey {
+                    key: pk_secp_1.clone(),
+                    ver_rels: vec![],
+                }],
+                nonce: 7 + 1,
+            };
+            // Using some arbitrary bytes as signature
+            let sig = SigValue::Sr25519(Bytes64 { value: [109; 64] });
             assert_err!(
-                DIDModule::update_key(
+                DIDModule::add_keys(
                     Origin::signed(alice),
-                    key_update_to_be_replayed,
-                    sig_to_be_replayed
+                    add_keys,
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 1,
+                        sig
+                    }
                 ),
-                Error::<Test>::DifferentBlockNumber
+                Error::<Test>::InvalidSig
             );
+
+            // Using wrong key_id should fail
+            let add_keys = AddKeys {
+                did: did_2.clone(),
+                keys: vec![DidKey {
+                    key: pk_secp_1.clone(),
+                    ver_rels: vec![],
+                }],
+                nonce: 7 + 1,
+            };
+            let sig =
+                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            assert_err!(
+                DIDModule::add_keys(
+                    Origin::signed(alice),
+                    add_keys,
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 2,
+                        sig
+                    }
+                ),
+                Error::<Test>::InvalidSig
+            );
+
+            // Using wrong key type should fail
+            let add_keys = AddKeys {
+                did: did_2.clone(),
+                keys: vec![DidKey {
+                    key: pk_secp_1.clone(),
+                    ver_rels: vec![VerRelType::KeyAgreement],
+                }],
+                nonce: 7 + 1,
+            };
+            let sig =
+                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            assert_err!(
+                DIDModule::add_keys(
+                    Origin::signed(alice),
+                    add_keys,
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 1,
+                        sig
+                    }
+                ),
+                Error::<Test>::IncompatableVerificationRelation
+            );
+
+            // Add x25519 key
+            let add_keys = AddKeys {
+                did: did_2.clone(),
+                keys: vec![DidKey {
+                    key: PublicKey::x25519(pk_ed_1),
+                    ver_rels: vec![VerRelType::KeyAgreement],
+                }],
+                nonce: 7 + 1,
+            };
+            let sig =
+                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            assert_ok!(DIDModule::add_keys(
+                Origin::signed(alice),
+                add_keys,
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 1,
+                    sig
+                }
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 2, 1, 8);
+
+            // Add many keys
+            let add_keys = AddKeys {
+                did: did_2.clone(),
+                keys: vec![
+                    DidKey {
+                        key: PublicKey::x25519(pk_sr_2),
+                        ver_rels: vec![VerRelType::KeyAgreement],
+                    },
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed_1),
+                        ver_rels: vec![VerRelType::Assertion],
+                    },
+                    DidKey {
+                        key: pk_secp_2,
+                        ver_rels: vec![VerRelType::Authentication, VerRelType::Assertion],
+                    },
+                ],
+                nonce: 8 + 1,
+            };
+
+            // Controller uses a key without the capability to update DID
+            let sig =
+                SigValue::ed25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_ed_2);
+            assert_err!(
+                DIDModule::add_keys(
+                    Origin::signed(alice),
+                    add_keys.clone(),
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 3,
+                        sig
+                    }
+                ),
+                Error::<Test>::InsufficientVerificationRelationship
+            );
+
+            // Controller uses the correct key
+            let sig =
+                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_2);
+            assert_ok!(DIDModule::add_keys(
+                Origin::signed(alice),
+                add_keys,
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 2,
+                    sig
+                }
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 5, 1, 9);
         });
     }
 
     #[test]
+    fn add_controllers_to_did() {
+        ext().execute_with(|| {
+            let alice = 1u64;
+            let did_1 = [51; DID_BYTE_SIZE];
+            let did_2 = [52; DID_BYTE_SIZE];
+            let did_3 = [53; DID_BYTE_SIZE];
+            let did_4 = [54; DID_BYTE_SIZE];
+            let did_5 = [55; DID_BYTE_SIZE];
+
+            // Add keys to a DID that has not been registered yet should fail
+            let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr = pair_sr.public().0;
+            let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed = pair_ed.public().0;
+            let (sk_secp_1, pk_secp_1) = get_secp256k1_keypair(&[21; 32]);
+            let (sk_secp_2, pk_secp_2) = get_secp256k1_keypair(&[22; 32]);
+
+            run_to_block(5);
+
+            // At least one controller must be provided
+            let add_controllers = AddControllers {
+                did: did_1.clone(),
+                controllers: vec![],
+                nonce: 5,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &pair_sr,
+            );
+            assert_err!(
+                DIDModule::add_controllers(
+                    Origin::signed(alice),
+                    add_controllers,
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 1,
+                        sig
+                    }
+                ),
+                Error::<Test>::NoControllerProvided
+            );
+
+            // DID must exist for controllers to be added
+            let add_controllers = AddControllers {
+                did: did_1.clone(),
+                controllers: vec![did_2],
+                nonce: 5,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &pair_sr,
+            );
+            assert_err!(
+                DIDModule::add_controllers(
+                    Origin::signed(alice),
+                    add_controllers,
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 1,
+                        sig
+                    }
+                ),
+                Error::<Test>::DidDoesNotExist
+            );
+
+            // This DID controls itself
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_1.clone(),
+                vec![
+                    DidKey {
+                        key: pk_secp_1.clone(),
+                        ver_rels: vec![]
+                    },
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed),
+                        ver_rels: vec![VerRelType::Authentication]
+                    },
+                ],
+                vec![]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_1));
+            check_did_detail(&did_1, 2, 1, 5);
+
+            run_to_block(6);
+
+            // This DID is controlled by itself and another DID as well
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_3.clone(),
+                vec![DidKey {
+                    key: pk_secp_2.clone(),
+                    ver_rels: vec![]
+                },],
+                vec![did_1]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_1));
+            check_did_detail(&did_3, 1, 2, 6);
+
+            run_to_block(10);
+            // This DID does not control itself
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_2.clone(),
+                vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr),
+                    ver_rels: vec![VerRelType::Authentication]
+                }],
+                vec![did_1]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 1, 1, 10);
+
+            run_to_block(15);
+
+            // Since did_2 does not control itself, it cannot controller to itself
+            let add_controllers = AddControllers {
+                did: did_2.clone(),
+                controllers: vec![did_3],
+                nonce: 10 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &pair_sr,
+            );
+            assert_err!(
+                DIDModule::add_controllers(
+                    Origin::signed(alice),
+                    add_controllers,
+                    DidSignature {
+                        did: did_2.clone(),
+                        key_id: 1,
+                        sig
+                    }
+                ),
+                Error::<Test>::OnlyControllerCanUpdate
+            );
+
+            // Nonce should be 1 greater than existing 10, i.e. 11
+            for nonce in vec![8, 9, 10, 12, 25000] {
+                let add_controllers = AddControllers {
+                    did: did_2.clone(),
+                    controllers: vec![did_3],
+                    nonce,
+                };
+                let sig = SigValue::secp256k1(
+                    &StateChange::AddControllers(add_controllers.clone()).encode(),
+                    &sk_secp_1,
+                );
+                assert_err!(
+                    DIDModule::add_controllers(
+                        Origin::signed(alice),
+                        add_controllers,
+                        DidSignature {
+                            did: did_1.clone(),
+                            key_id: 1,
+                            sig
+                        }
+                    ),
+                    Error::<Test>::IncorrectNonce
+                );
+            }
+
+            // Invalid signature should fail
+            let add_controllers = AddControllers {
+                did: did_2.clone(),
+                controllers: vec![did_3],
+                nonce: 10 + 1,
+            };
+            let sig = SigValue::Secp256k1(Bytes65 { value: [35; 65] });
+            assert_err!(
+                DIDModule::add_controllers(
+                    Origin::signed(alice),
+                    add_controllers.clone(),
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 1,
+                        sig
+                    }
+                ),
+                Error::<Test>::InvalidSig
+            );
+
+            // Valid signature should work
+            let sig = SigValue::secp256k1(
+                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &sk_secp_1,
+            );
+            assert_ok!(DIDModule::add_controllers(
+                Origin::signed(alice),
+                add_controllers,
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 1,
+                    sig
+                }
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 1, 2, 11);
+
+            run_to_block(15);
+
+            // Add many controllers
+            let add_controllers = AddControllers {
+                did: did_2.clone(),
+                controllers: vec![did_4, did_5],
+                nonce: 11 + 1,
+            };
+            let sig = SigValue::secp256k1(
+                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &sk_secp_2,
+            );
+            assert_ok!(DIDModule::add_controllers(
+                Origin::signed(alice),
+                add_controllers,
+                DidSignature {
+                    did: did_3.clone(),
+                    key_id: 1,
+                    sig
+                }
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 1, 4, 12);
+        });
+    }
+
+    #[test]
+    fn becoming_controller() {
+        // A DID that was not a controller of its DID during creation can become one
+        // when either a key is added with `capabilityInvocation`
+        ext().execute_with(|| {
+            let alice = 1u64;
+            let did_1 = [51; DID_BYTE_SIZE];
+            let did_2 = [52; DID_BYTE_SIZE];
+
+            let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr = pair_sr.public().0;
+            let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed = pair_ed.public().0;
+            let (sk_secp, pk_secp) = get_secp256k1_keypair(&[21; 32]);
+
+            run_to_block(5);
+
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_1.clone(),
+                vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr),
+                    ver_rels: vec![]
+                },],
+                vec![]
+            ));
+
+            run_to_block(10);
+
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_2.clone(),
+                vec![DidKey {
+                    key: PublicKey::x25519(pk_ed),
+                    ver_rels: vec![VerRelType::KeyAgreement]
+                },],
+                vec![did_1]
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 1, 1, 10);
+
+            run_to_block(15);
+
+            let add_keys = AddKeys {
+                did: did_2.clone(),
+                keys: vec![DidKey {
+                    key: PublicKey::ed25519(pk_ed),
+                    ver_rels: vec![VerRelType::Assertion],
+                }],
+                nonce: 10 + 1,
+            };
+            let sig = SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr);
+            assert_ok!(DIDModule::add_keys(
+                Origin::signed(alice),
+                add_keys,
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 1,
+                    sig
+                }
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 2, 1, 11);
+
+            run_to_block(20);
+
+            let add_keys = AddKeys {
+                did: did_2.clone(),
+                keys: vec![DidKey {
+                    key: pk_secp.clone(),
+                    ver_rels: vec![VerRelType::CapabilityInvocation],
+                }],
+                nonce: 11 + 1,
+            };
+            let sig = SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr);
+            assert_ok!(DIDModule::add_keys(
+                Origin::signed(alice),
+                add_keys,
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 1,
+                    sig
+                }
+            ));
+            assert!(DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 3, 2, 12);
+        });
+
+        // TODO:
+    }
+
+    #[test]
+    fn any_controller_can_update() {
+        // For a DID with many controllers, any controller can update it by adding keys, controllers.
+        ext().execute_with(|| {
+            let alice = 1u64;
+            let did_1 = [51; DID_BYTE_SIZE];
+            let did_2 = [52; DID_BYTE_SIZE];
+            let did_3 = [53; DID_BYTE_SIZE];
+            let did_4 = [54; DID_BYTE_SIZE];
+
+            let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr = pair_sr.public().0;
+            let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed = pair_ed.public().0;
+            let (_, pk_secp) = get_secp256k1_keypair(&[21; 32]);
+
+            run_to_block(5);
+
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_1.clone(),
+                vec![DidKey {
+                    key: PublicKey::ed25519(pk_ed),
+                    ver_rels: vec![]
+                },],
+                vec![]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_1));
+            check_did_detail(&did_1, 1, 1, 5);
+
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_2.clone(),
+                vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr),
+                    ver_rels: vec![]
+                },],
+                vec![]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 1, 1, 5);
+
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_3.clone(),
+                vec![DidKey {
+                    key: pk_secp.clone(),
+                    ver_rels: vec![]
+                },],
+                vec![]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_3));
+            check_did_detail(&did_3, 1, 1, 5);
+
+            run_to_block(7);
+
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_4.clone(),
+                vec![DidKey {
+                    key: pk_secp.clone(),
+                    ver_rels: vec![]
+                },],
+                vec![did_2]
+            ));
+            assert!(DIDModule::is_self_controlled(&did_4));
+            check_did_detail(&did_4, 1, 2, 7);
+
+            run_to_block(14);
+
+            let add_controllers = AddControllers {
+                did: did_4.clone(),
+                controllers: vec![did_1],
+                nonce: 7 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &pair_sr,
+            );
+            assert_ok!(DIDModule::add_controllers(
+                Origin::signed(alice),
+                add_controllers,
+                DidSignature {
+                    did: did_2.clone(),
+                    key_id: 1,
+                    sig
+                }
+            ));
+            check_did_detail(&did_4, 1, 3, 8);
+
+            run_to_block(15);
+
+            let add_keys = AddKeys {
+                did: did_4.clone(),
+                keys: vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr),
+                    ver_rels: vec![],
+                }],
+                nonce: 8 + 1,
+            };
+            let sig = SigValue::ed25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_ed);
+            assert_ok!(DIDModule::add_keys(
+                Origin::signed(alice),
+                add_keys,
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 1,
+                    sig
+                }
+            ));
+        });
+    }
+
+    #[test]
+    fn any_controller_can_remove() {
+        // For a DID with many controllers, any controller can remove it.
+        ext().execute_with(|| {
+            let alice = 1u64;
+            let did_1 = [51; DID_BYTE_SIZE];
+
+            // TODO:
+        });
+    }
+
+    /*#[test]
     fn did_remove() {
         // Remove DID. Unregistered Dids cannot be removed.
         // Registered Dids can only be removed by the authorized key
@@ -939,7 +2142,7 @@ mod tests {
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_1 = pair_1.public().0;
             let to_remove = DidRemoval::new(did.clone(), 2u32);
-            let sig = DidSignature::Sr25519(Bytes64 {
+            let sig = SigValue::Sr25519(Bytes64 {
                 value: pair_1
                     .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
                     .0,
@@ -968,7 +2171,7 @@ mod tests {
             let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_2 = pair_2.public().0;
             let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
-            let sig = DidSignature::Sr25519(Bytes64 {
+            let sig = SigValue::Sr25519(Bytes64 {
                 value: pair_2
                     .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
                     .0,
@@ -984,7 +2187,7 @@ mod tests {
                 .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
                 .0;
             println!("remove sig value:{:?}", sig_value.to_vec());
-            let sig = DidSignature::Sr25519(Bytes64 { value: sig_value });
+            let sig = SigValue::Sr25519(Bytes64 { value: sig_value });
             assert_ok!(DIDModule::remove(Origin::signed(alice), to_remove, sig));
 
             // Error as the did has been removed
@@ -1002,7 +2205,7 @@ mod tests {
             // Ok as the did has been written
             assert!(DIDModule::get_key_detail(&did).is_ok());
         });
-    }
+    }*/
 
     // TODO: Add test for events DidAdded, KeyUpdated, DIDRemoval
 }

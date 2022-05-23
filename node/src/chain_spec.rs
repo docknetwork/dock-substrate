@@ -19,6 +19,7 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 
 use serde_json::map::Map;
 
+use core_mods::{keys_and_sigs, util};
 use sp_runtime::Perbill;
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -96,7 +97,10 @@ fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, KeyDetail) {
     let pk = sr25519::Pair::from_seed(seed).public().0;
     (
         *did,
-        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+        KeyDetail::new(
+            *did,
+            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
+        ),
     )
 }
 
@@ -310,8 +314,8 @@ pub fn pos_testnet_config() -> ChainSpec {
                 endowed_accounts: [
                     "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr", // Dock V1
                     "36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN", // Sudo
-                    "3BHXvWftruGuZZDnPgwnhp3C4ghba4QY6MEURcvLYH6wtcwQ",
-                    "37uJHxaphdga4gy9zNk1KDgwMZJF3Zp2gkzSkDWRPgThR4nN",
+                    "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF", // API
+                    "37yrw7s12i6VtGHAA6XkKL6onUTpk4KXoeCAx6eiW9Xc1KjC", // Faucet
                     "3AJJBL4KQ49h32yQuu1HkSnSJUjSooZED9Z2De2zE2EPXxbN",
                     "3866t5dsM4LyVavJzmqySgBj6auiFGHFGZc7WjSsEjehVSpM",
                     "38aKrxaL5ES46s6RHhB9ue6rwFbh6vVdzbY7KGcfYMAytWNS",
@@ -352,7 +356,10 @@ pub fn pos_testnet_config() -> ChainSpec {
                 .map(|(did, pk)| {
                     (
                         *did,
-                        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+                        KeyDetail::new(
+                            *did,
+                            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
+                        ),
                     )
                 })
                 .collect(),
@@ -560,7 +567,10 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 .map(|(did, pk)| {
                     (
                         *did,
-                        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+                        KeyDetail::new(
+                            *did,
+                            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
+                        ),
                     )
                 })
                 .collect(),
@@ -749,6 +759,7 @@ impl GenesisBuilder {
 #[cfg(test)]
 mod test {
     use super::*;
+    use core_mods::{keys_and_sigs, util};
 
     #[test]
     fn expected_did_from_seed() {
@@ -759,7 +770,10 @@ mod test {
             did_from_seed(&did, &sk),
             (
                 did,
-                KeyDetail::new(did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+                KeyDetail::new(
+                    did,
+                    keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk })
+                ),
             )
         );
     }

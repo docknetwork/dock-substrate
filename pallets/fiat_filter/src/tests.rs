@@ -13,9 +13,9 @@ use sp_core::{sr25519, Pair};
 
 mod tests_did_calls {
     use super::*;
-    use did::{
-        Bytes32, Bytes64, DidRemoval, DidSignature, KeyDetail, KeyUpdate, PublicKey, DID_BYTE_SIZE,
-    };
+    use core_mods::keys_and_sigs::{PublicKey, SigValue};
+    use core_mods::util::Bytes32;
+    use did::{Bytes64, DidRemoval, KeyDetail, KeyUpdate, DID_BYTE_SIZE};
 
     type DidMod = did::Module<TestRt>;
 
@@ -66,7 +66,7 @@ mod tests_did_calls {
             let sig_value = pair_1
                 .sign(&StateChange::KeyUpdate(key_update.clone()).encode())
                 .0;
-            let sig = DidSignature::Sr25519(did::Bytes64 { value: sig_value });
+            let sig = SigValue::Sr25519(did::Bytes64 { value: sig_value });
 
             // Signing with the current key (`pair_1`) to update to the new key (`pair_2`)
             let call = Call::DIDMod(did::Call::<TestRt>::update_key(key_update, sig));
@@ -81,7 +81,7 @@ mod tests_did_calls {
             let blockno = block_no() as u32;
 
             let to_remove = DidRemoval::new(did_alice.clone(), blockno);
-            let sig = DidSignature::Sr25519(Bytes64 {
+            let sig = SigValue::Sr25519(Bytes64 {
                 value: kp
                     .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
                     .0,
