@@ -693,14 +693,14 @@ parameter_types! {
     pub const AccumulatorParamsPerByteWeight: Weight = 10;
     pub const AccumulatedMaxSize: u32 = 128;
     pub const AccumulatedPerByteWeight: Weight = 10;
-    pub const MaxDidDocUriSize: u32 = 256;
-    pub const DidDocUriPerByteWeight: Weight = 10;
+    pub const MaxDidDocRefSize: u32 = 1024;
+    pub const DidDocRefPerByteWeight: Weight = 10;
 }
 
 impl did::Trait for Runtime {
     type Event = Event;
     type MaxDidDocUriSize = MaxDidDocUriSize;
-    type DidDocUriPerByteWeight = DidDocUriPerByteWeight;
+    type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
 }
 
 impl revoke::Trait for Runtime {}

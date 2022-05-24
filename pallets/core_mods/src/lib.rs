@@ -12,6 +12,8 @@ use codec::{Decode, Encode};
 pub enum StateChange {
     AddKeys(did::AddKeys),
     AddControllers(did::AddControllers),
+    RemoveKeys(did::RemoveKeys),
+    RemoveControllers(did::RemoveControllers),
     // DIDRemoval(did::DidRemoval),
     // Revoke(revoke::Revoke),
     // UnRevoke(revoke::UnRevoke),

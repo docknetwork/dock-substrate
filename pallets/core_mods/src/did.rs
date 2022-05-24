@@ -8,6 +8,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{Hash, One};
+use sp_std::vec::Vec;
 
 // TODO: This module is getting too big and might be useful to others without all the other stuff in this pallet. Consider making it a separate pallet
 
@@ -20,9 +21,10 @@ pub type Did = [u8; DID_BYTE_SIZE];
 pub trait Trait: system::Config {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Config>::Event>;
-    /// Maximum byte size of URI of an off-chain DID Doc.
-    type MaxDidDocUriSize: Get<u32>;
-    type DidDocUriPerByteWeight: Get<Weight>;
+    /// Maximum byte size of reference to off-chain DID Doc.
+    type MaxDidDocRefSize: Get<u32>;
+    /// Weight per byte of the off-chain DID Doc reference
+    type DidDocRefPerByteWeight: Get<Weight>;
 }
 
 decl_error! {
@@ -55,12 +57,26 @@ decl_error! {
     }
 }
 
+/// To describe the off chain DID Doc's reference. This is just to inform the client, this module
+/// does not check if the bytes are indeed valid as per the enum variant
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum OffChainDidDocRef {
+    /// Content IDentifier as per https://github.com/multiformats/cid.
+    CID(Vec<u8>),
+    /// A URL
+    URL(Vec<u8>),
+    /// A custom encoding of the reference
+    Custom(Vec<u8>),
+}
+
 /// Different verification relation types specified in the DID spec
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum VerRelType {
     Authentication,
     Assertion,
+    /// A key must have this to control a DID
     CapabilityInvocation,
     KeyAgreement,
 }
@@ -106,9 +122,9 @@ pub struct DidDetail<T: Trait> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum DidDetailStorage<T: Trait> {
     /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
-    /// the caller account and Substrate takes care of replay protection. This it stores the data
-    /// about off-chain DID (URI or anything) and the account that owns it.
-    OffChain(T::AccountId, Vec<u8>),
+    /// the caller account and Substrate takes care of replay protection. Thus it stores the data
+    /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
+    OffChain(T::AccountId, OffChainDidDocRef),
     /// For on-chain DID, all data is stored on the chain.
     OnChain(DidDetail<T>),
 }
@@ -147,6 +163,16 @@ pub struct RemoveControllers {
     nonce: BlockNumber,
 }
 
+impl OffChainDidDocRef {
+    pub fn len(&self) -> usize {
+        match self {
+            OffChainDidDocRef::CID(v) => v.len(),
+            OffChainDidDocRef::URL(v) => v.len(),
+            OffChainDidDocRef::Custom(v) => v.len(),
+        }
+    }
+}
+
 impl<T: Trait> DidDetailStorage<T> {
     pub fn is_on_chain(&self) -> bool {
         match self {
@@ -178,9 +204,9 @@ impl<T: Trait> DidDetailStorage<T> {
         })
     }
 
-    pub fn to_off_chain_did_owner_and_uri(self) -> (T::AccountId, Vec<u8>) {
+    pub fn to_off_chain_did_owner_and_uri(self) -> (T::AccountId, OffChainDidDocRef) {
         match self {
-            DidDetailStorage::OffChain(owner, uri) => (owner, uri),
+            DidDetailStorage::OffChain(owner, doc_ref) => (owner, doc_ref),
             _ => panic!("This should never happen"),
         }
     }
@@ -324,8 +350,8 @@ impl DidRemoval {
 
 decl_event!(
     pub enum Event {
-        OffChainDidAdded(dock::did::Did, Vec<u8>),
-        OffChainDidUpdated(dock::did::Did, Vec<u8>),
+        OffChainDidAdded(dock::did::Did, OffChainDidDocRef),
+        OffChainDidUpdated(dock::did::Did, OffChainDidDocRef),
         OffChainDidRemoved(dock::did::Did),
         OnChainDidAdded(dock::did::Did),
         DidKeysAdded(dock::did::Did),
@@ -367,29 +393,29 @@ decl_module! {
 
         type Error = Error<T>;
 
-        const MaxDidDocUriSize: u32 = T::MaxDidDocUriSize::get();
-        const DidDocUriPerByteWeight: Weight = T::DidDocUriPerByteWeight::get();
+        const MaxDidDocRefSize: u32 = T::MaxDidDocRefSize::get();
+        const DidDocRefPerByteWeight: Weight = T::DidDocRefPerByteWeight::get();
 
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_uri.len() as u64 * T::DidDocUriPerByteWeight::get()]
-        pub fn new_offchain(origin, did: dock::did::Did, did_doc_uri: Vec<u8>) -> DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_ref.len() as u64 * T::DidDocRefPerByteWeight::get()]
+        pub fn new_offchain(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
             // Only `did_owner` can update or remove this DID
             let did_owner = ensure_signed(origin)?;
             ensure!(
-                T::MaxDidDocUriSize::get() as usize >= did_doc_uri.len(),
+                T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
                 Error::<T>::DidDocUriTooBig
             );
-            Self::new_offchain_(did_owner, did, did_doc_uri)
+            Self::new_offchain_(did_owner, did, did_doc_ref)
         }
 
         // TODO: Fix weight
-        #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_uri.len() as u64 * T::DidDocUriPerByteWeight::get()]
-        pub fn set_offchain_did_uri(origin, did: dock::did::Did, did_doc_uri: Vec<u8>) -> DispatchResult {
+        #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_ref.len() as u64 * T::DidDocRefPerByteWeight::get()]
+        pub fn set_offchain_did_uri(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
             let caller = ensure_signed(origin)?;
             ensure!(
-                T::MaxDidDocUriSize::get() as usize >= did_doc_uri.len(),
+                T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
                 Error::<T>::DidDocUriTooBig
             );
-            Self::set_offchain_did_uri_(caller, did, did_doc_uri)
+            Self::set_offchain_did_uri_(caller, did, did_doc_ref)
         }
 
         // TODO: Fix weight
@@ -412,7 +438,8 @@ decl_module! {
             Module::<T>::new_onchain_(did, keys, controllers)
         }
 
-        /// Add more keys from DID doc.
+        /// Add more keys from DID doc. Does not check if the key is already added or it has duplicate
+        /// verification relationships
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
         fn add_keys(origin, keys: AddKeys, sig: DidSignature) -> DispatchResult {
@@ -421,7 +448,8 @@ decl_module! {
             Module::<T>::add_keys_(keys, sig)
         }
 
-        /// Add new controllers
+        /// Add new controllers. Does not check if the controller being added has any key or is even
+        /// a DID that exists on or off chain. Does not check if the controller is already added.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn add_controllers(origin, controllers: AddControllers, sig: DidSignature) -> DispatchResult {
@@ -433,14 +461,18 @@ decl_module! {
 }
 
 impl<T: Trait> Module<T> {
-    fn new_offchain_(caller: T::AccountId, did: Did, did_doc_uri: Vec<u8>) -> DispatchResult {
+    fn new_offchain_(
+        caller: T::AccountId,
+        did: Did,
+        did_doc_ref: OffChainDidDocRef,
+    ) -> DispatchResult {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
-        Dids::<T>::insert(did, DidDetailStorage::OffChain(caller, did_doc_uri.clone()));
+        Dids::<T>::insert(did, DidDetailStorage::OffChain(caller, did_doc_ref.clone()));
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
-            <T as Trait>::Event::from(Event::OffChainDidAdded(did, did_doc_uri)).into(),
+            <T as Trait>::Event::from(Event::OffChainDidAdded(did, did_doc_ref)).into(),
         );
         Ok(())
     }
@@ -448,13 +480,13 @@ impl<T: Trait> Module<T> {
     fn set_offchain_did_uri_(
         caller: T::AccountId,
         did: Did,
-        did_doc_uri: Vec<u8>,
+        did_doc_ref: OffChainDidDocRef,
     ) -> DispatchResult {
         Self::ensure_offchain_did_be_updated(&caller, &did)?;
-        Dids::<T>::insert(did, DidDetailStorage::OffChain(caller, did_doc_uri.clone()));
+        Dids::<T>::insert(did, DidDetailStorage::OffChain(caller, did_doc_ref.clone()));
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
-            <T as Trait>::Event::from(Event::OffChainDidUpdated(did, did_doc_uri)).into(),
+            <T as Trait>::Event::from(Event::OffChainDidUpdated(did, did_doc_ref)).into(),
         );
         Ok(())
     }
@@ -767,11 +799,15 @@ mod tests {
         ext().execute_with(|| {
             let alice = 1u64;
             let did = [5; DID_BYTE_SIZE];
-            let uri = vec![129; 60];
-            let too_big_uri = vec![129; 300];
+            let doc_ref = OffChainDidDocRef::Custom(vec![129; 60]);
+            let too_big_doc_ref = OffChainDidDocRef::Custom(vec![129; 300]);
 
             assert_err!(
-                DIDModule::new_offchain(Origin::signed(alice), did.clone(), too_big_uri.clone()),
+                DIDModule::new_offchain(
+                    Origin::signed(alice),
+                    did.clone(),
+                    too_big_doc_ref.clone()
+                ),
                 Error::<Test>::DidDocUriTooBig
             );
 
@@ -779,19 +815,19 @@ mod tests {
             assert_ok!(DIDModule::new_offchain(
                 Origin::signed(alice),
                 did.clone(),
-                uri.clone()
+                doc_ref.clone()
             ));
 
             // Try to add the same DID and same uri again and fail
             assert_err!(
-                DIDModule::new_offchain(Origin::signed(alice), did.clone(), uri.clone()),
+                DIDModule::new_offchain(Origin::signed(alice), did.clone(), doc_ref.clone()),
                 Error::<Test>::DidAlreadyExists
             );
 
             // Try to add the same DID and different uri and fail
-            let uri_1 = vec![205; 99];
+            let doc_ref_1 = OffChainDidDocRef::URL(vec![205; 99]);
             assert_err!(
-                DIDModule::new_offchain(Origin::signed(alice), did, uri_1),
+                DIDModule::new_offchain(Origin::signed(alice), did, doc_ref_1),
                 Error::<Test>::DidAlreadyExists
             );
 
@@ -804,30 +840,34 @@ mod tests {
             );
 
             let did_detail_storage = Dids::<Test>::get(&did).unwrap();
-            let (owner, fetched_uri) = did_detail_storage.to_off_chain_did_owner_and_uri();
+            let (owner, fetched_ref) = did_detail_storage.to_off_chain_did_owner_and_uri();
             assert_eq!(owner, alice);
-            assert_eq!(fetched_uri, uri);
+            assert_eq!(fetched_ref, doc_ref);
 
             let bob = 2u64;
-            let new_uri = vec![235; 99];
+            let new_ref = OffChainDidDocRef::CID(vec![235; 99]);
             assert_err!(
-                DIDModule::set_offchain_did_uri(Origin::signed(bob), did, new_uri.clone()),
+                DIDModule::set_offchain_did_uri(Origin::signed(bob), did, new_ref.clone()),
                 Error::<Test>::DidNotOwnedByAccount
             );
 
             assert_err!(
-                DIDModule::set_offchain_did_uri(Origin::signed(alice), did.clone(), too_big_uri),
+                DIDModule::set_offchain_did_uri(
+                    Origin::signed(alice),
+                    did.clone(),
+                    too_big_doc_ref
+                ),
                 Error::<Test>::DidDocUriTooBig
             );
 
             assert_ok!(DIDModule::set_offchain_did_uri(
                 Origin::signed(alice),
                 did.clone(),
-                new_uri.clone()
+                new_ref.clone()
             ));
             let did_detail_storage = Dids::<Test>::get(&did).unwrap();
-            let (_, fetched_uri) = did_detail_storage.to_off_chain_did_owner_and_uri();
-            assert_eq!(fetched_uri, new_uri);
+            let (_, fetched_ref) = did_detail_storage.to_off_chain_did_owner_and_uri();
+            assert_eq!(fetched_ref, new_ref);
 
             assert_err!(
                 DIDModule::remove_offchain_did(Origin::signed(bob), did),

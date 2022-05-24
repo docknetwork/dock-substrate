@@ -125,8 +125,8 @@ impl system::Config for Test {
 
 impl crate::did::Trait for Test {
     type Event = ();
-    type MaxDidDocUriSize = MaxDidDocUriSize;
-    type DidDocUriPerByteWeight = DidDocUriPerByteWeight;
+    type MaxDidDocRefSize = MaxDidDocRefSize;
+    type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
 }
 
 // impl crate::revoke::Trait for Test {}
@@ -142,8 +142,8 @@ parameter_types! {
     pub const PublicKeyPerByteWeight: Weight = 10;
     pub const AccumulatedMaxSize: u32 = 256;
     pub const AccumulatedPerByteWeight: Weight = 10;
-    pub const MaxDidDocUriSize: u32 = 128;
-    pub const DidDocUriPerByteWeight: Weight = 10;
+    pub const MaxDidDocRefSize: u32 = 128;
+    pub const DidDocRefPerByteWeight: Weight = 10;
 }
 
 impl crate::anchor::Trait for Test {
