@@ -1,5 +1,17 @@
 - hosts: '{{ host }}'
   tasks:
+  - name: Pull latest code
+    when: rebuild_node | bool
+    shell:
+      chdir: /home/ubuntu/dock-substrate
+      cmd: git pull
+
+  - name: Build node
+    when: rebuild_node | default('true') | bool
+    shell:
+      chdir: /home/ubuntu/dock-substrate
+      cmd: cargo build --release --features testnet
+
   - name: Stop node
     become: yes
     become_method: sudo
@@ -15,18 +27,6 @@
     file:
       state: absent
       path: /home/ubuntu/.local/share/dock-node/chains/dock_pos_testnet/frontier
-
-  - name: Pull latest code
-    when: rebuild_node | bool
-    shell:
-      chdir: /home/ubuntu/dock-substrate
-      cmd: git pull
-
-  - name: Build node
-    when: rebuild_node | bool
-    shell:
-      chdir: /home/ubuntu/dock-substrate
-      cmd: cargo build --release --features testnet
 
   - name: Start node
     become: yes
