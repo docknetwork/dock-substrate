@@ -3,17 +3,18 @@
 extern crate alloc;
 
 use codec::{Decode, Encode};
+use sp_std::borrow::Cow;
 
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to make it unambiguous which command was intended as the SCALE codec's
 /// not self describing.
 /// Never change the order of variants in this enum
 #[derive(Encode, Decode)]
-pub enum StateChange {
-    AddKeys(did::AddKeys),
-    AddControllers(did::AddControllers),
-    RemoveKeys(did::RemoveKeys),
-    RemoveControllers(did::RemoveControllers),
+pub enum StateChange<'a> {
+    AddKeys(Cow<'a, did::AddKeys>),
+    AddControllers(Cow<'a, did::AddControllers>),
+    RemoveKeys(Cow<'a, did::RemoveKeys>),
+    RemoveControllers(Cow<'a, did::RemoveControllers>),
     // DIDRemoval(did::DidRemoval),
     // Revoke(revoke::Revoke),
     // UnRevoke(revoke::UnRevoke),

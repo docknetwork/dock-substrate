@@ -1,7 +1,6 @@
 use super::{BlockNumber, StateChange};
 use crate as dock;
 use crate::keys_and_sigs::{PublicKey, SigValue};
-use bitmask::*;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
@@ -9,6 +8,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::{Hash, One};
+use sp_std::borrow::Cow;
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 // TODO: This module is getting too big and might be useful to others without all the other stuff in this pallet. Consider making it a separate pallet
@@ -71,28 +71,26 @@ pub enum OffChainDidDocRef {
     Custom(Vec<u8>),
 }
 
-bitmask::bitmask! {
-    /// Verification relation types set.
+bitflags::bitflags! {
     #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub mask VerRelSet: u16 where
     /// Different verification relation types specified in the DID spec
-    flags VerRelType {
+    pub struct VerRelType: u16 {
         /// No verification relation set.
-        None = 0,
+        const NONE = 0;
         /// https://www.w3.org/TR/did-core/#authentication
-        Authentication = 0b0001,
+        const AUTHENTICATION = 0b0001;
         /// https://www.w3.org/TR/did-core/#assertion
-        Assertion = 0b0010,
+        const ASSERTION = 0b0010;
         /// A key must have this to control a DID
         /// https://www.w3.org/TR/did-core/#capability-invocation
-        CapabilityInvocation = 0b0100,
+        const CAPABILITY_INVOCATION = 0b0100;
         /// https://www.w3.org/TR/did-core/#key-agreement
-        KeyAgreement = 0b1000,
+        const KEY_AGREEMENT = 0b1000;
 
-        /// Includes `Authentication`, `Assertion`, `CapabilityInvocation`.
+        /// Includes `AUTHENTICATION`, `ASSERTION`, `CAPABILITY_INVOCATION`.
         /// We might add more relationships in future but these 3 are all we care about now.
-        AllForSigning = 0b0111
+        const ALL_FOR_SIGNING = 0b0111;
     }
 }
 
@@ -102,7 +100,7 @@ pub struct DidKey {
     /// The public key
     key: PublicKey,
     /// The different verification relationships the above key has with the DID.
-    ver_rels: VerRelSet,
+    ver_rels: VerRelType,
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
@@ -131,7 +129,7 @@ pub struct DidDetail<T: Trait> {
     /// Number of controllers added for this DID so far.
     last_controller_id: IncId,
     /// Number of currently active keys.
-    active_control_keys: u32,
+    active_controller_keys: u32,
     /// Number of currently active controllers.
     active_controllers: u32,
 }
@@ -197,7 +195,7 @@ pub struct AddKeys {
 pub struct RemoveKeys {
     did: Did,
     /// Key ids to remove
-    keys: Vec<IncId>,
+    keys: BTreeSet<IncId>,
     nonce: BlockNumber,
 }
 
@@ -214,7 +212,7 @@ pub struct AddControllers {
 pub struct RemoveControllers {
     did: Did,
     /// Controllers ids to remove
-    controllers: Vec<IncId>,
+    controllers: BTreeSet<IncId>,
     nonce: BlockNumber,
 }
 
@@ -250,16 +248,16 @@ impl<T: Trait> DidDetailStorage<T> {
     pub fn from_on_chain_detail(
         last_key_id: IncId,
         last_controller_id: IncId,
-        active_control_keys: u32,
+        active_controller_keys: u32,
         active_controllers: u32,
-        nonce: T::BlockNumber,
+        nonce: impl Into<T::BlockNumber>,
     ) -> Self {
         DidDetailStorage::OnChain(DidDetail {
             last_key_id,
             last_controller_id,
-            active_control_keys,
+            active_controller_keys,
             active_controllers,
-            nonce,
+            nonce: nonce.into(),
         })
     }
 
@@ -272,54 +270,51 @@ impl<T: Trait> DidDetailStorage<T> {
 }
 
 impl DidKey {
-    pub fn new(key: PublicKey, ver_rels: impl Into<VerRelSet>) -> Self {
-        DidKey {
-            key: key.into(),
-            ver_rels: ver_rels.into(),
-        }
+    pub fn new(key: PublicKey, ver_rels: VerRelType) -> Self {
+        DidKey { key, ver_rels }
     }
 
     /// Add all possible verification relationships for a given key
     pub fn new_with_all_relationships(public_key: PublicKey) -> Self {
         let ver_rels = if public_key.can_sign() {
             // We might add more relationships in future but these 3 are all we care about now.
-            VerRelType::AllForSigning
+            VerRelType::ALL_FOR_SIGNING
         } else {
             // This is true for the current key type, X25519, used for key agreement but might
             // change in future.
-            VerRelType::KeyAgreement
+            VerRelType::KEY_AGREEMENT
         };
 
         DidKey::new(public_key, ver_rels)
-    }
-
-    /// Checks if the public key has valid verification relationships. Currently, the keys used for
-    /// key-agreement cannot (without converting) be used for signing and vice versa
-    pub fn is_valid(&self) -> bool {
-        !self.can_sign() ^ (self.ver_rels & VerRelType::AllForSigning == self.ver_rels)
-    }
-
-    pub fn can_control(&self) -> bool {
-        self.is_valid() && self.ver_rels.intersects(VerRelType::CapabilityInvocation)
-    }
-
-    pub fn can_authenticate(&self) -> bool {
-        self.is_valid() && self.ver_rels.intersects(VerRelType::Authentication)
     }
 
     pub fn can_sign(&self) -> bool {
         self.key.can_sign()
     }
 
+    /// Checks if the public key has valid verification relationships. Currently, the keys used for
+    /// key-agreement cannot (without converting) be used for signing and vice versa
+    pub fn is_valid(&self) -> bool {
+        !self.can_sign() ^ (self.ver_rels & VerRelType::ALL_FOR_SIGNING == self.ver_rels)
+    }
+
+    pub fn can_control(&self) -> bool {
+        self.is_valid() && self.ver_rels.intersects(VerRelType::CAPABILITY_INVOCATION)
+    }
+
+    pub fn can_authenticate(&self) -> bool {
+        self.is_valid() && self.ver_rels.intersects(VerRelType::AUTHENTICATION)
+    }
+
     pub fn for_key_agreement(&self) -> bool {
-        self.is_valid() && self.ver_rels.intersects(VerRelType::KeyAgreement)
+        self.is_valid() && self.ver_rels.intersects(VerRelType::KEY_AGREEMENT)
     }
 
     pub fn can_authenticate_or_control(&self) -> bool {
         self.is_valid()
             && self
                 .ver_rels
-                .intersects(VerRelType::Authentication | VerRelType::CapabilityInvocation)
+                .intersects(VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION)
     }
 }
 
@@ -403,7 +398,7 @@ decl_storage! {
         pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<DidKey>;
         /// Stores controllers of a DID as (DID, IncId) -> DID.
         pub DidControllers get(fn did_controller): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<Did>;
-        /// Stores information about DID controller relation count.
+        /// Stores amount of arcs from controlled DID to controller DID as (DID, DID) -> u32.
         pub DidControllersCount get(fn did_controller_count): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Did => u32;
     }
     // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
@@ -465,7 +460,7 @@ decl_module! {
         /// Create new DID.
         /// If no `keys` are provided, then its a keyless DID and at least 1 `controllers` must be provided.
         /// If any `keys` are provided, but they have an empty `ver_rel`, then its set to a vector with variants
-        /// `Authentication`, `Assertion` and `CapabilityInvocation`. This is because keys without any verification
+        /// `AUTHENTICATION`, `ASSERTION` and `CAPABILITY_INVOCATION`. This is because keys without any verification
         /// relation won't be usable and these 3 keep the logic most similar to before. Avoiding more
         /// explicit argument to keep the caller's experience simple.
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
@@ -576,7 +571,7 @@ impl<T: Trait> Module<T> {
 
         if controller_keys_count > 0 {
             DidControllers::insert(&did, last_controller_id.next(), &did);
-            DidControllersCount::mutate(&did, &did, |val| *val += 1);
+            DidControllersCount::insert(&did, &did, 1);
         }
 
         for ctrl in &controllers {
@@ -610,7 +605,7 @@ impl<T: Trait> Module<T> {
 
         let did_detail = Self::get_on_chain_did_detail_for_update(did, keys.nonce)?;
 
-        let serz_add_keys = StateChange::AddKeys(keys.clone()).encode();
+        let serz_add_keys = StateChange::AddKeys(Cow::Borrowed(&keys)).encode();
 
         ensure!(
             Self::verify_sig_from_controller(did, &serz_add_keys, signer, &sig)?,
@@ -623,16 +618,16 @@ impl<T: Trait> Module<T> {
         // Make self controlled if need to be
         let mut last_controller_id = did_detail.last_controller_id;
         let was_self_controlled = Self::is_self_controlled(&did);
-
         if controller_keys_count > 0 && !was_self_controlled {
             DidControllers::insert(&did, last_controller_id.next(), did);
-            DidControllersCount::mutate(&did, &did, |val| *val += 1);
+            DidControllersCount::insert(&did, &did, 1);
         }
 
         let mut last_key_id = did_detail.last_key_id;
         for key in keys_to_insert.into_iter() {
             DidKeys::insert(did, last_key_id.next(), key)
         }
+
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(did)],
             <T as Trait>::Event::from(Event::DidKeysAdded(*did)).into(),
@@ -643,10 +638,10 @@ impl<T: Trait> Module<T> {
             DidDetailStorage::from_on_chain_detail(
                 last_key_id,
                 last_controller_id,
-                did_detail.active_control_keys + controller_keys_count,
+                did_detail.active_controller_keys + controller_keys_count,
                 did_detail.active_controllers
                     + (controller_keys_count > 0 && !was_self_controlled) as u32,
-                T::BlockNumber::from(keys.nonce),
+                keys.nonce,
             ),
         );
 
@@ -659,19 +654,19 @@ impl<T: Trait> Module<T> {
 
         let did_detail = Self::get_on_chain_did_detail_for_update(did, remove_keys.nonce)?;
 
-        let serz_remove_keys = StateChange::RemoveKeys(remove_keys.clone()).encode();
+        let serz_remove_keys = StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode();
 
         ensure!(
             Self::verify_sig_from_controller(did, &serz_remove_keys, signer, &sig)?,
             Error::<T>::InvalidSig
         );
 
-        let mut controller_keys = BTreeSet::new();
+        let mut controller_keys_count = 0;
         for key_id in &remove_keys.keys {
             let key = DidKeys::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
             if key.can_control() {
-                controller_keys.insert(key_id);
+                controller_keys_count += 1;
             }
         }
 
@@ -684,9 +679,9 @@ impl<T: Trait> Module<T> {
             DidDetailStorage::from_on_chain_detail(
                 did_detail.last_key_id,
                 did_detail.last_controller_id,
-                did_detail.active_control_keys - controller_keys.len() as u32,
+                did_detail.active_controller_keys - controller_keys_count,
                 did_detail.active_controllers,
-                T::BlockNumber::from(remove_keys.nonce),
+                remove_keys.nonce,
             ),
         );
 
@@ -703,7 +698,8 @@ impl<T: Trait> Module<T> {
 
         let did_detail = Self::get_on_chain_did_detail_for_update(did, controllers.nonce)?;
 
-        let serz_add_controllers = StateChange::AddControllers(controllers.clone()).encode();
+        let serz_add_controllers =
+            StateChange::AddControllers(Cow::Borrowed(&controllers)).encode();
 
         ensure!(
             Self::verify_sig_from_controller(did, &serz_add_controllers, signer, &sig)?,
@@ -722,9 +718,9 @@ impl<T: Trait> Module<T> {
             DidDetailStorage::from_on_chain_detail(
                 did_detail.last_key_id,
                 last_controller_id,
-                did_detail.active_control_keys,
+                did_detail.active_controller_keys,
                 did_detail.active_controllers + controllers.controllers.len() as u32,
-                T::BlockNumber::from(controllers.nonce),
+                controllers.nonce,
             ),
         );
 
@@ -742,15 +738,16 @@ impl<T: Trait> Module<T> {
 
         let did_detail = Self::get_on_chain_did_detail_for_update(did, controllers.nonce)?;
 
-        let serz_add_controllers = StateChange::RemoveControllers(controllers.clone()).encode();
+        let serz_add_controllers =
+            StateChange::RemoveControllers(Cow::Borrowed(&controllers)).encode();
 
         ensure!(
             Self::verify_sig_from_controller(did, &serz_add_controllers, signer, &sig)?,
             Error::<T>::InvalidSig
         );
 
-        let uniq_controller_ids: BTreeSet<_> = controllers.controllers.into_iter().collect();
-        let controller_list: Vec<_> = uniq_controller_ids
+        let controller_list: Vec<_> = controllers
+            .controllers
             .into_iter()
             .map(|controller_id| {
                 DidControllers::get(&did, controller_id)
@@ -761,7 +758,7 @@ impl<T: Trait> Module<T> {
 
         for (controller_id, controller_did) in &controller_list {
             DidControllers::remove(&did, controller_id);
-            DidControllersCount::mutate(&did, controller_did, |val| *val = val.saturating_sub(1));
+            DidControllersCount::mutate(&did, controller_did, |val| *val -= 1);
         }
 
         Dids::<T>::insert(
@@ -769,9 +766,9 @@ impl<T: Trait> Module<T> {
             DidDetailStorage::from_on_chain_detail(
                 did_detail.last_key_id,
                 did_detail.last_controller_id,
-                did_detail.active_control_keys,
+                did_detail.active_controller_keys,
                 did_detail.active_controllers - controller_list.len() as u32,
-                T::BlockNumber::from(controllers.nonce),
+                controllers.nonce,
             ),
         );
 
@@ -784,13 +781,13 @@ impl<T: Trait> Module<T> {
     }
 
     /// Prepare `DidKey`s to insert. The DID is assumed to be self controlled as well if there is any key
-    /// that is capable of either authenticating or invoking a capability. Returns the keys and whether any
-    /// key can make the DID a controller. The following logic is contentious
+    /// that is capable of either authenticating or invoking a capability. Returns the keys along with the
+    /// amount of controller keys being met. The following logic is contentious.
     fn prepare_keys_to_insert(keys: Vec<DidKey>) -> Result<(Vec<DidKey>, u32), DispatchError> {
         let mut controller_keys_count = 0;
         let mut keys_to_insert = Vec::with_capacity(keys.len());
         for key in keys {
-            let key = if key.ver_rels.is_none() {
+            let key = if key.ver_rels.is_empty() {
                 DidKey::new_with_all_relationships(key.key)
             } else {
                 if !key.is_valid() {
@@ -841,7 +838,7 @@ impl<T: Trait> Module<T> {
 
     /// Verify a `DidSignature` created by `signer` only if `signer` is a controller of `did` and has an
     /// appropriate key. To update a DID (add/remove keys, add/remove controllers), the updater must be a
-    /// controller of the DID and must have a key with `CapabilityInvocation` verification relationship
+    /// controller of the DID and must have a key with `CAPABILITY_INVOCATION` verification relationship
     pub fn verify_sig_from_controller(
         did: &Did,
         msg: &[u8],
@@ -858,12 +855,10 @@ impl<T: Trait> Module<T> {
     /// This is used for update
     pub fn get_on_chain_did_detail_for_update(
         did: &Did,
-        new_nonce: u32,
+        new_nonce: impl Into<T::BlockNumber>,
     ) -> Result<DidDetail<T>, DispatchError> {
         let did_detail_storage = Self::get_on_chain_did_detail(did)?;
-        let new_nonce = T::BlockNumber::from(new_nonce);
-        if new_nonce != (did_detail_storage.nonce + T::BlockNumber::one()) {
-            // println!("{}", (did_detail_storage.nonce + T::BlockNumber::one()));
+        if new_nonce.into() != (did_detail_storage.nonce + T::BlockNumber::one()) {
             fail!(Error::<T>::IncorrectNonce)
         }
         Ok(did_detail_storage)
@@ -942,14 +937,14 @@ mod tests {
         did: &Did,
         last_key_id: u32,
         last_controller_id: u32,
-        active_control_keys: u32,
+        active_controller_keys: u32,
         active_controllers: u32,
         nonce: BlockNumber,
     ) {
         let did_detail = DIDModule::get_on_chain_did_detail(did).unwrap();
         assert_eq!(did_detail.last_key_id, last_key_id.into());
         assert_eq!(did_detail.last_controller_id, last_controller_id.into());
-        assert_eq!(did_detail.active_control_keys, active_control_keys);
+        assert_eq!(did_detail.active_controller_keys, active_controller_keys);
         assert_eq!(did_detail.active_controllers, active_controllers);
         assert_eq!(
             did_detail.nonce,
@@ -1136,7 +1131,7 @@ mod tests {
                 did_1.clone(),
                 vec![DidKey {
                     key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 }],
                 vec![]
             ));
@@ -1154,7 +1149,7 @@ mod tests {
                 did_2.clone(),
                 vec![DidKey {
                     key: PublicKey::ed25519(pk_ed),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 }],
                 vec![did_1]
             ));
@@ -1172,7 +1167,7 @@ mod tests {
                 did_3.clone(),
                 vec![DidKey {
                     key: pk_secp.clone(),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 }],
                 vec![did_1, did_2]
             ));
@@ -1190,7 +1185,7 @@ mod tests {
                 did_4.clone(),
                 vec![DidKey {
                     key: PublicKey::x25519(pk_ed),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 }],
                 vec![]
             ));
@@ -1202,9 +1197,9 @@ mod tests {
 
             // x25519 key cannot be added for incompatible relationship types
             for vr in vec![
-                VerRelType::Authentication,
-                VerRelType::Assertion,
-                VerRelType::CapabilityInvocation,
+                VerRelType::AUTHENTICATION,
+                VerRelType::ASSERTION,
+                VerRelType::CAPABILITY_INVOCATION,
             ] {
                 assert_noop!(
                     DIDModule::new_onchain(
@@ -1231,7 +1226,7 @@ mod tests {
                         did_5.clone(),
                         vec![DidKey {
                             key: pk,
-                            ver_rels: VerRelType::KeyAgreement.into()
+                            ver_rels: VerRelType::KEY_AGREEMENT.into()
                         }],
                         vec![]
                     ),
@@ -1252,7 +1247,7 @@ mod tests {
                     did.clone(),
                     vec![DidKey {
                         key: pk,
-                        ver_rels: VerRelType::CapabilityInvocation.into()
+                        ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
                     }],
                     vec![]
                 ));
@@ -1273,28 +1268,28 @@ mod tests {
                 (
                     [72; DID_BYTE_SIZE],
                     PublicKey::sr25519(pk_sr),
-                    VerRelType::Assertion,
+                    VerRelType::ASSERTION,
                 ),
                 (
                     [73; DID_BYTE_SIZE],
                     PublicKey::ed25519(pk_ed),
-                    VerRelType::Assertion,
+                    VerRelType::ASSERTION,
                 ),
-                ([74; DID_BYTE_SIZE], pk_secp.clone(), VerRelType::Assertion),
+                ([74; DID_BYTE_SIZE], pk_secp.clone(), VerRelType::ASSERTION),
                 (
                     [75; DID_BYTE_SIZE],
                     PublicKey::sr25519(pk_sr),
-                    VerRelType::Authentication,
+                    VerRelType::AUTHENTICATION,
                 ),
                 (
                     [76; DID_BYTE_SIZE],
                     PublicKey::ed25519(pk_ed),
-                    VerRelType::Authentication,
+                    VerRelType::AUTHENTICATION,
                 ),
                 (
                     [77; DID_BYTE_SIZE],
                     pk_secp.clone(),
-                    VerRelType::Authentication,
+                    VerRelType::AUTHENTICATION,
                 ),
             ] {
                 assert_ok!(DIDModule::new_onchain(
@@ -1310,7 +1305,7 @@ mod tests {
                 let key = DidKeys::get(&did, IncId::from(1u32)).unwrap();
                 assert!(key.can_sign());
                 assert!(!key.can_control());
-                if vr == VerRelType::Authentication {
+                if vr == VerRelType::AUTHENTICATION {
                     assert!(key.can_authenticate());
                     assert!(key.can_authenticate_or_control());
                 }
@@ -1326,7 +1321,7 @@ mod tests {
                 did_8.clone(),
                 vec![DidKey {
                     key: PublicKey::ed25519(pk_ed),
-                    ver_rels: (VerRelType::Authentication | VerRelType::Assertion).into()
+                    ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
                 }],
                 vec![]
             ));
@@ -1346,15 +1341,15 @@ mod tests {
                 vec![
                     DidKey {
                         key: PublicKey::ed25519(pk_ed),
-                        ver_rels: VerRelType::Authentication.into()
+                        ver_rels: VerRelType::AUTHENTICATION.into()
                     },
                     DidKey {
                         key: PublicKey::sr25519(pk_sr),
-                        ver_rels: VerRelType::Assertion.into()
+                        ver_rels: VerRelType::ASSERTION.into()
                     },
                     DidKey {
                         key: pk_secp.clone(),
-                        ver_rels: (VerRelType::Assertion | VerRelType::Authentication).into()
+                        ver_rels: (VerRelType::ASSERTION | VerRelType::AUTHENTICATION).into()
                     },
                 ],
                 vec![]
@@ -1383,15 +1378,15 @@ mod tests {
                 vec![
                     DidKey {
                         key: PublicKey::ed25519(pk_ed),
-                        ver_rels: (VerRelType::Authentication | VerRelType::Assertion).into()
+                        ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
                     },
                     DidKey {
                         key: PublicKey::sr25519(pk_sr),
-                        ver_rels: VerRelType::Assertion.into()
+                        ver_rels: VerRelType::ASSERTION.into()
                     },
                     DidKey {
                         key: pk_secp,
-                        ver_rels: VerRelType::CapabilityInvocation.into()
+                        ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
                     },
                 ],
                 vec![]
@@ -1420,11 +1415,11 @@ mod tests {
                 vec![
                     DidKey {
                         key: PublicKey::ed25519(pk_ed),
-                        ver_rels: (VerRelType::Authentication | VerRelType::Assertion).into()
+                        ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
                     },
                     DidKey {
                         key: PublicKey::sr25519(pk_sr),
-                        ver_rels: VerRelType::CapabilityInvocation.into()
+                        ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
                     },
                 ],
                 vec![did_1, did_2]
@@ -1473,7 +1468,7 @@ mod tests {
                 did_1.clone(),
                 vec![DidKey {
                     key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::Authentication.into()
+                    ver_rels: VerRelType::AUTHENTICATION.into()
                 }],
                 vec![controller_1]
             ));
@@ -1489,7 +1484,7 @@ mod tests {
                 did_2.clone(),
                 vec![DidKey {
                     key: PublicKey::ed25519(pk_ed),
-                    ver_rels: VerRelType::Assertion.into()
+                    ver_rels: VerRelType::ASSERTION.into()
                 }],
                 vec![controller_2]
             ));
@@ -1505,7 +1500,7 @@ mod tests {
                 did_3.clone(),
                 vec![DidKey {
                     key: PublicKey::x25519(pk_ed),
-                    ver_rels: VerRelType::KeyAgreement.into()
+                    ver_rels: VerRelType::KEY_AGREEMENT.into()
                 }],
                 vec![controller_3]
             ));
@@ -1522,11 +1517,11 @@ mod tests {
                 vec![
                     DidKey {
                         key: PublicKey::sr25519(pk_sr),
-                        ver_rels: VerRelType::Authentication.into()
+                        ver_rels: VerRelType::AUTHENTICATION.into()
                     },
                     DidKey {
                         key: PublicKey::ed25519(pk_ed),
-                        ver_rels: VerRelType::Assertion.into()
+                        ver_rels: VerRelType::ASSERTION.into()
                     }
                 ],
                 vec![controller_4]
@@ -1544,12 +1539,12 @@ mod tests {
                 vec![
                     DidKey {
                         key: pk_secp.clone(),
-                        ver_rels: (VerRelType::Authentication | VerRelType::CapabilityInvocation)
+                        ver_rels: (VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION)
                             .into()
                     },
                     DidKey {
                         key: PublicKey::ed25519(pk_ed),
-                        ver_rels: VerRelType::Assertion.into()
+                        ver_rels: VerRelType::ASSERTION.into()
                     }
                 ],
                 vec![controller_1]
@@ -1567,12 +1562,13 @@ mod tests {
                 vec![
                     DidKey {
                         key: pk_secp,
-                        ver_rels: (VerRelType::Authentication | VerRelType::CapabilityInvocation)
+                        ver_rels: (VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION)
                             .into()
                     },
                     DidKey {
                         key: PublicKey::ed25519(pk_ed),
-                        ver_rels: (VerRelType::Assertion | VerRelType::CapabilityInvocation).into()
+                        ver_rels: (VerRelType::ASSERTION | VerRelType::CAPABILITY_INVOCATION)
+                            .into()
                     }
                 ],
                 vec![controller_1]
@@ -1610,8 +1606,10 @@ mod tests {
                 keys: vec![],
                 nonce: 5,
             };
-            let sig =
-                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            let sig = SigValue::sr25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_sr_1,
+            );
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1630,12 +1628,14 @@ mod tests {
                 did: did_1.clone(),
                 keys: vec![DidKey {
                     key: PublicKey::sr25519(pk_sr_1),
-                    ver_rels: VerRelType::None.into(),
+                    ver_rels: VerRelType::NONE.into(),
                 }],
                 nonce: 5,
             };
-            let sig =
-                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            let sig = SigValue::sr25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_sr_1,
+            );
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1655,15 +1655,15 @@ mod tests {
                 vec![
                     DidKey {
                         key: PublicKey::sr25519(pk_sr_1),
-                        ver_rels: VerRelType::None.into()
+                        ver_rels: VerRelType::NONE.into()
                     },
                     DidKey {
                         key: PublicKey::sr25519(pk_sr_2),
-                        ver_rels: VerRelType::None.into()
+                        ver_rels: VerRelType::NONE.into()
                     },
                     DidKey {
                         key: PublicKey::ed25519(pk_ed_2),
-                        ver_rels: VerRelType::Authentication.into()
+                        ver_rels: VerRelType::AUTHENTICATION.into()
                     },
                 ],
                 vec![]
@@ -1679,7 +1679,7 @@ mod tests {
                 did_2.clone(),
                 vec![DidKey {
                     key: PublicKey::ed25519(pk_ed_1),
-                    ver_rels: VerRelType::Authentication.into()
+                    ver_rels: VerRelType::AUTHENTICATION.into()
                 }],
                 vec![did_1]
             ));
@@ -1693,12 +1693,14 @@ mod tests {
                 did: did_2.clone(),
                 keys: vec![DidKey {
                     key: pk_secp_1.clone(),
-                    ver_rels: VerRelType::None.into(),
+                    ver_rels: VerRelType::NONE.into(),
                 }],
                 nonce: 7 + 1,
             };
-            let sig =
-                SigValue::ed25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_ed_1);
+            let sig = SigValue::ed25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_ed_1,
+            );
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1718,12 +1720,14 @@ mod tests {
                     did: did_2.clone(),
                     keys: vec![DidKey {
                         key: pk_secp_1.clone(),
-                        ver_rels: VerRelType::None.into(),
+                        ver_rels: VerRelType::NONE.into(),
                     }],
                     nonce,
                 };
-                let sig =
-                    SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+                let sig = SigValue::sr25519(
+                    &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                    &pair_sr_1,
+                );
                 assert_noop!(
                     DIDModule::add_keys(
                         Origin::signed(alice),
@@ -1743,7 +1747,7 @@ mod tests {
                 did: did_2.clone(),
                 keys: vec![DidKey {
                     key: pk_secp_1.clone(),
-                    ver_rels: VerRelType::None.into(),
+                    ver_rels: VerRelType::NONE.into(),
                 }],
                 nonce: 7 + 1,
             };
@@ -1767,12 +1771,14 @@ mod tests {
                 did: did_2.clone(),
                 keys: vec![DidKey {
                     key: pk_secp_1.clone(),
-                    ver_rels: VerRelType::None.into(),
+                    ver_rels: VerRelType::NONE.into(),
                 }],
                 nonce: 7 + 1,
             };
-            let sig =
-                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            let sig = SigValue::sr25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_sr_1,
+            );
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1791,12 +1797,14 @@ mod tests {
                 did: did_2.clone(),
                 keys: vec![DidKey {
                     key: pk_secp_1.clone(),
-                    ver_rels: VerRelType::KeyAgreement.into(),
+                    ver_rels: VerRelType::KEY_AGREEMENT.into(),
                 }],
                 nonce: 7 + 1,
             };
-            let sig =
-                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            let sig = SigValue::sr25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_sr_1,
+            );
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1815,12 +1823,14 @@ mod tests {
                 did: did_2.clone(),
                 keys: vec![DidKey {
                     key: PublicKey::x25519(pk_ed_1),
-                    ver_rels: VerRelType::KeyAgreement.into(),
+                    ver_rels: VerRelType::KEY_AGREEMENT.into(),
                 }],
                 nonce: 7 + 1,
             };
-            let sig =
-                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_1);
+            let sig = SigValue::sr25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_sr_1,
+            );
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -1839,23 +1849,25 @@ mod tests {
                 keys: vec![
                     DidKey {
                         key: PublicKey::x25519(pk_sr_2),
-                        ver_rels: VerRelType::KeyAgreement.into(),
+                        ver_rels: VerRelType::KEY_AGREEMENT.into(),
                     },
                     DidKey {
                         key: PublicKey::ed25519(pk_ed_1),
-                        ver_rels: VerRelType::Assertion.into(),
+                        ver_rels: VerRelType::ASSERTION.into(),
                     },
                     DidKey {
                         key: pk_secp_2,
-                        ver_rels: (VerRelType::Authentication | VerRelType::Assertion).into(),
+                        ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into(),
                     },
                 ],
                 nonce: 8 + 1,
             };
 
             // Controller uses a key without the capability to update DID
-            let sig =
-                SigValue::ed25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_ed_2);
+            let sig = SigValue::ed25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_ed_2,
+            );
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1870,8 +1882,10 @@ mod tests {
             );
 
             // Controller uses the correct key
-            let sig =
-                SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr_2);
+            let sig = SigValue::sr25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_sr_2,
+            );
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -1912,8 +1926,8 @@ mod tests {
                 vec![
                     DidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1)),
                     DidKey::new_with_all_relationships(PublicKey::ed25519(pk_ed_1)),
-                    DidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::Assertion),
-                    DidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::Authentication),
+                    DidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::ASSERTION),
+                    DidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::AUTHENTICATION),
                 ],
                 vec![did_2]
             ));
@@ -1929,7 +1943,7 @@ mod tests {
                 vec![
                     DidKey {
                         key: PublicKey::ed25519(pk_ed_1),
-                        ver_rels: VerRelType::Authentication.into()
+                        ver_rels: VerRelType::AUTHENTICATION.into()
                     },
                     DidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1))
                 ],
@@ -1943,11 +1957,11 @@ mod tests {
             for nonce in vec![1, 2, 4, 5, 10, 10000] {
                 let remove_keys = RemoveKeys {
                     did: did_2.clone(),
-                    keys: vec![2u32.into()],
+                    keys: vec![2u32.into()].into_iter().collect(),
                     nonce,
                 };
                 let sig = SigValue::sr25519(
-                    &StateChange::RemoveKeys(remove_keys.clone()).encode(),
+                    &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
                     &pair_sr_1,
                 );
                 assert_noop!(
@@ -1967,11 +1981,13 @@ mod tests {
             // Since did_2 does not control itself, it cannot add keys to itself
             let remove_keys = RemoveKeys {
                 did: did_1.clone(),
-                keys: vec![1u32.into(), 3u32.into(), 5u32.into()],
+                keys: vec![1u32.into(), 3u32.into(), 5u32.into()]
+                    .into_iter()
+                    .collect(),
                 nonce: 3,
             };
             let sig = SigValue::ed25519(
-                &StateChange::RemoveKeys(remove_keys.clone()).encode(),
+                &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
                 &pair_ed_1,
             );
             assert_noop!(
@@ -1988,11 +2004,11 @@ mod tests {
             );
             let remove_keys = RemoveKeys {
                 did: did_1.clone(),
-                keys: vec![1u32.into()],
+                keys: vec![1u32.into()].into_iter().collect(),
                 nonce: 3,
             };
             let sig = SigValue::ed25519(
-                &StateChange::RemoveKeys(remove_keys.clone()).encode(),
+                &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
                 &pair_ed_1,
             );
             assert_ok!(DIDModule::remove_keys(
@@ -2008,11 +2024,11 @@ mod tests {
 
             let remove_keys = RemoveKeys {
                 did: did_1.clone(),
-                keys: vec![3u32.into()],
+                keys: vec![3u32.into()].into_iter().collect(),
                 nonce: 4,
             };
             let sig = SigValue::sr25519(
-                &StateChange::RemoveKeys(remove_keys.clone()).encode(),
+                &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
                 &pair_sr_1,
             );
             assert_ok!(DIDModule::remove_keys(
@@ -2054,8 +2070,8 @@ mod tests {
                 vec![
                     DidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1)),
                     DidKey::new_with_all_relationships(PublicKey::ed25519(pk_ed_1)),
-                    DidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::Assertion),
-                    DidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::Authentication),
+                    DidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::ASSERTION),
+                    DidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::AUTHENTICATION),
                 ],
                 vec![did_2]
             ));
@@ -2071,7 +2087,7 @@ mod tests {
                 vec![
                     DidKey {
                         key: PublicKey::ed25519(pk_ed_1),
-                        ver_rels: VerRelType::Authentication.into()
+                        ver_rels: VerRelType::AUTHENTICATION.into()
                     },
                     DidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1))
                 ],
@@ -2093,11 +2109,11 @@ mod tests {
             for nonce in vec![1, 2, 4, 5, 10, 10000] {
                 let remove_controllers = RemoveControllers {
                     did: did_2.clone(),
-                    controllers: vec![0u32.into()],
+                    controllers: vec![0u32.into()].into_iter().collect(),
                     nonce,
                 };
                 let sig = SigValue::sr25519(
-                    &StateChange::RemoveControllers(remove_controllers.clone()).encode(),
+                    &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
                     &pair_sr_1,
                 );
                 assert_noop!(
@@ -2117,11 +2133,13 @@ mod tests {
             // Since did_2 does not control itself, it cannot add keys to itself
             let remove_controllers = RemoveControllers {
                 did: did_1.clone(),
-                controllers: vec![1u32.into(), 3u32.into(), 5u32.into()],
+                controllers: vec![1u32.into(), 3u32.into(), 5u32.into()]
+                    .into_iter()
+                    .collect(),
                 nonce: 3,
             };
             let sig = SigValue::ed25519(
-                &StateChange::RemoveControllers(remove_controllers.clone()).encode(),
+                &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
                 &pair_ed_1,
             );
             assert_noop!(
@@ -2138,11 +2156,11 @@ mod tests {
             );
             let remove_controllers = RemoveControllers {
                 did: did_1.clone(),
-                controllers: vec![1u32.into()],
+                controllers: vec![1u32.into()].into_iter().collect(),
                 nonce: 3,
             };
             let sig = SigValue::ed25519(
-                &StateChange::RemoveControllers(remove_controllers.clone()).encode(),
+                &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
                 &pair_ed_1,
             );
             assert_ok!(DIDModule::remove_controllers(
@@ -2159,11 +2177,11 @@ mod tests {
 
             let remove_controllers = RemoveControllers {
                 did: did_1.clone(),
-                controllers: vec![2u32.into()],
+                controllers: vec![2u32.into()].into_iter().collect(),
                 nonce: 4,
             };
             let sig = SigValue::sr25519(
-                &StateChange::RemoveControllers(remove_controllers.clone()).encode(),
+                &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
                 &pair_sr_1,
             );
             assert_ok!(DIDModule::remove_controllers(
@@ -2179,11 +2197,11 @@ mod tests {
 
             let remove_controllers = RemoveControllers {
                 did: did_3.clone(),
-                controllers: vec![2u32.into()],
+                controllers: vec![2u32.into()].into_iter().collect(),
                 nonce: 6,
             };
             let sig = SigValue::sr25519(
-                &StateChange::RemoveControllers(remove_controllers.clone()).encode(),
+                &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
                 &pair_sr_1,
             );
             assert_ok!(DIDModule::remove_controllers(
@@ -2198,11 +2216,11 @@ mod tests {
             run_to_block(22);
             let remove_controllers = RemoveControllers {
                 did: did_3.clone(),
-                controllers: vec![1u32.into()],
+                controllers: vec![1u32.into()].into_iter().collect(),
                 nonce: 7,
             };
             let sig = SigValue::sr25519(
-                &StateChange::RemoveControllers(remove_controllers.clone()).encode(),
+                &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
                 &pair_sr_1,
             );
             assert_err!(
@@ -2247,7 +2265,7 @@ mod tests {
                 nonce: 5,
             };
             let sig = SigValue::sr25519(
-                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
                 &pair_sr,
             );
             assert_noop!(
@@ -2270,7 +2288,7 @@ mod tests {
                 nonce: 5,
             };
             let sig = SigValue::sr25519(
-                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
                 &pair_sr,
             );
             assert_noop!(
@@ -2293,11 +2311,11 @@ mod tests {
                 vec![
                     DidKey {
                         key: pk_secp_1.clone(),
-                        ver_rels: VerRelType::None.into()
+                        ver_rels: VerRelType::NONE.into()
                     },
                     DidKey {
                         key: PublicKey::ed25519(pk_ed),
-                        ver_rels: VerRelType::Authentication.into()
+                        ver_rels: VerRelType::AUTHENTICATION.into()
                     },
                 ],
                 vec![]
@@ -2313,7 +2331,7 @@ mod tests {
                 did_3.clone(),
                 vec![DidKey {
                     key: pk_secp_2.clone(),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 },],
                 vec![did_1]
             ));
@@ -2327,7 +2345,7 @@ mod tests {
                 did_2.clone(),
                 vec![DidKey {
                     key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::Authentication.into()
+                    ver_rels: VerRelType::AUTHENTICATION.into()
                 }],
                 vec![did_1]
             ));
@@ -2343,7 +2361,7 @@ mod tests {
                 nonce: 10 + 1,
             };
             let sig = SigValue::sr25519(
-                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
                 &pair_sr,
             );
             assert_noop!(
@@ -2367,7 +2385,7 @@ mod tests {
                     nonce,
                 };
                 let sig = SigValue::secp256k1(
-                    &StateChange::AddControllers(add_controllers.clone()).encode(),
+                    &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
                     &sk_secp_1,
                 );
                 assert_noop!(
@@ -2406,7 +2424,7 @@ mod tests {
 
             // Valid signature should work
             let sig = SigValue::secp256k1(
-                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
                 &sk_secp_1,
             );
             assert_ok!(DIDModule::add_controllers(
@@ -2430,7 +2448,7 @@ mod tests {
                 nonce: 11 + 1,
             };
             let sig = SigValue::secp256k1(
-                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
                 &sk_secp_2,
             );
             assert_ok!(DIDModule::add_controllers(
@@ -2469,7 +2487,7 @@ mod tests {
                 did_1.clone(),
                 vec![DidKey {
                     key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 },],
                 vec![]
             ));
@@ -2481,7 +2499,7 @@ mod tests {
                 did_2.clone(),
                 vec![DidKey {
                     key: PublicKey::x25519(pk_ed),
-                    ver_rels: VerRelType::KeyAgreement.into()
+                    ver_rels: VerRelType::KEY_AGREEMENT.into()
                 },],
                 vec![did_1]
             ));
@@ -2494,11 +2512,14 @@ mod tests {
                 did: did_2.clone(),
                 keys: vec![DidKey {
                     key: PublicKey::ed25519(pk_ed),
-                    ver_rels: VerRelType::Assertion.into(),
+                    ver_rels: VerRelType::ASSERTION.into(),
                 }],
                 nonce: 10 + 1,
             };
-            let sig = SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr);
+            let sig = SigValue::sr25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_sr,
+            );
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -2517,11 +2538,14 @@ mod tests {
                 did: did_2.clone(),
                 keys: vec![DidKey {
                     key: pk_secp.clone(),
-                    ver_rels: VerRelType::CapabilityInvocation.into(),
+                    ver_rels: VerRelType::CAPABILITY_INVOCATION.into(),
                 }],
                 nonce: 11 + 1,
             };
-            let sig = SigValue::sr25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_sr);
+            let sig = SigValue::sr25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_sr,
+            );
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -2561,7 +2585,7 @@ mod tests {
                 did_1.clone(),
                 vec![DidKey {
                     key: PublicKey::ed25519(pk_ed),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 },],
                 vec![]
             ));
@@ -2573,7 +2597,7 @@ mod tests {
                 did_2.clone(),
                 vec![DidKey {
                     key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 },],
                 vec![]
             ));
@@ -2585,7 +2609,7 @@ mod tests {
                 did_3.clone(),
                 vec![DidKey {
                     key: pk_secp.clone(),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 },],
                 vec![]
             ));
@@ -2599,7 +2623,7 @@ mod tests {
                 did_4.clone(),
                 vec![DidKey {
                     key: pk_secp.clone(),
-                    ver_rels: VerRelType::None.into()
+                    ver_rels: VerRelType::NONE.into()
                 },],
                 vec![did_2]
             ));
@@ -2614,7 +2638,7 @@ mod tests {
                 nonce: 7 + 1,
             };
             let sig = SigValue::sr25519(
-                &StateChange::AddControllers(add_controllers.clone()).encode(),
+                &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
                 &pair_sr,
             );
             assert_ok!(DIDModule::add_controllers(
@@ -2634,11 +2658,14 @@ mod tests {
                 did: did_4.clone(),
                 keys: vec![DidKey {
                     key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::None.into(),
+                    ver_rels: VerRelType::NONE.into(),
                 }],
                 nonce: 8 + 1,
             };
-            let sig = SigValue::ed25519(&StateChange::AddKeys(add_keys.clone()).encode(), &pair_ed);
+            let sig = SigValue::ed25519(
+                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
+                &pair_ed,
+            );
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -2678,7 +2705,7 @@ mod tests {
             let to_remove = DidRemoval::new(did.clone(), 2u32);
             let sig = SigValue::Sr25519(Bytes64 {
                 value: pair_1
-                    .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
+                    .sign(&StateChange::DIDRemoval(to_remove.into()).encode())
                     .0,
             });
 
@@ -2707,7 +2734,7 @@ mod tests {
             let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
             let sig = SigValue::Sr25519(Bytes64 {
                 value: pair_2
-                    .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
+                    .sign(&StateChange::DIDRemoval(to_remove.into()).encode())
                     .0,
             });
             assert_noop!(
@@ -2718,7 +2745,7 @@ mod tests {
             // The key controlling the DID should be able to remove the DID
             let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
             let sig_value = pair_1
-                .sign(&StateChange::DIDRemoval(to_remove.clone()).encode())
+                .sign(&StateChange::DIDRemoval(to_remove.into()).encode())
                 .0;
             println!("remove sig value:{:?}", sig_value.to_vec());
             let sig = SigValue::Sr25519(Bytes64 { value: sig_value });
