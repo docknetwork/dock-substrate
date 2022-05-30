@@ -54,7 +54,9 @@ decl_error! {
         IncorrectNonce,
         OnlyControllerCanUpdate,
         NoKeyForDid,
+        NoControllerForDid,
         InsufficientVerificationRelationship,
+        ControllerIsAlreadyAdded
     }
 }
 
@@ -151,6 +153,14 @@ pub enum DidDetailStorage<T: Trait> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct IncId(u32);
 
+impl Iterator for &'_ mut IncId {
+    type Item = IncId;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        Some(*self.inc())
+    }
+}
+
 impl IncId {
     /// Creates new `IncId` equal to zero.
     fn new() -> Self {
@@ -158,7 +168,7 @@ impl IncId {
     }
 
     /// Increases `IncId` value returning next sequential identifier.
-    fn next(&mut self) -> &mut Self {
+    fn inc(&mut self) -> &mut Self {
         self.0 += 1;
         self
     }
@@ -203,7 +213,7 @@ pub struct RemoveKeys {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddControllers {
     did: Did,
-    controllers: Vec<Did>,
+    controllers: BTreeSet<Did>,
     nonce: BlockNumber,
 }
 
@@ -398,8 +408,8 @@ decl_storage! {
         pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<DidKey>;
         /// Stores controllers of a DID as (DID, IncId) -> DID.
         pub DidControllers get(fn did_controller): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<Did>;
-        /// Stores amount of arcs from controlled DID to controller DID as (DID, DID) -> u32.
-        pub DidControllersCount get(fn did_controller_count): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Did => u32;
+        /// Stores controller identifiers for controlled - controller pairs as (DID, DID) -> IncId.
+        pub DidControllerIds get(fn did_controller_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Did => Option<IncId>;
     }
     // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
     /*add_extra_genesis {
@@ -465,7 +475,7 @@ decl_module! {
         /// explicit argument to keep the caller's experience simple.
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight + controllers.len() as Weight + 1)]
-        pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<DidKey>, controllers: Vec<Did>) -> DispatchResult {
+        pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<DidKey>, controllers: BTreeSet<Did>) -> DispatchResult {
             ensure_signed(origin)?;
             Module::<T>::new_onchain_(did, keys, controllers)
         }
@@ -553,7 +563,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn new_onchain_(did: Did, keys: Vec<DidKey>, controllers: Vec<Did>) -> DispatchResult {
+    fn new_onchain_(did: Did, keys: Vec<DidKey>, controllers: BTreeSet<Did>) -> DispatchResult {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
@@ -564,19 +574,20 @@ impl<T: Trait> Module<T> {
         let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
 
         let mut last_key_id = IncId::new();
+        for (key, key_id) in keys_to_insert.into_iter().zip(&mut last_key_id) {
+            DidKeys::insert(&did, key_id, key);
+        }
+
         let mut last_controller_id = IncId::new();
-        for key in keys_to_insert {
-            DidKeys::insert(&did, last_key_id.next(), key);
-        }
-
-        if controller_keys_count > 0 {
-            DidControllers::insert(&did, last_controller_id.next(), &did);
-            DidControllersCount::insert(&did, &did, 1);
-        }
-
-        for ctrl in &controllers {
-            DidControllers::insert(&did, last_controller_id.next(), &ctrl);
-            DidControllersCount::mutate(&did, &ctrl, |val| *val += 1);
+        let add_self_did = controller_keys_count > 0 && !controllers.contains(&did);
+        for (ctrl, id) in add_self_did
+            .then(|| did)
+            .iter()
+            .chain(&controllers)
+            .zip(&mut last_controller_id)
+        {
+            DidControllers::insert(&did, id, &ctrl);
+            DidControllerIds::insert(&did, &ctrl, id);
         }
 
         // Nonce will start from current block number
@@ -619,13 +630,13 @@ impl<T: Trait> Module<T> {
         let mut last_controller_id = did_detail.last_controller_id;
         let was_self_controlled = Self::is_self_controlled(&did);
         if controller_keys_count > 0 && !was_self_controlled {
-            DidControllers::insert(&did, last_controller_id.next(), did);
-            DidControllersCount::insert(&did, &did, 1);
+            DidControllers::insert(&did, last_controller_id.inc(), did);
+            DidControllerIds::insert(&did, &did, last_controller_id);
         }
 
         let mut last_key_id = did_detail.last_key_id;
-        for key in keys_to_insert.into_iter() {
-            DidKeys::insert(did, last_key_id.next(), key)
+        for (key, key_id) in keys_to_insert.iter().zip(&mut last_key_id) {
+            DidKeys::insert(did, key_id, key)
         }
 
         <system::Module<T>>::deposit_event_indexed(
@@ -674,6 +685,14 @@ impl<T: Trait> Module<T> {
             DidKeys::remove(did, key);
         }
 
+        // If no self-control keys exist for the given DID, remove self-control
+        let active_controller_keys = did_detail.active_controller_keys - controller_keys_count;
+        if active_controller_keys == 0 {
+            if let Some(controller_id) = DidControllerIds::take(&did, &did) {
+                DidControllers::remove(&did, controller_id);
+            }
+        }
+
         Dids::<T>::insert(
             did,
             DidDetailStorage::from_on_chain_detail(
@@ -706,11 +725,16 @@ impl<T: Trait> Module<T> {
             Error::<T>::InvalidSig
         );
 
-        let mut last_controller_id = did_detail.last_controller_id;
-
         for cnt in &controllers.controllers {
-            DidControllers::insert(&did, last_controller_id.next(), cnt);
-            DidControllersCount::mutate(&did, cnt, |val| *val += 1);
+            if Self::is_controller(did, cnt) {
+                fail!(Error::<T>::ControllerIsAlreadyAdded)
+            }
+        }
+
+        let mut last_controller_id = did_detail.last_controller_id;
+        for (cnt, id) in controllers.controllers.iter().zip(&mut last_controller_id) {
+            DidControllers::insert(&did, id, cnt);
+            DidControllerIds::insert(&did, cnt, id);
         }
 
         Dids::<T>::insert(
@@ -751,14 +775,14 @@ impl<T: Trait> Module<T> {
             .into_iter()
             .map(|controller_id| {
                 DidControllers::get(&did, controller_id)
-                    .ok_or(Error::<T>::NoKeyForDid)
+                    .ok_or(Error::<T>::NoControllerForDid)
                     .map(|controller_did| (controller_id, controller_did))
             })
             .collect::<Result<_, _>>()?;
 
         for (controller_id, controller_did) in &controller_list {
             DidControllers::remove(&did, controller_id);
-            DidControllersCount::mutate(&did, controller_did, |val| *val -= 1);
+            DidControllerIds::remove(&did, controller_did);
         }
 
         Dids::<T>::insert(
@@ -815,7 +839,7 @@ impl<T: Trait> Module<T> {
 
     /// Is `controller` the controller of `controlled`
     pub fn is_controller(controlled: &Did, controller: &Did) -> bool {
-        Self::did_controller_count(controlled, controller) > 0
+        Self::did_controller_key(controlled, controller).is_some()
     }
 
     /// Returns true if `did` controls itself, else false.
@@ -1049,7 +1073,12 @@ mod tests {
             let controller_2 = [20; DID_BYTE_SIZE];
 
             assert_noop!(
-                DIDModule::new_onchain(Origin::signed(alice), did_1.clone(), vec![], vec![]),
+                DIDModule::new_onchain(
+                    Origin::signed(alice),
+                    did_1.clone(),
+                    vec![],
+                    vec![].into_iter().collect()
+                ),
                 Error::<Test>::NoControllerProvided
             );
 
@@ -1057,8 +1086,8 @@ mod tests {
             assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
                 did_1.clone(),
-                vec![],
-                vec![controller_1]
+                vec![].into_iter().collect(),
+                vec![controller_1].into_iter().collect()
             ));
 
             assert!(!DIDModule::is_offchain_did(&did_1).unwrap());
@@ -1074,8 +1103,8 @@ mod tests {
                 DIDModule::new_onchain(
                     Origin::signed(alice),
                     did_1.clone(),
-                    vec![],
-                    vec![controller_1]
+                    vec![].into_iter().collect(),
+                    vec![controller_1].into_iter().collect()
                 ),
                 Error::<Test>::DidAlreadyExists
             );
@@ -1084,8 +1113,10 @@ mod tests {
             assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
                 did_2.clone(),
-                vec![],
+                vec![].into_iter().collect(),
                 vec![did_1, controller_1, controller_2]
+                    .into_iter()
+                    .collect()
             ));
 
             assert!(!DIDModule::is_offchain_did(&did_2).unwrap());
@@ -1133,7 +1164,7 @@ mod tests {
                     key: PublicKey::sr25519(pk_sr),
                     ver_rels: VerRelType::NONE.into()
                 }],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
             check_did_detail(&did_1, 1, 1, 1, 1, 5);
@@ -1151,7 +1182,7 @@ mod tests {
                     key: PublicKey::ed25519(pk_ed),
                     ver_rels: VerRelType::NONE.into()
                 }],
-                vec![did_1]
+                vec![did_1].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_2));
             check_did_detail(&did_2, 1, 2, 1, 2, 6);
@@ -1169,7 +1200,7 @@ mod tests {
                     key: pk_secp.clone(),
                     ver_rels: VerRelType::NONE.into()
                 }],
-                vec![did_1, did_2]
+                vec![did_1, did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_3));
             check_did_detail(&did_3, 1, 3, 1, 3, 7);
@@ -1187,7 +1218,7 @@ mod tests {
                     key: PublicKey::x25519(pk_ed),
                     ver_rels: VerRelType::NONE.into()
                 }],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_4));
             check_did_detail(&did_4, 1, 0, 0, 0, 8);
@@ -1209,7 +1240,7 @@ mod tests {
                             key: PublicKey::x25519(pk_ed),
                             ver_rels: vr.into()
                         }],
-                        vec![]
+                        vec![].into_iter().collect()
                     ),
                     Error::<Test>::IncompatableVerificationRelation
                 );
@@ -1228,7 +1259,7 @@ mod tests {
                             key: pk,
                             ver_rels: VerRelType::KEY_AGREEMENT.into()
                         }],
-                        vec![]
+                        vec![].into_iter().collect()
                     ),
                     Error::<Test>::IncompatableVerificationRelation
                 );
@@ -1249,7 +1280,7 @@ mod tests {
                         key: pk,
                         ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
                     }],
-                    vec![]
+                    vec![].into_iter().collect()
                 ));
                 assert!(DIDModule::is_self_controlled(&did));
                 let key = DidKeys::get(&did, IncId::from(1u32)).unwrap();
@@ -1299,7 +1330,7 @@ mod tests {
                         key: pk,
                         ver_rels: vr.into()
                     }],
-                    vec![]
+                    vec![].into_iter().collect()
                 ));
                 assert!(!DIDModule::is_self_controlled(&did));
                 let key = DidKeys::get(&did, IncId::from(1u32)).unwrap();
@@ -1323,7 +1354,7 @@ mod tests {
                     key: PublicKey::ed25519(pk_ed),
                     ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
                 }],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_8));
             let key_8 = DidKeys::get(&did_8, IncId::from(1u32)).unwrap();
@@ -1352,7 +1383,7 @@ mod tests {
                         ver_rels: (VerRelType::ASSERTION | VerRelType::AUTHENTICATION).into()
                     },
                 ],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_9));
             let key_9_1 = DidKeys::get(&did_9, IncId::from(1u32)).unwrap();
@@ -1389,7 +1420,7 @@ mod tests {
                         ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
                     },
                 ],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_10));
             let key_10_1 = DidKeys::get(&did_10, IncId::from(1u32)).unwrap();
@@ -1422,7 +1453,7 @@ mod tests {
                         ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
                     },
                 ],
-                vec![did_1, did_2]
+                vec![did_1, did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_11));
             let key_11_1 = DidKeys::get(&did_11, IncId::from(1u32)).unwrap();
@@ -1470,7 +1501,7 @@ mod tests {
                     key: PublicKey::sr25519(pk_sr),
                     ver_rels: VerRelType::AUTHENTICATION.into()
                 }],
-                vec![controller_1]
+                vec![controller_1].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_1));
             assert!(DIDModule::is_controller(&did_1, &controller_1));
@@ -1486,7 +1517,7 @@ mod tests {
                     key: PublicKey::ed25519(pk_ed),
                     ver_rels: VerRelType::ASSERTION.into()
                 }],
-                vec![controller_2]
+                vec![controller_2].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
             assert!(DIDModule::is_controller(&did_2, &controller_2));
@@ -1502,7 +1533,7 @@ mod tests {
                     key: PublicKey::x25519(pk_ed),
                     ver_rels: VerRelType::KEY_AGREEMENT.into()
                 }],
-                vec![controller_3]
+                vec![controller_3].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_3));
             assert!(DIDModule::is_controller(&did_3, &controller_3));
@@ -1524,7 +1555,7 @@ mod tests {
                         ver_rels: VerRelType::ASSERTION.into()
                     }
                 ],
-                vec![controller_4]
+                vec![controller_4].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_4));
             assert!(DIDModule::is_controller(&did_4, &controller_4));
@@ -1547,7 +1578,7 @@ mod tests {
                         ver_rels: VerRelType::ASSERTION.into()
                     }
                 ],
-                vec![controller_1]
+                vec![controller_1].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_5));
             assert!(DIDModule::is_controller(&did_5, &controller_1));
@@ -1571,7 +1602,7 @@ mod tests {
                             .into()
                     }
                 ],
-                vec![controller_1]
+                vec![controller_1].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_6));
             assert!(DIDModule::is_controller(&did_6, &controller_1));
@@ -1666,7 +1697,7 @@ mod tests {
                         ver_rels: VerRelType::AUTHENTICATION.into()
                     },
                 ],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
             check_did_detail(&did_1, 3, 1, 2, 1, 5);
@@ -1681,7 +1712,7 @@ mod tests {
                     key: PublicKey::ed25519(pk_ed_1),
                     ver_rels: VerRelType::AUTHENTICATION.into()
                 }],
-                vec![did_1]
+                vec![did_1].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
             check_did_detail(&did_2, 1, 1, 0, 1, 7);
@@ -1929,7 +1960,7 @@ mod tests {
                     DidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::ASSERTION),
                     DidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::AUTHENTICATION),
                 ],
-                vec![did_2]
+                vec![did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
             check_did_detail(&did_1, 4, 2, 2, 2, 2);
@@ -1947,7 +1978,7 @@ mod tests {
                     },
                     DidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1))
                 ],
-                vec![did_1]
+                vec![did_1].into_iter().collect()
             ));
             check_did_detail(&did_2, 2, 2, 1, 2, 5);
 
@@ -2073,7 +2104,7 @@ mod tests {
                     DidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::ASSERTION),
                     DidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::AUTHENTICATION),
                 ],
-                vec![did_2]
+                vec![did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
             check_did_detail(&did_1, 4, 2, 2, 2, 2);
@@ -2091,15 +2122,15 @@ mod tests {
                     },
                     DidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1))
                 ],
-                vec![did_1]
+                vec![did_1].into_iter().collect()
             ));
             check_did_detail(&did_2, 2, 2, 1, 2, 5);
 
             assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
                 did_3.clone(),
-                vec![],
-                vec![did_1, did_2, did_3]
+                vec![].into_iter().collect(),
+                vec![did_1, did_2, did_3].into_iter().collect()
             ));
             check_did_detail(&did_3, 0, 3, 0, 3, 5);
 
@@ -2109,7 +2140,7 @@ mod tests {
             for nonce in vec![1, 2, 4, 5, 10, 10000] {
                 let remove_controllers = RemoveControllers {
                     did: did_2.clone(),
-                    controllers: vec![0u32.into()].into_iter().collect(),
+                    controllers: vec![0u32.into()].into_iter().into_iter().collect(),
                     nonce,
                 };
                 let sig = SigValue::sr25519(
@@ -2152,7 +2183,7 @@ mod tests {
                         sig
                     }
                 ),
-                Error::<Test>::NoKeyForDid
+                Error::<Test>::NoControllerForDid
             );
             let remove_controllers = RemoveControllers {
                 did: did_1.clone(),
@@ -2261,7 +2292,7 @@ mod tests {
             // At least one controller must be provided
             let add_controllers = AddControllers {
                 did: did_1.clone(),
-                controllers: vec![],
+                controllers: vec![].into_iter().collect(),
                 nonce: 5,
             };
             let sig = SigValue::sr25519(
@@ -2284,7 +2315,7 @@ mod tests {
             // DID must exist for controllers to be added
             let add_controllers = AddControllers {
                 did: did_1.clone(),
-                controllers: vec![did_2],
+                controllers: vec![did_2].into_iter().collect(),
                 nonce: 5,
             };
             let sig = SigValue::sr25519(
@@ -2318,7 +2349,7 @@ mod tests {
                         ver_rels: VerRelType::AUTHENTICATION.into()
                     },
                 ],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
             check_did_detail(&did_1, 2, 1, 1, 1, 5);
@@ -2333,7 +2364,7 @@ mod tests {
                     key: pk_secp_2.clone(),
                     ver_rels: VerRelType::NONE.into()
                 },],
-                vec![did_1]
+                vec![did_1].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
             check_did_detail(&did_3, 1, 2, 1, 2, 6);
@@ -2347,7 +2378,7 @@ mod tests {
                     key: PublicKey::sr25519(pk_sr),
                     ver_rels: VerRelType::AUTHENTICATION.into()
                 }],
-                vec![did_1]
+                vec![did_1].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
             check_did_detail(&did_2, 1, 1, 0, 1, 10);
@@ -2357,7 +2388,7 @@ mod tests {
             // Since did_2 does not control itself, it cannot controller to itself
             let add_controllers = AddControllers {
                 did: did_2.clone(),
-                controllers: vec![did_3],
+                controllers: vec![did_3].into_iter().collect(),
                 nonce: 10 + 1,
             };
             let sig = SigValue::sr25519(
@@ -2381,7 +2412,7 @@ mod tests {
             for nonce in vec![8, 9, 10, 12, 25000] {
                 let add_controllers = AddControllers {
                     did: did_2.clone(),
-                    controllers: vec![did_3],
+                    controllers: vec![did_3].into_iter().collect(),
                     nonce,
                 };
                 let sig = SigValue::secp256k1(
@@ -2405,7 +2436,7 @@ mod tests {
             // Invalid signature should fail
             let add_controllers = AddControllers {
                 did: did_2.clone(),
-                controllers: vec![did_3],
+                controllers: vec![did_3].into_iter().collect(),
                 nonce: 10 + 1,
             };
             let sig = SigValue::Secp256k1(Bytes65 { value: [35; 65] });
@@ -2444,7 +2475,7 @@ mod tests {
             // Add many controllers
             let add_controllers = AddControllers {
                 did: did_2.clone(),
-                controllers: vec![did_4, did_5],
+                controllers: vec![did_4, did_5].into_iter().collect(),
                 nonce: 11 + 1,
             };
             let sig = SigValue::secp256k1(
@@ -2489,7 +2520,7 @@ mod tests {
                     key: PublicKey::sr25519(pk_sr),
                     ver_rels: VerRelType::NONE.into()
                 },],
-                vec![]
+                vec![].into_iter().collect()
             ));
 
             run_to_block(10);
@@ -2501,7 +2532,7 @@ mod tests {
                     key: PublicKey::x25519(pk_ed),
                     ver_rels: VerRelType::KEY_AGREEMENT.into()
                 },],
-                vec![did_1]
+                vec![did_1].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
             check_did_detail(&did_2, 1, 1, 0, 1, 10);
@@ -2587,7 +2618,7 @@ mod tests {
                     key: PublicKey::ed25519(pk_ed),
                     ver_rels: VerRelType::NONE.into()
                 },],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
             check_did_detail(&did_1, 1, 1, 1, 1, 5);
@@ -2599,7 +2630,7 @@ mod tests {
                     key: PublicKey::sr25519(pk_sr),
                     ver_rels: VerRelType::NONE.into()
                 },],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_2));
             check_did_detail(&did_2, 1, 1, 1, 1, 5);
@@ -2611,7 +2642,7 @@ mod tests {
                     key: pk_secp.clone(),
                     ver_rels: VerRelType::NONE.into()
                 },],
-                vec![]
+                vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_3));
             check_did_detail(&did_3, 1, 1, 1, 1, 5);
@@ -2625,7 +2656,7 @@ mod tests {
                     key: pk_secp.clone(),
                     ver_rels: VerRelType::NONE.into()
                 },],
-                vec![did_2]
+                vec![did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_4));
             check_did_detail(&did_4, 1, 2, 1, 2, 7);
@@ -2634,7 +2665,7 @@ mod tests {
 
             let add_controllers = AddControllers {
                 did: did_4.clone(),
-                controllers: vec![did_1],
+                controllers: vec![did_1].into_iter().collect(),
                 nonce: 7 + 1,
             };
             let sig = SigValue::sr25519(

@@ -251,7 +251,7 @@ pub fn create_did(did: did::Did) -> sr25519::Pair {
                 value: kp.public().0,
             }),
         )],
-        vec![],
+        vec![].into_iter().collect(),
     )
     .unwrap();
     kp
