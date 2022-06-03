@@ -128,9 +128,7 @@ pub struct DidDetail<T: Trait> {
     nonce: T::BlockNumber,
     /// Number of keys added for this DID so far.
     last_key_id: IncId,
-    /// Number of controllers added for this DID so far.
-    last_controller_id: IncId,
-    /// Number of currently active keys.
+    /// Number of currently active controller keys.
     active_controller_keys: u32,
     /// Number of currently active controllers.
     active_controllers: u32,
@@ -222,9 +220,44 @@ pub struct AddControllers {
 pub struct RemoveControllers {
     did: Did,
     /// Controllers ids to remove
-    controllers: BTreeSet<IncId>,
+    controllers: BTreeSet<Did>,
     nonce: BlockNumber,
 }
+
+pub trait Action {
+    type Target;
+
+    fn target(&self) -> Self::Target;
+    fn nonce(&self) -> BlockNumber;
+    fn to_state_change(&self) -> StateChange<'_>;
+}
+
+macro_rules! impl_did_action {
+    ($type: ident) => {
+        impl Action for $type {
+            type Target = Did;
+
+            fn target(&self) -> Did {
+                self.did
+            }
+
+            fn nonce(&self) -> BlockNumber {
+                self.nonce
+            }
+
+            fn to_state_change(&self) -> StateChange<'_> {
+                StateChange::$type(Cow::Borrowed(self))
+            }
+        }
+    };
+    ($($type: ident),+) => {
+        $(
+            impl_did_action!{$type}
+        )+
+    }
+}
+
+impl_did_action!(AddKeys, RemoveKeys, AddControllers, RemoveControllers);
 
 impl OffChainDidDocRef {
     pub fn len(&self) -> usize {
@@ -257,14 +290,12 @@ impl<T: Trait> DidDetailStorage<T> {
 
     pub fn from_on_chain_detail(
         last_key_id: IncId,
-        last_controller_id: IncId,
         active_controller_keys: u32,
         active_controllers: u32,
         nonce: impl Into<T::BlockNumber>,
     ) -> Self {
         DidDetailStorage::OnChain(DidDetail {
             last_key_id,
-            last_controller_id,
             active_controller_keys,
             active_controllers,
             nonce: nonce.into(),
@@ -406,10 +437,8 @@ decl_storage! {
             => Option<DidDetailStorage<T>>;
         /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
         pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<DidKey>;
-        /// Stores controllers of a DID as (DID, IncId) -> DID.
-        pub DidControllers get(fn did_controller): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<Did>;
-        /// Stores controller identifiers for controlled - controller pairs as (DID, DID) -> IncId.
-        pub DidControllerIds get(fn did_controller_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Did => Option<IncId>;
+        /// Stores controllers (controlled - controller pairs) of a DID as (DID, DID) -> bool.
+        pub DidControllers get(fn is_controller): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Did => bool;
     }
     // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
     /*add_extra_genesis {
@@ -487,7 +516,11 @@ decl_module! {
         fn add_keys(origin, keys: AddKeys, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
-            Module::<T>::add_keys_(keys, sig)
+            ensure!(
+                Self::verify_sig_from_controller(&keys, &sig)?,
+                Error::<T>::InvalidSig
+            );
+            Module::<T>::add_keys_(keys)
         }
 
         /// Remove keys from DID doc. This's atomic operation meaning that it will either remove all keys or do nothing.
@@ -497,7 +530,11 @@ decl_module! {
         fn remove_keys(origin, keys: RemoveKeys, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
-            Module::<T>::remove_keys_(keys, sig)
+            ensure!(
+                Self::verify_sig_from_controller(&keys, &sig)?,
+                Error::<T>::InvalidSig
+            );
+            Module::<T>::remove_keys_(keys)
         }
 
         /// Add new controllers. Does not check if the controller being added has any key or is even
@@ -507,7 +544,11 @@ decl_module! {
         fn add_controllers(origin, controllers: AddControllers, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
-            Module::<T>::add_controllers_(controllers, sig)
+            ensure!(
+                Self::verify_sig_from_controller(&controllers, &sig)?,
+                Error::<T>::InvalidSig
+            );
+            Module::<T>::add_controllers_(controllers)
         }
 
         /// Remove controllers. This's atomic operation meaning that it will either remove all keys or do nothing.
@@ -517,7 +558,11 @@ decl_module! {
         fn remove_controllers(origin, controllers: RemoveControllers, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
-            Module::<T>::remove_controllers_(controllers, sig)
+            ensure!(
+                Self::verify_sig_from_controller(&controllers, &sig)?,
+                Error::<T>::InvalidSig
+            );
+            Module::<T>::remove_controllers_(controllers)
         }
     }
 }
@@ -563,7 +608,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn new_onchain_(did: Did, keys: Vec<DidKey>, controllers: BTreeSet<Did>) -> DispatchResult {
+    fn new_onchain_(did: Did, keys: Vec<DidKey>, mut controllers: BTreeSet<Did>) -> DispatchResult {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
@@ -577,17 +622,13 @@ impl<T: Trait> Module<T> {
         for (key, key_id) in keys_to_insert.into_iter().zip(&mut last_key_id) {
             DidKeys::insert(&did, key_id, key);
         }
+        // Make self controlled if needed
+        if controller_keys_count > 0 {
+            controllers.insert(did);
+        }
 
-        let mut last_controller_id = IncId::new();
-        let add_self_did = controller_keys_count > 0 && !controllers.contains(&did);
-        for (ctrl, id) in add_self_did
-            .then(|| did)
-            .iter()
-            .chain(&controllers)
-            .zip(&mut last_controller_id)
-        {
-            DidControllers::insert(&did, id, &ctrl);
-            DidControllerIds::insert(&did, &ctrl, id);
+        for ctrl in &controllers {
+            DidControllers::insert(&did, &ctrl, true);
         }
 
         // Nonce will start from current block number
@@ -596,9 +637,8 @@ impl<T: Trait> Module<T> {
             did,
             DidDetailStorage::from_on_chain_detail(
                 last_key_id,
-                last_controller_id,
                 controller_keys_count,
-                controllers.len() as u32 + (controller_keys_count > 0) as u32,
+                controllers.len() as u32,
                 nonce,
             ),
         );
@@ -610,28 +650,16 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn add_keys_(keys: AddKeys, sig: DidSignature) -> DispatchResult {
-        let did = &keys.did;
-        let signer = &sig.did;
-
-        let did_detail = Self::get_on_chain_did_detail_for_update(did, keys.nonce)?;
-
-        let serz_add_keys = StateChange::AddKeys(Cow::Borrowed(&keys)).encode();
-
-        ensure!(
-            Self::verify_sig_from_controller(did, &serz_add_keys, signer, &sig)?,
-            Error::<T>::InvalidSig
-        );
+    fn add_keys_(AddKeys { did, nonce, keys }: AddKeys) -> DispatchResult {
+        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
 
         // If DID was not self controlled first, check if it can become by looking
-        let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys.keys)?;
+        let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
 
-        // Make self controlled if need to be
-        let mut last_controller_id = did_detail.last_controller_id;
-        let was_self_controlled = Self::is_self_controlled(&did);
-        if controller_keys_count > 0 && !was_self_controlled {
-            DidControllers::insert(&did, last_controller_id.inc(), did);
-            DidControllerIds::insert(&did, &did, last_controller_id);
+        // Make self controlled if needed
+        let add_self_controlled = controller_keys_count > 0 && !Self::is_self_controlled(&did);
+        if add_self_controlled {
+            DidControllers::insert(&did, &did, true);
         }
 
         let mut last_key_id = did_detail.last_key_id;
@@ -640,165 +668,134 @@ impl<T: Trait> Module<T> {
         }
 
         <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(did)],
-            <T as Trait>::Event::from(Event::DidKeysAdded(*did)).into(),
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::DidKeysAdded(did)).into(),
         );
 
         Dids::<T>::insert(
             did,
             DidDetailStorage::from_on_chain_detail(
                 last_key_id,
-                last_controller_id,
                 did_detail.active_controller_keys + controller_keys_count,
-                did_detail.active_controllers
-                    + (controller_keys_count > 0 && !was_self_controlled) as u32,
-                keys.nonce,
+                did_detail.active_controllers + add_self_controlled as u32,
+                nonce,
             ),
         );
 
         Ok(())
     }
 
-    fn remove_keys_(remove_keys: RemoveKeys, sig: DidSignature) -> DispatchResult {
-        let did = &remove_keys.did;
-        let signer = &sig.did;
-
-        let did_detail = Self::get_on_chain_did_detail_for_update(did, remove_keys.nonce)?;
-
-        let serz_remove_keys = StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode();
-
-        ensure!(
-            Self::verify_sig_from_controller(did, &serz_remove_keys, signer, &sig)?,
-            Error::<T>::InvalidSig
-        );
+    fn remove_keys_(RemoveKeys { did, nonce, keys }: RemoveKeys) -> DispatchResult {
+        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
 
         let mut controller_keys_count = 0;
-        for key_id in &remove_keys.keys {
-            let key = DidKeys::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+        for key_id in &keys {
+            let key = DidKeys::get(&did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
             if key.can_control() {
                 controller_keys_count += 1;
             }
         }
 
-        for key in &remove_keys.keys {
+        for key in &keys {
             DidKeys::remove(did, key);
         }
 
-        // If no self-control keys exist for the given DID, remove self-control
         let active_controller_keys = did_detail.active_controller_keys - controller_keys_count;
-        if active_controller_keys == 0 {
-            if let Some(controller_id) = DidControllerIds::take(&did, &did) {
-                DidControllers::remove(&did, controller_id);
-            }
+
+        // If no self-control keys exist for the given DID, remove self-control
+        let remove_self_controlled = active_controller_keys == 0 && Self::is_self_controlled(&did);
+        if remove_self_controlled {
+            DidControllers::remove(&did, &did);
         }
 
         Dids::<T>::insert(
             did,
             DidDetailStorage::from_on_chain_detail(
                 did_detail.last_key_id,
-                did_detail.last_controller_id,
-                did_detail.active_controller_keys - controller_keys_count,
-                did_detail.active_controllers,
-                remove_keys.nonce,
+                active_controller_keys,
+                did_detail.active_controllers - remove_self_controlled as u32,
+                nonce,
             ),
         );
 
         <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(did)],
-            <T as Trait>::Event::from(Event::DidKeysRemoved(*did)).into(),
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::DidKeysRemoved(did)).into(),
         );
+
         Ok(())
     }
 
-    fn add_controllers_(controllers: AddControllers, sig: DidSignature) -> DispatchResult {
-        let did = &controllers.did;
-        let signer = &sig.did;
+    fn add_controllers_(
+        AddControllers {
+            did,
+            nonce,
+            controllers,
+        }: AddControllers,
+    ) -> DispatchResult {
+        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
 
-        let did_detail = Self::get_on_chain_did_detail_for_update(did, controllers.nonce)?;
-
-        let serz_add_controllers =
-            StateChange::AddControllers(Cow::Borrowed(&controllers)).encode();
-
-        ensure!(
-            Self::verify_sig_from_controller(did, &serz_add_controllers, signer, &sig)?,
-            Error::<T>::InvalidSig
-        );
-
-        for cnt in &controllers.controllers {
-            if Self::is_controller(did, cnt) {
+        for ctrl in &controllers {
+            if Self::is_controller(&did, ctrl) {
                 fail!(Error::<T>::ControllerIsAlreadyAdded)
             }
         }
 
-        let mut last_controller_id = did_detail.last_controller_id;
-        for (cnt, id) in controllers.controllers.iter().zip(&mut last_controller_id) {
-            DidControllers::insert(&did, id, cnt);
-            DidControllerIds::insert(&did, cnt, id);
+        for ctrl in &controllers {
+            DidControllers::insert(&did, &ctrl, true);
         }
 
         Dids::<T>::insert(
             did,
             DidDetailStorage::from_on_chain_detail(
                 did_detail.last_key_id,
-                last_controller_id,
                 did_detail.active_controller_keys,
-                did_detail.active_controllers + controllers.controllers.len() as u32,
-                controllers.nonce,
+                did_detail.active_controllers + controllers.len() as u32,
+                nonce,
             ),
         );
 
         <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(did)],
-            <T as Trait>::Event::from(Event::DidControllersAdded(*did)).into(),
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::DidControllersAdded(did)).into(),
         );
 
         Ok(())
     }
 
-    fn remove_controllers_(controllers: RemoveControllers, sig: DidSignature) -> DispatchResult {
-        let did = &controllers.did;
-        let signer = &sig.did;
+    fn remove_controllers_(
+        RemoveControllers {
+            did,
+            nonce,
+            controllers,
+        }: RemoveControllers,
+    ) -> DispatchResult {
+        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
 
-        let did_detail = Self::get_on_chain_did_detail_for_update(did, controllers.nonce)?;
+        for controller_did in &controllers {
+            if !Self::is_controller(&did, controller_did) {
+                fail!(Error::<T>::NoControllerForDid)
+            }
+        }
 
-        let serz_add_controllers =
-            StateChange::RemoveControllers(Cow::Borrowed(&controllers)).encode();
-
-        ensure!(
-            Self::verify_sig_from_controller(did, &serz_add_controllers, signer, &sig)?,
-            Error::<T>::InvalidSig
-        );
-
-        let controller_list: Vec<_> = controllers
-            .controllers
-            .into_iter()
-            .map(|controller_id| {
-                DidControllers::get(&did, controller_id)
-                    .ok_or(Error::<T>::NoControllerForDid)
-                    .map(|controller_did| (controller_id, controller_did))
-            })
-            .collect::<Result<_, _>>()?;
-
-        for (controller_id, controller_did) in &controller_list {
-            DidControllers::remove(&did, controller_id);
-            DidControllerIds::remove(&did, controller_did);
+        for controller_did in &controllers {
+            DidControllers::remove(&did, controller_did);
         }
 
         Dids::<T>::insert(
             did,
             DidDetailStorage::from_on_chain_detail(
                 did_detail.last_key_id,
-                did_detail.last_controller_id,
                 did_detail.active_controller_keys,
-                did_detail.active_controllers - controller_list.len() as u32,
-                controllers.nonce,
+                did_detail.active_controllers - controllers.len() as u32,
+                nonce,
             ),
         );
 
         <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(did)],
-            <T as Trait>::Event::from(Event::DidControllersRemoved(*did)).into(),
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::DidControllersRemoved(did)).into(),
         );
 
         Ok(())
@@ -837,11 +834,6 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    /// Is `controller` the controller of `controlled`
-    pub fn is_controller(controlled: &Did, controller: &Did) -> bool {
-        Self::did_controller_key(controlled, controller).is_some()
-    }
-
     /// Returns true if `did` controls itself, else false.
     pub fn is_self_controlled(did: &Did) -> bool {
         Self::is_controller(did, did)
@@ -863,16 +855,17 @@ impl<T: Trait> Module<T> {
     /// Verify a `DidSignature` created by `signer` only if `signer` is a controller of `did` and has an
     /// appropriate key. To update a DID (add/remove keys, add/remove controllers), the updater must be a
     /// controller of the DID and must have a key with `CAPABILITY_INVOCATION` verification relationship
-    pub fn verify_sig_from_controller(
-        did: &Did,
-        msg: &[u8],
-        signer: &Did,
+    pub fn verify_sig_from_controller<A>(
+        action: &A,
         sig: &DidSignature,
-    ) -> Result<bool, DispatchError> {
-        Self::ensure_controller(did, signer)?;
-        let signer_pubkey = Self::get_key_for_control(signer, sig.key_id)?;
+    ) -> Result<bool, DispatchError>
+    where
+        A: Action<Target = Did>,
+    {
+        Self::ensure_controller(&action.target(), &sig.did)?;
+        let signer_pubkey = Self::get_key_for_control(&sig.did, sig.key_id)?;
 
-        sig.verify::<T>(msg, &signer_pubkey)
+        sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }
 
     /// Get DID detail for on-chain DID if given nonce is correct, i.e. 1 more than the current nonce.
@@ -960,14 +953,12 @@ mod tests {
     fn check_did_detail(
         did: &Did,
         last_key_id: u32,
-        last_controller_id: u32,
         active_controller_keys: u32,
         active_controllers: u32,
         nonce: BlockNumber,
     ) {
         let did_detail = DIDModule::get_on_chain_did_detail(did).unwrap();
         assert_eq!(did_detail.last_key_id, last_key_id.into());
-        assert_eq!(did_detail.last_controller_id, last_controller_id.into());
         assert_eq!(did_detail.active_controller_keys, active_controller_keys);
         assert_eq!(did_detail.active_controllers, active_controllers);
         assert_eq!(
@@ -1097,7 +1088,7 @@ mod tests {
             assert!(!DIDModule::is_controller(&did_1, &controller_2));
             assert!(DIDModule::is_controller(&did_1, &controller_1));
 
-            check_did_detail(&did_1, 0, 1, 0, 1, 20);
+            check_did_detail(&did_1, 0, 0, 1, 20);
 
             assert_noop!(
                 DIDModule::new_onchain(
@@ -1127,7 +1118,7 @@ mod tests {
             assert!(DIDModule::is_controller(&did_2, &controller_1));
             assert!(DIDModule::is_controller(&did_2, &controller_2));
 
-            check_did_detail(&did_2, 0, 3, 0, 3, 55);
+            check_did_detail(&did_2, 0, 0, 3, 55);
         });
     }
 
@@ -1167,7 +1158,7 @@ mod tests {
                 vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
-            check_did_detail(&did_1, 1, 1, 1, 1, 5);
+            check_did_detail(&did_1, 1, 1, 1, 5);
 
             let key_1 = DidKeys::get(&did_1, IncId::from(1u32)).unwrap();
             not_key_agreement(&key_1);
@@ -1185,7 +1176,7 @@ mod tests {
                 vec![did_1].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 1, 2, 1, 2, 6);
+            check_did_detail(&did_2, 1, 1, 2, 6);
 
             let key_2 = DidKeys::get(&did_2, IncId::from(1u32)).unwrap();
             not_key_agreement(&key_2);
@@ -1203,7 +1194,7 @@ mod tests {
                 vec![did_1, did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_3));
-            check_did_detail(&did_3, 1, 3, 1, 3, 7);
+            check_did_detail(&did_3, 1, 1, 3, 7);
 
             let key_3 = DidKeys::get(&did_3, IncId::from(1u32)).unwrap();
             not_key_agreement(&key_3);
@@ -1221,7 +1212,7 @@ mod tests {
                 vec![].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_4));
-            check_did_detail(&did_4, 1, 0, 0, 0, 8);
+            check_did_detail(&did_4, 1, 0, 0, 8);
 
             let key_4 = DidKeys::get(&did_4, IncId::from(1u32)).unwrap();
             only_key_agreement(&key_4);
@@ -1289,7 +1280,7 @@ mod tests {
                 assert!(key.can_control());
                 assert!(key.can_authenticate_or_control());
                 assert!(!key.for_key_agreement());
-                check_did_detail(&did, 1, 1, 1, 1, 10);
+                check_did_detail(&did, 1, 1, 1, 10);
             }
 
             run_to_block(13);
@@ -1341,7 +1332,7 @@ mod tests {
                     assert!(key.can_authenticate_or_control());
                 }
                 assert!(!key.for_key_agreement());
-                check_did_detail(&did, 1, 0, 0, 0, 13);
+                check_did_detail(&did, 1, 0, 0, 13);
             }
 
             run_to_block(19);
@@ -1361,7 +1352,7 @@ mod tests {
             assert!(key_8.can_sign());
             assert!(key_8.can_authenticate());
             assert!(!key_8.can_control());
-            check_did_detail(&did_8, 1, 0, 0, 0, 19);
+            check_did_detail(&did_8, 1, 0, 0, 19);
 
             run_to_block(20);
 
@@ -1398,7 +1389,7 @@ mod tests {
             assert!(key_9_3.can_sign());
             assert!(key_9_3.can_authenticate());
             assert!(!key_9_3.can_control());
-            check_did_detail(&did_9, 3, 0, 0, 0, 20);
+            check_did_detail(&did_9, 3, 0, 0, 20);
 
             run_to_block(22);
 
@@ -1435,7 +1426,7 @@ mod tests {
             assert!(key_10_3.can_sign());
             assert!(!key_10_3.can_authenticate());
             assert!(key_10_3.can_control());
-            check_did_detail(&did_10, 3, 1, 1, 1, 22);
+            check_did_detail(&did_10, 3, 1, 1, 22);
 
             run_to_block(23);
 
@@ -1464,7 +1455,7 @@ mod tests {
             assert!(key_11_2.can_sign());
             assert!(!key_11_2.can_authenticate());
             assert!(key_11_2.can_control());
-            check_did_detail(&did_11, 2, 3, 1, 3, 23);
+            check_did_detail(&did_11, 2, 1, 3, 23);
         });
     }
 
@@ -1505,7 +1496,7 @@ mod tests {
             ));
             assert!(!DIDModule::is_self_controlled(&did_1));
             assert!(DIDModule::is_controller(&did_1, &controller_1));
-            check_did_detail(&did_1, 1, 1, 0, 1, 10);
+            check_did_detail(&did_1, 1, 0, 1, 10);
 
             run_to_block(11);
 
@@ -1521,7 +1512,7 @@ mod tests {
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
             assert!(DIDModule::is_controller(&did_2, &controller_2));
-            check_did_detail(&did_2, 1, 1, 0, 1, 11);
+            check_did_detail(&did_2, 1, 0, 1, 11);
 
             run_to_block(12);
 
@@ -1537,7 +1528,7 @@ mod tests {
             ));
             assert!(!DIDModule::is_self_controlled(&did_3));
             assert!(DIDModule::is_controller(&did_3, &controller_3));
-            check_did_detail(&did_3, 1, 1, 0, 1, 12);
+            check_did_detail(&did_3, 1, 0, 1, 12);
 
             run_to_block(13);
 
@@ -1559,7 +1550,7 @@ mod tests {
             ));
             assert!(!DIDModule::is_self_controlled(&did_4));
             assert!(DIDModule::is_controller(&did_4, &controller_4));
-            check_did_detail(&did_4, 2, 1, 0, 1, 13);
+            check_did_detail(&did_4, 2, 0, 1, 13);
 
             run_to_block(14);
 
@@ -1582,7 +1573,7 @@ mod tests {
             ));
             assert!(DIDModule::is_self_controlled(&did_5));
             assert!(DIDModule::is_controller(&did_5, &controller_1));
-            check_did_detail(&did_5, 2, 2, 1, 2, 14);
+            check_did_detail(&did_5, 2, 1, 2, 14);
 
             run_to_block(15);
 
@@ -1606,7 +1597,7 @@ mod tests {
             ));
             assert!(DIDModule::is_self_controlled(&did_6));
             assert!(DIDModule::is_controller(&did_6, &controller_1));
-            check_did_detail(&did_6, 2, 2, 2, 2, 15);
+            check_did_detail(&did_6, 2, 2, 2, 15);
         });
     }
 
@@ -1654,7 +1645,6 @@ mod tests {
                 Error::<Test>::NoKeyProvided
             );
 
-            // DID must exist for keys to be added
             let add_keys = AddKeys {
                 did: did_1.clone(),
                 keys: vec![DidKey {
@@ -1677,7 +1667,7 @@ mod tests {
                         sig
                     }
                 ),
-                Error::<Test>::DidDoesNotExist
+                Error::<Test>::OnlyControllerCanUpdate
             );
 
             assert_ok!(DIDModule::new_onchain(
@@ -1700,7 +1690,7 @@ mod tests {
                 vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
-            check_did_detail(&did_1, 3, 1, 2, 1, 5);
+            check_did_detail(&did_1, 3, 2, 1, 5);
 
             run_to_block(7);
 
@@ -1715,7 +1705,7 @@ mod tests {
                 vec![did_1].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 1, 1, 0, 1, 7);
+            check_did_detail(&did_2, 1, 0, 1, 7);
 
             run_to_block(10);
 
@@ -1872,7 +1862,7 @@ mod tests {
                 }
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 2, 1, 0, 1, 8);
+            check_did_detail(&did_2, 2, 0, 1, 8);
 
             // Add many keys
             let add_keys = AddKeys {
@@ -1927,7 +1917,7 @@ mod tests {
                 }
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 5, 1, 0, 1, 9);
+            check_did_detail(&did_2, 5, 0, 1, 9);
         });
     }
 
@@ -1963,7 +1953,7 @@ mod tests {
                 vec![did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
-            check_did_detail(&did_1, 4, 2, 2, 2, 2);
+            check_did_detail(&did_1, 4, 2, 2, 2);
 
             run_to_block(5);
 
@@ -1980,7 +1970,7 @@ mod tests {
                 ],
                 vec![did_1].into_iter().collect()
             ));
-            check_did_detail(&did_2, 2, 2, 1, 2, 5);
+            check_did_detail(&did_2, 2, 1, 2, 5);
 
             run_to_block(10);
 
@@ -2051,7 +2041,7 @@ mod tests {
                     sig
                 }
             ));
-            check_did_detail(&did_1, 4, 2, 1, 2, 3);
+            check_did_detail(&did_1, 4, 1, 2, 3);
 
             let remove_keys = RemoveKeys {
                 did: did_1.clone(),
@@ -2071,6 +2061,59 @@ mod tests {
                     sig
                 }
             ));
+
+            let did_5 = [54; DID_BYTE_SIZE];
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_5.clone(),
+                vec![DidKey::new_with_all_relationships(PublicKey::sr25519(
+                    pk_sr_1
+                ))]
+                .into_iter()
+                .collect(),
+                vec![did_2].into_iter().collect()
+            ));
+            check_did_detail(&did_5, 1, 1, 2, 10);
+
+            let remove_keys = RemoveKeys {
+                did: did_5.clone(),
+                keys: vec![1u32.into()].into_iter().collect(),
+                nonce: 11,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
+                &pair_sr_1,
+            );
+            assert_ok!(DIDModule::remove_keys(
+                Origin::signed(alice),
+                remove_keys,
+                DidSignature {
+                    did: did_5.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+            check_did_detail(&did_5, 1, 0, 1, 11);
+
+            let remove_controllers = RemoveControllers {
+                did: did_5.clone(),
+                controllers: vec![did_2].into_iter().collect(),
+                nonce: 12,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
+                &pair_sr_1,
+            );
+            assert_ok!(DIDModule::remove_controllers(
+                Origin::signed(alice),
+                remove_controllers,
+                DidSignature {
+                    did: did_2.clone(),
+                    key_id: 2u32.into(),
+                    sig
+                }
+            ));
+            check_did_detail(&did_5, 1, 0, 0, 12);
         });
     }
 
@@ -2107,7 +2150,7 @@ mod tests {
                 vec![did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
-            check_did_detail(&did_1, 4, 2, 2, 2, 2);
+            check_did_detail(&did_1, 4, 2, 2, 2);
 
             run_to_block(5);
 
@@ -2124,7 +2167,7 @@ mod tests {
                 ],
                 vec![did_1].into_iter().collect()
             ));
-            check_did_detail(&did_2, 2, 2, 1, 2, 5);
+            check_did_detail(&did_2, 2, 1, 2, 5);
 
             assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
@@ -2132,7 +2175,7 @@ mod tests {
                 vec![].into_iter().collect(),
                 vec![did_1, did_2, did_3].into_iter().collect()
             ));
-            check_did_detail(&did_3, 0, 3, 0, 3, 5);
+            check_did_detail(&did_3, 0, 0, 3, 5);
 
             run_to_block(10);
 
@@ -2140,7 +2183,7 @@ mod tests {
             for nonce in vec![1, 2, 4, 5, 10, 10000] {
                 let remove_controllers = RemoveControllers {
                     did: did_2.clone(),
-                    controllers: vec![0u32.into()].into_iter().into_iter().collect(),
+                    controllers: vec![did_1].into_iter().into_iter().collect(),
                     nonce,
                 };
                 let sig = SigValue::sr25519(
@@ -2164,7 +2207,7 @@ mod tests {
             // Since did_2 does not control itself, it cannot add keys to itself
             let remove_controllers = RemoveControllers {
                 did: did_1.clone(),
-                controllers: vec![1u32.into(), 3u32.into(), 5u32.into()]
+                controllers: vec![did_1, did_2, did_3, [53; DID_BYTE_SIZE]]
                     .into_iter()
                     .collect(),
                 nonce: 3,
@@ -2187,7 +2230,7 @@ mod tests {
             );
             let remove_controllers = RemoveControllers {
                 did: did_1.clone(),
-                controllers: vec![1u32.into()].into_iter().collect(),
+                controllers: vec![did_1].into_iter().collect(),
                 nonce: 3,
             };
             let sig = SigValue::ed25519(
@@ -2204,11 +2247,11 @@ mod tests {
                 }
             ));
             assert!(!DIDModule::is_self_controlled(&did_1));
-            check_did_detail(&did_1, 4, 2, 2, 1, 3);
+            check_did_detail(&did_1, 4, 2, 1, 3);
 
             let remove_controllers = RemoveControllers {
                 did: did_1.clone(),
-                controllers: vec![2u32.into()].into_iter().collect(),
+                controllers: vec![did_2.into()].into_iter().collect(),
                 nonce: 4,
             };
             let sig = SigValue::sr25519(
@@ -2224,11 +2267,11 @@ mod tests {
                     sig
                 }
             ));
-            check_did_detail(&did_1, 4, 2, 2, 0, 4);
+            check_did_detail(&did_1, 4, 2, 0, 4);
 
             let remove_controllers = RemoveControllers {
                 did: did_3.clone(),
-                controllers: vec![2u32.into()].into_iter().collect(),
+                controllers: vec![did_2.into()].into_iter().collect(),
                 nonce: 6,
             };
             let sig = SigValue::sr25519(
@@ -2247,9 +2290,10 @@ mod tests {
             run_to_block(22);
             let remove_controllers = RemoveControllers {
                 did: did_3.clone(),
-                controllers: vec![1u32.into()].into_iter().collect(),
+                controllers: vec![did_1.into()].into_iter().collect(),
                 nonce: 7,
             };
+            check_did_detail(&did_3, 0, 0, 2, 6);
             let sig = SigValue::sr25519(
                 &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
                 &pair_sr_1,
@@ -2312,7 +2356,6 @@ mod tests {
                 Error::<Test>::NoControllerProvided
             );
 
-            // DID must exist for controllers to be added
             let add_controllers = AddControllers {
                 did: did_1.clone(),
                 controllers: vec![did_2].into_iter().collect(),
@@ -2332,7 +2375,7 @@ mod tests {
                         sig
                     }
                 ),
-                Error::<Test>::DidDoesNotExist
+                Error::<Test>::OnlyControllerCanUpdate
             );
 
             // This DID controls itself
@@ -2352,7 +2395,7 @@ mod tests {
                 vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
-            check_did_detail(&did_1, 2, 1, 1, 1, 5);
+            check_did_detail(&did_1, 2, 1, 1, 5);
 
             run_to_block(6);
 
@@ -2367,7 +2410,7 @@ mod tests {
                 vec![did_1].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
-            check_did_detail(&did_3, 1, 2, 1, 2, 6);
+            check_did_detail(&did_3, 1, 1, 2, 6);
 
             run_to_block(10);
             // This DID does not control itself
@@ -2381,7 +2424,7 @@ mod tests {
                 vec![did_1].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 1, 1, 0, 1, 10);
+            check_did_detail(&did_2, 1, 0, 1, 10);
 
             run_to_block(15);
 
@@ -2468,7 +2511,7 @@ mod tests {
                 }
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 1, 2, 0, 2, 11);
+            check_did_detail(&did_2, 1, 0, 2, 11);
 
             run_to_block(15);
 
@@ -2492,7 +2535,7 @@ mod tests {
                 }
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 1, 4, 0, 4, 12);
+            check_did_detail(&did_2, 1, 0, 4, 12);
         });
     }
 
@@ -2535,7 +2578,7 @@ mod tests {
                 vec![did_1].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 1, 1, 0, 1, 10);
+            check_did_detail(&did_2, 1, 0, 1, 10);
 
             run_to_block(15);
 
@@ -2561,7 +2604,7 @@ mod tests {
                 }
             ));
             assert!(!DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 2, 1, 0, 1, 11);
+            check_did_detail(&did_2, 2, 0, 1, 11);
 
             run_to_block(20);
 
@@ -2587,7 +2630,7 @@ mod tests {
                 }
             ));
             assert!(DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 3, 2, 1, 2, 12);
+            check_did_detail(&did_2, 3, 1, 2, 12);
         });
 
         // TODO:
@@ -2621,7 +2664,7 @@ mod tests {
                 vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_1));
-            check_did_detail(&did_1, 1, 1, 1, 1, 5);
+            check_did_detail(&did_1, 1, 1, 1, 5);
 
             assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
@@ -2633,7 +2676,7 @@ mod tests {
                 vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_2));
-            check_did_detail(&did_2, 1, 1, 1, 1, 5);
+            check_did_detail(&did_2, 1, 1, 1, 5);
 
             assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
@@ -2645,7 +2688,7 @@ mod tests {
                 vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_3));
-            check_did_detail(&did_3, 1, 1, 1, 1, 5);
+            check_did_detail(&did_3, 1, 1, 1, 5);
 
             run_to_block(7);
 
@@ -2659,7 +2702,7 @@ mod tests {
                 vec![did_2].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did_4));
-            check_did_detail(&did_4, 1, 2, 1, 2, 7);
+            check_did_detail(&did_4, 1, 1, 2, 7);
 
             run_to_block(14);
 
@@ -2681,7 +2724,7 @@ mod tests {
                     sig
                 }
             ));
-            check_did_detail(&did_4, 1, 3, 1, 3, 8);
+            check_did_detail(&did_4, 1, 1, 3, 8);
 
             run_to_block(15);
 
