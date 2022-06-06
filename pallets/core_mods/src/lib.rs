@@ -37,6 +37,7 @@ pub enum StateChange<'a, T: frame_system::Config> {
 
 /// Describes an action which can be performed on some `Target`
 pub trait Action<T: frame_system::Config> {
+    /// Action target.
     type Target;
 
     /// Returns underlying action target.
