@@ -127,6 +127,10 @@ impl crate::did::Trait for Test {
     type Event = ();
     type MaxDidDocRefSize = MaxDidDocRefSize;
     type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
+    type MaxServiceEndpointIdSize = MaxServiceEndpointIdSize;
+    type ServiceEndpointIdPerByteWeight = ServiceEndpointIdPerByteWeight;
+    type MaxServiceEndpointOriginSize = MaxServiceEndpointOriginSize;
+    type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
 
 // impl crate::revoke::Trait for Test {}
@@ -144,6 +148,10 @@ parameter_types! {
     pub const AccumulatedPerByteWeight: Weight = 10;
     pub const MaxDidDocRefSize: u32 = 128;
     pub const DidDocRefPerByteWeight: Weight = 10;
+    pub const MaxServiceEndpointIdSize: u32 = 128;
+    pub const ServiceEndpointIdPerByteWeight: Weight = 10;
+    pub const MaxServiceEndpointOriginSize: u32 = 128;
+    pub const ServiceEndpointOriginPerByteWeight: Weight = 10;
 }
 
 impl crate::anchor::Trait for Test {

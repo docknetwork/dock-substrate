@@ -28,6 +28,14 @@ pub trait Trait: system::Config {
     type MaxDidDocRefSize: Get<u32>;
     /// Weight per byte of the off-chain DID Doc reference
     type DidDocRefPerByteWeight: Get<Weight>;
+    /// Maximum byte size of service endpoint's `id` field
+    type MaxServiceEndpointIdSize: Get<u32>;
+    /// Weight per byte of service endpoint's `id` field
+    type ServiceEndpointIdPerByteWeight: Get<Weight>;
+    /// Maximum byte size of service endpoint's `origin`
+    type MaxServiceEndpointOriginSize: Get<u32>;
+    /// Weight per byte of service endpoint's `origin`
+    type ServiceEndpointOriginPerByteWeight: Get<Weight>;
 }
 
 decl_error! {
@@ -58,7 +66,10 @@ decl_error! {
         NoKeyForDid,
         NoControllerForDid,
         InsufficientVerificationRelationship,
-        ControllerIsAlreadyAdded
+        ControllerIsAlreadyAdded,
+        InvalidServiceEndpoint,
+        ServiceEndpointAlreadyExists,
+        ServiceEndpointDoesNotExist
     }
 }
 
@@ -78,7 +89,7 @@ pub enum OffChainDidDocRef {
 bitflags::bitflags! {
     #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    /// Different verification relation types specified in the DID spec
+    /// Different verification relation types specified in the DID spec here https://www.w3.org/TR/did-core/#verification-relationships
     pub struct VerRelType: u16 {
         /// No verification relation set.
         const NONE = 0;
@@ -95,6 +106,17 @@ bitflags::bitflags! {
         /// Includes `AUTHENTICATION`, `ASSERTION`, `CAPABILITY_INVOCATION`.
         /// We might add more relationships in future but these 3 are all we care about now.
         const ALL_FOR_SIGNING = 0b0111;
+    }
+}
+
+bitflags::bitflags! {
+    #[derive(Encode, Decode)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
+    pub struct ServiceEndpointType: u16 {
+        /// No service endpoint set.
+        const NONE = 0;
+        const LINKED_DOMAINS = 0b0001;
     }
 }
 
@@ -148,6 +170,13 @@ pub enum DidDetailStorage<T: Trait> {
     OnChain(DidDetail<T>),
 }
 
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ServiceEndpoint {
+    types: ServiceEndpointType,
+    origins: Vec<Vec<u8>>,
+}
+
 /// An incremental identifier.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Copy, Default, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -192,6 +221,14 @@ impl From<u8> for IncId {
     }
 }
 
+impl ServiceEndpoint {
+    pub fn is_valid(&self) -> bool {
+        !self.types.is_empty()
+            && !self.origins.is_empty()
+            && !self.origins.iter().any(|o| o.is_empty())
+    }
+}
+
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddKeys<T: frame_system::Config> {
@@ -226,6 +263,35 @@ pub struct RemoveControllers<T: frame_system::Config> {
     nonce: T::BlockNumber,
 }
 
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AddServiceEndpoint<T: frame_system::Config> {
+    did: Did,
+    /// Endpoint id
+    id: Vec<u8>,
+    /// Endpoint data
+    endpoint: ServiceEndpoint,
+    nonce: T::BlockNumber,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RemoveServiceEndpoint<T: frame_system::Config> {
+    did: Did,
+    /// Endpoint id to remove
+    id: Vec<u8>,
+    nonce: T::BlockNumber,
+}
+
+/// This struct is passed as an argument while removing the DID
+/// `did` is the DID which is being removed.
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DidRemoval<T: frame_system::Config> {
+    pub did: Did,
+    pub nonce: T::BlockNumber,
+}
+
 macro_rules! impl_did_action {
     ($type: ident) => {
         impl<T: frame_system::Config> Action<T> for $type<T> {
@@ -251,7 +317,15 @@ macro_rules! impl_did_action {
     }
 }
 
-impl_did_action!(AddKeys, RemoveKeys, AddControllers, RemoveControllers);
+impl_did_action!(
+    AddKeys,
+    RemoveKeys,
+    AddControllers,
+    RemoveControllers,
+    AddServiceEndpoint,
+    RemoveServiceEndpoint,
+    DidRemoval
+);
 
 impl OffChainDidDocRef {
     pub fn len(&self) -> usize {
@@ -296,7 +370,7 @@ impl<T: Trait> DidDetailStorage<T> {
         })
     }
 
-    pub fn to_off_chain_did_owner_and_uri(self) -> (T::AccountId, OffChainDidDocRef) {
+    pub fn to_off_chain_did_owner_and_doc_ref(self) -> (T::AccountId, OffChainDidDocRef) {
         match self {
             DidDetailStorage::OffChain(owner, doc_ref) => (owner, doc_ref),
             _ => panic!("This should never happen"),
@@ -389,28 +463,6 @@ impl<T: frame_system::Config> RemoveControllers<T> {
     }
 }
 
-/// This struct is passed as an argument while removing the DID
-/// `did` is the DID which is being removed.
-/// `last_modified_in_block` is the block number when this DID was last modified. The last modified time is present to prevent replay attack.
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct DidRemoval<T: frame_system::Config> {
-    pub did: Did,
-    // TODO: `BlockNumber` should be changed to `T::BlockNumber` to guard against accidental change
-    // to BlockNumber type. Will require this struct to be typed
-    pub last_modified_in_block: T::BlockNumber,
-}
-
-impl<T: frame_system::Config> DidRemoval<T> {
-    /// Remove an existing DID `did`
-    pub fn new(did: Did, last_modified_in_block: T::BlockNumber) -> Self {
-        DidRemoval {
-            did,
-            last_modified_in_block,
-        }
-    }
-}
-
 decl_event!(
     pub enum Event {
         OffChainDidAdded(dock::did::Did, OffChainDidDocRef),
@@ -421,6 +473,9 @@ decl_event!(
         DidKeysRemoved(dock::did::Did),
         DidControllersAdded(dock::did::Did),
         DidControllersRemoved(dock::did::Did),
+        DidServiceEndpointAdded(dock::did::Did),
+        DidServiceEndpointRemoved(dock::did::Did),
+        OnChainDidRemoved(dock::did::Did),
     }
 );
 
@@ -431,8 +486,10 @@ decl_storage! {
             => Option<DidDetailStorage<T>>;
         /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
         pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<DidKey>;
-        /// Stores controlled - controller pairs of a DID as (DID, DID) -> bool.
+        /// Stores controlled - controller) pairs of a DID as (DID, DID) -> bool.
         pub DidControllers get(fn is_controller): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Did => bool;
+        /// Stores service endpoints of a DID as (DID, endpoint id) -> bool.
+        pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Vec<u8> => Option<ServiceEndpoint>;
     }
     // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
     /*add_extra_genesis {
@@ -460,6 +517,10 @@ decl_module! {
 
         const MaxDidDocRefSize: u32 = T::MaxDidDocRefSize::get();
         const DidDocRefPerByteWeight: Weight = T::DidDocRefPerByteWeight::get();
+        const MaxServiceEndpointIdSize: u32 = T::MaxServiceEndpointIdSize::get();
+        const ServiceEndpointIdPerByteWeight: Weight = T::ServiceEndpointIdPerByteWeight::get();
+        const MaxServiceEndpointOriginSize: u32 = T::MaxServiceEndpointOriginSize::get();
+        const ServiceEndpointOriginPerByteWeight: Weight = T::ServiceEndpointOriginPerByteWeight::get();
 
         #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_ref.len() as u64 * T::DidDocRefPerByteWeight::get()]
         pub fn new_offchain(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
@@ -557,6 +618,47 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
             Module::<T>::remove_controllers_(controllers)
+        }
+
+        /// Add a single service endpoint.
+        // TODO: Fix weights
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint, sig: DidSignature) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(service_endpoint.endpoint.is_valid(), Error::<T>::InvalidServiceEndpoint);
+            ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
+            ensure!(
+                Self::verify_sig_from_controller(&service_endpoint, &sig)?,
+                Error::<T>::InvalidSig
+            );
+            Module::<T>::add_service_endpoint_(service_endpoint)
+        }
+
+        /// Remove a single service endpoint.
+        // TODO: Fix weights
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint, sig: DidSignature) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
+            ensure!(
+                Self::verify_sig_from_controller(&service_endpoint, &sig)?,
+                Error::<T>::InvalidSig
+            );
+            Module::<T>::remove_service_endpoint_(service_endpoint)
+        }
+
+        /// Remove the on-chain DID. This will remove this DID's keys, controllers and service endpoints. But it won't remove storage
+        /// entries for DIDs that it controls. However, the authorization logic ensures that once a DID is removed, it
+        /// loses its ability to control any DID.
+        // TODO: Fix weight
+        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval, sig: DidSignature) -> DispatchResult {
+            ensure_signed(origin)?;
+            ensure!(
+                Self::verify_sig_from_controller(&removal, &sig)?,
+                Error::<T>::InvalidSig
+            );
+            Self::remove_onchain_did_(removal)
         }
     }
 }
@@ -798,6 +900,74 @@ where
         Ok(())
     }
 
+    fn add_service_endpoint_(
+        AddServiceEndpoint {
+            did,
+            id,
+            endpoint,
+            nonce,
+        }: AddServiceEndpoint,
+    ) -> DispatchResult {
+        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
+        if Self::did_service_endpoints(&did, &id).is_some() {
+            fail!(Error::<T>::ServiceEndpointAlreadyExists)
+        }
+        DidServiceEndpoints::insert(did, id, endpoint);
+        Dids::<T>::insert(
+            did,
+            DidDetailStorage::from_on_chain_detail(
+                did_detail.last_key_id,
+                did_detail.active_controller_keys,
+                did_detail.active_controllers,
+                nonce,
+            ),
+        );
+
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::DidServiceEndpointAdded(did)).into(),
+        );
+        Ok(())
+    }
+
+    fn remove_service_endpoint_(
+        RemoveServiceEndpoint { did, id, nonce }: RemoveServiceEndpoint,
+    ) -> DispatchResult {
+        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
+        if Self::did_service_endpoints(&did, &id).is_none() {
+            fail!(Error::<T>::ServiceEndpointDoesNotExist)
+        }
+        DidServiceEndpoints::remove(did, id);
+        Dids::<T>::insert(
+            did,
+            DidDetailStorage::from_on_chain_detail(
+                did_detail.last_key_id,
+                did_detail.active_controller_keys,
+                did_detail.active_controllers,
+                nonce,
+            ),
+        );
+
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::DidServiceEndpointRemoved(did)).into(),
+        );
+        Ok(())
+    }
+
+    fn remove_onchain_did_(DidRemoval { did, nonce }: DidRemoval) -> DispatchResult {
+        let _ = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
+        DidKeys::remove_prefix(did);
+        DidControllers::remove_prefix(did);
+        DidServiceEndpoints::remove_prefix(did);
+        Dids::<T>::remove(did);
+        <system::Module<T>>::deposit_event_indexed(
+            &[<T as system::Config>::Hashing::hash(&did)],
+            <T as Trait>::Event::from(Event::OnChainDidRemoved(did)).into(),
+        );
+        Ok(())
+    }
+
     /// Prepare `DidKey`s to insert. The DID is assumed to be self controlled as well if there is any key
     /// that is capable of invoking a capability. Returns the keys along with the
     /// amount of controller keys being met. The following logic is contentious.
@@ -964,6 +1134,25 @@ mod tests {
         );
     }
 
+    /// Ensure that all keys in storage corresponding to the DID are deleted. This check should be
+    /// performed when a DID is removed.
+    fn ensure_onchain_did_gone(did: &Did) {
+        assert!(DIDModule::did(did).is_none());
+        let mut i = 0;
+        for (_, _) in DidKeys::iter_prefix(did) {
+            i += 1;
+        }
+        assert_eq!(i, 0);
+        for (_, _) in DidControllers::iter_prefix(did) {
+            i += 1;
+        }
+        assert_eq!(i, 0);
+        for (_, _) in DidServiceEndpoints::iter_prefix(did) {
+            i += 1;
+        }
+        assert_eq!(i, 0);
+    }
+
     #[test]
     fn off_chain_did() {
         // Creating an off-chain DID
@@ -1011,7 +1200,7 @@ mod tests {
             );
 
             let did_detail_storage = Dids::<Test>::get(&did).unwrap();
-            let (owner, fetched_ref) = did_detail_storage.to_off_chain_did_owner_and_uri();
+            let (owner, fetched_ref) = did_detail_storage.to_off_chain_did_owner_and_doc_ref();
             assert_eq!(owner, alice);
             assert_eq!(fetched_ref, doc_ref);
 
@@ -1037,7 +1226,7 @@ mod tests {
                 new_ref.clone()
             ));
             let did_detail_storage = Dids::<Test>::get(&did).unwrap();
-            let (_, fetched_ref) = did_detail_storage.to_off_chain_did_owner_and_uri();
+            let (_, fetched_ref) = did_detail_storage.to_off_chain_did_owner_and_doc_ref();
             assert_eq!(fetched_ref, new_ref);
 
             assert_noop!(
@@ -2709,85 +2898,647 @@ mod tests {
         });
     }
 
-    /*#[test]
-    fn did_remove() {
-        // Remove DID. Unregistered Dids cannot be removed.
-        // Registered Dids can only be removed by the authorized key
-        // Removed Dids can be added again
-
+    #[test]
+    fn service_endpoints() {
+        // Adding and removing service endpoints to a DID
         ext().execute_with(|| {
-            let alice = 100u64;
+            let alice = 1u64;
+            let did = [51; DID_BYTE_SIZE];
 
-            let did = [1; DID_BYTE_SIZE];
+            let endpoint_1_id = vec![102; 50];
+            let origins_1 = vec![vec![112; 100]];
+            let endpoint_2_id = vec![202; 90];
+            let origins_2 = vec![vec![212; 150], vec![225; 30]];
 
-            let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_1 = pair_1.public().0;
-            let to_remove = DidRemoval::new(did.clone(), 2u32);
-            let sig = SigValue::Sr25519(Bytes64 {
-                value: pair_1
-                    .sign(&StateChange::DIDRemoval(to_remove.into()).encode())
-                    .0,
-            });
+            let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr = pair_sr.public().0;
+            let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed = pair_ed.public().0;
 
-            // Trying to remove the DID before it was added will fail
-            assert_noop!(
-                DIDModule::remove(Origin::signed(alice), to_remove, sig),
-                Error::<Test>::DidDoesNotExist
+            run_to_block(5);
+
+            let add_service_endpoint = AddServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_1_id.clone(),
+                endpoint: ServiceEndpoint {
+                    types: ServiceEndpointType::LINKED_DOMAINS,
+                    origins: origins_1.clone(),
+                },
+                nonce: 5 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
+                &pair_sr,
             );
 
-            // Add a DID
-            println!("remove pk:{:?}", pk_1.to_vec());
-            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_1 }));
-            assert_ok!(DIDModule::new(
-                Origin::signed(alice),
-                did.clone(),
-                detail.clone()
-            ));
-
-            let (_, modified_in_block) = DIDModule::get_key_detail(&did).unwrap();
-            // The block number will be non zero as write was successful and will be 1 since its the first extrinsic
-            assert_eq!(modified_in_block, 1);
-
-            // A key not controlling the DID but trying to remove the DID should fail
-            let (pair_2, _, _) = sr25519::Pair::generate_with_phrase(None);
-            let pk_2 = pair_2.public().0;
-            let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
-            let sig = SigValue::Sr25519(Bytes64 {
-                value: pair_2
-                    .sign(&StateChange::DIDRemoval(to_remove.into()).encode())
-                    .0,
-            });
+            // DID does not exist yet, thus no controller
             assert_noop!(
-                DIDModule::remove(Origin::signed(alice), to_remove, sig),
-                Error::<Test>::InvalidSig
+                DIDModule::add_service_endpoint(
+                    Origin::signed(alice),
+                    add_service_endpoint.clone(),
+                    DidSignature {
+                        did: did.clone(),
+                        key_id: 1u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::OnlyControllerCanUpdate
             );
 
-            // The key controlling the DID should be able to remove the DID
-            let to_remove = DidRemoval::new(did.clone(), modified_in_block as u32);
-            let sig_value = pair_1
-                .sign(&StateChange::DIDRemoval(to_remove.into()).encode())
-                .0;
-            println!("remove sig value:{:?}", sig_value.to_vec());
-            let sig = SigValue::Sr25519(Bytes64 { value: sig_value });
-            assert_ok!(DIDModule::remove(Origin::signed(alice), to_remove, sig));
-
-            // Error as the did has been removed
-            assert!(DIDModule::get_key_detail(&did).is_err());
-
-            // A different public key than previous owner of the DID should be able to register the DID
-            // Add the same DID but with different public key
-            let detail = KeyDetail::new(did.clone(), PublicKey::Sr25519(Bytes32 { value: pk_2 }));
-            assert_ok!(DIDModule::new(
+            assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
                 did.clone(),
-                detail.clone()
+                vec![
+                    DidKey {
+                        key: PublicKey::sr25519(pk_sr),
+                        ver_rels: VerRelType::NONE.into()
+                    },
+                    DidKey {
+                        key: PublicKey::ed25519(pk_ed),
+                        ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
+                    },
+                ],
+                vec![].into_iter().collect()
+            ));
+            assert!(DIDModule::is_self_controlled(&did));
+            check_did_detail(&did, 2, 1, 1, 5);
+
+            run_to_block(10);
+
+            // Non-control key cannot add endpoint
+            let add_service_endpoint = AddServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_1_id.clone(),
+                endpoint: ServiceEndpoint {
+                    types: ServiceEndpointType::LINKED_DOMAINS,
+                    origins: origins_1.clone(),
+                },
+                nonce: 5 + 1,
+            };
+            let sig = SigValue::ed25519(
+                &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
+                &pair_ed,
+            );
+
+            assert_noop!(
+                DIDModule::add_service_endpoint(
+                    Origin::signed(alice),
+                    add_service_endpoint.clone(),
+                    DidSignature {
+                        did: did.clone(),
+                        key_id: 2u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::InsufficientVerificationRelationship
+            );
+
+            // Trying to add invalid endpoint fails
+            for (id, ep) in vec![
+                (
+                    vec![], // Empty id not allowed
+                    ServiceEndpoint {
+                        types: ServiceEndpointType::LINKED_DOMAINS,
+                        origins: origins_1.clone(),
+                    },
+                ),
+                (
+                    endpoint_1_id.clone(),
+                    ServiceEndpoint {
+                        types: ServiceEndpointType::NONE, // Empty type not allowed
+                        origins: origins_1.clone(),
+                    },
+                ),
+                (
+                    endpoint_1_id.clone(),
+                    ServiceEndpoint {
+                        types: ServiceEndpointType::LINKED_DOMAINS,
+                        origins: vec![], // Empty origin not allowed
+                    },
+                ),
+                (
+                    endpoint_1_id.clone(),
+                    ServiceEndpoint {
+                        types: ServiceEndpointType::LINKED_DOMAINS,
+                        origins: vec![vec![]], // Empty origin not allowed
+                    },
+                ),
+                (
+                    endpoint_1_id.clone(),
+                    ServiceEndpoint {
+                        types: ServiceEndpointType::LINKED_DOMAINS,
+                        origins: vec![vec![45; 55], vec![]], // All provided origins mut be non-empty
+                    },
+                ),
+            ] {
+                let add_service_endpoint = AddServiceEndpoint {
+                    did: did.clone(),
+                    id,
+                    endpoint: ep,
+                    nonce: 5 + 1,
+                };
+                let sig = SigValue::sr25519(
+                    &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
+                    &pair_sr,
+                );
+
+                assert_noop!(
+                    DIDModule::add_service_endpoint(
+                        Origin::signed(alice),
+                        add_service_endpoint.clone(),
+                        DidSignature {
+                            did: did.clone(),
+                            key_id: 1u32.into(),
+                            sig
+                        }
+                    ),
+                    Error::<Test>::InvalidServiceEndpoint
+                );
+            }
+
+            assert!(DIDModule::did_service_endpoints(&did, &endpoint_1_id).is_none());
+
+            let add_service_endpoint = AddServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_1_id.clone(),
+                endpoint: ServiceEndpoint {
+                    types: ServiceEndpointType::LINKED_DOMAINS,
+                    origins: origins_1.clone(),
+                },
+                nonce: 5 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
+                &pair_sr,
+            );
+
+            assert_ok!(DIDModule::add_service_endpoint(
+                Origin::signed(alice),
+                add_service_endpoint.clone(),
+                DidSignature {
+                    did: did.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
             ));
 
-            // Ok as the did has been written
-            assert!(DIDModule::get_key_detail(&did).is_ok());
+            assert_eq!(
+                DIDModule::did_service_endpoints(&did, &endpoint_1_id).unwrap(),
+                ServiceEndpoint {
+                    types: ServiceEndpointType::LINKED_DOMAINS,
+                    origins: origins_1.clone(),
+                }
+            );
+            check_did_detail(&did, 2, 1, 1, 6);
+
+            run_to_block(15);
+
+            // Adding new endpoint with existing id fails
+            let add_service_endpoint = AddServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_1_id.clone(),
+                endpoint: ServiceEndpoint {
+                    types: ServiceEndpointType::LINKED_DOMAINS,
+                    origins: origins_2.clone(),
+                },
+                nonce: 6 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
+                &pair_sr,
+            );
+
+            assert_noop!(
+                DIDModule::add_service_endpoint(
+                    Origin::signed(alice),
+                    add_service_endpoint.clone(),
+                    DidSignature {
+                        did: did.clone(),
+                        key_id: 1u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::ServiceEndpointAlreadyExists
+            );
+
+            let add_service_endpoint = AddServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_2_id.clone(),
+                endpoint: ServiceEndpoint {
+                    types: ServiceEndpointType::LINKED_DOMAINS,
+                    origins: origins_2.clone(),
+                },
+                nonce: 6 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
+                &pair_sr,
+            );
+
+            assert_ok!(DIDModule::add_service_endpoint(
+                Origin::signed(alice),
+                add_service_endpoint.clone(),
+                DidSignature {
+                    did: did.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+
+            assert_eq!(
+                DIDModule::did_service_endpoints(&did, &endpoint_2_id).unwrap(),
+                ServiceEndpoint {
+                    types: ServiceEndpointType::LINKED_DOMAINS,
+                    origins: origins_2.clone(),
+                }
+            );
+            check_did_detail(&did, 2, 1, 1, 7);
+
+            run_to_block(16);
+
+            // Non-control key cannot remove endpoint
+            let rem_service_endpoint = RemoveServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_1_id.clone(),
+                nonce: 7 + 1,
+            };
+            let sig = SigValue::ed25519(
+                &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
+                &pair_ed,
+            );
+
+            assert_noop!(
+                DIDModule::remove_service_endpoint(
+                    Origin::signed(alice),
+                    rem_service_endpoint.clone(),
+                    DidSignature {
+                        did: did.clone(),
+                        key_id: 2u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::InsufficientVerificationRelationship
+            );
+
+            // Invalid endpoint id fails
+            let rem_service_endpoint = RemoveServiceEndpoint {
+                did: did.clone(),
+                id: vec![],
+                nonce: 7 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
+                &pair_sr,
+            );
+
+            assert_noop!(
+                DIDModule::remove_service_endpoint(
+                    Origin::signed(alice),
+                    rem_service_endpoint.clone(),
+                    DidSignature {
+                        did: did.clone(),
+                        key_id: 1u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::InvalidServiceEndpoint
+            );
+
+            let rem_service_endpoint = RemoveServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_1_id.clone(),
+                nonce: 7 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
+                &pair_sr,
+            );
+
+            assert_ok!(DIDModule::remove_service_endpoint(
+                Origin::signed(alice),
+                rem_service_endpoint.clone(),
+                DidSignature {
+                    did: did.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+            assert!(DIDModule::did_service_endpoints(&did, &endpoint_1_id).is_none());
+            check_did_detail(&did, 2, 1, 1, 8);
+
+            // id already removed, removing again fails
+            let rem_service_endpoint = RemoveServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_1_id.clone(),
+                nonce: 8 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
+                &pair_sr,
+            );
+            assert_noop!(
+                DIDModule::remove_service_endpoint(
+                    Origin::signed(alice),
+                    rem_service_endpoint.clone(),
+                    DidSignature {
+                        did: did.clone(),
+                        key_id: 1u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::ServiceEndpointDoesNotExist
+            );
+
+            let rem_service_endpoint = RemoveServiceEndpoint {
+                did: did.clone(),
+                id: endpoint_2_id.clone(),
+                nonce: 8 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
+                &pair_sr,
+            );
+
+            assert_ok!(DIDModule::remove_service_endpoint(
+                Origin::signed(alice),
+                rem_service_endpoint.clone(),
+                DidSignature {
+                    did: did.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+            assert!(DIDModule::did_service_endpoints(&did, &endpoint_2_id).is_none());
+            check_did_detail(&did, 2, 1, 1, 9);
+
+            let rem_did = DidRemoval {
+                did: did.clone(),
+                nonce: 9 + 1,
+            };
+            let sig = SigValue::ed25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_ed,
+            );
+
+            assert_noop!(
+                DIDModule::remove_onchain_did(
+                    Origin::signed(alice),
+                    rem_did.clone(),
+                    DidSignature {
+                        did: did.clone(),
+                        key_id: 2u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::InsufficientVerificationRelationship
+            );
+
+            check_did_detail(&did, 2, 1, 1, 9);
+
+            let rem_did = DidRemoval {
+                did: did.clone(),
+                nonce: 9 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_sr,
+            );
+
+            assert_ok!(DIDModule::remove_onchain_did(
+                Origin::signed(alice),
+                rem_did.clone(),
+                DidSignature {
+                    did: did.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+            ensure_onchain_did_gone(&did);
         });
-    }*/
+    }
 
+    #[test]
+    fn did_removal() {
+        // Removing a DID
+        ext().execute_with(|| {
+            let alice = 1u64;
+            let did_1 = [51; DID_BYTE_SIZE];
+            let did_2 = [52; DID_BYTE_SIZE];
+            let did_3 = [53; DID_BYTE_SIZE];
+            let did_4 = [54; DID_BYTE_SIZE];
+
+            let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+            let pk_sr = pair_sr.public().0;
+            let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+            let pk_ed = pair_ed.public().0;
+
+            run_to_block(5);
+
+            // did_1 controls itself
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_1.clone(),
+                vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr),
+                    ver_rels: VerRelType::NONE.into()
+                }],
+                vec![].into_iter().collect()
+            ));
+            assert!(DIDModule::is_self_controlled(&did_1));
+            check_did_detail(&did_1, 1, 1, 1, 5);
+
+            run_to_block(10);
+
+            // did_2 does not control itself but controlled by did_1
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_2.clone(),
+                vec![DidKey {
+                    key: PublicKey::ed25519(pk_ed),
+                    ver_rels: VerRelType::AUTHENTICATION.into()
+                }],
+                vec![did_1.clone()].into_iter().collect()
+            ));
+            assert!(!DIDModule::is_self_controlled(&did_2));
+            check_did_detail(&did_2, 1, 0, 1, 10);
+
+            run_to_block(15);
+
+            // did_3 controls itself and also controlled by did_1
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_3.clone(),
+                vec![DidKey {
+                    key: PublicKey::ed25519(pk_ed),
+                    ver_rels: VerRelType::NONE.into()
+                }],
+                vec![did_1.clone()].into_iter().collect()
+            ));
+            assert!(DIDModule::is_self_controlled(&did_3));
+            check_did_detail(&did_3, 1, 1, 2, 15);
+
+            run_to_block(20);
+
+            // did_4 controls itself and also controlled by did_3
+            assert_ok!(DIDModule::new_onchain(
+                Origin::signed(alice),
+                did_4.clone(),
+                vec![DidKey {
+                    key: PublicKey::sr25519(pk_sr),
+                    ver_rels: VerRelType::NONE.into()
+                }],
+                vec![did_3.clone()].into_iter().collect()
+            ));
+            assert!(DIDModule::is_self_controlled(&did_4));
+            check_did_detail(&did_4, 1, 1, 2, 20);
+
+            // did_2 does not control itself so it cannot remove itself
+            let rem_did = DidRemoval {
+                did: did_2.clone(),
+                nonce: 10 + 1,
+            };
+            let sig = SigValue::ed25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_ed,
+            );
+            assert_noop!(
+                DIDModule::remove_onchain_did(
+                    Origin::signed(alice),
+                    rem_did.clone(),
+                    DidSignature {
+                        did: did_2.clone(),
+                        key_id: 1u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::OnlyControllerCanUpdate
+            );
+            check_did_detail(&did_2, 1, 0, 1, 10);
+
+            // did_2 is controlled by did_1 so it can be removed by did_1
+            let sig = SigValue::sr25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_sr,
+            );
+            assert_ok!(DIDModule::remove_onchain_did(
+                Origin::signed(alice),
+                rem_did.clone(),
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+            ensure_onchain_did_gone(&did_2);
+
+            // Nonce should be correct when its deleted
+            let rem_did = DidRemoval {
+                did: did_3.clone(),
+                nonce: 15,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_sr,
+            );
+            assert_noop!(
+                DIDModule::remove_onchain_did(
+                    Origin::signed(alice),
+                    rem_did.clone(),
+                    DidSignature {
+                        did: did_1.clone(),
+                        key_id: 1u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::IncorrectNonce
+            );
+            check_did_detail(&did_3, 1, 1, 2, 15);
+
+            // did_3 is controlled by itself and did_1 and thus did_1 can remove it
+            let rem_did = DidRemoval {
+                did: did_3.clone(),
+                nonce: 15 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_sr,
+            );
+            assert_ok!(DIDModule::remove_onchain_did(
+                Origin::signed(alice),
+                rem_did.clone(),
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+            ensure_onchain_did_gone(&did_3);
+
+            // did_4 is controlled by itself and did_3 but did_3 has been removed so it can no
+            // longer remove did_4
+            let rem_did = DidRemoval {
+                did: did_4.clone(),
+                nonce: 20 + 1,
+            };
+            let sig = SigValue::ed25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_ed,
+            );
+            assert_noop!(
+                DIDModule::remove_onchain_did(
+                    Origin::signed(alice),
+                    rem_did.clone(),
+                    DidSignature {
+                        did: did_3.clone(),
+                        key_id: 1u32.into(),
+                        sig
+                    }
+                ),
+                Error::<Test>::NoKeyForDid
+            );
+            check_did_detail(&did_4, 1, 1, 2, 20);
+
+            // did_4 removes itself
+            let rem_did = DidRemoval {
+                did: did_4.clone(),
+                nonce: 20 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_sr,
+            );
+            assert_ok!(DIDModule::remove_onchain_did(
+                Origin::signed(alice),
+                rem_did.clone(),
+                DidSignature {
+                    did: did_4.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+            ensure_onchain_did_gone(&did_4);
+
+            // did_1 removes itself
+            let rem_did = DidRemoval {
+                did: did_1.clone(),
+                nonce: 5 + 1,
+            };
+            let sig = SigValue::sr25519(
+                &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
+                &pair_sr,
+            );
+            assert_ok!(DIDModule::remove_onchain_did(
+                Origin::signed(alice),
+                rem_did.clone(),
+                DidSignature {
+                    did: did_1.clone(),
+                    key_id: 1u32.into(),
+                    sig
+                }
+            ));
+            ensure_onchain_did_gone(&did_1);
+        });
+    }
     // TODO: Add test for events DidAdded, KeyUpdated, DIDRemoval
 }
 
