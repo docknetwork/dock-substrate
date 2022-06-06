@@ -802,7 +802,7 @@ impl<T: Trait> Module<T> {
     }
 
     /// Prepare `DidKey`s to insert. The DID is assumed to be self controlled as well if there is any key
-    /// that is capable of either authenticating or invoking a capability. Returns the keys along with the
+    /// that is capable of invoking a capability. Returns the keys along with the
     /// amount of controller keys being met. The following logic is contentious.
     fn prepare_keys_to_insert(keys: Vec<DidKey>) -> Result<(Vec<DidKey>, u32), DispatchError> {
         let mut controller_keys_count = 0;
