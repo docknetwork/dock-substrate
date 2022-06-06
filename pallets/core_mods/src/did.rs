@@ -623,7 +623,7 @@ decl_module! {
         /// Add a single service endpoint.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint, sig: DidSignature) -> DispatchResult {
+        fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(service_endpoint.endpoint.is_valid(), Error::<T>::InvalidServiceEndpoint);
             ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
@@ -637,7 +637,7 @@ decl_module! {
         /// Remove a single service endpoint.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint, sig: DidSignature) -> DispatchResult {
+        fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure!(
@@ -652,7 +652,7 @@ decl_module! {
         /// loses its ability to control any DID.
         // TODO: Fix weight
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval, sig: DidSignature) -> DispatchResult {
+        pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
                 Self::verify_sig_from_controller(&removal, &sig)?,
@@ -906,7 +906,7 @@ where
             id,
             endpoint,
             nonce,
-        }: AddServiceEndpoint,
+        }: AddServiceEndpoint<T>,
     ) -> DispatchResult {
         let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
         if Self::did_service_endpoints(&did, &id).is_some() {
@@ -931,7 +931,7 @@ where
     }
 
     fn remove_service_endpoint_(
-        RemoveServiceEndpoint { did, id, nonce }: RemoveServiceEndpoint,
+        RemoveServiceEndpoint { did, id, nonce }: RemoveServiceEndpoint<T>,
     ) -> DispatchResult {
         let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
         if Self::did_service_endpoints(&did, &id).is_none() {
@@ -955,7 +955,7 @@ where
         Ok(())
     }
 
-    fn remove_onchain_did_(DidRemoval { did, nonce }: DidRemoval) -> DispatchResult {
+    fn remove_onchain_did_(DidRemoval { did, nonce }: DidRemoval<T>) -> DispatchResult {
         let _ = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
         DidKeys::remove_prefix(did);
         DidControllers::remove_prefix(did);
