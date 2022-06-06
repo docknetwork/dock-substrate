@@ -263,7 +263,10 @@ pub fn newdid() -> (Did, sr25519::Pair) {
     (d, create_did(d))
 }
 
-pub fn sign(payload: &crate::StateChange, keypair: &sr25519::Pair) -> SigValue {
+pub fn sign<T: frame_system::Config>(
+    payload: &crate::StateChange<T>,
+    keypair: &sr25519::Pair,
+) -> SigValue {
     SigValue::Sr25519(util::Bytes64 {
         value: keypair.sign(&payload.encode()).0,
     })

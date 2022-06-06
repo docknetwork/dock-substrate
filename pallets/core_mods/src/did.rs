@@ -1,7 +1,9 @@
-use super::{BlockNumber, StateChange};
+use super::StateChange;
 use crate as dock;
 use crate::keys_and_sigs::{PublicKey, SigValue};
+use crate::Action;
 use codec::{Decode, Encode};
+use core::fmt::Debug;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
     dispatch::DispatchResult, ensure, fail, traits::Get, weights::Weight,
@@ -30,7 +32,7 @@ pub trait Trait: system::Config {
 
 decl_error! {
     /// Error for the DID module.
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Trait> where T: Debug {
         /// Given public key is not of the correct size
         PublicKeySizeIncorrect,
         /// There is already a DID with same value
@@ -192,60 +194,52 @@ impl From<u8> for IncId {
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AddKeys {
+pub struct AddKeys<T: frame_system::Config> {
     did: Did,
     keys: Vec<DidKey>,
-    nonce: BlockNumber,
+    nonce: T::BlockNumber,
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RemoveKeys {
+pub struct RemoveKeys<T: frame_system::Config> {
     did: Did,
     /// Key ids to remove
     keys: BTreeSet<IncId>,
-    nonce: BlockNumber,
+    nonce: T::BlockNumber,
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AddControllers {
+pub struct AddControllers<T: frame_system::Config> {
     did: Did,
     controllers: BTreeSet<Did>,
-    nonce: BlockNumber,
+    nonce: T::BlockNumber,
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RemoveControllers {
+pub struct RemoveControllers<T: frame_system::Config> {
     did: Did,
     /// Controllers ids to remove
     controllers: BTreeSet<Did>,
-    nonce: BlockNumber,
-}
-
-pub trait Action {
-    type Target;
-
-    fn target(&self) -> Self::Target;
-    fn nonce(&self) -> BlockNumber;
-    fn to_state_change(&self) -> StateChange<'_>;
+    nonce: T::BlockNumber,
 }
 
 macro_rules! impl_did_action {
     ($type: ident) => {
-        impl Action for $type {
+        impl<T: frame_system::Config> Action<T> for $type<T> {
             type Target = Did;
 
             fn target(&self) -> Did {
                 self.did
             }
 
-            fn nonce(&self) -> BlockNumber {
+            fn nonce(&self) -> T::BlockNumber {
                 self.nonce
             }
 
-            fn to_state_change(&self) -> StateChange<'_> {
+            fn to_state_change(&self) -> StateChange<'_, T> {
                 StateChange::$type(Cow::Borrowed(self))
             }
         }
@@ -360,7 +354,7 @@ impl DidKey {
 }
 
 impl DidSignature {
-    fn verify<T: Trait>(
+    fn verify<T: Trait + Debug>(
         &self,
         message: &[u8],
         public_key: &PublicKey,
@@ -371,25 +365,25 @@ impl DidSignature {
     }
 }
 
-impl AddKeys {
+impl<T: frame_system::Config> AddKeys<T> {
     pub fn len(&self) -> u32 {
         self.keys.len() as u32
     }
 }
 
-impl RemoveKeys {
+impl<T: frame_system::Config> RemoveKeys<T> {
     pub fn len(&self) -> u32 {
         self.keys.len() as u32
     }
 }
 
-impl AddControllers {
+impl<T: frame_system::Config> AddControllers<T> {
     pub fn len(&self) -> u32 {
         self.controllers.len() as u32
     }
 }
 
-impl RemoveControllers {
+impl<T: frame_system::Config> RemoveControllers<T> {
     pub fn len(&self) -> u32 {
         self.controllers.len() as u32
     }
@@ -400,16 +394,16 @@ impl RemoveControllers {
 /// `last_modified_in_block` is the block number when this DID was last modified. The last modified time is present to prevent replay attack.
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct DidRemoval {
+pub struct DidRemoval<T: frame_system::Config> {
     pub did: Did,
     // TODO: `BlockNumber` should be changed to `T::BlockNumber` to guard against accidental change
     // to BlockNumber type. Will require this struct to be typed
-    pub last_modified_in_block: BlockNumber,
+    pub last_modified_in_block: T::BlockNumber,
 }
 
-impl DidRemoval {
+impl<T: frame_system::Config> DidRemoval<T> {
     /// Remove an existing DID `did`
-    pub fn new(did: Did, last_modified_in_block: BlockNumber) -> Self {
+    pub fn new(did: Did, last_modified_in_block: T::BlockNumber) -> Self {
         DidRemoval {
             did,
             last_modified_in_block,
@@ -431,13 +425,13 @@ decl_event!(
 );
 
 decl_storage! {
-    trait Store for Module<T: Trait> as DIDModule {
+    trait Store for Module<T: Trait> as DIDModule where T: Debug {
         /// Stores details of off-chain and on-chain DIDs
         pub Dids get(fn did): map hasher(blake2_128_concat) dock::did::Did
             => Option<DidDetailStorage<T>>;
         /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
         pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<DidKey>;
-        /// Stores controllers (controlled - controller pairs) of a DID as (DID, DID) -> bool.
+        /// Stores controlled - controller pairs of a DID as (DID, DID) -> bool.
         pub DidControllers get(fn is_controller): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Did => bool;
     }
     // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
@@ -459,7 +453,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin, T: Debug {
         fn deposit_event() = default;
 
         type Error = Error<T>;
@@ -513,7 +507,7 @@ decl_module! {
         /// verification relationships
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
-        fn add_keys(origin, keys: AddKeys, sig: DidSignature) -> DispatchResult {
+        fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
             ensure!(
@@ -527,7 +521,7 @@ decl_module! {
         /// # **Note that removing all might make DID unusable**.
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
-        fn remove_keys(origin, keys: RemoveKeys, sig: DidSignature) -> DispatchResult {
+        fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
             ensure!(
@@ -541,7 +535,7 @@ decl_module! {
         /// a DID that exists on or off chain. Does not check if the controller is already added.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn add_controllers(origin, controllers: AddControllers, sig: DidSignature) -> DispatchResult {
+        fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
             ensure!(
@@ -555,7 +549,7 @@ decl_module! {
         /// # **Note that removing all might make DID unusable**.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn remove_controllers(origin, controllers: RemoveControllers, sig: DidSignature) -> DispatchResult {
+        fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
             ensure!(
@@ -567,7 +561,10 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Trait> Module<T>
+where
+    T: Debug,
+{
     fn new_offchain_(
         caller: T::AccountId,
         did: Did,
@@ -650,7 +647,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn add_keys_(AddKeys { did, nonce, keys }: AddKeys) -> DispatchResult {
+    fn add_keys_(AddKeys { did, nonce, keys }: AddKeys<T>) -> DispatchResult {
         let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
 
         // If DID was not self controlled first, check if it can become by looking
@@ -685,7 +682,7 @@ impl<T: Trait> Module<T> {
         Ok(())
     }
 
-    fn remove_keys_(RemoveKeys { did, nonce, keys }: RemoveKeys) -> DispatchResult {
+    fn remove_keys_(RemoveKeys { did, nonce, keys }: RemoveKeys<T>) -> DispatchResult {
         let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
 
         let mut controller_keys_count = 0;
@@ -732,7 +729,7 @@ impl<T: Trait> Module<T> {
             did,
             nonce,
             controllers,
-        }: AddControllers,
+        }: AddControllers<T>,
     ) -> DispatchResult {
         let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
 
@@ -769,7 +766,7 @@ impl<T: Trait> Module<T> {
             did,
             nonce,
             controllers,
-        }: RemoveControllers,
+        }: RemoveControllers<T>,
     ) -> DispatchResult {
         let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
 
@@ -860,7 +857,7 @@ impl<T: Trait> Module<T> {
         sig: &DidSignature,
     ) -> Result<bool, DispatchError>
     where
-        A: Action<Target = Did>,
+        A: Action<T, Target = Did>,
     {
         Self::ensure_controller(&action.target(), &sig.did)?;
         let signer_pubkey = Self::get_key_for_control(&sig.did, sig.key_id)?;
@@ -955,7 +952,7 @@ mod tests {
         last_key_id: u32,
         active_controller_keys: u32,
         active_controllers: u32,
-        nonce: BlockNumber,
+        nonce: <Test as frame_system::Config>::BlockNumber,
     ) {
         let did_detail = DIDModule::get_on_chain_did_detail(did).unwrap();
         assert_eq!(did_detail.last_key_id, last_key_id.into());
@@ -1628,10 +1625,7 @@ mod tests {
                 keys: vec![],
                 nonce: 5,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_sr_1,
-            );
+            let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1653,10 +1647,7 @@ mod tests {
                 }],
                 nonce: 5,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_sr_1,
-            );
+            let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1718,10 +1709,7 @@ mod tests {
                 }],
                 nonce: 7 + 1,
             };
-            let sig = SigValue::ed25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_ed_1,
-            );
+            let sig = SigValue::ed25519(&add_keys.to_state_change().encode(), &pair_ed_1);
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1745,10 +1733,7 @@ mod tests {
                     }],
                     nonce,
                 };
-                let sig = SigValue::sr25519(
-                    &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                    &pair_sr_1,
-                );
+                let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
                 assert_noop!(
                     DIDModule::add_keys(
                         Origin::signed(alice),
@@ -1796,10 +1781,7 @@ mod tests {
                 }],
                 nonce: 7 + 1,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_sr_1,
-            );
+            let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1822,10 +1804,7 @@ mod tests {
                 }],
                 nonce: 7 + 1,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_sr_1,
-            );
+            let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1848,10 +1827,7 @@ mod tests {
                 }],
                 nonce: 7 + 1,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_sr_1,
-            );
+            let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -1885,10 +1861,7 @@ mod tests {
             };
 
             // Controller uses a key without the capability to update DID
-            let sig = SigValue::ed25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_ed_2,
-            );
+            let sig = SigValue::ed25519(&add_keys.to_state_change().encode(), &pair_ed_2);
             assert_noop!(
                 DIDModule::add_keys(
                     Origin::signed(alice),
@@ -1903,10 +1876,7 @@ mod tests {
             );
 
             // Controller uses the correct key
-            let sig = SigValue::sr25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_sr_2,
-            );
+            let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_2);
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -1981,10 +1951,7 @@ mod tests {
                     keys: vec![2u32.into()].into_iter().collect(),
                     nonce,
                 };
-                let sig = SigValue::sr25519(
-                    &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
-                    &pair_sr_1,
-                );
+                let sig = SigValue::sr25519(&remove_keys.to_state_change().encode(), &pair_sr_1);
                 assert_noop!(
                     DIDModule::remove_keys(
                         Origin::signed(alice),
@@ -2007,10 +1974,7 @@ mod tests {
                     .collect(),
                 nonce: 3,
             };
-            let sig = SigValue::ed25519(
-                &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
-                &pair_ed_1,
-            );
+            let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
             assert_noop!(
                 DIDModule::remove_keys(
                     Origin::signed(alice),
@@ -2028,10 +1992,7 @@ mod tests {
                 keys: vec![1u32.into()].into_iter().collect(),
                 nonce: 3,
             };
-            let sig = SigValue::ed25519(
-                &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
-                &pair_ed_1,
-            );
+            let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
             assert_ok!(DIDModule::remove_keys(
                 Origin::signed(alice),
                 remove_keys,
@@ -2048,10 +2009,7 @@ mod tests {
                 keys: vec![3u32.into()].into_iter().collect(),
                 nonce: 4,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
-                &pair_sr_1,
-            );
+            let sig = SigValue::sr25519(&remove_keys.to_state_change().encode(), &pair_sr_1);
             assert_ok!(DIDModule::remove_keys(
                 Origin::signed(alice),
                 remove_keys,
@@ -2080,10 +2038,7 @@ mod tests {
                 keys: vec![1u32.into()].into_iter().collect(),
                 nonce: 11,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::RemoveKeys(Cow::Borrowed(&remove_keys)).encode(),
-                &pair_sr_1,
-            );
+            let sig = SigValue::sr25519(&remove_keys.to_state_change().encode(), &pair_sr_1);
             assert_ok!(DIDModule::remove_keys(
                 Origin::signed(alice),
                 remove_keys,
@@ -2590,10 +2545,7 @@ mod tests {
                 }],
                 nonce: 10 + 1,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_sr,
-            );
+            let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -2616,10 +2568,7 @@ mod tests {
                 }],
                 nonce: 11 + 1,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_sr,
-            );
+            let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,
@@ -2736,10 +2685,7 @@ mod tests {
                 }],
                 nonce: 8 + 1,
             };
-            let sig = SigValue::ed25519(
-                &StateChange::AddKeys(Cow::Borrowed(&add_keys)).encode(),
-                &pair_ed,
-            );
+            let sig = SigValue::ed25519(&add_keys.to_state_change().encode(), &pair_ed);
             assert_ok!(DIDModule::add_keys(
                 Origin::signed(alice),
                 add_keys,

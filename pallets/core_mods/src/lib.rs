@@ -10,11 +10,11 @@ use sp_std::borrow::Cow;
 /// not self describing.
 /// Never change the order of variants in this enum
 #[derive(Encode, Decode)]
-pub enum StateChange<'a> {
-    AddKeys(Cow<'a, did::AddKeys>),
-    AddControllers(Cow<'a, did::AddControllers>),
-    RemoveKeys(Cow<'a, did::RemoveKeys>),
-    RemoveControllers(Cow<'a, did::RemoveControllers>),
+pub enum StateChange<'a, T: frame_system::Config> {
+    AddKeys(Cow<'a, did::AddKeys<T>>),
+    AddControllers(Cow<'a, did::AddControllers<T>>),
+    RemoveKeys(Cow<'a, did::RemoveKeys<T>>),
+    RemoveControllers(Cow<'a, did::RemoveControllers<T>>),
     // DIDRemoval(did::DidRemoval),
     // Revoke(revoke::Revoke),
     // UnRevoke(revoke::UnRevoke),
@@ -35,9 +35,19 @@ pub enum StateChange<'a> {
     // RemoveAccumulator(accumulator::RemoveAccumulator),
 }
 
-// This should be same as the type defined in runtime/src/lib.rs. Less than ideal shortcut as this module shouldn't
-// be aware of runtime. A better approach would be to make modules typed.
-pub type BlockNumber = u32;
+/// Describes an action which can be performed on some `Target`
+pub trait Action<T: frame_system::Config> {
+    type Target;
+
+    /// Returns underlying action target.
+    fn target(&self) -> Self::Target;
+
+    /// Returns action's nonce.
+    fn nonce(&self) -> T::BlockNumber;
+
+    /// Converts the given action to the state change.
+    fn to_state_change(&self) -> StateChange<'_, T>;
+}
 
 // pub mod accumulator;
 pub mod anchor;
