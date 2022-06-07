@@ -693,14 +693,24 @@ parameter_types! {
     pub const AccumulatorParamsPerByteWeight: Weight = 10;
     pub const AccumulatedMaxSize: u32 = 128;
     pub const AccumulatedPerByteWeight: Weight = 10;
-    pub const MaxDidDocRefSize: u32 = 1024;
+    pub const MaxDidDocRefSize: u16 = 1024;
     pub const DidDocRefPerByteWeight: Weight = 10;
+    pub const MaxServiceEndpointIdSize: u16 = 1024;
+    pub const ServiceEndpointIdPerByteWeight: Weight = 10;
+    pub const MaxServiceEndpointOrigins: u16 = 64;
+    pub const MaxServiceEndpointOriginSize: u16 = 1025;
+    pub const ServiceEndpointOriginPerByteWeight: Weight = 10;
 }
 
 impl did::Trait for Runtime {
     type Event = Event;
-    type MaxDidDocUriSize = MaxDidDocUriSize;
+    type MaxDidDocRefSize = MaxDidDocRefSize;
     type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
+    type MaxServiceEndpointIdSize = MaxServiceEndpointIdSize;
+    type ServiceEndpointIdPerByteWeight = ServiceEndpointIdPerByteWeight;
+    type MaxServiceEndpointOrigins = MaxServiceEndpointOrigins;
+    type MaxServiceEndpointOriginSize = MaxServiceEndpointOriginSize;
+    type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
 
 impl revoke::Trait for Runtime {}

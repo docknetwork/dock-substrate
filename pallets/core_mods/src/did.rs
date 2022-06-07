@@ -25,15 +25,17 @@ pub trait Trait: system::Config {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Config>::Event>;
     /// Maximum byte size of reference to off-chain DID Doc.
-    type MaxDidDocRefSize: Get<u32>;
+    type MaxDidDocRefSize: Get<u16>;
     /// Weight per byte of the off-chain DID Doc reference
     type DidDocRefPerByteWeight: Get<Weight>;
     /// Maximum byte size of service endpoint's `id` field
-    type MaxServiceEndpointIdSize: Get<u32>;
+    type MaxServiceEndpointIdSize: Get<u16>;
     /// Weight per byte of service endpoint's `id` field
     type ServiceEndpointIdPerByteWeight: Get<Weight>;
+    /// Maximum number of service endpoint's `origin`
+    type MaxServiceEndpointOrigins: Get<u16>;
     /// Maximum byte size of service endpoint's `origin`
-    type MaxServiceEndpointOriginSize: Get<u32>;
+    type MaxServiceEndpointOriginSize: Get<u16>;
     /// Weight per byte of service endpoint's `origin`
     type ServiceEndpointOriginPerByteWeight: Get<Weight>;
 }
@@ -222,10 +224,14 @@ impl From<u8> for IncId {
 }
 
 impl ServiceEndpoint {
-    pub fn is_valid(&self) -> bool {
+    pub fn is_valid(&self, max_origins: usize, max_origin_length: usize) -> bool {
         !self.types.is_empty()
             && !self.origins.is_empty()
-            && !self.origins.iter().any(|o| o.is_empty())
+            && self.origins.len() <= max_origins
+            && !self
+                .origins
+                .iter()
+                .any(|o| o.is_empty() || o.len() > max_origin_length)
     }
 }
 
@@ -463,6 +469,17 @@ impl<T: frame_system::Config> RemoveControllers<T> {
     }
 }
 
+macro_rules! ensure_signed_origin_and_control_signed_payload {
+    ($origin: ident, $payload: expr, $sig: expr, $extra_checks: block) => {
+        ensure_signed($origin)?;
+        $extra_checks
+        ensure!(
+            Self::verify_sig_from_controller($payload, $sig)?,
+            Error::<T>::InvalidSig
+        );
+    }
+}
+
 decl_event!(
     pub enum Event {
         OffChainDidAdded(dock::did::Did, OffChainDidDocRef),
@@ -515,11 +532,12 @@ decl_module! {
 
         type Error = Error<T>;
 
-        const MaxDidDocRefSize: u32 = T::MaxDidDocRefSize::get();
+        const MaxDidDocRefSize: u16 = T::MaxDidDocRefSize::get();
         const DidDocRefPerByteWeight: Weight = T::DidDocRefPerByteWeight::get();
-        const MaxServiceEndpointIdSize: u32 = T::MaxServiceEndpointIdSize::get();
+        const MaxServiceEndpointIdSize: u16 = T::MaxServiceEndpointIdSize::get();
         const ServiceEndpointIdPerByteWeight: Weight = T::ServiceEndpointIdPerByteWeight::get();
-        const MaxServiceEndpointOriginSize: u32 = T::MaxServiceEndpointOriginSize::get();
+        const MaxServiceEndpointOrigins: u16 = T::MaxServiceEndpointOrigins::get();
+        const MaxServiceEndpointOriginSize: u16 = T::MaxServiceEndpointOriginSize::get();
         const ServiceEndpointOriginPerByteWeight: Weight = T::ServiceEndpointOriginPerByteWeight::get();
 
         #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_ref.len() as u64 * T::DidDocRefPerByteWeight::get()]
@@ -569,26 +587,20 @@ decl_module! {
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
         fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
-            ensure!(
-                Self::verify_sig_from_controller(&keys, &sig)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_origin_and_control_signed_payload!(origin, &keys, &sig, {
+                ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
+            });
             Module::<T>::add_keys_(keys)
         }
 
-        /// Remove keys from DID doc. This's atomic operation meaning that it will either remove all keys or do nothing.
+        /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
         /// # **Note that removing all might make DID unusable**.
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
         fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
-            ensure!(
-                Self::verify_sig_from_controller(&keys, &sig)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_origin_and_control_signed_payload!(origin, &keys, &sig, {
+                ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
+            });
             Module::<T>::remove_keys_(keys)
         }
 
@@ -597,12 +609,9 @@ decl_module! {
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
-            ensure!(
-                Self::verify_sig_from_controller(&controllers, &sig)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_origin_and_control_signed_payload!(origin, &controllers, &sig, {
+                ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
+            });
             Module::<T>::add_controllers_(controllers)
         }
 
@@ -611,12 +620,9 @@ decl_module! {
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
-            ensure!(
-                Self::verify_sig_from_controller(&controllers, &sig)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_origin_and_control_signed_payload!(origin, &controllers, &sig, {
+                ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
+            });
             Module::<T>::remove_controllers_(controllers)
         }
 
@@ -624,13 +630,14 @@ decl_module! {
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(service_endpoint.endpoint.is_valid(), Error::<T>::InvalidServiceEndpoint);
-            ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
-            ensure!(
-                Self::verify_sig_from_controller(&service_endpoint, &sig)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_origin_and_control_signed_payload!(origin, &service_endpoint, &sig, {
+                ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
+                ensure!(
+                    T::MaxServiceEndpointIdSize::get() as usize >= service_endpoint.id.len(),
+                    Error::<T>::InvalidServiceEndpoint
+                );
+                ensure!(service_endpoint.endpoint.is_valid(T::MaxServiceEndpointOrigins::get() as usize, T::MaxServiceEndpointOriginSize::get() as usize), Error::<T>::InvalidServiceEndpoint);
+            });
             Module::<T>::add_service_endpoint_(service_endpoint)
         }
 
@@ -638,12 +645,9 @@ decl_module! {
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
-            ensure!(
-                Self::verify_sig_from_controller(&service_endpoint, &sig)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_origin_and_control_signed_payload!(origin, &service_endpoint, &sig, {
+                ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
+            });
             Module::<T>::remove_service_endpoint_(service_endpoint)
         }
 
@@ -653,11 +657,7 @@ decl_module! {
         // TODO: Fix weight
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(
-                Self::verify_sig_from_controller(&removal, &sig)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_origin_and_control_signed_payload!(origin, &removal, &sig, {});
             Self::remove_onchain_did_(removal)
         }
     }
@@ -3003,6 +3003,13 @@ mod tests {
                     },
                 ),
                 (
+                    vec![20; 512], // too big id not allowed
+                    ServiceEndpoint {
+                        types: ServiceEndpointType::LINKED_DOMAINS,
+                        origins: origins_1.clone(),
+                    },
+                ),
+                (
                     endpoint_1_id.clone(),
                     ServiceEndpoint {
                         types: ServiceEndpointType::NONE, // Empty type not allowed
@@ -3028,6 +3035,20 @@ mod tests {
                     ServiceEndpoint {
                         types: ServiceEndpointType::LINKED_DOMAINS,
                         origins: vec![vec![45; 55], vec![]], // All provided origins mut be non-empty
+                    },
+                ),
+                (
+                    endpoint_1_id.clone(),
+                    ServiceEndpoint {
+                        types: ServiceEndpointType::LINKED_DOMAINS,
+                        origins: vec![vec![30; 561]], // too big origin not allowed
+                    },
+                ),
+                (
+                    endpoint_1_id.clone(),
+                    ServiceEndpoint {
+                        types: ServiceEndpointType::LINKED_DOMAINS,
+                        origins: vec![vec![30; 20]; 300], // too many origins not allowed
                     },
                 ),
             ] {

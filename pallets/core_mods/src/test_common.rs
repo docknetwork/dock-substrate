@@ -129,6 +129,7 @@ impl crate::did::Trait for Test {
     type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
     type MaxServiceEndpointIdSize = MaxServiceEndpointIdSize;
     type ServiceEndpointIdPerByteWeight = ServiceEndpointIdPerByteWeight;
+    type MaxServiceEndpointOrigins = MaxServiceEndpointOrigins;
     type MaxServiceEndpointOriginSize = MaxServiceEndpointOriginSize;
     type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
@@ -146,11 +147,12 @@ parameter_types! {
     pub const PublicKeyPerByteWeight: Weight = 10;
     pub const AccumulatedMaxSize: u32 = 256;
     pub const AccumulatedPerByteWeight: Weight = 10;
-    pub const MaxDidDocRefSize: u32 = 128;
+    pub const MaxDidDocRefSize: u16 = 128;
     pub const DidDocRefPerByteWeight: Weight = 10;
-    pub const MaxServiceEndpointIdSize: u32 = 128;
+    pub const MaxServiceEndpointIdSize: u16 = 256;
     pub const ServiceEndpointIdPerByteWeight: Weight = 10;
-    pub const MaxServiceEndpointOriginSize: u32 = 128;
+    pub const MaxServiceEndpointOrigins: u16 = 20;
+    pub const MaxServiceEndpointOriginSize: u16 = 256;
     pub const ServiceEndpointOriginPerByteWeight: Weight = 10;
 }
 
