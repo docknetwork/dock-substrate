@@ -279,13 +279,17 @@ version = '0.1.0'
 path = '../pallets/price_feed/rpc'
 version = '0.0.1'
 
-[dependencies.fiat_filter_rpc]
-path = '../pallets/fiat_filter/rpc'
-version = '0.0.1'
+#[dependencies.fiat_filter_rpc]
+#path = '../pallets/fiat_filter/rpc'
+#version = '0.0.1'
 
 [dependencies.staking_rewards_rpc]
 path = '../pallets/staking_rewards/rpc'
 version = '0.0.1'
+
+[dependencies.core_mods]
+path = '../pallets/core_mods'
+version = '0.4.0'
 
 [dependencies.core_mods_rpc]
 path = '../pallets/core_mods/rpc'

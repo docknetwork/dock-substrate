@@ -105,16 +105,16 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
     C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
-    C::Api: fiat_filter_rpc::FiatFeeRuntimeApi<Block, Balance>,
+    // C::Api: fiat_filter_rpc::FiatFeeRuntimeApi<Block, Balance>,
     C::Api: staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
-    C::Api: core_mods_rpc::CoreModsRuntimeApi<Block>,
+    C::Api: core_mods_rpc::CoreModsRuntimeApi<Block, dock_runtime::Runtime>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     P: TransactionPool<Block = Block> + 'static,
     SC: SelectChain<Block> + 'static,
 {
     use core_mods_rpc::{CoreMods, CoreModsApi};
-    use fiat_filter_rpc::{FiatFeeApi, FiatFeeServer};
+    //use fiat_filter_rpc::{FiatFeeApi, FiatFeeServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use poa_rpc::{PoA, PoAApi};
     use price_feed_rpc::{PriceFeed, PriceFeedApi};
@@ -265,7 +265,7 @@ where
         overrides,
     )));
 
-    io.extend_with(FiatFeeApi::to_delegate(FiatFeeServer::new(client.clone())));
+    // io.extend_with(FiatFeeApi::to_delegate(FiatFeeServer::new(client.clone())));
 
     io
 }

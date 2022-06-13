@@ -1,11 +1,30 @@
 use dock_runtime::{
-    did::{self, Did, KeyDetail},
-    master::Membership,
-    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
-    EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
-    MasterConfig, PoAModuleConfig, SessionConfig, SessionKeys, Signature, StakerStatus,
-    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
-    DOCK, WASM_BINARY,
+    did::{self, Did},
+    //master::Membership,
+    AccountId,
+    AuthorityDiscoveryConfig,
+    BabeConfig,
+    Balance,
+    BalancesConfig, /*DIDModuleConfig,*/
+    EVMConfig,
+    ElectionsConfig,
+    EthereumConfig,
+    GenesisConfig,
+    GrandpaConfig,
+    Hash,
+    ImOnlineConfig,
+    /*MasterConfig,*/ PoAModuleConfig,
+    SessionConfig,
+    SessionKeys,
+    Signature,
+    StakerStatus,
+    StakingConfig,
+    SudoConfig,
+    SystemConfig,
+    TechnicalCommitteeConfig,
+    BABE_GENESIS_EPOCH_CONFIG,
+    DOCK,
+    WASM_BINARY,
 };
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -155,7 +174,7 @@ pub fn development_config() -> ChainSpec {
                     "Eve",
                     "Ferdie",
                 ]),
-                master: Membership {
+                /*master: Membership {
                     members: [
                         b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"Bob\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -183,7 +202,7 @@ pub fn development_config() -> ChainSpec {
                 ]
                 .iter()
                 .map(|(name, sk)| did_from_seed(name, sk))
-                .collect(),
+                .collect(),*/
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
                 council_members: get_seed_vector_to_account_vector(
                     ["Alice//stash", "Bob//stash", "Charlie"].to_vec(),
@@ -232,7 +251,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     "Eve//stash",
                     "Ferdie//stash",
                 ]),
-                master: Membership {
+                /*master: Membership {
                     members: [
                         b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"Bob\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -243,7 +262,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     .cloned()
                     .collect(),
                     vote_requirement: 2,
-                },
+                },*/
                 dids: [
                     (
                         b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -691,10 +710,10 @@ impl GenesisBuilder {
             grandpa: GrandpaConfig {
                 authorities: vec![],
             },
-            master: MasterConfig {
+            /*master: MasterConfig {
                 members: self.master,
             },
-            did: DIDModuleConfig { dids: self.dids },
+            did: DIDModuleConfig { dids: self.dids },*/
             sudo: SudoConfig { key: self.sudo },
             pallet_collective_Instance1: Default::default(),
             pallet_collective_Instance2: TechnicalCommitteeConfig {

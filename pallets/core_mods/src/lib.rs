@@ -63,7 +63,7 @@ pub mod did;
 pub mod keys_and_sigs;
 // pub mod master;
 // pub mod revoke;
-// pub mod runtime_api;
+pub mod runtime_api;
 pub mod types;
 pub mod util;
 

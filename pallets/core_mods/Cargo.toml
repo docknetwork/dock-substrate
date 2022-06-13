@@ -31,6 +31,7 @@ default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
+# features = ['full_crypto']
 
 [dependencies.sp-std]
 default-features = false
@@ -68,6 +69,13 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.sp-application-crypto]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+# features = ['full_crypto']
+
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
@@ -78,7 +86,7 @@ branch = "frontier"
 [dependencies.libsecp256k1]
 version = '0.7'
 default-features = false
-features = ['static-context']
+features = ['static-context', 'hmac']
 
 [dependencies.sha2]
 version = '0.9'
@@ -93,16 +101,18 @@ std = [
     'codec/std',
     'frame-support/std',
     'frame-benchmarking/std',
+    'sp-application-crypto/std',
+    'sp-application-crypto/full_crypto',
     'serde',
     'serde-big-array',
     'sp-core/std',
+    'sp-core/full_crypto',
     'sp-io/std',
     'sp-runtime/std',
     'sp-std/std',
     'frame-system/std',
     'sp-api/std',
-    'libsecp256k1/std',
-    'libsecp256k1/hmac'
+    'libsecp256k1/std'
 ]
 
 runtime-benchmarks = [

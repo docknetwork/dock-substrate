@@ -9,7 +9,7 @@ use frame_support::{
     dispatch::DispatchResult, ensure, fail, traits::Get, weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{Hash, One};
+use sp_runtime::traits::Hash;
 use sp_std::borrow::Cow;
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
@@ -114,6 +114,30 @@ bitflags::bitflags! {
 bitflags::bitflags! {
     #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    /// Information requested for DID.
+    pub struct DidRequestParams: u8 {
+        /// Just basic DID details.
+        const BASIC = 0;
+        /// Include DID keys as well.
+        const KEYS = 0b001;
+        /// Include DID controllers.
+        const CONTROLLERS = 0b010;
+        /// Include DID endpoints.
+        const ENDPOINTS = 0b100;
+        /// Include full DID information.
+        const FULL = 0b111;
+    }
+}
+
+impl Default for DidRequestParams {
+    fn default() -> Self {
+        Self::FULL
+    }
+}
+
+bitflags::bitflags! {
+    #[derive(Encode, Decode)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
     pub struct ServiceEndpointType: u16 {
         /// No service endpoint set.
@@ -124,6 +148,7 @@ bitflags::bitflags! {
 
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename = "camelCase"))]
 pub struct DidKey {
     /// The public key
     key: PublicKey,
@@ -133,6 +158,7 @@ pub struct DidKey {
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename = "camelCase"))]
 pub struct DidSignature {
     /// The DID that created this signature
     did: Did,
@@ -145,7 +171,8 @@ pub struct DidSignature {
 /// Stores details of an on-chain DID
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct DidDetail<T: Trait> {
+#[cfg_attr(feature = "serde", serde(rename = "camelCase"))]
+pub struct OnChainDidDetail<T: Trait> {
     /// The nonce is set to the current block number when a DID is registered. Subsequent updates/removal
     /// should supply a nonce 1 more than the current nonce of the DID and on successful update, the
     /// new nonce is stored with the DID. The reason for starting the nonce with current block number
@@ -160,16 +187,77 @@ pub struct DidDetail<T: Trait> {
     active_controllers: u32,
 }
 
+impl<T: Trait> From<OnChainDidDetail<T>> for DidDetailStorage<T> {
+    fn from(details: OnChainDidDetail<T>) -> Self {
+        Self::OnChain(details)
+    }
+}
+
+impl<T: Trait + Debug> OnChainDidDetail<T> {
+    fn new(
+        nonce: T::BlockNumber,
+        last_key_id: IncId,
+        active_controller_keys: impl Into<u32>,
+        active_controllers: impl Into<u32>,
+    ) -> Self {
+        Self {
+            nonce,
+            last_key_id,
+            active_controller_keys: active_controller_keys.into(),
+            active_controllers: active_controllers.into(),
+        }
+    }
+
+    /// Increases current nonce if provided nonce is equal to current nonce plus 1, otherwise
+    /// returns an error.
+    fn inc_nonce(&mut self, nonce: T::BlockNumber) -> Result<(), Error<T>> {
+        if nonce == self.nonce + 1u8.into() {
+            self.nonce += 1u8.into();
+
+            Ok(())
+        } else {
+            Err(Error::<T>::IncorrectNonce)
+        }
+    }
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename = "camelCase"))]
+pub struct OffChainDidDetail<T: Trait> {
+    pub account_id: T::AccountId,
+    pub doc_ref: OffChainDidDocRef,
+}
+
+impl<T: Trait> From<OffChainDidDetail<T>> for DidDetailStorage<T> {
+    fn from(details: OffChainDidDetail<T>) -> Self {
+        Self::OffChain(details)
+    }
+}
+
+impl<T: Trait> OffChainDidDetail<T> {
+    fn new(account_id: T::AccountId, doc_ref: OffChainDidDocRef) -> Self {
+        Self {
+            account_id,
+            doc_ref,
+        }
+    }
+}
+
 /// Enum describing the storage of the DID
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(tag = "type", content = "details", rename = "camelCase")
+)]
 pub enum DidDetailStorage<T: Trait> {
     /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
     /// the caller account and Substrate takes care of replay protection. Thus it stores the data
     /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
-    OffChain(T::AccountId, OffChainDidDocRef),
+    OffChain(OffChainDidDetail<T>),
     /// For on-chain DID, all data is stored on the chain.
-    OnChain(DidDetail<T>),
+    OnChain(OnChainDidDetail<T>),
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
@@ -177,6 +265,67 @@ pub enum DidDetailStorage<T: Trait> {
 pub struct ServiceEndpoint {
     types: ServiceEndpointType,
     origins: Vec<Vec<u8>>,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct DidKeyWithId {
+    id: IncId,
+    key: DidKey,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ServiceEndpointWithId {
+    id: Vec<u8>,
+    endpoint: ServiceEndpoint,
+}
+
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename = "camelCase"))]
+pub struct DidDetailsResponse<T: Trait> {
+    did: Did,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    details: DidDetailStorage<T>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    keys: Option<Vec<DidKeyWithId>>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    controllers: Option<Vec<Did>>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    service_endpoints: Option<Vec<ServiceEndpointWithId>>,
+}
+
+impl<T: Trait> DidDetailsResponse<T> {
+    pub fn new<CI, KI, SI>(
+        did: Did,
+        details: DidDetailStorage<T>,
+        keys: Option<KI>,
+        controllers: Option<CI>,
+        service_endpoints: Option<SI>,
+    ) -> Self
+    where
+        KI: IntoIterator<Item = (IncId, DidKey)>,
+        CI: IntoIterator<Item = Did>,
+        SI: IntoIterator<Item = (Vec<u8>, ServiceEndpoint)>,
+    {
+        Self {
+            did,
+            details,
+            controllers: controllers.map(|controllers| controllers.into_iter().collect()),
+            keys: keys.map(|keys| {
+                keys.into_iter()
+                    .map(|(id, key)| DidKeyWithId { id, key })
+                    .collect()
+            }),
+            service_endpoints: service_endpoints.map(|endpoints| {
+                endpoints
+                    .into_iter()
+                    .map(|(id, endpoint)| ServiceEndpointWithId { id, endpoint })
+                    .collect()
+            }),
+        }
+    }
 }
 
 /// An incremental identifier.
@@ -344,42 +493,35 @@ impl OffChainDidDocRef {
 }
 
 impl<T: Trait> DidDetailStorage<T> {
-    pub fn is_on_chain(&self) -> bool {
+    pub fn is_onchain(&self) -> bool {
         match self {
             DidDetailStorage::OnChain(_) => true,
             _ => false,
         }
     }
 
-    pub fn is_off_chain(&self) -> bool {
-        !self.is_on_chain()
+    pub fn is_offchain(&self) -> bool {
+        !self.is_onchain()
     }
 
-    pub fn to_on_chain_did_detail(self) -> DidDetail<T> {
+    pub fn into_offchain(self) -> Option<OffChainDidDetail<T>> {
         match self {
-            DidDetailStorage::OnChain(d) => d,
-            _ => panic!("This should never happen"),
+            DidDetailStorage::OffChain(details) => Some(details),
+            _ => None,
         }
     }
 
-    pub fn from_on_chain_detail(
-        last_key_id: IncId,
-        active_controller_keys: u32,
-        active_controllers: u32,
-        nonce: impl Into<T::BlockNumber>,
-    ) -> Self {
-        DidDetailStorage::OnChain(DidDetail {
-            last_key_id,
-            active_controller_keys,
-            active_controllers,
-            nonce: nonce.into(),
-        })
+    pub fn into_onchain(self) -> Option<OnChainDidDetail<T>> {
+        match self {
+            DidDetailStorage::OnChain(details) => Some(details),
+            _ => None,
+        }
     }
 
-    pub fn to_off_chain_did_owner_and_doc_ref(self) -> (T::AccountId, OffChainDidDocRef) {
+    pub fn to_onchain_mut(&mut self) -> Option<&mut OnChainDidDetail<T>> {
         match self {
-            DidDetailStorage::OffChain(owner, doc_ref) => (owner, doc_ref),
-            _ => panic!("This should never happen"),
+            DidDetailStorage::OnChain(details) => Some(details),
+            _ => None,
         }
     }
 }
@@ -505,7 +647,7 @@ decl_storage! {
         pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) dock::did::Did, hasher(identity) IncId => Option<DidKey>;
         /// Stores controlled - controller) pairs of a DID as (DID, DID) -> bool.
         pub DidControllers get(fn is_controller): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Did => bool;
-        /// Stores service endpoints of a DID as (DID, endpoint id) -> bool.
+        /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
         pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Vec<u8> => Option<ServiceEndpoint>;
     }
     // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
@@ -590,7 +732,7 @@ decl_module! {
             ensure_signed_origin_and_control_signed_payload!(origin, &keys, &sig, {
                 ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
             });
-            Module::<T>::add_keys_(keys)
+            Module::<T>::exec_onchain_did_action(keys, Module::<T>::add_keys_)
         }
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
@@ -601,7 +743,7 @@ decl_module! {
             ensure_signed_origin_and_control_signed_payload!(origin, &keys, &sig, {
                 ensure!(keys.len() > 0, Error::<T>::NoKeyProvided);
             });
-            Module::<T>::remove_keys_(keys)
+            Module::<T>::exec_onchain_did_action(keys, Module::<T>::remove_keys_)
         }
 
         /// Add new controllers. Does not check if the controller being added has any key or is even
@@ -612,7 +754,7 @@ decl_module! {
             ensure_signed_origin_and_control_signed_payload!(origin, &controllers, &sig, {
                 ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
             });
-            Module::<T>::add_controllers_(controllers)
+            Module::<T>::exec_onchain_did_action(controllers, Module::<T>::add_controllers_)
         }
 
         /// Remove controllers. This's atomic operation meaning that it will either remove all keys or do nothing.
@@ -623,7 +765,7 @@ decl_module! {
             ensure_signed_origin_and_control_signed_payload!(origin, &controllers, &sig, {
                 ensure!(controllers.len() > 0, Error::<T>::NoControllerProvided);
             });
-            Module::<T>::remove_controllers_(controllers)
+            Module::<T>::exec_onchain_did_action(controllers, Module::<T>::remove_controllers_)
         }
 
         /// Add a single service endpoint.
@@ -638,7 +780,7 @@ decl_module! {
                 );
                 ensure!(service_endpoint.endpoint.is_valid(T::MaxServiceEndpointOrigins::get() as usize, T::MaxServiceEndpointOriginSize::get() as usize), Error::<T>::InvalidServiceEndpoint);
             });
-            Module::<T>::add_service_endpoint_(service_endpoint)
+            Module::<T>::exec_onchain_did_action(service_endpoint, Module::<T>::add_service_endpoint_)
         }
 
         /// Remove a single service endpoint.
@@ -648,7 +790,7 @@ decl_module! {
             ensure_signed_origin_and_control_signed_payload!(origin, &service_endpoint, &sig, {
                 ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             });
-            Module::<T>::remove_service_endpoint_(service_endpoint)
+            Module::<T>::exec_onchain_did_action(service_endpoint, Module::<T>::remove_service_endpoint_)
         }
 
         /// Remove the on-chain DID. This will remove this DID's keys, controllers and service endpoints. But it won't remove storage
@@ -675,7 +817,10 @@ where
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
-        Dids::<T>::insert(did, DidDetailStorage::OffChain(caller, did_doc_ref.clone()));
+        Dids::<T>::insert::<_, DidDetailStorage<T>>(
+            did,
+            OffChainDidDetail::new(caller, did_doc_ref.clone()).into(),
+        );
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
             <T as Trait>::Event::from(Event::OffChainDidAdded(did, did_doc_ref)).into(),
@@ -689,7 +834,11 @@ where
         did_doc_ref: OffChainDidDocRef,
     ) -> DispatchResult {
         Self::ensure_offchain_did_be_updated(&caller, &did)?;
-        Dids::<T>::insert(did, DidDetailStorage::OffChain(caller, did_doc_ref.clone()));
+
+        Dids::<T>::insert::<_, DidDetailStorage<T>>(
+            did,
+            OffChainDidDetail::new(caller, did_doc_ref.clone()).into(),
+        );
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
             <T as Trait>::Event::from(Event::OffChainDidUpdated(did, did_doc_ref)).into(),
@@ -699,6 +848,7 @@ where
 
     fn remove_offchain_did_(caller: T::AccountId, did: Did) -> DispatchResult {
         Self::ensure_offchain_did_be_updated(&caller, &did)?;
+
         Dids::<T>::remove(did);
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
@@ -732,15 +882,15 @@ where
 
         // Nonce will start from current block number
         let nonce = <system::Module<T>>::block_number();
-        Dids::<T>::insert(
-            did,
-            DidDetailStorage::from_on_chain_detail(
-                last_key_id,
-                controller_keys_count,
-                controllers.len() as u32,
-                nonce,
-            ),
-        );
+        let did_details: DidDetailStorage<T> = OnChainDidDetail::new(
+            nonce,
+            last_key_id,
+            controller_keys_count,
+            controllers.len() as u32,
+        )
+        .into();
+
+        Dids::<T>::insert(did, did_details);
 
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
@@ -749,21 +899,28 @@ where
         Ok(())
     }
 
-    fn add_keys_(AddKeys { did, nonce, keys }: AddKeys<T>) -> DispatchResult {
-        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
-
+    fn add_keys_(
+        AddKeys { did, keys, .. }: AddKeys<T>,
+        OnChainDidDetail {
+            active_controllers,
+            active_controller_keys,
+            last_key_id,
+            ..
+        }: &mut OnChainDidDetail<T>,
+    ) -> DispatchResult {
         // If DID was not self controlled first, check if it can become by looking
         let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
+        *active_controller_keys += controller_keys_count;
 
         // Make self controlled if needed
         let add_self_controlled = controller_keys_count > 0 && !Self::is_self_controlled(&did);
         if add_self_controlled {
             DidControllers::insert(&did, &did, true);
+            *active_controllers += 1;
         }
 
-        let mut last_key_id = did_detail.last_key_id;
-        for (key, key_id) in keys_to_insert.iter().zip(&mut last_key_id) {
-            DidKeys::insert(did, key_id, key)
+        for (key, key_id) in keys_to_insert.iter().zip(last_key_id) {
+            DidKeys::insert(did, key_id, key);
         }
 
         <system::Module<T>>::deposit_event_indexed(
@@ -771,28 +928,22 @@ where
             <T as Trait>::Event::from(Event::DidKeysAdded(did)).into(),
         );
 
-        Dids::<T>::insert(
-            did,
-            DidDetailStorage::from_on_chain_detail(
-                last_key_id,
-                did_detail.active_controller_keys + controller_keys_count,
-                did_detail.active_controllers + add_self_controlled as u32,
-                nonce,
-            ),
-        );
-
         Ok(())
     }
 
-    fn remove_keys_(RemoveKeys { did, nonce, keys }: RemoveKeys<T>) -> DispatchResult {
-        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
-
-        let mut controller_keys_count = 0;
+    fn remove_keys_(
+        RemoveKeys { did, keys, .. }: RemoveKeys<T>,
+        OnChainDidDetail {
+            active_controllers,
+            active_controller_keys,
+            ..
+        }: &mut OnChainDidDetail<T>,
+    ) -> DispatchResult {
         for key_id in &keys {
             let key = DidKeys::get(&did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
             if key.can_control() {
-                controller_keys_count += 1;
+                *active_controller_keys -= 1;
             }
         }
 
@@ -800,23 +951,12 @@ where
             DidKeys::remove(did, key);
         }
 
-        let active_controller_keys = did_detail.active_controller_keys - controller_keys_count;
-
         // If no self-control keys exist for the given DID, remove self-control
-        let remove_self_controlled = active_controller_keys == 0 && Self::is_self_controlled(&did);
+        let remove_self_controlled = *active_controller_keys == 0 && Self::is_self_controlled(&did);
         if remove_self_controlled {
             DidControllers::remove(&did, &did);
+            *active_controllers -= 1;
         }
-
-        Dids::<T>::insert(
-            did,
-            DidDetailStorage::from_on_chain_detail(
-                did_detail.last_key_id,
-                active_controller_keys,
-                did_detail.active_controllers - remove_self_controlled as u32,
-                nonce,
-            ),
-        );
 
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
@@ -828,13 +968,12 @@ where
 
     fn add_controllers_(
         AddControllers {
-            did,
-            nonce,
-            controllers,
+            did, controllers, ..
         }: AddControllers<T>,
+        OnChainDidDetail {
+            active_controllers, ..
+        }: &mut OnChainDidDetail<T>,
     ) -> DispatchResult {
-        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
-
         for ctrl in &controllers {
             if Self::is_controller(&did, ctrl) {
                 fail!(Error::<T>::ControllerIsAlreadyAdded)
@@ -843,17 +982,8 @@ where
 
         for ctrl in &controllers {
             DidControllers::insert(&did, &ctrl, true);
+            *active_controllers += 1;
         }
-
-        Dids::<T>::insert(
-            did,
-            DidDetailStorage::from_on_chain_detail(
-                did_detail.last_key_id,
-                did_detail.active_controller_keys,
-                did_detail.active_controllers + controllers.len() as u32,
-                nonce,
-            ),
-        );
 
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
@@ -865,13 +995,12 @@ where
 
     fn remove_controllers_(
         RemoveControllers {
-            did,
-            nonce,
-            controllers,
+            did, controllers, ..
         }: RemoveControllers<T>,
+        OnChainDidDetail {
+            active_controllers, ..
+        }: &mut OnChainDidDetail<T>,
     ) -> DispatchResult {
-        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
-
         for controller_did in &controllers {
             if !Self::is_controller(&did, controller_did) {
                 fail!(Error::<T>::NoControllerForDid)
@@ -880,17 +1009,8 @@ where
 
         for controller_did in &controllers {
             DidControllers::remove(&did, controller_did);
+            *active_controllers -= 1;
         }
-
-        Dids::<T>::insert(
-            did,
-            DidDetailStorage::from_on_chain_detail(
-                did_detail.last_key_id,
-                did_detail.active_controller_keys,
-                did_detail.active_controllers - controllers.len() as u32,
-                nonce,
-            ),
-        );
 
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
@@ -902,26 +1022,14 @@ where
 
     fn add_service_endpoint_(
         AddServiceEndpoint {
-            did,
-            id,
-            endpoint,
-            nonce,
+            did, id, endpoint, ..
         }: AddServiceEndpoint<T>,
+        _: &mut OnChainDidDetail<T>,
     ) -> DispatchResult {
-        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
         if Self::did_service_endpoints(&did, &id).is_some() {
             fail!(Error::<T>::ServiceEndpointAlreadyExists)
         }
         DidServiceEndpoints::insert(did, id, endpoint);
-        Dids::<T>::insert(
-            did,
-            DidDetailStorage::from_on_chain_detail(
-                did_detail.last_key_id,
-                did_detail.active_controller_keys,
-                did_detail.active_controllers,
-                nonce,
-            ),
-        );
 
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
@@ -931,22 +1039,13 @@ where
     }
 
     fn remove_service_endpoint_(
-        RemoveServiceEndpoint { did, id, nonce }: RemoveServiceEndpoint<T>,
+        RemoveServiceEndpoint { did, id, .. }: RemoveServiceEndpoint<T>,
+        _: &mut OnChainDidDetail<T>,
     ) -> DispatchResult {
-        let did_detail = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
         if Self::did_service_endpoints(&did, &id).is_none() {
             fail!(Error::<T>::ServiceEndpointDoesNotExist)
         }
         DidServiceEndpoints::remove(did, id);
-        Dids::<T>::insert(
-            did,
-            DidDetailStorage::from_on_chain_detail(
-                did_detail.last_key_id,
-                did_detail.active_controller_keys,
-                did_detail.active_controllers,
-                nonce,
-            ),
-        );
 
         <system::Module<T>>::deposit_event_indexed(
             &[<T as system::Config>::Hashing::hash(&did)],
@@ -956,7 +1055,8 @@ where
     }
 
     fn remove_onchain_did_(DidRemoval { did, nonce }: DidRemoval<T>) -> DispatchResult {
-        let _ = Self::get_on_chain_did_detail_for_update(&did, nonce)?;
+        Self::onchain_did_details(&did)?.inc_nonce(nonce)?;
+
         DidKeys::remove_prefix(did);
         DidControllers::remove_prefix(did);
         DidServiceEndpoints::remove_prefix(did);
@@ -1035,37 +1135,61 @@ where
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }
 
-    /// Get DID detail for on-chain DID if given nonce is correct, i.e. 1 more than the current nonce.
-    /// This is used for update
-    pub fn get_on_chain_did_detail_for_update(
-        did: &Did,
-        new_nonce: impl Into<T::BlockNumber>,
-    ) -> Result<DidDetail<T>, DispatchError> {
-        let did_detail_storage = Self::get_on_chain_did_detail(did)?;
-        if new_nonce.into() != (did_detail_storage.nonce + T::BlockNumber::one()) {
-            fail!(Error::<T>::IncorrectNonce)
-        }
-        Ok(did_detail_storage)
+    /// Executes action over target onchain DID providing a mutable reference if given nonce is correct,
+    /// i.e. 1 more than the current nonce.
+    pub fn exec_onchain_did_action<A, F, R>(action: A, f: F) -> Result<R, DispatchError>
+    where
+        F: FnOnce(A, &mut OnChainDidDetail<T>) -> Result<R, DispatchError>,
+        A: Action<T, Target = Did>,
+    {
+        Dids::<T>::try_mutate(action.target(), |details_opt| {
+            let onchain_details = details_opt
+                .as_mut()
+                .ok_or(Error::<T>::DidDoesNotExist)?
+                .to_onchain_mut()
+                .ok_or(Error::<T>::CannotGetDetailForOffChainDid)?;
+
+            onchain_details.inc_nonce(action.nonce())?;
+
+            f(action, onchain_details)
+        })
     }
 
     /// Get DID detail of an on-chain DID. Throws error if DID does not exist or is off-chain.
-    pub fn get_on_chain_did_detail(did: &Did) -> Result<DidDetail<T>, DispatchError> {
-        if let Some(did_detail_storage) = Dids::<T>::get(did) {
-            if did_detail_storage.is_off_chain() {
-                fail!(Error::<T>::CannotGetDetailForOffChainDid)
-            }
-            Ok(did_detail_storage.to_on_chain_did_detail())
-        } else {
-            fail!(Error::<T>::DidDoesNotExist)
-        }
+    pub fn onchain_did_details(did: &Did) -> Result<OnChainDidDetail<T>, DispatchError> {
+        Self::did(did)
+            .ok_or(Error::<T>::DidDoesNotExist)?
+            .into_onchain()
+            .ok_or(Error::<T>::CannotGetDetailForOffChainDid.into())
+    }
+
+    pub fn did_details(did: &Did, params: DidRequestParams) -> Option<DidDetailsResponse<T>> {
+        let details = Self::did(did)?;
+        let keys = params
+            .intersects(DidRequestParams::KEYS)
+            .then(|| DidKeys::iter_prefix(did));
+        let controllers = params
+            .intersects(DidRequestParams::CONTROLLERS)
+            .then(|| DidControllers::iter_prefix(did))
+            .map(|ctrls| ctrls.filter_map(|(did, is_controller)| is_controller.then(|| did)));
+        let endpoints = params
+            .intersects(DidRequestParams::ENDPOINTS)
+            .then(|| DidServiceEndpoints::iter_prefix(did));
+
+        Some(DidDetailsResponse::new(
+            *did,
+            details,
+            keys,
+            controllers,
+            endpoints,
+        ))
     }
 
     pub fn is_onchain_did(did: &Did) -> Result<bool, Error<T>> {
-        if let Some(did_detail_storage) = Dids::<T>::get(did) {
-            Ok(did_detail_storage.is_on_chain())
-        } else {
-            fail!(Error::<T>::DidDoesNotExist)
-        }
+        Self::did(did)
+            .as_ref()
+            .map(DidDetailStorage::is_onchain)
+            .ok_or(Error::<T>::DidDoesNotExist)
     }
 
     pub fn is_offchain_did(did: &Did) -> Result<bool, Error<T>> {
@@ -1077,17 +1201,15 @@ where
         caller: &T::AccountId,
         did: &Did,
     ) -> Result<(), DispatchError> {
-        if let Some(did_detail_storage) = Dids::<T>::get(did) {
-            match did_detail_storage {
-                DidDetailStorage::OnChain(_) => fail!(Error::<T>::NotAnOffChainDid),
-                DidDetailStorage::OffChain(account, _) => {
-                    ensure!(account == *caller, Error::<T>::DidNotOwnedByAccount);
-                    Ok(())
-                }
-            }
-        } else {
-            fail!(Error::<T>::DidDoesNotExist)
-        }
+        let account_id = Self::did(did)
+            .ok_or(Error::<T>::DidDoesNotExist)?
+            .into_offchain()
+            .ok_or(Error::<T>::NotAnOffChainDid)?
+            .account_id;
+
+        ensure!(account_id == *caller, Error::<T>::DidNotOwnedByAccount);
+
+        Ok(())
     }
 }
 
@@ -1124,7 +1246,7 @@ mod tests {
         active_controllers: u32,
         nonce: <Test as frame_system::Config>::BlockNumber,
     ) {
-        let did_detail = DIDModule::get_on_chain_did_detail(did).unwrap();
+        let did_detail = DIDModule::onchain_did_details(did).unwrap();
         assert_eq!(did_detail.last_key_id, last_key_id.into());
         assert_eq!(did_detail.active_controller_keys, active_controller_keys);
         assert_eq!(did_detail.active_controllers, active_controllers);
@@ -1154,7 +1276,7 @@ mod tests {
     }
 
     #[test]
-    fn off_chain_did() {
+    fn offchain_did() {
         // Creating an off-chain DID
         ext().execute_with(|| {
             let alice = 1u64;
@@ -1195,12 +1317,15 @@ mod tests {
             assert!(!DIDModule::is_onchain_did(&did).unwrap());
 
             assert_noop!(
-                DIDModule::get_on_chain_did_detail(&did),
+                DIDModule::onchain_did_details(&did),
                 Error::<Test>::CannotGetDetailForOffChainDid
             );
 
             let did_detail_storage = Dids::<Test>::get(&did).unwrap();
-            let (owner, fetched_ref) = did_detail_storage.to_off_chain_did_owner_and_doc_ref();
+            let OffChainDidDetail {
+                account_id: owner,
+                doc_ref: fetched_ref,
+            } = did_detail_storage.into_offchain().unwrap();
             assert_eq!(owner, alice);
             assert_eq!(fetched_ref, doc_ref);
 
@@ -1226,7 +1351,7 @@ mod tests {
                 new_ref.clone()
             ));
             let did_detail_storage = Dids::<Test>::get(&did).unwrap();
-            let (_, fetched_ref) = did_detail_storage.to_off_chain_did_owner_and_doc_ref();
+            let fetched_ref = did_detail_storage.into_offchain().unwrap().doc_ref;
             assert_eq!(fetched_ref, new_ref);
 
             assert_noop!(
@@ -1240,7 +1365,7 @@ mod tests {
     }
 
     #[test]
-    fn on_chain_keyless_did_creation() {
+    fn onchain_keyless_did_creation() {
         // Creating an on-chain DID with no keys but only controllers, i.e. DID is controlled by other DIDs
         ext().execute_with(|| {
             let alice = 1u64;
@@ -1309,7 +1434,7 @@ mod tests {
     }
 
     #[test]
-    fn on_chain_keyed_did_creation_with_self_control() {
+    fn onchain_keyed_did_creation_with_self_control() {
         // Creating an on-chain DID with keys but no other controllers
         ext().execute_with(|| {
             let alice = 1u64;
@@ -1646,7 +1771,7 @@ mod tests {
     }
 
     #[test]
-    fn on_chain_keyed_did_creation_with_and_without_self_control() {
+    fn onchain_keyed_did_creation_with_and_without_self_control() {
         // Creating an on-chain DID with keys and other controllers
         ext().execute_with(|| {
             let alice = 1u64;
@@ -3560,6 +3685,11 @@ mod tests {
             ensure_onchain_did_gone(&did_1);
         });
     }
+
+    #[test]
+    fn encode_zero() {
+        panic!("{:?}", Some(()).encode());
+    }
     // TODO: Add test for events DidAdded, KeyUpdated, DIDRemoval
 }
 
@@ -3607,7 +3737,7 @@ mod benchmarking {
 
         }: _(RawOrigin::Signed(caller), did, KeyDetail {controller: did, public_key: pk})
         verify {
-            let value = Dids::<T>::get(did);
+            let value = Self::did(did);
             assert!(value.is_some());
         }
 
@@ -3633,7 +3763,7 @@ mod benchmarking {
             );
         }: update_key(RawOrigin::Signed(caller), key_update, sig)
         verify {
-            let value = Dids::<T>::get(did);
+            let value = Self::did(did);
             assert!(value.is_some());
         }
 
@@ -3656,7 +3786,7 @@ mod benchmarking {
             );
         }: update_key(RawOrigin::Signed(caller), key_update, sig)
         verify {
-            let value = Dids::<T>::get(did);
+            let value = Self::did(did);
             assert!(value.is_some());
         }
 
@@ -3679,7 +3809,7 @@ mod benchmarking {
             );
         }: update_key(RawOrigin::Signed(caller), key_update, sig)
         verify {
-            let value = Dids::<T>::get(did);
+            let value = Self::did(did);
             assert!(value.is_some());
         }
 
@@ -3700,7 +3830,7 @@ mod benchmarking {
             );
         }: remove(RawOrigin::Signed(caller), remove, sig)
         verify {
-            let value = Dids::<T>::get(did);
+            let value = Self::did(did);
             assert!(value.is_none());
         }
 

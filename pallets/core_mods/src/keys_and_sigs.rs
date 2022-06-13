@@ -2,7 +2,9 @@ use crate::util::{Bytes32, Bytes33, Bytes64, Bytes65};
 use codec::{Decode, Encode};
 use frame_support::dispatch::Weight;
 use sha2::{Digest, Sha256};
-use sp_core::{ed25519, sr25519, Pair};
+#[cfg(feature = "std")]
+use sp_application_crypto::Pair;
+use sp_core::{ed25519, sr25519};
 use sp_runtime::traits::Verify;
 use sp_std::convert::TryInto;
 
@@ -138,12 +140,14 @@ impl SigValue {
         Ok(result)
     }
 
+    #[cfg(feature = "std")]
     pub fn sr25519(msg: &[u8], pair: &sr25519::Pair) -> Self {
         SigValue::Sr25519(Bytes64 {
             value: pair.sign(msg).0,
         })
     }
 
+    #[cfg(feature = "std")]
     pub fn ed25519(msg: &[u8], pair: &ed25519::Pair) -> Self {
         SigValue::Ed25519(Bytes64 {
             value: pair.sign(msg).0,

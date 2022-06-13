@@ -387,15 +387,15 @@ default-features = false
 path = '../pallets/price_feed'
 version = '0.0.1'
 
-[dependencies.fiat_filter]
-default-features = false
-path = '../pallets/fiat_filter'
-version = '0.1.0'
+#[dependencies.fiat_filter]
+#default-features = false
+#path = '../pallets/fiat_filter'
+#version = '0.1.0'
 
-[dependencies.fiat_filter_rpc_runtime_api]
-default-features = false
-path = '../pallets/fiat_filter/rpc/runtime_api'
-version = '0.0.1'
+#[dependencies.fiat_filter_rpc_runtime_api]
+#default-features = false
+#path = '../pallets/fiat_filter/rpc/runtime_api'
+#version = '0.0.1'
 
 [dependencies.common]
 path = '../common'
@@ -470,8 +470,8 @@ std = [
     'token_migration/std',
     'core_mods/std',
     'price_feed/std',
-    'fiat_filter/std',
-    'fiat_filter_rpc_runtime_api/std',
+    # 'fiat_filter/std',
+    #'fiat_filter_rpc_runtime_api/std',
     'staking_rewards/std',
 ]
 runtime-benchmarks = [

@@ -1,19 +1,37 @@
 pub use self::gen_client::Client as PriceFeedClient;
-use core_mods::accumulator;
-use core_mods::bbs_plus;
-pub use core_mods::did::Did;
+// use core_mods::accumulator;
+//use core_mods::bbs_plus;
+pub use core_mods::did::{self, Trait};
 pub use core_mods::runtime_api::CoreModsApi as CoreModsRuntimeApi;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::collections::BTreeMap;
 use std::sync::Arc;
 
 #[rpc]
-pub trait CoreModsApi<BlockHash> {
-    #[rpc(name = "core_mods_bbsPlusPublicKeyWithParams")]
+pub trait CoreModsApi<BlockHash, T>
+where
+    T: Trait,
+{
+    #[rpc(name = "core_mods_didDetails")]
+    fn did_details(
+        &self,
+        did: did::Did,
+        params: Option<did::DidRequestParams>,
+        at: Option<BlockHash>,
+    ) -> Result<Option<did::DidDetailsResponse<T>>>;
+
+    #[rpc(name = "core_mods_didListDetails")]
+    fn did_list_details(
+        &self,
+        did: Vec<did::Did>,
+        params: Option<did::DidRequestParams>,
+        at: Option<BlockHash>,
+    ) -> Result<Vec<Option<did::DidDetailsResponse<T>>>>;
+
+    /* #[rpc(name = "core_mods_bbsPlusPublicKeyWithParams")]
     fn bbs_plus_public_key_with_params(
         &self,
         id: bbs_plus::PublicKeyStorageKey,
@@ -46,7 +64,7 @@ pub trait CoreModsApi<BlockHash> {
         &self,
         id: accumulator::AccumulatorId,
         at: Option<BlockHash>,
-    ) -> Result<Option<(Vec<u8>, Option<accumulator::PublicKeyWithParams>)>>;
+    ) -> Result<Option<(Vec<u8>, Option<accumulator::PublicKeyWithParams>)>>;*/
 }
 
 /// A struct that implements the [`CoreModsApi`].
@@ -65,13 +83,50 @@ impl<C, P> CoreMods<C, P> {
     }
 }
 
-impl<C, Block> CoreModsApi<<Block as BlockT>::Hash> for CoreMods<C, Block>
+impl<C, Block, T> CoreModsApi<<Block as BlockT>::Hash, T> for CoreMods<C, Block>
 where
     Block: BlockT,
+    T: Trait,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: CoreModsRuntimeApi<Block>,
+    C::Api: CoreModsRuntimeApi<Block, T>,
 {
-    fn bbs_plus_public_key_with_params(
+    fn did_details(
+        &self,
+        did: did::Did,
+        params: Option<did::DidRequestParams>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Option<did::DidDetailsResponse<T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+
+        api.did_details(&at, did, params).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(2),
+            message: "Unable to query BBS+ public key with params".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
+    }
+
+    fn did_list_details(
+        &self,
+        dids: Vec<did::Did>,
+        params: Option<did::DidRequestParams>,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> Result<Vec<Option<did::DidDetailsResponse<T>>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+
+        api.did_list_details(&at, dids, params)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(2),
+                message: "Unable to query BBS+ public key with params".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
+    }
+    /*fn bbs_plus_public_key_with_params(
         &self,
         id: bbs_plus::PublicKeyStorageKey,
         at: Option<<Block as BlockT>::Hash>,
@@ -153,5 +208,5 @@ where
                 message: "Unable to query accumulator with public key and params.".into(),
                 data: Some(format!("{:?}", e).into()),
             })
-    }
+    }*/
 }

@@ -3,6 +3,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+// #![cfg_attr(not(feature = "std"), default_alloc_error_handler)]
 
 // Make the WASM_BINARY available, but hide WASM_BINARY_BLOATY.
 #[cfg(feature = "std")]
@@ -21,14 +22,14 @@ extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
 
-pub use core_mods::accumulator;
+//pub use core_mods::accumulator;
 pub use core_mods::anchor;
-pub use core_mods::attest;
-pub use core_mods::bbs_plus;
-pub use core_mods::blob;
+//pub use core_mods::attest;
+//pub use core_mods::bbs_plus;
+//pub use core_mods::blob;
 pub use core_mods::did;
-pub use core_mods::master;
-pub use core_mods::revoke;
+//pub use core_mods::master;
+// pub use core_mods::revoke;
 pub mod weight_to_fee;
 
 pub use poa;
@@ -354,7 +355,8 @@ parameter_types! {
 
 impl system::Config for Runtime {
     /// The basic call filter to use in dispatchable.
-    type BaseCallFilter = BaseFilter;
+    //type BaseCallFilter = BaseFilter;
+    type BaseCallFilter = ();
     /// The ubiquitous origin type.
     type Origin = Origin;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -713,9 +715,9 @@ impl did::Trait for Runtime {
     type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
 
-impl revoke::Trait for Runtime {}
+//impl revoke::Trait for Runtime {}
 
-impl bbs_plus::Config for Runtime {
+/*impl bbs_plus::Config for Runtime {
     type Event = Event;
     type LabelMaxSize = LabelMaxSize;
     type LabelPerByteWeight = LabelPerByteWeight;
@@ -740,7 +742,7 @@ impl accumulator::Config for Runtime {
 impl blob::Trait for Runtime {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
-}
+}*/
 
 parameter_types! {
     pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -817,23 +819,23 @@ impl pallet_utility::Config for Runtime {
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-impl master::Trait for Runtime {
+/*impl master::Trait for Runtime {
     type Event = Event;
     type Call = Call;
-}
+}*/
 
 impl sudo::Config for Runtime {
     type Event = Event;
     type Call = Call;
 }
 
-impl anchor::Trait for Runtime {
+/*impl anchor::Trait for Runtime {
     type Event = Event;
-}
+}*/
 
-impl attest::Trait for Runtime {
+/*impl attest::Trait for Runtime {
     type StorageWeight = StorageWeight;
-}
+}*/
 
 /// This origin indicates that either >50% (simple majority) of Council members approved some dispatch (through a proposal)
 /// or the dispatch was done as `Root` (by sudo or master)
@@ -1295,14 +1297,14 @@ parameter_types! {
     pub const MinDockFiatRate: u32 = 10;
 }
 
-impl fiat_filter::Config for Runtime {
+/*impl fiat_filter::Config for Runtime {
     type Call = Call;
     type PriceProvider = price_feed::Module<Runtime>;
     type Currency = balances::Module<Runtime>;
     type MinDockFiatRate = MinDockFiatRate;
-}
+}*/
 
-pub struct BaseFilter;
+/*pub struct BaseFilter;
 impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
@@ -1311,7 +1313,7 @@ impl Filter<Call> for BaseFilter {
             _ => true,
         }
     }
-}
+}*/
 
 // Balances pallet has to be put before Session in construct_runtime otherwise there is a runtime panic.
 
@@ -1330,14 +1332,14 @@ construct_runtime!(
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
         Utility: pallet_utility::{Module, Call, Event},
-        DIDModule: did::{Module, Call, Storage, Event, Config},
-        Revoke: revoke::{Module, Call, Storage},
+        DIDModule: did::{Module, Call, Storage, Event},
+        /*Revoke: revoke::{Module, Call, Storage},
         BlobStore: blob::{Module, Call, Storage},
-        Master: master::{Module, Call, Storage, Event<T>, Config},
+        Master: master::{Module, Call, Storage, Event<T>, Config},*/
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
-        Anchor: anchor::{Module, Call, Storage, Event<T>},
-        Attest: attest::{Module, Call, Storage},
+        /*Anchor: anchor::{Module, Call, Storage, Event<T>},
+        Attest: attest::{Module, Call, Storage},*/
         Democracy: pallet_democracy::{Module, Call, Storage, Event<T>},
         Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
@@ -1346,7 +1348,7 @@ construct_runtime!(
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
         PriceFeedModule: price_feed::{Module, Call, Storage, Event},
-        FiatFilterModule: fiat_filter::{Module, Call},
+        // FiatFilterModule: fiat_filter::{Module, Call},
         AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config},
         Historical: pallet_session_historical::{Module},
         ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},
@@ -1360,8 +1362,8 @@ construct_runtime!(
         Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
         Tips: pallet_tips::{Module, Call, Storage, Event<T>},
         Identity: pallet_identity::{Module, Call, Storage, Event<T>},
-        BbsPlus: bbs_plus::{Module, Call, Storage, Event},
-        Accumulator: accumulator::{Module, Call, Storage, Event},
+        //BbsPlus: bbs_plus::{Module, Call, Storage, Event},
+        //Accumulator: accumulator::{Module, Call, Storage, Event},
     }
 );
 
@@ -1741,14 +1743,14 @@ impl_runtime_apis! {
         }
     }
 
-    impl fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi<Block, Balance> for Runtime {
+    /*impl fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi<Block, Balance> for Runtime {
         fn get_call_fee_dock(uxt: <Block as BlockT>::Extrinsic) -> Result<Balance, fiat_filter_rpc_runtime_api::Error> {
             match FiatFilterModule::get_call_fee_dock_(&uxt.function) {
                 Ok((fee_microdock,_weight)) => Ok(fee_microdock),
                 Err(e) => Err(fiat_filter_rpc_runtime_api::Error::new_getcallfeedock(e))
             }
         }
-    }
+    }*/
 
     impl staking_rewards::runtime_api::StakingRewardsApi<Block, Balance> for Runtime {
         fn yearly_emission(total_staked: Balance, total_issuance: Balance) -> Balance {
@@ -1760,8 +1762,18 @@ impl_runtime_apis! {
         }
     }
 
-    impl core_mods::runtime_api::CoreModsApi<Block> for Runtime {
-        fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {
+    impl core_mods::runtime_api::CoreModsApi<Block, Runtime> for Runtime {
+        fn did_details(did: did::Did, params: Option<did::DidRequestParams>) -> Option<did::DidDetailsResponse<Runtime>> {
+            DIDModule::did_details(&did, params.unwrap_or_default())
+        }
+
+        fn did_list_details(dids: Vec<did::Did>, params: Option<did::DidRequestParams>) -> Vec<Option<did::DidDetailsResponse<Runtime>>> {
+            let params = params.unwrap_or_default();
+
+            dids.into_iter().map(|did| DIDModule::did_details(&did, params)).collect()
+        }
+
+        /*fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {
             BbsPlus::get_public_key_with_params(&id)
         }
 
@@ -1779,7 +1791,7 @@ impl_runtime_apis! {
 
         fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::PublicKeyWithParams>)> {
             Accumulator::get_accumulator_with_public_key_and_params(&id)
-        }
+        }*/
     }
 
     #[cfg(feature = "runtime-benchmarks")]
