@@ -48,6 +48,14 @@ pub trait Action<T: frame_system::Config> {
     /// Returns action's nonce.
     fn nonce(&self) -> T::BlockNumber;
 
+    /// Returns action unit length.
+    fn len(&self) -> u32;
+
+    /// Returns `true` if action unit count is equal to zero.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Converts the given action to the state change.
     fn to_state_change(&self) -> StateChange<'_, T>;
 }

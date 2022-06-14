@@ -112,15 +112,16 @@ where
 }
 
 /// Create a non-secure development did with specified secret key
-fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, KeyDetail) {
-    let pk = sr25519::Pair::from_seed(seed).public().0;
+fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> Did {
+    todo!()
+    /*let pk = sr25519::Pair::from_seed(seed).public().0;
     (
         *did,
         KeyDetail::new(
             *did,
             keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
         ),
-    )
+    )*/
 }
 
 fn get_common_properties_map() -> Properties {
@@ -262,7 +263,7 @@ pub fn local_testnet_config() -> ChainSpec {
                     .cloned()
                     .collect(),
                     vote_requirement: 2,
-                },*/
+                },
                 dids: [
                     (
                         b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -279,7 +280,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 ]
                 .iter()
                 .map(|(name, sk)| did_from_seed(name, sk))
-                .collect(),
+                .collect(),*/
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
                 council_members: get_seed_vector_to_account_vector(
                     ["Alice//stash", "Bob//stash", "Charlie"].to_vec(),
@@ -344,7 +345,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                 .cloned()
                 .map(account_id_from_ss58::<sr25519::Public>)
                 .collect(),
-                master: Membership {
+                /*master: Membership {
                     members: [
                         b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -381,7 +382,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                         ),
                     )
                 })
-                .collect(),
+                .collect(),*/
                 // In mainnet, this will be a public key (0s) that no one knows private key for
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN",
@@ -555,7 +556,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 .cloned()
                 .map(account_id_from_ss58::<sr25519::Public>)
                 .collect(),
-                master: Membership {
+                /*master: Membership {
                     members: [
                         b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
@@ -592,7 +593,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                         ),
                     )
                 })
-                .collect(),
+                .collect(),*/
                 // Post mainnet launch, this will be changed into a public key (0s) that no one knows private key for
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "3HqoTXW3HBQJoFpvRaAaJoNsWTBZs3CuGRqT9xxfv497k8fs",
@@ -652,8 +653,8 @@ struct GenesisBuilder {
         AuthorityDiscoveryId,
     )>,
     endowed_accounts: Vec<AccountId>,
-    master: Membership,
-    dids: Vec<(Did, KeyDetail)>,
+    //master: Membership,
+    //dids: Vec<(Did, KeyDetail)>,
     sudo: AccountId,
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
@@ -673,7 +674,7 @@ impl GenesisBuilder {
         // 100M tokens
         let per_member_endowment: Balance = DOCK.checked_mul(100_000_000).unwrap();
 
-        self.validate().unwrap();
+        // self.validate().unwrap();
 
         let stash = self.stash;
 
@@ -760,7 +761,7 @@ impl GenesisBuilder {
         }
     }
 
-    fn validate(&self) -> Result<(), String> {
+    /*fn validate(&self) -> Result<(), String> {
         // Every DID in master must be pre-declared
         for did in self.master.members.iter() {
             if !self.dids.iter().any(|(k, _v)| k == did) {
@@ -772,7 +773,7 @@ impl GenesisBuilder {
         }
 
         Ok(())
-    }
+    }*/
 }
 
 #[cfg(test)]
@@ -780,7 +781,7 @@ mod test {
     use super::*;
     use core_mods::{keys_and_sigs, util};
 
-    #[test]
+    /* #[test]
     fn expected_did_from_seed() {
         let did = [1u8; 32];
         let pk = hex!("c02bab578b07e7e41997fcb03de683f4780e3ad383e573d817d2462f4a27c701");
@@ -795,5 +796,5 @@ mod test {
                 ),
             )
         );
-    }
+    }*/
 }

@@ -12,6 +12,7 @@ use sp_std::convert::TryInto;
 /// byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum PublicKey {
     /// Public key for Sr25519 is 32 bytes
     Sr25519(Bytes32),
@@ -26,6 +27,7 @@ pub enum PublicKey {
 /// An abstraction for a signature.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum SigValue {
     /// Signature for Sr25519 is 64 bytes
     Sr25519(Bytes64),

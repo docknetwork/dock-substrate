@@ -1,6 +1,7 @@
 pub use self::gen_client::Client as PriceFeedClient;
 // use core_mods::accumulator;
 //use core_mods::bbs_plus;
+use core::marker::PhantomData;
 pub use core_mods::did::{self, Trait};
 pub use core_mods::runtime_api::CoreModsApi as CoreModsRuntimeApi;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
@@ -10,26 +11,39 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
+pub trait TraitWrapper {
+    type T: Trait;
+}
+
+/// To be used in places where `Serialize`/`Deserialize` bounds required for `Trait`.
+#[derive(Default, Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
+#[serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))]
+pub struct SerializableTraitWrapper<T>(PhantomData<T>);
+
+impl<T: Trait> TraitWrapper for SerializableTraitWrapper<T> {
+    type T = T;
+}
+
 #[rpc]
 pub trait CoreModsApi<BlockHash, T>
 where
-    T: Trait,
+    T: TraitWrapper,
 {
     #[rpc(name = "core_mods_didDetails")]
     fn did_details(
         &self,
         did: did::Did,
-        params: Option<did::DidRequestParams>,
+        params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<BlockHash>,
-    ) -> Result<Option<did::DidDetailsResponse<T>>>;
+    ) -> Result<Option<did::AggregatedDidDetailsResponse<T::T>>>;
 
     #[rpc(name = "core_mods_didListDetails")]
     fn did_list_details(
         &self,
         did: Vec<did::Did>,
-        params: Option<did::DidRequestParams>,
+        params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<BlockHash>,
-    ) -> Result<Vec<Option<did::DidDetailsResponse<T>>>>;
+    ) -> Result<Vec<Option<did::AggregatedDidDetailsResponse<T::T>>>>;
 
     /* #[rpc(name = "core_mods_bbsPlusPublicKeyWithParams")]
     fn bbs_plus_public_key_with_params(
@@ -86,16 +100,16 @@ impl<C, P> CoreMods<C, P> {
 impl<C, Block, T> CoreModsApi<<Block as BlockT>::Hash, T> for CoreMods<C, Block>
 where
     Block: BlockT,
-    T: Trait,
+    T: TraitWrapper,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
-    C::Api: CoreModsRuntimeApi<Block, T>,
+    C::Api: CoreModsRuntimeApi<Block, T::T>,
 {
     fn did_details(
         &self,
         did: did::Did,
-        params: Option<did::DidRequestParams>,
+        params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Option<did::DidDetailsResponse<T>>> {
+    ) -> Result<Option<did::AggregatedDidDetailsResponse<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -111,9 +125,9 @@ where
     fn did_list_details(
         &self,
         dids: Vec<did::Did>,
-        params: Option<did::DidRequestParams>,
+        params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Vec<Option<did::DidDetailsResponse<T>>>> {
+    ) -> Result<Vec<Option<did::AggregatedDidDetailsResponse<T::T>>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.

@@ -178,7 +178,10 @@ where
     )));
 
     // RPC calls for core mods pallet
-    io.extend_with(CoreModsApi::to_delegate(CoreMods::new(client.clone())));
+    io.extend_with(CoreModsApi::<
+        _,
+        core_mods_rpc::SerializableTraitWrapper<dock_runtime::Runtime>,
+    >::to_delegate(CoreMods::new(client.clone())));
 
     io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
         BabeRpcHandler::new(

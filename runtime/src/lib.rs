@@ -1763,14 +1763,14 @@ impl_runtime_apis! {
     }
 
     impl core_mods::runtime_api::CoreModsApi<Block, Runtime> for Runtime {
-        fn did_details(did: did::Did, params: Option<did::DidRequestParams>) -> Option<did::DidDetailsResponse<Runtime>> {
-            DIDModule::did_details(&did, params.unwrap_or_default())
+        fn did_details(did: did::Did, params: Option<did::AggregatedDidDetailsRequestParams>) -> Option<did::AggregatedDidDetailsResponse<Runtime>> {
+            DIDModule::aggregate_did_details(&did, params.unwrap_or_default())
         }
 
-        fn did_list_details(dids: Vec<did::Did>, params: Option<did::DidRequestParams>) -> Vec<Option<did::DidDetailsResponse<Runtime>>> {
+        fn did_list_details(dids: Vec<did::Did>, params: Option<did::AggregatedDidDetailsRequestParams>) -> Vec<Option<did::AggregatedDidDetailsResponse<Runtime>>> {
             let params = params.unwrap_or_default();
 
-            dids.into_iter().map(|did| DIDModule::did_details(&did, params)).collect()
+            dids.into_iter().map(|did| DIDModule::aggregate_did_details(&did, params)).collect()
         }
 
         /*fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {

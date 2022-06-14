@@ -423,6 +423,7 @@ std = [
     'sp-authority-discovery/std',
     'sp-consensus-babe/std',
     'sp-core/std',
+    'sp-core/full_crypto',
     'sp-inherents/std',
     'sp-io/std',
     'sp-offchain/std',

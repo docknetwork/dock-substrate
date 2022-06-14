@@ -5,9 +5,9 @@ use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
     pub trait CoreModsApi<T: Trait> {
-        fn did_details(id: did::Did, params: Option<did::DidRequestParams>) -> Option<did::DidDetailsResponse<T>>;
+        fn did_details(id: did::Did, params: Option<did::AggregatedDidDetailsRequestParams>) -> Option<did::AggregatedDidDetailsResponse<T>>;
 
-        fn did_list_details(dids: Vec<did::Did>, params: Option<did::DidRequestParams>) -> Vec<Option<did::DidDetailsResponse<T>>>;
+        fn did_list_details(dids: Vec<did::Did>, params: Option<did::AggregatedDidDetailsRequestParams>) -> Vec<Option<did::AggregatedDidDetailsResponse<T>>>;
 
         /*fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams>;
 

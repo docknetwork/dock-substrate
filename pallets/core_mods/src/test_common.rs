@@ -201,9 +201,9 @@ pub const ABBA: u64 = 0;
 // pub const RA: RevokeId = [0u8; 32];
 // pub const RB: RevokeId = [1u8; 32];
 // pub const RC: RevokeId = [2u8; 32];
-pub const DIDA: Did = [0u8; 32];
-pub const DIDB: Did = [1u8; 32];
-pub const DIDC: Did = [2u8; 32];
+pub const DIDA: Did = Did([0u8; 32]);
+pub const DIDB: Did = Did([1u8; 32]);
+pub const DIDC: Did = Did([2u8; 32]);
 
 /// check whether test externalities are available
 pub fn in_ext() -> bool {
@@ -269,7 +269,7 @@ pub fn create_did(did: did::Did) -> sr25519::Pair {
 
 /// create a did with a random id and random signing key
 pub fn newdid() -> (Did, sr25519::Pair) {
-    let d: Did = rand::random();
+    let d: Did = Did(rand::random());
     (d, create_did(d))
 }
 
