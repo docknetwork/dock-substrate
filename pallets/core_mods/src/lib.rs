@@ -51,7 +51,7 @@ pub trait Action<T: frame_system::Config> {
     /// Returns action unit length.
     fn len(&self) -> u32;
 
-    /// Returns `true` if the ction unit count is equal to zero.
+    /// Returns `true` if the action unit count is equal to zero.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
