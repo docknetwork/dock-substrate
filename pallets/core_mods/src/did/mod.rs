@@ -76,7 +76,7 @@ decl_error! {
         NotAnOffChainDid,
         DidNotOwnedByAccount,
         NoControllerProvided,
-        IncompatableVerificationRelation,
+        IncompatibleVerificationRelation,
         CannotGetDetailForOffChainDid,
         NoKeyProvided,
         IncorrectNonce,
@@ -256,7 +256,7 @@ decl_module! {
         fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature) -> DispatchResult {
             ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure_signed_payload!(origin, &service_endpoint, &sig);
-                        ensure!(
+            ensure!(
                 T::MaxServiceEndpointIdSize::get() as usize >= service_endpoint.id.len(),
                 Error::<T>::InvalidServiceEndpoint
             );

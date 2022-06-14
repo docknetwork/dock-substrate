@@ -320,7 +320,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                     }],
                     vec![].into_iter().collect()
                 ),
-                Error::<Test>::IncompatableVerificationRelation
+                Error::<Test>::IncompatibleVerificationRelation
             );
         }
 
@@ -339,7 +339,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                     }],
                     vec![].into_iter().collect()
                 ),
-                Error::<Test>::IncompatableVerificationRelation
+                Error::<Test>::IncompatibleVerificationRelation
             );
         }
 
@@ -905,7 +905,7 @@ fn add_keys_to_did() {
                     sig
                 }
             ),
-            Error::<Test>::IncompatableVerificationRelation
+            Error::<Test>::IncompatibleVerificationRelation
         );
 
         // Add x25519 key

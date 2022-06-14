@@ -179,7 +179,7 @@ impl<T: Trait + Debug> Module<T> {
                 DidKey::new_with_all_relationships(key.public_key)
             } else {
                 if !key.is_valid() {
-                    fail!(Error::<T>::IncompatableVerificationRelation)
+                    fail!(Error::<T>::IncompatibleVerificationRelation)
                 }
                 key
             };
