@@ -37,7 +37,7 @@ impl<T: Trait + Debug> Module<T> {
         A: Action<T, Target = Did>,
     {
         Self::ensure_controller(&action.target(), &sig.did)?;
-        let signer_pubkey = Self::control_key(&sig.did.into(), sig.key_id)?;
+        let signer_pubkey = Self::control_key(&sig.did, sig.key_id)?;
 
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }

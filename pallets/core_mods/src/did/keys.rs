@@ -156,9 +156,10 @@ impl<T: Trait + Debug> Module<T> {
         Ok(())
     }
 
-    /// Return `did`'s key with id `key_id` only if it can control otherwise throw error
-    pub fn control_key(did: &Did, key_id: IncId) -> Result<PublicKey, DispatchError> {
-        let did_key = DidKeys::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+    /// Return `did`'s key with id `key_id` only if has control capability, otherwise returns an error.
+    pub fn control_key(did: &Controller, key_id: IncId) -> Result<PublicKey, DispatchError> {
+        let did_key = DidKeys::get(did.0, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+
         if did_key.can_control() {
             Ok(did_key.public_key)
         } else {
