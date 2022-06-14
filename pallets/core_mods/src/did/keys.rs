@@ -97,7 +97,7 @@ impl<T: Trait + Debug> Module<T> {
             last_key_id,
             ..
         }: &mut OnChainDidDetails<T>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         // If DID was not self controlled first, check if it can become by looking
         let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
         *active_controller_keys += controller_keys_count;
@@ -128,7 +128,7 @@ impl<T: Trait + Debug> Module<T> {
             active_controller_keys,
             ..
         }: &mut OnChainDidDetails<T>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         for key_id in &keys {
             let key = DidKeys::get(&did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
@@ -157,7 +157,7 @@ impl<T: Trait + Debug> Module<T> {
     }
 
     /// Return `did`'s key with id `key_id` only if has control capability, otherwise returns an error.
-    pub fn control_key(did: &Controller, key_id: IncId) -> Result<PublicKey, DispatchError> {
+    pub fn control_key(did: &Controller, key_id: IncId) -> Result<PublicKey, Error<T>> {
         let did_key = DidKeys::get(did.0, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
         if did_key.can_control() {
@@ -172,7 +172,7 @@ impl<T: Trait + Debug> Module<T> {
     /// amount of controller keys being met. The following logic is contentious.
     pub(crate) fn prepare_keys_to_insert(
         keys: Vec<DidKey>,
-    ) -> Result<(Vec<DidKey>, u32), DispatchError> {
+    ) -> Result<(Vec<DidKey>, u32), Error<T>> {
         let mut controller_keys_count = 0;
         let mut keys_to_insert = Vec::with_capacity(keys.len());
         for key in keys {

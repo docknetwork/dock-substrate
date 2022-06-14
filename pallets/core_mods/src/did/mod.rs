@@ -11,8 +11,8 @@ use controllers::Controller;
 use core::fmt::Debug;
 pub use details_aggregator::*;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchError,
-    dispatch::DispatchResult, ensure, fail, traits::Get, weights::Weight,
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
+    traits::Get, weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
@@ -58,6 +58,7 @@ pub trait Trait: system::Config {
 
 decl_error! {
     /// Error for the DID module.
+    #[derive(Eq, PartialEq, Clone)]
     pub enum Error for Module<T: Trait> where T: Debug {
         /// Given public key is not of the correct size
         PublicKeySizeIncorrect,
@@ -169,7 +170,8 @@ decl_module! {
                 Error::<T>::DidDocUriTooBig
             );
 
-            Self::new_offchain_(did_owner, did, did_doc_ref)
+            Self::new_offchain_(did_owner, did, did_doc_ref)?;
+            Ok(())
         }
 
         // TODO: Fix weight
@@ -181,7 +183,8 @@ decl_module! {
                 Error::<T>::DidDocUriTooBig
             );
 
-            Self::set_offchain_did_uri_(caller, did, did_doc_ref)
+            Self::set_offchain_did_uri_(caller, did, did_doc_ref)?;
+            Ok(())
         }
 
         // TODO: Fix weight
@@ -189,7 +192,8 @@ decl_module! {
         pub fn remove_offchain_did(origin, did: dock::did::Did) -> DispatchResult {
             let caller = ensure_signed(origin)?;
 
-            Self::remove_offchain_did_(caller, did)
+            Self::remove_offchain_did_(caller, did)?;
+            Ok(())
         }
 
         /// Create new DID.
@@ -203,7 +207,8 @@ decl_module! {
         pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<DidKey>, controllers: BTreeSet<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::new_onchain_(did, keys, controllers)
+            Self::new_onchain_(did, keys, controllers)?;
+            Ok(())
         }
 
         /// Add more keys from DID doc. Does not check if the key is already added or it has duplicate
@@ -214,7 +219,8 @@ decl_module! {
             ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed_payload!(origin, &keys, &sig);
 
-            Self::exec_onchain_did_action(keys, Self::add_keys_)
+            Self::exec_onchain_did_action(keys, Self::add_keys_)?;
+            Ok(())
         }
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
@@ -225,7 +231,8 @@ decl_module! {
             ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed_payload!(origin, &keys, &sig);
 
-            Self::exec_onchain_did_action(keys, Self::remove_keys_)
+            Self::exec_onchain_did_action(keys, Self::remove_keys_)?;
+            Ok(())
         }
 
         /// Add new controllers. Does not check if the controller being added has any key or is even
@@ -236,7 +243,8 @@ decl_module! {
             ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed_payload!(origin, &controllers, &sig);
 
-            Self::exec_onchain_did_action(controllers, Self::add_controllers_)
+            Self::exec_onchain_did_action(controllers, Self::add_controllers_)?;
+            Ok(())
         }
 
         /// Remove controllers. This's atomic operation meaning that it will either remove all keys or do nothing.
@@ -247,7 +255,8 @@ decl_module! {
             ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed_payload!(origin, &controllers, &sig);
 
-            Self::exec_onchain_did_action(controllers, Self::remove_controllers_)
+            Self::exec_onchain_did_action(controllers, Self::remove_controllers_)?;
+            Ok(())
         }
 
         /// Add a single service endpoint.
@@ -262,7 +271,8 @@ decl_module! {
             );
             ensure!(service_endpoint.endpoint.is_valid(T::MaxServiceEndpointOrigins::get() as usize, T::MaxServiceEndpointOriginSize::get() as usize), Error::<T>::InvalidServiceEndpoint);
 
-            Self::exec_onchain_did_action(service_endpoint, Self::add_service_endpoint_)
+            Self::exec_onchain_did_action(service_endpoint, Self::add_service_endpoint_)?;
+            Ok(())
         }
 
         /// Remove a single service endpoint.
@@ -272,7 +282,8 @@ decl_module! {
             ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure_signed_payload!(origin, &service_endpoint, &sig);
 
-            Self::exec_onchain_did_action(service_endpoint, Self::remove_service_endpoint_)
+            Self::exec_onchain_did_action(service_endpoint, Self::remove_service_endpoint_)?;
+            Ok(())
         }
 
         /// Remove the on-chain DID. This will remove this DID's keys, controllers and service endpoints. But it won't remove storage
@@ -283,7 +294,8 @@ decl_module! {
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed_payload!(origin, &removal, &sig);
 
-            Self::remove_onchain_did_(removal)
+            Self::remove_onchain_did_(removal)?;
+            Ok(())
         }
     }
 }

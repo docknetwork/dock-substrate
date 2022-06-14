@@ -35,7 +35,7 @@ impl<T: Trait + Debug> Module<T> {
         OnChainDidDetails {
             active_controllers, ..
         }: &mut OnChainDidDetails<T>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         for ctrl in &controllers {
             if Self::is_controller(&did, ctrl) {
                 fail!(Error::<T>::ControllerIsAlreadyAdded)
@@ -62,7 +62,7 @@ impl<T: Trait + Debug> Module<T> {
         OnChainDidDetails {
             active_controllers, ..
         }: &mut OnChainDidDetails<T>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         for controller_did in &controllers {
             if !Self::is_controller(&did, controller_did) {
                 fail!(Error::<T>::NoControllerForDid)
@@ -83,7 +83,7 @@ impl<T: Trait + Debug> Module<T> {
     }
 
     /// Throws an error if `controller` is not the controller of `controlled`
-    pub fn ensure_controller(controlled: &Did, controller: &Controller) -> DispatchResult {
+    pub fn ensure_controller(controlled: &Did, controller: &Controller) -> Result<(), Error<T>> {
         if !Self::is_controller(controlled, controller) {
             fail!(Error::<T>::OnlyControllerCanUpdate)
         }

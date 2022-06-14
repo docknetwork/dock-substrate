@@ -65,7 +65,7 @@ impl<T: Trait + Debug> Module<T> {
         caller: T::AccountId,
         did: Did,
         did_doc_ref: OffChainDidDocRef,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
@@ -84,7 +84,7 @@ impl<T: Trait + Debug> Module<T> {
         caller: T::AccountId,
         did: Did,
         did_doc_ref: OffChainDidDocRef,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
         Dids::<T>::insert::<_, DidDetailStorage<T>>(
@@ -98,7 +98,7 @@ impl<T: Trait + Debug> Module<T> {
         Ok(())
     }
 
-    pub(crate) fn remove_offchain_did_(caller: T::AccountId, did: Did) -> DispatchResult {
+    pub(crate) fn remove_offchain_did_(caller: T::AccountId, did: Did) -> Result<(), Error<T>> {
         Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
         Dids::<T>::remove(did);
@@ -117,10 +117,10 @@ impl<T: Trait + Debug> Module<T> {
     }
 
     /// Get DID detail of an off-chain DID. Throws error if DID does not exist or is on-chain.
-    pub fn offchain_did_details(did: &Did) -> Result<OffChainDidDetails<T>, DispatchError> {
+    pub fn offchain_did_details(did: &Did) -> Result<OffChainDidDetails<T>, Error<T>> {
         Self::did(did)
             .ok_or(Error::<T>::DidDoesNotExist)?
             .into_offchain()
-            .ok_or(Error::<T>::CannotGetDetailForOffChainDid.into())
+            .ok_or(Error::<T>::CannotGetDetailForOffChainDid)
     }
 }

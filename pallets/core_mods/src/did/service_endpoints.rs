@@ -46,7 +46,7 @@ where
             did, id, endpoint, ..
         }: AddServiceEndpoint<T>,
         _: &mut OnChainDidDetails<T>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         if Self::did_service_endpoints(&did, &id).is_some() {
             fail!(Error::<T>::ServiceEndpointAlreadyExists)
         }
@@ -62,7 +62,7 @@ where
     pub(crate) fn remove_service_endpoint_(
         RemoveServiceEndpoint { did, id, .. }: RemoveServiceEndpoint<T>,
         _: &mut OnChainDidDetails<T>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         if Self::did_service_endpoints(&did, &id).is_none() {
             fail!(Error::<T>::ServiceEndpointDoesNotExist)
         }

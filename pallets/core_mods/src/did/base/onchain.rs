@@ -68,7 +68,7 @@ impl<T: Trait + Debug> Module<T> {
         did: Did,
         keys: Vec<DidKey>,
         mut controllers: BTreeSet<Controller>,
-    ) -> DispatchResult {
+    ) -> Result<(), Error<T>> {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
@@ -107,7 +107,9 @@ impl<T: Trait + Debug> Module<T> {
         Ok(())
     }
 
-    pub(crate) fn remove_onchain_did_(DidRemoval { did, nonce }: DidRemoval<T>) -> DispatchResult {
+    pub(crate) fn remove_onchain_did_(
+        DidRemoval { did, nonce }: DidRemoval<T>,
+    ) -> Result<(), Error<T>> {
         Self::onchain_did_details(&did)?.inc_nonce(nonce)?;
 
         DidKeys::remove_prefix(did);
@@ -123,9 +125,9 @@ impl<T: Trait + Debug> Module<T> {
 
     /// Executes action over target on-chain DID providing a mutable reference if the given nonce is correct,
     /// i.e. 1 more than the current nonce.
-    pub(crate) fn exec_onchain_did_action<A, F, R>(action: A, f: F) -> Result<R, DispatchError>
+    pub(crate) fn exec_onchain_did_action<A, F, R>(action: A, f: F) -> Result<R, Error<T>>
     where
-        F: FnOnce(A, &mut OnChainDidDetails<T>) -> Result<R, DispatchError>,
+        F: FnOnce(A, &mut OnChainDidDetails<T>) -> Result<R, Error<T>>,
         A: Action<T, Target = Did>,
     {
         Dids::<T>::try_mutate(action.target(), |details_opt| {
@@ -149,10 +151,10 @@ impl<T: Trait + Debug> Module<T> {
     }
 
     /// Get DID detail of an on-chain DID. Throws error if DID does not exist or is off-chain.
-    pub fn onchain_did_details(did: &Did) -> Result<OnChainDidDetails<T>, DispatchError> {
+    pub fn onchain_did_details(did: &Did) -> Result<OnChainDidDetails<T>, Error<T>> {
         Self::did(did)
             .ok_or(Error::<T>::DidDoesNotExist)?
             .into_onchain()
-            .ok_or(Error::<T>::CannotGetDetailForOffChainDid.into())
+            .ok_or(Error::<T>::CannotGetDetailForOffChainDid)
     }
 }

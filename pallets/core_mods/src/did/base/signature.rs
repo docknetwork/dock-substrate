@@ -18,7 +18,7 @@ impl DidSignature {
         &self,
         message: &[u8],
         public_key: &PublicKey,
-    ) -> Result<bool, DispatchError> {
+    ) -> Result<bool, Error<T>> {
         self.sig
             .verify(message, public_key)
             .map_err(|_| Error::<T>::IncompatSigPubkey.into())
@@ -29,10 +29,7 @@ impl<T: Trait + Debug> Module<T> {
     /// Verify a `DidSignature` created by `signer` only if `signer` is a controller of `did` and has an
     /// appropriate key. To update a DID (add/remove keys, add/remove controllers), the updater must be a
     /// controller of the DID and must have a key with `CAPABILITY_INVOCATION` verification relationship
-    pub fn verify_sig_from_controller<A>(
-        action: &A,
-        sig: &DidSignature,
-    ) -> Result<bool, DispatchError>
+    pub fn verify_sig_from_controller<A>(action: &A, sig: &DidSignature) -> Result<bool, Error<T>>
     where
         A: Action<T, Target = Did>,
     {
