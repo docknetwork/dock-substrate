@@ -72,19 +72,16 @@ impl<T: Trait + Debug> Module<T> {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
-        if keys.is_empty() && controllers.is_empty() {
-            fail!(Error::<T>::NoControllerProvided)
-        }
-
         let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
+        // Make self controlled if needed
+        if controller_keys_count > 0 {
+            controllers.insert(Controller(did));
+        }
+        ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
 
         let mut last_key_id = IncId::new();
         for (key, key_id) in keys_to_insert.into_iter().zip(&mut last_key_id) {
             DidKeys::insert(&did, key_id, key);
-        }
-        // Make self controlled if needed
-        if controller_keys_count > 0 {
-            controllers.insert(Controller(did));
         }
 
         for ctrl in &controllers {

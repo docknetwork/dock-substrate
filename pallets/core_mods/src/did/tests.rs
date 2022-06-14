@@ -296,10 +296,10 @@ fn onchain_keyed_did_creation_with_self_control() {
                 public_key: PublicKey::x25519(pk_ed),
                 ver_rels: VerRelType::NONE.into()
             }],
-            vec![].into_iter().collect()
+            vec![Controller(did_3.clone())].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_4));
-        check_did_detail(&did_4, 1, 0, 0, 8);
+        check_did_detail(&did_4, 1, 0, 1, 8);
 
         let key_4 = DidKeys::get(&did_4, IncId::from(1u32)).unwrap();
         only_key_agreement(&key_4);
@@ -409,7 +409,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                     public_key: pk,
                     ver_rels: vr.into()
                 }],
-                vec![].into_iter().collect()
+                vec![Controller(did_1.clone())].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did));
             let key = DidKeys::get(&did, IncId::from(1u32)).unwrap();
@@ -420,7 +420,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                 assert!(key.can_authenticate_or_control());
             }
             assert!(!key.for_key_agreement());
-            check_did_detail(&did, 1, 0, 0, 13);
+            check_did_detail(&did, 1, 0, 1, 13);
         }
 
         run_to_block(19);
@@ -433,14 +433,14 @@ fn onchain_keyed_did_creation_with_self_control() {
                 public_key: PublicKey::ed25519(pk_ed),
                 ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
             }],
-            vec![].into_iter().collect()
+            vec![Controller(did_9)].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_8));
         let key_8 = DidKeys::get(&did_8, IncId::from(1u32)).unwrap();
         assert!(key_8.can_sign());
         assert!(key_8.can_authenticate());
         assert!(!key_8.can_control());
-        check_did_detail(&did_8, 1, 0, 0, 19);
+        check_did_detail(&did_8, 1, 0, 1, 19);
 
         run_to_block(20);
 
@@ -462,7 +462,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                     ver_rels: (VerRelType::ASSERTION | VerRelType::AUTHENTICATION).into()
                 },
             ],
-            vec![].into_iter().collect()
+            vec![Controller(did_8.clone())].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_9));
         let key_9_1 = DidKeys::get(&did_9, IncId::from(1u32)).unwrap();
@@ -477,7 +477,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_9_3.can_sign());
         assert!(key_9_3.can_authenticate());
         assert!(!key_9_3.can_control());
-        check_did_detail(&did_9, 3, 0, 0, 20);
+        check_did_detail(&did_9, 3, 0, 1, 20);
 
         run_to_block(22);
 
