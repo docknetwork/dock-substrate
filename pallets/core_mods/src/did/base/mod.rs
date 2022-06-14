@@ -16,14 +16,14 @@ pub const DID_BYTE_SIZE: usize = 32;
 pub struct Did(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; DID_BYTE_SIZE]);
 
 impl From<[u8; DID_BYTE_SIZE]> for Did {
-    fn from(slice: [u8; DID_BYTE_SIZE]) -> Did {
-        Did(slice)
+    fn from(arr: [u8; DID_BYTE_SIZE]) -> Did {
+        Did(arr)
     }
 }
 
 impl From<Did> for [u8; DID_BYTE_SIZE] {
-    fn from(Did(slice): Did) -> [u8; DID_BYTE_SIZE] {
-        slice
+    fn from(Did(arr): Did) -> [u8; DID_BYTE_SIZE] {
+        arr
     }
 }
 

@@ -12,10 +12,10 @@ pub struct ServiceEndpoint {
 }
 
 bitflags::bitflags! {
+    /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
     #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u16", into = "u16"))]
-    /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
     pub struct ServiceEndpointType: u16 {
         /// No service endpoint set.
         const NONE = 0;

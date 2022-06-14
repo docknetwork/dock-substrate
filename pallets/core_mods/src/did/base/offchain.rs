@@ -19,7 +19,7 @@ impl<T: Trait> From<OffChainDidDetails<T>> for DidDetailStorage<T> {
     }
 }
 
-impl<T: Trait> OffChainDidDetails<T> {
+impl<T: Trait + Debug> OffChainDidDetails<T> {
     /// Constructs new off-chain DID details using supplied params.
     pub fn new(account_id: T::AccountId, doc_ref: OffChainDidDocRef) -> Self {
         Self {
@@ -27,12 +27,20 @@ impl<T: Trait> OffChainDidDetails<T> {
             doc_ref,
         }
     }
+
+    /// Ensures that caller is able to update given off-chain DID.
+    pub fn ensure_can_update(&self, caller: &T::AccountId) -> Result<(), Error<T>> {
+        ensure!(&self.account_id == caller, Error::<T>::DidNotOwnedByAccount);
+
+        Ok(())
+    }
 }
 
 /// To describe the off chain DID Doc's reference. This is just to inform the client, this module
 /// does not check if the bytes are indeed valid as per the enum variant
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum OffChainDidDocRef {
     /// Content IDentifier as per https://github.com/multiformats/cid.
     CID(WrappedBytes),
@@ -77,7 +85,7 @@ impl<T: Trait + Debug> Module<T> {
         did: Did,
         did_doc_ref: OffChainDidDocRef,
     ) -> DispatchResult {
-        Self::ensure_offchain_did_be_updated(&caller, &did)?;
+        Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
         Dids::<T>::insert::<_, DidDetailStorage<T>>(
             did,
@@ -91,7 +99,7 @@ impl<T: Trait + Debug> Module<T> {
     }
 
     pub(crate) fn remove_offchain_did_(caller: T::AccountId, did: Did) -> DispatchResult {
-        Self::ensure_offchain_did_be_updated(&caller, &did)?;
+        Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
         Dids::<T>::remove(did);
         <system::Module<T>>::deposit_event_indexed(
@@ -108,19 +116,11 @@ impl<T: Trait + Debug> Module<T> {
             .ok_or(Error::<T>::DidDoesNotExist)
     }
 
-    /// Check that given DID is off-chain and owned by the caller
-    pub fn ensure_offchain_did_be_updated(
-        caller: &T::AccountId,
-        did: &Did,
-    ) -> Result<(), DispatchError> {
-        let account_id = Self::did(did)
+    /// Get DID detail of an off-chain DID. Throws error if DID does not exist or is on-chain.
+    pub fn offchain_did_details(did: &Did) -> Result<OffChainDidDetails<T>, DispatchError> {
+        Self::did(did)
             .ok_or(Error::<T>::DidDoesNotExist)?
             .into_offchain()
-            .ok_or(Error::<T>::NotAnOffChainDid)?
-            .account_id;
-
-        ensure!(account_id == *caller, Error::<T>::DidNotOwnedByAccount);
-
-        Ok(())
+            .ok_or(Error::<T>::CannotGetDetailForOffChainDid.into())
     }
 }

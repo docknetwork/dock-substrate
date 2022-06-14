@@ -72,10 +72,10 @@ impl<T: Trait> AggregatedDidDetailsResponse<T> {
 }
 
 bitflags::bitflags! {
+    /// Information requested for DID. The default option includes full DID information (keys, controllers and service endpoints).
     #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
-    /// Information requested for DID. The default option includes full DID information (keys, controllers and service endpoints).
     pub struct AggregatedDidDetailsRequestParams: u8 {
         /// Just basic DID details.
         const BASIC = 0;

@@ -11,10 +11,10 @@ pub struct DidKey {
 }
 
 bitflags::bitflags! {
+    /// Different verification relation types specified in the DID spec here https://www.w3.org/TR/did-core/#verification-relationships
     #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u16", into = "u16"))]
-    /// Different verification relation types specified in the DID spec here https://www.w3.org/TR/did-core/#verification-relationships
     pub struct VerRelType: u16 {
         /// No verification relation set.
         const NONE = 0;
