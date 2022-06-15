@@ -713,7 +713,9 @@ impl did::Trait for Runtime {
     type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
 
-impl revoke::Trait for Runtime {}
+impl revoke::Trait for Runtime {
+    type Event = Event;
+}
 
 impl bbs_plus::Config for Runtime {
     type Event = Event;
@@ -1331,7 +1333,7 @@ construct_runtime!(
         TransactionPayment: transaction_payment::{Module, Storage},
         Utility: pallet_utility::{Module, Call, Event},
         DIDModule: did::{Module, Call, Storage, Event, Config},
-        Revoke: revoke::{Module, Call, Storage},
+        Revoke: revoke::{Module, Call, Storage, Event},
         BlobStore: blob::{Module, Call, Storage},
         Master: master::{Module, Call, Storage, Event<T>, Config},
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},

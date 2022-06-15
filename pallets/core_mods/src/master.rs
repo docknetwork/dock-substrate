@@ -69,6 +69,7 @@ use alloc::{
 };
 use codec::{Decode, Encode};
 use core::default::Default;
+use core::fmt::Debug;
 use frame_support::dispatch::PostDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -131,22 +132,22 @@ where
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Master {
+    trait Store for Module<T: Trait> as Master where T: Debug {
         pub Members: Membership;
         pub Round: u64;
     }
-    add_extra_genesis {
+    /*add_extra_genesis {
         config(members): Membership;
         build(|slef: &Self| {
             debug_assert!(slef.members.vote_requirement != 0);
             debug_assert!(slef.members.vote_requirement <= slef.members.members.len() as u64);
             Members::set(slef.members.clone());
         })
-    }
+    }*/
 }
 
 decl_error! {
-    pub enum MasterError for Module<T: Trait> {
+    pub enum MasterError for Module<T: Trait> where T: Debug {
         /// The account used to submit this vote is not a member of Master.
         NotMember,
         /// This proposal does not yet have enough votes to be executed.
@@ -177,7 +178,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin, T: Debug {
         type Error = MasterError<T>;
 
         fn deposit_event() = default;
@@ -242,7 +243,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Trait + Debug> Module<T> {
     /// Execute a call as Root origin after verifying signatures in `auth`. If `given_weight` is None,
     /// then it computes the weight by considering the cost of signature verification and cost of
     /// executing the call. If `given_weight` has a value then that is considered as weight.
@@ -270,14 +271,17 @@ impl<T: Trait> Module<T> {
             auth.keys().all(|k| membership.members.contains(k)),
             MasterError::<T>::NotMember,
         );
-        let payload = StateChange::MasterVote(Payload {
+        let payload = StateChange::<T>::MasterVote(Payload {
             proposal: proposal.encode(),
             round_no: Round::get(),
         })
         .encode();
         for (did, sig) in auth.iter() {
-            let valid = crate::did::Module::<T>::verify_sig_from_did(sig, &payload, did)?;
-            ensure!(valid, MasterError::<T>::BadSig);
+            ensure!(
+                crate::did::Module::<T>::verify_sig_from_auth_or_control_key(&payload, sig)?
+                    && (*did == sig.did),
+                MasterError::<T>::BadSig
+            );
         }
 
         // execute call and collect dispatch info to return
@@ -359,6 +363,7 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod test {
+    use alloc::borrow::Cow;
     use codec::Encode;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
     use super::{
@@ -470,7 +475,10 @@ mod test {
             MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call.clone()),
-                map(&[(dida, sign(&sc, &didak)), (didc, sign(&sc, &didck))]),
+                map(&[
+                    (dida, did_sig::<Test>(&sc, &didak, dida, 1)),
+                    (didc, did_sig::<Test>(&sc, &didck, didc, 1)),
+                ]),
             )
             .unwrap();
             assert_eq!(
@@ -536,7 +544,7 @@ mod test {
             let err = MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call),
-                map(&[(dida, sign(&sc, &didak))]),
+                map(&[(dida, did_sig::<Test>(&sc, &didak, dida, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::NotMember.into());
@@ -564,7 +572,10 @@ mod test {
             MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call.clone()),
-                map(&[(dida, sign(&sc, &didak)), (didc, sign(&sc, &didck))]),
+                map(&[
+                    (dida, did_sig::<Test>(&sc, &didak, dida, 1)),
+                    (didc, did_sig::<Test>(&sc, &didck, didc, 1)),
+                ]),
             )
             .unwrap();
             assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
@@ -590,9 +601,9 @@ mod test {
                 Origin::signed(0),
                 Box::new(call.clone()),
                 map(&[
-                    (dida, sign(&sc, &didak)),
-                    (didb, sign(&sc, &didbk)),
-                    (didc, sign(&sc, &didck)),
+                    (dida, did_sig::<Test>(&sc, &didak, dida, 1)),
+                    (didb, did_sig::<Test>(&sc, &didbk, didb, 1)),
+                    (didc, did_sig::<Test>(&sc, &didck, didc, 1)),
                 ]),
             )
             .unwrap();
@@ -619,7 +630,10 @@ mod test {
                 MasterMod::execute(
                     Origin::signed(0),
                     Box::new(call.clone()),
-                    map(&[(dida, sign(&sc, &didak)), (didc, sign(&sc, &didck))]),
+                    map(&[
+                        (dida, did_sig::<Test>(&sc, &didak, dida, 1)),
+                        (didc, did_sig::<Test>(&sc, &didck, didc, 1)),
+                    ]),
                 )
                 .unwrap();
             }
@@ -632,7 +646,10 @@ mod test {
                 MasterMod::execute(
                     Origin::signed(0),
                     Box::new(call.clone()),
-                    map(&[(dida, sign(&sc, &didak)), (didb, sign(&sc, &didbk))]),
+                    map(&[
+                        (dida, did_sig::<Test>(&sc, &didak, dida, 1)),
+                        (didb, did_sig::<Test>(&sc, &didbk, didb, 1)),
+                    ]),
                 )
                 .unwrap();
             }
@@ -656,14 +673,14 @@ mod test {
             });
 
             {
-                let sig = sign(&sc, &didbk); // <-- signing with wrong key
+                let sig = did_sig::<Test>(&sc, &didbk, didb, 1); // <-- signing with wrong key
                 let err = MasterMod::execute(Origin::signed(0), call.clone(), map(&[(dida, sig)]))
                     .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
             }
 
             {
-                let sig = sign(&sc, &didck); // <-- signing with wrong key, not in member set
+                let sig = did_sig::<Test>(&sc, &didck, _didc, 1); // <-- signing with wrong key, not in member set
                 let err = MasterMod::execute(Origin::signed(0), call.clone(), map(&[(dida, sig)]))
                     .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
@@ -671,14 +688,14 @@ mod test {
 
             {
                 // wrong payload
-                let sc = StateChange::DIDRemoval(crate::did::DidRemoval {
+                let sc = StateChange::DidRemoval(Cow::Borrowed(&crate::did::DidRemoval::<Test> {
                     did: [0; 32],
-                    last_modified_in_block: 0,
-                });
+                    nonce: 0,
+                }));
                 let err = MasterMod::execute(
                     Origin::signed(0),
                     call.clone(),
-                    map(&[(dida, sign(&sc, &didak))]),
+                    map(&[(dida, did_sig::<Test>(&sc, &didak, dida, 1))]),
                 )
                 .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
@@ -703,7 +720,7 @@ mod test {
             let err = MasterMod::execute(
                 Origin::signed(0),
                 call.clone(),
-                map(&[(didc, sign(&sc, &didck))]),
+                map(&[(didc, did_sig::<Test>(&sc, &didck, didc, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::NotMember.into());
@@ -723,7 +740,7 @@ mod test {
                 proposal: call.encode(),
                 round_no: Round::get(),
             });
-            let sig = sign(&sc, &didak);
+            let sig = did_sig::<Test>(&sc, &didak, dida, 1);
 
             MasterMod::execute(
                 Origin::signed(0),
@@ -759,7 +776,7 @@ mod test {
             let err = MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call.clone()),
-                map(&[(dida, sign(&sc, &didak))]),
+                map(&[(dida, did_sig::<Test>(&sc, &didak, dida, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());

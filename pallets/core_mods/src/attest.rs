@@ -6,6 +6,7 @@ use crate::did::{self, Did, DidSignature};
 use crate::StateChange;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::fmt::Debug;
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
     weights::Weight,
@@ -30,7 +31,7 @@ pub struct Attestation {
 
 decl_error! {
     /// Error for the attest module.
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Trait> where T: Debug {
         /// The Attestation was not posted because its priority was less than or equal to that of
         /// an attestation previously posted by the same entity.
         ///
@@ -39,13 +40,13 @@ decl_error! {
         /// Check to see that the provided priority is not zero as that could be the cause of this
         /// error.
         PriorityTooLow,
-        /// Signature verification failed while adding blob
+        /// Signature verification failed while adding attestation
         InvalidSig
     }
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Blob {
+    trait Store for Module<T: Trait> as Attest where T: Debug {
         // The priority value provides replay protection and also gives attestations a partial
         // ordering. Signatures with lesser or equal priority to those previously posted by the same
         // entity are not accepted by the chain.
@@ -72,7 +73,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin, T: Debug {
         #[weight = {
             T::DbWeight::get().reads_writes(2, 1)
                 + signature.weight()
@@ -85,29 +86,30 @@ decl_module! {
         }]
         fn set_claim(
             origin,
-            attester: Did,
             attests: Attestation,
             signature: DidSignature,
         ) -> DispatchResult {
-            Module::<T>::set_claim_(origin, attester, attests, signature)
+            Module::<T>::set_claim_(origin, attests, signature)
         }
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Trait + Debug> Module<T> {
     fn set_claim_(
         origin: <T as system::Config>::Origin,
-        attester: Did,
         attests: Attestation,
         signature: DidSignature,
     ) -> DispatchResult {
         ensure_signed(origin)?;
 
+        let attester = &signature.did;
         // check
-        let payload = StateChange::Attestation((attester, attests.clone())).encode();
-        let valid = did::Module::<T>::verify_sig_from_did(&signature, &payload, &attester)?;
-        ensure!(valid, Error::<T>::InvalidSig);
-        let prev = Attestations::get(&attester);
+        let payload = StateChange::<T>::Attestation((attester.clone(), attests.clone())).encode();
+        ensure!(
+            did::Module::<T>::verify_sig_from_auth_or_control_key(&payload, &signature)?,
+            Error::<T>::InvalidSig
+        );
+        let prev = Attestations::get(attester);
         ensure!(prev.priority < attests.priority, Error::<T>::PriorityTooLow);
 
         // execute
@@ -136,9 +138,8 @@ mod test {
             };
             let err = AttestMod::set_claim(
                 Origin::signed(0),
-                did,
                 att.clone(),
-                sign(&StateChange::Attestation((did, att)), &kp),
+                did_sig::<Test>(&StateChange::Attestation((did, att)), &kp, did, 1),
             )
             .unwrap_err();
             assert_eq!(err, Er::PriorityTooLow.into());
@@ -179,9 +180,15 @@ mod test {
                 priority: 1,
                 iri: None,
             };
-            let sig = sign(&StateChange::Attestation((dida, att.clone())), &kpa);
+            let sig = did_sig::<Test>(
+                &StateChange::Attestation((dida, att.clone())),
+                &kpa,
+                dida,
+                1,
+            );
+            // Modify payload so sig doesn't match
             att.priority += 1;
-            let err = AttestMod::set_claim(Origin::signed(0), dida, att, sig).unwrap_err();
+            let err = AttestMod::set_claim(Origin::signed(0), att.clone(), sig).unwrap_err();
             assert_eq!(err, Er::InvalidSig.into());
         });
     }
@@ -198,9 +205,8 @@ mod test {
             };
             let err = AttestMod::set_claim(
                 Origin::signed(0),
-                dida,
                 att.clone(),
-                sign(&StateChange::Attestation((dida, att)), &kpb),
+                did_sig::<Test>(&StateChange::Attestation((dida, att)), &kpb, dida, 1),
             )
             .unwrap_err();
             assert_eq!(err, Er::InvalidSig.into());
@@ -367,11 +373,12 @@ mod test {
     fn set_claim(claimer: &did::Did, att: &Attestation, kp: &sr25519::Pair) -> DispatchResult {
         AttestMod::set_claim(
             Origin::signed(0),
-            claimer.clone(),
             att.clone(),
-            sign(
+            did_sig::<Test>(
                 &StateChange::Attestation((claimer.clone(), att.clone())),
                 kp,
+                claimer.clone(),
+                1,
             ),
         )
     }

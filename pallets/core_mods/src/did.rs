@@ -135,11 +135,11 @@ pub struct DidKey {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DidSignature {
     /// The DID that created this signature
-    did: Did,
+    pub did: Did,
     /// The key-id of above DID used to verify the signature
-    key_id: IncId,
+    pub key_id: IncId,
     /// The actual signature
-    sig: SigValue,
+    pub sig: SigValue,
 }
 
 /// Stores details of an on-chain DID
@@ -151,9 +151,9 @@ pub struct DidDetail<T: Trait> {
     /// new nonce is stored with the DID. The reason for starting the nonce with current block number
     /// and not 0 is to prevent replay attack where a signed payload of removed DID is used to perform
     /// replay on the same DID created again as nonce would be reset to 0 for new DIDs.
-    nonce: T::BlockNumber,
+    pub nonce: T::BlockNumber,
     /// Number of keys added for this DID so far.
-    last_key_id: IncId,
+    pub last_key_id: IncId,
     /// Number of currently active controller keys.
     active_controller_keys: u32,
     /// Number of currently active controllers.
@@ -194,14 +194,18 @@ impl Iterator for &'_ mut IncId {
 
 impl IncId {
     /// Creates new `IncId` equal to zero.
-    fn new() -> Self {
+    pub fn new() -> Self {
         Self::default()
     }
 
     /// Increases `IncId` value returning next sequential identifier.
-    fn inc(&mut self) -> &mut Self {
+    pub fn inc(&mut self) -> &mut Self {
         self.0 += 1;
         self
+    }
+
+    pub fn as_number(&self) -> u32 {
+        self.0
     }
 }
 
@@ -220,6 +224,16 @@ impl From<u16> for IncId {
 impl From<u8> for IncId {
     fn from(val: u8) -> IncId {
         IncId(val.into())
+    }
+}
+
+impl<T: Trait> DidDetail<T> {
+    pub fn next_nonce(&self) -> T::BlockNumber {
+        self.nonce + T::BlockNumber::one()
+    }
+
+    pub fn increment_last_key_id(&mut self) {
+        self.last_key_id.inc();
     }
 }
 
@@ -298,32 +312,9 @@ pub struct DidRemoval<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-macro_rules! impl_did_action {
-    ($type: ident) => {
-        impl<T: frame_system::Config> Action<T> for $type<T> {
-            type Target = Did;
-
-            fn target(&self) -> Did {
-                self.did
-            }
-
-            fn nonce(&self) -> T::BlockNumber {
-                self.nonce
-            }
-
-            fn to_state_change(&self) -> StateChange<'_, T> {
-                StateChange::$type(Cow::Borrowed(self))
-            }
-        }
-    };
-    ($($type: ident),+) => {
-        $(
-            impl_did_action!{$type}
-        )+
-    }
-}
-
-impl_did_action!(
+impl_action!(
+    Did,
+    did,
     AddKeys,
     RemoveKeys,
     AddControllers,
@@ -442,6 +433,11 @@ impl DidSignature {
         self.sig
             .verify(message, public_key)
             .map_err(|_| Error::<T>::IncompatSigPubkey.into())
+    }
+
+    /// This is just the weight to verify the signature. It does not include weight to read the DID or the key.
+    pub fn weight(&self) -> Weight {
+        self.sig.weight()
     }
 }
 
@@ -968,6 +964,10 @@ where
         Ok(())
     }
 
+    pub fn insert_did_detail(did: Did, detail: DidDetail<T>) {
+        Dids::<T>::insert(did, DidDetailStorage::OnChain(detail));
+    }
+
     /// Prepare `DidKey`s to insert. The DID is assumed to be self controlled as well if there is any key
     /// that is capable of invoking a capability. Returns the keys along with the
     /// amount of controller keys being met. The following logic is contentious.
@@ -1019,6 +1019,22 @@ where
         }
     }
 
+    /// Return `did`'s key with id `key_id` only if it can authenticate or control otherwise throw error
+    pub fn get_key_for_auth_or_control(
+        did: &Did,
+        key_id: IncId,
+    ) -> Result<PublicKey, DispatchError> {
+        if let Some(did_key) = DidKeys::get(did, key_id) {
+            if did_key.can_authenticate_or_control() {
+                Ok(did_key.key)
+            } else {
+                fail!(Error::<T>::InsufficientVerificationRelationship)
+            }
+        } else {
+            fail!(Error::<T>::NoKeyForDid)
+        }
+    }
+
     /// Verify a `DidSignature` created by `signer` only if `signer` is a controller of `did` and has an
     /// appropriate key. To update a DID (add/remove keys, add/remove controllers), the updater must be a
     /// controller of the DID and must have a key with `CAPABILITY_INVOCATION` verification relationship
@@ -1035,6 +1051,14 @@ where
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }
 
+    pub fn verify_sig_from_auth_or_control_key(
+        msg: &[u8],
+        sig: &DidSignature,
+    ) -> Result<bool, DispatchError> {
+        let signer_pubkey = Self::get_key_for_auth_or_control(&sig.did, sig.key_id)?;
+        sig.verify::<T>(msg, &signer_pubkey)
+    }
+
     /// Get DID detail for on-chain DID if given nonce is correct, i.e. 1 more than the current nonce.
     /// This is used for update
     pub fn get_on_chain_did_detail_for_update(
@@ -1042,7 +1066,7 @@ where
         new_nonce: impl Into<T::BlockNumber>,
     ) -> Result<DidDetail<T>, DispatchError> {
         let did_detail_storage = Self::get_on_chain_did_detail(did)?;
-        if new_nonce.into() != (did_detail_storage.nonce + T::BlockNumber::one()) {
+        if new_nonce.into() != did_detail_storage.next_nonce() {
             fail!(Error::<T>::IncorrectNonce)
         }
         Ok(did_detail_storage)

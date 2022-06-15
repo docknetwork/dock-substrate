@@ -4,11 +4,13 @@ use crate as dock;
 use crate::did;
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::fmt::Debug;
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
     weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
+use sp_std::borrow::Cow;
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;
@@ -22,7 +24,6 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 pub struct Blob {
     pub id: BlobId,
     pub blob: Vec<u8>,
-    pub author: did::Did,
 }
 
 pub trait Trait: system::Config + did::Trait {
@@ -35,7 +36,7 @@ pub trait Trait: system::Config + did::Trait {
 
 decl_error! {
     /// Error for the blob module.
-    pub enum BlobError for Module<T: Trait> {
+    pub enum BlobError for Module<T: Trait> where T: Debug {
         /// The blob is greater than `MaxBlobSize`
         BlobTooBig,
         /// There is already a blob with same id
@@ -48,14 +49,14 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Blob {
+    trait Store for Module<T: Trait> as Blob where T: Debug {
         Blobs get(fn get_blob): map hasher(blake2_128_concat)
             dock::blob::BlobId => Option<(dock::did::Did, Vec<u8>)>;
     }
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Trait> for enum Call where origin: T::Origin, T: Debug {
         const MaxBlobSize: u32 = T::MaxBlobSize::get();
 
         const StorageWeight: Weight = T::StorageWeight::get();
@@ -73,7 +74,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Trait + Debug> Module<T> {
     fn new_(
         origin: <T as system::Config>::Origin,
         blob: Blob,
@@ -90,12 +91,14 @@ impl<T: Trait> Module<T> {
             !Blobs::contains_key(&blob.id),
             BlobError::<T>::BlobAlreadyExists
         );
-        let payload = crate::StateChange::Blob(blob.clone()).encode();
-        let valid = did::Module::<T>::verify_sig_from_did(&signature, &payload, &blob.author)?;
-        ensure!(valid, BlobError::<T>::InvalidSig);
+        let payload = crate::StateChange::<T>::Blob(Cow::Borrowed(&blob)).encode();
+        ensure!(
+            did::Module::<T>::verify_sig_from_auth_or_control_key(&payload, &signature)?,
+            BlobError::<T>::InvalidSig
+        );
 
         // execute
-        Blobs::insert(blob.id, (blob.author, blob.blob));
+        Blobs::insert(blob.id, (signature.did, blob.blob));
 
         Ok(())
     }
@@ -107,6 +110,7 @@ mod tests {
     use crate::test_common::*;
     use frame_support::StorageMap;
     use sp_core::{sr25519, Pair};
+    use sp_std::borrow::Cow;
 
     fn create_blob(
         id: BlobId,
@@ -117,18 +121,22 @@ mod tests {
         let bl = Blob {
             id,
             blob: content.clone(),
-            author,
         };
         println!("did: {:?}", author);
         println!("pk: {:?}", author_kp.public().0);
         println!("id: {:?}", id);
         println!("content: {:?}", content.clone());
-        println!(
-            "Sig {:?}",
-            sign(&crate::StateChange::Blob(bl.clone()), &author_kp).as_sr25519_sig_bytes()
-        );
-        let sig = sign(&crate::StateChange::Blob(bl.clone()), &author_kp);
-        BlobMod::new(Origin::signed(ABBA), bl.clone(), sig)
+
+        BlobMod::new(
+            Origin::signed(ABBA),
+            bl.clone(),
+            did_sig::<Test>(
+                &crate::StateChange::Blob(Cow::Borrowed(&bl)),
+                &author_kp,
+                author,
+                1,
+            ),
+        )
     }
 
     fn get_max_blob_size() -> usize {
@@ -195,7 +203,7 @@ mod tests {
             let author = rand::random();
             let author_kp = gen_kp();
             let err = create_blob(rand::random(), random_bytes(10), author, author_kp).unwrap_err();
-            assert_eq!(err, did::Error::<Test>::DidDoesNotExist.into());
+            assert_eq!(err, did::Error::<Test>::NoKeyForDid.into());
         });
     }
 
@@ -208,14 +216,22 @@ mod tests {
                 let bl = Blob {
                     id: rand::random(),
                     blob: random_bytes(10),
-                    author,
                 };
-                let remreg = crate::revoke::RemoveRegistry {
+                let remreg = crate::revoke::RemoveRegistry::<Test> {
                     registry_id: rand::random(),
-                    last_modified: 10,
+                    nonce: 10,
                 };
-                let sig = sign(&crate::StateChange::RemoveRegistry(remreg), &author_kp);
-                let err = BlobMod::new(Origin::signed(ABBA), bl.clone(), sig).unwrap_err();
+                let err = BlobMod::new(
+                    Origin::signed(ABBA),
+                    bl.clone(),
+                    did_sig(
+                        &crate::StateChange::RemoveRegistry(Cow::Borrowed(&remreg)),
+                        &author_kp,
+                        author,
+                        1,
+                    ),
+                )
+                .unwrap_err();
                 assert_eq!(err, BlobError::<Test>::InvalidSig.into());
             }
 
@@ -226,10 +242,18 @@ mod tests {
                 let bl = Blob {
                     id: rand::random(),
                     blob: random_bytes(10),
-                    author,
                 };
-                let sig = sign(&crate::StateChange::Blob(bl.clone()), &author_kp);
-                let err = BlobMod::new(Origin::signed(ABBA), bl.clone(), sig).unwrap_err();
+                let err = BlobMod::new(
+                    Origin::signed(ABBA),
+                    bl.clone(),
+                    did_sig::<Test>(
+                        &crate::StateChange::Blob(Cow::Borrowed(&bl)),
+                        &author_kp,
+                        author,
+                        1,
+                    ),
+                )
+                .unwrap_err();
                 assert_eq!(err, BlobError::<Test>::InvalidSig.into());
             }
         })
