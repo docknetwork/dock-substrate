@@ -17,6 +17,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::boxed::Box;
+use core::fmt::Debug;
 
 #[cfg(test)]
 mod test_mock;
@@ -27,7 +28,7 @@ mod tests;
 /// The pallet's configuration trait
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Config:
-    system::Config + did::Trait + anchor::Trait + blob::Trait + revoke::Trait + attest::Trait
+    system::Config + did::Trait + anchor::Trait + blob::Trait + revoke::Trait + attest::Trait + Debug
 {
     /// Config option for updating the DockFiatRate
     type PriceProvider: common::traits::PriceProvider;
@@ -52,7 +53,7 @@ pub trait Config:
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Module<T: Config> where T: Debug {
         /// Call is not among the core_mods ones that should go through fiat_filter
         UnexpectedCall,
     }
@@ -63,7 +64,7 @@ decl_error! {
 decl_module! {
     pub struct Module<T: Config> for enum Call
     where
-        origin: T::Origin
+        origin: T::Origin, T: Debug
     {
         const MinDockFiatRate: u32 = T::MinDockFiatRate::get();
 
@@ -86,9 +87,11 @@ type AmountUsd = u32;
 pub mod fiat_rate {
     // all prices given in nUSD (billionth USD)
     // This unit is chosen to avoid multiplications later in get_call_fee_dock_()
-    pub const PRICE_DID_CREATE: u32 = 150_000_000; // 150_000_000/1B or 0.15 USD
+    pub const PRICE_OFFCHAIN_DID_CREATE: u32 = 150_000_000; // 50_000_000/1B or 0.5 USD
+    pub const PRICE_ONCHAIN_DID_CREATE: u32 = 150_000_000; // 150_000_000/1B or 0.15 USD
     pub const PRICE_DID_KEY_UPDATE: u32 = 170_000_000;
-    pub const PRICE_DID_REMOVE: u32 = 150_000_000;
+    pub const PRICE_OFFCHAIN_DID_REMOVE: u32 = 50_000_000;
+    pub const PRICE_ONCHAIN_DID_REMOVE: u32 = 150_000_000;
     pub const PRICE_ANCHOR_OP_PER_BYTE: u32 = 3438;
     pub const PRICE_REVOKE_REGISTRY_CREATE: u32 = 130_000_000;
     pub const PRICE_REVOKE_REGISTRY_REMOVE: u32 = 170_000_000;
@@ -101,15 +104,21 @@ pub mod fiat_rate {
 }
 
 // private helper functions
-impl<T: Config> Module<T> {
+impl<T: Config + Debug> Module<T> {
     /// Get fee in fiat unit for a given Call
     /// Result expressed in nUSD (billionth USD)
     fn get_call_fee_fiat_(call: &<T as Config>::Call) -> Result<AmountUsd, DispatchError> {
         use fiat_rate::*;
         match call.is_sub_type() {
-            Some(did::Call::new(_did, _detail)) => return Ok(PRICE_DID_CREATE),
-            Some(did::Call::update_key(_key_update, _sig)) => return Ok(PRICE_DID_KEY_UPDATE),
-            Some(did::Call::remove(_to_remove, _sig)) => return Ok(PRICE_DID_REMOVE),
+            Some(did::Call::new_offchain(_, _)) => return Ok(PRICE_OFFCHAIN_DID_CREATE),
+            // TODO: This needs to be revisited as it should depend on the number of keys and controllers
+            Some(did::Call::new_onchain(_, _, __)) => return Ok(PRICE_ONCHAIN_DID_CREATE),
+            // TODO: This needs to be revisited as it should depend on the number of keys
+            Some(did::Call::add_keys(_, _)) => return Ok(PRICE_DID_KEY_UPDATE),
+            // TODO: This needs to be revisited as it should depend on the number of keys
+            Some(did::Call::add_controllers(_, _)) => return Ok(PRICE_DID_KEY_UPDATE),
+            Some(did::Call::remove_offchain_did(_)) => return Ok(PRICE_OFFCHAIN_DID_REMOVE),
+            Some(did::Call::remove_onchain_did(_, _)) => return Ok(PRICE_ONCHAIN_DID_REMOVE),
             _ => {}
         };
         match call.is_sub_type() {
@@ -149,7 +158,7 @@ impl<T: Config> Module<T> {
             _ => {}
         };
         match call.is_sub_type() {
-            Some(attest::Call::set_claim(_attester, attestation, _sig)) => {
+            Some(attest::Call::set_claim(attestation, _sig)) => {
                 let iri_size_100bytes: u32 = attestation
                     .iri
                     .as_ref()

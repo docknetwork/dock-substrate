@@ -126,9 +126,9 @@ bitflags::bitflags! {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct DidKey {
     /// The public key
-    key: PublicKey,
+    pub key: PublicKey,
     /// The different verification relationships the above key has with the DID.
-    ver_rels: VerRelType,
+    pub ver_rels: VerRelType,
 }
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
@@ -504,9 +504,8 @@ decl_storage! {
         /// Stores service endpoints of a DID as (DID, endpoint id) -> bool.
         pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) dock::did::Did, hasher(blake2_128_concat) Vec<u8> => Option<ServiceEndpoint>;
     }
-    // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
-    /*add_extra_genesis {
-        config(dids): Vec<(Did, DidDetail)>;
+    add_extra_genesis {
+        config(dids): Vec<(Did, DidKey)>;
         build(|slef: &Self| {
             debug_assert!({
                 let mut dedup: Vec<&Did> = slef.dids.iter().map(|(d, _kd)| d).collect();
@@ -515,11 +514,19 @@ decl_storage! {
                 slef.dids.len() == dedup.len()
             });
             let block_no: T::BlockNumber = 0u32.into();
-            for (did, deet) in slef.dids.iter() {
-                Dids::<T>::insert(did, (deet, block_no));
+            for (did, key) in slef.dids.iter() {
+                let mut key_id = IncId::new();
+                key_id.inc();
+                Dids::<T>::insert(did, DidDetailStorage::from_on_chain_detail(
+                        key_id,
+                        1,
+                        1,
+                        block_no,
+                    ));
+                DidKeys::insert(&did, key_id, key);
             }
         })
-    }*/
+    }
 }
 
 decl_module! {

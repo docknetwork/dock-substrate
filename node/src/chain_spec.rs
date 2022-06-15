@@ -1,5 +1,6 @@
 use dock_runtime::{
-    did::{self, Did, KeyDetail},
+    did::{self, Did, DidKey, VerRelType},
+    keys_and_sigs::PublicKey,
     master::Membership,
     AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
     EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
@@ -93,14 +94,11 @@ where
 }
 
 /// Create a non-secure development did with specified secret key
-fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, KeyDetail) {
+fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, DidKey) {
     let pk = sr25519::Pair::from_seed(seed).public().0;
     (
         *did,
-        KeyDetail::new(
-            *did,
-            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
-        ),
+        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
     )
 }
 
@@ -356,10 +354,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                 .map(|(did, pk)| {
                     (
                         *did,
-                        KeyDetail::new(
-                            *did,
-                            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
-                        ),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
                 .collect(),
@@ -567,10 +562,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 .map(|(did, pk)| {
                     (
                         *did,
-                        KeyDetail::new(
-                            *did,
-                            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
-                        ),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
                 .collect(),
@@ -770,10 +762,7 @@ mod test {
             did_from_seed(&did, &sk),
             (
                 did,
-                KeyDetail::new(
-                    did,
-                    keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk })
-                ),
+                DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
             )
         );
     }

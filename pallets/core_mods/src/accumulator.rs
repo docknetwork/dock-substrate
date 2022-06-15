@@ -83,7 +83,8 @@ pub struct AddAccumulator {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemoveAccumulator<T: frame_system::Config> {
     pub id: AccumulatorId,
-    /// Next valid nonce, i.e. 1 greater than currently stored
+    /// Next valid nonce, i.e. 1 greater than currently stored. Nonce starts from the block number
+    /// when the accumulator was created.
     pub nonce: T::BlockNumber,
 }
 
@@ -95,7 +96,8 @@ pub struct AccumulatorUpdate<T: frame_system::Config> {
     pub additions: Option<Vec<Vec<u8>>>,
     pub removals: Option<Vec<Vec<u8>>>,
     pub witness_update_info: Option<Vec<u8>>,
-    /// Next valid nonce, i.e. 1 greater than currently stored
+    /// Next valid nonce, i.e. 1 greater than currently stored. Nonce starts from the block number
+    /// when the accumulator was created.
     pub nonce: T::BlockNumber,
 }
 
@@ -199,8 +201,9 @@ decl_storage! {
         /// point for anyone looking for all updates to the accumulator. `last_updated_at` is the block number when
         /// the last update was sent. `created_at` and `last_updated_at` together indicate which blocks should be
         /// considered for finding accumulator updates.
-        /// `nonce` is the an always incrementing number starting at 0 to help with replay protection. Each new
-        /// update is supposed to have 1 higher nonce than the current one.
+        /// `nonce` is the an always incrementing number starting at `created_at` to help with replay protection. Each new
+        /// update is supposed to have 1 higher nonce than the current one. The rationale for this kind of nonce mechanism
+        /// is same as for nonces of DID and other modules.
         /// Historical values and updates are persisted as events indexed with the accumulator id. The reason for
         /// not storing past values is to save storage in chain state. Another option could have been to store
         /// block numbers for the updates so that each block from `created_at` doesn't need to be scanned but
@@ -231,6 +234,8 @@ decl_module! {
         // Weights are not yet determined by benchmarks and thus ignore processing time and also event storage
         // cost
 
+        /// Add accumulator params. Only a DID with the ability to control or authenticate can do this.
+        /// The signing DID will become owner of these params and only it can remove this.
         #[weight = T::DbWeight::get().reads_writes(2, 2)
             + signature.weight()
             + params.bytes.len() as u64 * T::ParamsPerByteWeight::get()
@@ -245,6 +250,8 @@ decl_module! {
             Module::<T>::add_params_(params, signature)
         }
 
+        /// Add accumulator public key. Only a DID with the ability to control or authenticate can do this.
+        /// The signing DID will become owner of this key and only it can remove this.
         #[weight = T::DbWeight::get().reads_writes(2, 2)
             + {if public_key.params_ref.is_some() { 1 } else {0}} + signature.weight()
             + public_key.bytes.len() as u64 * T::PublicKeyPerByteWeight::get()
@@ -258,6 +265,7 @@ decl_module! {
             Module::<T>::add_public_key_(public_key, signature)
         }
 
+        /// Remove accumulator params. Only the owner DID can remove it.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
         pub fn remove_params(
             origin,
@@ -268,6 +276,7 @@ decl_module! {
             Module::<T>::remove_params_(remove, signature)
         }
 
+        /// Remove accumulator public key. Only the owner DID can remove it.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
         pub fn remove_public_key(
             origin,
