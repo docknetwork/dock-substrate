@@ -19,11 +19,11 @@ use frame_system::{self as system, ensure_signed};
 use sp_std::boxed::Box;
 use core::fmt::Debug;
 
-#[cfg(test)]
-mod test_mock;
-#[cfg(test)]
-#[allow(non_snake_case)]
-mod tests;
+// #[cfg(test)]
+// mod test_mock;
+// #[cfg(test)]
+// #[allow(non_snake_case)]
+// mod tests;
 
 /// The pallet's configuration trait
 /// Configure the pallet by specifying the parameters and types on which it depends.

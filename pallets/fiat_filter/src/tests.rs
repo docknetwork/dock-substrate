@@ -12,10 +12,11 @@ use rand::random;
 use sp_core::{sr25519, Pair};
 
 mod tests_did_calls {
+    use sp_std::collections::btree_set::BTreeSet;
     use super::*;
     use core_mods::keys_and_sigs::{PublicKey, SigValue};
     use core_mods::util::Bytes32;
-    use did::{Bytes64, DidRemoval, KeyDetail, KeyUpdate, DID_BYTE_SIZE};
+    use did::{DidKey, DidRemoval, DID_BYTE_SIZE};
 
     type DidMod = did::Module<TestRt>;
 
@@ -24,15 +25,10 @@ mod tests_did_calls {
         ext().execute_with(|| {
             let d: did::Did = rand::random();
             let kp = gen_kp();
-            let key_detail = did::KeyDetail::new(
-                d,
-                did::PublicKey::Sr25519(did::Bytes32 {
-                    value: kp.public().0,
-                }),
-            );
+            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(kp.public().0));
 
-            let call = Call::DIDMod(did::Call::<TestRt>::new(d.clone(), key_detail));
-            let expected_fees = PRICE_DID_CREATE / TestPriceProvider::get().unwrap();
+            let call = Call::DIDMod(did::Call::<TestRt>::new_onchain(d.clone(), vec![key], BTreeSet::new()));
+            let expected_fees = PRICE_ONCHAIN_DID_CREATE / TestPriceProvider::get().unwrap();
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
@@ -42,13 +38,10 @@ mod tests_did_calls {
             let did_alice = [1; DID_BYTE_SIZE];
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_1 = pair_1.public().0;
-            let detail = KeyDetail::new(
-                did_alice.clone(),
-                PublicKey::Sr25519(Bytes32 { value: pk_1 }),
-            );
+            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(pk_1));
 
             // Add a DID
-            let new_res = DidMod::new(Origin::signed(ALICE), did_alice.clone(), detail.clone());
+            let new_res = DidMod::new_onchain(Origin::signed(ALICE), did_alice.clone(), vec![key], BTreeSet::new());
             assert_ok!(new_res);
 
             let (_current_detail, modified_in_block) = DidMod::get_key_detail(&did_alice).unwrap();
@@ -88,7 +81,7 @@ mod tests_did_calls {
             });
 
             let call = Call::DIDMod(did::Call::<TestRt>::remove(to_remove, sig));
-            let expected_fees = PRICE_DID_REMOVE / TestPriceProvider::get().unwrap();
+            let expected_fees = PRICE_ONCHAIN_DID_REMOVE / TestPriceProvider::get().unwrap();
             let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
         });
     }
