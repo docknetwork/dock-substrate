@@ -31,7 +31,7 @@ benchmarks! {
         let t in ...;
 
         let caller = account("caller", u, SEED);
-        let did: Did = [d as u8; DID_BYTE_SIZE].into();
+        let did: Did = [d as u8; Did::BYTE_SIZE].into();
         let pk = match t {
             n if n == 0 => PublicKey::Sr25519(Bytes32 { value: [k as u8; 32] }),
             n if n == 1 => PublicKey::Ed25519(Bytes32 { value: [k as u8; 32] }),

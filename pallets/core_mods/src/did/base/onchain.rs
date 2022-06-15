@@ -23,7 +23,7 @@ pub struct OnChainDidDetails<T: Trait> {
     pub active_controllers: u32,
 }
 
-impl<T: Trait> From<OnChainDidDetails<T>> for DidDetailStorage<T> {
+impl<T: Trait> From<OnChainDidDetails<T>> for StoredDidDetails<T> {
     fn from(details: OnChainDidDetails<T>) -> Self {
         Self::OnChain(details)
     }
@@ -90,7 +90,7 @@ impl<T: Trait + Debug> Module<T> {
 
         // Nonce will start from current block number
         let nonce = <system::Module<T>>::block_number();
-        let did_details: DidDetailStorage<T> = OnChainDidDetails::new(
+        let did_details: StoredDidDetails<T> = OnChainDidDetails::new(
             nonce,
             last_key_id,
             controller_keys_count,
@@ -100,10 +100,7 @@ impl<T: Trait + Debug> Module<T> {
 
         Dids::<T>::insert(did, did_details);
 
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::OnChainDidAdded(did)).into(),
-        );
+        deposit_indexed_event!(OnChainDidAdded(did));
         Ok(())
     }
 
@@ -116,10 +113,8 @@ impl<T: Trait + Debug> Module<T> {
         DidControllers::remove_prefix(did);
         DidServiceEndpoints::remove_prefix(did);
         Dids::<T>::remove(did);
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::OnChainDidRemoved(did)).into(),
-        );
+
+        deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())
     }
 
@@ -146,7 +141,7 @@ impl<T: Trait + Debug> Module<T> {
     pub fn is_onchain_did(did: &Did) -> Result<bool, Error<T>> {
         Self::did(did)
             .as_ref()
-            .map(DidDetailStorage::is_onchain)
+            .map(StoredDidDetails::is_onchain)
             .ok_or(Error::<T>::DidDoesNotExist)
     }
 

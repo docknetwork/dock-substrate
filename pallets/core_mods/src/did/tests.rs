@@ -64,7 +64,7 @@ fn offchain_did() {
     // Creating an off-chain DID
     ext().execute_with(|| {
         let alice = 1u64;
-        let did: Did = [5; DID_BYTE_SIZE].into();
+        let did: Did = [5; Did::BYTE_SIZE].into();
         let doc_ref = OffChainDidDocRef::Custom(vec![129; 60].into());
         let too_big_doc_ref = OffChainDidDocRef::Custom(vec![129; 300].into());
 
@@ -145,10 +145,10 @@ fn onchain_keyless_did_creation() {
     // Creating an on-chain DID with no keys but only controllers, i.e. DID is controlled by other DIDs
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [5; DID_BYTE_SIZE].into();
-        let did_2: Did = [3; DID_BYTE_SIZE].into();
-        let controller_1 = Controller([7; DID_BYTE_SIZE].into());
-        let controller_2 = Controller([20; DID_BYTE_SIZE].into());
+        let did_1: Did = [5; Did::BYTE_SIZE].into();
+        let did_2: Did = [3; Did::BYTE_SIZE].into();
+        let controller_1 = Controller([7; Did::BYTE_SIZE].into());
+        let controller_2 = Controller([20; Did::BYTE_SIZE].into());
 
         assert_noop!(
             DIDModule::new_onchain(
@@ -214,17 +214,17 @@ fn onchain_keyed_did_creation_with_self_control() {
     // Creating an on-chain DID with keys but no other controllers
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [5; DID_BYTE_SIZE].into();
-        let did_2: Did = [4; DID_BYTE_SIZE].into();
-        let did_3: Did = [3; DID_BYTE_SIZE].into();
-        let did_4: Did = [2; DID_BYTE_SIZE].into();
-        let did_5: Did = [11; DID_BYTE_SIZE].into();
-        let did_6: Did = [111; DID_BYTE_SIZE].into();
-        let did_7: Did = [71; DID_BYTE_SIZE].into();
-        let did_8: Did = [82; DID_BYTE_SIZE].into();
-        let did_9: Did = [83; DID_BYTE_SIZE].into();
-        let did_10: Did = [84; DID_BYTE_SIZE].into();
-        let did_11: Did = [85; DID_BYTE_SIZE].into();
+        let did_1: Did = [5; Did::BYTE_SIZE].into();
+        let did_2: Did = [4; Did::BYTE_SIZE].into();
+        let did_3: Did = [3; Did::BYTE_SIZE].into();
+        let did_4: Did = [2; Did::BYTE_SIZE].into();
+        let did_5: Did = [11; Did::BYTE_SIZE].into();
+        let did_6: Did = [111; Did::BYTE_SIZE].into();
+        let did_7: Did = [71; Did::BYTE_SIZE].into();
+        let did_8: Did = [82; Did::BYTE_SIZE].into();
+        let did_9: Did = [83; Did::BYTE_SIZE].into();
+        let did_10: Did = [84; Did::BYTE_SIZE].into();
+        let did_11: Did = [85; Did::BYTE_SIZE].into();
 
         let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
         let pk_sr = pair_sr.public().0;
@@ -375,28 +375,28 @@ fn onchain_keyed_did_creation_with_self_control() {
         // Add single key with single relationship and but do not specify relationship as `capabilityInvocation`
         for (did, pk, vr) in vec![
             (
-                [72; DID_BYTE_SIZE],
+                [72; Did::BYTE_SIZE],
                 PublicKey::sr25519(pk_sr),
                 VerRelType::ASSERTION,
             ),
             (
-                [73; DID_BYTE_SIZE],
+                [73; Did::BYTE_SIZE],
                 PublicKey::ed25519(pk_ed),
                 VerRelType::ASSERTION,
             ),
-            ([74; DID_BYTE_SIZE], pk_secp.clone(), VerRelType::ASSERTION),
+            ([74; Did::BYTE_SIZE], pk_secp.clone(), VerRelType::ASSERTION),
             (
-                [75; DID_BYTE_SIZE],
+                [75; Did::BYTE_SIZE],
                 PublicKey::sr25519(pk_sr),
                 VerRelType::AUTHENTICATION,
             ),
             (
-                [76; DID_BYTE_SIZE],
+                [76; Did::BYTE_SIZE],
                 PublicKey::ed25519(pk_ed),
                 VerRelType::AUTHENTICATION,
             ),
             (
-                [77; DID_BYTE_SIZE],
+                [77; Did::BYTE_SIZE],
                 pk_secp.clone(),
                 VerRelType::AUTHENTICATION,
             ),
@@ -552,17 +552,17 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
     // Creating an on-chain DID with keys and other controllers
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
-        let did_2: Did = [52; DID_BYTE_SIZE].into();
-        let did_3: Did = [54; DID_BYTE_SIZE].into();
-        let did_4: Did = [55; DID_BYTE_SIZE].into();
-        let did_5: Did = [56; DID_BYTE_SIZE].into();
-        let did_6: Did = [57; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
+        let did_2: Did = [52; Did::BYTE_SIZE].into();
+        let did_3: Did = [54; Did::BYTE_SIZE].into();
+        let did_4: Did = [55; Did::BYTE_SIZE].into();
+        let did_5: Did = [56; Did::BYTE_SIZE].into();
+        let did_6: Did = [57; Did::BYTE_SIZE].into();
 
-        let controller_1 = Controller([61; DID_BYTE_SIZE].into());
-        let controller_2 = Controller([62; DID_BYTE_SIZE].into());
-        let controller_3 = Controller([63; DID_BYTE_SIZE].into());
-        let controller_4 = Controller([64; DID_BYTE_SIZE].into());
+        let controller_1 = Controller([61; Did::BYTE_SIZE].into());
+        let controller_2 = Controller([62; Did::BYTE_SIZE].into());
+        let controller_3 = Controller([63; Did::BYTE_SIZE].into());
+        let controller_4 = Controller([64; Did::BYTE_SIZE].into());
 
         let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
         let pk_sr = pair_sr.public().0;
@@ -692,8 +692,8 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
 fn add_keys_to_did() {
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
-        let did_2: Did = [52; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
+        let did_2: Did = [52; Did::BYTE_SIZE].into();
 
         // Add keys to a DID that has not been registered yet should fail
         let (pair_sr_1, _, _) = sr25519::Pair::generate_with_phrase(None);
@@ -985,8 +985,8 @@ fn add_keys_to_did() {
 fn remove_keys_from_did() {
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
-        let did_2: Did = [52; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
+        let did_2: Did = [52; Did::BYTE_SIZE].into();
 
         // Add keys to a DID that has not been registered yet should fail
         let (pair_sr_1, _, _) = sr25519::Pair::generate_with_phrase(None);
@@ -1110,7 +1110,7 @@ fn remove_keys_from_did() {
             }
         ));
 
-        let did_5: Did = [54; DID_BYTE_SIZE].into();
+        let did_5: Did = [54; Did::BYTE_SIZE].into();
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
             did_5.clone(),
@@ -1166,9 +1166,9 @@ fn remove_keys_from_did() {
 fn remove_controllers_from_did() {
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
-        let did_2: Did = [52; DID_BYTE_SIZE].into();
-        let did_3: Did = [53; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
+        let did_2: Did = [52; Did::BYTE_SIZE].into();
+        let did_3: Did = [53; Did::BYTE_SIZE].into();
 
         // Add keys to a DID that has not been registered yet should fail
         let (pair_sr_1, _, _) = sr25519::Pair::generate_with_phrase(None);
@@ -1255,7 +1255,7 @@ fn remove_controllers_from_did() {
         // Since did_2 does not control itself, it cannot add keys to itself
         let remove_controllers = RemoveControllers {
             did: did_1.clone(),
-            controllers: vec![did_1, did_2, did_3, [53; DID_BYTE_SIZE].into()]
+            controllers: vec![did_1, did_2, did_3, [53; Did::BYTE_SIZE].into()]
                 .into_iter()
                 .map(Controller)
                 .collect(),
@@ -1366,11 +1366,11 @@ fn remove_controllers_from_did() {
 fn add_controllers_to_did() {
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
-        let did_2: Did = [52; DID_BYTE_SIZE].into();
-        let did_3: Did = [53; DID_BYTE_SIZE].into();
-        let did_4: Did = [54; DID_BYTE_SIZE].into();
-        let did_5: Did = [55; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
+        let did_2: Did = [52; Did::BYTE_SIZE].into();
+        let did_3: Did = [53; Did::BYTE_SIZE].into();
+        let did_4: Did = [54; Did::BYTE_SIZE].into();
+        let did_5: Did = [55; Did::BYTE_SIZE].into();
 
         // Add keys to a DID that has not been registered yet should fail
         let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
@@ -1594,8 +1594,8 @@ fn becoming_controller() {
     // when either a key is added with `capabilityInvocation`
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
-        let did_2: Did = [52; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
+        let did_2: Did = [52; Did::BYTE_SIZE].into();
 
         let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
         let pk_sr = pair_sr.public().0;
@@ -1684,10 +1684,10 @@ fn any_controller_can_update() {
     // For a DID with many controllers, any controller can update it by adding keys, controllers.
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
-        let did_2: Did = [52; DID_BYTE_SIZE].into();
-        let did_3: Did = [53; DID_BYTE_SIZE].into();
-        let did_4: Did = [54; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
+        let did_2: Did = [52; Did::BYTE_SIZE].into();
+        let did_3: Did = [53; Did::BYTE_SIZE].into();
+        let did_4: Did = [54; Did::BYTE_SIZE].into();
 
         let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
         let pk_sr = pair_sr.public().0;
@@ -1797,7 +1797,7 @@ fn any_controller_can_remove() {
     // For a DID with many controllers, any controller can remove it.
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
 
         // TODO:
     });
@@ -1808,7 +1808,7 @@ fn service_endpoints() {
     // Adding and removing service endpoints to a DID
     ext().execute_with(|| {
         let alice = 1u64;
-        let did: Did = [51; DID_BYTE_SIZE].into();
+        let did: Did = [51; Did::BYTE_SIZE].into();
 
         let endpoint_1_id: WrappedBytes = vec![102; 50].into();
         let origins_1: Vec<WrappedBytes> = vec![vec![112; 100].into()];
@@ -2248,10 +2248,10 @@ fn did_removal() {
     // Removing a DID
     ext().execute_with(|| {
         let alice = 1u64;
-        let did_1: Did = [51; DID_BYTE_SIZE].into();
-        let did_2: Did = [52; DID_BYTE_SIZE].into();
-        let did_3: Did = [53; DID_BYTE_SIZE].into();
-        let did_4: Did = [54; DID_BYTE_SIZE].into();
+        let did_1: Did = [51; Did::BYTE_SIZE].into();
+        let did_2: Did = [52; Did::BYTE_SIZE].into();
+        let did_3: Did = [53; Did::BYTE_SIZE].into();
+        let did_4: Did = [54; Did::BYTE_SIZE].into();
 
         let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
         let pk_sr = pair_sr.public().0;

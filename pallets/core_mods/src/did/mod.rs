@@ -3,7 +3,7 @@ use crate as dock;
 use crate::keys_and_sigs::PublicKey;
 use crate::util::*;
 use crate::Action;
-use crate::{impl_bits_conversion, impl_did_action};
+use crate::{deposit_indexed_event, impl_bits_conversion, impl_did_action};
 pub use actions::*;
 pub use base::{offchain, onchain, signature};
 use codec::{Decode, Encode};
@@ -121,7 +121,7 @@ decl_event!(
 decl_storage! {
     trait Store for Module<T: Trait> as DIDModule where T: Debug {
         /// Stores details of off-chain and on-chain DIDs
-        pub Dids get(fn did): map hasher(blake2_128_concat) Did => Option<DidDetailStorage<T>>;
+        pub Dids get(fn did): map hasher(blake2_128_concat) Did => Option<StoredDidDetails<T>>;
         /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
         pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) Did, hasher(identity) IncId => Option<DidKey>;
         /// Stores controlled - controller pairs of a DID as (DID, DID) -> zero-sized record. If a record exists, then the controller is bound.

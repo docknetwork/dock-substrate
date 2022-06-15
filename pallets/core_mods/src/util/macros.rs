@@ -67,3 +67,19 @@ macro_rules! impl_did_action {
         )+
     };
 }
+
+#[macro_export]
+macro_rules! deposit_indexed_event {
+    ($event: ident($($value: expr),+) over $($index: expr),+) => {
+        <system::Module<T>>::deposit_event_indexed(
+            &[$(<T as system::Config>::Hashing::hash(&$index[..])),+],
+            <T as Trait>::Event::from(Event::$event($($value),+)).into(),
+        );
+    };
+    ($event: ident($($value: expr),+)) => {
+        <system::Module<T>>::deposit_event_indexed(
+            &[$(<T as system::Config>::Hashing::hash(&$value[..])),+],
+            <T as Trait>::Event::from(Event::$event($($value),+)).into(),
+        );
+    }
+}

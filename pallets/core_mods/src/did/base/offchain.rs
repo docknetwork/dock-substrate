@@ -13,7 +13,7 @@ pub struct OffChainDidDetails<T: Trait> {
     pub doc_ref: OffChainDidDocRef,
 }
 
-impl<T: Trait> From<OffChainDidDetails<T>> for DidDetailStorage<T> {
+impl<T: Trait> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
     fn from(details: OffChainDidDetails<T>) -> Self {
         Self::OffChain(details)
     }
@@ -69,14 +69,11 @@ impl<T: Trait + Debug> Module<T> {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
-        Dids::<T>::insert::<_, DidDetailStorage<T>>(
-            did,
-            OffChainDidDetails::new(caller, did_doc_ref.clone()).into(),
-        );
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::OffChainDidAdded(did, did_doc_ref)).into(),
-        );
+        let details: StoredDidDetails<T> =
+            OffChainDidDetails::new(caller, did_doc_ref.clone()).into();
+        Dids::<T>::insert(did, details);
+
+        deposit_indexed_event!(OffChainDidAdded(did, did_doc_ref) over did);
         Ok(())
     }
 
@@ -87,14 +84,11 @@ impl<T: Trait + Debug> Module<T> {
     ) -> Result<(), Error<T>> {
         Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
-        Dids::<T>::insert::<_, DidDetailStorage<T>>(
-            did,
-            OffChainDidDetails::new(caller, did_doc_ref.clone()).into(),
-        );
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::OffChainDidUpdated(did, did_doc_ref)).into(),
-        );
+        let details: StoredDidDetails<T> =
+            OffChainDidDetails::new(caller, did_doc_ref.clone()).into();
+        Dids::<T>::insert(did, details);
+
+        deposit_indexed_event!(OffChainDidUpdated(did, did_doc_ref) over did);
         Ok(())
     }
 
@@ -102,17 +96,15 @@ impl<T: Trait + Debug> Module<T> {
         Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
         Dids::<T>::remove(did);
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::OffChainDidRemoved(did)).into(),
-        );
+
+        deposit_indexed_event!(OffChainDidRemoved(did));
         Ok(())
     }
 
     pub fn is_offchain_did(did: &Did) -> Result<bool, Error<T>> {
         Self::did(did)
             .as_ref()
-            .map(DidDetailStorage::is_offchain)
+            .map(StoredDidDetails::is_offchain)
             .ok_or(Error::<T>::DidDoesNotExist)
     }
 

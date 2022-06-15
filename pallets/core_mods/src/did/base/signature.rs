@@ -21,7 +21,7 @@ impl DidSignature {
     ) -> Result<bool, Error<T>> {
         self.sig
             .verify(message, public_key)
-            .map_err(|_| Error::<T>::IncompatSigPubkey.into())
+            .map_err(|_| Error::<T>::IncompatSigPubkey)
     }
 }
 

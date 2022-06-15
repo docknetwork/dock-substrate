@@ -47,11 +47,7 @@ impl<T: Trait + Debug> Module<T> {
             *active_controllers += 1;
         }
 
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::DidControllersAdded(did)).into(),
-        );
-
+        deposit_indexed_event!(DidControllersAdded(did));
         Ok(())
     }
 
@@ -74,11 +70,7 @@ impl<T: Trait + Debug> Module<T> {
             *active_controllers -= 1;
         }
 
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::DidControllersRemoved(did)).into(),
-        );
-
+        deposit_indexed_event!(DidControllersRemoved(did));
         Ok(())
     }
 

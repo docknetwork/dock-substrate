@@ -11,7 +11,7 @@ use super::*;
 pub struct AggregatedDidDetailsResponse<T: Trait> {
     did: Did,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    details: DidDetailStorage<T>,
+    details: StoredDidDetails<T>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     keys: Option<Vec<DidKeyWithId>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -42,7 +42,7 @@ impl<T: Trait> AggregatedDidDetailsResponse<T> {
     /// Constructs new `DID` response using supplied arguments.
     pub fn new<CI, KI, SI>(
         did: Did,
-        details: DidDetailStorage<T>,
+        details: StoredDidDetails<T>,
         keys: Option<KI>,
         controllers: Option<CI>,
         service_endpoints: Option<SI>,

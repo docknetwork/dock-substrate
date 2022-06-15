@@ -4,7 +4,7 @@
 use sp_std::prelude::Vec;
 
 use crate::blob::ID_BYTE_SIZE;
-use crate::did::DID_BYTE_SIZE;
+use crate::did::Did::BYTE_SIZE;
 use crate::did::{Bytes33, Bytes64, Bytes65};
 use crate::keys_and_sigs::{PublicKey, SigValue};
 use crate::util::Bytes32;
@@ -21,13 +21,13 @@ pub const BLOB_DATA_SIZE: usize = 3;
 pub fn get_data_for_key_update(
     typ: u8,
     index: usize,
-) -> (u32, [u8; DID_BYTE_SIZE], PublicKey, PublicKey, SigValue) {
+) -> (u32, [u8; Did::BYTE_SIZE], PublicKey, PublicKey, SigValue) {
     assert!(typ < 3);
     assert!(index < DID_DATA_SIZE);
     if typ == 0 {
         // Sr25519
-        let did = [1 as u8; DID_BYTE_SIZE];
-        let data: [(u32, [u8; DID_BYTE_SIZE], [u8; 32], [u8; 32], [u8; 64]); DID_DATA_SIZE] = [
+        let did = [1 as u8; Did::BYTE_SIZE];
+        let data: [(u32, [u8; Did::BYTE_SIZE], [u8; 32], [u8; 32], [u8; 64]); DID_DATA_SIZE] = [
             (
                 0,
                 did.clone(),
@@ -98,8 +98,8 @@ pub fn get_data_for_key_update(
         )
     } else if typ == 1 {
         // Ed25519
-        let did = [2 as u8; DID_BYTE_SIZE];
-        let data: [(u32, [u8; DID_BYTE_SIZE], [u8; 32], [u8; 32], [u8; 64]); DID_DATA_SIZE] = [
+        let did = [2 as u8; Did::BYTE_SIZE];
+        let data: [(u32, [u8; Did::BYTE_SIZE], [u8; 32], [u8; 32], [u8; 64]); DID_DATA_SIZE] = [
             (
                 0,
                 did.clone(),
@@ -170,8 +170,8 @@ pub fn get_data_for_key_update(
         )
     } else {
         // Secp256k1
-        let did = [1 as u8; DID_BYTE_SIZE];
-        let data: [(u32, [u8; DID_BYTE_SIZE], [u8; 33], [u8; 33], [u8; 65]); DID_DATA_SIZE] = [
+        let did = [1 as u8; Did::BYTE_SIZE];
+        let data: [(u32, [u8; Did::BYTE_SIZE], [u8; 33], [u8; 33], [u8; 65]); DID_DATA_SIZE] = [
             (
                 0,
                 did.clone(),
@@ -248,13 +248,13 @@ pub fn get_data_for_key_update(
 pub fn get_data_for_did_removal(
     typ: u8,
     index: usize,
-) -> (u32, [u8; DID_BYTE_SIZE], PublicKey, SigValue) {
+) -> (u32, [u8; Did::BYTE_SIZE], PublicKey, SigValue) {
     assert!(typ < 3);
     assert!(index < DID_DATA_SIZE);
     if typ == 0 {
         // Sr25519
-        let did = [1 as u8; DID_BYTE_SIZE];
-        let data: [(u32, [u8; DID_BYTE_SIZE], [u8; 32], [u8; 64]); DID_DATA_SIZE] = [
+        let did = [1 as u8; Did::BYTE_SIZE];
+        let data: [(u32, [u8; Did::BYTE_SIZE], [u8; 32], [u8; 64]); DID_DATA_SIZE] = [
             (
                 0,
                 did.clone(),
@@ -665,7 +665,7 @@ pub fn get_data_for_remove() -> (u32, PublicKey, SigValue) {
 pub fn get_data_for_blob(
     index: usize,
 ) -> (
-    [u8; DID_BYTE_SIZE],
+    [u8; Did::BYTE_SIZE],
     PublicKey,
     [u8; ID_BYTE_SIZE],
     Vec<u8>,

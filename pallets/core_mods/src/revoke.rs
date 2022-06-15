@@ -1038,7 +1038,7 @@ mod benchmarking {
     use crate::benchmark_utils::{
         get_data_for_remove, get_data_for_revocation, get_data_for_unrevocation, REV_DATA_SIZE,
     };
-    use crate::did::{Dids, KeyDetail, DID_BYTE_SIZE};
+    use crate::did::{Dids, KeyDetail, Did::BYTE_SIZE};
     use frame_benchmarking::{account, benchmarks};
     use sp_std::prelude::*;
     use system::RawOrigin;
@@ -1068,7 +1068,7 @@ mod benchmarking {
             let r in ...;
 
             let caller = account("caller", u, SEED);
-            let did = [d as u8; DID_BYTE_SIZE];
+            let did = [d as u8; Did::BYTE_SIZE];
             let reg_id = [r as u8; 32];
             let reg = Registry {
                 policy: oneof(&[did]),

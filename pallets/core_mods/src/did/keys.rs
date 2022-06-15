@@ -113,11 +113,7 @@ impl<T: Trait + Debug> Module<T> {
             DidKeys::insert(did, key_id, key);
         }
 
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::DidKeysAdded(did)).into(),
-        );
-
+        deposit_indexed_event!(DidKeysAdded(did));
         Ok(())
     }
 
@@ -148,11 +144,7 @@ impl<T: Trait + Debug> Module<T> {
             *active_controllers -= 1;
         }
 
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::DidKeysRemoved(did)).into(),
-        );
-
+        deposit_indexed_event!(DidKeysRemoved(did));
         Ok(())
     }
 
@@ -163,7 +155,7 @@ impl<T: Trait + Debug> Module<T> {
         if did_key.can_control() {
             Ok(did_key.public_key)
         } else {
-            Err(Error::<T>::InsufficientVerificationRelationship.into())
+            Err(Error::<T>::InsufficientVerificationRelationship)
         }
     }
 

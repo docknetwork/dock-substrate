@@ -52,10 +52,7 @@ where
         }
         DidServiceEndpoints::insert(did, id, endpoint);
 
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::DidServiceEndpointAdded(did)).into(),
-        );
+        deposit_indexed_event!(DidServiceEndpointAdded(did));
         Ok(())
     }
 
@@ -68,10 +65,7 @@ where
         }
         DidServiceEndpoints::remove(did, id);
 
-        <system::Module<T>>::deposit_event_indexed(
-            &[<T as system::Config>::Hashing::hash(&did[..])],
-            <T as Trait>::Event::from(Event::DidServiceEndpointRemoved(did)).into(),
-        );
+        deposit_indexed_event!(DidServiceEndpointRemoved(did));
         Ok(())
     }
 }

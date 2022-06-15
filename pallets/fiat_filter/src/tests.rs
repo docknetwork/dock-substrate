@@ -15,7 +15,7 @@ mod tests_did_calls {
     use super::*;
     use core_mods::keys_and_sigs::{PublicKey, SigValue};
     use core_mods::util::Bytes32;
-    use did::{Bytes64, DidRemoval, KeyDetail, KeyUpdate, DID_BYTE_SIZE};
+    use did::{Bytes64, DidRemoval, KeyDetail, KeyUpdate, Did::BYTE_SIZE};
 
     type DidMod = did::Module<TestRt>;
 
@@ -39,7 +39,7 @@ mod tests_did_calls {
     #[test]
     fn call_did_update_key__OK() {
         ext().execute_with(|| {
-            let did_alice = [1; DID_BYTE_SIZE];
+            let did_alice = [1; Did::BYTE_SIZE];
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_1 = pair_1.public().0;
             let detail = KeyDetail::new(
