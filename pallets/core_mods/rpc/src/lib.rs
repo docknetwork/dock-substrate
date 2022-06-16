@@ -2,7 +2,7 @@ pub use self::gen_client::Client as PriceFeedClient;
 // use core_mods::accumulator;
 //use core_mods::bbs_plus;
 use core::marker::PhantomData;
-pub use core_mods::did::{self, Trait};
+pub use core_mods::did::{self, Config};
 pub use core_mods::runtime_api::CoreModsApi as CoreModsRuntimeApi;
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
@@ -11,23 +11,23 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-pub trait TraitWrapper {
-    type T: Trait;
+pub trait ConfigWrapper {
+    type T: Config;
 }
 
-/// To be used in places where `Serialize`/`Deserialize` bounds required for `Trait`.
+/// To be used in places where `Serialize`/`Deserialize` bounds required for `Config`.
 #[derive(Default, Clone, Copy, Debug, serde::Serialize, serde::Deserialize)]
 #[serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))]
-pub struct SerializableTraitWrapper<T>(PhantomData<T>);
+pub struct SerializableConfigWrapper<T>(PhantomData<T>);
 
-impl<T: Trait> TraitWrapper for SerializableTraitWrapper<T> {
+impl<T: Config> ConfigWrapper for SerializableConfigWrapper<T> {
     type T = T;
 }
 
 #[rpc]
 pub trait CoreModsApi<BlockHash, T>
 where
-    T: TraitWrapper,
+    T: ConfigWrapper,
 {
     #[rpc(name = "core_mods_didDetails")]
     fn did_details(
@@ -100,7 +100,7 @@ impl<C, P> CoreMods<C, P> {
 impl<C, Block, T> CoreModsApi<<Block as BlockT>::Hash, T> for CoreMods<C, Block>
 where
     Block: BlockT,
-    T: TraitWrapper,
+    T: ConfigWrapper,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
     C::Api: CoreModsRuntimeApi<Block, T::T>,
 {

@@ -23,17 +23,7 @@ impl Did {
     pub const BYTE_SIZE: usize = 32;
 }
 
-impl From<RawDid> for Did {
-    fn from(raw: RawDid) -> Did {
-        Did(raw)
-    }
-}
-
-impl From<Did> for RawDid {
-    fn from(Did(raw): Did) -> RawDid {
-        raw
-    }
-}
+impl_wrapper! { Did, RawDid }
 
 impl Index<RangeFull> for Did {
     type Output = RawDid;
@@ -51,16 +41,16 @@ impl Index<RangeFull> for Did {
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
-pub enum StoredDidDetails<T: Trait> {
+pub enum StoredDidDetails<T: Config> {
     /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
     /// the caller account and Substrate takes care of replay protection. Thus it stores the data
     /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
     OffChain(OffChainDidDetails<T>),
     /// For on-chain DID, all data is stored on the chain.
-    OnChain(OnChainDidDetails<T>),
+    OnChain(StoredOnChainDidDetails<T>),
 }
 
-impl<T: Trait> StoredDidDetails<T> {
+impl<T: Config> StoredDidDetails<T> {
     pub fn is_onchain(&self) -> bool {
         matches!(self, StoredDidDetails::OnChain(_))
     }
@@ -76,7 +66,7 @@ impl<T: Trait> StoredDidDetails<T> {
         }
     }
 
-    pub fn into_onchain(self) -> Option<OnChainDidDetails<T>> {
+    pub fn into_onchain(self) -> Option<StoredOnChainDidDetails<T>> {
         match self {
             StoredDidDetails::OnChain(details) => Some(details),
             _ => None,
@@ -90,7 +80,7 @@ impl<T: Trait> StoredDidDetails<T> {
         }
     }
 
-    pub fn to_onchain_mut(&mut self) -> Option<&mut OnChainDidDetails<T>> {
+    pub fn to_onchain_mut(&mut self) -> Option<&mut StoredOnChainDidDetails<T>> {
         match self {
             StoredDidDetails::OnChain(details) => Some(details),
             _ => None,

@@ -105,7 +105,7 @@ impl Get<u32> for VestingDuration {
     }
 }
 
-impl Trait for TestRuntime {
+impl Config for TestRuntime {
     type Event = ();
     type Currency = balances::Module<Self>;
     type BlockNumberToBalance = ConvertInto;
@@ -229,7 +229,7 @@ fn migrate() {
         let recip_acc_5 = 5;
         let migrator_acc = 10;
 
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc, 100);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&migrator_acc, 100);
         MigrationModule::add_migrator(RawOrigin::Root.into(), migrator_acc, 4).unwrap();
 
         // No of recipients more than allowed migrations
@@ -254,7 +254,7 @@ fn migrate() {
         ));
         assert_eq!(MigrationModule::migrators(&migrator_acc).unwrap(), 2);
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),
+            <TestRuntime as Config>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),
             89
         );
 
@@ -267,7 +267,7 @@ fn migrate() {
         );
         assert_eq!(MigrationModule::migrators(&migrator_acc).unwrap(), 2);
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),
+            <TestRuntime as Config>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),
             89
         );
 
@@ -280,7 +280,7 @@ fn migrate() {
         ));
         assert_eq!(MigrationModule::migrators(&migrator_acc).unwrap(), 0);
         assert_eq!(
-            <TestRuntime as Trait>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),
+            <TestRuntime as Config>::Currency::free_balance(&migrator_acc).saturated_into::<u64>(),
             0
         );
 
@@ -298,8 +298,8 @@ fn signed_extension_test() {
         let migrator_acc_3 = 3;
 
         // Register migrators and fuel them
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc_1, 100);
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&migrator_acc_2, 90);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&migrator_acc_1, 100);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&migrator_acc_2, 90);
         MigrationModule::add_migrator(RawOrigin::Root.into(), migrator_acc_1, 4).unwrap();
         MigrationModule::add_migrator(RawOrigin::Root.into(), migrator_acc_2, 5).unwrap();
 
@@ -372,8 +372,8 @@ fn give_bonuses() {
         let sender_1 = 10;
         let sender_2 = 11;
 
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&sender_1, 1000);
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&sender_2, 100);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&sender_1, 1000);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&sender_2, 100);
         MigrationModule::add_migrator(RawOrigin::Root.into(), sender_1, 30).unwrap();
         MigrationModule::add_migrator(RawOrigin::Root.into(), sender_2, 5).unwrap();
 
@@ -537,8 +537,8 @@ fn swap_bonus_claims() {
         let sender_1 = 10;
         let sender_2 = 11;
 
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&sender_1, 10000);
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&sender_2, 10000);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&sender_1, 10000);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&sender_2, 10000);
 
         assert_eq!(System::block_number(), 0);
 
@@ -698,7 +698,7 @@ fn vesting_bonus_claims_1() {
     new_test_ext().execute_with(|| {
         let recip = 1;
         let sender = 10;
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&sender, 10000);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&sender, 10000);
 
         assert_eq!(System::block_number(), 0);
 
@@ -709,7 +709,7 @@ fn vesting_bonus_claims_1() {
 
         let amount_1 = 15;
         // Override for testing
-        <TestRuntime as Trait>::VestingDuration::set(300);
+        <TestRuntime as Config>::VestingDuration::set(300);
         MigrationModule::add_vesting_bonus(sender, recip, amount_1, 101).unwrap();
 
         // Entry in storage
@@ -744,7 +744,7 @@ fn vesting_bonus_claims_1() {
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
         let recip_bal_2 = Balances::free_balance(&recip);
         assert_eq!(
-            recip_bal_1 + (amount_1 / <TestRuntime as Trait>::VestingMilestones::get() as u64),
+            recip_bal_1 + (amount_1 / <TestRuntime as Config>::VestingMilestones::get() as u64),
             recip_bal_2
         );
         // Vesting bonuses vector is still not empty as vesting isn't complete
@@ -766,7 +766,7 @@ fn vesting_bonus_claims_1() {
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
         let recip_bal_3 = Balances::free_balance(&recip);
         assert_eq!(
-            recip_bal_2 + (amount_1 / <TestRuntime as Trait>::VestingMilestones::get() as u64),
+            recip_bal_2 + (amount_1 / <TestRuntime as Config>::VestingMilestones::get() as u64),
             recip_bal_3
         );
         // Vesting bonuses vector is still not empty as vesting isn't complete
@@ -797,7 +797,7 @@ fn vesting_bonus_claims_1() {
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
         let recip_bal_4 = Balances::free_balance(&recip);
         assert_eq!(
-            recip_bal_3 + (amount_1 / <TestRuntime as Trait>::VestingMilestones::get() as u64),
+            recip_bal_3 + (amount_1 / <TestRuntime as Config>::VestingMilestones::get() as u64),
             recip_bal_4
         );
         assert_eq!(recip_bal_1 + amount_1, recip_bal_4);
@@ -817,7 +817,7 @@ fn vesting_bonus_claims_1() {
         // Test vesting all at once
         let amount_2 = 100;
         // Override for testing
-        <TestRuntime as Trait>::VestingDuration::set(300);
+        <TestRuntime as Config>::VestingDuration::set(300);
         MigrationModule::add_vesting_bonus(sender, recip, amount_2, 601).unwrap();
 
         assert_eq!(
@@ -855,7 +855,7 @@ fn vesting_bonus_claims_1() {
         MigrationModule::unlock_vesting_bonus(recip).unwrap();
         let recip_bal_6 = Balances::free_balance(&recip);
         assert_eq!(
-            recip_bal_5 + (amount_3 / <TestRuntime as Trait>::VestingMilestones::get() as u64),
+            recip_bal_5 + (amount_3 / <TestRuntime as Config>::VestingMilestones::get() as u64),
             recip_bal_6
         );
 
@@ -877,7 +877,7 @@ fn vesting_bonus_claims_2() {
 
         let sender = 10;
 
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&sender, 10000);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&sender, 10000);
 
         for amount in vec![
             15, // Amount divides milestone count exactly
@@ -891,7 +891,7 @@ fn vesting_bonus_claims_2() {
             let milestone_2 = 66;
             let milestone_3 = 99;
             // Override for testing
-            <TestRuntime as Trait>::VestingDuration::set(end - start + 1);
+            <TestRuntime as Config>::VestingDuration::set(end - start + 1);
 
             let recip_1_bal_1 = Balances::free_balance(&recip_1);
             let recip_2_bal_1 = Balances::free_balance(&recip_2);
@@ -911,7 +911,7 @@ fn vesting_bonus_claims_2() {
             MigrationModule::unlock_vesting_bonus(recip_1).unwrap();
             let recip_1_bal_2 = Balances::free_balance(&recip_1);
             assert_eq!(
-                recip_1_bal_1 + (amount / <TestRuntime as Trait>::VestingMilestones::get() as u64),
+                recip_1_bal_1 + (amount / <TestRuntime as Config>::VestingMilestones::get() as u64),
                 recip_1_bal_2
             );
             assert!(MigrationModule::unlock_vesting_bonus(recip_2).is_err());
@@ -921,7 +921,7 @@ fn vesting_bonus_claims_2() {
             MigrationModule::unlock_vesting_bonus(recip_2).unwrap();
             let recip_2_bal_2 = Balances::free_balance(&recip_2);
             assert_eq!(
-                recip_2_bal_1 + (amount / <TestRuntime as Trait>::VestingMilestones::get() as u64),
+                recip_2_bal_1 + (amount / <TestRuntime as Config>::VestingMilestones::get() as u64),
                 recip_2_bal_2
             );
             assert!(MigrationModule::unlock_vesting_bonus(recip_1).is_err());
@@ -937,7 +937,7 @@ fn vesting_bonus_claims_2() {
             MigrationModule::unlock_vesting_bonus(recip_1).unwrap();
             let recip_1_bal_3 = Balances::free_balance(&recip_1);
             assert_eq!(
-                recip_1_bal_2 + (amount / <TestRuntime as Trait>::VestingMilestones::get() as u64),
+                recip_1_bal_2 + (amount / <TestRuntime as Config>::VestingMilestones::get() as u64),
                 recip_1_bal_3
             );
             assert!(MigrationModule::unlock_vesting_bonus(recip_2).is_err());
@@ -947,7 +947,7 @@ fn vesting_bonus_claims_2() {
             MigrationModule::unlock_vesting_bonus(recip_2).unwrap();
             let recip_2_bal_3 = Balances::free_balance(&recip_2);
             assert_eq!(
-                recip_2_bal_2 + (amount / <TestRuntime as Trait>::VestingMilestones::get() as u64),
+                recip_2_bal_2 + (amount / <TestRuntime as Config>::VestingMilestones::get() as u64),
                 recip_2_bal_3
             );
             assert!(MigrationModule::unlock_vesting_bonus(recip_1).is_err());
@@ -979,12 +979,12 @@ fn bonus_claim_extrinsics() {
 
         let migrator = 10;
 
-        let _ = <TestRuntime as Trait>::Currency::deposit_creating(&migrator, 10000);
+        let _ = <TestRuntime as Config>::Currency::deposit_creating(&migrator, 10000);
 
         assert_eq!(System::block_number(), 0);
 
         // Override for testing
-        <TestRuntime as Trait>::VestingDuration::set(100);
+        <TestRuntime as Config>::VestingDuration::set(100);
 
         let recip_1_bal_1 = Balances::free_balance(&recip_1);
         let recip_2_bal_1 = Balances::free_balance(&recip_2);

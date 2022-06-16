@@ -1,20 +1,14 @@
+use sp_runtime::DispatchError;
+
 use super::super::*;
 
+pub type StoredOnChainDidDetails<T> = Nonced<T, OnChainDidDetails>;
+
 /// Stores details of an on-chain DID.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-pub struct OnChainDidDetails<T: Trait> {
-    /// The nonce is set to the current block number when a DID is registered. Subsequent updates/removal
-    /// should supply a nonce 1 more than the current nonce of the DID and on successful update, the
-    /// new nonce is stored with the DID. The reason for starting the nonce with current block number
-    /// and not 0 is to prevent replay attack where a signed payload of removed DID is used to perform
-    /// replay on the same DID created again as nonce would be reset to 0 for new DIDs.
-    pub nonce: T::BlockNumber,
+pub struct OnChainDidDetails {
     /// Number of keys added for this DID so far.
     pub last_key_id: IncId,
     /// Number of currently active controller keys.
@@ -23,47 +17,32 @@ pub struct OnChainDidDetails<T: Trait> {
     pub active_controllers: u32,
 }
 
-impl<T: Trait> From<OnChainDidDetails<T>> for StoredDidDetails<T> {
-    fn from(details: OnChainDidDetails<T>) -> Self {
+impl<T: Config> From<StoredOnChainDidDetails<T>> for StoredDidDetails<T> {
+    fn from(details: StoredOnChainDidDetails<T>) -> Self {
         Self::OnChain(details)
     }
 }
 
-impl<T: Trait + Debug> OnChainDidDetails<T> {
+impl OnChainDidDetails {
     /// Constructs new on-chain DID details using supplied params.
     ///
-    /// - `nonce` - to be used as base for next actions for the given DID.
     /// - `last_key_id` - last incremental identifier of the key being used for the given DID.
     /// - `active_controller_keys` - amount of currenlty active controller keys for the given DID.
     /// - `active_controllers` - amount of currently active controllers for the given DID.
     pub fn new(
-        nonce: T::BlockNumber,
         last_key_id: IncId,
         active_controller_keys: impl Into<u32>,
         active_controllers: impl Into<u32>,
     ) -> Self {
         Self {
-            nonce,
             last_key_id,
             active_controller_keys: active_controller_keys.into(),
             active_controllers: active_controllers.into(),
         }
     }
-
-    /// Increases current nonce if provided nonce is equal to current nonce plus 1, otherwise
-    /// returns an error.
-    pub fn inc_nonce(&mut self, nonce: T::BlockNumber) -> Result<(), Error<T>> {
-        if nonce == self.nonce + 1u8.into() {
-            self.nonce += 1u8.into();
-
-            Ok(())
-        } else {
-            Err(Error::<T>::IncorrectNonce)
-        }
-    }
 }
 
-impl<T: Trait + Debug> Module<T> {
+impl<T: Config + Debug> Module<T> {
     pub(crate) fn new_onchain_(
         did: Did,
         keys: Vec<DidKey>,
@@ -88,13 +67,8 @@ impl<T: Trait + Debug> Module<T> {
             DidControllers::insert(&did, &ctrl, ());
         }
 
-        // Nonce will start from current block number
-        let nonce = <system::Module<T>>::block_number();
-        let did_details: StoredDidDetails<T> = OnChainDidDetails::new(
-            nonce,
-            last_key_id,
-            controller_keys_count,
-            controllers.len() as u32,
+        let did_details: StoredDidDetails<T> = StoredOnChainDidDetails::new(
+            OnChainDidDetails::new(last_key_id, controller_keys_count, controllers.len() as u32),
         )
         .into();
 
@@ -105,37 +79,56 @@ impl<T: Trait + Debug> Module<T> {
     }
 
     pub(crate) fn remove_onchain_did_(
-        DidRemoval { did, nonce }: DidRemoval<T>,
-    ) -> Result<(), Error<T>> {
-        Self::onchain_did_details(&did)?.inc_nonce(nonce)?;
-
+        DidRemoval { did, .. }: DidRemoval<T>,
+        details: &mut Option<OnChainDidDetails>,
+    ) -> Result<Option<()>, DispatchError> {
+        details.take();
         DidKeys::remove_prefix(did);
         DidControllers::remove_prefix(did);
         DidServiceEndpoints::remove_prefix(did);
         Dids::<T>::remove(did);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
-        Ok(())
+        Ok(None)
     }
 
     /// Executes action over target on-chain DID providing a mutable reference if the given nonce is correct,
     /// i.e. 1 more than the current nonce.
-    pub(crate) fn exec_onchain_did_action<A, F, R>(action: A, f: F) -> Result<R, Error<T>>
+    pub(crate) fn exec_removable_onchain_did_action<A, F, R, E>(
+        action: A,
+        f: F,
+    ) -> Result<R, DispatchError>
     where
-        F: FnOnce(A, &mut OnChainDidDetails<T>) -> Result<R, Error<T>>,
-        A: Action<T, Target = Did>,
+        F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
+        A: NoncedAction<T, Target = Did>,
+        DispatchError: From<Error<T>> + From<E>,
     {
-        Dids::<T>::try_mutate(action.target(), |details_opt| {
-            let onchain_details = details_opt
-                .as_mut()
+        Dids::<T>::try_mutate_exists(action.target(), |details_opt| {
+            let mut details = details_opt
+                .take()
                 .ok_or(Error::<T>::DidDoesNotExist)?
-                .to_onchain_mut()
+                .into_onchain()
                 .ok_or(Error::<T>::CannotGetDetailForOffChainDid)?;
+            details.try_inc_nonce(action.nonce())?;
 
-            onchain_details.inc_nonce(action.nonce())?;
+            let Nonced { data, nonce } = details;
+            let mut data_opt = Some(data);
+            let res = f(action, &mut data_opt)?;
+            *details_opt = data_opt.map(|data| Nonced { data, nonce }).map(Into::into);
 
-            f(action, onchain_details)
+            Ok(res)
         })
+    }
+
+    /// Executes action over target on-chain DID providing a mutable reference if the given nonce is correct,
+    /// i.e. 1 more than the current nonce.
+    pub(crate) fn exec_onchain_did_action<A, F, R, E>(action: A, f: F) -> Result<R, DispatchError>
+    where
+        F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
+        A: NoncedAction<T, Target = Did>,
+        DispatchError: From<Error<T>> + From<E>,
+    {
+        Self::exec_removable_onchain_did_action(action, |action, details_opt| f(action, details_opt.as_mut().unwrap()))
     }
 
     pub fn is_onchain_did(did: &Did) -> Result<bool, Error<T>> {
@@ -146,7 +139,7 @@ impl<T: Trait + Debug> Module<T> {
     }
 
     /// Get DID detail of an on-chain DID. Throws error if DID does not exist or is off-chain.
-    pub fn onchain_did_details(did: &Did) -> Result<OnChainDidDetails<T>, Error<T>> {
+    pub fn onchain_did_details(did: &Did) -> Result<StoredOnChainDidDetails<T>, Error<T>> {
         Self::did(did)
             .ok_or(Error::<T>::DidDoesNotExist)?
             .into_onchain()

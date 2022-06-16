@@ -88,7 +88,7 @@ impl DidKey {
     }
 }
 
-impl<T: Trait + Debug> Module<T> {
+impl<T: Config + Debug> Module<T> {
     pub(crate) fn add_keys_(
         AddKeys { did, keys, .. }: AddKeys<T>,
         OnChainDidDetails {
@@ -96,7 +96,7 @@ impl<T: Trait + Debug> Module<T> {
             active_controller_keys,
             last_key_id,
             ..
-        }: &mut OnChainDidDetails<T>,
+        }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
         // If DID was not self controlled first, check if it can become by looking
         let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
@@ -123,7 +123,7 @@ impl<T: Trait + Debug> Module<T> {
             active_controllers,
             active_controller_keys,
             ..
-        }: &mut OnChainDidDetails<T>,
+        }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
         for key_id in &keys {
             let key = DidKeys::get(&did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
@@ -156,6 +156,17 @@ impl<T: Trait + Debug> Module<T> {
             Ok(did_key.public_key)
         } else {
             Err(Error::<T>::InsufficientVerificationRelationship)
+        }
+    }
+
+    /// Return `did`'s key with id `key_id` only if it can authenticate or control otherwise throw error
+    pub fn auth_or_control_key(did: &Controller, key_id: IncId) -> Result<PublicKey, Error<T>> {
+        let did_key = DidKeys::get(did.0, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+
+        if did_key.can_authenticate_or_control() {
+            Ok(did_key.public_key)
+        } else {
+            fail!(Error::<T>::InsufficientVerificationRelationship)
         }
     }
 

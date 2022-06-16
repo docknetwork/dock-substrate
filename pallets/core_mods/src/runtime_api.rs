@@ -1,10 +1,10 @@
 //use crate::accumulator;
 // use crate::bbs_plus;
-use crate::did::{self, Trait};
+use crate::did::{self, Config};
 use sp_std::vec::Vec;
 
 sp_api::decl_runtime_apis! {
-    pub trait CoreModsApi<T: Trait> {
+    pub trait CoreModsApi<T: Config> {
         fn did_details(id: did::Did, params: Option<did::AggregatedDidDetailsRequestParams>) -> Option<did::AggregatedDidDetailsResponse<T>>;
 
         fn did_list_details(dids: Vec<did::Did>, params: Option<did::AggregatedDidDetailsRequestParams>) -> Vec<Option<did::AggregatedDidDetailsResponse<T>>>;

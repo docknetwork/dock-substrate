@@ -2,8 +2,11 @@
 
 use crate as dock;
 use crate::did;
+use crate::did::{Controller, DidSignature};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
+use core::fmt::Debug;
+use core::marker::PhantomData;
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
     weights::Weight,
@@ -17,15 +20,26 @@ pub const ID_BYTE_SIZE: usize = 32;
 pub type BlobId = [u8; ID_BYTE_SIZE];
 
 /// When a new blob is being registered, the following object is sent.
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Blob {
     pub id: BlobId,
     pub blob: Vec<u8>,
-    pub author: did::Did,
 }
 
-pub trait Trait: system::Config + did::Trait {
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AddBlob<T: frame_system::Config> {
+    blob: Blob,
+    #[cfg_attr(feature = "serde", serde(skip))]
+    _marker: PhantomData<T>,
+}
+
+crate::impl_action! {
+    AddBlob for (): with { |_| 1 } as len, () as target
+}
+
+pub trait Config: system::Config + did::Config {
     /// Blobs larger than this will not be accepted.
     type MaxBlobSize: Get<u32>;
     /// The cost charged by the network to store a single byte in chain-state for the life of the
@@ -35,7 +49,7 @@ pub trait Trait: system::Config + did::Trait {
 
 decl_error! {
     /// Error for the blob module.
-    pub enum BlobError for Module<T: Trait> {
+    pub enum BlobError for Module<T: Config> where T: Debug {
         /// The blob is greater than `MaxBlobSize`
         BlobTooBig,
         /// There is already a blob with same id
@@ -48,39 +62,40 @@ decl_error! {
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Blob {
+    trait Store for Module<T: Config> as Blob where T: Debug {
         Blobs get(fn get_blob): map hasher(blake2_128_concat)
             dock::blob::BlobId => Option<(dock::did::Did, Vec<u8>)>;
     }
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
         const MaxBlobSize: u32 = T::MaxBlobSize::get();
 
         const StorageWeight: Weight = T::StorageWeight::get();
 
         /// Create a new immutable blob.
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight() +
-          (blob.blob.len() as Weight * T::StorageWeight::get())]
+          (blob.blob.blob.len() as Weight * T::StorageWeight::get())]
         pub fn new(
             origin,
-            blob: dock::blob::Blob,
-            signature: dock::did::DidSignature,
+            blob: AddBlob<T>,
+            signature: DidSignature,
         ) -> DispatchResult {
-            Module::<T>::new_(origin, blob, signature)
+            ensure_signed(origin)?;
+            ensure!(
+                did::Module::<T>::verify_sig_from_auth_or_control_key(&blob, &signature)?,
+                BlobError::<T>::InvalidSig
+            );
+
+            Module::<T>::new_(blob, signature.did)?;
+            Ok(())
         }
     }
 }
 
-impl<T: Trait> Module<T> {
-    fn new_(
-        origin: <T as system::Config>::Origin,
-        blob: Blob,
-        signature: did::DidSignature,
-    ) -> DispatchResult {
-        ensure_signed(origin)?;
-
+impl<T: Config + Debug> Module<T> {
+    fn new_(AddBlob { blob, .. }: AddBlob<T>, signer: Controller) -> DispatchResult {
         // check
         ensure!(
             T::MaxBlobSize::get() as usize >= blob.blob.len(),
@@ -90,12 +105,9 @@ impl<T: Trait> Module<T> {
             !Blobs::contains_key(&blob.id),
             BlobError::<T>::BlobAlreadyExists
         );
-        let payload = crate::StateChange::Blob(blob.clone()).encode();
-        let valid = did::Module::<T>::verify_sig_from_did(&signature, &payload, &blob.author)?;
-        ensure!(valid, BlobError::<T>::InvalidSig);
 
         // execute
-        Blobs::insert(blob.id, (blob.author, blob.blob));
+        Blobs::insert(blob.id, (*signer, blob.blob));
 
         Ok(())
     }
@@ -103,10 +115,13 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod tests {
+    use core::marker::PhantomData;
+
     use super::{did, Blob, BlobError, BlobId, Blobs, DispatchResult};
-    use crate::test_common::*;
+    use crate::{blob::AddBlob, did::Did, test_common::*};
     use frame_support::StorageMap;
     use sp_core::{sr25519, Pair};
+    use sp_std::borrow::Cow;
 
     fn create_blob(
         id: BlobId,
@@ -117,22 +132,32 @@ mod tests {
         let bl = Blob {
             id,
             blob: content.clone(),
-            author,
         };
         println!("did: {:?}", author);
         println!("pk: {:?}", author_kp.public().0);
         println!("id: {:?}", id);
         println!("content: {:?}", content.clone());
-        println!(
-            "Sig {:?}",
-            sign(&crate::StateChange::Blob(bl.clone()), &author_kp).as_sr25519_sig_bytes()
-        );
-        let sig = sign(&crate::StateChange::Blob(bl.clone()), &author_kp);
-        BlobMod::new(Origin::signed(ABBA), bl.clone(), sig)
+
+        BlobMod::new(
+            Origin::signed(ABBA),
+            AddBlob {
+                blob: bl.clone(),
+                _marker: PhantomData,
+            },
+            did_sig::<Test, _>(
+                &AddBlob {
+                    blob: bl,
+                    _marker: PhantomData,
+                },
+                &author_kp,
+                author,
+                1,
+            ),
+        )
     }
 
     fn get_max_blob_size() -> usize {
-        <Test as crate::blob::Trait>::MaxBlobSize::get() as usize
+        <Test as crate::blob::Config>::MaxBlobSize::get() as usize
     }
 
     #[test]
@@ -192,10 +217,10 @@ mod tests {
     fn err_did_does_not_exist() {
         ext().execute_with(|| {
             // Adding a blob with an unregistered DID fails with error DidDoesNotExist.
-            let author = rand::random();
+            let author = Did(rand::random());
             let author_kp = gen_kp();
             let err = create_blob(rand::random(), random_bytes(10), author, author_kp).unwrap_err();
-            assert_eq!(err, did::Error::<Test>::DidDoesNotExist.into());
+            assert_eq!(err, did::Error::<Test>::NoKeyForDid.into());
         });
     }
 
@@ -208,14 +233,20 @@ mod tests {
                 let bl = Blob {
                     id: rand::random(),
                     blob: random_bytes(10),
-                    author,
                 };
-                let remreg = crate::revoke::RemoveRegistry {
+                let remreg = crate::revoke::RemoveRegistry::<Test> {
                     registry_id: rand::random(),
-                    last_modified: 10,
+                    nonce: 10,
                 };
-                let sig = sign(&crate::StateChange::RemoveRegistry(remreg), &author_kp);
-                let err = BlobMod::new(Origin::signed(ABBA), bl.clone(), sig).unwrap_err();
+                let err = BlobMod::new(
+                    Origin::signed(ABBA),
+                    AddBlob {
+                        blob: bl.clone(),
+                        _marker: PhantomData,
+                    },
+                    did_sig(&remreg, &author_kp, author, 1),
+                )
+                .unwrap_err();
                 assert_eq!(err, BlobError::<Test>::InvalidSig.into());
             }
 
@@ -226,10 +257,24 @@ mod tests {
                 let bl = Blob {
                     id: rand::random(),
                     blob: random_bytes(10),
-                    author,
                 };
-                let sig = sign(&crate::StateChange::Blob(bl.clone()), &author_kp);
-                let err = BlobMod::new(Origin::signed(ABBA), bl.clone(), sig).unwrap_err();
+                let err = BlobMod::new(
+                    Origin::signed(ABBA),
+                    AddBlob {
+                        blob: bl.clone(),
+                        _marker: PhantomData,
+                    },
+                    did_sig::<Test, _>(
+                        &AddBlob {
+                            blob: bl,
+                            _marker: PhantomData,
+                        },
+                        &author_kp,
+                        author,
+                        1,
+                    ),
+                )
+                .unwrap_err();
                 assert_eq!(err, BlobError::<Test>::InvalidSig.into());
             }
         })

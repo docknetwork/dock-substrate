@@ -104,7 +104,7 @@ impl staking_rewards::Config for Test {
     type RewardCurve = RewardCurve;
 }
 
-impl poa::Trait for Test {
+impl poa::Config for Test {
     type Currency = Balances;
 }
 

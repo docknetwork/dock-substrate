@@ -2,12 +2,11 @@ use super::StateChange;
 use crate as dock;
 use crate::keys_and_sigs::PublicKey;
 use crate::util::*;
-use crate::Action;
-use crate::{deposit_indexed_event, impl_bits_conversion, impl_did_action};
+use crate::{deposit_indexed_event, impl_bits_conversion, impl_nonced_action, impl_wrapper};
+use crate::{Action, NoncedAction};
 pub use actions::*;
 pub use base::{offchain, onchain, signature};
 use codec::{Decode, Encode};
-use controllers::Controller;
 use core::fmt::Debug;
 pub use details_aggregator::*;
 use frame_support::{
@@ -21,6 +20,7 @@ use sp_std::convert::TryFrom;
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 pub use base::*;
+pub use controllers::Controller;
 pub use keys::{DidKey, VerRelType};
 pub use service_endpoints::ServiceEndpoint;
 
@@ -37,7 +37,7 @@ mod benchmarks;
 mod tests;
 
 /// The module's configuration trait.
-pub trait Trait: system::Config {
+pub trait Config: system::Config {
     /// The overarching event type.
     type Event: From<Event> + Into<<Self as system::Config>::Event>;
     /// Maximum byte size of reference to off-chain DID Doc.
@@ -59,7 +59,7 @@ pub trait Trait: system::Config {
 decl_error! {
     /// Error for the DID module.
     #[derive(Eq, PartialEq, Clone)]
-    pub enum Error for Module<T: Trait> where T: Debug {
+    pub enum Error for Module<T: Config> where T: Debug {
         /// Given public key is not of the correct size
         PublicKeySizeIncorrect,
         /// There is already a DID with same value
@@ -119,7 +119,7 @@ decl_event!(
 );
 
 decl_storage! {
-    trait Store for Module<T: Trait> as DIDModule where T: Debug {
+    trait Store for Module<T: Config> as DIDModule where T: Debug {
         /// Stores details of off-chain and on-chain DIDs
         pub Dids get(fn did): map hasher(blake2_128_concat) Did => Option<StoredDidDetails<T>>;
         /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
@@ -148,7 +148,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin, T: Debug {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
         fn deposit_event() = default;
 
         type Error = Error<T>;
@@ -294,7 +294,7 @@ decl_module! {
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature) -> DispatchResult {
             ensure_signed_payload!(origin, &removal, &sig);
 
-            Self::remove_onchain_did_(removal)?;
+            Self::exec_removable_onchain_did_action(removal, Self::remove_onchain_did_)?;
             Ok(())
         }
     }

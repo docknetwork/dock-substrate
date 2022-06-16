@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod traits {
-    /// Trait to provide price of currency pairs. The price is multiplied by 1000 and rounded to make it integer
+    /// Config to provide price of currency pairs. The price is multiplied by 1000 and rounded to make it integer
     pub trait PriceProvider {
         // NOTE: Consider returning weight when None as well
 

@@ -27,7 +27,7 @@ mod tests;
 /// The pallet's configuration trait
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Config:
-    system::Config + did::Trait + anchor::Trait + blob::Trait + revoke::Trait + attest::Trait
+    system::Config + did::Config + anchor::Config + blob::Config + revoke::Config + attest::Config
 {
     /// Config option for updating the DockFiatRate
     type PriceProvider: common::traits::PriceProvider;

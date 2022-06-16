@@ -168,7 +168,7 @@
     "created_at": "BlockNumber",
     "nonce": "u32"
   },
-  "AccumulatorUpdate": {
+  "UpdateAccumulator": {
     "id": "AccumulatorId",
     "new_accumulated": "Vec<u8>",
     "additions": "Option<Vec<Vec<u8>>>",
@@ -196,7 +196,7 @@
       "RemoveAccumulatorParams": "ParametersStorageKey",
       "RemoveAccumulatorPublicKey": "PublicKeyStorageKey",
       "AddAccumulator": "AddAccumulator",
-      "UpdateAccumulator": "AccumulatorUpdate",
+      "UpdateAccumulator": "UpdateAccumulator",
       "RemoveAccumulator": "RemoveAccumulator"
     }
   }

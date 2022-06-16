@@ -18,52 +18,116 @@ macro_rules! impl_bits_conversion {
 }
 
 #[macro_export]
-macro_rules! impl_did_action {
-    ($type: ident with $len: ident as len) => {
-        impl<T: frame_system::Config> Action<T> for $type<T> {
-            type Target = Did;
+macro_rules! impl_action {
+    ($type: ident for $target: ty: with $len: ident as len, () as target) => {
 
-            fn target(&self) -> Did {
-                self.did
-            }
+        impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
+            type Target = $target;
 
-            fn nonce(&self) -> T::BlockNumber {
-                self.nonce
+            fn target(&self) -> $target {
+                ()
             }
 
             fn len(&self) -> u32 {
                 self.$len.len() as u32
             }
 
-            fn to_state_change(&self) -> StateChange<'_, T> {
-                StateChange::$type(Cow::Borrowed(self))
+            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
+            }
+
+            fn into_state_change(self) -> $crate::StateChange<'static, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
             }
         }
     };
-    ($type: ident with { $len: expr } as len) => {
-        impl<T: frame_system::Config> Action<T> for $type<T> {
-            type Target = Did;
+    ($type: ident for $target: ty: with { $len: expr } as len, () as target) => {
 
-            fn target(&self) -> Did {
-                self.did
-            }
+        impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
+            type Target = $target;
 
-            fn nonce(&self) -> T::BlockNumber {
-                self.nonce
+            fn target(&self) -> $target {
+                ()
             }
 
             fn len(&self) -> u32 {
                 $len(self)
             }
 
-            fn to_state_change(&self) -> StateChange<'_, T> {
-                StateChange::$type(Cow::Borrowed(self))
+            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
+            }
+
+            fn into_state_change(self) -> $crate::StateChange<'static, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
             }
         }
     };
-    ($($type: ident with $len: tt as len),+) => {
+    ($type: ident for $target: ty: with $len: ident as len, $target_field: ident as target) => {
+
+        impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
+            type Target = $target;
+
+            fn target(&self) -> $target {
+                self.$target_field
+            }
+
+            fn len(&self) -> u32 {
+                self.$len.len() as u32
+            }
+
+            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
+            }
+
+            fn into_state_change(self) -> $crate::StateChange<'static, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
+            }
+        }
+    };
+    ($type: ident for $target: ty: with { $len: expr } as len, $target_field: ident as target) => {
+
+        impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
+            type Target = $target;
+
+            fn target(&self) -> Self::Target {
+                self.$target_field
+            }
+
+            fn len(&self) -> u32 {
+                $len(self)
+            }
+
+            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
+            }
+
+            fn into_state_change(self) -> $crate::StateChange<'static, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
+            }
+        }
+    };
+    (for $target: ty: $($type: ident with $len: tt as len, $target_field: tt as target),+) => {
         $(
-            impl_did_action!($type with $len as len);
+            $crate::impl_action! { $type for $target: with $len as len, $target_field as target }
+        )+
+    };
+}
+
+#[macro_export]
+macro_rules! impl_nonced_action {
+    ($type: ident for $($token: tt)*) => {
+        $crate::impl_action! { $type for $($token)* }
+
+        impl<T: frame_system::Config> $crate::NoncedAction<T> for $type<T> {
+            fn nonce(&self) -> T::BlockNumber {
+                self.nonce
+            }
+        }
+    };
+    (for $target: ty: $($type: ident with $len: tt as len, $target_field: tt as target),+) => {
+        $(
+            $crate::impl_nonced_action! { $type for $target: with $len as len, $target_field as target }
         )+
     };
 }
@@ -73,13 +137,44 @@ macro_rules! deposit_indexed_event {
     ($event: ident($($value: expr),+) over $($index: expr),+) => {
         <system::Module<T>>::deposit_event_indexed(
             &[$(<T as system::Config>::Hashing::hash(&$index[..])),+],
-            <T as Trait>::Event::from(Event::$event($($value),+)).into(),
+            <T as Config>::Event::from(Event::$event($($value),+)).into()
         );
     };
     ($event: ident($($value: expr),+)) => {
         <system::Module<T>>::deposit_event_indexed(
             &[$(<T as system::Config>::Hashing::hash(&$value[..])),+],
-            <T as Trait>::Event::from(Event::$event($($value),+)).into(),
+            <T as Config>::Event::from(Event::$event($($value),+)).into()
         );
     }
+}
+
+#[macro_export]
+macro_rules! impl_wrapper {
+    ($wrapper: ident, $type: ty) => {
+        impl From<$type> for $wrapper {
+            fn from(value: $type) -> $wrapper {
+                $wrapper(value)
+            }
+        }
+
+        impl From<$wrapper> for $type {
+            fn from(wrapper: $wrapper) -> $type {
+                wrapper.0
+            }
+        }
+
+        impl sp_std::ops::Deref for $wrapper {
+            type Target = $type;
+
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+
+        impl sp_std::ops::DerefMut for $wrapper {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
+    };
 }

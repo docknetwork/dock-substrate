@@ -14,7 +14,7 @@ pub struct DidSignature {
 }
 
 impl DidSignature {
-    pub fn verify<T: Trait + Debug>(
+    pub fn verify<T: Config + Debug>(
         &self,
         message: &[u8],
         public_key: &PublicKey,
@@ -23,9 +23,14 @@ impl DidSignature {
             .verify(message, public_key)
             .map_err(|_| Error::<T>::IncompatSigPubkey)
     }
+
+    /// This is just the weight to verify the signature. It does not include weight to read the DID or the key.
+    pub fn weight(&self) -> Weight {
+        self.sig.weight()
+    }
 }
 
-impl<T: Trait + Debug> Module<T> {
+impl<T: Config + Debug> Module<T> {
     /// Verify a `DidSignature` created by `signer` only if `signer` is a controller of `did` and has an
     /// appropriate key. To update a DID (add/remove keys, add/remove controllers), the updater must be a
     /// controller of the DID and must have a key with `CAPABILITY_INVOCATION` verification relationship
@@ -35,6 +40,18 @@ impl<T: Trait + Debug> Module<T> {
     {
         Self::ensure_controller(&action.target(), &sig.did)?;
         let signer_pubkey = Self::control_key(&sig.did, sig.key_id)?;
+
+        sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
+    }
+
+    pub fn verify_sig_from_auth_or_control_key<A>(
+        action: &A,
+        sig: &DidSignature,
+    ) -> Result<bool, Error<T>>
+    where
+        A: Action<T>,
+    {
+        let signer_pubkey = Self::auth_or_control_key(&sig.did, sig.key_id)?;
 
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }

@@ -704,7 +704,7 @@ parameter_types! {
     pub const ServiceEndpointOriginPerByteWeight: Weight = 10;
 }
 
-impl did::Trait for Runtime {
+impl did::Config for Runtime {
     type Event = Event;
     type MaxDidDocRefSize = MaxDidDocRefSize;
     type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
@@ -715,7 +715,9 @@ impl did::Trait for Runtime {
     type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
 
-//impl revoke::Trait for Runtime {}
+impl revoke::Config for Runtime {
+    type Event = Event;
+}
 
 /*impl bbs_plus::Config for Runtime {
     type Event = Event;
@@ -739,7 +741,7 @@ impl accumulator::Config for Runtime {
     type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
 }
 
-impl blob::Trait for Runtime {
+impl blob::Config for Runtime {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
 }*/
@@ -778,7 +780,7 @@ impl pallet_offences::Config for Runtime {
     type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
-impl poa::Trait for Runtime {
+impl poa::Config for Runtime {
     type Currency = balances::Module<Runtime>;
 }
 
@@ -793,7 +795,7 @@ parameter_types! {
 const_assert!(VestingMilestones::get() > 0);
 const_assert!(VestingDuration::get() > 0);
 
-impl token_migration::Trait for Runtime {
+impl token_migration::Config for Runtime {
     type Event = Event;
     type Currency = balances::Module<Runtime>;
     type BlockNumberToBalance = ConvertInto;
@@ -819,7 +821,7 @@ impl pallet_utility::Config for Runtime {
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-/*impl master::Trait for Runtime {
+/*impl master::Config for Runtime {
     type Event = Event;
     type Call = Call;
 }*/
@@ -829,11 +831,11 @@ impl sudo::Config for Runtime {
     type Call = Call;
 }
 
-/*impl anchor::Trait for Runtime {
+/*impl anchor::Config for Runtime {
     type Event = Event;
 }*/
 
-/*impl attest::Trait for Runtime {
+/*impl attest::Config for Runtime {
     type StorageWeight = StorageWeight;
 }*/
 
@@ -1332,10 +1334,10 @@ construct_runtime!(
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
         Utility: pallet_utility::{Module, Call, Event},
-        DIDModule: did::{Module, Call, Storage, Event},
-        /*Revoke: revoke::{Module, Call, Storage},
+        DIDModule: did::{Module, Call, Storage, Event, Config},
+        Revoke: revoke::{Module, Call, Storage, Event},
         BlobStore: blob::{Module, Call, Storage},
-        Master: master::{Module, Call, Storage, Event<T>, Config},*/
+        Master: master::{Module, Call, Storage, Event<T>, Config},
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
         /*Anchor: anchor::{Module, Call, Storage, Event<T>},

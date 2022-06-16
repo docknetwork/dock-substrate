@@ -37,7 +37,7 @@ impl ServiceEndpoint {
     }
 }
 
-impl<T: Trait> Module<T>
+impl<T: Config> Module<T>
 where
     T: Debug,
 {
@@ -45,7 +45,7 @@ where
         AddServiceEndpoint {
             did, id, endpoint, ..
         }: AddServiceEndpoint<T>,
-        _: &mut OnChainDidDetails<T>,
+        _: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
         if Self::did_service_endpoints(&did, &id).is_some() {
             fail!(Error::<T>::ServiceEndpointAlreadyExists)
@@ -58,7 +58,7 @@ where
 
     pub(crate) fn remove_service_endpoint_(
         RemoveServiceEndpoint { did, id, .. }: RemoveServiceEndpoint<T>,
-        _: &mut OnChainDidDetails<T>,
+        _: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
         if Self::did_service_endpoints(&did, &id).is_none() {
             fail!(Error::<T>::ServiceEndpointDoesNotExist)

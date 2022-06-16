@@ -8,7 +8,7 @@ use super::*;
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
-pub struct AggregatedDidDetailsResponse<T: Trait> {
+pub struct AggregatedDidDetailsResponse<T: Config> {
     did: Did,
     #[cfg_attr(feature = "serde", serde(flatten))]
     details: StoredDidDetails<T>,
@@ -38,7 +38,7 @@ pub struct ServiceEndpointWithId {
     endpoint: ServiceEndpoint,
 }
 
-impl<T: Trait> AggregatedDidDetailsResponse<T> {
+impl<T: Config> AggregatedDidDetailsResponse<T> {
     /// Constructs new `DID` response using supplied arguments.
     pub fn new<CI, KI, SI>(
         did: Did,
@@ -98,7 +98,7 @@ impl Default for AggregatedDidDetailsRequestParams {
     }
 }
 
-impl<T: Trait + Debug> Module<T> {
+impl<T: Config + Debug> Module<T> {
     /// Request aggregated DID details containing specified information.
     pub fn aggregate_did_details(
         did: &Did,

@@ -12,19 +12,19 @@ use frame_support::{
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
 
-pub trait Trait: system::Config {
+pub trait Config: system::Config {
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 }
 
 decl_error! {
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         /// The anchor being posted was already created in a previous block.
         AnchorExists,
     }
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Anchor {
+    trait Store for Module<T: Config> as Anchor {
         // Hasher can be the identity here becuse we perform a hash ourself which has the same
         // merkle-trie balancing effect as using a hash-prefix map.
         Anchors: map hasher(identity) <T as system::Config>::Hash =>
@@ -45,7 +45,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         fn deposit_event() = default;
 
         /// Drop a permanent anchor.
@@ -59,7 +59,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     fn deploy_(origin: <T as system::Config>::Origin, dat: Vec<u8>) -> DispatchResult {
         let acct = ensure_signed(origin)?;
 

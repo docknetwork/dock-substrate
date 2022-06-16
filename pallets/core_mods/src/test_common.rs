@@ -1,17 +1,18 @@
 //! Boilerplate for runtime module unit tests
 
-use crate::{keys_and_sigs, util};
-// use crate::accumulator;
+use crate::accumulator;
 use crate::anchor;
-// use crate::attest;
-// use crate::bbs_plus;
-// use crate::blob;
-use crate::did::{self, Did, DidKey};
-// use crate::master;
-// use crate::revoke;
+use crate::attest;
+use crate::bbs_plus;
+use crate::blob;
+use crate::did::{self, Controller, Did, DidKey, DidSignature};
+use crate::master;
+use crate::revoke;
+use crate::Action;
+use crate::{keys_and_sigs, util};
 
 use crate::keys_and_sigs::SigValue;
-// use crate::revoke::{Policy, RegistryId, RevokeId};
+use crate::revoke::{Policy, RegistryId, RevokeId};
 use codec::{Decode, Encode};
 use frame_support::{
     parameter_types,
@@ -25,6 +26,7 @@ use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
 };
+use sp_std::borrow::Borrow;
 pub use std::iter::once;
 
 // Configure a mock runtime to test the pallet.
@@ -39,23 +41,26 @@ frame_support::construct_runtime!(
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         // DIDModule: did::{Module, Call, Storage, Event, Config},
         DIDModule: did::{Module, Call, Storage, Event},
-        // RevoMod: revoke::{Module, Call, Storage},
-        // BlobMod: blob::{Module, Call, Storage},
+        RevoMod: revoke::{Module, Call, Storage, Event},
+        BlobMod: blob::{Module, Call, Storage},
         // MasterMod: master::{Module, Call, Storage, Event<T>, Config},
+        MasterMod: master::{Module, Call, Storage, Event<T>},
         AnchorMod: anchor::{Module, Call, Storage, Event<T>},
-        // AttestMod: attest::{Module, Call, Storage},
-        // BBSPlusMod: bbs_plus::{Module, Call, Storage, Event},
-        // AccumMod: accumulator::{Module, Call, Storage, Event}
+        AttestMod: attest::{Module, Call, Storage},
+        BBSPlusMod: bbs_plus::{Module, Call, Storage, Event},
+        AccumMod: accumulator::{Module, Call, Storage, Event}
     }
 );
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum TestEvent {
-    // Master(crate::master::Event<Test>),
+    Did(crate::did::Event),
+    Revoke(crate::revoke::Event),
+    Master(crate::master::Event<Test>),
     Anchor(crate::anchor::Event<Test>),
     Unknown,
-    // BBSPlus(bbs_plus::Event),
-    // Accum(accumulator::Event),
+    BBSPlus(bbs_plus::Event),
+    Accum(accumulator::Event),
 }
 
 impl From<system::Event<Test>> for TestEvent {
@@ -70,13 +75,25 @@ impl From<()> for TestEvent {
     }
 }
 
+impl From<crate::did::Event> for TestEvent {
+    fn from(other: crate::did::Event) -> Self {
+        Self::Did(other)
+    }
+}
+
+impl From<crate::revoke::Event> for TestEvent {
+    fn from(other: crate::revoke::Event) -> Self {
+        Self::Revoke(other)
+    }
+}
+
 impl From<crate::anchor::Event<Test>> for TestEvent {
     fn from(other: crate::anchor::Event<Test>) -> Self {
         Self::Anchor(other)
     }
 }
 
-/*impl From<crate::master::Event<Test>> for TestEvent {
+impl From<crate::master::Event<Test>> for TestEvent {
     fn from(other: crate::master::Event<Test>) -> Self {
         Self::Master(other)
     }
@@ -92,7 +109,7 @@ impl From<accumulator::Event> for TestEvent {
     fn from(other: accumulator::Event) -> Self {
         Self::Accum(other)
     }
-}*/
+}
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
@@ -123,8 +140,8 @@ impl system::Config for Test {
     type SS58Prefix = ();
 }
 
-impl crate::did::Trait for Test {
-    type Event = ();
+impl crate::did::Config for Test {
+    type Event = TestEvent;
     type MaxDidDocRefSize = MaxDidDocRefSize;
     type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
     type MaxServiceEndpointIdSize = MaxServiceEndpointIdSize;
@@ -134,7 +151,9 @@ impl crate::did::Trait for Test {
     type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
 
-// impl crate::revoke::Trait for Test {}
+impl crate::revoke::Config for Test {
+    type Event = TestEvent;
+}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
@@ -156,21 +175,21 @@ parameter_types! {
     pub const ServiceEndpointOriginPerByteWeight: Weight = 10;
 }
 
-impl crate::anchor::Trait for Test {
+impl crate::anchor::Config for Test {
     type Event = TestEvent;
 }
 
-/*impl crate::blob::Trait for Test {
+impl crate::blob::Config for Test {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
 }
 
-impl crate::master::Trait for Test {
+impl crate::master::Config for Test {
     type Event = TestEvent;
     type Call = Call;
 }
 
-impl crate::attest::Trait for Test {
+impl crate::attest::Config for Test {
     type StorageWeight = StorageWeight;
 }
 
@@ -194,16 +213,16 @@ impl accumulator::Config for Test {
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
     type AccumulatedMaxSize = AccumulatedMaxSize;
     type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
-}*/
+}
 
 pub const ABBA: u64 = 0;
-// pub const RGA: RegistryId = [0u8; 32];
-// pub const RA: RevokeId = [0u8; 32];
-// pub const RB: RevokeId = [1u8; 32];
-// pub const RC: RevokeId = [2u8; 32];
 pub const DIDA: Did = Did([0u8; 32]);
 pub const DIDB: Did = Did([1u8; 32]);
 pub const DIDC: Did = Did([2u8; 32]);
+pub const RGA: RegistryId = [0u8; 32];
+pub const RA: RevokeId = [0u8; 32];
+pub const RB: RevokeId = [1u8; 32];
+pub const RC: RevokeId = [2u8; 32];
 
 /// check whether test externalities are available
 pub fn in_ext() -> bool {
@@ -237,10 +256,10 @@ pub fn block_no() -> u64 {
     system::Module::<Test>::block_number()
 }
 
-/*/// create a OneOf policy
+/// create a OneOf policy
 pub fn oneof(dids: &[Did]) -> Policy {
     Policy::OneOf(dids.iter().cloned().collect())
-}*/
+}
 
 /// generate a random keypair
 pub fn gen_kp() -> sr25519::Pair {
@@ -280,6 +299,20 @@ pub fn sign<T: frame_system::Config>(
     SigValue::Sr25519(util::Bytes64 {
         value: keypair.sign(&payload.encode()).0,
     })
+}
+
+pub fn did_sig<T: frame_system::Config, A: Action<T>>(
+    change: &A,
+    keypair: &sr25519::Pair,
+    did: Did,
+    key_id: u32,
+) -> DidSignature {
+    let sig = sign(&change.borrow().to_state_change(), keypair);
+    DidSignature {
+        did: Controller(did),
+        key_id: key_id.into(),
+        sig,
+    }
 }
 
 /// create a random byte array with set len

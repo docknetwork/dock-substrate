@@ -9,9 +9,9 @@
 //! # use frame_support::{decl_module, dispatch::DispatchResult};
 //! # type Foo = ();
 //! # type Bar = ();
-//! # trait Trait: frame_system::Config {}
+//! # trait Config: frame_system::Config {}
 //! decl_module! {
-//!     pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+//!     pub struct Module<T: Config> for enum Call where origin: T::Origin {
 //!         #[weight = 100_000]
 //!         pub fn frob(origin, foo: Foo) -> DispatchResult { Ok(()) }
 //!         #[weight = 100_000]
@@ -60,7 +60,6 @@
 use crate::{
     did::{Did, DidSignature},
     revoke::get_weight_for_pauth,
-    StateChange,
 };
 use alloc::{
     boxed::Box,
@@ -69,6 +68,8 @@ use alloc::{
 };
 use codec::{Decode, Encode};
 use core::default::Default;
+use core::fmt::Debug;
+use core::marker::PhantomData;
 use frame_support::dispatch::PostDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -82,12 +83,13 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-pub struct Payload {
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+pub struct MasterVote<T> {
     /// The serialized Call to be run as root.
     proposal: Vec<u8>,
     /// The round for which the vote is to be valid
     round_no: u64,
+    _marker: PhantomData<T>,
 }
 
 /// Proof of authorization by Master.
@@ -99,6 +101,18 @@ pub struct Membership {
     pub members: BTreeSet<Did>,
     pub vote_requirement: u64,
 }
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct SetMembers<T> {
+    membership: Membership,
+    _marker: PhantomData<T>,
+}
+
+crate::impl_action!(
+    for ():
+        MasterVote with { |_| 1 } as len, () as target
+);
 
 impl Default for Membership {
     fn default() -> Self {
@@ -118,7 +132,7 @@ fn get_min_weight_for_execute(auth: &PMAuth, db_weights: RuntimeDbWeight) -> Wei
     MIN_WEIGHT + get_weight_for_pauth(&auth, db_weights) + db_weights.reads_writes(1, 1)
 }
 
-pub trait Trait: system::Config + crate::did::Trait
+pub trait Config: system::Config + crate::did::Config
 where
     <Self as system::Config>::AccountId: Ord,
 {
@@ -131,22 +145,22 @@ where
 }
 
 decl_storage! {
-    trait Store for Module<T: Trait> as Master {
+    trait Store for Module<T: Config> as Master where T: Debug {
         pub Members: Membership;
         pub Round: u64;
     }
-    add_extra_genesis {
+    /*add_extra_genesis {
         config(members): Membership;
         build(|slef: &Self| {
             debug_assert!(slef.members.vote_requirement != 0);
             debug_assert!(slef.members.vote_requirement <= slef.members.members.len() as u64);
             Members::set(slef.members.clone());
         })
-    }
+    }*/
 }
 
 decl_error! {
-    pub enum MasterError for Module<T: Trait> {
+    pub enum MasterError for Module<T: Config> where T: Debug {
         /// The account used to submit this vote is not a member of Master.
         NotMember,
         /// This proposal does not yet have enough votes to be executed.
@@ -164,7 +178,7 @@ decl_error! {
 decl_event! {
     pub enum Event<T>
     where
-        <T as Trait>::Call
+        <T as Config>::Call
     {
         /// A proposal succeeded and was executed. The dids listed are the members whose votes were
         /// used as proof of authorization. The executed call is provided.
@@ -177,7 +191,7 @@ decl_event! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
         type Error = MasterError<T>;
 
         fn deposit_event() = default;
@@ -195,11 +209,13 @@ decl_module! {
         ]
         pub fn execute(
             origin,
-            proposal: Box<<T as Trait>::Call>,
+            proposal: Box<<T as Config>::Call>,
             auth: PMAuth,
         ) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
+
             // `execute_` will compute the weight
-            Module::<T>::execute_(origin, proposal, auth, None)
+            Self::execute_(proposal, auth, None)
         }
 
         /// Does the same job as `execute` dispatchable but does not inherit the weight of the
@@ -213,13 +229,15 @@ decl_module! {
         ]
         pub fn execute_unchecked_weight(
             origin,
-            proposal: Box<<T as Trait>::Call>,
+            proposal: Box<<T as Config>::Call>,
             auth: PMAuth,
             _weight: Weight,
         ) -> DispatchResultWithPostInfo {
+            ensure_signed(origin)?;
             let weight = get_min_weight_for_execute(&auth, T::DbWeight::get()) + _weight;
+
             // `execute_` won't compute the weight but use the given weight instead
-            Module::<T>::execute_(origin, proposal, auth, Some(weight))
+            Self::execute_(proposal, auth, Some(weight))
         }
 
         /// Root-only. Sets the members and vote requirement for master. Increases the round number
@@ -234,15 +252,17 @@ decl_module! {
         #[weight = MIN_WEIGHT + T::DbWeight::get().reads_writes(1, 2)]
         pub fn set_members(
             origin,
-            membership: Membership,
+            membership: SetMembers<T>,
         ) -> DispatchResultWithPostInfo {
-            Module::<T>::set_members_(origin, membership)?;
+            ensure_root(origin)?;
+
+            Self::set_members_(membership)?;
             Ok(Pays::No.into())
         }
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config + Debug> Module<T> {
     /// Execute a call as Root origin after verifying signatures in `auth`. If `given_weight` is None,
     /// then it computes the weight by considering the cost of signature verification and cost of
     /// executing the call. If `given_weight` has a value then that is considered as weight.
@@ -253,13 +273,10 @@ impl<T: Trait> Module<T> {
     /// However, since this call is made by entities that not adversarial, the behavior is not dangerous
     /// in this case
     fn execute_(
-        origin: T::Origin,
-        proposal: Box<<T as Trait>::Call>,
+        proposal: Box<<T as Config>::Call>,
         auth: PMAuth,
         given_weight: Option<Weight>,
     ) -> DispatchResultWithPostInfo {
-        ensure_signed(origin)?;
-
         // check
         let membership = Members::get();
         ensure!(
@@ -270,14 +287,18 @@ impl<T: Trait> Module<T> {
             auth.keys().all(|k| membership.members.contains(k)),
             MasterError::<T>::NotMember,
         );
-        let payload = StateChange::MasterVote(Payload {
+
+        let new_payload = MasterVote {
             proposal: proposal.encode(),
             round_no: Round::get(),
-        })
-        .encode();
+            _marker: PhantomData,
+        };
         for (did, sig) in auth.iter() {
-            let valid = crate::did::Module::<T>::verify_sig_from_did(sig, &payload, did)?;
-            ensure!(valid, MasterError::<T>::BadSig);
+            ensure!(
+                crate::did::Module::<T>::verify_sig_from_auth_or_control_key(&new_payload, sig)?
+                    && (*did == *sig.did),
+                MasterError::<T>::BadSig
+            );
         }
 
         // execute call and collect dispatch info to return
@@ -331,9 +352,7 @@ impl<T: Trait> Module<T> {
         }
     }
 
-    fn set_members_(origin: T::Origin, membership: Membership) -> DispatchResult {
-        ensure_root(origin)?;
-
+    fn set_members_(SetMembers { membership, .. }: SetMembers<T>) -> DispatchResult {
         // check
         ensure!(
             membership.vote_requirement != 0,
@@ -359,13 +378,14 @@ impl<T: Trait> Module<T> {
 
 #[cfg(test)]
 mod test {
+    use alloc::borrow::Cow;
     use codec::Encode;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
     use super::{
-        Call as MasterCall, DispatchError, Event, MasterError, Members, Membership, Payload, Round,
-        StateChange,
+        Call as MasterCall, DispatchError, Event, MasterError, MasterVote, Members, Membership,
+        PhantomData, Round, SetMembers,
     };
-    use crate::test_common::*;
+    use crate::{did::Did, test_common::*};
     use alloc::collections::{BTreeMap, BTreeSet};
     use frame_support::StorageValue;
     use frame_system as system;
@@ -387,7 +407,10 @@ mod test {
                 members: set(&[newdid().0]),
                 vote_requirement: 1,
             };
-            let call = Call::MasterMod(MasterCall::set_members(new_members.clone()));
+            let call = Call::MasterMod(MasterCall::set_members(SetMembers {
+                membership: new_members.clone(),
+                _marker: PhantomData,
+            }));
             assert_eq!(Round::get(), 0);
             MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap();
             assert_eq!(Members::get(), new_members);
@@ -432,9 +455,12 @@ mod test {
         ext().execute_with(|| {
             MasterMod::set_members(
                 system::RawOrigin::Root.into(),
-                Membership {
-                    members: set(&[newdid().0]),
-                    vote_requirement: 1,
+                SetMembers {
+                    membership: Membership {
+                        members: set(&[newdid().0]),
+                        vote_requirement: 1,
+                    },
+                    _marker: PhantomData,
                 },
             )
             .unwrap();
@@ -459,10 +485,11 @@ mod test {
             let (didb, _didbk) = newdid();
             let (didc, didck) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Payload {
+            let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
-            });
+                _marker: PhantomData,
+            };
             Members::set(Membership {
                 members: set(&[dida, didb, didc]),
                 vote_requirement: 2,
@@ -470,7 +497,10 @@ mod test {
             MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call.clone()),
-                map(&[(dida, sign(&sc, &didak)), (didc, sign(&sc, &didck))]),
+                map(&[
+                    (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
+                    (didc, did_sig::<Test, _>(&sc, &didck, didc, 1)),
+                ]),
             )
             .unwrap();
             assert_eq!(
@@ -487,9 +517,12 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            let call = Call::MasterMod(MasterCall::set_members(Membership {
-                members: set(&[newdid().0]),
-                vote_requirement: 1,
+            let call = Call::MasterMod(MasterCall::set_members(SetMembers {
+                membership: Membership {
+                    members: set(&[newdid().0]),
+                    vote_requirement: 1,
+                },
+                _marker: PhantomData,
             }));
             MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
             assert_eq!(
@@ -525,9 +558,10 @@ mod test {
         ext().execute_with(|| {
             let (dida, didak) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Payload {
+            let sc = (MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
+                _marker: PhantomData,
             });
             Members::set(Membership {
                 members: set(&[]),
@@ -536,7 +570,7 @@ mod test {
             let err = MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call),
-                map(&[(dida, sign(&sc, &didak))]),
+                map(&[(dida, did_sig::<Test, _>(&sc, &didak, dida, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::NotMember.into());
@@ -551,9 +585,10 @@ mod test {
             let (didc, didck) = newdid();
             let kv = (vec![4; 200], vec![5; 200]);
             let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
-            let sc = StateChange::MasterVote(Payload {
+            let sc = (MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
+                _marker: PhantomData,
             });
             Members::set(Membership {
                 members: set(&[dida, didb, didc]),
@@ -564,7 +599,10 @@ mod test {
             MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call.clone()),
-                map(&[(dida, sign(&sc, &didak)), (didc, sign(&sc, &didck))]),
+                map(&[
+                    (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
+                    (didc, did_sig::<Test, _>(&sc, &didck, didc, 1)),
+                ]),
             )
             .unwrap();
             assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
@@ -578,9 +616,10 @@ mod test {
             let (didb, didbk) = newdid();
             let (didc, didck) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Payload {
+            let sc = (MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
+                _marker: PhantomData,
             });
             Members::set(Membership {
                 members: set(&[dida, didb, didc]),
@@ -590,9 +629,9 @@ mod test {
                 Origin::signed(0),
                 Box::new(call.clone()),
                 map(&[
-                    (dida, sign(&sc, &didak)),
-                    (didb, sign(&sc, &didbk)),
-                    (didc, sign(&sc, &didck)),
+                    (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
+                    (didb, did_sig::<Test, _>(&sc, &didbk, didb, 1)),
+                    (didc, did_sig::<Test, _>(&sc, &didck, didc, 1)),
                 ]),
             )
             .unwrap();
@@ -612,27 +651,35 @@ mod test {
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
 
             {
-                let sc = StateChange::MasterVote(Payload {
+                let sc = (MasterVote {
                     proposal: call.encode(),
                     round_no: 0,
+                    _marker: PhantomData,
                 });
                 MasterMod::execute(
                     Origin::signed(0),
                     Box::new(call.clone()),
-                    map(&[(dida, sign(&sc, &didak)), (didc, sign(&sc, &didck))]),
+                    map(&[
+                        (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
+                        (didc, did_sig::<Test, _>(&sc, &didck, didc, 1)),
+                    ]),
                 )
                 .unwrap();
             }
 
             {
-                let sc = StateChange::MasterVote(Payload {
+                let sc = (MasterVote {
                     proposal: call.encode(),
                     round_no: 1,
+                    _marker: PhantomData,
                 });
                 MasterMod::execute(
                     Origin::signed(0),
                     Box::new(call.clone()),
-                    map(&[(dida, sign(&sc, &didak)), (didb, sign(&sc, &didbk))]),
+                    map(&[
+                        (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
+                        (didb, did_sig::<Test, _>(&sc, &didbk, didb, 1)),
+                    ]),
                 )
                 .unwrap();
             }
@@ -650,20 +697,21 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Box::new(Call::System(system::Call::<Test>::set_storage(vec![])));
-            let sc = StateChange::MasterVote(Payload {
+            let sc = (MasterVote {
                 proposal: call.encode(),
                 round_no: 0,
+                _marker: PhantomData,
             });
 
             {
-                let sig = sign(&sc, &didbk); // <-- signing with wrong key
+                let sig = did_sig::<Test, _>(&sc, &didbk, didb, 1); // <-- signing with wrong key
                 let err = MasterMod::execute(Origin::signed(0), call.clone(), map(&[(dida, sig)]))
                     .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
             }
 
             {
-                let sig = sign(&sc, &didck); // <-- signing with wrong key, not in member set
+                let sig = did_sig::<Test, _>(&sc, &didck, _didc, 1); // <-- signing with wrong key, not in member set
                 let err = MasterMod::execute(Origin::signed(0), call.clone(), map(&[(dida, sig)]))
                     .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
@@ -671,14 +719,14 @@ mod test {
 
             {
                 // wrong payload
-                let sc = StateChange::DIDRemoval(crate::did::DidRemoval {
-                    did: [0; 32],
-                    last_modified_in_block: 0,
-                });
+                let sc = crate::did::DidRemoval::<Test> {
+                    did: Did([0; 32]),
+                    nonce: 0,
+                };
                 let err = MasterMod::execute(
                     Origin::signed(0),
                     call.clone(),
-                    map(&[(dida, sign(&sc, &didak))]),
+                    map(&[(dida, did_sig::<Test, _>(&sc, &didak, dida, 1))]),
                 )
                 .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
@@ -696,14 +744,15 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Box::new(Call::System(system::Call::<Test>::set_storage(vec![])));
-            let sc = StateChange::MasterVote(Payload {
+            let sc = (MasterVote {
                 proposal: call.encode(),
                 round_no: 0,
+                _marker: PhantomData,
             });
             let err = MasterMod::execute(
                 Origin::signed(0),
                 call.clone(),
-                map(&[(didc, sign(&sc, &didck))]),
+                map(&[(didc, did_sig::<Test, _>(&sc, &didck, didc, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::NotMember.into());
@@ -719,11 +768,12 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Payload {
+            let sc = (MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
+                _marker: PhantomData,
             });
-            let sig = sign(&sc, &didak);
+            let sig = did_sig::<Test, _>(&sc, &didak, dida, 1);
 
             MasterMod::execute(
                 Origin::signed(0),
@@ -747,9 +797,10 @@ mod test {
             let (dida, didak) = newdid();
             let (didb, _didbk) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = StateChange::MasterVote(Payload {
+            let sc = (MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
+                _marker: PhantomData,
             });
             Members::set(Membership {
                 members: set(&[dida, didb]),
@@ -759,7 +810,7 @@ mod test {
             let err = MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call.clone()),
-                map(&[(dida, sign(&sc, &didak))]),
+                map(&[(dida, did_sig::<Test, _>(&sc, &didak, dida, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());
@@ -782,7 +833,14 @@ mod test {
             .iter()
             .cloned()
             {
-                let err = MasterMod::set_members(Origin::root(), m).unwrap_err();
+                let err = MasterMod::set_members(
+                    Origin::root(),
+                    SetMembers {
+                        membership: m,
+                        _marker: PhantomData,
+                    },
+                )
+                .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::ZeroVoteRequirement.into());
             }
         });
@@ -812,7 +870,14 @@ mod test {
             .iter()
             .cloned()
             {
-                let err = MasterMod::set_members(Origin::root(), m).unwrap_err();
+                let err = MasterMod::set_members(
+                    Origin::root(),
+                    SetMembers {
+                        membership: m,
+                        _marker: PhantomData,
+                    },
+                )
+                .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::VoteRequirementTooHigh.into());
             }
         });

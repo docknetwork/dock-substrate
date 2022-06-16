@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+extern crate core;
 
 use codec::{Decode, Encode};
 use sp_std::borrow::Cow;
@@ -18,23 +19,23 @@ pub enum StateChange<'a, T: frame_system::Config> {
     AddServiceEndpoint(Cow<'a, did::AddServiceEndpoint<T>>),
     RemoveServiceEndpoint(Cow<'a, did::RemoveServiceEndpoint<T>>),
     DidRemoval(Cow<'a, did::DidRemoval<T>>),
-    // Revoke(revoke::Revoke),
-    // UnRevoke(revoke::UnRevoke),
-    // RemoveRegistry(revoke::RemoveRegistry),
-    // Blob(blob::Blob),
-    // MasterVote(master::Payload),
-    // Attestation((did::Did, attest::Attestation)),
-    // AddBBSPlusParams(bbs_plus::BbsPlusParameters),
-    // AddBBSPlusPublicKey(bbs_plus::BbsPlusPublicKey),
-    // RemoveBBSPlusParams(bbs_plus::ParametersStorageKey),
-    // RemoveBBSPlusPublicKey(bbs_plus::PublicKeyStorageKey),
-    // AddAccumulatorParams(accumulator::AccumulatorParameters),
-    // AddAccumulatorPublicKey(accumulator::AccumulatorPublicKey),
-    // RemoveAccumulatorParams(accumulator::ParametersStorageKey),
-    // RemoveAccumulatorPublicKey(accumulator::PublicKeyStorageKey),
-    // AddAccumulator(accumulator::AddAccumulator),
-    // UpdateAccumulator(accumulator::AccumulatorUpdate),
-    // RemoveAccumulator(accumulator::RemoveAccumulator),
+    Revoke(Cow<'a, revoke::Revoke<T>>),
+    UnRevoke(Cow<'a, revoke::UnRevoke<T>>),
+    RemoveRegistry(Cow<'a, revoke::RemoveRegistry<T>>),
+    AddBlob(Cow<'a, blob::AddBlob<T>>),
+    MasterVote(Cow<'a, master::MasterVote<T>>),
+    SetAttestationClaim(Cow<'a, attest::SetAttestationClaim<T>>),
+    AddBBSPlusParams(Cow<'a, bbs_plus::AddBBSPlusParams<T>>),
+    AddBBSPlusPublicKey(Cow<'a, bbs_plus::AddBBSPlusPublicKey<T>>),
+    RemoveBBSPlusParams(Cow<'a, bbs_plus::RemoveBBSPlusParams<T>>),
+    RemoveBBSPlusPublicKey(Cow<'a, bbs_plus::RemoveBBSPlusPublicKey<T>>),
+    AddAccumulatorParams(Cow<'a, accumulator::AddAccumulatorParams<T>>),
+    AddAccumulatorPublicKey(Cow<'a, accumulator::AddAccumulatorPublicKey<T>>),
+    RemoveAccumulatorParams(Cow<'a, accumulator::RemoveAccumulatorParams<T>>),
+    RemoveAccumulatorPublicKey(Cow<'a, accumulator::RemoveAccumulatorPublicKey<T>>),
+    AddAccumulator(Cow<'a, accumulator::AddAccumulator<T>>),
+    UpdateAccumulator(Cow<'a, accumulator::UpdateAccumulator<T>>),
+    RemoveAccumulator(Cow<'a, accumulator::RemoveAccumulator<T>>),
 }
 
 /// Describes an action which can be performed on some `Target`
@@ -44,9 +45,6 @@ pub trait Action<T: frame_system::Config> {
 
     /// Returns underlying action target.
     fn target(&self) -> Self::Target;
-
-    /// Returns action's nonce.
-    fn nonce(&self) -> T::BlockNumber;
 
     /// Returns action unit length.
     fn len(&self) -> u32;
@@ -58,19 +56,27 @@ pub trait Action<T: frame_system::Config> {
 
     /// Converts the given action to the state change.
     fn to_state_change(&self) -> StateChange<'_, T>;
+
+    /// Converts the given action to the state change.
+    fn into_state_change(self) -> StateChange<'static, T>;
 }
 
-// pub mod accumulator;
+pub trait NoncedAction<T: frame_system::Config>: Action<T> {
+    /// Returns action's nonce.
+    fn nonce(&self) -> T::BlockNumber;
+}
+
+pub mod accumulator;
 pub mod anchor;
-// pub mod attest;
-// pub mod bbs_plus;
+pub mod attest;
+pub mod bbs_plus;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmark_utils;
-// pub mod blob;
+pub mod blob;
 pub mod did;
 pub mod keys_and_sigs;
-// pub mod master;
-// pub mod revoke;
+pub mod master;
+pub mod revoke;
 pub mod runtime_api;
 pub mod types;
 pub mod util;

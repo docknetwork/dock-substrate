@@ -8,18 +8,18 @@ use super::super::*;
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
-pub struct OffChainDidDetails<T: Trait> {
+pub struct OffChainDidDetails<T: Config> {
     pub account_id: T::AccountId,
     pub doc_ref: OffChainDidDocRef,
 }
 
-impl<T: Trait> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
+impl<T: Config> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
     fn from(details: OffChainDidDetails<T>) -> Self {
         Self::OffChain(details)
     }
 }
 
-impl<T: Trait + Debug> OffChainDidDetails<T> {
+impl<T: Config + Debug> OffChainDidDetails<T> {
     /// Constructs new off-chain DID details using supplied params.
     pub fn new(account_id: T::AccountId, doc_ref: OffChainDidDocRef) -> Self {
         Self {
@@ -60,7 +60,7 @@ impl OffChainDidDocRef {
     }
 }
 
-impl<T: Trait + Debug> Module<T> {
+impl<T: Config + Debug> Module<T> {
     pub(crate) fn new_offchain_(
         caller: T::AccountId,
         did: Did,

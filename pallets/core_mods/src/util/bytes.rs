@@ -1,3 +1,4 @@
+use crate::impl_wrapper;
 #[cfg(feature = "serde")]
 use crate::util::hex;
 use codec::{Decode, Encode};
@@ -10,25 +11,7 @@ use sp_std::vec::Vec;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WrappedBytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
 
-impl Deref for WrappedBytes {
-    type Target = Vec<u8>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for WrappedBytes {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl From<Vec<u8>> for WrappedBytes {
-    fn from(bytes: Vec<u8>) -> WrappedBytes {
-        WrappedBytes(bytes)
-    }
-}
+impl_wrapper! { WrappedBytes, Vec<u8> }
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array

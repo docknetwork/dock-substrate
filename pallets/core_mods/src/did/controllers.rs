@@ -1,5 +1,4 @@
 use super::*;
-use sp_std::ops::{Deref, DerefMut};
 
 /// DID controller.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
@@ -7,34 +6,16 @@ use sp_std::ops::{Deref, DerefMut};
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Controller(pub Did);
 
-impl From<Controller> for Did {
-    fn from(ctrl: Controller) -> Did {
-        ctrl.0
-    }
-}
+impl_wrapper!(Controller, Did);
 
-impl Deref for Controller {
-    type Target = Did;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for Controller {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-impl<T: Trait + Debug> Module<T> {
+impl<T: Config + Debug> Module<T> {
     pub(crate) fn add_controllers_(
         AddControllers {
             did, controllers, ..
         }: AddControllers<T>,
         OnChainDidDetails {
             active_controllers, ..
-        }: &mut OnChainDidDetails<T>,
+        }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
         for ctrl in &controllers {
             if Self::is_controller(&did, ctrl) {
@@ -57,7 +38,7 @@ impl<T: Trait + Debug> Module<T> {
         }: RemoveControllers<T>,
         OnChainDidDetails {
             active_controllers, ..
-        }: &mut OnChainDidDetails<T>,
+        }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
         for controller_did in &controllers {
             if !Self::is_controller(&did, controller_did) {
