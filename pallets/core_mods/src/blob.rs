@@ -2,7 +2,7 @@
 
 use crate as dock;
 use crate::did;
-use crate::did::{Controller, DidSignature};
+use crate::did::{Did, DidSignature};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -12,6 +12,14 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
+
+/// Owner of a Blob.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct BlobOwner(pub Did);
+
+crate::impl_wrapper!(BlobOwner, Did);
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;
@@ -64,7 +72,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Config> as Blob where T: Debug {
         Blobs get(fn get_blob): map hasher(blake2_128_concat)
-            dock::blob::BlobId => Option<(dock::did::Did, Vec<u8>)>;
+            dock::blob::BlobId => Option<(BlobOwner, Vec<u8>)>;
     }
 }
 
@@ -88,14 +96,14 @@ decl_module! {
                 BlobError::<T>::InvalidSig
             );
 
-            Module::<T>::new_(blob, signature.did)?;
+            Module::<T>::new_(blob, BlobOwner(signature.did))?;
             Ok(())
         }
     }
 }
 
 impl<T: Config + Debug> Module<T> {
-    fn new_(AddBlob { blob, .. }: AddBlob<T>, signer: Controller) -> DispatchResult {
+    fn new_(AddBlob { blob, .. }: AddBlob<T>, signer: BlobOwner) -> DispatchResult {
         // check
         ensure!(
             T::MaxBlobSize::get() as usize >= blob.blob.len(),
@@ -107,7 +115,7 @@ impl<T: Config + Debug> Module<T> {
         );
 
         // execute
-        Blobs::insert(blob.id, (*signer, blob.blob));
+        Blobs::insert(blob.id, (signer, blob.blob));
 
         Ok(())
     }
@@ -117,16 +125,15 @@ impl<T: Config + Debug> Module<T> {
 mod tests {
     use core::marker::PhantomData;
 
-    use super::{did, Blob, BlobError, BlobId, Blobs, DispatchResult};
+    use super::{did, Blob, BlobError, BlobId, BlobOwner, Blobs, DispatchResult};
     use crate::{blob::AddBlob, did::Did, test_common::*};
     use frame_support::StorageMap;
     use sp_core::{sr25519, Pair};
-    use sp_std::borrow::Cow;
 
     fn create_blob(
         id: BlobId,
         content: Vec<u8>,
-        author: did::Did,
+        author: BlobOwner,
         author_kp: sr25519::Pair,
     ) -> DispatchResult {
         let bl = Blob {
@@ -150,7 +157,7 @@ mod tests {
                     _marker: PhantomData,
                 },
                 &author_kp,
-                author,
+                *author,
                 1,
             ),
         )
@@ -167,9 +174,9 @@ mod tests {
             let noise = random_bytes(size);
             let (author, author_kp) = newdid();
             assert_eq!(Blobs::get(id), None);
-            create_blob(id, noise.clone(), author, author_kp).unwrap();
+            create_blob(id, noise.clone(), BlobOwner(author), author_kp).unwrap();
             // Can retrieve a valid blob and the blob contents and author match the given ones.
-            assert_eq!(Blobs::get(id), Some((author, noise)));
+            assert_eq!(Blobs::get(id), Some((BlobOwner(author), noise)));
         }
 
         ext().execute_with(|| {
@@ -189,7 +196,7 @@ mod tests {
             let noise = random_bytes(size);
             let id = rand::random();
             assert_eq!(Blobs::get(id), None);
-            let err = create_blob(id, noise, author, author_kp).unwrap_err();
+            let err = create_blob(id, noise, BlobOwner(author), author_kp).unwrap_err();
             assert_eq!(err, BlobError::<Test>::BlobTooBig.into());
             assert_eq!(Blobs::get(id), None);
         }
@@ -207,8 +214,8 @@ mod tests {
             let id = rand::random();
             let (author, author_kp) = newdid();
             assert_eq!(Blobs::get(id), None);
-            create_blob(id, random_bytes(10), author, author_kp.clone()).unwrap();
-            let err = create_blob(id, random_bytes(10), author, author_kp).unwrap_err();
+            create_blob(id, random_bytes(10), BlobOwner(author), author_kp.clone()).unwrap();
+            let err = create_blob(id, random_bytes(10), BlobOwner(author), author_kp).unwrap_err();
             assert_eq!(err, BlobError::<Test>::BlobAlreadyExists.into());
         });
     }
@@ -217,7 +224,7 @@ mod tests {
     fn err_did_does_not_exist() {
         ext().execute_with(|| {
             // Adding a blob with an unregistered DID fails with error DidDoesNotExist.
-            let author = Did(rand::random());
+            let author = BlobOwner(Did(rand::random()));
             let author_kp = gen_kp();
             let err = create_blob(rand::random(), random_bytes(10), author, author_kp).unwrap_err();
             assert_eq!(err, did::Error::<Test>::NoKeyForDid.into());
@@ -285,7 +292,7 @@ mod tests {
 mod benchmarking {
     use super::*;
     use crate::benchmark_utils::{get_data_for_blob, BLOB_DATA_SIZE};
-    use crate::did::{Dids, KeyDetail};
+    use crate::did::{BlobOwners, KeyDetail};
     use frame_benchmarking::{account, benchmarks};
     use sp_std::prelude::*;
     use system::RawOrigin;
@@ -311,7 +318,7 @@ mod benchmarking {
 
             let detail = KeyDetail::new(did.clone(), pk);
             let block_number = <T as system::Config>::BlockNumber::from(n);
-            Dids::<T>::insert(did.clone(), (detail, block_number));
+            BlobOwners::<T>::insert(did.clone(), (detail, block_number));
 
             let blob = Blob {
                 id,

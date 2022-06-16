@@ -721,7 +721,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -743,7 +743,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -805,7 +805,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: did_2.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -829,7 +829,7 @@ fn add_keys_to_did() {
                     Origin::signed(alice),
                     add_keys,
                     DidSignature {
-                        did: Controller(did_1.clone()),
+                        did: did_1.clone(),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -854,7 +854,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -877,7 +877,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -900,7 +900,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -922,7 +922,7 @@ fn add_keys_to_did() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -957,7 +957,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys.clone(),
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 3u32.into(),
                     sig
                 }
@@ -971,7 +971,7 @@ fn add_keys_to_did() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1047,7 +1047,7 @@ fn remove_keys_from_did() {
                     Origin::signed(alice),
                     remove_keys,
                     DidSignature {
-                        did: Controller(did_1.clone()),
+                        did: did_1.clone(),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1070,7 +1070,7 @@ fn remove_keys_from_did() {
                 Origin::signed(alice),
                 remove_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1087,7 +1087,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1104,7 +1104,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: Controller(did_2.clone()),
+                did: did_2.clone(),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1133,7 +1133,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: Controller(did_5.clone()),
+                did: did_5.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1145,15 +1145,12 @@ fn remove_keys_from_did() {
             controllers: vec![did_2].into_iter().map(Controller).collect(),
             nonce: 12,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
-            &pair_sr_1,
-        );
+        let sig = SigValue::sr25519(&remove_controllers.to_state_change().encode(), &pair_sr_1);
         assert_ok!(DIDModule::remove_controllers(
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: Controller(did_2.clone()),
+                did: did_2.clone(),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1234,16 +1231,13 @@ fn remove_controllers_from_did() {
                 controllers: vec![did_1].into_iter().map(Controller).collect(),
                 nonce,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
-                &pair_sr_1,
-            );
+            let sig = SigValue::sr25519(&remove_controllers.to_state_change().encode(), &pair_sr_1);
             assert_noop!(
                 DIDModule::remove_controllers(
                     Origin::signed(alice),
                     remove_controllers,
                     DidSignature {
-                        did: Controller(did_1.clone()),
+                        did: did_1.clone(),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1261,16 +1255,13 @@ fn remove_controllers_from_did() {
                 .collect(),
             nonce: 3,
         };
-        let sig = SigValue::ed25519(
-            &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
-            &pair_ed_1,
-        );
+        let sig = SigValue::ed25519(&remove_controllers.to_state_change().encode(), &pair_ed_1);
         assert_noop!(
             DIDModule::remove_controllers(
                 Origin::signed(alice),
                 remove_controllers,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1282,15 +1273,12 @@ fn remove_controllers_from_did() {
             controllers: vec![did_1].into_iter().map(Controller).collect(),
             nonce: 3,
         };
-        let sig = SigValue::ed25519(
-            &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
-            &pair_ed_1,
-        );
+        let sig = SigValue::ed25519(&remove_controllers.to_state_change().encode(), &pair_ed_1);
         assert_ok!(DIDModule::remove_controllers(
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1303,15 +1291,12 @@ fn remove_controllers_from_did() {
             controllers: vec![did_2].into_iter().map(Controller).collect(),
             nonce: 4,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
-            &pair_sr_1,
-        );
+        let sig = SigValue::sr25519(&remove_controllers.to_state_change().encode(), &pair_sr_1);
         assert_ok!(DIDModule::remove_controllers(
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: Controller(did_2.clone()),
+                did: did_2.clone(),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1323,15 +1308,12 @@ fn remove_controllers_from_did() {
             controllers: vec![did_2].into_iter().map(Controller).collect(),
             nonce: 6,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
-            &pair_sr_1,
-        );
+        let sig = SigValue::sr25519(&remove_controllers.to_state_change().encode(), &pair_sr_1);
         assert_ok!(DIDModule::remove_controllers(
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: Controller(did_2.clone()),
+                did: did_2.clone(),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1343,16 +1325,13 @@ fn remove_controllers_from_did() {
             nonce: 7,
         };
         check_did_detail(&did_3, 0, 0, 2, 6);
-        let sig = SigValue::sr25519(
-            &StateChange::RemoveControllers(Cow::Borrowed(&remove_controllers)).encode(),
-            &pair_sr_1,
-        );
+        let sig = SigValue::sr25519(&remove_controllers.to_state_change().encode(), &pair_sr_1);
         assert_err!(
             DIDModule::remove_controllers(
                 Origin::signed(alice),
                 remove_controllers,
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: did_2.clone(),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1388,16 +1367,13 @@ fn add_controllers_to_did() {
             controllers: vec![].into_iter().collect(),
             nonce: 5,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&add_controllers.to_state_change().encode(), &pair_sr);
         assert_noop!(
             DIDModule::add_controllers(
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1410,16 +1386,13 @@ fn add_controllers_to_did() {
             controllers: vec![did_2].into_iter().map(Controller).collect(),
             nonce: 5,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&add_controllers.to_state_change().encode(), &pair_sr);
         assert_noop!(
             DIDModule::add_controllers(
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1483,16 +1456,13 @@ fn add_controllers_to_did() {
             controllers: vec![did_3].into_iter().map(Controller).collect(),
             nonce: 10 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&add_controllers.to_state_change().encode(), &pair_sr);
         assert_noop!(
             DIDModule::add_controllers(
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: did_2.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1507,16 +1477,13 @@ fn add_controllers_to_did() {
                 controllers: vec![did_3].into_iter().map(Controller).collect(),
                 nonce,
             };
-            let sig = SigValue::secp256k1(
-                &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
-                &sk_secp_1,
-            );
+            let sig = SigValue::secp256k1(&add_controllers.to_state_change().encode(), &sk_secp_1);
             assert_noop!(
                 DIDModule::add_controllers(
                     Origin::signed(alice),
                     add_controllers,
                     DidSignature {
-                        did: Controller(did_1.clone()),
+                        did: did_1.clone(),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1537,7 +1504,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers.clone(),
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1546,15 +1513,12 @@ fn add_controllers_to_did() {
         );
 
         // Valid signature should work
-        let sig = SigValue::secp256k1(
-            &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
-            &sk_secp_1,
-        );
+        let sig = SigValue::secp256k1(&add_controllers.to_state_change().encode(), &sk_secp_1);
         assert_ok!(DIDModule::add_controllers(
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1570,15 +1534,12 @@ fn add_controllers_to_did() {
             controllers: vec![did_4, did_5].into_iter().map(Controller).collect(),
             nonce: 11 + 1,
         };
-        let sig = SigValue::secp256k1(
-            &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
-            &sk_secp_2,
-        );
+        let sig = SigValue::secp256k1(&add_controllers.to_state_change().encode(), &sk_secp_2);
         assert_ok!(DIDModule::add_controllers(
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: Controller(did_3.clone()),
+                did: did_3.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1644,7 +1605,7 @@ fn becoming_controller() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1667,7 +1628,7 @@ fn becoming_controller() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1754,15 +1715,12 @@ fn any_controller_can_update() {
             controllers: vec![did_1].into_iter().map(Controller).collect(),
             nonce: 7 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::AddControllers(Cow::Borrowed(&add_controllers)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&add_controllers.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::add_controllers(
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: Controller(did_2.clone()),
+                did: did_2.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1784,7 +1742,7 @@ fn any_controller_can_update() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1831,10 +1789,7 @@ fn service_endpoints() {
             },
             nonce: 5 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
         // DID does not exist yet, thus no controller
         assert_noop!(
@@ -1842,7 +1797,7 @@ fn service_endpoints() {
                 Origin::signed(alice),
                 add_service_endpoint.clone(),
                 DidSignature {
-                    did: Controller(did.clone()),
+                    did: did.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1880,17 +1835,14 @@ fn service_endpoints() {
             },
             nonce: 5 + 1,
         };
-        let sig = SigValue::ed25519(
-            &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
-            &pair_ed,
-        );
+        let sig = SigValue::ed25519(&add_service_endpoint.to_state_change().encode(), &pair_ed);
 
         assert_noop!(
             DIDModule::add_service_endpoint(
                 Origin::signed(alice),
                 add_service_endpoint.clone(),
                 DidSignature {
-                    did: Controller(did.clone()),
+                    did: did.clone(),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1963,17 +1915,14 @@ fn service_endpoints() {
                 endpoint: ep,
                 nonce: 5 + 1,
             };
-            let sig = SigValue::sr25519(
-                &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
-                &pair_sr,
-            );
+            let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
             assert_noop!(
                 DIDModule::add_service_endpoint(
                     Origin::signed(alice),
                     add_service_endpoint.clone(),
                     DidSignature {
-                        did: Controller(did.clone()),
+                        did: did.clone(),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1993,16 +1942,13 @@ fn service_endpoints() {
             },
             nonce: 5 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
         assert_ok!(DIDModule::add_service_endpoint(
             Origin::signed(alice),
             add_service_endpoint.clone(),
             DidSignature {
-                did: Controller(did.clone()),
+                did: did.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2029,17 +1975,14 @@ fn service_endpoints() {
             },
             nonce: 6 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
         assert_noop!(
             DIDModule::add_service_endpoint(
                 Origin::signed(alice),
                 add_service_endpoint.clone(),
                 DidSignature {
-                    did: Controller(did.clone()),
+                    did: did.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2056,16 +1999,13 @@ fn service_endpoints() {
             },
             nonce: 6 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::AddServiceEndpoint(Cow::Borrowed(&add_service_endpoint)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
         assert_ok!(DIDModule::add_service_endpoint(
             Origin::signed(alice),
             add_service_endpoint.clone(),
             DidSignature {
-                did: Controller(did.clone()),
+                did: did.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2088,17 +2028,14 @@ fn service_endpoints() {
             id: endpoint_1_id.clone(),
             nonce: 7 + 1,
         };
-        let sig = SigValue::ed25519(
-            &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
-            &pair_ed,
-        );
+        let sig = SigValue::ed25519(&rem_service_endpoint.to_state_change().encode(), &pair_ed);
 
         assert_noop!(
             DIDModule::remove_service_endpoint(
                 Origin::signed(alice),
                 rem_service_endpoint.clone(),
                 DidSignature {
-                    did: Controller(did.clone()),
+                    did: did.clone(),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -2112,17 +2049,14 @@ fn service_endpoints() {
             id: vec![].into(),
             nonce: 7 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_service_endpoint.to_state_change().encode(), &pair_sr);
 
         assert_noop!(
             DIDModule::remove_service_endpoint(
                 Origin::signed(alice),
                 rem_service_endpoint.clone(),
                 DidSignature {
-                    did: Controller(did.clone()),
+                    did: did.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2135,16 +2069,13 @@ fn service_endpoints() {
             id: endpoint_1_id.clone(),
             nonce: 7 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_service_endpoint.to_state_change().encode(), &pair_sr);
 
         assert_ok!(DIDModule::remove_service_endpoint(
             Origin::signed(alice),
             rem_service_endpoint.clone(),
             DidSignature {
-                did: Controller(did.clone()),
+                did: did.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2158,16 +2089,13 @@ fn service_endpoints() {
             id: endpoint_1_id.clone(),
             nonce: 8 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_service_endpoint.to_state_change().encode(), &pair_sr);
         assert_noop!(
             DIDModule::remove_service_endpoint(
                 Origin::signed(alice),
                 rem_service_endpoint.clone(),
                 DidSignature {
-                    did: Controller(did.clone()),
+                    did: did.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2180,16 +2108,13 @@ fn service_endpoints() {
             id: endpoint_2_id.clone(),
             nonce: 8 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::RemoveServiceEndpoint(Cow::Borrowed(&rem_service_endpoint)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_service_endpoint.to_state_change().encode(), &pair_sr);
 
         assert_ok!(DIDModule::remove_service_endpoint(
             Origin::signed(alice),
             rem_service_endpoint.clone(),
             DidSignature {
-                did: Controller(did.clone()),
+                did: did.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2201,17 +2126,14 @@ fn service_endpoints() {
             did: did.clone(),
             nonce: 9 + 1,
         };
-        let sig = SigValue::ed25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_ed,
-        );
+        let sig = SigValue::ed25519(&rem_did.to_state_change().encode(), &pair_ed);
 
         assert_noop!(
             DIDModule::remove_onchain_did(
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: Controller(did.clone()),
+                    did: did.clone(),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -2225,16 +2147,13 @@ fn service_endpoints() {
             did: did.clone(),
             nonce: 9 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
 
         assert_ok!(DIDModule::remove_onchain_did(
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did.clone()),
+                did: did.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2323,16 +2242,13 @@ fn did_removal() {
             did: did_2.clone(),
             nonce: 10 + 1,
         };
-        let sig = SigValue::ed25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_ed,
-        );
+        let sig = SigValue::ed25519(&rem_did.to_state_change().encode(), &pair_ed);
         assert_noop!(
             DIDModule::remove_onchain_did(
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: did_2.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2342,15 +2258,12 @@ fn did_removal() {
         check_did_detail(&did_2, 1, 0, 1, 10);
 
         // did_2 is controlled by did_1 so it can be removed by did_1
-        let sig = SigValue::sr25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::remove_onchain_did(
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2362,16 +2275,13 @@ fn did_removal() {
             did: did_3.clone(),
             nonce: 15,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_noop!(
             DIDModule::remove_onchain_did(
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: did_1.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2385,15 +2295,12 @@ fn did_removal() {
             did: did_3.clone(),
             nonce: 15 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::remove_onchain_did(
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2406,16 +2313,13 @@ fn did_removal() {
             did: did_4.clone(),
             nonce: 20 + 1,
         };
-        let sig = SigValue::ed25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_ed,
-        );
+        let sig = SigValue::ed25519(&rem_did.to_state_change().encode(), &pair_ed);
         assert_noop!(
             DIDModule::remove_onchain_did(
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: Controller(did_3.clone()),
+                    did: did_3.clone(),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2429,15 +2333,12 @@ fn did_removal() {
             did: did_4.clone(),
             nonce: 20 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::remove_onchain_did(
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did_4.clone()),
+                did: did_4.clone(),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2449,15 +2350,12 @@ fn did_removal() {
             did: did_1.clone(),
             nonce: 5 + 1,
         };
-        let sig = SigValue::sr25519(
-            &StateChange::DidRemoval(Cow::Borrowed(&rem_did)).encode(),
-            &pair_sr,
-        );
+        let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::remove_onchain_did(
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: did_1.clone(),
                 key_id: 1u32.into(),
                 sig
             }

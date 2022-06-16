@@ -11,13 +11,13 @@ use sp_runtime::DispatchError;
         deserialize = "T: Sized, D: serde::Deserialize<'de>"
     ))
 )]
-pub struct Nonced<T: frame_system::Config, D> {
+pub struct WithNonce<T: frame_system::Config, D> {
     pub nonce: T::BlockNumber,
     #[cfg_attr(feature = "serde", serde(flatten))]
     pub data: D,
 }
 
-impl<T: frame_system::Config, D> Deref for Nonced<T, D> {
+impl<T: frame_system::Config, D> Deref for WithNonce<T, D> {
     type Target = D;
 
     fn deref(&self) -> &Self::Target {
@@ -25,13 +25,13 @@ impl<T: frame_system::Config, D> Deref for Nonced<T, D> {
     }
 }
 
-impl<T: frame_system::Config, D> DerefMut for Nonced<T, D> {
+impl<T: frame_system::Config, D> DerefMut for WithNonce<T, D> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
     }
 }
 
-impl<T: frame_system::Config, D> Nonced<T, D> {
+impl<T: frame_system::Config, D> WithNonce<T, D> {
     pub fn new(data: D) -> Self {
         Self {
             nonce: <frame_system::Module<T>>::block_number(),

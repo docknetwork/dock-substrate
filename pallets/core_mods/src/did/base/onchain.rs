@@ -2,7 +2,7 @@ use sp_runtime::DispatchError;
 
 use super::super::*;
 
-pub type StoredOnChainDidDetails<T> = Nonced<T, OnChainDidDetails>;
+pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
 
 /// Stores details of an on-chain DID.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Default)]
@@ -100,10 +100,11 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
-        A: NoncedAction<T, Target = Did>,
+        A: WithNonceAction<T>,
+        A::Target: Into<Did>,
         DispatchError: From<Error<T>> + From<E>,
     {
-        Dids::<T>::try_mutate_exists(action.target(), |details_opt| {
+        Dids::<T>::try_mutate_exists(action.target().into(), |details_opt| {
             let mut details = details_opt
                 .take()
                 .ok_or(Error::<T>::DidDoesNotExist)?
@@ -111,10 +112,12 @@ impl<T: Config + Debug> Module<T> {
                 .ok_or(Error::<T>::CannotGetDetailForOffChainDid)?;
             details.try_inc_nonce(action.nonce())?;
 
-            let Nonced { data, nonce } = details;
+            let WithNonce { data, nonce } = details;
             let mut data_opt = Some(data);
             let res = f(action, &mut data_opt)?;
-            *details_opt = data_opt.map(|data| Nonced { data, nonce }).map(Into::into);
+            *details_opt = data_opt
+                .map(|data| WithNonce { data, nonce })
+                .map(Into::into);
 
             Ok(res)
         })
@@ -125,10 +128,13 @@ impl<T: Config + Debug> Module<T> {
     pub(crate) fn exec_onchain_did_action<A, F, R, E>(action: A, f: F) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
-        A: NoncedAction<T, Target = Did>,
+        A: WithNonceAction<T>,
+        A::Target: Into<Did>,
         DispatchError: From<Error<T>> + From<E>,
     {
-        Self::exec_removable_onchain_did_action(action, |action, details_opt| f(action, details_opt.as_mut().unwrap()))
+        Self::exec_removable_onchain_did_action(action, |action, details_opt| {
+            f(action, details_opt.as_mut().unwrap())
+        })
     }
 
     pub fn is_onchain_did(did: &Did) -> Result<bool, Error<T>> {

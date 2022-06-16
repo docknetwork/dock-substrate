@@ -15,6 +15,14 @@ use sp_std::vec::Vec;
 
 pub type Iri = Vec<u8>;
 
+/// Attester is a DID giving an attestation to some entity.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct Attester(pub Did);
+
+crate::impl_wrapper!(Attester, Did);
+
 pub trait Config: system::Config + did::Config {
     /// The cost charged by the network to store a single byte in chain-state for the life of the
     /// chain.
@@ -78,7 +86,7 @@ decl_storage! {
         //
         // When Attestations::get(did).iri == Some(dat) and dat is a valid utf-8 Iri:
         // `[did dock:attestsDocumentContents dat]`.
-        Attestations: map hasher(blake2_128_concat) Did => Attestation;
+        Attestations: map hasher(blake2_128_concat) Attester => Attestation;
     }
 }
 
@@ -107,7 +115,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::set_claim_(attests, *signature.did)
+            Module::<T>::set_claim_(attests, Attester(signature.did))
         }
     }
 }
@@ -115,7 +123,7 @@ decl_module! {
 impl<T: Config + Debug> Module<T> {
     fn set_claim_(
         SetAttestationClaim { attest, .. }: SetAttestationClaim<T>,
-        attester: Did,
+        attester: Attester,
     ) -> DispatchResult {
         let prev = Attestations::get(attester);
         ensure!(prev.priority < attest.priority, Error::<T>::PriorityTooLow);
@@ -140,6 +148,7 @@ mod test {
     fn priority_too_low() {
         ext().execute_with(|| {
             let (did, kp) = newdid();
+            let did = Attester(did);
             let att = Attestation {
                 priority: 0,
                 iri: None,
@@ -156,7 +165,7 @@ mod test {
                         _marker: PhantomData,
                     },
                     &kp,
-                    did,
+                    *did,
                     1,
                 ),
             )
@@ -259,6 +268,7 @@ mod test {
     fn priority_face_off() {
         ext().execute_with(|| {
             let (did, kp) = newdid();
+            let did = Attester(did);
 
             // same iri
             set_claim(
@@ -314,6 +324,7 @@ mod test {
     fn priority_battle_royale() {
         ext().execute_with(|| {
             let (did, kp) = newdid();
+            let did = Attester(did);
             let prios: Vec<u64> = (0..200).map(|_| rand::random::<u64>()).collect();
             for priority in &prios {
                 let _ = set_claim(
@@ -338,6 +349,7 @@ mod test {
     fn max_priority_is_final() {
         ext().execute_with(|| {
             let (did, kp) = newdid();
+            let did = Attester(did);
             set_claim(
                 &did,
                 &Attestation {
@@ -365,6 +377,7 @@ mod test {
     fn set_some_attestation() {
         ext().execute_with(|| {
             let (did, kp) = newdid();
+            let did = Attester(did);
             assert_eq!(
                 Attestations::get(did),
                 Attestation {
@@ -396,6 +409,7 @@ mod test {
     fn skip_prio() {
         ext().execute_with(|| {
             let (did, kp) = newdid();
+            let did = Attester(did);
             for priority in &[1, 2, 4] {
                 set_claim(
                     &did,
@@ -411,7 +425,7 @@ mod test {
     }
 
     /// helper
-    fn set_claim(claimer: &did::Did, att: &Attestation, kp: &sr25519::Pair) -> DispatchResult {
+    fn set_claim(claimer: &Attester, att: &Attestation, kp: &sr25519::Pair) -> DispatchResult {
         AttestMod::set_claim(
             Origin::signed(0),
             SetAttestationClaim {
@@ -424,7 +438,7 @@ mod test {
                     _marker: PhantomData,
                 },
                 kp,
-                claimer.clone(),
+                *claimer.clone(),
                 1,
             ),
         )

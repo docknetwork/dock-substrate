@@ -309,7 +309,7 @@ pub fn did_sig<T: frame_system::Config, A: Action<T>>(
 ) -> DidSignature {
     let sig = sign(&change.borrow().to_state_change(), keypair);
     DidSignature {
-        did: Controller(did),
+        did,
         key_id: key_id.into(),
         sig,
     }

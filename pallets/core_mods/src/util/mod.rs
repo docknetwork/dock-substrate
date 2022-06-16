@@ -3,11 +3,11 @@ pub mod bytes;
 pub mod hex;
 pub mod inc_id;
 pub mod macros;
-pub mod nonced;
+pub mod with_nonce;
 
 pub use bytes::*;
 #[cfg(feature = "serde")]
 pub use hex::*;
 pub use inc_id::*;
 pub use macros::*;
-pub use nonced::*;
+pub use with_nonce::*;

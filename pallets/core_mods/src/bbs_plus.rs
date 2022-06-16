@@ -6,7 +6,7 @@
 use crate::did;
 use crate::did::{Did, DidSignature, OnChainDidDetails};
 use crate::types::CurveType;
-use crate::util::{IncId, Nonced};
+use crate::util::{IncId, WithNonce};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use core::marker::PhantomData;
@@ -17,12 +17,28 @@ use frame_support::{
     traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::One;
-use sp_std::{borrow::Cow, collections::btree_map::BTreeMap, vec::Vec};
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
-pub type ParametersStorageKey = (Did, IncId);
-pub type PublicKeyStorageKey = (Did, IncId);
+pub type ParametersStorageKey = (BBSPlusParamsOwner, IncId);
+pub type PublicKeyStorageKey = (BBSPlusKeysOwner, IncId);
 pub type PublicKeyWithParams = (BbsPlusPublicKey, Option<BbsPlusParameters>);
+
+/// DID owner of the BBSPlus parameters.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct BBSPlusParamsOwner(pub Did);
+
+crate::impl_wrapper!(BBSPlusParamsOwner, Did);
+
+/// DID owner of the BBSPlus key. As all keys are counted globally by the DID,
+/// inserting new key BBSPlus will increase owner DID key counter as well.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct BBSPlusKeysOwner(pub Did);
+
+crate::impl_wrapper!(BBSPlusKeysOwner, Did);
 
 /// Signature params in G1 for BBS+ signatures
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
@@ -58,7 +74,7 @@ pub struct BbsPlusPublicKey {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddBBSPlusPublicKey<T: frame_system::Config> {
     pub key: BbsPlusPublicKey,
-    pub did: Did,
+    pub did: BBSPlusKeysOwner,
     pub nonce: T::BlockNumber,
 }
 
@@ -73,12 +89,12 @@ pub struct RemoveBBSPlusParams<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemoveBBSPlusPublicKey<T: frame_system::Config> {
     pub key_ref: PublicKeyStorageKey,
-    pub did: Did,
+    pub did: BBSPlusKeysOwner,
     pub nonce: T::BlockNumber,
 }
 
 crate::impl_nonced_action!(
-    for Did:
+    for BBSPlusKeysOwner:
         AddBBSPlusPublicKey with { |_| 1 } as len, did as target,
         RemoveBBSPlusPublicKey with { |_| 1 } as len, did as target
 );
@@ -113,10 +129,10 @@ pub trait Config: system::Config + did::Config {
 
 decl_event!(
     pub enum Event {
-        ParamsAdded(did::Did, IncId),
-        ParamsRemoved(did::Did, IncId),
-        KeyAdded(did::Did, IncId),
-        KeyRemoved(did::Did, IncId),
+        ParamsAdded(BBSPlusParamsOwner, IncId),
+        ParamsRemoved(BBSPlusParamsOwner, IncId),
+        KeyAdded(BBSPlusKeysOwner, IncId),
+        KeyRemoved(BBSPlusKeysOwner, IncId),
     }
 );
 
@@ -139,17 +155,17 @@ decl_storage! {
         /// respectively. On adding new params or keys, corresponding counter is increased by 1 but
         /// the counters don't decrease on removal
         pub ParamsCounter get(fn params_counter):
-            map hasher(blake2_128_concat) did::Did => IncId;
+            map hasher(blake2_128_concat) BBSPlusParamsOwner => IncId;
 
         /// Parameters are stored as key value (did, counter) -> params
         pub BbsPlusParams get(fn get_params):
-            double_map hasher(blake2_128_concat) did::Did, hasher(identity) IncId => Option<Nonced<T, BbsPlusParameters>>;
+            double_map hasher(blake2_128_concat) BBSPlusParamsOwner, hasher(identity) IncId => Option<WithNonce<T, BbsPlusParameters>>;
 
         /// Public keys are stored as key value (did, counter) -> public key
         /// Its assumed that the public keys are always members of G2. It does impact any logic on the
         /// chain but makes up for one less storage value
         pub BbsPlusKeys get(fn get_key):
-            double_map hasher(blake2_128_concat) did::Did, hasher(identity) IncId => Option<BbsPlusPublicKey>;
+            double_map hasher(blake2_128_concat) BBSPlusKeysOwner, hasher(identity) IncId => Option<BbsPlusPublicKey>;
     }
 }
 
@@ -187,7 +203,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::add_params_(params, *signature.did)
+            Module::<T>::add_params_(params, BBSPlusParamsOwner(signature.did))
         }
 
         /// Add a BBS+ public key. Only the DID controller can add key and it should use the nonce from the DID module.
@@ -224,7 +240,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
             // Only the DID that added the param can it
-            ensure!(remove.params_ref.0 == *signature.did, Error::<T>::NotOwner);
+            ensure!(remove.params_ref.0 == BBSPlusParamsOwner(signature.did), Error::<T>::NotOwner);
 
             Module::<T>::remove_params_(remove)?;
             Ok(())
@@ -254,7 +270,7 @@ decl_module! {
 impl<T: Config + Debug> Module<T> {
     fn add_params_(
         AddBBSPlusParams { params, .. }: AddBBSPlusParams<T>,
-        signer: Did,
+        signer: BBSPlusParamsOwner,
     ) -> DispatchResult {
         ensure!(
             T::LabelMaxSize::get() as usize >= params.label.as_ref().map_or_else(|| 0, |l| l.len()),
@@ -266,7 +282,7 @@ impl<T: Config + Debug> Module<T> {
         );
 
         let params_count = ParamsCounter::mutate(signer, |counter| *counter.inc());
-        BbsPlusParams::<T>::insert(signer, params_count, Nonced::new(params));
+        BbsPlusParams::<T>::insert(signer, params_count, WithNonce::new(params));
 
         Self::deposit_event(Event::ParamsAdded(signer, params_count));
         Ok(())
@@ -342,7 +358,7 @@ impl<T: Config + Debug> Module<T> {
         })
     }
 
-    pub fn get_params_by_did(id: &Did) -> BTreeMap<IncId, BbsPlusParameters> {
+    pub fn get_params_by_did(id: &BBSPlusParamsOwner) -> BTreeMap<IncId, BbsPlusParameters> {
         let mut params = BTreeMap::new();
         for (idx, val) in BbsPlusParams::<T>::iter_prefix(*id) {
             params.insert(idx, val.data);
@@ -350,9 +366,9 @@ impl<T: Config + Debug> Module<T> {
         params
     }
 
-    pub fn get_public_key_by_did(id: &Did) -> BTreeMap<IncId, PublicKeyWithParams> {
+    pub fn get_public_key_by_did(id: &BBSPlusKeysOwner) -> BTreeMap<IncId, PublicKeyWithParams> {
         let mut keys = BTreeMap::new();
-        for (idx, pk) in BbsPlusKeys::iter_prefix(*id) {
+        for (idx, pk) in BbsPlusKeys::iter_prefix(id) {
             let params = match &pk.params_ref {
                 Some(r) => BbsPlusParams::<T>::get(r.0, r.1).map(|t| t.data),
                 _ => None,
@@ -448,7 +464,10 @@ mod test {
             };
             let sig = sign_add_params::<Test>(&author_kp, &params, author.clone(), 1);
 
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
             assert_err!(
                 BBSPlusMod::add_params(
                     Origin::signed(1),
@@ -460,8 +479,14 @@ mod test {
                 ),
                 Error::<Test>::ParamsTooBig
             );
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
-            assert!(!bbs_plus_events().contains(&super::Event::ParamsAdded(author, 1u8.into())));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert!(!bbs_plus_events().contains(&super::Event::ParamsAdded(
+                BBSPlusParamsOwner(author),
+                1u8.into()
+            )));
 
             run_to_block(15);
 
@@ -478,9 +503,18 @@ mod test {
                 ),
                 Error::<Test>::InvalidSig
             );
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
-            assert_eq!(BbsPlusParams::<Test>::get(&author, IncId::from(1u8)), None);
-            assert!(!bbs_plus_events().contains(&super::Event::ParamsAdded(author, 1u8.into())));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                None
+            );
+            assert!(!bbs_plus_events().contains(&super::Event::ParamsAdded(
+                BBSPlusParamsOwner(author),
+                1u8.into()
+            )));
 
             run_to_block(20);
 
@@ -494,20 +528,29 @@ mod test {
                 sig,
             )
             .unwrap();
-            assert_eq!(ParamsCounter::get(&author), IncId::from(1u8));
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(1u8)
+            );
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 20
                 })
             );
 
-            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(author, 1u8.into())));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(
+                BBSPlusParamsOwner(author),
+                1u8.into()
+            )));
 
             run_to_block(21);
 
-            assert_eq!(BbsPlusParams::<Test>::get(&author, IncId::from(2u8)), None);
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(2u8)),
+                None
+            );
             let params_1 = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
@@ -523,15 +566,21 @@ mod test {
                 sig,
             )
             .unwrap();
-            assert_eq!(ParamsCounter::get(&author), IncId::from(2u8));
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(2u8)),
-                Some(Nonced {
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(2u8)
+            );
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(2u8)),
+                Some(WithNonce {
                     data: params_1,
                     nonce: 21
                 })
             );
-            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(author, 2u8.into())));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(
+                BBSPlusParamsOwner(author),
+                2u8.into()
+            )));
 
             run_to_block(25);
 
@@ -541,9 +590,12 @@ mod test {
                 bytes: vec![9u8; 100],
             };
             let sig = sign_add_params::<Test>(&author_1_kp, &params_2, author_1.clone(), 1);
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(0u8));
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author_1, IncId::from(1u8)),
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author_1), IncId::from(1u8)),
                 None
             );
             BBSPlusMod::add_params(
@@ -555,20 +607,32 @@ mod test {
                 sig,
             )
             .unwrap();
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(1u8));
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author_1, IncId::from(1u8)),
-                Some(Nonced {
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(1u8)
+            );
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author_1), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params_2.clone(),
                     nonce: 25
                 })
             );
-            assert_eq!(ParamsCounter::get(&author), IncId::from(2u8));
-            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(author_1, 1u8.into())));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(2u8)
+            );
+            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(
+                BBSPlusParamsOwner(author_1),
+                1u8.into()
+            )));
 
             run_to_block(30);
 
-            assert_eq!(BbsPlusParams::<Test>::get(&author, IncId::from(3u8)), None);
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(3u8)),
+                None
+            );
             let params_3 = BbsPlusParameters {
                 label: None,
                 curve_type: CurveType::Bls12381,
@@ -584,17 +648,23 @@ mod test {
                 sig,
             )
             .unwrap();
-            assert_eq!(ParamsCounter::get(&author), IncId::from(3u8));
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(3u8)),
-                Some(Nonced {
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(3u8)
+            );
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(3u8)),
+                Some(WithNonce {
                     data: params_3.clone(),
                     nonce: 30
                 })
             );
-            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(author, 3u8.into())));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsAdded(
+                BBSPlusParamsOwner(author),
+                3u8.into()
+            )));
 
-            let rf = (author.clone(), 5u8.into());
+            let rf = (BBSPlusParamsOwner(author.clone()), 5u8.into());
             let nonce = 25;
             let rp = RemoveBBSPlusParams {
                 params_ref: rf,
@@ -606,7 +676,7 @@ mod test {
                 Error::<Test>::ParamsDontExist
             );
 
-            let rf = (author.clone(), 2u8.into());
+            let rf = (BBSPlusParamsOwner(author.clone()), 2u8.into());
             let nonce = 21 + 1;
             let rp = RemoveBBSPlusParams {
                 params_ref: rf,
@@ -622,32 +692,41 @@ mod test {
             let sig = sign_remove_params(&author_kp, &rp, author.clone(), 1);
             BBSPlusMod::remove_params(Origin::signed(1), rp, sig.clone()).unwrap();
             // Counter doesn't go back
-            assert_eq!(ParamsCounter::get(&author), IncId::from(3u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(3u8)
+            );
             // Entry gone from storage
-            assert_eq!(BbsPlusParams::<Test>::get(&author, IncId::from(2u8)), None);
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(2u8)),
+                None
+            );
             // Other entries remain as it is
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(3u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(3u8)),
+                Some(WithNonce {
                     data: params_3.clone(),
                     nonce: 30
                 })
             );
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 20
                 })
             );
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author_1, IncId::from(1u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author_1), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params_2.clone(),
                     nonce: 25
                 })
             );
-            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(author, 2u8.into())));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(
+                BBSPlusParamsOwner(author),
+                2u8.into()
+            )));
 
             // Cannot remove as already removed
             assert_err!(
@@ -662,7 +741,7 @@ mod test {
                 Error::<Test>::ParamsDontExist
             );
 
-            let rf = (author_1.clone(), 1u8.into());
+            let rf = (BBSPlusParamsOwner(author_1.clone()), 1u8.into());
             let nonce = 25 + 1;
             let rp = RemoveBBSPlusParams {
                 params_ref: rf,
@@ -671,28 +750,34 @@ mod test {
             let sig = sign_remove_params(&author_1_kp, &rp, author_1.clone(), 1);
             BBSPlusMod::remove_params(Origin::signed(1), rp, sig.clone()).unwrap();
             // Counter doesn't go back
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(1u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(1u8)
+            );
             // Entry gone from storage
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author_1, IncId::from(1u8)),
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author_1), IncId::from(1u8)),
                 None
             );
             // Other entries remain as it is
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(3u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(3u8)),
+                Some(WithNonce {
                     data: params_3.clone(),
                     nonce: 30
                 })
             );
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 20
                 })
             );
-            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(author_1, 1u8.into())));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(
+                BBSPlusParamsOwner(author_1),
+                1u8.into()
+            )));
 
             // Cannot remove as already removed
             assert_err!(
@@ -707,7 +792,7 @@ mod test {
                 Error::<Test>::ParamsDontExist
             );
 
-            let rf = (author.clone(), 3u8.into());
+            let rf = (BBSPlusParamsOwner(author.clone()), 3u8.into());
             let nonce = 30 + 1;
             let rp = RemoveBBSPlusParams {
                 params_ref: rf,
@@ -716,20 +801,29 @@ mod test {
             let sig = sign_remove_params(&author_kp, &rp, author.clone(), 1);
             BBSPlusMod::remove_params(Origin::signed(1), rp, sig.clone()).unwrap();
             // Counter doesn't go back
-            assert_eq!(ParamsCounter::get(&author), IncId::from(3u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(3u8)
+            );
             // Entry gone from storage
-            assert_eq!(BbsPlusParams::<Test>::get(&author, IncId::from(3u8)), None);
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(3u8)),
+                None
+            );
             // Other entries remain as it is
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 20
                 })
             );
-            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(author, 3u8.into())));
+            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(
+                BBSPlusParamsOwner(author),
+                3u8.into()
+            )));
 
-            let rf = (author.clone(), 1u8.into());
+            let rf = (BBSPlusParamsOwner(author.clone()), 1u8.into());
             let nonce = 20 + 1;
             let rp = RemoveBBSPlusParams {
                 params_ref: rf,
@@ -738,10 +832,19 @@ mod test {
             let sig = sign_remove_params(&author_kp, &rp, author.clone(), 1);
             BBSPlusMod::remove_params(Origin::signed(1), rp, sig.clone()).unwrap();
             // Counter doesn't go back
-            assert_eq!(ParamsCounter::get(&author), IncId::from(3u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(3u8)
+            );
             // Entry gone from storage
-            assert_eq!(BbsPlusParams::<Test>::get(&author, IncId::from(1u8)), None);
-            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(author, 1u8.into())));
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                None
+            );
+            assert!(bbs_plus_events().contains(&super::Event::ParamsRemoved(
+                BBSPlusParamsOwner(author),
+                1u8.into()
+            )));
         });
     }
 
@@ -761,25 +864,32 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 11,
             };
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
 
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
             assert_err!(
                 BBSPlusMod::add_public_key(Origin::signed(1), ak, sig.clone()),
                 Error::<Test>::PublicKeyTooBig
             );
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
-            assert!(!bbs_plus_events().contains(&super::Event::KeyAdded(author, 2u8.into())));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert!(!bbs_plus_events()
+                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 2u8.into())));
 
             run_to_block(30);
 
             key.bytes = vec![1u8; 100];
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 11,
             };
 
@@ -787,24 +897,44 @@ mod test {
                 BBSPlusMod::add_public_key(Origin::signed(1), ak.clone(), sig.clone()),
                 Error::<Test>::InvalidSig
             );
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(1u8)), None);
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(2u8)), None);
-            assert!(!bbs_plus_events().contains(&super::Event::KeyAdded(author, 2u8.into())));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(1u8)),
+                None
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                None
+            );
+            assert!(!bbs_plus_events()
+                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 2u8.into())));
 
             run_to_block(35);
 
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
             BBSPlusMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(1u8)), None);
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(2u8)),
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(1u8)),
+                None
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
                 Some(key.clone())
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author, 2u8.into())));
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 2u8.into())));
 
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(3u8)), None);
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                None
+            );
             let key_1 = BbsPlusPublicKey {
                 params_ref: None,
                 curve_type: CurveType::Bls12381,
@@ -812,14 +942,21 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 12,
             };
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
             BBSPlusMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(3u8)), Some(key_1));
-            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author, 3u8.into())));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                Some(key_1)
+            );
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 3u8.into())));
 
             run_to_block(45);
 
@@ -834,25 +971,46 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key_2.clone(),
-                did: author_1.clone(),
+                did: BBSPlusKeysOwner(author_1.clone()),
                 nonce: 46,
             };
             let sig = sign_add_key(&author_kp_1, &ak, author_1.clone(), 1);
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(0u8));
-            assert_eq!(BbsPlusKeys::get(&author_1, IncId::from(1u8)), None);
-            assert_eq!(BbsPlusKeys::get(&author_1, IncId::from(2u8)), None);
-            BBSPlusMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(0u8));
             assert_eq!(
-                BbsPlusKeys::get(&author_1, IncId::from(2u8)),
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(1u8)),
+                None
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                None
+            );
+            BBSPlusMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
                 Some(key_2.clone())
             );
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
-            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author_1, 2u8.into())));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(
+                BBSPlusKeysOwner(author_1),
+                2u8.into()
+            )));
 
             run_to_block(55);
 
-            assert_eq!(BbsPlusParams::<Test>::get(&author, IncId::from(3u8)), None);
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(3u8)),
+                None
+            );
             let key_3 = BbsPlusPublicKey {
                 params_ref: None,
                 curve_type: CurveType::Bls12381,
@@ -860,24 +1018,28 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key_3.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 13,
             };
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
             BBSPlusMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(4u8)),
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
                 Some(key_3.clone())
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author, 3u8.into())));
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 3u8.into())));
 
             run_to_block(60);
 
-            let rf = (author.clone(), 5u8.into());
+            let rf = (BBSPlusKeysOwner(author.clone()), 5u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 14,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
@@ -886,33 +1048,42 @@ mod test {
                 Error::<Test>::PublicKeyDoesntExist
             );
 
-            let rf = (author.clone(), 3u8.into());
+            let rf = (BBSPlusKeysOwner(author.clone()), 3u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 14,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
             BBSPlusMod::remove_public_key(Origin::signed(1), rk.clone(), sig.clone()).unwrap();
             // Counter doesn't go back
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
             // Entry gone from storage
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(3u8)), None);
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                None
+            );
             // Other entries remain as it is
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(4u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
                 Some(key_3.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(2u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
                 Some(key.clone())
             );
-            assert_eq!(BbsPlusKeys::get(&author_1, IncId::from(2u8)), Some(key_2));
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                Some(key_2)
+            );
 
-            let rf = (author.clone(), 3u8.into());
+            let rf = (BBSPlusKeysOwner(author.clone()), 3u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 15,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
@@ -924,29 +1095,41 @@ mod test {
 
             run_to_block(70);
 
-            let rf = (author_1.clone(), 2u8.into());
+            let rf = (BBSPlusKeysOwner(author_1.clone()), 2u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: author_1.clone(),
+                did: BBSPlusKeysOwner(author_1.clone()),
                 nonce: 47,
             };
             let sig = sign_remove_key(&author_kp_1, &rk, author_1.clone(), 1);
             BBSPlusMod::remove_public_key(Origin::signed(1), rk.clone(), sig.clone()).unwrap();
             // Counter doesn't go back
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(0u8));
-            // Entry gone from storage
-            assert_eq!(BbsPlusKeys::get(&author_1, IncId::from(2u8)), None);
-            // Other entries remain as it is
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(4u8)), Some(key_3));
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(2u8)),
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(0u8)
+            );
+            // Entry gone from storage
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                None
+            );
+            // Other entries remain as it is
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
+                Some(key_3)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
                 Some(key.clone())
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(author_1, 2u8.into())));
+            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(
+                BBSPlusKeysOwner(author_1),
+                2u8.into()
+            )));
 
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: author_1.clone(),
+                did: BBSPlusKeysOwner(author_1.clone()),
                 nonce: 48,
             };
             let sig = sign_remove_key(&author_kp_1, &rk, author_1.clone(), 1);
@@ -956,35 +1139,56 @@ mod test {
                 Error::<Test>::PublicKeyDoesntExist
             );
 
-            let rf = (author.clone(), 4u8.into());
+            let rf = (BBSPlusKeysOwner(author.clone()), 4u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 15,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
             BBSPlusMod::remove_public_key(Origin::signed(1), rk, sig.clone()).unwrap();
             // Counter doesn't go back
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
             // Entry gone from storage
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(4u8)), None);
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
+                None
+            );
             // Other entries remain as it is
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(2u8)), Some(key));
-            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(author, 4u8.into())));
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                Some(key)
+            );
+            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(
+                BBSPlusKeysOwner(author),
+                4u8.into()
+            )));
 
-            let rf = (author.clone(), 2u8.into());
+            let rf = (BBSPlusKeysOwner(author.clone()), 2u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 16,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
             BBSPlusMod::remove_public_key(Origin::signed(1), rk, sig.clone()).unwrap();
             // Counter doesn't go back
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
             // Entry gone from storage
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(2u8)), None);
-            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(author, 2u8.into())));
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                None
+            );
+            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(
+                BBSPlusKeysOwner(author),
+                2u8.into()
+            )));
 
             run_to_block(80);
 
@@ -1003,10 +1207,13 @@ mod test {
                 sig,
             )
             .unwrap();
-            assert_eq!(ParamsCounter::get(&author), IncId::from(1u8));
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(1u8)
+            );
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 80
                 })
@@ -1014,13 +1221,13 @@ mod test {
 
             // Add key with reference to non-existent params
             let key_4 = BbsPlusPublicKey {
-                params_ref: Some((author.clone(), 4u8.into())),
+                params_ref: Some((BBSPlusParamsOwner(author.clone()), 4u8.into())),
                 curve_type: CurveType::Bls12381,
                 bytes: vec![92u8; 100],
             };
             let ak = AddBBSPlusPublicKey {
                 key: key_4.clone(),
-                did: author_1.clone(),
+                did: BBSPlusKeysOwner(author_1.clone()),
                 nonce: 48,
             };
             let sig = sign_add_key(&author_kp_1, &ak, author_1.clone(), 1);
@@ -1028,38 +1235,54 @@ mod test {
                 BBSPlusMod::add_public_key(Origin::signed(1), ak, sig.clone()),
                 Error::<Test>::ParamsDontExist
             );
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(0u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(0u8)
+            );
 
             // Add key with reference to existent params
             let key_4 = BbsPlusPublicKey {
-                params_ref: Some((author.clone(), 1u8.into())),
+                params_ref: Some((BBSPlusParamsOwner(author.clone()), 1u8.into())),
                 curve_type: CurveType::Bls12381,
                 bytes: vec![92u8; 100],
             };
             let ak = AddBBSPlusPublicKey {
                 key: key_4.clone(),
-                did: author_1.clone(),
+                did: BBSPlusKeysOwner(author_1.clone()),
                 nonce: 48,
             };
             let sig = sign_add_key(&author_kp_1, &ak, author_1.clone(), 1);
             BBSPlusMod::add_public_key(Origin::signed(1), ak, sig.clone()).unwrap();
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(0u8));
             assert_eq!(
-                BbsPlusKeys::get(&author_1, IncId::from(3u8)),
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(3u8)),
                 Some(key_4.clone())
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author_1, 3u8.into())));
+            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(
+                BBSPlusKeysOwner(author_1),
+                3u8.into()
+            )));
 
             let ak = AddBBSPlusPublicKey {
                 key: key_4.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: 17,
             };
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
             BBSPlusMod::add_public_key(Origin::signed(1), ak, sig.clone()).unwrap();
-            assert_eq!(ParamsCounter::get(&author), IncId::from(1u8));
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(5u8)), Some(key_4));
-            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author, 5u8.into())));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(1u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(5u8)),
+                Some(key_4)
+            );
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 5u8.into())));
         });
     }
 
@@ -1102,9 +1325,18 @@ mod test {
                 bytes: vec![3; 80],
             };
 
-            assert_eq!(ParamsCounter::get(&author), IncId::from(0u8));
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(0u8));
-            assert_eq!(ParamsCounter::get(&author_2), IncId::from(0u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author_2)),
+                IncId::from(0u8)
+            );
 
             run_to_block(35);
 
@@ -1113,14 +1345,20 @@ mod test {
                     params: params.clone(),
                     _marker: PhantomData
                 },
-                author
+                BBSPlusParamsOwner(author)
             )
             .is_ok());
-            assert_eq!(ParamsCounter::get(&author), IncId::from(1u8));
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(1u8)), None);
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(1u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(1u8)),
+                None
+            );
+            assert_eq!(
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 35
                 })
@@ -1131,7 +1369,7 @@ mod test {
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
@@ -1140,17 +1378,20 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(2u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
                 Some(key.clone())
             );
-            assert_eq!(BbsPlusKeys::get(&author, IncId::from(3u8)), None);
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                None
+            );
 
             run_to_block(50);
 
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_1.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
@@ -1159,11 +1400,11 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(2u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(3u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
                 Some(key_1.clone())
             );
 
@@ -1172,7 +1413,7 @@ mod test {
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_2.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
@@ -1181,15 +1422,15 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(2u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(3u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
                 Some(key_1.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(4u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
                 Some(key_2.clone())
             );
 
@@ -1200,52 +1441,64 @@ mod test {
                     params: params_1.clone(),
                     _marker: PhantomData
                 },
-                author
+                BBSPlusParamsOwner(author)
             )
             .is_ok());
-            assert_eq!(ParamsCounter::get(&author), IncId::from(2u8));
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(2u8)),
+                ParamsCounter::get(&BBSPlusParamsOwner(author)),
+                IncId::from(2u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(3u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
                 Some(key_1.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&author, IncId::from(4u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
                 Some(key_2.clone())
             );
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 35
                 })
             );
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author, IncId::from(2u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author), IncId::from(2u8)),
+                Some(WithNonce {
                     data: params_1.clone(),
                     nonce: 70
                 })
             );
 
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(0u8));
-            assert_eq!(ParamsCounter::get(&author_2), IncId::from(0u8));
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(0u8)
+            );
+            assert_eq!(
+                ParamsCounter::get(&BBSPlusParamsOwner(author_2)),
+                IncId::from(0u8)
+            );
 
             run_to_block(80);
 
             let did_detail_1 = DIDModule::onchain_did_details(&author_1).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: author_1.clone(),
+                did: BBSPlusKeysOwner(author_1.clone()),
                 nonce: did_detail_1.next_nonce(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-            assert!(<did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_).is_ok());
+            assert!(
+                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
+                    .is_ok()
+            );
             assert_eq!(
-                BbsPlusKeys::get(&author_1, IncId::from(2u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
                 Some(key.clone())
             );
 
@@ -1256,17 +1509,20 @@ mod test {
                     params: params.clone(),
                     _marker: PhantomData
                 },
-                author_1
+                BBSPlusParamsOwner(author_1)
             )
             .is_ok());
-            assert_eq!(ParamsCounter::get(&author_1), IncId::from(1u8));
             assert_eq!(
-                BbsPlusKeys::get(&author_1, IncId::from(2u8)),
+                ParamsCounter::get(&BBSPlusParamsOwner(author_1)),
+                IncId::from(1u8)
+            );
+            assert_eq!(
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusParams::<Test>::get(&author_1, IncId::from(1u8)),
-                Some(Nonced {
+                BbsPlusParams::<Test>::get(&BBSPlusParamsOwner(author_1), IncId::from(1u8)),
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 90
                 })
@@ -1277,7 +1533,7 @@ mod test {
             let did_detail_1 = DIDModule::onchain_did_details(&author_1).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_1.clone(),
-                did: author_1.clone(),
+                did: BBSPlusKeysOwner(author_1.clone()),
                 nonce: did_detail_1.next_nonce(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
@@ -1286,11 +1542,11 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&author_1, IncId::from(2u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&author_1, IncId::from(3u8)),
+                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(3u8)),
                 Some(key_1.clone())
             );
         });
@@ -1300,6 +1556,7 @@ mod test {
     fn get_params_and_keys() {
         ext().execute_with(|| {
             let (author, _) = newdid();
+
             let (author_1, _) = newdid();
 
             let params = BbsPlusParameters {
@@ -1324,24 +1581,30 @@ mod test {
                 bytes: vec![1; 80],
             };
             let key_1 = BbsPlusPublicKey {
-                params_ref: Some((author.clone(), 1u8.into())),
+                params_ref: Some((BBSPlusParamsOwner(author.clone()), 1u8.into())),
                 curve_type: CurveType::Bls12381,
                 bytes: vec![2; 80],
             };
             let key_2 = BbsPlusPublicKey {
-                params_ref: Some((author_1.clone(), 1u8.into())),
+                params_ref: Some((BBSPlusParamsOwner(author_1.clone()), 1u8.into())),
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; 80],
             };
 
-            assert_eq!(BBSPlusMod::get_params_by_did(&author).len(), 0);
-            assert_eq!(BBSPlusMod::get_params_by_did(&author_1).len(), 0);
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(author, 0u8.into())),
+                BBSPlusMod::get_params_by_did(&BBSPlusParamsOwner(author)).len(),
+                0
+            );
+            assert_eq!(
+                BBSPlusMod::get_params_by_did(&BBSPlusParamsOwner(author_1)).len(),
+                0
+            );
+            assert_eq!(
+                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author), 0u8.into())),
                 None
             );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(author_1, 0u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author_1), 0u8.into())),
                 None
             );
 
@@ -1350,40 +1613,46 @@ mod test {
                     params: params.clone(),
                     _marker: PhantomData,
                 },
-                author,
+                BBSPlusParamsOwner(author),
             );
             BBSPlusMod::add_params_(
                 AddBBSPlusParams {
                     params: params_1.clone(),
                     _marker: PhantomData,
                 },
-                author_1,
+                BBSPlusParamsOwner(author_1),
             );
             BBSPlusMod::add_params_(
                 AddBBSPlusParams {
                     params: params_2.clone(),
                     _marker: PhantomData,
                 },
-                author_1,
+                BBSPlusParamsOwner(author_1),
             );
 
-            assert_eq!(BBSPlusMod::get_params_by_did(&author), {
-                let mut m = BTreeMap::new();
-                m.insert(1u8.into(), params.clone());
-                m
-            });
+            assert_eq!(
+                BBSPlusMod::get_params_by_did(&BBSPlusParamsOwner(author)),
+                {
+                    let mut m = BTreeMap::new();
+                    m.insert(1u8.into(), params.clone());
+                    m
+                }
+            );
 
-            assert_eq!(BBSPlusMod::get_params_by_did(&author_1), {
-                let mut m = BTreeMap::new();
-                m.insert(1u8.into(), params_1.clone());
-                m.insert(2u8.into(), params_2.clone());
-                m
-            });
+            assert_eq!(
+                BBSPlusMod::get_params_by_did(&BBSPlusParamsOwner(author_1)),
+                {
+                    let mut m = BTreeMap::new();
+                    m.insert(1u8.into(), params_1.clone());
+                    m.insert(2u8.into(), params_2.clone());
+                    m
+                }
+            );
 
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert!(
@@ -1391,14 +1660,14 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(author, 2u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author), 2u8.into())),
                 Some((key.clone(), None))
             );
 
             let did_detail_1 = DIDModule::onchain_did_details(&author_1).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_1.clone(),
-                did: author_1.clone(),
+                did: BBSPlusKeysOwner(author_1.clone()),
                 nonce: did_detail_1.next_nonce(),
             };
             assert!(
@@ -1406,44 +1675,59 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(author_1, 2u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author_1), 2u8.into())),
                 Some((key_1.clone(), Some(params.clone())))
             );
 
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_2.clone(),
-                did: author.clone(),
+                did: BBSPlusKeysOwner(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
-            assert!(<did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_).is_ok());
+            assert!(
+                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
+                    .is_ok()
+            );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(author, 3u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author), 3u8.into())),
                 Some((key_2.clone(), Some(params_1.clone())))
             );
 
-            assert_eq!(BBSPlusMod::get_public_key_by_did(&author_1), {
-                let mut m = BTreeMap::new();
-                m.insert(2u8.into(), (key_1.clone(), Some(params.clone())));
-                m
-            });
+            assert_eq!(
+                BBSPlusMod::get_public_key_by_did(&BBSPlusKeysOwner(author_1)),
+                {
+                    let mut m = BTreeMap::new();
+                    m.insert(2u8.into(), (key_1.clone(), Some(params.clone())));
+                    m
+                }
+            );
 
-            assert_eq!(BBSPlusMod::get_public_key_by_did(&author), {
-                let mut m = BTreeMap::new();
-                m.insert(2u8.into(), (key.clone(), None));
-                m.insert(3u8.into(), (key_2.clone(), Some(params_1.clone())));
-                m
-            });
+            assert_eq!(
+                BBSPlusMod::get_public_key_by_did(&BBSPlusKeysOwner(author)),
+                {
+                    let mut m = BTreeMap::new();
+                    m.insert(2u8.into(), (key.clone(), None));
+                    m.insert(3u8.into(), (key_2.clone(), Some(params_1.clone())));
+                    m
+                }
+            );
 
-            BbsPlusParams::<Test>::remove(&author, IncId::from(1u8));
+            BbsPlusParams::<Test>::remove(&BBSPlusParamsOwner(author), IncId::from(1u8));
 
-            assert_eq!(BBSPlusMod::get_params_by_did(&author).len(), 0);
+            assert_eq!(
+                BBSPlusMod::get_params_by_did(&BBSPlusParamsOwner(author)).len(),
+                0
+            );
 
-            assert_eq!(BBSPlusMod::get_public_key_by_did(&author_1), {
-                let mut m = BTreeMap::new();
-                m.insert(2u8.into(), (key_1.clone(), None));
-                m
-            });
+            assert_eq!(
+                BBSPlusMod::get_public_key_by_did(&BBSPlusKeysOwner(author_1)),
+                {
+                    let mut m = BTreeMap::new();
+                    m.insert(2u8.into(), (key_1.clone(), None));
+                    m
+                }
+            );
         });
     }
 }

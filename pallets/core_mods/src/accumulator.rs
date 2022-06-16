@@ -1,7 +1,7 @@
 use crate::did;
 use crate::did::{Did, DidSignature};
 use crate::types::CurveType;
-use crate::util::{IncId, Nonced};
+use crate::util::{IncId, WithNonce};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use frame_support::{
@@ -11,14 +11,29 @@ use frame_support::{
     traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::{Hash, One};
+use sp_runtime::traits::Hash;
 use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
-pub type ParametersStorageKey = (Did, IncId);
-pub type PublicKeyStorageKey = (Did, IncId);
+pub type ParametersStorageKey = (AccumulatorOwner, IncId);
+pub type PublicKeyStorageKey = (AccumulatorOwner, IncId);
 pub type PublicKeyWithParams = (AccumulatorPublicKey, Option<AccumulatorParameters>);
-pub type AccumulatorId = [u8; 32];
+
+/// Accumulator identifier.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct AccumulatorId([u8; 32]);
+
+crate::impl_wrapper!(AccumulatorId, [u8; 32]);
+
+/// Accumulator owner - DID with the ability to control given accumulator keys, params, etc.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub struct AccumulatorOwner(pub Did);
+
+crate::impl_wrapper!(AccumulatorOwner, Did);
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -140,7 +155,7 @@ crate::impl_nonced_action! {
 
 impl Accumulator {
     /// Get reference to the public key of the accumulator
-    fn get_key_ref(&self) -> PublicKeyStorageKey {
+    fn key_ref(&self) -> PublicKeyStorageKey {
         match self {
             Accumulator::Positive(a) => a.key_ref,
             Accumulator::Universal(a) => a.common.key_ref,
@@ -148,14 +163,14 @@ impl Accumulator {
     }
 
     /// DID of the owner of the accumulator
-    fn get_owner_did(&self) -> &Did {
+    fn owner_did(&self) -> &AccumulatorOwner {
         match self {
             Accumulator::Positive(a) => &a.key_ref.0,
             Accumulator::Universal(a) => &a.common.key_ref.0,
         }
     }
 
-    fn get_accumulated(&self) -> &[u8] {
+    fn accumulated(&self) -> &[u8] {
         match self {
             Accumulator::Positive(a) => &a.accumulated,
             Accumulator::Universal(a) => &a.common.accumulated,
@@ -193,10 +208,10 @@ pub trait Config: system::Config + did::Config {
 
 decl_event!(
     pub enum Event {
-        ParamsAdded(did::Did, IncId),
-        ParamsRemoved(did::Did, IncId),
-        KeyAdded(did::Did, IncId),
-        KeyRemoved(did::Did, IncId),
+        ParamsAdded(AccumulatorOwner, IncId),
+        ParamsRemoved(AccumulatorOwner, IncId),
+        KeyAdded(AccumulatorOwner, IncId),
+        KeyRemoved(AccumulatorOwner, IncId),
         AccumulatorAdded(AccumulatorId, Vec<u8>),
         UpdateAccumulatord(AccumulatorId, Vec<u8>),
         AccumulatorRemoved(AccumulatorId),
@@ -214,19 +229,19 @@ decl_error! {
         AccumulatedTooBig,
         AccumulatorDoesntExist,
         AccumulatorAlreadyExists,
-        NotOwner,
+        NotAccumulatorOwner,
         IncorrectNonce,
     }
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct DidCountersValue {
+pub struct AccumulatorOwnerCountersValue {
     params_counter: IncId,
     key_counter: IncId,
 }
 
-type StoredAccumulator<T> = Nonced<T, AccumulatorWithUpdates<T>>;
+type StoredAccumulator<T> = WithNonce<T, AccumulatorWithUpdates<T>>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -248,17 +263,17 @@ impl<T: frame_system::Config> AccumulatorWithUpdates<T> {
 
 decl_storage! {
     trait Store for Module<T: Config> as AccumulatorModule where T: Debug {
-        pub DidCounters get(fn did_counters):
-            map hasher(blake2_128_concat) did::Did => DidCountersValue;
+        pub AccumulatorOwnerCounters get(fn did_counters):
+            map hasher(blake2_128_concat) AccumulatorOwner => AccumulatorOwnerCountersValue;
 
         pub AccumulatorParams get(fn get_params):
-            double_map hasher(blake2_128_concat) did::Did, hasher(identity) IncId => Option<Nonced<T, AccumulatorParameters>>;
+            double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<WithNonce<T, AccumulatorParameters>>;
 
         /// Public key storage is kept separate from accumulator storage and a single key can be used to manage
         /// several accumulators. It is assumed that whoever (DID) owns the public key, owns the accumulator as
         /// well and only that DID can update accumulator.
         pub AccumulatorKeys get(fn get_key):
-            double_map hasher(blake2_128_concat) did::Did, hasher(identity) IncId => Option<Nonced<T, AccumulatorPublicKey>>;
+            double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<WithNonce<T, AccumulatorPublicKey>>;
 
         /// Stores latest accumulator as key value: accumulator id -> (created_at, last_updated_at, nonce, Accumulator)
         /// `created_at` is the block number when the accumulator was created and is intended to serve as a starting
@@ -313,7 +328,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::add_params_(params, *signature.did)?;
+            Module::<T>::add_params_(params, AccumulatorOwner(signature.did))?;
             Ok(())
         }
 
@@ -332,7 +347,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::add_public_key_(public_key, *signature.did)?;
+            Module::<T>::add_public_key_(public_key, AccumulatorOwner(signature.did))?;
             Ok(())
         }
 
@@ -348,7 +363,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::remove_params_(remove, *signature.did)
+            Module::<T>::remove_params_(remove, AccumulatorOwner(signature.did))
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -363,7 +378,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::remove_public_key_(remove, *signature.did)?;
+            Module::<T>::remove_public_key_(remove, AccumulatorOwner(signature.did))?;
             Ok(())
         }
 
@@ -374,7 +389,7 @@ decl_module! {
         /// Note: Weight is same for both kinds of accumulator even when universal takes a bit more space
         #[weight = T::DbWeight::get().reads_writes(2, 1)
             + signature.weight()
-            + add_accumulator.accumulator.get_accumulated().len() as u64 * T::AccumulatedPerByteWeight::get()
+            + add_accumulator.accumulator.accumulated().len() as u64 * T::AccumulatedPerByteWeight::get()
         ]
         pub fn add_accumulator(
             origin,
@@ -387,7 +402,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::add_accumulator_(add_accumulator, *signature.did)
+            Module::<T>::add_accumulator_(add_accumulator)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -410,7 +425,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::update_accumulator_(update, *signature.did)?;
+            Module::<T>::update_accumulator_(update, AccumulatorOwner(signature.did))?;
             Ok(())
         }
 
@@ -426,7 +441,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::remove_accumulator_(remove, *signature.did)
+            Module::<T>::remove_accumulator_(remove, AccumulatorOwner(signature.did))
         }
     }
 }
@@ -434,7 +449,7 @@ decl_module! {
 impl<T: Config + Debug> Module<T> {
     fn add_params_(
         AddAccumulatorParams { params, .. }: AddAccumulatorParams<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
             T::LabelMaxSize::get() as usize >= params.label.as_ref().map_or_else(|| 0, |l| l.len()),
@@ -446,8 +461,8 @@ impl<T: Config + Debug> Module<T> {
         );
 
         let params_counter =
-            DidCounters::mutate(&signer, |counters| *counters.params_counter.inc());
-        AccumulatorParams::<T>::insert(&signer, params_counter, Nonced::new(params));
+            AccumulatorOwnerCounters::mutate(&signer, |counters| *counters.params_counter.inc());
+        AccumulatorParams::<T>::insert(&signer, params_counter, WithNonce::new(params));
 
         Self::deposit_event(Event::ParamsAdded(signer, params_counter));
         Ok(())
@@ -455,7 +470,7 @@ impl<T: Config + Debug> Module<T> {
 
     fn add_public_key_(
         AddAccumulatorPublicKey { public_key, .. }: AddAccumulatorPublicKey<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
             T::PublicKeyMaxSize::get() as usize >= public_key.bytes.len(),
@@ -471,8 +486,9 @@ impl<T: Config + Debug> Module<T> {
             None => (),
         }
 
-        let keys_counter = DidCounters::mutate(&signer, |counters| *counters.key_counter.inc());
-        AccumulatorKeys::<T>::insert(&signer, keys_counter, Nonced::new(public_key));
+        let keys_counter =
+            AccumulatorOwnerCounters::mutate(&signer, |counters| *counters.key_counter.inc());
+        AccumulatorKeys::<T>::insert(&signer, keys_counter, WithNonce::new(public_key));
 
         Self::deposit_event(Event::KeyAdded(signer, keys_counter));
         Ok(())
@@ -483,10 +499,10 @@ impl<T: Config + Debug> Module<T> {
             params_ref: (did, counter),
             nonce,
         }: RemoveAccumulatorParams<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
     ) -> DispatchResult {
         // Only the DID that added the param can remove it
-        ensure!(did == signer, Error::<T>::NotOwner);
+        ensure!(did == signer, Error::<T>::NotAccumulatorOwner);
         AccumulatorParams::<T>::get(did, counter)
             .ok_or(Error::<T>::ParamsDontExist)?
             .try_inc_nonce(nonce)?;
@@ -502,9 +518,9 @@ impl<T: Config + Debug> Module<T> {
             key_ref: (did, counter),
             nonce,
         }: RemoveAccumulatorPublicKey<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
     ) -> DispatchResult {
-        ensure!(did == signer, Error::<T>::NotOwner);
+        ensure!(did == signer, Error::<T>::NotAccumulatorOwner);
         AccumulatorKeys::<T>::get(&did, &counter)
             .ok_or(Error::<T>::ParamsDontExist)?
             .try_inc_nonce(nonce)?;
@@ -519,10 +535,9 @@ impl<T: Config + Debug> Module<T> {
         AddAccumulator {
             id, accumulator, ..
         }: AddAccumulator<T>,
-        signer: Did,
     ) -> DispatchResult {
         ensure!(
-            T::AccumulatedMaxSize::get() as usize >= accumulator.get_accumulated().len(),
+            T::AccumulatedMaxSize::get() as usize >= accumulator.accumulated().len(),
             Error::<T>::AccumulatedTooBig
         );
         ensure!(
@@ -530,13 +545,13 @@ impl<T: Config + Debug> Module<T> {
             Error::<T>::AccumulatorAlreadyExists
         );
 
-        let key_ref = accumulator.get_key_ref();
+        let key_ref = accumulator.key_ref();
         ensure!(
             AccumulatorKeys::<T>::contains_key(&key_ref.0, &key_ref.1),
             Error::<T>::PublicKeyDoesntExist
         );
 
-        let accumulated = accumulator.get_accumulated().to_vec();
+        let accumulated = accumulator.accumulated().to_vec();
 
         let current_block = <system::Module<T>>::block_number();
         Accumulators::<T>::insert(
@@ -555,7 +570,7 @@ impl<T: Config + Debug> Module<T> {
             nonce,
             ..
         }: UpdateAccumulator<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
             T::AccumulatedMaxSize::get() as usize >= new_accumulated.len(),
@@ -570,8 +585,8 @@ impl<T: Config + Debug> Module<T> {
 
             // Only the DID that added the accumulator can update it
             ensure!(
-                *accumulator.accumulator.get_owner_did() == signer,
-                Error::<T>::NotOwner
+                *accumulator.accumulator.owner_did() == signer,
+                Error::<T>::NotAccumulatorOwner
             );
 
             accumulator
@@ -590,7 +605,7 @@ impl<T: Config + Debug> Module<T> {
 
     fn remove_accumulator_(
         RemoveAccumulator { id, nonce }: RemoveAccumulator<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
     ) -> DispatchResult {
         let mut accumulator =
             Accumulators::<T>::get(&id).ok_or(Error::<T>::AccumulatorDoesntExist)?;
@@ -598,8 +613,8 @@ impl<T: Config + Debug> Module<T> {
 
         // Only the DID that added the accumulator can remove it
         ensure!(
-            *accumulator.accumulator.get_owner_did() == signer,
-            Error::<T>::NotOwner
+            *accumulator.accumulator.owner_did() == signer,
+            Error::<T>::NotAccumulatorOwner
         );
         Accumulators::<T>::remove(&id);
 
@@ -610,9 +625,9 @@ impl<T: Config + Debug> Module<T> {
     pub fn get_public_key_with_params(
         key_ref: &PublicKeyStorageKey,
     ) -> Option<PublicKeyWithParams> {
-        AccumulatorKeys::<T>::get(&key_ref.0, &key_ref.1).map(|Nonced { data: pk, .. }| {
+        AccumulatorKeys::<T>::get(&key_ref.0, &key_ref.1).map(|WithNonce { data: pk, .. }| {
             let params = match &pk.params_ref {
-                Some(r) => AccumulatorParams::<T>::get(r.0, r.1).map(|Nonced { data: p, .. }| p),
+                Some(r) => AccumulatorParams::<T>::get(r.0, r.1).map(|WithNonce { data: p, .. }| p),
                 _ => None,
             };
             (pk, params)
@@ -624,8 +639,8 @@ impl<T: Config + Debug> Module<T> {
         id: &AccumulatorId,
     ) -> Option<(Vec<u8>, Option<PublicKeyWithParams>)> {
         Accumulators::<T>::get(&id).map(|stored_acc| {
-            let pk_p = Self::get_public_key_with_params(&stored_acc.accumulator.get_key_ref());
-            (stored_acc.accumulator.get_accumulated().to_vec(), pk_p)
+            let pk_p = Self::get_public_key_with_params(&stored_acc.accumulator.key_ref());
+            (stored_acc.accumulator.accumulated().to_vec(), pk_p)
         })
     }
 }
@@ -640,72 +655,72 @@ mod test {
     fn sign_add_params<T: frame_system::Config>(
         keypair: &sr25519::Pair,
         params: &AccumulatorParameters,
-        signer: Did,
+        signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature {
         let payload = AddAccumulatorParams {
             params: params.clone(),
             _marker: PhantomData,
         };
-        did_sig::<T, _>(&payload, keypair, signer, key_id)
+        did_sig::<T, _>(&payload, keypair, *signer, key_id)
     }
 
     fn sign_remove_params<T: frame_system::Config>(
         keypair: &sr25519::Pair,
         remove: &RemoveAccumulatorParams<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature {
-        did_sig::<T, _>(remove, keypair, signer, key_id)
+        did_sig::<T, _>(remove, keypair, *signer, key_id)
     }
 
     fn sign_add_key<T: frame_system::Config>(
         keypair: &sr25519::Pair,
         public_key: &AccumulatorPublicKey,
-        signer: Did,
+        signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature {
         let payload = AddAccumulatorPublicKey {
             public_key: public_key.clone(),
             _marker: PhantomData,
         };
-        did_sig::<T, _>(&payload, keypair, signer, key_id)
+        did_sig::<T, _>(&payload, keypair, *signer, key_id)
     }
 
     fn sign_remove_key<T: frame_system::Config>(
         keypair: &sr25519::Pair,
         remove: &RemoveAccumulatorPublicKey<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature {
-        did_sig::<T, _>(remove, keypair, signer, key_id)
+        did_sig::<T, _>(remove, keypair, *signer, key_id)
     }
 
     fn sign_add_accum<T: frame_system::Config>(
         keypair: &sr25519::Pair,
         accum: &AddAccumulator<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature {
-        did_sig::<T, _>(accum, keypair, signer, key_id)
+        did_sig::<T, _>(accum, keypair, *signer, key_id)
     }
 
     fn sign_remove_accum<T: frame_system::Config>(
         keypair: &sr25519::Pair,
         remove: &RemoveAccumulator<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature {
-        did_sig::<T, _>(remove, keypair, signer, key_id)
+        did_sig::<T, _>(remove, keypair, *signer, key_id)
     }
 
     fn sign_update_accum<T: frame_system::Config>(
         keypair: &sr25519::Pair,
         update: &UpdateAccumulator<T>,
-        signer: Did,
+        signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature {
-        did_sig::<T, _>(update, keypair, signer, key_id)
+        did_sig::<T, _>(update, keypair, *signer, key_id)
     }
 
     fn accumulator_events() -> Vec<(super::Event, Vec<H256>)> {
@@ -731,14 +746,16 @@ mod test {
             run_to_block(10);
 
             let (author, author_kp) = newdid();
+            let author = AccumulatorOwner(author);
 
             run_to_block(11);
 
             let (author_1, author_1_kp) = newdid();
+            let author_1 = AccumulatorOwner(author_1);
 
             run_to_block(20);
 
-            let id: AccumulatorId = rand::random();
+            let id = AccumulatorId(rand::random());
             let mut accumulator = Accumulator::Positive(AccumulatorCommon {
                 accumulated: vec![3; 300],
                 key_ref: (author.clone(), 1u8.into()),
@@ -806,7 +823,7 @@ mod test {
 
             run_to_block(60);
 
-            let id: AccumulatorId = rand::random();
+            let id = AccumulatorId(rand::random());
             let accumulator = Accumulator::Positive(AccumulatorCommon {
                 accumulated: vec![3; 32],
                 key_ref: (author.clone(), 1u8.into()),
@@ -828,7 +845,7 @@ mod test {
             run_to_block(70);
 
             let mut update_accum = UpdateAccumulator {
-                id: rand::random(),
+                id: AccumulatorId(rand::random()),
                 new_accumulated: vec![4; 32],
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: Some(vec![vec![9, 4]]),
@@ -904,7 +921,7 @@ mod test {
             let sig = sign_update_accum(&author_1_kp, &update_accum, author_1.clone(), 1);
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                Error::<Test>::NotOwner
+                Error::<Test>::NotAccumulatorOwner
             );
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             AccumMod::update_accumulator(Origin::signed(1), update_accum, sig).unwrap();
@@ -917,7 +934,7 @@ mod test {
             let sig = sign_remove_accum(&author_1_kp, &rem_accum, author_1.clone(), 1);
             assert_err!(
                 AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig),
-                Error::<Test>::NotOwner
+                Error::<Test>::NotAccumulatorOwner
             );
             let sig = sign_remove_accum(&author_kp, &rem_accum, author.clone(), 1);
             AccumMod::remove_accumulator(Origin::signed(1), rem_accum, sig).unwrap();
@@ -931,7 +948,7 @@ mod test {
             let sig = sign_remove_key(&author_1_kp, &rem, author_1.clone(), 1);
             assert_err!(
                 AccumMod::remove_public_key(Origin::signed(1), rem.clone(), sig),
-                Error::<Test>::NotOwner
+                Error::<Test>::NotAccumulatorOwner
             );
             let sig = sign_remove_key(&author_kp, &rem, author.clone(), 1);
             AccumMod::remove_public_key(Origin::signed(1), rem, sig).unwrap();
@@ -945,7 +962,7 @@ mod test {
             let sig = sign_remove_params(&author_1_kp, &rem, author_1.clone(), 1);
             assert_err!(
                 AccumMod::remove_params(Origin::signed(1), rem.clone(), sig),
-                Error::<Test>::NotOwner
+                Error::<Test>::NotAccumulatorOwner
             );
             let sig = sign_remove_params(&author_kp, &rem, author.clone(), 1);
             AccumMod::remove_params(Origin::signed(1), rem, sig).unwrap();
@@ -958,6 +975,7 @@ mod test {
             run_to_block(10);
 
             let (author, author_kp) = newdid();
+            let author = AccumulatorOwner(author);
 
             run_to_block(20);
 
@@ -978,7 +996,7 @@ mod test {
             .unwrap();
             assert_eq!(
                 AccumulatorParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                Some(WithNonce {
                     data: params.clone(),
                     nonce: 20
                 })
@@ -1005,7 +1023,7 @@ mod test {
             .unwrap();
             assert_eq!(
                 AccumulatorKeys::<Test>::get(&author, IncId::from(1u8)),
-                Some(Nonced {
+                Some(WithNonce {
                     data: key.clone(),
                     nonce: 30
                 })
@@ -1015,7 +1033,7 @@ mod test {
 
             run_to_block(40);
 
-            let id: AccumulatorId = rand::random();
+            let id = AccumulatorId(rand::random());
             let accumulator = Accumulator::Positive(AccumulatorCommon {
                 accumulated: vec![3; 32],
                 key_ref: (author.clone(), 1u8.into()),
@@ -1029,14 +1047,14 @@ mod test {
             AccumMod::add_accumulator(Origin::signed(1), add_accum.clone(), sig).unwrap();
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some(Nonced {
+                Some(WithNonce {
                     data: AccumulatorWithUpdates::new(accumulator.clone(), 40),
                     nonce: 40
                 })
             );
             assert!(accumulator_events().contains(&(
-                super::Event::AccumulatorAdded(id.clone(), accumulator.get_accumulated().to_vec()),
-                vec![<Test as system::Config>::Hashing::hash(&id)]
+                super::Event::AccumulatorAdded(id.clone(), accumulator.accumulated().to_vec()),
+                vec![<Test as system::Config>::Hashing::hash(&id[..])]
             )));
 
             run_to_block(50);
@@ -1071,7 +1089,7 @@ mod test {
             });
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some(Nonced {
+                Some(WithNonce {
                     data: AccumulatorWithUpdates {
                         created_at: 40,
                         last_updated_at: 50,
@@ -1081,11 +1099,8 @@ mod test {
                 })
             );
             assert!(accumulator_events().contains(&(
-                super::Event::UpdateAccumulatord(
-                    id.clone(),
-                    accumulator.get_accumulated().to_vec()
-                ),
-                vec![<Test as system::Config>::Hashing::hash(&id)]
+                super::Event::UpdateAccumulatord(id.clone(), accumulator.accumulated().to_vec()),
+                vec![<Test as system::Config>::Hashing::hash(&id[..])]
             )));
 
             run_to_block(60);
@@ -1106,7 +1121,7 @@ mod test {
             });
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some(Nonced {
+                Some(WithNonce {
                     data: AccumulatorWithUpdates {
                         created_at: 40,
                         last_updated_at: 60,
@@ -1116,11 +1131,8 @@ mod test {
                 })
             );
             assert!(accumulator_events().contains(&(
-                super::Event::UpdateAccumulatord(
-                    id.clone(),
-                    accumulator.get_accumulated().to_vec()
-                ),
-                vec![<Test as system::Config>::Hashing::hash(&id)]
+                super::Event::UpdateAccumulatord(id.clone(), accumulator.accumulated().to_vec()),
+                vec![<Test as system::Config>::Hashing::hash(&id[..])]
             )));
 
             run_to_block(70);
@@ -1148,7 +1160,7 @@ mod test {
             assert_eq!(Accumulators::<Test>::get(&id), None);
             assert!(accumulator_events().contains(&(
                 super::Event::AccumulatorRemoved(id.clone()),
-                vec![<Test as system::Config>::Hashing::hash(&id)]
+                vec![<Test as system::Config>::Hashing::hash(&id[..])]
             )));
         });
     }

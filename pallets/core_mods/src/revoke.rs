@@ -1,8 +1,7 @@
 use crate::did::{self, Did, DidSignature};
 use crate::keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
-use crate::util::Nonced;
-use crate::{self as dock, NoncedAction};
-use crate::{Action, StateChange};
+use crate::util::WithNonce;
+use crate::{self as dock, WithNonceAction};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -54,7 +53,7 @@ pub struct Registry {
     pub add_only: bool,
 }
 
-pub type StoredRegistry<T> = Nonced<T, Registry>;
+pub type StoredRegistry<T> = WithNonce<T, Registry>;
 
 /// Command to create a set of revocations withing a registry.
 /// Creation of revocations is idempotent; creating a revocation that already exists is allowed,
@@ -346,7 +345,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Option<Registry>) -> Result<R, E>,
-        A: NoncedAction<T, Target = RegistryId>,
+        A: WithNonceAction<T, Target = RegistryId>,
         DispatchError: From<RevErr<T>> + From<E>,
     {
         Registries::<T>::try_mutate_exists(action.target(), |registry_opt| {
@@ -367,13 +366,13 @@ impl<T: Config + Debug> Module<T> {
             // check each signature is valid over payload and signed by the claimed signer
             for (signer, sig) in proof {
                 let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(&action, &sig)?;
-                ensure!(valid && (signer == *sig.did), RevErr::<T>::NotAuthorized);
+                ensure!(valid && (signer == sig.did), RevErr::<T>::NotAuthorized);
             }
 
-            let Nonced { data, nonce } = registry;
+            let WithNonce { data, nonce } = registry;
             let mut data_opt = Some(data);
             let res = f(action, &mut data_opt)?;
-            *registry_opt = data_opt.map(|data| Nonced { data, nonce });
+            *registry_opt = data_opt.map(|data| WithNonce { data, nonce });
 
             Ok(res)
         })
@@ -394,10 +393,12 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Registry) -> Result<R, E>,
-        A: NoncedAction<T, Target = RegistryId>,
+        A: WithNonceAction<T, Target = RegistryId>,
         DispatchError: From<RevErr<T>> + From<E>,
     {
-        Self::exec_removable_registry_action(action, proof, |action, reg| f(action, reg.as_mut().unwrap()))
+        Self::exec_removable_registry_action(action, proof, |action, reg| {
+            f(action, reg.as_mut().unwrap())
+        })
     }
 }
 
@@ -608,7 +609,8 @@ mod errors {
 
         let registry_id = RGA;
         let nonce = 200;
-        let err: Result<(), DispatchError> = Err(sp_runtime::DispatchError::Other("Incorrect nonce"));
+        let err: Result<(), DispatchError> =
+            Err(sp_runtime::DispatchError::Other("Incorrect nonce"));
 
         RevoMod::new_registry(
             Origin::signed(ABBA),
@@ -691,16 +693,7 @@ mod errors {
             registry_id,
             nonce: start + 1,
         };
-        let rr_proof = once((
-            DIDA,
-            did_sig::<Test, _>(
-                &removeregistry,
-                &kpa,
-                DIDA,
-                1,
-            ),
-        ))
-        .collect();
+        let rr_proof = once((DIDA, did_sig::<Test, _>(&removeregistry, &kpa, DIDA, 1))).collect();
         assert_eq!(
             RevoMod::remove_registry(Origin::signed(ABBA), removeregistry, rr_proof),
             err
@@ -730,7 +723,7 @@ mod errors {
 /// Tests in this module are named after the calls they check.
 /// For example, `#[test] fn new_registry` tests the happy path for Module::new_registry.
 mod calls {
-    use crate::util::Nonced;
+    use crate::util::WithNonce;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
     use super::{
         Call as RevCall, Policy, Registries, Registry, RemoveRegistry, Revocations, Revoke,
@@ -758,7 +751,10 @@ mod calls {
             assert!(!Registries::<Test>::contains_key(reg_id));
             RevoMod::new_registry(Origin::signed(ABBA), reg_id, reg.clone()).unwrap();
             assert!(Registries::<Test>::contains_key(reg_id));
-            let Nonced { data: created_reg, nonce: created_bloc } = Registries::<Test>::get(reg_id).unwrap();
+            let WithNonce {
+                data: created_reg,
+                nonce: created_bloc,
+            } = Registries::<Test>::get(reg_id).unwrap();
             assert_eq!(created_reg, reg);
             assert_eq!(created_bloc, block_no());
         }
@@ -911,16 +907,7 @@ mod calls {
             registry_id,
             nonce: start + 1,
         };
-        let proof = once((
-            DIDA,
-            did_sig::<Test, _>(
-                &rem,
-                &kpa,
-                DIDA,
-                1,
-            ),
-        ))
-        .collect();
+        let proof = once((DIDA, did_sig::<Test, _>(&rem, &kpa, DIDA, 1))).collect();
         RevoMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
 
         // assert not exists
@@ -948,7 +935,7 @@ mod test {
     use sp_runtime::DispatchError;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
     use super::{Did, Policy, Registry, Revoke, RevokeId, StoredRegistry};
-    use crate::{test_common::*, util::Nonced, revoke::Registries};
+    use crate::{revoke::Registries, test_common::*, util::WithNonce};
     use alloc::collections::BTreeSet;
     use codec::Encode;
     use sp_core::sr25519;
@@ -983,13 +970,24 @@ mod test {
         ];
         for (line_no, policy, signers, expect_success) in cases.iter().clone() {
             eprintln!("running case from line {}", line_no);
-            Registries::<Test>::insert(RGA, StoredRegistry { nonce: 0, data: Registry { policy: policy.clone(), add_only: false } });
+            Registries::<Test>::insert(
+                RGA,
+                StoredRegistry {
+                    nonce: 0,
+                    data: Registry {
+                        policy: policy.clone(),
+                        add_only: false,
+                    },
+                },
+            );
             let command = &rev;
             let proof = signers
                 .iter()
                 .map(|(did, kp)| (did.clone(), did_sig::<Test, _>(command, &kp, *did, 1)))
                 .collect();
-            let res = RevoMod::exec_registry_action(command.clone(), proof, |_, _| Ok::<_,DispatchError>(()));
+            let res = RevoMod::exec_registry_action(command.clone(), proof, |_, _| {
+                Ok::<_, DispatchError>(())
+            });
             assert_eq!(res.is_ok(), *expect_success);
         }
     }
@@ -1010,7 +1008,7 @@ mod test {
         RevoMod::new_registry(Origin::signed(ABBA), registry_id, reg.clone()).unwrap();
         assert_eq!(
             RevoMod::get_revocation_registry(registry_id),
-            Some(Nonced::new(reg))
+            Some(WithNonce::new(reg))
         );
     }
 

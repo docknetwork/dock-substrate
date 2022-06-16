@@ -3,7 +3,6 @@ use crate::impl_wrapper;
 use crate::util::hex;
 use codec::{Decode, Encode};
 use sp_std::fmt;
-use sp_std::ops::{Deref, DerefMut};
 use sp_std::vec::Vec;
 
 /// Raw bytes wrapper providing ability to encode/decode in `hex` format.

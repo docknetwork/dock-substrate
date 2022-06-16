@@ -20,7 +20,7 @@ pub struct AggregatedDidDetailsResponse<T: Config> {
     service_endpoints: Option<Vec<ServiceEndpointWithId>>,
 }
 
-/// `DidKey` with its unique identifier.
+/// `DidKey` with its identifier.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -29,7 +29,7 @@ pub struct DidKeyWithId {
     key: DidKey,
 }
 
-/// `ServiceEndpoint` with its unique identifier.
+/// `ServiceEndpoint` with its identifier.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]

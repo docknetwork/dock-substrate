@@ -296,7 +296,7 @@ impl<T: Config + Debug> Module<T> {
         for (did, sig) in auth.iter() {
             ensure!(
                 crate::did::Module::<T>::verify_sig_from_auth_or_control_key(&new_payload, sig)?
-                    && (*did == *sig.did),
+                    && (*did == sig.did),
                 MasterError::<T>::BadSig
             );
         }

@@ -6,7 +6,7 @@ use crate::keys_and_sigs::SigValue;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct DidSignature {
     /// The DID that created this signature
-    pub did: Controller,
+    pub did: Did,
     /// The key-id of above DID used to verify the signature
     pub key_id: IncId,
     /// The actual signature
@@ -36,10 +36,11 @@ impl<T: Config + Debug> Module<T> {
     /// controller of the DID and must have a key with `CAPABILITY_INVOCATION` verification relationship
     pub fn verify_sig_from_controller<A>(action: &A, sig: &DidSignature) -> Result<bool, Error<T>>
     where
-        A: Action<T, Target = Did>,
+        A: Action<T>,
+        A::Target: Into<Did>,
     {
-        Self::ensure_controller(&action.target(), &sig.did)?;
-        let signer_pubkey = Self::control_key(&sig.did, sig.key_id)?;
+        Self::ensure_controller(&action.target().into(), &Controller(sig.did))?;
+        let signer_pubkey = Self::control_key(&Controller(sig.did), sig.key_id)?;
 
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }
@@ -51,7 +52,7 @@ impl<T: Config + Debug> Module<T> {
     where
         A: Action<T>,
     {
-        let signer_pubkey = Self::auth_or_control_key(&sig.did, sig.key_id)?;
+        let signer_pubkey = Self::auth_or_control_key(&Controller(sig.did), sig.key_id)?;
 
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }
