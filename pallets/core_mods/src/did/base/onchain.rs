@@ -102,7 +102,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
-        A: WithNonceAction<T>,
+        A: ActionWithNonce<T>,
         A::Target: Into<Did>,
         DispatchError: From<Error<T>> + From<E>,
     {
@@ -130,7 +130,7 @@ impl<T: Config + Debug> Module<T> {
     pub(crate) fn exec_onchain_did_action<A, F, R, E>(action: A, f: F) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
-        A: WithNonceAction<T>,
+        A: ActionWithNonce<T>,
         A::Target: Into<Did>,
         DispatchError: From<Error<T>> + From<E>,
     {

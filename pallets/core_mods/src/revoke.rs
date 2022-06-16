@@ -1,7 +1,7 @@
 use crate::did::{self, Did, DidSignature};
 use crate::keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
 use crate::util::WithNonce;
-use crate::{self as dock, WithNonceAction};
+use crate::{self as dock, ActionWithNonce};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -357,7 +357,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Option<Registry>) -> Result<R, E>,
-        A: WithNonceAction<T, Target = RegistryId>,
+        A: ActionWithNonce<T, Target = RegistryId>,
         DispatchError: From<RevErr<T>> + From<E>,
     {
         Registries::<T>::try_mutate_exists(action.target(), |registry_opt| {
@@ -405,7 +405,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Registry) -> Result<R, E>,
-        A: WithNonceAction<T, Target = RegistryId>,
+        A: ActionWithNonce<T, Target = RegistryId>,
         DispatchError: From<RevErr<T>> + From<E>,
     {
         Self::exec_removable_registry_action(action, proof, |action, reg| {

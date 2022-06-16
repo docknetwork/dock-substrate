@@ -119,7 +119,7 @@ macro_rules! impl_nonced_action {
     ($type: ident for $($token: tt)*) => {
         $crate::impl_action! { $type for $($token)* }
 
-        impl<T: frame_system::Config> $crate::WithNonceAction<T> for $type<T> {
+        impl<T: frame_system::Config> $crate::ActionWithNonce<T> for $type<T> {
             fn nonce(&self) -> T::BlockNumber {
                 self.nonce
             }

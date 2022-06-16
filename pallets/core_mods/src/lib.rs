@@ -61,7 +61,8 @@ pub trait Action<T: frame_system::Config> {
     fn into_state_change(self) -> StateChange<'static, T>;
 }
 
-pub trait WithNonceAction<T: frame_system::Config>: Action<T> {
+/// Describes an action with nonce which can be performed on some `Target`
+pub trait ActionWithNonce<T: frame_system::Config>: Action<T> {
     /// Returns action's nonce.
     fn nonce(&self) -> T::BlockNumber;
 }

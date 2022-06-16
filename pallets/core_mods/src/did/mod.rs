@@ -2,7 +2,7 @@ use crate as dock;
 use crate::keys_and_sigs::PublicKey;
 use crate::util::*;
 use crate::{deposit_indexed_event, impl_bits_conversion, impl_nonced_action, impl_wrapper};
-use crate::{Action, WithNonceAction};
+use crate::{Action, ActionWithNonce};
 pub use actions::*;
 pub use base::{offchain, onchain, signature};
 use codec::{Decode, Encode};
