@@ -236,22 +236,22 @@ decl_error! {
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AccumulatorOwnerCountersValue {
+pub struct StoredAccumulatorOwnerCounters {
     params_counter: IncId,
     key_counter: IncId,
 }
 
-type StoredAccumulator<T> = WithNonce<T, AccumulatorWithUpdates<T>>;
+type StoredAccumulator<T> = WithNonce<T, AccumulatorWithUpdateInfo<T>>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AccumulatorWithUpdates<T: frame_system::Config> {
+pub struct AccumulatorWithUpdateInfo<T: frame_system::Config> {
     created_at: T::BlockNumber,
     last_updated_at: T::BlockNumber,
     accumulator: Accumulator,
 }
 
-impl<T: frame_system::Config> AccumulatorWithUpdates<T> {
+impl<T: frame_system::Config> AccumulatorWithUpdateInfo<T> {
     fn new(accumulator: Accumulator, block_number: T::BlockNumber) -> Self {
         Self {
             accumulator,
@@ -264,7 +264,7 @@ impl<T: frame_system::Config> AccumulatorWithUpdates<T> {
 decl_storage! {
     trait Store for Module<T: Config> as AccumulatorModule where T: Debug {
         pub AccumulatorOwnerCounters get(fn did_counters):
-            map hasher(blake2_128_concat) AccumulatorOwner => AccumulatorOwnerCountersValue;
+            map hasher(blake2_128_concat) AccumulatorOwner => StoredAccumulatorOwnerCounters;
 
         pub AccumulatorParams get(fn get_params):
             double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<WithNonce<T, AccumulatorParameters>>;
@@ -556,7 +556,7 @@ impl<T: Config + Debug> Module<T> {
         let current_block = <system::Module<T>>::block_number();
         Accumulators::<T>::insert(
             id,
-            StoredAccumulator::new(AccumulatorWithUpdates::new(accumulator, current_block)),
+            StoredAccumulator::new(AccumulatorWithUpdateInfo::new(accumulator, current_block)),
         );
 
         crate::deposit_indexed_event!(AccumulatorAdded(id, accumulated) over id);
@@ -1048,7 +1048,7 @@ mod test {
             assert_eq!(
                 Accumulators::<Test>::get(&id),
                 Some(WithNonce {
-                    data: AccumulatorWithUpdates::new(accumulator.clone(), 40),
+                    data: AccumulatorWithUpdateInfo::new(accumulator.clone(), 40),
                     nonce: 40
                 })
             );
@@ -1090,7 +1090,7 @@ mod test {
             assert_eq!(
                 Accumulators::<Test>::get(&id),
                 Some(WithNonce {
-                    data: AccumulatorWithUpdates {
+                    data: AccumulatorWithUpdateInfo {
                         created_at: 40,
                         last_updated_at: 50,
                         accumulator: accumulator.clone()
@@ -1122,7 +1122,7 @@ mod test {
             assert_eq!(
                 Accumulators::<Test>::get(&id),
                 Some(WithNonce {
-                    data: AccumulatorWithUpdates {
+                    data: AccumulatorWithUpdateInfo {
                         created_at: 40,
                         last_updated_at: 60,
                         accumulator: accumulator.clone()
