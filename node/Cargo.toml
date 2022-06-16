@@ -287,10 +287,6 @@ version = '0.0.1'
 path = '../pallets/staking_rewards/rpc'
 version = '0.0.1'
 
-[dependencies.core_mods]
-path = '../pallets/core_mods'
-version = '0.4.0'
-
 [dependencies.core_mods_rpc]
 path = '../pallets/core_mods/rpc'
 version = '0.0.2'

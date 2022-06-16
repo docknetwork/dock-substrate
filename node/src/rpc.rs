@@ -114,7 +114,7 @@ where
     SC: SelectChain<Block> + 'static,
 {
     use core_mods_rpc::{CoreMods, CoreModsApi};
-    //use fiat_filter_rpc::{FiatFeeApi, FiatFeeServer};
+    // use fiat_filter_rpc::{FiatFeeApi, FiatFeeServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
     use poa_rpc::{PoA, PoAApi};
     use price_feed_rpc::{PriceFeed, PriceFeedApi};

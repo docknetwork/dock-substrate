@@ -1321,7 +1321,6 @@ dependencies = [
 name = "dock-node"
 version = "0.17.0"
 dependencies = [
- "core_mods",
  "core_mods_rpc",
  "dock-runtime",
  "fc-db",

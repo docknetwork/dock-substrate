@@ -22,13 +22,14 @@ extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
 
-//pub use core_mods::accumulator;
+pub use core_mods::accumulator;
 pub use core_mods::anchor;
-//pub use core_mods::attest;
-//pub use core_mods::bbs_plus;
-//pub use core_mods::blob;
+pub use core_mods::attest;
+pub use core_mods::bbs_plus;
+pub use core_mods::blob;
 pub use core_mods::did;
-//pub use core_mods::master;
+pub use core_mods::keys_and_sigs;
+pub use core_mods::master;
 pub use core_mods::revoke;
 pub mod weight_to_fee;
 
@@ -76,7 +77,6 @@ use sp_runtime::{
     ApplyExtrinsicResult, FixedPointNumber, ModuleId, MultiSignature, Perbill, Percent, Permill,
     Perquintill, SaturatedConversion,
 };
-use sp_std::collections::btree_map::BTreeMap;
 use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
@@ -719,7 +719,7 @@ impl revoke::Config for Runtime {
     type Event = Event;
 }
 
-/*impl bbs_plus::Config for Runtime {
+impl bbs_plus::Config for Runtime {
     type Event = Event;
     type LabelMaxSize = LabelMaxSize;
     type LabelPerByteWeight = LabelPerByteWeight;
@@ -744,7 +744,7 @@ impl accumulator::Config for Runtime {
 impl blob::Config for Runtime {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
-}*/
+}
 
 parameter_types! {
     pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -821,23 +821,23 @@ impl pallet_utility::Config for Runtime {
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-/*impl master::Config for Runtime {
+impl master::Config for Runtime {
     type Event = Event;
     type Call = Call;
-}*/
+}
 
 impl sudo::Config for Runtime {
     type Event = Event;
     type Call = Call;
 }
 
-/*impl anchor::Config for Runtime {
+impl anchor::Config for Runtime {
     type Event = Event;
-}*/
+}
 
-/*impl attest::Config for Runtime {
+impl attest::Config for Runtime {
     type StorageWeight = StorageWeight;
-}*/
+}
 
 /// This origin indicates that either >50% (simple majority) of Council members approved some dispatch (through a proposal)
 /// or the dispatch was done as `Root` (by sudo or master)
@@ -1334,14 +1334,14 @@ construct_runtime!(
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
         Utility: pallet_utility::{Module, Call, Event},
-        DIDModule: did::{Module, Call, Storage, Event},
+        DIDModule: did::{Module, Call, Storage, Event, Config},
         Revoke: revoke::{Module, Call, Storage, Event},
-        // BlobStore: blob::{Module, Call, Storage},
-        // Master: master::{Module, Call, Storage, Event<T>, Config},
+        BlobStore: blob::{Module, Call, Storage},
+        Master: master::{Module, Call, Storage, Event<T>, Config},
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
-        /*Anchor: anchor::{Module, Call, Storage, Event<T>},
-        Attest: attest::{Module, Call, Storage},*/
+        Anchor: anchor::{Module, Call, Storage, Event<T>},
+        Attest: attest::{Module, Call, Storage},
         Democracy: pallet_democracy::{Module, Call, Storage, Event<T>},
         Council: pallet_collective::<Instance1>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
         TechnicalCommittee: pallet_collective::<Instance2>::{Module, Call, Storage, Origin<T>, Event<T>, Config<T>},
@@ -1364,8 +1364,8 @@ construct_runtime!(
         Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
         Tips: pallet_tips::{Module, Call, Storage, Event<T>},
         Identity: pallet_identity::{Module, Call, Storage, Event<T>},
-        //BbsPlus: bbs_plus::{Module, Call, Storage, Event},
-        //Accumulator: accumulator::{Module, Call, Storage, Event},
+        BbsPlus: bbs_plus::{Module, Call, Storage, Event},
+        Accumulator: accumulator::{Module, Call, Storage, Event},
     }
 );
 

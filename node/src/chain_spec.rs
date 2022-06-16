@@ -1,30 +1,12 @@
 use dock_runtime::{
-    did::{self, Did},
-    //master::Membership,
-    AccountId,
-    AuthorityDiscoveryConfig,
-    BabeConfig,
-    Balance,
-    BalancesConfig, /*DIDModuleConfig,*/
-    EVMConfig,
-    ElectionsConfig,
-    EthereumConfig,
-    GenesisConfig,
-    GrandpaConfig,
-    Hash,
-    ImOnlineConfig,
-    /*MasterConfig,*/ PoAModuleConfig,
-    SessionConfig,
-    SessionKeys,
-    Signature,
-    StakerStatus,
-    StakingConfig,
-    SudoConfig,
-    SystemConfig,
-    TechnicalCommitteeConfig,
-    BABE_GENESIS_EPOCH_CONFIG,
-    DOCK,
-    WASM_BINARY,
+    did::{Did, DidKey},
+    keys_and_sigs::PublicKey,
+    master::Membership,
+    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
+    EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
+    MasterConfig, PoAModuleConfig, SessionConfig, SessionKeys, Signature, StakerStatus,
+    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
+    DOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
@@ -38,7 +20,6 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 
 use serde_json::map::Map;
 
-use core_mods::{keys_and_sigs, util};
 use sp_runtime::Perbill;
 use std::collections::BTreeMap;
 use std::str::FromStr;
@@ -112,16 +93,12 @@ where
 }
 
 /// Create a non-secure development did with specified secret key
-fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> Did {
-    todo!()
-    /*let pk = sr25519::Pair::from_seed(seed).public().0;
+fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, DidKey) {
+    let pk = sr25519::Pair::from_seed(seed).public().0;
     (
-        *did,
-        KeyDetail::new(
-            *did,
-            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
-        ),
-    )*/
+        Did(*did),
+        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
+    )
 }
 
 fn get_common_properties_map() -> Properties {
@@ -175,15 +152,14 @@ pub fn development_config() -> ChainSpec {
                     "Eve",
                     "Ferdie",
                 ]),
-                /*master: Membership {
+                master: Membership {
                     members: [
                         b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"Bob\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .cloned()
-                    .cloned()
+                    .map(|d| Did(**d))
                     .collect(),
                     vote_requirement: 2,
                 },
@@ -203,7 +179,7 @@ pub fn development_config() -> ChainSpec {
                 ]
                 .iter()
                 .map(|(name, sk)| did_from_seed(name, sk))
-                .collect(),*/
+                .collect(),
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
                 council_members: get_seed_vector_to_account_vector(
                     ["Alice//stash", "Bob//stash", "Charlie"].to_vec(),
@@ -252,15 +228,14 @@ pub fn local_testnet_config() -> ChainSpec {
                     "Eve//stash",
                     "Ferdie//stash",
                 ]),
-                /*master: Membership {
+                master: Membership {
                     members: [
                         b"Alice\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"Bob\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .cloned()
-                    .cloned()
+                    .map(|d| Did(**d))
                     .collect(),
                     vote_requirement: 2,
                 },
@@ -280,7 +255,7 @@ pub fn local_testnet_config() -> ChainSpec {
                 ]
                 .iter()
                 .map(|(name, sk)| did_from_seed(name, sk))
-                .collect(),*/
+                .collect(),
                 sudo: get_account_id_from_seed::<sr25519::Public>("Alice"),
                 council_members: get_seed_vector_to_account_vector(
                     ["Alice//stash", "Bob//stash", "Charlie"].to_vec(),
@@ -345,15 +320,14 @@ pub fn pos_testnet_config() -> ChainSpec {
                 .cloned()
                 .map(account_id_from_ss58::<sr25519::Public>)
                 .collect(),
-                /*master: Membership {
+                master: Membership {
                     members: [
                         b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .cloned()
-                    .cloned()
+                    .map(|d| Did(**d))
                     .collect(),
                     vote_requirement: 2,
                 },
@@ -375,14 +349,11 @@ pub fn pos_testnet_config() -> ChainSpec {
                 .cloned()
                 .map(|(did, pk)| {
                     (
-                        *did,
-                        KeyDetail::new(
-                            *did,
-                            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
-                        ),
+                        Did(*did),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
-                .collect(),*/
+                .collect(),
                 // In mainnet, this will be a public key (0s) that no one knows private key for
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN",
@@ -556,15 +527,14 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 .cloned()
                 .map(account_id_from_ss58::<sr25519::Public>)
                 .collect(),
-                /*master: Membership {
+                master: Membership {
                     members: [
                         b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                         b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .cloned()
-                    .cloned()
+                    .map(|d| Did(**d))
                     .collect(),
                     vote_requirement: 2,
                 },
@@ -586,14 +556,11 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 .cloned()
                 .map(|(did, pk)| {
                     (
-                        *did,
-                        KeyDetail::new(
-                            *did,
-                            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk }),
-                        ),
+                        Did(*did),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
-                .collect(),*/
+                .collect(),
                 // Post mainnet launch, this will be changed into a public key (0s) that no one knows private key for
                 sudo: account_id_from_ss58::<sr25519::Public>(
                     "3HqoTXW3HBQJoFpvRaAaJoNsWTBZs3CuGRqT9xxfv497k8fs",
@@ -653,8 +620,8 @@ struct GenesisBuilder {
         AuthorityDiscoveryId,
     )>,
     endowed_accounts: Vec<AccountId>,
-    //master: Membership,
-    //dids: Vec<(Did, KeyDetail)>,
+    master: Membership,
+    dids: Vec<(Did, DidKey)>,
     sudo: AccountId,
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
@@ -674,7 +641,7 @@ impl GenesisBuilder {
         // 100M tokens
         let per_member_endowment: Balance = DOCK.checked_mul(100_000_000).unwrap();
 
-        // self.validate().unwrap();
+        self.validate().unwrap();
 
         let stash = self.stash;
 
@@ -711,10 +678,10 @@ impl GenesisBuilder {
             grandpa: GrandpaConfig {
                 authorities: vec![],
             },
-            /*master: MasterConfig {
+            master: MasterConfig {
                 members: self.master,
             },
-            did: DIDModuleConfig { dids: self.dids },*/
+            did: DIDModuleConfig { dids: self.dids },
             sudo: SudoConfig { key: self.sudo },
             pallet_collective_Instance1: Default::default(),
             pallet_collective_Instance2: TechnicalCommitteeConfig {
@@ -761,27 +728,26 @@ impl GenesisBuilder {
         }
     }
 
-    /*fn validate(&self) -> Result<(), String> {
+    fn validate(&self) -> Result<(), String> {
         // Every DID in master must be pre-declared
         for did in self.master.members.iter() {
             if !self.dids.iter().any(|(k, _v)| k == did) {
                 return Err(format!(
                     "Master contains DID {:x?}.. that is not pre-declared",
-                    did[0],
+                    did,
                 ));
             }
         }
 
         Ok(())
-    }*/
+    }
 }
 
 #[cfg(test)]
 mod test {
     use super::*;
-    use core_mods::{keys_and_sigs, util};
 
-    /* #[test]
+    #[test]
     fn expected_did_from_seed() {
         let did = [1u8; 32];
         let pk = hex!("c02bab578b07e7e41997fcb03de683f4780e3ad383e573d817d2462f4a27c701");
@@ -789,12 +755,9 @@ mod test {
         assert_eq!(
             did_from_seed(&did, &sk),
             (
-                did,
-                KeyDetail::new(
-                    did,
-                    keys_and_sigs::PublicKey::Sr25519(util::Bytes32 { value: pk })
-                ),
+                Did(did),
+                DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
             )
         );
-    }*/
+    }
 }
