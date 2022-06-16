@@ -1299,14 +1299,14 @@ parameter_types! {
     pub const MinDockFiatRate: u32 = 10;
 }
 
-/*impl fiat_filter::Config for Runtime {
+impl fiat_filter::Config for Runtime {
     type Call = Call;
     type PriceProvider = price_feed::Module<Runtime>;
     type Currency = balances::Module<Runtime>;
     type MinDockFiatRate = MinDockFiatRate;
-}*/
+}
 
-/*pub struct BaseFilter;
+pub struct BaseFilter;
 impl Filter<Call> for BaseFilter {
     fn filter(call: &Call) -> bool {
         match call {
@@ -1315,7 +1315,7 @@ impl Filter<Call> for BaseFilter {
             _ => true,
         }
     }
-}*/
+}
 
 // Balances pallet has to be put before Session in construct_runtime otherwise there is a runtime panic.
 
@@ -1350,7 +1350,7 @@ construct_runtime!(
         Ethereum: pallet_ethereum::{Module, Call, Storage, Event, Config, ValidateUnsigned},
         EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
         PriceFeedModule: price_feed::{Module, Call, Storage, Event},
-        // FiatFilterModule: fiat_filter::{Module, Call},
+        FiatFilterModule: fiat_filter::{Module, Call},
         AuthorityDiscovery: pallet_authority_discovery::{Module, Call, Config},
         Historical: pallet_session_historical::{Module},
         ImOnline: pallet_im_online::{Module, Call, Storage, Event<T>, ValidateUnsigned, Config<T>},

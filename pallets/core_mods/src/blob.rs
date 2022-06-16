@@ -38,7 +38,7 @@ pub struct Blob {
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddBlob<T: frame_system::Config> {
-    blob: Blob,
+    pub blob: Blob,
     #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }

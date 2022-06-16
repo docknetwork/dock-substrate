@@ -40,7 +40,7 @@ pub struct Attestation {
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SetAttestationClaim<T: frame_system::Config> {
-    attest: Attestation,
+    pub attest: Attestation,
     #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }

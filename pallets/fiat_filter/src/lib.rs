@@ -28,7 +28,7 @@ use sp_std::boxed::Box;
 /// The pallet's configuration trait
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Config:
-    system::Config + did::Trait + anchor::Trait + blob::Trait + revoke::Trait + attest::Trait + Debug
+    system::Config + did::Config + anchor::Config + blob::Config + revoke::Config + attest::Config + Debug
 {
     /// Config option for updating the DockFiatRate
     type PriceProvider: common::traits::PriceProvider;
@@ -129,7 +129,7 @@ impl<T: Config + Debug> Module<T> {
         };
         match call.is_sub_type() {
             Some(blob::Call::new(blob, _sig)) => {
-                let size: u32 = blob.blob.len() as u32;
+                let size: u32 = blob.blob.blob.len() as u32;
                 let price = PRICE_BLOB_OP_BASE.saturating_add(
                     (size.div_ceil(100)).saturating_mul(PRICE_ATTEST_OP_PER_100_BYTES),
                 );
@@ -160,6 +160,7 @@ impl<T: Config + Debug> Module<T> {
         match call.is_sub_type() {
             Some(attest::Call::set_claim(attestation, _sig)) => {
                 let iri_size_100bytes: u32 = attestation
+                    .attest
                     .iri
                     .as_ref()
                     .map_or_else(|| 1, |i| (i.len() as u32).div_ceil(100));
