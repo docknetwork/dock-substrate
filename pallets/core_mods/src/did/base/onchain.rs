@@ -94,6 +94,8 @@ impl<T: Config + Debug> Module<T> {
 
     /// Executes action over target on-chain DID providing a mutable reference if the given nonce is correct,
     /// i.e. 1 more than the current nonce.
+    /// Unlike `exec_onchain_did_action`, this action may result in a removal of a DID, if the value under option
+    /// will be taken.
     pub(crate) fn exec_removable_onchain_did_action<A, F, R, E>(
         action: A,
         f: F,

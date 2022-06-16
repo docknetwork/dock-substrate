@@ -213,7 +213,7 @@ decl_module! {
         /// verification relationships
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
-        fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature) -> DispatchResult {
+        fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed_payload!(origin, &keys, &sig);
 
@@ -225,7 +225,7 @@ decl_module! {
         /// # **Note that removing all might make DID unusable**.
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
-        fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature) -> DispatchResult {
+        fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed_payload!(origin, &keys, &sig);
 
@@ -237,7 +237,7 @@ decl_module! {
         /// a DID that exists on or off chain. Does not check if the controller is already added.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature) -> DispatchResult {
+        fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed_payload!(origin, &controllers, &sig);
 
@@ -249,7 +249,7 @@ decl_module! {
         /// # **Note that removing all might make DID unusable**.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature) -> DispatchResult {
+        fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed_payload!(origin, &controllers, &sig);
 
@@ -260,7 +260,7 @@ decl_module! {
         /// Add a single service endpoint.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature) -> DispatchResult {
+        fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure_signed_payload!(origin, &service_endpoint, &sig);
             ensure!(
@@ -276,7 +276,7 @@ decl_module! {
         /// Remove a single service endpoint.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature) -> DispatchResult {
+        fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure_signed_payload!(origin, &service_endpoint, &sig);
 
@@ -289,7 +289,7 @@ decl_module! {
         /// loses its ability to control any DID.
         // TODO: Fix weight
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature) -> DispatchResult {
+        pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed_payload!(origin, &removal, &sig);
 
             Self::exec_removable_onchain_did_action(removal, Self::remove_onchain_did_)?;

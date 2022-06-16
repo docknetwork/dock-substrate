@@ -38,12 +38,7 @@ fn parse_hex<T>(data: &str) -> Result<T, <T as serde_hex::FromHex>::Error>
 where
     T: serde_hex::FromHex,
 {
-    let value = if data.starts_with("0x") {
-        &data[2..]
-    } else {
-        data
-    };
-    FromHex::from_hex(value)
+    FromHex::from_hex(data.strip_prefix("0x").unwrap_or(data))
 }
 
 pub mod big_array {

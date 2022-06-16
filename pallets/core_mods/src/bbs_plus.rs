@@ -4,7 +4,7 @@
 //! library. This decision must be revisited if the signature params become irrelevant.
 
 use crate::did;
-use crate::did::{Did, DidSignature, OnChainDidDetails};
+use crate::did::{Controller, Did, DidSignature, OnChainDidDetails};
 use crate::types::CurveType;
 use crate::util::{IncId, WithNonce};
 use codec::{Decode, Encode};
@@ -20,7 +20,7 @@ use frame_system::{self as system, ensure_signed};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 pub type ParametersStorageKey = (BBSPlusParamsOwner, IncId);
-pub type PublicKeyStorageKey = (BBSPlusKeysOwner, IncId);
+pub type PublicKeyStorageKey = (Controller, IncId);
 pub type PublicKeyWithParams = (BbsPlusPublicKey, Option<BbsPlusParameters>);
 
 /// DID owner of the BBSPlus parameters.
@@ -30,15 +30,6 @@ pub type PublicKeyWithParams = (BbsPlusPublicKey, Option<BbsPlusParameters>);
 pub struct BBSPlusParamsOwner(pub Did);
 
 crate::impl_wrapper!(BBSPlusParamsOwner, Did);
-
-/// DID owner of the BBSPlus key. As all keys are counted globally by the DID,
-/// inserting new key BBSPlus will increase owner DID key counter as well.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct BBSPlusKeysOwner(pub Did);
-
-crate::impl_wrapper!(BBSPlusKeysOwner, Did);
 
 /// Signature params in G1 for BBS+ signatures
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
@@ -74,7 +65,7 @@ pub struct BbsPlusPublicKey {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddBBSPlusPublicKey<T: frame_system::Config> {
     pub key: BbsPlusPublicKey,
-    pub did: BBSPlusKeysOwner,
+    pub did: Controller,
     pub nonce: T::BlockNumber,
 }
 
@@ -89,12 +80,12 @@ pub struct RemoveBBSPlusParams<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemoveBBSPlusPublicKey<T: frame_system::Config> {
     pub key_ref: PublicKeyStorageKey,
-    pub did: BBSPlusKeysOwner,
+    pub did: Controller,
     pub nonce: T::BlockNumber,
 }
 
 crate::impl_nonced_action!(
-    for BBSPlusKeysOwner:
+    for Controller:
         AddBBSPlusPublicKey with { |_| 1 } as len, did as target,
         RemoveBBSPlusPublicKey with { |_| 1 } as len, did as target
 );
@@ -131,8 +122,8 @@ decl_event!(
     pub enum Event {
         ParamsAdded(BBSPlusParamsOwner, IncId),
         ParamsRemoved(BBSPlusParamsOwner, IncId),
-        KeyAdded(BBSPlusKeysOwner, IncId),
-        KeyRemoved(BBSPlusKeysOwner, IncId),
+        KeyAdded(Controller, IncId),
+        KeyRemoved(Controller, IncId),
     }
 );
 
@@ -165,7 +156,7 @@ decl_storage! {
         /// Its assumed that the public keys are always members of G2. It does impact any logic on the
         /// chain but makes up for one less storage value
         pub BbsPlusKeys get(fn get_key):
-            double_map hasher(blake2_128_concat) BBSPlusKeysOwner, hasher(identity) IncId => Option<BbsPlusPublicKey>;
+            double_map hasher(blake2_128_concat) Controller, hasher(identity) IncId => Option<BbsPlusPublicKey>;
     }
 }
 
@@ -195,7 +186,7 @@ decl_module! {
         pub fn add_params(
             origin,
             params: AddBBSPlusParams<T>,
-            signature: DidSignature,
+            signature: DidSignature<BBSPlusParamsOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -203,7 +194,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::add_params_(params, BBSPlusParamsOwner(signature.did))
+            Module::<T>::add_params_(params, signature.did)
         }
 
         /// Add a BBS+ public key. Only the DID controller can add key and it should use the nonce from the DID module.
@@ -215,7 +206,7 @@ decl_module! {
         pub fn add_public_key(
             origin,
             public_key: AddBBSPlusPublicKey<T>,
-            signature: DidSignature,
+            signature: DidSignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             // Only controller can add a key
@@ -232,7 +223,7 @@ decl_module! {
         pub fn remove_params(
             origin,
             remove: RemoveBBSPlusParams<T>,
-            signature: DidSignature,
+            signature: DidSignature<BBSPlusParamsOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -240,7 +231,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
             // Only the DID that added the param can it
-            ensure!(remove.params_ref.0 == BBSPlusParamsOwner(signature.did), Error::<T>::NotOwner);
+            ensure!(remove.params_ref.0 == signature.did, Error::<T>::NotOwner);
 
             Module::<T>::remove_params_(remove)?;
             Ok(())
@@ -252,7 +243,7 @@ decl_module! {
         pub fn remove_public_key(
             origin,
             remove: RemoveBBSPlusPublicKey<T>,
-            signature: DidSignature,
+            signature: DidSignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             // Only controller can add a key
@@ -366,7 +357,7 @@ impl<T: Config + Debug> Module<T> {
         params
     }
 
-    pub fn get_public_key_by_did(id: &BBSPlusKeysOwner) -> BTreeMap<IncId, PublicKeyWithParams> {
+    pub fn get_public_key_by_did(id: &Controller) -> BTreeMap<IncId, PublicKeyWithParams> {
         let mut keys = BTreeMap::new();
         for (idx, pk) in BbsPlusKeys::iter_prefix(id) {
             let params = match &pk.params_ref {
@@ -391,12 +382,12 @@ mod test {
         params: &BbsPlusParameters,
         signer: Did,
         key_id: u32,
-    ) -> DidSignature {
+    ) -> DidSignature<BBSPlusParamsOwner> {
         let payload = AddBBSPlusParams {
             params: params.clone(),
             _marker: PhantomData,
         };
-        did_sig::<T, _>(&payload, keypair, signer, key_id)
+        did_sig::<T, _, _>(&payload, keypair, BBSPlusParamsOwner(signer), key_id)
     }
 
     fn sign_remove_params<T: frame_system::Config>(
@@ -404,8 +395,8 @@ mod test {
         rp: &RemoveBBSPlusParams<T>,
         signer: Did,
         key_id: u32,
-    ) -> DidSignature {
-        did_sig::<T, _>(rp, keypair, signer, key_id)
+    ) -> DidSignature<BBSPlusParamsOwner> {
+        did_sig::<T, _, _>(rp, keypair, BBSPlusParamsOwner(signer), key_id)
     }
 
     fn sign_add_key<T: frame_system::Config>(
@@ -413,8 +404,8 @@ mod test {
         ak: &AddBBSPlusPublicKey<T>,
         signer: Did,
         key_id: u32,
-    ) -> DidSignature {
-        did_sig::<T, _>(ak, keypair, signer, key_id)
+    ) -> DidSignature<Controller> {
+        did_sig::<T, _, _>(ak, keypair, Controller(signer), key_id)
     }
 
     fn sign_remove_key<T: frame_system::Config>(
@@ -422,8 +413,8 @@ mod test {
         rk: &RemoveBBSPlusPublicKey<T>,
         signer: Did,
         key_id: u32,
-    ) -> DidSignature {
-        did_sig::<T, _>(rk, keypair, signer, key_id)
+    ) -> DidSignature<Controller> {
+        did_sig::<T, _, _>(rk, keypair, Controller(signer), key_id)
     }
 
     fn bbs_plus_events() -> Vec<super::Event> {
@@ -864,7 +855,7 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 11,
             };
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
@@ -882,14 +873,14 @@ mod test {
                 IncId::from(0u8)
             );
             assert!(!bbs_plus_events()
-                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 2u8.into())));
+                .contains(&super::Event::KeyAdded(Controller(author), 2u8.into())));
 
             run_to_block(30);
 
             key.bytes = vec![1u8; 100];
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 11,
             };
 
@@ -902,15 +893,15 @@ mod test {
                 IncId::from(0u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(1u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(1u8)),
                 None
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 None
             );
             assert!(!bbs_plus_events()
-                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 2u8.into())));
+                .contains(&super::Event::KeyAdded(Controller(author), 2u8.into())));
 
             run_to_block(35);
 
@@ -921,18 +912,19 @@ mod test {
                 IncId::from(0u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(1u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(1u8)),
                 None
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
             );
-            assert!(bbs_plus_events()
-                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 2u8.into())));
+            assert!(
+                bbs_plus_events().contains(&super::Event::KeyAdded(Controller(author), 2u8.into()))
+            );
 
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(3u8)),
                 None
             );
             let key_1 = BbsPlusPublicKey {
@@ -942,7 +934,7 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 12,
             };
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
@@ -952,11 +944,12 @@ mod test {
                 IncId::from(0u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(3u8)),
                 Some(key_1)
             );
-            assert!(bbs_plus_events()
-                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 3u8.into())));
+            assert!(
+                bbs_plus_events().contains(&super::Event::KeyAdded(Controller(author), 3u8.into()))
+            );
 
             run_to_block(45);
 
@@ -971,7 +964,7 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key_2.clone(),
-                did: BBSPlusKeysOwner(author_1.clone()),
+                did: Controller(author_1.clone()),
                 nonce: 46,
             };
             let sig = sign_add_key(&author_kp_1, &ak, author_1.clone(), 1);
@@ -980,11 +973,11 @@ mod test {
                 IncId::from(0u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(1u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(1u8)),
                 None
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 None
             );
             BBSPlusMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
@@ -993,17 +986,15 @@ mod test {
                 IncId::from(0u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 Some(key_2.clone())
             );
             assert_eq!(
                 ParamsCounter::get(&BBSPlusParamsOwner(author)),
                 IncId::from(0u8)
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(
-                BBSPlusKeysOwner(author_1),
-                2u8.into()
-            )));
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyAdded(Controller(author_1), 2u8.into())));
 
             run_to_block(55);
 
@@ -1018,7 +1009,7 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key_3.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 13,
             };
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
@@ -1028,18 +1019,19 @@ mod test {
                 IncId::from(0u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(4u8)),
                 Some(key_3.clone())
             );
-            assert!(bbs_plus_events()
-                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 3u8.into())));
+            assert!(
+                bbs_plus_events().contains(&super::Event::KeyAdded(Controller(author), 3u8.into()))
+            );
 
             run_to_block(60);
 
-            let rf = (BBSPlusKeysOwner(author.clone()), 5u8.into());
+            let rf = (Controller(author.clone()), 5u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 14,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
@@ -1048,10 +1040,10 @@ mod test {
                 Error::<Test>::PublicKeyDoesntExist
             );
 
-            let rf = (BBSPlusKeysOwner(author.clone()), 3u8.into());
+            let rf = (Controller(author.clone()), 3u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 14,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
@@ -1063,27 +1055,27 @@ mod test {
             );
             // Entry gone from storage
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(3u8)),
                 None
             );
             // Other entries remain as it is
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(4u8)),
                 Some(key_3.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 Some(key_2)
             );
 
-            let rf = (BBSPlusKeysOwner(author.clone()), 3u8.into());
+            let rf = (Controller(author.clone()), 3u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 15,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
@@ -1095,10 +1087,10 @@ mod test {
 
             run_to_block(70);
 
-            let rf = (BBSPlusKeysOwner(author_1.clone()), 2u8.into());
+            let rf = (Controller(author_1.clone()), 2u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: BBSPlusKeysOwner(author_1.clone()),
+                did: Controller(author_1.clone()),
                 nonce: 47,
             };
             let sig = sign_remove_key(&author_kp_1, &rk, author_1.clone(), 1);
@@ -1110,26 +1102,24 @@ mod test {
             );
             // Entry gone from storage
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 None
             );
             // Other entries remain as it is
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(4u8)),
                 Some(key_3)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(
-                BBSPlusKeysOwner(author_1),
-                2u8.into()
-            )));
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyRemoved(Controller(author_1), 2u8.into())));
 
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: BBSPlusKeysOwner(author_1.clone()),
+                did: Controller(author_1.clone()),
                 nonce: 48,
             };
             let sig = sign_remove_key(&author_kp_1, &rk, author_1.clone(), 1);
@@ -1139,10 +1129,10 @@ mod test {
                 Error::<Test>::PublicKeyDoesntExist
             );
 
-            let rf = (BBSPlusKeysOwner(author.clone()), 4u8.into());
+            let rf = (Controller(author.clone()), 4u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 15,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
@@ -1154,23 +1144,21 @@ mod test {
             );
             // Entry gone from storage
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(4u8)),
                 None
             );
             // Other entries remain as it is
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key)
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(
-                BBSPlusKeysOwner(author),
-                4u8.into()
-            )));
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyRemoved(Controller(author), 4u8.into())));
 
-            let rf = (BBSPlusKeysOwner(author.clone()), 2u8.into());
+            let rf = (Controller(author.clone()), 2u8.into());
             let rk = RemoveBBSPlusPublicKey {
                 key_ref: rf,
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 16,
             };
             let sig = sign_remove_key(&author_kp, &rk, author.clone(), 1);
@@ -1182,13 +1170,11 @@ mod test {
             );
             // Entry gone from storage
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 None
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyRemoved(
-                BBSPlusKeysOwner(author),
-                2u8.into()
-            )));
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyRemoved(Controller(author), 2u8.into())));
 
             run_to_block(80);
 
@@ -1227,7 +1213,7 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key_4.clone(),
-                did: BBSPlusKeysOwner(author_1.clone()),
+                did: Controller(author_1.clone()),
                 nonce: 48,
             };
             let sig = sign_add_key(&author_kp_1, &ak, author_1.clone(), 1);
@@ -1248,7 +1234,7 @@ mod test {
             };
             let ak = AddBBSPlusPublicKey {
                 key: key_4.clone(),
-                did: BBSPlusKeysOwner(author_1.clone()),
+                did: Controller(author_1.clone()),
                 nonce: 48,
             };
             let sig = sign_add_key(&author_kp_1, &ak, author_1.clone(), 1);
@@ -1258,17 +1244,15 @@ mod test {
                 IncId::from(0u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(3u8)),
                 Some(key_4.clone())
             );
-            assert!(bbs_plus_events().contains(&super::Event::KeyAdded(
-                BBSPlusKeysOwner(author_1),
-                3u8.into()
-            )));
+            assert!(bbs_plus_events()
+                .contains(&super::Event::KeyAdded(Controller(author_1), 3u8.into())));
 
             let ak = AddBBSPlusPublicKey {
                 key: key_4.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: 17,
             };
             let sig = sign_add_key(&author_kp, &ak, author.clone(), 1);
@@ -1278,16 +1262,17 @@ mod test {
                 IncId::from(1u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(5u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(5u8)),
                 Some(key_4)
             );
-            assert!(bbs_plus_events()
-                .contains(&super::Event::KeyAdded(BBSPlusKeysOwner(author), 5u8.into())));
+            assert!(
+                bbs_plus_events().contains(&super::Event::KeyAdded(Controller(author), 5u8.into()))
+            );
         });
     }
 
     #[test]
-    fn add_params__keys() {
+    fn add_params_keys() {
         ext().execute_with(|| {
             run_to_block(10);
             let (author, _) = newdid();
@@ -1353,7 +1338,7 @@ mod test {
                 IncId::from(1u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(1u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(1u8)),
                 None
             );
             assert_eq!(
@@ -1369,7 +1354,7 @@ mod test {
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
@@ -1378,11 +1363,11 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(3u8)),
                 None
             );
 
@@ -1391,7 +1376,7 @@ mod test {
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_1.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
@@ -1400,11 +1385,11 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(3u8)),
                 Some(key_1.clone())
             );
 
@@ -1413,7 +1398,7 @@ mod test {
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_2.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
@@ -1422,15 +1407,15 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(3u8)),
                 Some(key_1.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(4u8)),
                 Some(key_2.clone())
             );
 
@@ -1449,15 +1434,15 @@ mod test {
                 IncId::from(2u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(3u8)),
                 Some(key_1.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author), IncId::from(4u8)),
+                BbsPlusKeys::get(&Controller(author), IncId::from(4u8)),
                 Some(key_2.clone())
             );
             assert_eq!(
@@ -1489,7 +1474,7 @@ mod test {
             let did_detail_1 = DIDModule::onchain_did_details(&author_1).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: BBSPlusKeysOwner(author_1.clone()),
+                did: Controller(author_1.clone()),
                 nonce: did_detail_1.next_nonce(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
@@ -1498,7 +1483,7 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 Some(key.clone())
             );
 
@@ -1517,7 +1502,7 @@ mod test {
                 IncId::from(1u8)
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
@@ -1533,7 +1518,7 @@ mod test {
             let did_detail_1 = DIDModule::onchain_did_details(&author_1).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_1.clone(),
-                did: BBSPlusKeysOwner(author_1.clone()),
+                did: Controller(author_1.clone()),
                 nonce: did_detail_1.next_nonce(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
@@ -1542,11 +1527,11 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(2u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 Some(key.clone())
             );
             assert_eq!(
-                BbsPlusKeys::get(&BBSPlusKeysOwner(author_1), IncId::from(3u8)),
+                BbsPlusKeys::get(&Controller(author_1), IncId::from(3u8)),
                 Some(key_1.clone())
             );
         });
@@ -1600,11 +1585,11 @@ mod test {
                 0
             );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author), 0u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(Controller(author), 0u8.into())),
                 None
             );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author_1), 0u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(Controller(author_1), 0u8.into())),
                 None
             );
 
@@ -1614,21 +1599,24 @@ mod test {
                     _marker: PhantomData,
                 },
                 BBSPlusParamsOwner(author),
-            );
+            )
+            .unwrap();
             BBSPlusMod::add_params_(
                 AddBBSPlusParams {
                     params: params_1.clone(),
                     _marker: PhantomData,
                 },
                 BBSPlusParamsOwner(author_1),
-            );
+            )
+            .unwrap();
             BBSPlusMod::add_params_(
                 AddBBSPlusParams {
                     params: params_2.clone(),
                     _marker: PhantomData,
                 },
                 BBSPlusParamsOwner(author_1),
-            );
+            )
+            .unwrap();
 
             assert_eq!(
                 BBSPlusMod::get_params_by_did(&BBSPlusParamsOwner(author)),
@@ -1652,7 +1640,7 @@ mod test {
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert!(
@@ -1660,14 +1648,14 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author), 2u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(Controller(author), 2u8.into())),
                 Some((key.clone(), None))
             );
 
             let did_detail_1 = DIDModule::onchain_did_details(&author_1).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_1.clone(),
-                did: BBSPlusKeysOwner(author_1.clone()),
+                did: Controller(author_1.clone()),
                 nonce: did_detail_1.next_nonce(),
             };
             assert!(
@@ -1675,14 +1663,14 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author_1), 2u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(Controller(author_1), 2u8.into())),
                 Some((key_1.clone(), Some(params.clone())))
             );
 
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
             let ak = AddBBSPlusPublicKey {
                 key: key_2.clone(),
-                did: BBSPlusKeysOwner(author.clone()),
+                did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
             assert!(
@@ -1690,28 +1678,22 @@ mod test {
                     .is_ok()
             );
             assert_eq!(
-                BBSPlusMod::get_public_key_with_params(&(BBSPlusKeysOwner(author), 3u8.into())),
+                BBSPlusMod::get_public_key_with_params(&(Controller(author), 3u8.into())),
                 Some((key_2.clone(), Some(params_1.clone())))
             );
 
-            assert_eq!(
-                BBSPlusMod::get_public_key_by_did(&BBSPlusKeysOwner(author_1)),
-                {
-                    let mut m = BTreeMap::new();
-                    m.insert(2u8.into(), (key_1.clone(), Some(params.clone())));
-                    m
-                }
-            );
+            assert_eq!(BBSPlusMod::get_public_key_by_did(&Controller(author_1)), {
+                let mut m = BTreeMap::new();
+                m.insert(2u8.into(), (key_1.clone(), Some(params.clone())));
+                m
+            });
 
-            assert_eq!(
-                BBSPlusMod::get_public_key_by_did(&BBSPlusKeysOwner(author)),
-                {
-                    let mut m = BTreeMap::new();
-                    m.insert(2u8.into(), (key.clone(), None));
-                    m.insert(3u8.into(), (key_2.clone(), Some(params_1.clone())));
-                    m
-                }
-            );
+            assert_eq!(BBSPlusMod::get_public_key_by_did(&Controller(author)), {
+                let mut m = BTreeMap::new();
+                m.insert(2u8.into(), (key.clone(), None));
+                m.insert(3u8.into(), (key_2.clone(), Some(params_1.clone())));
+                m
+            });
 
             BbsPlusParams::<Test>::remove(&BBSPlusParamsOwner(author), IncId::from(1u8));
 
@@ -1720,14 +1702,11 @@ mod test {
                 0
             );
 
-            assert_eq!(
-                BBSPlusMod::get_public_key_by_did(&BBSPlusKeysOwner(author_1)),
-                {
-                    let mut m = BTreeMap::new();
-                    m.insert(2u8.into(), (key_1.clone(), None));
-                    m
-                }
-            );
+            assert_eq!(BBSPlusMod::get_public_key_by_did(&Controller(author_1)), {
+                let mut m = BTreeMap::new();
+                m.insert(2u8.into(), (key_1.clone(), None));
+                m
+            });
         });
     }
 }

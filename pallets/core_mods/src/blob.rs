@@ -88,7 +88,7 @@ decl_module! {
         pub fn new(
             origin,
             blob: AddBlob<T>,
-            signature: DidSignature,
+            signature: DidSignature<BlobOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -96,7 +96,7 @@ decl_module! {
                 BlobError::<T>::InvalidSig
             );
 
-            Module::<T>::new_(blob, BlobOwner(signature.did))?;
+            Module::<T>::new_(blob, signature.did)?;
             Ok(())
         }
     }
@@ -151,13 +151,13 @@ mod tests {
                 blob: bl.clone(),
                 _marker: PhantomData,
             },
-            did_sig::<Test, _>(
+            did_sig::<Test, _, _>(
                 &AddBlob {
                     blob: bl,
                     _marker: PhantomData,
                 },
                 &author_kp,
-                *author,
+                author,
                 1,
             ),
         )
@@ -251,7 +251,7 @@ mod tests {
                         blob: bl.clone(),
                         _marker: PhantomData,
                     },
-                    did_sig(&remreg, &author_kp, author, 1),
+                    did_sig(&remreg, &author_kp, BlobOwner(author), 1),
                 )
                 .unwrap_err();
                 assert_eq!(err, BlobError::<Test>::InvalidSig.into());
@@ -271,13 +271,13 @@ mod tests {
                         blob: bl.clone(),
                         _marker: PhantomData,
                     },
-                    did_sig::<Test, _>(
+                    did_sig::<Test, _, _>(
                         &AddBlob {
                             blob: bl,
                             _marker: PhantomData,
                         },
                         &author_kp,
-                        author,
+                        BlobOwner(author),
                         1,
                     ),
                 )

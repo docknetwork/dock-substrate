@@ -320,7 +320,7 @@ decl_module! {
         pub fn add_params(
             origin,
             params: AddAccumulatorParams<T>,
-            signature: DidSignature,
+            signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -328,7 +328,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::add_params_(params, AccumulatorOwner(signature.did))?;
+            Module::<T>::add_params_(params, signature.did)?;
             Ok(())
         }
 
@@ -339,7 +339,7 @@ decl_module! {
         pub fn add_public_key(
             origin,
             public_key: AddAccumulatorPublicKey<T>,
-            signature: DidSignature,
+            signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -347,7 +347,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::add_public_key_(public_key, AccumulatorOwner(signature.did))?;
+            Module::<T>::add_public_key_(public_key, signature.did)?;
             Ok(())
         }
 
@@ -355,7 +355,7 @@ decl_module! {
         pub fn remove_params(
             origin,
             remove: RemoveAccumulatorParams<T>,
-            signature: DidSignature,
+            signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -363,14 +363,14 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::remove_params_(remove, AccumulatorOwner(signature.did))
+            Module::<T>::remove_params_(remove, signature.did)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
         pub fn remove_public_key(
             origin,
             remove: RemoveAccumulatorPublicKey<T>,
-            signature: DidSignature,
+            signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -378,7 +378,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::remove_public_key_(remove, AccumulatorOwner(signature.did))?;
+            Module::<T>::remove_public_key_(remove, signature.did)?;
             Ok(())
         }
 
@@ -394,7 +394,7 @@ decl_module! {
         pub fn add_accumulator(
             origin,
             add_accumulator: AddAccumulator<T>,
-            signature: DidSignature,
+            signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -417,7 +417,7 @@ decl_module! {
         pub fn update_accumulator(
             origin,
             update: UpdateAccumulator<T>,
-            signature: DidSignature,
+            signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -425,7 +425,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::update_accumulator_(update, AccumulatorOwner(signature.did))?;
+            Module::<T>::update_accumulator_(update, signature.did)?;
             Ok(())
         }
 
@@ -433,7 +433,7 @@ decl_module! {
         pub fn remove_accumulator(
             origin,
             remove: RemoveAccumulator<T>,
-            signature: DidSignature,
+            signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             ensure!(
@@ -441,7 +441,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::remove_accumulator_(remove, AccumulatorOwner(signature.did))
+            Module::<T>::remove_accumulator_(remove, signature.did)
         }
     }
 }
@@ -657,12 +657,12 @@ mod test {
         params: &AccumulatorParameters,
         signer: AccumulatorOwner,
         key_id: u32,
-    ) -> DidSignature {
+    ) -> DidSignature<AccumulatorOwner> {
         let payload = AddAccumulatorParams {
             params: params.clone(),
             _marker: PhantomData,
         };
-        did_sig::<T, _>(&payload, keypair, *signer, key_id)
+        did_sig::<T, _, _>(&payload, keypair, signer, key_id)
     }
 
     fn sign_remove_params<T: frame_system::Config>(
@@ -670,8 +670,8 @@ mod test {
         remove: &RemoveAccumulatorParams<T>,
         signer: AccumulatorOwner,
         key_id: u32,
-    ) -> DidSignature {
-        did_sig::<T, _>(remove, keypair, *signer, key_id)
+    ) -> DidSignature<AccumulatorOwner> {
+        did_sig::<T, _, _>(remove, keypair, signer, key_id)
     }
 
     fn sign_add_key<T: frame_system::Config>(
@@ -679,12 +679,12 @@ mod test {
         public_key: &AccumulatorPublicKey,
         signer: AccumulatorOwner,
         key_id: u32,
-    ) -> DidSignature {
+    ) -> DidSignature<AccumulatorOwner> {
         let payload = AddAccumulatorPublicKey {
             public_key: public_key.clone(),
             _marker: PhantomData,
         };
-        did_sig::<T, _>(&payload, keypair, *signer, key_id)
+        did_sig::<T, _, _>(&payload, keypair, signer, key_id)
     }
 
     fn sign_remove_key<T: frame_system::Config>(
@@ -692,8 +692,8 @@ mod test {
         remove: &RemoveAccumulatorPublicKey<T>,
         signer: AccumulatorOwner,
         key_id: u32,
-    ) -> DidSignature {
-        did_sig::<T, _>(remove, keypair, *signer, key_id)
+    ) -> DidSignature<AccumulatorOwner> {
+        did_sig::<T, _, _>(remove, keypair, signer, key_id)
     }
 
     fn sign_add_accum<T: frame_system::Config>(
@@ -701,8 +701,8 @@ mod test {
         accum: &AddAccumulator<T>,
         signer: AccumulatorOwner,
         key_id: u32,
-    ) -> DidSignature {
-        did_sig::<T, _>(accum, keypair, *signer, key_id)
+    ) -> DidSignature<AccumulatorOwner> {
+        did_sig::<T, _, _>(accum, keypair, signer, key_id)
     }
 
     fn sign_remove_accum<T: frame_system::Config>(
@@ -710,8 +710,8 @@ mod test {
         remove: &RemoveAccumulator<T>,
         signer: AccumulatorOwner,
         key_id: u32,
-    ) -> DidSignature {
-        did_sig::<T, _>(remove, keypair, *signer, key_id)
+    ) -> DidSignature<AccumulatorOwner> {
+        did_sig::<T, _, _>(remove, keypair, signer, key_id)
     }
 
     fn sign_update_accum<T: frame_system::Config>(
@@ -719,8 +719,8 @@ mod test {
         update: &UpdateAccumulator<T>,
         signer: AccumulatorOwner,
         key_id: u32,
-    ) -> DidSignature {
-        did_sig::<T, _>(update, keypair, *signer, key_id)
+    ) -> DidSignature<AccumulatorOwner> {
+        did_sig::<T, _, _>(update, keypair, signer, key_id)
     }
 
     fn accumulator_events() -> Vec<(super::Event, Vec<H256>)> {

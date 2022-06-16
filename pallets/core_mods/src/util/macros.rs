@@ -151,6 +151,12 @@ macro_rules! deposit_indexed_event {
 #[macro_export]
 macro_rules! impl_wrapper {
     ($wrapper: ident, $type: ty) => {
+        impl sp_std::borrow::Borrow<$type> for $wrapper {
+            fn borrow(&self) -> &$type {
+                &self.0
+            }
+        }
+
         impl From<$type> for $wrapper {
             fn from(value: $type) -> $wrapper {
                 $wrapper(value)

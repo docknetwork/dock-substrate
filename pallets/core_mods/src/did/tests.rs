@@ -721,7 +721,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -743,7 +743,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -805,7 +805,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: did_2.clone(),
+                    did: Controller(did_2.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -829,7 +829,7 @@ fn add_keys_to_did() {
                     Origin::signed(alice),
                     add_keys,
                     DidSignature {
-                        did: did_1.clone(),
+                        did: Controller(did_1.clone()),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -854,7 +854,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -877,7 +877,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -900,7 +900,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -922,7 +922,7 @@ fn add_keys_to_did() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -957,7 +957,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys.clone(),
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 3u32.into(),
                     sig
                 }
@@ -971,7 +971,7 @@ fn add_keys_to_did() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1047,7 +1047,7 @@ fn remove_keys_from_did() {
                     Origin::signed(alice),
                     remove_keys,
                     DidSignature {
-                        did: did_1.clone(),
+                        did: Controller(did_1.clone()),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1070,7 +1070,7 @@ fn remove_keys_from_did() {
                 Origin::signed(alice),
                 remove_keys,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1087,7 +1087,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1104,7 +1104,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: did_2.clone(),
+                did: Controller(did_2.clone()),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1133,7 +1133,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: did_5.clone(),
+                did: Controller(did_5.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1150,7 +1150,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: did_2.clone(),
+                did: Controller(did_2.clone()),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1237,7 +1237,7 @@ fn remove_controllers_from_did() {
                     Origin::signed(alice),
                     remove_controllers,
                     DidSignature {
-                        did: did_1.clone(),
+                        did: Controller(did_1.clone()),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1261,7 +1261,7 @@ fn remove_controllers_from_did() {
                 Origin::signed(alice),
                 remove_controllers,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1278,7 +1278,7 @@ fn remove_controllers_from_did() {
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1296,7 +1296,7 @@ fn remove_controllers_from_did() {
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: did_2.clone(),
+                did: Controller(did_2.clone()),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1313,7 +1313,7 @@ fn remove_controllers_from_did() {
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: did_2.clone(),
+                did: Controller(did_2.clone()),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1331,7 +1331,7 @@ fn remove_controllers_from_did() {
                 Origin::signed(alice),
                 remove_controllers,
                 DidSignature {
-                    did: did_2.clone(),
+                    did: Controller(did_2.clone()),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1373,7 +1373,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1392,7 +1392,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1462,7 +1462,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: did_2.clone(),
+                    did: Controller(did_2.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1483,7 +1483,7 @@ fn add_controllers_to_did() {
                     Origin::signed(alice),
                     add_controllers,
                     DidSignature {
-                        did: did_1.clone(),
+                        did: Controller(did_1.clone()),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1504,7 +1504,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers.clone(),
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1518,7 +1518,7 @@ fn add_controllers_to_did() {
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1539,7 +1539,7 @@ fn add_controllers_to_did() {
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: did_3.clone(),
+                did: Controller(did_3.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1605,7 +1605,7 @@ fn becoming_controller() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1628,7 +1628,7 @@ fn becoming_controller() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1720,7 +1720,7 @@ fn any_controller_can_update() {
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: did_2.clone(),
+                did: Controller(did_2.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1742,7 +1742,7 @@ fn any_controller_can_update() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1797,7 +1797,7 @@ fn service_endpoints() {
                 Origin::signed(alice),
                 add_service_endpoint.clone(),
                 DidSignature {
-                    did: did.clone(),
+                    did: Controller(did.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1842,7 +1842,7 @@ fn service_endpoints() {
                 Origin::signed(alice),
                 add_service_endpoint.clone(),
                 DidSignature {
-                    did: did.clone(),
+                    did: Controller(did.clone()),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1922,7 +1922,7 @@ fn service_endpoints() {
                     Origin::signed(alice),
                     add_service_endpoint.clone(),
                     DidSignature {
-                        did: did.clone(),
+                        did: Controller(did.clone()),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1948,7 +1948,7 @@ fn service_endpoints() {
             Origin::signed(alice),
             add_service_endpoint.clone(),
             DidSignature {
-                did: did.clone(),
+                did: Controller(did.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1982,7 +1982,7 @@ fn service_endpoints() {
                 Origin::signed(alice),
                 add_service_endpoint.clone(),
                 DidSignature {
-                    did: did.clone(),
+                    did: Controller(did.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2005,7 +2005,7 @@ fn service_endpoints() {
             Origin::signed(alice),
             add_service_endpoint.clone(),
             DidSignature {
-                did: did.clone(),
+                did: Controller(did.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2035,7 +2035,7 @@ fn service_endpoints() {
                 Origin::signed(alice),
                 rem_service_endpoint.clone(),
                 DidSignature {
-                    did: did.clone(),
+                    did: Controller(did.clone()),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -2056,7 +2056,7 @@ fn service_endpoints() {
                 Origin::signed(alice),
                 rem_service_endpoint.clone(),
                 DidSignature {
-                    did: did.clone(),
+                    did: Controller(did.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2075,7 +2075,7 @@ fn service_endpoints() {
             Origin::signed(alice),
             rem_service_endpoint.clone(),
             DidSignature {
-                did: did.clone(),
+                did: Controller(did.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2095,7 +2095,7 @@ fn service_endpoints() {
                 Origin::signed(alice),
                 rem_service_endpoint.clone(),
                 DidSignature {
-                    did: did.clone(),
+                    did: Controller(did.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2114,7 +2114,7 @@ fn service_endpoints() {
             Origin::signed(alice),
             rem_service_endpoint.clone(),
             DidSignature {
-                did: did.clone(),
+                did: Controller(did.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2133,7 +2133,7 @@ fn service_endpoints() {
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: did.clone(),
+                    did: Controller(did.clone()),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -2153,7 +2153,7 @@ fn service_endpoints() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: did.clone(),
+                did: Controller(did.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2248,7 +2248,7 @@ fn did_removal() {
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: did_2.clone(),
+                    did: Controller(did_2.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2263,7 +2263,7 @@ fn did_removal() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2281,7 +2281,7 @@ fn did_removal() {
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: did_1.clone(),
+                    did: Controller(did_1.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2300,7 +2300,7 @@ fn did_removal() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2319,7 +2319,7 @@ fn did_removal() {
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: did_3.clone(),
+                    did: Controller(did_3.clone()),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2338,7 +2338,7 @@ fn did_removal() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: did_4.clone(),
+                did: Controller(did_4.clone()),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2355,7 +2355,7 @@ fn did_removal() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: did_1.clone(),
+                did: Controller(did_1.clone()),
                 key_id: 1u32.into(),
                 sig
             }

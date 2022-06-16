@@ -159,9 +159,9 @@ impl<T: Config + Debug> Module<T> {
         }
     }
 
-    /// Return `did`'s key with id `key_id` only if it can authenticate or control otherwise throw error
-    pub fn auth_or_control_key(did: &Controller, key_id: IncId) -> Result<PublicKey, Error<T>> {
-        let did_key = DidKeys::get(did.0, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+    /// Return `did`'s key with id `key_id` only if it can authenticate or control otherwise returns an error
+    pub fn auth_or_control_key(did: &Did, key_id: IncId) -> Result<PublicKey, Error<T>> {
+        let did_key = DidKeys::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
         if did_key.can_authenticate_or_control() {
             Ok(did_key.public_key)

@@ -29,7 +29,7 @@ pub use core_mods::anchor;
 //pub use core_mods::blob;
 pub use core_mods::did;
 //pub use core_mods::master;
-// pub use core_mods::revoke;
+pub use core_mods::revoke;
 pub mod weight_to_fee;
 
 pub use poa;
@@ -1334,10 +1334,10 @@ construct_runtime!(
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
         Utility: pallet_utility::{Module, Call, Event},
-        DIDModule: did::{Module, Call, Storage, Event, Config},
+        DIDModule: did::{Module, Call, Storage, Event},
         Revoke: revoke::{Module, Call, Storage, Event},
-        BlobStore: blob::{Module, Call, Storage},
-        Master: master::{Module, Call, Storage, Event<T>, Config},
+        // BlobStore: blob::{Module, Call, Storage},
+        // Master: master::{Module, Call, Storage, Event<T>, Config},
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
         MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
         /*Anchor: anchor::{Module, Call, Storage, Event<T>},

@@ -22,7 +22,7 @@ pub type RegistryId = [u8; 32];
 pub type RevokeId = [u8; 32];
 
 /// Proof of authorization to modify a registry. It can be made a set instead of a map but that causes serialization errors
-pub type PAuth = BTreeMap<Did, DidSignature>;
+pub type PAuth = BTreeMap<Did, DidSignature<Did>>;
 
 /// Authorization logic for a registry.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
@@ -338,6 +338,18 @@ impl<T: Config + Debug> Module<T> {
         Ok(())
     }
 
+    /// Executes action over target registry providing a mutable reference if all checks succeed.
+    ///
+    /// Unlike `exec_registry_action`, this action may result in a removal of a DID, if the value under option
+    /// will be taken.
+    ///
+    /// Checks:
+    /// 1. Ensure that the registry exists and this is not a replayed payload by checking the equality
+    /// with stored block number when the registry was last modified.
+    /// 2. Veryfy that `proof` authorizes `action` according to `policy`.
+    ///
+    /// Returns a mutable reference to the underlying registry wrapped into an option if the command is authorized,
+    /// otherwise returns Err.
     pub(crate) fn exec_removable_registry_action<A, F, R, E>(
         action: A,
         proof: PAuth,
@@ -378,14 +390,14 @@ impl<T: Config + Debug> Module<T> {
         })
     }
 
-    /// Ensure that the registry exists and this is not a replayed payload by checking the equality
-    /// with stored block number when the registry was last modified.
-
-    /// Ensure that the registry exists and this is not a replayed payload and the sender of the payload
-    /// is authorized
-    /// Check whether `proof` authorizes `action` according to `policy`.
+    /// Executes action over target registry providing a mutable reference if all checks succeed.
     ///
-    /// Returns Ok if command is authorized, otherwise returns Err.
+    /// Checks:
+    /// 1. Ensure that the registry exists and this is not a replayed payload by checking the equality
+    /// with stored block number when the registry was last modified.
+    /// 2. Veryfy that `proof` authorizes `action` according to `policy`.
+    ///
+    /// Returns a mutable reference to the underlying registry if the command is authorized, otherwise returns Err.
     pub(crate) fn exec_registry_action<A, F, R, E>(
         action: A,
         proof: PAuth,
@@ -463,12 +475,12 @@ mod errors {
                 revoke_ids: random::<[RevokeId; 32]>().iter().cloned().collect(),
                 nonce: start + 1,
             };
-            let proof: BTreeMap<Did, DidSignature> = signers
+            let proof: BTreeMap<Did, DidSignature<Did>> = signers
                 .iter()
                 .map(|(did, kp)| {
                     (
                         did.clone(),
-                        did_sig::<Test, _>(&revoke, &kp, did.clone(), 1),
+                        did_sig::<Test, _, _>(&revoke, &kp, did.clone(), 1),
                     )
                 })
                 .collect();
@@ -523,7 +535,7 @@ mod errors {
             revoke_ids: BTreeSet::new(),
             nonce: start + 1,
         };
-        let ur_proof: BTreeMap<Did, DidSignature> =
+        let ur_proof: BTreeMap<Did, DidSignature<Did>> =
             once((DIDA, did_sig(&unrevoke, &kpa, DIDA, 1))).collect();
         let revoke = Revoke::<Test> {
             registry_id,
@@ -683,7 +695,7 @@ mod errors {
             revoke_ids,
             nonce: start + 1,
         };
-        let ur_proof = once((DIDA, did_sig::<Test, _>(&unrevoke, &kpa, DIDA, 1))).collect();
+        let ur_proof = once((DIDA, did_sig::<Test, _, _>(&unrevoke, &kpa, DIDA, 1))).collect();
         assert_eq!(
             RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, ur_proof),
             err
@@ -693,7 +705,8 @@ mod errors {
             registry_id,
             nonce: start + 1,
         };
-        let rr_proof = once((DIDA, did_sig::<Test, _>(&removeregistry, &kpa, DIDA, 1))).collect();
+        let rr_proof =
+            once((DIDA, did_sig::<Test, _, _>(&removeregistry, &kpa, DIDA, 1))).collect();
         assert_eq!(
             RevoMod::remove_registry(Origin::signed(ABBA), removeregistry, rr_proof),
             err
@@ -795,7 +808,7 @@ mod calls {
                 revoke_ids: ids.iter().cloned().collect(),
                 nonce,
             };
-            let proof = once((DIDA, did_sig::<Test, _>(&revoke, &kpa, DIDA, 1))).collect();
+            let proof = once((DIDA, did_sig::<Test, _, _>(&revoke, &kpa, DIDA, 1))).collect();
 
             RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
             assert!(ids
@@ -858,7 +871,8 @@ mod calls {
                         revoke_ids,
                         nonce,
                     };
-                    let proof = once((DIDA, did_sig::<Test, _>(&revoke, &kpa, DIDA, 1))).collect();
+                    let proof =
+                        once((DIDA, did_sig::<Test, _, _>(&revoke, &kpa, DIDA, 1))).collect();
                     RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
                 }
                 Action::UnRevo => {
@@ -869,7 +883,7 @@ mod calls {
                         nonce,
                     };
                     let proof =
-                        once((DIDA, did_sig::<Test, _>(&unrevoke, &kpa, DIDA, 1))).collect();
+                        once((DIDA, did_sig::<Test, _, _>(&unrevoke, &kpa, DIDA, 1))).collect();
                     RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, proof).unwrap();
                 }
                 Action::AsrtRv => {
@@ -907,7 +921,7 @@ mod calls {
             registry_id,
             nonce: start + 1,
         };
-        let proof = once((DIDA, did_sig::<Test, _>(&rem, &kpa, DIDA, 1))).collect();
+        let proof = once((DIDA, did_sig::<Test, _, _>(&rem, &kpa, DIDA, 1))).collect();
         RevoMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
 
         // assert not exists
@@ -930,14 +944,12 @@ mod calls {
 #[cfg(test)]
 /// Miscellaneous tests
 mod test {
-    use alloc::borrow::Cow;
     use frame_support::StorageMap;
     use sp_runtime::DispatchError;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
     use super::{Did, Policy, Registry, Revoke, RevokeId, StoredRegistry};
     use crate::{revoke::Registries, test_common::*, util::WithNonce};
     use alloc::collections::BTreeSet;
-    use codec::Encode;
     use sp_core::sr25519;
 
     #[test]
@@ -983,7 +995,7 @@ mod test {
             let command = &rev;
             let proof = signers
                 .iter()
-                .map(|(did, kp)| (did.clone(), did_sig::<Test, _>(command, &kp, *did, 1)))
+                .map(|(did, kp)| (did.clone(), did_sig::<Test, _, _>(command, &kp, *did, 1)))
                 .collect();
             let res = RevoMod::exec_registry_action(command.clone(), proof, |_, _| {
                 Ok::<_, DispatchError>(())
@@ -1032,7 +1044,7 @@ mod test {
             revoke_ids: once(revid).collect(),
             nonce: (nonce + 1).into(),
         };
-        let proof = once((DIDA, did_sig::<Test, _>(&revoke, &kpa, DIDA, 1))).collect();
+        let proof = once((DIDA, did_sig::<Test, _, _>(&revoke, &kpa, DIDA, 1))).collect();
 
         assert_eq!(RevoMod::get_revocation_status(registry_id, revid), None);
         RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();

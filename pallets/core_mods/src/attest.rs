@@ -15,7 +15,7 @@ use sp_std::vec::Vec;
 
 pub type Iri = Vec<u8>;
 
-/// Attester is a DID giving an attestation to some entity.
+/// Attester is a DID giving an attestation to arbitrary (and arbitrarily large) RDF claimgraphs.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -106,7 +106,7 @@ decl_module! {
         fn set_claim(
             origin,
             attests: SetAttestationClaim<T>,
-            signature: DidSignature,
+            signature: DidSignature<Attester>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
             // check
@@ -115,7 +115,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::set_claim_(attests, Attester(signature.did))
+            Module::<T>::set_claim_(attests, signature.did)
         }
     }
 }
@@ -159,13 +159,13 @@ mod test {
                     attest: att.clone(),
                     _marker: PhantomData,
                 },
-                did_sig::<Test, _>(
+                did_sig::<Test, _, _>(
                     &SetAttestationClaim {
                         attest: att,
                         _marker: PhantomData,
                     },
                     &kp,
-                    *did,
+                    did,
                     1,
                 ),
             )
@@ -208,13 +208,13 @@ mod test {
                 priority: 1,
                 iri: None,
             };
-            let sig = did_sig::<Test, _>(
+            let sig = did_sig::<Test, _, _>(
                 &SetAttestationClaim {
                     attest: att.clone(),
                     _marker: PhantomData,
                 },
                 &kpa,
-                dida,
+                Attester(dida),
                 1,
             );
             // Modify payload so sig doesn't match
@@ -248,13 +248,13 @@ mod test {
                     attest: att.clone(),
                     _marker: PhantomData,
                 },
-                did_sig::<Test, _>(
+                did_sig::<Test, _, _>(
                     &SetAttestationClaim {
                         attest: att,
                         _marker: PhantomData,
                     },
                     &kpb,
-                    dida,
+                    Attester(dida),
                     1,
                 ),
             )
@@ -432,13 +432,13 @@ mod test {
                 attest: att.clone(),
                 _marker: PhantomData,
             },
-            did_sig::<Test, _>(
+            did_sig::<Test, _, _>(
                 &SetAttestationClaim {
                     attest: att.clone(),
                     _marker: PhantomData,
                 },
                 kp,
-                *claimer.clone(),
+                claimer.clone(),
                 1,
             ),
         )

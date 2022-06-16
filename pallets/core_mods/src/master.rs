@@ -93,7 +93,7 @@ pub struct MasterVote<T> {
 }
 
 /// Proof of authorization by Master.
-pub type PMAuth = BTreeMap<Did, DidSignature>;
+pub type PMAuth = BTreeMap<Did, DidSignature<Did>>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -378,7 +378,6 @@ impl<T: Config + Debug> Module<T> {
 
 #[cfg(test)]
 mod test {
-    use alloc::borrow::Cow;
     use codec::Encode;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
     use super::{
@@ -498,8 +497,8 @@ mod test {
                 Origin::signed(0),
                 Box::new(call.clone()),
                 map(&[
-                    (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
-                    (didc, did_sig::<Test, _>(&sc, &didck, didc, 1)),
+                    (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
+                    (didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1)),
                 ]),
             )
             .unwrap();
@@ -558,11 +557,11 @@ mod test {
         ext().execute_with(|| {
             let (dida, didak) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = (MasterVote {
+            let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
                 _marker: PhantomData,
-            });
+            };
             Members::set(Membership {
                 members: set(&[]),
                 vote_requirement: 1,
@@ -570,7 +569,7 @@ mod test {
             let err = MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call),
-                map(&[(dida, did_sig::<Test, _>(&sc, &didak, dida, 1))]),
+                map(&[(dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::NotMember.into());
@@ -585,11 +584,11 @@ mod test {
             let (didc, didck) = newdid();
             let kv = (vec![4; 200], vec![5; 200]);
             let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
-            let sc = (MasterVote {
+            let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
                 _marker: PhantomData,
-            });
+            };
             Members::set(Membership {
                 members: set(&[dida, didb, didc]),
                 vote_requirement: 2,
@@ -600,8 +599,8 @@ mod test {
                 Origin::signed(0),
                 Box::new(call.clone()),
                 map(&[
-                    (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
-                    (didc, did_sig::<Test, _>(&sc, &didck, didc, 1)),
+                    (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
+                    (didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1)),
                 ]),
             )
             .unwrap();
@@ -616,11 +615,11 @@ mod test {
             let (didb, didbk) = newdid();
             let (didc, didck) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = (MasterVote {
+            let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
                 _marker: PhantomData,
-            });
+            };
             Members::set(Membership {
                 members: set(&[dida, didb, didc]),
                 vote_requirement: 3,
@@ -629,9 +628,9 @@ mod test {
                 Origin::signed(0),
                 Box::new(call.clone()),
                 map(&[
-                    (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
-                    (didb, did_sig::<Test, _>(&sc, &didbk, didb, 1)),
-                    (didc, did_sig::<Test, _>(&sc, &didck, didc, 1)),
+                    (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
+                    (didb, did_sig::<Test, _, _>(&sc, &didbk, didb, 1)),
+                    (didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1)),
                 ]),
             )
             .unwrap();
@@ -651,34 +650,34 @@ mod test {
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
 
             {
-                let sc = (MasterVote {
+                let sc = MasterVote {
                     proposal: call.encode(),
                     round_no: 0,
                     _marker: PhantomData,
-                });
+                };
                 MasterMod::execute(
                     Origin::signed(0),
                     Box::new(call.clone()),
                     map(&[
-                        (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
-                        (didc, did_sig::<Test, _>(&sc, &didck, didc, 1)),
+                        (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
+                        (didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1)),
                     ]),
                 )
                 .unwrap();
             }
 
             {
-                let sc = (MasterVote {
+                let sc = MasterVote {
                     proposal: call.encode(),
                     round_no: 1,
                     _marker: PhantomData,
-                });
+                };
                 MasterMod::execute(
                     Origin::signed(0),
                     Box::new(call.clone()),
                     map(&[
-                        (dida, did_sig::<Test, _>(&sc, &didak, dida, 1)),
-                        (didb, did_sig::<Test, _>(&sc, &didbk, didb, 1)),
+                        (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
+                        (didb, did_sig::<Test, _, _>(&sc, &didbk, didb, 1)),
                     ]),
                 )
                 .unwrap();
@@ -697,21 +696,21 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Box::new(Call::System(system::Call::<Test>::set_storage(vec![])));
-            let sc = (MasterVote {
+            let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: 0,
                 _marker: PhantomData,
-            });
+            };
 
             {
-                let sig = did_sig::<Test, _>(&sc, &didbk, didb, 1); // <-- signing with wrong key
+                let sig = did_sig::<Test, _, _>(&sc, &didbk, didb, 1); // <-- signing with wrong key
                 let err = MasterMod::execute(Origin::signed(0), call.clone(), map(&[(dida, sig)]))
                     .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
             }
 
             {
-                let sig = did_sig::<Test, _>(&sc, &didck, _didc, 1); // <-- signing with wrong key, not in member set
+                let sig = did_sig::<Test, _, _>(&sc, &didck, _didc, 1); // <-- signing with wrong key, not in member set
                 let err = MasterMod::execute(Origin::signed(0), call.clone(), map(&[(dida, sig)]))
                     .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
@@ -726,7 +725,7 @@ mod test {
                 let err = MasterMod::execute(
                     Origin::signed(0),
                     call.clone(),
-                    map(&[(dida, did_sig::<Test, _>(&sc, &didak, dida, 1))]),
+                    map(&[(dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1))]),
                 )
                 .unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
@@ -744,15 +743,15 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Box::new(Call::System(system::Call::<Test>::set_storage(vec![])));
-            let sc = (MasterVote {
+            let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: 0,
                 _marker: PhantomData,
-            });
+            };
             let err = MasterMod::execute(
                 Origin::signed(0),
                 call.clone(),
-                map(&[(didc, did_sig::<Test, _>(&sc, &didck, didc, 1))]),
+                map(&[(didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::NotMember.into());
@@ -768,12 +767,12 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = (MasterVote {
+            let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
                 _marker: PhantomData,
-            });
-            let sig = did_sig::<Test, _>(&sc, &didak, dida, 1);
+            };
+            let sig = did_sig::<Test, _, _>(&sc, &didak, dida, 1);
 
             MasterMod::execute(
                 Origin::signed(0),
@@ -797,11 +796,11 @@ mod test {
             let (dida, didak) = newdid();
             let (didb, _didbk) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = (MasterVote {
+            let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
                 _marker: PhantomData,
-            });
+            };
             Members::set(Membership {
                 members: set(&[dida, didb]),
                 vote_requirement: 2,
@@ -810,7 +809,7 @@ mod test {
             let err = MasterMod::execute(
                 Origin::signed(0),
                 Box::new(call.clone()),
-                map(&[(dida, did_sig::<Test, _>(&sc, &didak, dida, 1))]),
+                map(&[(dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1))]),
             )
             .unwrap_err();
             assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());

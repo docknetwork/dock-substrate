@@ -5,7 +5,7 @@ use crate::anchor;
 use crate::attest;
 use crate::bbs_plus;
 use crate::blob;
-use crate::did::{self, Controller, Did, DidKey, DidSignature};
+use crate::did::{self, Did, DidKey, DidSignature};
 use crate::master;
 use crate::revoke;
 use crate::Action;
@@ -301,12 +301,12 @@ pub fn sign<T: frame_system::Config>(
     })
 }
 
-pub fn did_sig<T: frame_system::Config, A: Action<T>>(
+pub fn did_sig<T: frame_system::Config, A: Action<T>, D: Into<Did>>(
     change: &A,
     keypair: &sr25519::Pair,
-    did: Did,
+    did: D,
     key_id: u32,
-) -> DidSignature {
+) -> DidSignature<D> {
     let sig = sign(&change.borrow().to_state_change(), keypair);
     DidSignature {
         did,
