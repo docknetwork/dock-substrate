@@ -27,9 +27,9 @@ pub use core_mods::attest;
 pub use core_mods::bbs_plus;
 pub use core_mods::blob;
 pub use core_mods::did;
+pub use core_mods::keys_and_sigs;
 pub use core_mods::master;
 pub use core_mods::revoke;
-pub use core_mods::keys_and_sigs;
 pub mod weight_to_fee;
 
 pub use poa;

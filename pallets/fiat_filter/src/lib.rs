@@ -2,6 +2,7 @@
 
 use common::arith_utils::DivCeil;
 use common::traits::PriceProvider;
+use core::fmt::Debug;
 use core_mods::{anchor, attest, blob, did, revoke};
 use frame_support::traits::Get;
 use frame_support::{
@@ -17,7 +18,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::boxed::Box;
-use core::fmt::Debug;
 
 // #[cfg(test)]
 // mod test_mock;

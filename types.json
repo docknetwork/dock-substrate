@@ -27,29 +27,96 @@
     "_enum": {
       "Sr25519": "Bytes32",
       "Ed25519": "Bytes32",
-      "Secp256k1": "Bytes33"
+      "Secp256k1": "Bytes33",
+      "X25519": "Bytes32"
     }
   },
-  "DidSignature": {
+  "VerRelType": {
+    "NONE": "u16",
+    "AUTHENTICATION": "u16",
+    "ASSERTION": "u16",
+    "CAPABILITY_INVOCATION": "u16",
+    "KEY_AGREEMENT": "u16",
+    "ALL_FOR_SIGNING": "u16"
+  },
+  "ServiceEndpointType": {
+    "NONE": "u16",
+    "LINKED_DOMAINS": "u16"
+  },
+  "ServiceEndpoint": {
+    "types": "ServiceEndpointType",
+    "origins": "Vec<Vec<u8>>"
+  },
+  "SigValue": {
     "_enum": {
       "Sr25519": "Bytes64",
       "Ed25519": "Bytes64",
       "Secp256k1": "Bytes65"
     }
   },
-  "KeyDetail": {
-    "controller": "Did",
-    "public_key": "PublicKey"
-  },
-  "KeyUpdate": {
+  "IncId": "u32",
+  "DidSignature": {
     "did": "Did",
-    "public_key": "PublicKey",
-    "controller": "Option<Did>",
-    "last_modified_in_block": "BlockNumber"
+    "key_id": "IncId",
+    "sig": "SigValue"
+  },
+  "DidDetail": {
+    "nonce": "BlockNumber",
+    "last_key_id": "IncId",
+    "active_controller_keys": "u32",
+    "active_controllers": "u32"
+  },
+  "OffChainDidDocRef": {
+    "_enum": {
+      "CID": "Vec<u8>",
+      "URL": "Vec<u8>",
+      "Custom": "Vec<u8>"
+    }
+  },
+  "DidDetailStorage": {
+    "_enum": {
+      "OffChain": "(Address, OffChainDidDocRef)",
+      "OnChain": "DidDetail"
+    }
+  },
+  "DidKey": {
+    "key": "PublicKey",
+    "ver_rels": "VerRelType"
+  },
+  "AddKeys": {
+    "did": "Did",
+    "keys": "Vec<DidKey>",
+    "nonce": "BlockNumber"
+  },
+  "RemoveKeys": {
+    "did": "Did",
+    "keys": "BTreeSet<IncId>",
+    "nonce": "BlockNumber"
+  },
+  "AddControllers": {
+    "did": "Did",
+    "controllers": "BTreeSet<Did>",
+    "nonce": "BlockNumber"
+  },
+  "RemoveControllers": {
+    "did": "Did",
+    "controllers": "BTreeSet<Did>",
+    "nonce": "BlockNumber"
+  },
+  "AddServiceEndpoint": {
+    "did": "Did",
+    "id": "Vec<u8>",
+    "endpoint": "ServiceEndpoint",
+    "nonce": "BlockNumber"
+  },
+  "RemoveServiceEndpoint": {
+    "did": "Did",
+    "id": "Vec<u8>",
+    "nonce": "BlockNumber"
   },
   "DidRemoval": {
     "did": "Did",
-    "last_modified_in_block": "BlockNumber"
+    "nonce": "BlockNumber"
   },
   "RegistryId": "[u8;32]",
   "RevokeId": "[u8;32]",
@@ -60,16 +127,16 @@
   "Revoke": {
     "registry_id": "RegistryId",
     "revoke_ids": "BTreeSet<RevokeId>",
-    "last_modified": "BlockNumber"
+    "nonce": "BlockNumber"
   },
   "UnRevoke": {
     "registry_id": "RegistryId",
     "revoke_ids": "BTreeSet<RevokeId>",
-    "last_modified": "BlockNumber"
+    "nonce": "BlockNumber"
   },
   "RemoveRegistry": {
     "registry_id": "RegistryId",
-    "last_modified": "BlockNumber"
+    "nonce": "BlockNumber"
   },
   "PAuth": "BTreeMap<Did, DidSignature>",
   "Policy": {
@@ -80,8 +147,7 @@
   "BlobId": "[u8;32]",
   "Blob": {
     "id": "BlobId",
-    "blob": "Vec<u8>",
-    "author": "Did"
+    "blob": "Vec<u8>"
   },
   "Balance": "u64",
   "BlockNumber": "u32",
@@ -133,6 +199,20 @@
     "params_ref": "Option<ParametersStorageKey>"
   },
   "BbsPlusPublicKeyWithParams": "(BbsPlusPublicKey, Option<BbsPlusParameters>)",
+  "AddBBSPlusPublicKey": {
+    "key": "BbsPlusPublicKey",
+    "did": "Did",
+    "nonce": "BlockNumber"
+  },
+  "RemoveBBSPlusParams": {
+    "params_ref": "ParametersStorageKey",
+    "nonce": "BlockNumber"
+  },
+  "RemoveBBSPlusPublicKey": {
+    "key_ref": "PublicKeyStorageKey",
+    "did": "Did",
+    "nonce": "BlockNumber"
+  },
   "AccumulatorId": "[u8;32]",
   "AccumulatorParameters": {
     "label": "Option<Vec<u8>>",
@@ -145,6 +225,14 @@
     "params_ref": "Option<ParametersStorageKey>"
   },
   "AccumulatorPublicKeyWithParams": "(AccumulatorPublicKey, Option<AccumulatorParameters>)",
+  "RemoveAccumulatorParameters": {
+    "params_ref": "ParametersStorageKey",
+    "nonce": "BlockNumber"
+  },
+  "RemoveAccumulatorPublicKey": {
+    "key_ref": "ParametersStorageKey",
+    "nonce": "BlockNumber"
+  },
   "AccumulatorCommon": {
     "accumulated": "Vec<u8>",
     "key_ref": "PublicKeyStorageKey"
@@ -165,8 +253,7 @@
   },
   "RemoveAccumulator": {
     "id": "AccumulatorId",
-    "created_at": "BlockNumber",
-    "nonce": "u32"
+    "nonce": "BlockNumber"
   },
   "AccumulatorUpdate": {
     "id": "AccumulatorId",
@@ -174,12 +261,10 @@
     "additions": "Option<Vec<Vec<u8>>>",
     "removals": "Option<Vec<Vec<u8>>>",
     "witness_update_info": "Option<Vec<u8>>",
-    "created_at": "BlockNumber",
-    "nonce": "u32"
+    "nonce": "BlockNumber"
   },
   "StateChange": {
     "_enum": {
-      "KeyUpdate": "KeyUpdate",
       "DidRemoval": "DidRemoval",
       "Revoke": "Revoke",
       "UnRevoke": "UnRevoke",
@@ -188,13 +273,13 @@
       "MasterVote": "Payload",
       "Attestation": "(Did, Attestation)",
       "AddBBSPlusParams": "BbsPlusParameters",
-      "AddBBSPlusPublicKey": "BbsPlusPublicKey",
-      "RemoveBBSPlusParams": "ParametersStorageKey",
-      "RemoveBBSPlusPublicKey": "PublicKeyStorageKey",
+      "AddBBSPlusPublicKey": "AddBBSPlusPublicKey",
+      "RemoveBBSPlusParams": "RemoveBBSPlusParams",
+      "RemoveBBSPlusPublicKey": "RemoveBBSPlusPublicKey",
       "AddAccumulatorParams": "AccumulatorParameters",
       "AddAccumulatorPublicKey": "AccumulatorPublicKey",
-      "RemoveAccumulatorParams": "ParametersStorageKey",
-      "RemoveAccumulatorPublicKey": "PublicKeyStorageKey",
+      "RemoveAccumulatorParams": "RemoveAccumulatorParameters",
+      "RemoveAccumulatorPublicKey": "RemoveAccumulatorPublicKey",
       "AddAccumulator": "AddAccumulator",
       "UpdateAccumulator": "AccumulatorUpdate",
       "RemoveAccumulator": "RemoveAccumulator"
