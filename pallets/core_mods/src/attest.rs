@@ -41,6 +41,7 @@ pub struct Attestation {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SetAttestationClaim<T: frame_system::Config> {
     attest: Attestation,
+    #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }

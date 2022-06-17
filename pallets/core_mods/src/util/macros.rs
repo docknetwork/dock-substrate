@@ -18,84 +18,33 @@ macro_rules! impl_bits_conversion {
 }
 
 #[macro_export]
+macro_rules! impl_self_expr_or_ident {
+    ($self: ident, () $($add: tt)*) => {
+        ()
+    };
+    ($self: ident, $lit: literal $($add: tt)*) => {
+        $lit
+    };
+    ($self: ident, $ident: ident $($add: tt)*) => {
+        $self.$ident$($add)*
+    };
+    ($self: ident, { $expr: expr }$($add: tt)*) => {
+        $expr($self)
+    }
+}
+
+#[macro_export]
 macro_rules! impl_action {
-    ($type: ident for $target: ty: with $len: ident as len, () as target) => {
-
+    ($type: ident for $target: ty: with $len: tt as len, $target_field: tt as target) => {
         impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
             type Target = $target;
 
             fn target(&self) -> $target {
-                ()
+                $crate::impl_self_expr_or_ident!(self, $target_field)
             }
 
             fn len(&self) -> u32 {
-                self.$len.len() as u32
-            }
-
-            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
-                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
-            }
-
-            fn into_state_change(self) -> $crate::StateChange<'static, T> {
-                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
-            }
-        }
-    };
-    ($type: ident for $target: ty: with { $len: expr } as len, () as target) => {
-
-        impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
-            type Target = $target;
-
-            fn target(&self) -> $target {
-                ()
-            }
-
-            fn len(&self) -> u32 {
-                $len(self)
-            }
-
-            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
-                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
-            }
-
-            fn into_state_change(self) -> $crate::StateChange<'static, T> {
-                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
-            }
-        }
-    };
-    ($type: ident for $target: ty: with $len: ident as len, $target_field: ident as target) => {
-
-        impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
-            type Target = $target;
-
-            fn target(&self) -> $target {
-                self.$target_field
-            }
-
-            fn len(&self) -> u32 {
-                self.$len.len() as u32
-            }
-
-            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
-                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
-            }
-
-            fn into_state_change(self) -> $crate::StateChange<'static, T> {
-                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
-            }
-        }
-    };
-    ($type: ident for $target: ty: with { $len: expr } as len, $target_field: ident as target) => {
-
-        impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
-            type Target = $target;
-
-            fn target(&self) -> Self::Target {
-                self.$target_field
-            }
-
-            fn len(&self) -> u32 {
-                $len(self)
+                $crate::impl_self_expr_or_ident!(self, $len.len() as u32)
             }
 
             fn to_state_change(&self) -> $crate::StateChange<'_, T> {
@@ -115,7 +64,7 @@ macro_rules! impl_action {
 }
 
 #[macro_export]
-macro_rules! impl_nonced_action {
+macro_rules! impl_action_with_nonce {
     ($type: ident for $($token: tt)*) => {
         $crate::impl_action! { $type for $($token)* }
 
@@ -127,7 +76,7 @@ macro_rules! impl_nonced_action {
     };
     (for $target: ty: $($type: ident with $len: tt as len, $target_field: tt as target),+) => {
         $(
-            $crate::impl_nonced_action! { $type for $target: with $len as len, $target_field as target }
+            $crate::impl_action_with_nonce! { $type for $target: with $len as len, $target_field as target }
         )+
     };
 }

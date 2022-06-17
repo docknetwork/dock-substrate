@@ -94,11 +94,11 @@ pub struct RemoveRegistry<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-crate::impl_nonced_action!(
+crate::impl_action_with_nonce!(
     for RegistryId:
-        Revoke with { |_| 1 } as len, registry_id as target,
-        UnRevoke with { |_| 1 } as len, registry_id as target,
-        RemoveRegistry with { |_| 1 } as len, registry_id as target
+        Revoke with revoke_ids as len, registry_id as target,
+        UnRevoke with revoke_ids as len, registry_id as target,
+        RemoveRegistry with 1 as len, registry_id as target
 );
 
 /// Return counts of different signature types in given PAuth as 3-Tuple as (no. of Sr22519 sigs,
@@ -221,8 +221,8 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::exec_registry_action(revoke, proof, Self::revoke_)?;
-          Ok(())
+            Self::try_exec_registry_action(revoke, proof, Self::revoke_)?;
+            Ok(())
         }
 
         /// Delete some revocations according to the `unrevoke` command.
@@ -244,7 +244,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::exec_registry_action(unrevoke, proof, Self::unrevoke_)?;
+            Self::try_exec_registry_action(unrevoke, proof, Self::unrevoke_)?;
             Ok(())
         }
 
@@ -269,7 +269,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::exec_removable_registry_action(removal, proof, Self::remove_registry_)?;
+            Self::try_exec_removable_registry_action(removal, proof, Self::remove_registry_)?;
             Ok(())
         }
     }
@@ -340,7 +340,7 @@ impl<T: Config + Debug> Module<T> {
 
     /// Executes action over target registry providing a mutable reference if all checks succeed.
     ///
-    /// Unlike `exec_registry_action`, this action may result in a removal of a DID, if the value under option
+    /// Unlike `try_exec_registry_action`, this action may result in a removal of a DID, if the value under option
     /// will be taken.
     ///
     /// Checks:
@@ -350,7 +350,7 @@ impl<T: Config + Debug> Module<T> {
     ///
     /// Returns a mutable reference to the underlying registry wrapped into an option if the command is authorized,
     /// otherwise returns Err.
-    pub(crate) fn exec_removable_registry_action<A, F, R, E>(
+    pub(crate) fn try_exec_removable_registry_action<A, F, R, E>(
         action: A,
         proof: PAuth,
         f: F,
@@ -398,7 +398,7 @@ impl<T: Config + Debug> Module<T> {
     /// 2. Veryfy that `proof` authorizes `action` according to `policy`.
     ///
     /// Returns a mutable reference to the underlying registry if the command is authorized, otherwise returns Err.
-    pub(crate) fn exec_registry_action<A, F, R, E>(
+    pub(crate) fn try_exec_registry_action<A, F, R, E>(
         action: A,
         proof: PAuth,
         f: F,
@@ -408,7 +408,7 @@ impl<T: Config + Debug> Module<T> {
         A: ActionWithNonce<T, Target = RegistryId>,
         DispatchError: From<RevErr<T>> + From<E>,
     {
-        Self::exec_removable_registry_action(action, proof, |action, reg| {
+        Self::try_exec_removable_registry_action(action, proof, |action, reg| {
             f(action, reg.as_mut().unwrap())
         })
     }
@@ -997,7 +997,7 @@ mod test {
                 .iter()
                 .map(|(did, kp)| (did.clone(), did_sig::<Test, _, _>(command, &kp, *did, 1)))
                 .collect();
-            let res = RevoMod::exec_registry_action(command.clone(), proof, |_, _| {
+            let res = RevoMod::try_exec_registry_action(command.clone(), proof, |_, _| {
                 Ok::<_, DispatchError>(())
             });
             assert_eq!(res.is_ok(), *expect_success);

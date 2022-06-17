@@ -70,13 +70,13 @@ pub struct DidRemoval<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-impl_nonced_action!(
+impl_action_with_nonce!(
     for Did:
         AddKeys with keys as len, did as target,
         RemoveKeys with keys as len, did as target,
         AddControllers with controllers as len, did as target,
         RemoveControllers with controllers as len, did as target,
-        AddServiceEndpoint with { |_| 1 } as len, did as target,
-        RemoveServiceEndpoint with { |_| 1 } as len, did as target,
-        DidRemoval with { |_| 1 }  as len, did as target
+        AddServiceEndpoint with 1 as len, did as target,
+        RemoveServiceEndpoint with 1 as len, did as target,
+        DidRemoval with 1 as len, did as target
 );

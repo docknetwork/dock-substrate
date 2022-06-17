@@ -39,12 +39,13 @@ pub struct Blob {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddBlob<T: frame_system::Config> {
     blob: Blob,
+    #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }
 
 crate::impl_action! {
-    AddBlob for (): with { |_| 1 } as len, () as target
+    AddBlob for (): with 1 as len, () as target
 }
 
 pub trait Config: system::Config + did::Config {

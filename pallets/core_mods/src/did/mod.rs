@@ -1,7 +1,7 @@
 use crate as dock;
 use crate::keys_and_sigs::PublicKey;
 use crate::util::*;
-use crate::{deposit_indexed_event, impl_bits_conversion, impl_nonced_action, impl_wrapper};
+use crate::{deposit_indexed_event, impl_action_with_nonce, impl_bits_conversion, impl_wrapper};
 use crate::{Action, ActionWithNonce};
 pub use actions::*;
 pub use base::{offchain, onchain, signature};
@@ -217,7 +217,7 @@ decl_module! {
             ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed_payload!(origin, &keys, &sig);
 
-            Self::exec_onchain_did_action(keys, Self::add_keys_)?;
+            Self::try_exec_onchain_did_action(keys, Self::add_keys_)?;
             Ok(())
         }
 
@@ -229,7 +229,7 @@ decl_module! {
             ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed_payload!(origin, &keys, &sig);
 
-            Self::exec_onchain_did_action(keys, Self::remove_keys_)?;
+            Self::try_exec_onchain_did_action(keys, Self::remove_keys_)?;
             Ok(())
         }
 
@@ -241,7 +241,7 @@ decl_module! {
             ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed_payload!(origin, &controllers, &sig);
 
-            Self::exec_onchain_did_action(controllers, Self::add_controllers_)?;
+            Self::try_exec_onchain_did_action(controllers, Self::add_controllers_)?;
             Ok(())
         }
 
@@ -253,7 +253,7 @@ decl_module! {
             ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed_payload!(origin, &controllers, &sig);
 
-            Self::exec_onchain_did_action(controllers, Self::remove_controllers_)?;
+            Self::try_exec_onchain_did_action(controllers, Self::remove_controllers_)?;
             Ok(())
         }
 
@@ -269,7 +269,7 @@ decl_module! {
             );
             ensure!(service_endpoint.endpoint.is_valid(T::MaxServiceEndpointOrigins::get() as usize, T::MaxServiceEndpointOriginSize::get() as usize), Error::<T>::InvalidServiceEndpoint);
 
-            Self::exec_onchain_did_action(service_endpoint, Self::add_service_endpoint_)?;
+            Self::try_exec_onchain_did_action(service_endpoint, Self::add_service_endpoint_)?;
             Ok(())
         }
 
@@ -280,7 +280,7 @@ decl_module! {
             ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure_signed_payload!(origin, &service_endpoint, &sig);
 
-            Self::exec_onchain_did_action(service_endpoint, Self::remove_service_endpoint_)?;
+            Self::try_exec_onchain_did_action(service_endpoint, Self::remove_service_endpoint_)?;
             Ok(())
         }
 
@@ -292,7 +292,7 @@ decl_module! {
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed_payload!(origin, &removal, &sig);
 
-            Self::exec_removable_onchain_did_action(removal, Self::remove_onchain_did_)?;
+            Self::try_exec_removable_onchain_did_action(removal, Self::remove_onchain_did_)?;
             Ok(())
         }
     }

@@ -26,7 +26,6 @@ use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
 };
-use sp_std::borrow::Borrow;
 pub use std::iter::once;
 
 // Configure a mock runtime to test the pallet.
@@ -307,7 +306,7 @@ pub fn did_sig<T: frame_system::Config, A: Action<T>, D: Into<Did>>(
     did: D,
     key_id: u32,
 ) -> DidSignature<D> {
-    let sig = sign(&change.borrow().to_state_change(), keypair);
+    let sig = sign(&change.to_state_change(), keypair);
     DidSignature {
         did,
         key_id: key_id.into(),

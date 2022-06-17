@@ -4,7 +4,7 @@ use sp_runtime::DispatchError;
 
 /// Wrapper for any kind of entity with a nonce.
 /// Nonces are mostly used for replay protection.
-/// Initial nonce will be equal to the current block number provided by the system. 
+/// Initial nonce will be equal to the current block number provided by the system.
 #[derive(Encode, Decode, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -36,7 +36,7 @@ impl<T: frame_system::Config, D> DerefMut for WithNonce<T, D> {
 
 impl<T: frame_system::Config, D> WithNonce<T, D> {
     /// Adds a nonce to the given `data`.
-    /// Nonce will be equal to the current block number provided by the system. 
+    /// Nonce will be equal to the current block number provided by the system.
     pub fn new(data: D) -> Self {
         Self {
             nonce: <frame_system::Module<T>>::block_number(),

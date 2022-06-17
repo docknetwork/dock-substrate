@@ -48,6 +48,7 @@ pub struct AccumulatorParameters {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddAccumulatorParams<T: frame_system::Config> {
     params: AccumulatorParameters,
+    #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }
@@ -65,6 +66,7 @@ pub struct AccumulatorPublicKey {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddAccumulatorPublicKey<T: frame_system::Config> {
     public_key: AccumulatorPublicKey,
+    #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }
@@ -110,6 +112,7 @@ pub struct UniversalAccumulator {
 pub struct AddAccumulator<T: frame_system::Config> {
     pub id: AccumulatorId,
     pub accumulator: Accumulator,
+    #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }
@@ -136,21 +139,29 @@ pub struct UpdateAccumulator<T: frame_system::Config> {
 
 crate::impl_action! {
     for ():
-        AddAccumulatorParams with { |_| 1 } as len, () as target,
-        AddAccumulatorPublicKey with { |_| 1 } as len, () as target,
-        RemoveAccumulatorPublicKey with { |_| 1 } as len, () as target,
-        RemoveAccumulatorParams with { |_| 1 } as len, () as target
+        AddAccumulatorParams with 1 as len, () as target,
+        AddAccumulatorPublicKey with 1 as len, () as target
+}
+
+crate::impl_action! {
+    for ParametersStorageKey:
+        RemoveAccumulatorParams with 1 as len, params_ref as target
+}
+
+crate::impl_action! {
+    for PublicKeyStorageKey:
+        RemoveAccumulatorPublicKey with 1 as len, key_ref as target
 }
 
 crate::impl_action! {
     for AccumulatorId:
-        AddAccumulator with { |_| 1 } as len, id as target
+        AddAccumulator with 1 as len, id as target
 }
 
-crate::impl_nonced_action! {
+crate::impl_action_with_nonce! {
     for AccumulatorId:
-        RemoveAccumulator with { |_| 1 } as len, id as target,
-        UpdateAccumulator with { |_| 1 } as len, id as target
+        RemoveAccumulator with 1 as len, id as target,
+        UpdateAccumulator with 1 as len, id as target
 }
 
 impl Accumulator {

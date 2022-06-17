@@ -84,13 +84,13 @@ pub struct RemoveBBSPlusPublicKey<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-crate::impl_nonced_action!(
+crate::impl_action_with_nonce!(
     for Controller:
         AddBBSPlusPublicKey with { |_| 1 } as len, did as target,
         RemoveBBSPlusPublicKey with { |_| 1 } as len, did as target
 );
 
-crate::impl_nonced_action!(
+crate::impl_action_with_nonce!(
     for ():
         RemoveBBSPlusParams with { |_| 1 } as len, () as target
 );
@@ -215,7 +215,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            <did::Module<T>>::exec_onchain_did_action(public_key, Self::add_public_key_)?;
+            <did::Module<T>>::try_exec_onchain_did_action(public_key, Self::add_public_key_)?;
             Ok(())
         }
 
@@ -252,7 +252,7 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            <did::Module<T>>::exec_onchain_did_action(remove, Self::remove_public_key_)?;
+            <did::Module<T>>::try_exec_onchain_did_action(remove, Self::remove_public_key_)?;
             Ok(())
         }
     }
@@ -1358,10 +1358,11 @@ mod test {
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(
-                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
-                    .is_ok()
-            );
+            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+                ak,
+                BBSPlusMod::add_public_key_
+            )
+            .is_ok());
             assert_eq!(
                 BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
@@ -1380,10 +1381,11 @@ mod test {
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(
-                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
-                    .is_ok()
-            );
+            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+                ak,
+                BBSPlusMod::add_public_key_
+            )
+            .is_ok());
             assert_eq!(
                 BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
@@ -1402,10 +1404,11 @@ mod test {
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(
-                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
-                    .is_ok()
-            );
+            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+                ak,
+                BBSPlusMod::add_public_key_
+            )
+            .is_ok());
             assert_eq!(
                 BbsPlusKeys::get(&Controller(author), IncId::from(2u8)),
                 Some(key.clone())
@@ -1478,10 +1481,11 @@ mod test {
                 nonce: did_detail_1.next_nonce(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-            assert!(
-                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
-                    .is_ok()
-            );
+            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+                ak,
+                BBSPlusMod::add_public_key_
+            )
+            .is_ok());
             assert_eq!(
                 BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 Some(key.clone())
@@ -1522,10 +1526,11 @@ mod test {
                 nonce: did_detail_1.next_nonce(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-            assert!(
-                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
-                    .is_ok()
-            );
+            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+                ak,
+                BBSPlusMod::add_public_key_
+            )
+            .is_ok());
             assert_eq!(
                 BbsPlusKeys::get(&Controller(author_1), IncId::from(2u8)),
                 Some(key.clone())
@@ -1643,10 +1648,11 @@ mod test {
                 did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
-            assert!(
-                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
-                    .is_ok()
-            );
+            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+                ak,
+                BBSPlusMod::add_public_key_
+            )
+            .is_ok());
             assert_eq!(
                 BBSPlusMod::get_public_key_with_params(&(Controller(author), 2u8.into())),
                 Some((key.clone(), None))
@@ -1658,10 +1664,11 @@ mod test {
                 did: Controller(author_1.clone()),
                 nonce: did_detail_1.next_nonce(),
             };
-            assert!(
-                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
-                    .is_ok()
-            );
+            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+                ak,
+                BBSPlusMod::add_public_key_
+            )
+            .is_ok());
             assert_eq!(
                 BBSPlusMod::get_public_key_with_params(&(Controller(author_1), 2u8.into())),
                 Some((key_1.clone(), Some(params.clone())))
@@ -1673,10 +1680,11 @@ mod test {
                 did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
-            assert!(
-                <did::Module<Test>>::exec_onchain_did_action(ak, BBSPlusMod::add_public_key_)
-                    .is_ok()
-            );
+            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+                ak,
+                BBSPlusMod::add_public_key_
+            )
+            .is_ok());
             assert_eq!(
                 BBSPlusMod::get_public_key_with_params(&(Controller(author), 3u8.into())),
                 Some((key_2.clone(), Some(params_1.clone())))

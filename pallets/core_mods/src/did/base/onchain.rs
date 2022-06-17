@@ -94,9 +94,9 @@ impl<T: Config + Debug> Module<T> {
 
     /// Executes action over target on-chain DID providing a mutable reference if the given nonce is correct,
     /// i.e. 1 more than the current nonce.
-    /// Unlike `exec_onchain_did_action`, this action may result in a removal of a DID, if the value under option
+    /// Unlike `try_exec_onchain_did_action`, this action may result in a removal of a DID, if the value under option
     /// will be taken.
-    pub(crate) fn exec_removable_onchain_did_action<A, F, R, E>(
+    pub(crate) fn try_exec_removable_onchain_did_action<A, F, R, E>(
         action: A,
         f: F,
     ) -> Result<R, DispatchError>
@@ -127,14 +127,17 @@ impl<T: Config + Debug> Module<T> {
 
     /// Executes action over target on-chain DID providing a mutable reference if the given nonce is correct,
     /// i.e. 1 more than the current nonce.
-    pub(crate) fn exec_onchain_did_action<A, F, R, E>(action: A, f: F) -> Result<R, DispatchError>
+    pub(crate) fn try_exec_onchain_did_action<A, F, R, E>(
+        action: A,
+        f: F,
+    ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
         A: ActionWithNonce<T>,
         A::Target: Into<Did>,
         DispatchError: From<Error<T>> + From<E>,
     {
-        Self::exec_removable_onchain_did_action(action, |action, details_opt| {
+        Self::try_exec_removable_onchain_did_action(action, |action, details_opt| {
             f(action, details_opt.as_mut().unwrap())
         })
     }

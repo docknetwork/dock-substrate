@@ -84,11 +84,14 @@ use frame_support::{
 use frame_system::{self as system, ensure_root, ensure_signed};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MasterVote<T> {
     /// The serialized Call to be run as root.
     proposal: Vec<u8>,
     /// The round for which the vote is to be valid
     round_no: u64,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }
 
@@ -106,12 +109,14 @@ pub struct Membership {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SetMembers<T> {
     membership: Membership,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
     _marker: PhantomData<T>,
 }
 
 crate::impl_action!(
     for ():
-        MasterVote with { |_| 1 } as len, () as target
+        MasterVote with 1 as len, () as target
 );
 
 impl Default for Membership {

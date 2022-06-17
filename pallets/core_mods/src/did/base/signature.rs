@@ -1,6 +1,5 @@
 use super::super::*;
 use crate::keys_and_sigs::SigValue;
-use sp_std::borrow::Borrow;
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -41,9 +40,9 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<bool, Error<T>>
     where
         A: Action<T>,
-        A::Target: Into<Did> + Borrow<Did>,
+        A::Target: Into<Did>,
     {
-        Self::ensure_controller(action.target().borrow(), &sig.did)?;
+        Self::ensure_controller(&action.target().into(), &sig.did)?;
         let signer_pubkey = Self::control_key(&sig.did, sig.key_id)?;
 
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
@@ -57,9 +56,9 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<bool, Error<T>>
     where
         A: Action<T>,
-        D: Into<Did> + Borrow<Did>,
+        D: Into<Did> + Copy,
     {
-        let signer_pubkey = Self::auth_or_control_key(sig.did.borrow(), sig.key_id)?;
+        let signer_pubkey = Self::auth_or_control_key(&sig.did.into(), sig.key_id)?;
 
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }
