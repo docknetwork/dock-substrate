@@ -42,9 +42,7 @@ impl Index<RangeFull> for Did {
 )]
 #[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum StoredDidDetails<T: Config> {
-    /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
-    /// the caller account and Substrate takes care of replay protection. Thus it stores the data
-    /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
+    /// For off-chain DID, most data is stored off-chain.
     OffChain(OffChainDidDetails<T>),
     /// For on-chain DID, all data is stored on the chain.
     OnChain(StoredOnChainDidDetails<T>),

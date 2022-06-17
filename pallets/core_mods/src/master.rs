@@ -154,14 +154,14 @@ decl_storage! {
         pub Members: Membership;
         pub Round: u64;
     }
-    /*add_extra_genesis {
+    add_extra_genesis {
         config(members): Membership;
         build(|slef: &Self| {
             debug_assert!(slef.members.vote_requirement != 0);
             debug_assert!(slef.members.vote_requirement <= slef.members.members.len() as u64);
             Members::set(slef.members.clone());
         })
-    }*/
+    }
 }
 
 decl_error! {

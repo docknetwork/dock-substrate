@@ -1,6 +1,9 @@
 use super::super::*;
 
 /// Stores details of an off-chain DID.
+/// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
+/// the caller account and Substrate takes care of replay protection. Thus it stores the data
+/// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]

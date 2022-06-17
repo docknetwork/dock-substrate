@@ -1321,7 +1321,6 @@ dependencies = [
 name = "dock-node"
 version = "0.17.0"
 dependencies = [
- "core_mods",
  "core_mods_rpc",
  "dock-runtime",
  "fc-db",
@@ -1392,6 +1391,8 @@ dependencies = [
  "common",
  "core_mods",
  "evm",
+ "fiat_filter",
+ "fiat_filter_rpc_runtime_api",
  "fp-rpc",
  "frame-benchmarking",
  "frame-executive",
@@ -1867,6 +1868,24 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2c4c9e43643f5a3be4ca5b67d26b98031ff9db6806c3440ae32e02e3ceac3f1b"
 dependencies = [
  "libc",
+]
+
+[[package]]
+name = "fiat_filter"
+version = "0.1.0"
+dependencies = [
+ "common",
+ "core_mods",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "rand 0.7.3",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

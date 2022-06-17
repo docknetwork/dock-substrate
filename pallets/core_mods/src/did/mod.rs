@@ -127,9 +127,8 @@ decl_storage! {
         /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
         pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) WrappedBytes => Option<ServiceEndpoint>;
     }
-    // TODO: Uncomment and fix genesis format to accept a public key and a DID. Chain spec needs to be updated as well
-    /*add_extra_genesis {
-        config(dids): Vec<(Did, DidDetail)>;
+    add_extra_genesis {
+        config(dids): Vec<(Did, DidKey)>;
         build(|slef: &Self| {
             debug_assert!({
                 let mut dedup: Vec<&Did> = slef.dids.iter().map(|(d, _kd)| d).collect();
@@ -137,12 +136,18 @@ decl_storage! {
                 dedup.dedup();
                 slef.dids.len() == dedup.len()
             });
-            let block_no: T::BlockNumber = 0u32.into();
-            for (did, deet) in slef.dids.iter() {
-                Dids::<T>::insert(did, (deet, block_no));
+            for (did, key) in slef.dids.iter() {
+                let mut key_id = IncId::new();
+                key_id.inc();
+                let did_details: StoredDidDetails<T> = StoredOnChainDidDetails::new(
+                    OnChainDidDetails::new(key_id, 1u32, 1u32),
+                )
+                .into();
+                Dids::<T>::insert(&did, did_details);
+                DidKeys::insert(&did, key_id, key);
             }
         })
-    }*/
+    }
 }
 
 decl_module! {

@@ -95,24 +95,24 @@ impl pallet_balances::Config for TestRt {
     type AccountStore = System;
     type WeightInfo = ();
 }
-impl anchor::Config for TestRt {
+impl anchor::Trait for TestRt {
     type Event = ();
 }
-impl did::Config for TestRt {
+impl did::Trait for TestRt {
     type Event = ();
 }
-impl revoke::Config for TestRt {}
+impl revoke::Trait for TestRt {}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
     pub const StorageWeight: Weight = 1100;
 }
-impl blob::Config for TestRt {
+impl blob::Trait for TestRt {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
 }
 
-impl attest::Config for TestRt {
+impl attest::Trait for TestRt {
     type StorageWeight = StorageWeight;
 }
 
