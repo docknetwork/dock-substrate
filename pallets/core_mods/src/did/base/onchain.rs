@@ -27,7 +27,7 @@ impl OnChainDidDetails {
     /// Constructs new on-chain DID details using supplied params.
     ///
     /// - `last_key_id` - last incremental identifier of the key being used for the given DID.
-    /// - `active_controller_keys` - amount of currenlty active controller keys for the given DID.
+    /// - `active_controller_keys` - amount of currently active controller keys for the given DID.
     /// - `active_controllers` - amount of currently active controllers for the given DID.
     pub fn new(
         last_key_id: IncId,
@@ -82,11 +82,11 @@ impl<T: Config + Debug> Module<T> {
         DidRemoval { did, .. }: DidRemoval<T>,
         details: &mut Option<OnChainDidDetails>,
     ) -> Result<Option<()>, DispatchError> {
+        // This will result in the removal of DID from storage map `Dids`
         details.take();
         DidKeys::remove_prefix(did);
         DidControllers::remove_prefix(did);
         DidServiceEndpoints::remove_prefix(did);
-        Dids::<T>::remove(did);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(None)

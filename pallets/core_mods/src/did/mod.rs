@@ -250,7 +250,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove controllers. This's atomic operation meaning that it will either remove all keys or do nothing.
+        /// Remove controllers. This is an atomic operation meaning that it will either remove all keys or do nothing.
         /// # **Note that removing all might make DID unusable**.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
