@@ -18,7 +18,7 @@ macro_rules! impl_bits_conversion {
 }
 
 #[macro_export]
-macro_rules! impl_self_expr_or_ident {
+macro_rules! field_accessor {
     ($self: ident, () $($add: tt)*) => {
         ()
     };
@@ -40,11 +40,11 @@ macro_rules! impl_action {
             type Target = $target;
 
             fn target(&self) -> $target {
-                $crate::impl_self_expr_or_ident!(self, $target_field)
+                $crate::field_accessor!(self, $target_field)
             }
 
             fn len(&self) -> u32 {
-                $crate::impl_self_expr_or_ident!(self, $len.len() as u32)
+                $crate::field_accessor!(self, $len.len() as u32)
             }
 
             fn to_state_change(&self) -> $crate::StateChange<'_, T> {

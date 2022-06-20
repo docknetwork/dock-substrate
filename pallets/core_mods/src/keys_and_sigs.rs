@@ -38,26 +38,26 @@ pub enum SigValue {
 }
 
 impl PublicKey {
-    pub fn can_sign(&self) -> bool {
+    pub const fn can_sign(&self) -> bool {
         match self {
             PublicKey::X25519(_) => false,
             _ => true,
         }
     }
 
-    pub fn sr25519(bytes: [u8; 32]) -> Self {
+    pub const fn sr25519(bytes: [u8; 32]) -> Self {
         PublicKey::Sr25519(Bytes32 { value: bytes })
     }
 
-    pub fn ed25519(bytes: [u8; 32]) -> Self {
+    pub const fn ed25519(bytes: [u8; 32]) -> Self {
         PublicKey::Ed25519(Bytes32 { value: bytes })
     }
 
-    pub fn secp256k1(bytes: [u8; 33]) -> Self {
+    pub const fn secp256k1(bytes: [u8; 33]) -> Self {
         PublicKey::Secp256k1(Bytes33 { value: bytes })
     }
 
-    pub fn x25519(bytes: [u8; 32]) -> Self {
+    pub const fn x25519(bytes: [u8; 32]) -> Self {
         PublicKey::X25519(Bytes32 { value: bytes })
     }
 }

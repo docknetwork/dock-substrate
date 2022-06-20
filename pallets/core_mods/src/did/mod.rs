@@ -27,6 +27,7 @@ mod base;
 mod controllers;
 mod details_aggregator;
 mod keys;
+mod migrations;
 mod service_endpoints;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -116,6 +117,18 @@ decl_event!(
     }
 );
 
+#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum StorageVersion {
+    SingleKey,
+    MultiKey,
+}
+
+impl Default for StorageVersion {
+    fn default() -> Self {
+        Self::SingleKey
+    }
+}
+
 decl_storage! {
     trait Store for Module<T: Config> as DIDModule where T: Debug {
         /// Stores details of off-chain and on-chain DIDs
@@ -126,25 +139,31 @@ decl_storage! {
         pub DidControllers get(fn bound_controller): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) Controller => Option<()>;
         /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
         pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) WrappedBytes => Option<ServiceEndpoint>;
+
+        pub Version get(fn storage_version): StorageVersion;
     }
     add_extra_genesis {
         config(dids): Vec<(Did, DidKey)>;
-        build(|slef: &Self| {
+        build(|this: &Self| {
             debug_assert!({
-                let mut dedup: Vec<&Did> = slef.dids.iter().map(|(d, _kd)| d).collect();
-                dedup.sort();
-                dedup.dedup();
-                slef.dids.len() == dedup.len()
+                let dedup: BTreeSet<&Did> = this.dids.iter().map(|(d, _kd)| d).collect();
+                this.dids.len() == dedup.len()
             });
-            for (did, key) in slef.dids.iter() {
+            debug_assert!({
+                this.dids.iter().all(|(_, key)| key.can_control())
+            });
+
+            for (did, key) in this.dids.iter() {
                 let mut key_id = IncId::new();
                 key_id.inc();
                 let did_details: StoredDidDetails<T> = StoredOnChainDidDetails::new(
                     OnChainDidDetails::new(key_id, 1u32, 1u32),
                 )
                 .into();
-                Dids::<T>::insert(&did, did_details);
+
+                Dids::insert(&did, did_details);
                 DidKeys::insert(&did, key_id, key);
+                DidControllers::insert(&did, Controller(*did), ());
             }
         })
     }
@@ -299,6 +318,17 @@ decl_module! {
 
             Self::try_exec_removable_onchain_did_action(removal, Self::remove_onchain_did_)?;
             Ok(())
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            if Version::get() == StorageVersion::SingleKey {
+                let weight = migrations::single_key::migrate_to_multi_key::<T>();
+                Version::put(StorageVersion::MultiKey);
+
+                weight
+            } else {
+                0
+            }
         }
     }
 }
