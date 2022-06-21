@@ -5,7 +5,6 @@
 use crate::did::{self, Did, DidSignature};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use core::marker::PhantomData;
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
     weights::Weight,
@@ -41,12 +40,10 @@ pub struct Attestation {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct SetAttestationClaim<T: frame_system::Config> {
     pub attest: Attestation,
-    #[codec(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    _marker: PhantomData<T>,
+    pub nonce: T::BlockNumber,
 }
 
-crate::impl_action! { for (): SetAttestationClaim with { |_| 1} as len, () as target }
+crate::impl_action_with_nonce! { for (): SetAttestationClaim with { |_| 1} as len, () as target }
 
 decl_error! {
     /// Error for the attest module.
@@ -116,7 +113,8 @@ decl_module! {
                 Error::<T>::InvalidSig
             );
 
-            Module::<T>::set_claim_(attests, signature.did)
+            did::Module::<T>::try_exec_by_onchain_did(attests, signature.did, Self::set_claim_)
+            // Self::set_claim_(attests, signature.did)
         }
     }
 }
@@ -148,6 +146,8 @@ mod test {
     #[test]
     fn priority_too_low() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (did, kp) = newdid();
             let did = Attester(did);
             let att = Attestation {
@@ -158,12 +158,12 @@ mod test {
                 Origin::signed(0),
                 SetAttestationClaim {
                     attest: att.clone(),
-                    _marker: PhantomData,
+                    nonce: 10 + 1,
                 },
                 did_sig::<Test, _, _>(
                     &SetAttestationClaim {
                         attest: att,
-                        _marker: PhantomData,
+                        nonce: 10 + 1,
                     },
                     &kp,
                     did,
@@ -204,6 +204,8 @@ mod test {
     #[test]
     fn invalid_sig_a() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (dida, kpa) = newdid();
             let mut att = Attestation {
                 priority: 1,
@@ -212,7 +214,7 @@ mod test {
             let sig = did_sig::<Test, _, _>(
                 &SetAttestationClaim {
                     attest: att.clone(),
-                    _marker: PhantomData,
+                    nonce: 10 + 1,
                 },
                 &kpa,
                 Attester(dida),
@@ -224,7 +226,7 @@ mod test {
                 Origin::signed(0),
                 SetAttestationClaim {
                     attest: att.clone(),
-                    _marker: PhantomData,
+                    nonce: 10 + 2,
                 },
                 sig,
             )
@@ -237,6 +239,8 @@ mod test {
     #[test]
     fn invalid_sig_b() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (dida, _kpa) = newdid();
             let (_didb, kpb) = newdid();
             let att = Attestation {
@@ -247,12 +251,12 @@ mod test {
                 Origin::signed(0),
                 SetAttestationClaim {
                     attest: att.clone(),
-                    _marker: PhantomData,
+                    nonce: 10 + 1,
                 },
                 did_sig::<Test, _, _>(
                     &SetAttestationClaim {
                         attest: att,
-                        _marker: PhantomData,
+                        nonce: 10 + 1,
                     },
                     &kpb,
                     Attester(dida),
@@ -268,6 +272,8 @@ mod test {
     #[test]
     fn priority_face_off() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (did, kp) = newdid();
             let did = Attester(did);
 
@@ -279,6 +285,7 @@ mod test {
                     iri: None,
                 },
                 &kp,
+                10 + 1,
             )
             .unwrap();
             assert_eq!(
@@ -289,6 +296,7 @@ mod test {
                         iri: None,
                     },
                     &kp,
+                    11 + 1
                 )
                 .unwrap_err(),
                 Er::PriorityTooLow.into()
@@ -302,6 +310,7 @@ mod test {
                     iri: Some(vec![0]),
                 },
                 &kp,
+                11 + 1,
             )
             .unwrap();
             assert_eq!(
@@ -312,6 +321,7 @@ mod test {
                         iri: Some(vec![0, 2, 3]),
                     },
                     &kp,
+                    12 + 1
                 )
                 .unwrap_err(),
                 Er::PriorityTooLow.into()
@@ -324,9 +334,12 @@ mod test {
     #[test]
     fn priority_battle_royale() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (did, kp) = newdid();
             let did = Attester(did);
             let prios: Vec<u64> = (0..200).map(|_| rand::random::<u64>()).collect();
+            let mut nonce = 10 + 1;
             for priority in &prios {
                 let _ = set_claim(
                     &did,
@@ -335,7 +348,12 @@ mod test {
                         iri: None,
                     },
                     &kp,
-                );
+                    nonce,
+                )
+                .and_then(|_| {
+                    nonce += 1;
+                    Ok(())
+                });
             }
             assert_eq!(
                 Attestations::get(did).priority,
@@ -349,6 +367,8 @@ mod test {
     #[test]
     fn max_priority_is_final() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (did, kp) = newdid();
             let did = Attester(did);
             set_claim(
@@ -358,6 +378,7 @@ mod test {
                     iri: None,
                 },
                 &kp,
+                10 + 1,
             )
             .unwrap();
             let err = set_claim(
@@ -367,6 +388,7 @@ mod test {
                     iri: None,
                 },
                 &kp,
+                11 + 1,
             )
             .unwrap_err();
             assert_eq!(err, Er::PriorityTooLow.into());
@@ -377,6 +399,8 @@ mod test {
     #[test]
     fn set_some_attestation() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (did, kp) = newdid();
             let did = Attester(did);
             assert_eq!(
@@ -393,6 +417,7 @@ mod test {
                     iri: Some(vec![0, 1, 2]),
                 },
                 &kp,
+                10 + 1,
             )
             .unwrap();
             assert_eq!(
@@ -409,9 +434,11 @@ mod test {
     #[test]
     fn skip_prio() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (did, kp) = newdid();
             let did = Attester(did);
-            for priority in &[1, 2, 4] {
+            for (i, priority) in [1, 2, 4].iter().enumerate() {
                 set_claim(
                     &did,
                     &Attestation {
@@ -419,6 +446,7 @@ mod test {
                         iri: None,
                     },
                     &kp,
+                    10 + 1 + i as u64,
                 )
                 .unwrap();
             }
@@ -426,17 +454,22 @@ mod test {
     }
 
     /// helper
-    fn set_claim(claimer: &Attester, att: &Attestation, kp: &sr25519::Pair) -> DispatchResult {
+    fn set_claim(
+        claimer: &Attester,
+        att: &Attestation,
+        kp: &sr25519::Pair,
+        nonce: u64,
+    ) -> DispatchResult {
         AttestMod::set_claim(
             Origin::signed(0),
             SetAttestationClaim {
                 attest: att.clone(),
-                _marker: PhantomData,
+                nonce,
             },
             did_sig::<Test, _, _>(
                 &SetAttestationClaim {
                     attest: att.clone(),
-                    _marker: PhantomData,
+                    nonce,
                 },
                 kp,
                 claimer.clone(),

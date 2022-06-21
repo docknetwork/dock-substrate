@@ -28,7 +28,13 @@ use sp_std::boxed::Box;
 /// The pallet's configuration trait
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Config:
-    system::Config + did::Config + anchor::Config + blob::Config + revoke::Config + attest::Config + Debug
+    system::Config
+    + did::Config
+    + anchor::Config
+    + blob::Config
+    + revoke::Config
+    + attest::Config
+    + Debug
 {
     /// Config option for updating the DockFiatRate
     type PriceProvider: common::traits::PriceProvider;
@@ -138,7 +144,7 @@ impl<T: Config + Debug> Module<T> {
             _ => {}
         };
         match call.is_sub_type() {
-            Some(revoke::Call::new_registry(_id, _registry)) => {
+            Some(revoke::Call::new_registry(_add_registry)) => {
                 return Ok(PRICE_REVOKE_REGISTRY_CREATE)
             }
             Some(revoke::Call::remove_registry(_rm, _proof)) => {

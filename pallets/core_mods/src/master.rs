@@ -57,7 +57,9 @@
 //! This module implement partial replay protection to prevent unauthorized resubmission of votes
 //! from previous rounds.
 
+use crate::revoke::{PAuth, SignableAction};
 use crate::{
+    did,
     did::{Did, DidSignature},
     revoke::get_weight_for_pauth,
 };
@@ -69,7 +71,7 @@ use alloc::{
 use codec::{Decode, Encode};
 use core::default::Default;
 use core::fmt::Debug;
-use core::marker::PhantomData;
+
 use frame_support::dispatch::PostDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -85,18 +87,22 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct MasterVote<T> {
+pub struct MasterVote {
     /// The serialized Call to be run as root.
     proposal: Vec<u8>,
     /// The round for which the vote is to be valid
     round_no: u64,
-    #[codec(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    _marker: PhantomData<T>,
 }
 
-/// Proof of authorization by Master.
-pub type PMAuth = BTreeMap<Did, DidSignature<Did>>;
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct MasterVoteSigningPayload<T: frame_system::Config> {
+    /// The serialized Call to be run as root.
+    proposal: Vec<u8>,
+    /// The round for which the vote is to be valid
+    round_no: u64,
+    nonce: T::BlockNumber,
+}
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -105,19 +111,33 @@ pub struct Membership {
     pub vote_requirement: u64,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct SetMembers<T> {
-    membership: Membership,
-    #[codec(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    _marker: PhantomData<T>,
-}
+impl<T: system::Config + did::Config + Debug> SignableAction<T> for MasterVote {
+    type SigningPayload = MasterVoteSigningPayload<T>;
 
-crate::impl_action!(
-    for ():
-        MasterVote with 1 as len, () as target
-);
+    fn target(&self) -> crate::revoke::RegistryId {
+        unimplemented!()
+    }
+
+    fn verify_sig(&self, nonce: T::BlockNumber, sig: &DidSignature<Did>) -> bool {
+        let m = SignableAction::<T>::to_encoded_signing_payload(self, nonce);
+        did::Module::<T>::verify_sig_from_auth_or_control_key_on_bytes(&m, sig).unwrap_or(false)
+    }
+
+    fn to_encoded_signing_payload(&self, nonce: T::BlockNumber) -> Vec<u8> {
+        crate::StateChange::<'_, T>::MasterVote(sp_std::borrow::Cow::Borrowed(
+            &self.to_signing_payload(nonce),
+        ))
+        .encode()
+    }
+
+    fn to_signing_payload(&self, nonce: T::BlockNumber) -> Self::SigningPayload {
+        MasterVoteSigningPayload {
+            proposal: self.proposal.clone(),
+            round_no: self.round_no,
+            nonce,
+        }
+    }
+}
 
 impl Default for Membership {
     fn default() -> Self {
@@ -133,7 +153,10 @@ impl Default for Membership {
 const MIN_WEIGHT: Weight = 10_000;
 
 /// Minimum weight for master's extrinsics. Considers cost of signature verification and update to round no
-fn get_min_weight_for_execute(auth: &PMAuth, db_weights: RuntimeDbWeight) -> Weight {
+fn get_min_weight_for_execute<T: frame_system::Config>(
+    auth: &PAuth<T>,
+    db_weights: RuntimeDbWeight,
+) -> Weight {
     MIN_WEIGHT + get_weight_for_pauth(&auth, db_weights) + db_weights.reads_writes(1, 1)
 }
 
@@ -177,6 +200,7 @@ decl_error! {
         ZeroVoteRequirement,
         /// There aren't enough members to satisfy that vote requirement.
         VoteRequirementTooHigh,
+        IncorrectNonce,
     }
 }
 
@@ -215,7 +239,7 @@ decl_module! {
         pub fn execute(
             origin,
             proposal: Box<<T as Config>::Call>,
-            auth: PMAuth,
+            auth: PAuth<T>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
@@ -235,7 +259,7 @@ decl_module! {
         pub fn execute_unchecked_weight(
             origin,
             proposal: Box<<T as Config>::Call>,
-            auth: PMAuth,
+            auth: PAuth<T>,
             _weight: Weight,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
@@ -257,7 +281,7 @@ decl_module! {
         #[weight = MIN_WEIGHT + T::DbWeight::get().reads_writes(1, 2)]
         pub fn set_members(
             origin,
-            membership: SetMembers<T>,
+            membership: Membership,
         ) -> DispatchResultWithPostInfo {
             ensure_root(origin)?;
 
@@ -279,31 +303,39 @@ impl<T: Config + Debug> Module<T> {
     /// in this case
     fn execute_(
         proposal: Box<<T as Config>::Call>,
-        auth: PMAuth,
+        auth: PAuth<T>,
         given_weight: Option<Weight>,
     ) -> DispatchResultWithPostInfo {
         // check
         let membership = Members::get();
         ensure!(
-            auth.len() as u64 >= membership.vote_requirement,
+            auth.auths.len() as u64 >= membership.vote_requirement,
             MasterError::<T>::InsufficientVotes,
         );
         ensure!(
-            auth.keys().all(|k| membership.members.contains(k)),
+            auth.auths.keys().all(|k| membership.members.contains(k)),
             MasterError::<T>::NotMember,
         );
 
         let new_payload = MasterVote {
             proposal: proposal.encode(),
             round_no: Round::get(),
-            _marker: PhantomData,
         };
-        for (did, sig) in auth.iter() {
-            ensure!(
-                crate::did::Module::<T>::verify_sig_from_auth_or_control_key(&new_payload, sig)?
-                    && (*did == sig.did),
-                MasterError::<T>::BadSig
-            );
+
+        let mut new_did_details = BTreeMap::new();
+
+        // check each signature is valid over payload and signed by the claimed signer
+        for (signer, (sig, nonce)) in auth.auths.iter() {
+            let new_nonce = *nonce;
+            // Check if nonce is valid and increase it
+            let mut did_detail = did::Module::<T>::onchain_did_details(signer)?;
+            did_detail
+                .try_inc_nonce(new_nonce)
+                .map_err(|_| MasterError::<T>::IncorrectNonce)?;
+            // Verify signature
+            let valid = SignableAction::<T>::verify_sig(&new_payload, new_nonce, &sig);
+            ensure!(valid && (*signer == sig.did), MasterError::<T>::BadSig);
+            new_did_details.insert(signer, did_detail);
         }
 
         // execute call and collect dispatch info to return
@@ -316,11 +348,16 @@ impl<T: Config + Debug> Module<T> {
             *round += 1;
         });
 
+        // The nonce of each DID must be updated
+        for (signer, did_details) in new_did_details {
+            did::Module::<T>::insert_onchain_did(signer, did_details);
+        }
+
         // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,
         // then this weight is used.
         let dispatch_decl_weight = proposal.get_dispatch_info().weight;
 
-        let authors = auth.keys().cloned().collect();
+        let authors = auth.auths.keys().cloned().collect();
 
         // If weight was not given in `given_weight`, look for weight of dispatch in `post_info`. If
         // `post_info` does not have weight, use weight from declaration. Also add minimum weight for execution
@@ -357,7 +394,7 @@ impl<T: Config + Debug> Module<T> {
         }
     }
 
-    fn set_members_(SetMembers { membership, .. }: SetMembers<T>) -> DispatchResult {
+    fn set_members_(membership: Membership) -> DispatchResult {
         // check
         ensure!(
             membership.vote_requirement != 0,
@@ -387,9 +424,11 @@ mod test {
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
     use super::{
         Call as MasterCall, DispatchError, Event, MasterError, MasterVote, Members, Membership,
-        PhantomData, Round, SetMembers,
+        Round,
     };
-    use crate::{did::Did, test_common::*};
+    use crate::revoke::tests::{check_nonce_increase, get_nonces, get_pauth};
+    use crate::revoke::PAuth;
+    use crate::test_common::*;
     use alloc::collections::{BTreeMap, BTreeSet};
     use frame_support::StorageValue;
     use frame_system as system;
@@ -411,12 +450,10 @@ mod test {
                 members: set(&[newdid().0]),
                 vote_requirement: 1,
             };
-            let call = Call::MasterMod(MasterCall::set_members(SetMembers {
-                membership: new_members.clone(),
-                _marker: PhantomData,
-            }));
+            let call = Call::MasterMod(MasterCall::set_members(new_members.clone()));
             assert_eq!(Round::get(), 0);
-            MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call), PAuth { auths: map(&[]) })
+                .unwrap();
             assert_eq!(Members::get(), new_members);
             assert_eq!(Round::get(), 2);
         });
@@ -432,10 +469,20 @@ mod test {
             });
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             assert_eq!(Round::get(), 0);
-            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
+            MasterMod::execute(
+                Origin::signed(0),
+                Box::new(call.clone()),
+                PAuth { auths: map(&[]) },
+            )
+            .unwrap();
             assert_eq!(Round::get(), 1);
-            MasterMod::execute_unchecked_weight(Origin::signed(0), Box::new(call), map(&[]), 1)
-                .unwrap();
+            MasterMod::execute_unchecked_weight(
+                Origin::signed(0),
+                Box::new(call),
+                PAuth { auths: map(&[]) },
+                1,
+            )
+            .unwrap();
             assert_eq!(Round::get(), 2);
         });
     }
@@ -449,7 +496,9 @@ mod test {
                 vote_requirement: 0,
             });
             let call = Call::System(system::Call::<Test>::remark(vec![]));
-            let err = MasterMod::execute(Origin::signed(0), Box::new(call), map(&[])).unwrap_err();
+            let err =
+                MasterMod::execute(Origin::signed(0), Box::new(call), PAuth { auths: map(&[]) })
+                    .unwrap_err();
             assert_eq!(err.error, DispatchError::BadOrigin);
         });
     }
@@ -459,12 +508,9 @@ mod test {
         ext().execute_with(|| {
             MasterMod::set_members(
                 system::RawOrigin::Root.into(),
-                SetMembers {
-                    membership: Membership {
-                        members: set(&[newdid().0]),
-                        vote_requirement: 1,
-                    },
-                    _marker: PhantomData,
+                Membership {
+                    members: set(&[newdid().0]),
+                    vote_requirement: 1,
                 },
             )
             .unwrap();
@@ -477,7 +523,12 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
+            MasterMod::execute(
+                Origin::signed(0),
+                Box::new(call.clone()),
+                PAuth { auths: map(&[]) },
+            )
+            .unwrap();
             assert_eq!(
                 master_events(),
                 vec![Event::<Test>::Executed(vec![], Box::new(call))]
@@ -485,28 +536,32 @@ mod test {
         });
 
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (dida, didak) = newdid();
             let (didb, _didbk) = newdid();
             let (didc, didck) = newdid();
-            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = MasterVote {
-                proposal: call.encode(),
-                round_no: Round::get(),
-                _marker: PhantomData,
-            };
+
             Members::set(Membership {
                 members: set(&[dida, didb, didc]),
                 vote_requirement: 2,
             });
-            MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                map(&[
-                    (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
-                    (didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1)),
-                ]),
-            )
-            .unwrap();
+
+            run_to_block(15);
+
+            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
+            let sc = MasterVote {
+                proposal: call.encode(),
+                round_no: Round::get(),
+            };
+
+            let signers = [(dida, &didak), (didc, &didck)];
+
+            let old_nonces = get_nonces(&signers);
+
+            let pauth = get_pauth(&sc, &signers);
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+            check_nonce_increase(old_nonces, &signers);
             assert_eq!(
                 master_events(),
                 vec![Event::<Test>::Executed(
@@ -521,14 +576,16 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            let call = Call::MasterMod(MasterCall::set_members(SetMembers {
-                membership: Membership {
-                    members: set(&[newdid().0]),
-                    vote_requirement: 1,
-                },
-                _marker: PhantomData,
+            let call = Call::MasterMod(MasterCall::set_members(Membership {
+                members: set(&[newdid().0]),
+                vote_requirement: 1,
             }));
-            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[])).unwrap();
+            MasterMod::execute(
+                Origin::signed(0),
+                Box::new(call.clone()),
+                PAuth { auths: map(&[]) },
+            )
+            .unwrap();
             assert_eq!(
                 master_events(),
                 vec![
@@ -544,7 +601,11 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            let res = MasterMod::execute(Origin::signed(0), Box::new(call.clone()), map(&[]));
+            let res = MasterMod::execute(
+                Origin::signed(0),
+                Box::new(call.clone()),
+                PAuth { auths: map(&[]) },
+            );
             assert!(res.is_err());
             assert_eq!(
                 master_events(),
@@ -565,18 +626,15 @@ mod test {
             let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
-                _marker: PhantomData,
             };
             Members::set(Membership {
                 members: set(&[]),
                 vote_requirement: 1,
             });
-            let err = MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call),
-                map(&[(dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1))]),
-            )
-            .unwrap_err();
+
+            let pauth = get_pauth(&sc, &[(dida, &didak)]);
+
+            let err = MasterMod::execute(Origin::signed(0), Box::new(call), pauth).unwrap_err();
             assert_eq!(err, MasterError::<Test>::NotMember.into());
         });
     }
@@ -592,7 +650,6 @@ mod test {
             let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
-                _marker: PhantomData,
             };
             Members::set(Membership {
                 members: set(&[dida, didb, didc]),
@@ -600,45 +657,49 @@ mod test {
             });
 
             assert_eq!(sp_io::storage::get(&kv.0), None);
-            MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                map(&[
-                    (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
-                    (didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1)),
-                ]),
-            )
-            .unwrap();
+
+            let signers = [(dida, &didak), (didc, &didck)];
+
+            let old_nonces = get_nonces(&signers);
+
+            let pauth = get_pauth(&sc, &signers);
+
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
             assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+            check_nonce_increase(old_nonces, &signers);
         });
     }
 
     #[test]
     fn all_members_vote() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             let (dida, didak) = newdid();
             let (didb, didbk) = newdid();
             let (didc, didck) = newdid();
-            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
+
+            let kv = (vec![4; 200], vec![5; 200]);
+            let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
+
             let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
-                _marker: PhantomData,
             };
             Members::set(Membership {
                 members: set(&[dida, didb, didc]),
                 vote_requirement: 3,
             });
-            MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                map(&[
-                    (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
-                    (didb, did_sig::<Test, _, _>(&sc, &didbk, didb, 1)),
-                    (didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1)),
-                ]),
-            )
-            .unwrap();
+
+            let signers = [(dida, &didak), (didb, &didbk), (didc, &didck)];
+
+            let old_nonces = get_nonces(&signers);
+
+            let pauth = get_pauth(&sc, &signers);
+
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+            assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+            check_nonce_increase(old_nonces, &signers);
         });
     }
 
@@ -652,40 +713,45 @@ mod test {
                 members: set(&[dida, didb, didc]),
                 vote_requirement: 2,
             });
-            let call = Call::System(system::Call::<Test>::set_storage(vec![]));
 
             {
+                let kv = (vec![4; 200], vec![5; 200]);
+                let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
+
                 let sc = MasterVote {
                     proposal: call.encode(),
                     round_no: 0,
-                    _marker: PhantomData,
                 };
-                MasterMod::execute(
-                    Origin::signed(0),
-                    Box::new(call.clone()),
-                    map(&[
-                        (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
-                        (didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1)),
-                    ]),
-                )
-                .unwrap();
+
+                let signers = [(dida, &didak), (didc, &didck)];
+
+                let old_nonces = get_nonces(&signers);
+
+                let pauth = get_pauth(&sc, &signers);
+
+                MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+                assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+                check_nonce_increase(old_nonces, &signers);
             }
 
             {
+                let kv = (vec![6; 200], vec![9; 200]);
+                let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
+
                 let sc = MasterVote {
                     proposal: call.encode(),
                     round_no: 1,
-                    _marker: PhantomData,
                 };
-                MasterMod::execute(
-                    Origin::signed(0),
-                    Box::new(call.clone()),
-                    map(&[
-                        (dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1)),
-                        (didb, did_sig::<Test, _, _>(&sc, &didbk, didb, 1)),
-                    ]),
-                )
-                .unwrap();
+
+                let signers = [(dida, &didak), (didb, &didbk)];
+
+                let old_nonces = get_nonces(&signers);
+
+                let pauth = get_pauth(&sc, &signers);
+
+                MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+                assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+                check_nonce_increase(old_nonces, &signers);
             }
         });
     }
@@ -694,8 +760,8 @@ mod test {
     fn err_bad_sig() {
         ext().execute_with(|| {
             let (dida, didak) = newdid();
-            let (didb, didbk) = newdid();
-            let (_didc, didck) = newdid();
+            let (didb, _didbk) = newdid();
+            let (didc, didck) = newdid();
             Members::set(Membership {
                 members: set(&[dida, didb]),
                 vote_requirement: 1,
@@ -704,35 +770,27 @@ mod test {
             let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: 0,
-                _marker: PhantomData,
             };
 
             {
-                let sig = did_sig::<Test, _, _>(&sc, &didbk, didb, 1); // <-- signing with wrong key
-                let err = MasterMod::execute(Origin::signed(0), call.clone(), map(&[(dida, sig)]))
-                    .unwrap_err();
+                // signing with wrong key
+                let pauth = get_pauth(&sc, &[(didb, &didak)]);
+                let err = MasterMod::execute(Origin::signed(0), call.clone(), pauth).unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
             }
 
             {
-                let sig = did_sig::<Test, _, _>(&sc, &didck, _didc, 1); // <-- signing with wrong key, not in member set
-                let err = MasterMod::execute(Origin::signed(0), call.clone(), map(&[(dida, sig)]))
-                    .unwrap_err();
-                assert_eq!(err, MasterError::<Test>::BadSig.into());
+                // signing with wrong key, not in member set
+                let pauth = get_pauth(&sc, &[(didc, &didck)]);
+                let err = MasterMod::execute(Origin::signed(0), call.clone(), pauth).unwrap_err();
+                assert_eq!(err, MasterError::<Test>::NotMember.into());
             }
 
             {
                 // wrong payload
-                let sc = crate::did::DidRemoval::<Test> {
-                    did: Did([0; 32]),
-                    nonce: 0,
-                };
-                let err = MasterMod::execute(
-                    Origin::signed(0),
-                    call.clone(),
-                    map(&[(dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1))]),
-                )
-                .unwrap_err();
+                let sc = crate::revoke::RemoveRegistry { registry_id: RGA };
+                let pauth = get_pauth(&sc, &[(dida, &didak)]);
+                let err = MasterMod::execute(Origin::signed(0), call.clone(), pauth).unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
             }
         });
@@ -751,14 +809,9 @@ mod test {
             let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: 0,
-                _marker: PhantomData,
             };
-            let err = MasterMod::execute(
-                Origin::signed(0),
-                call.clone(),
-                map(&[(didc, did_sig::<Test, _, _>(&sc, &didck, didc, 1))]),
-            )
-            .unwrap_err();
+            let pauth = get_pauth(&sc, &[(didc, &didck)]);
+            let err = MasterMod::execute(Origin::signed(0), call.clone(), pauth).unwrap_err();
             assert_eq!(err, MasterError::<Test>::NotMember.into());
         });
     }
@@ -775,22 +828,14 @@ mod test {
             let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
-                _marker: PhantomData,
             };
-            let sig = did_sig::<Test, _, _>(&sc, &didak, dida, 1);
+            let pauth = get_pauth(&sc, &[(dida, &didak)]);
 
-            MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                map(&[(dida, sig.clone())]),
-            )
-            .unwrap();
-            let err = MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                map(&[(dida, sig.clone())]),
-            )
-            .unwrap_err();
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+
+            let pauth = get_pauth(&sc, &[(dida, &didak)]);
+            let err =
+                MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap_err();
             assert_eq!(err, MasterError::<Test>::BadSig.into());
         });
     }
@@ -804,19 +849,15 @@ mod test {
             let sc = MasterVote {
                 proposal: call.encode(),
                 round_no: Round::get(),
-                _marker: PhantomData,
             };
             Members::set(Membership {
                 members: set(&[dida, didb]),
                 vote_requirement: 2,
             });
 
-            let err = MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                map(&[(dida, did_sig::<Test, _, _>(&sc, &didak, dida, 1))]),
-            )
-            .unwrap_err();
+            let pauth = get_pauth(&sc, &[(dida, &didak)]);
+            let err =
+                MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap_err();
             assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());
         });
     }
@@ -837,14 +878,7 @@ mod test {
             .iter()
             .cloned()
             {
-                let err = MasterMod::set_members(
-                    Origin::root(),
-                    SetMembers {
-                        membership: m,
-                        _marker: PhantomData,
-                    },
-                )
-                .unwrap_err();
+                let err = MasterMod::set_members(Origin::root(), m).unwrap_err();
                 assert_eq!(err, MasterError::<Test>::ZeroVoteRequirement.into());
             }
         });
@@ -874,14 +908,7 @@ mod test {
             .iter()
             .cloned()
             {
-                let err = MasterMod::set_members(
-                    Origin::root(),
-                    SetMembers {
-                        membership: m,
-                        _marker: PhantomData,
-                    },
-                )
-                .unwrap_err();
+                let err = MasterMod::set_members(Origin::root(), m).unwrap_err();
                 assert_eq!(err, MasterError::<Test>::VoteRequirementTooHigh.into());
             }
         });

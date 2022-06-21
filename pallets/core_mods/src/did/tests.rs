@@ -98,7 +98,7 @@ fn offchain_did() {
 
         assert_noop!(
             DIDModule::onchain_did_details(&did),
-            Error::<Test>::CannotGetDetailForOffChainDid
+            Error::<Test>::CannotGetDetailForOnChainDid
         );
 
         let did_detail_storage = Dids::<Test>::get(&did).unwrap();

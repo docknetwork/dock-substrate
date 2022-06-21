@@ -77,6 +77,7 @@ decl_error! {
         NoControllerProvided,
         IncompatibleVerificationRelation,
         CannotGetDetailForOffChainDid,
+        CannotGetDetailForOnChainDid,
         NoKeyProvided,
         IncorrectNonce,
         OnlyControllerCanUpdate,
@@ -222,8 +223,7 @@ decl_module! {
             ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed_payload!(origin, &keys, &sig);
 
-            Self::try_exec_onchain_did_action(keys, Self::add_keys_)?;
-            Ok(())
+            Self::try_exec_onchain_did_action(keys, Self::add_keys_)
         }
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
@@ -234,8 +234,7 @@ decl_module! {
             ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed_payload!(origin, &keys, &sig);
 
-            Self::try_exec_onchain_did_action(keys, Self::remove_keys_)?;
-            Ok(())
+            Self::try_exec_onchain_did_action(keys, Self::remove_keys_)
         }
 
         /// Add new controllers. Does not check if the controller being added has any key or is even
@@ -246,8 +245,7 @@ decl_module! {
             ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed_payload!(origin, &controllers, &sig);
 
-            Self::try_exec_onchain_did_action(controllers, Self::add_controllers_)?;
-            Ok(())
+            Self::try_exec_onchain_did_action(controllers, Self::add_controllers_)
         }
 
         /// Remove controllers. This is an atomic operation meaning that it will either remove all keys or do nothing.
@@ -258,8 +256,7 @@ decl_module! {
             ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed_payload!(origin, &controllers, &sig);
 
-            Self::try_exec_onchain_did_action(controllers, Self::remove_controllers_)?;
-            Ok(())
+            Self::try_exec_onchain_did_action(controllers, Self::remove_controllers_)
         }
 
         /// Add a single service endpoint.
@@ -274,8 +271,7 @@ decl_module! {
             );
             ensure!(service_endpoint.endpoint.is_valid(T::MaxServiceEndpointOrigins::get() as usize, T::MaxServiceEndpointOriginSize::get() as usize), Error::<T>::InvalidServiceEndpoint);
 
-            Self::try_exec_onchain_did_action(service_endpoint, Self::add_service_endpoint_)?;
-            Ok(())
+            Self::try_exec_onchain_did_action(service_endpoint, Self::add_service_endpoint_)
         }
 
         /// Remove a single service endpoint.
@@ -285,8 +281,7 @@ decl_module! {
             ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure_signed_payload!(origin, &service_endpoint, &sig);
 
-            Self::try_exec_onchain_did_action(service_endpoint, Self::remove_service_endpoint_)?;
-            Ok(())
+            Self::try_exec_onchain_did_action(service_endpoint, Self::remove_service_endpoint_)
         }
 
         /// Remove the on-chain DID. This will remove this DID's keys, controllers and service endpoints. But it won't remove storage

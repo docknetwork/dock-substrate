@@ -62,4 +62,18 @@ impl<T: Config + Debug> Module<T> {
 
         sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
     }
+
+    /// Similar to `Self::verify_sig_from_auth_or_control_key` except that the signed message is
+    /// expected to be a byte slice.
+    pub fn verify_sig_from_auth_or_control_key_on_bytes<D>(
+        msg_bytes: &[u8],
+        sig: &DidSignature<D>,
+    ) -> Result<bool, Error<T>>
+    where
+        D: Into<Did> + Copy,
+    {
+        let signer_pubkey = Self::auth_or_control_key(&sig.did.into(), sig.key_id)?;
+
+        sig.verify::<T>(msg_bytes, &signer_pubkey)
+    }
 }

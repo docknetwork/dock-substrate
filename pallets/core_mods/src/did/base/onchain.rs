@@ -2,6 +2,7 @@ use sp_runtime::DispatchError;
 
 use super::super::*;
 
+/// Each on-chain DID is associated with a nonce that is incremented each time the DID does a write (through an extrinsic)
 pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
 
 /// Stores details of an on-chain DID.
@@ -111,7 +112,7 @@ impl<T: Config + Debug> Module<T> {
                 .take()
                 .ok_or(Error::<T>::DidDoesNotExist)?
                 .into_onchain()
-                .ok_or(Error::<T>::CannotGetDetailForOffChainDid)?;
+                .ok_or(Error::<T>::CannotGetDetailForOnChainDid)?;
             details.try_inc_nonce(action.nonce())?;
 
             let WithNonce { data, nonce } = details;
@@ -142,6 +143,40 @@ impl<T: Config + Debug> Module<T> {
         })
     }
 
+    /// Try executing an action by a DID. Each action of a DID is supposed to have a nonce which should
+    /// be one more than the current one. This function will check that payload has correct nonce and
+    /// will then execute the given function `f` on te action and if `f` executes successfully, it will increment
+    /// the DID's nonce by 1.
+    pub(crate) fn try_exec_by_onchain_did<A, F, S, R, E>(
+        action: A,
+        signer: S,
+        f: F,
+    ) -> Result<R, DispatchError>
+    where
+        F: FnOnce(A, S) -> Result<R, E>,
+        A: ActionWithNonce<T>,
+        S: Clone + Into<Did>,
+        DispatchError: From<Error<T>> + From<E>,
+    {
+        Dids::<T>::try_mutate_exists(signer.clone().into(), |details_opt| {
+            let mut details = details_opt
+                .take()
+                .ok_or(Error::<T>::DidDoesNotExist)?
+                .into_onchain()
+                .ok_or(Error::<T>::CannotGetDetailForOnChainDid)?;
+            details.try_inc_nonce(action.nonce())?;
+
+            let res = f(action, signer)?;
+            *details_opt = Some(details.into());
+            Ok(res)
+        })
+    }
+
+    pub(crate) fn insert_onchain_did(did: &Did, onchain_did_detail: StoredOnChainDidDetails<T>) {
+        let did_details: StoredDidDetails<T> = onchain_did_detail.into();
+        Dids::<T>::insert(did, did_details)
+    }
+
     pub fn is_onchain_did(did: &Did) -> Result<bool, Error<T>> {
         Self::did(did)
             .as_ref()
@@ -154,6 +189,6 @@ impl<T: Config + Debug> Module<T> {
         Self::did(did)
             .ok_or(Error::<T>::DidDoesNotExist)?
             .into_onchain()
-            .ok_or(Error::<T>::CannotGetDetailForOffChainDid)
+            .ok_or(Error::<T>::CannotGetDetailForOnChainDid)
     }
 }
