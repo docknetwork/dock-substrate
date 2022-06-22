@@ -23,6 +23,16 @@ impl<T: Config> From<StoredOnChainDidDetails<T>> for StoredDidDetails<T> {
     }
 }
 
+impl<T: Config + Debug> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
+    type Error = Error<T>;
+
+    fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
+        details
+            .into_onchain()
+            .ok_or(Error::<T>::CannotGetDetailForOffChainDid)
+    }
+}
+
 impl OnChainDidDetails {
     /// Constructs new on-chain DID details using supplied params.
     ///
@@ -107,21 +117,10 @@ impl<T: Config + Debug> Module<T> {
         DispatchError: From<Error<T>> + From<E>,
     {
         Dids::<T>::try_mutate_exists(action.target().into(), |details_opt| {
-            let mut details = details_opt
-                .take()
-                .ok_or(Error::<T>::DidDoesNotExist)?
-                .into_onchain()
-                .ok_or(Error::<T>::CannotGetDetailForOffChainDid)?;
-            details.try_inc_nonce(action.nonce())?;
-
-            let WithNonce { data, nonce } = details;
-            let mut data_opt = Some(data);
-            let res = f(action, &mut data_opt)?;
-            *details_opt = data_opt
-                .map(|data| WithNonce { data, nonce })
-                .map(Into::into);
-
-            Ok(res)
+            WithNonce::try_inc_opt_nonce_with(details_opt, action.nonce(), |data_opt| {
+                f(action, data_opt).map_err(DispatchError::from)
+            })
+            .ok_or(Error::<T>::DidDoesNotExist)?
         })
     }
 

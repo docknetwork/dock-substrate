@@ -46,11 +46,9 @@ pub mod single_key {
                 super::keys::DidKey::new_with_all_relationships(public_key),
             );
             super::DidControllers::insert(did, Controller(controller), ());
-            let did_details: super::StoredDidDetails<T> = WithNonce {
-                data: OnChainDidDetails::new(last_key_id, 1u8, 1u8),
-                nonce,
-            }
-            .into();
+            let did_details: super::StoredDidDetails<T> =
+                WithNonce::new_with_nonce(OnChainDidDetails::new(last_key_id, 1u8, 1u8), nonce)
+                    .into();
 
             super::Dids::insert(did, did_details);
         }

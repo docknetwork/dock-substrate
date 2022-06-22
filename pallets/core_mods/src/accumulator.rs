@@ -618,9 +618,8 @@ impl<T: Config + Debug> Module<T> {
         RemoveAccumulator { id, nonce }: RemoveAccumulator<T>,
         signer: AccumulatorOwner,
     ) -> DispatchResult {
-        let mut accumulator =
-            Accumulators::<T>::get(&id).ok_or(Error::<T>::AccumulatorDoesntExist)?;
-        accumulator.try_inc_nonce(nonce)?;
+        let mut acc_opt = Accumulators::<T>::get(&id).ok_or(Error::<T>::AccumulatorDoesntExist)?;
+        let accumulator = acc_opt.try_inc_nonce(nonce)?;
 
         // Only the DID that added the accumulator can remove it
         ensure!(
@@ -636,13 +635,21 @@ impl<T: Config + Debug> Module<T> {
     pub fn get_public_key_with_params(
         key_ref: &PublicKeyStorageKey,
     ) -> Option<PublicKeyWithParams> {
-        AccumulatorKeys::<T>::get(&key_ref.0, &key_ref.1).map(|WithNonce { data: pk, .. }| {
-            let params = match &pk.params_ref {
-                Some(r) => AccumulatorParams::<T>::get(r.0, r.1).map(|WithNonce { data: p, .. }| p),
-                _ => None,
-            };
-            (pk, params)
-        })
+        AccumulatorKeys::<T>::get(&key_ref.0, &key_ref.1)
+            .as_ref()
+            .map(WithNonce::data)
+            .cloned()
+            .map(|pk| {
+                let params = match &pk.params_ref {
+                    Some(r) => AccumulatorParams::<T>::get(r.0, r.1)
+                        .as_ref()
+                        .map(WithNonce::data)
+                        .cloned()
+                        .map(|p| p),
+                    _ => None,
+                };
+                (pk, params)
+            })
     }
 
     /// Get accumulated value with public key and params.
@@ -650,8 +657,8 @@ impl<T: Config + Debug> Module<T> {
         id: &AccumulatorId,
     ) -> Option<(Vec<u8>, Option<PublicKeyWithParams>)> {
         Accumulators::<T>::get(&id).map(|stored_acc| {
-            let pk_p = Self::get_public_key_with_params(&stored_acc.accumulator.key_ref());
-            (stored_acc.accumulator.accumulated().to_vec(), pk_p)
+            let pk_p = Self::get_public_key_with_params(&stored_acc.data().accumulator.key_ref());
+            (stored_acc.data().accumulator.accumulated().to_vec(), pk_p)
         })
     }
 }

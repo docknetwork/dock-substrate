@@ -361,32 +361,28 @@ impl<T: Config + Debug> Module<T> {
         DispatchError: From<RevErr<T>> + From<E>,
     {
         Registries::<T>::try_mutate_exists(action.target(), |registry_opt| {
-            let mut registry = registry_opt.take().ok_or(RevErr::<T>::NoReg)?;
-            registry.try_inc_nonce(action.nonce())?;
-
-            // check the signer set satisfies policy
-            match &registry.policy {
-                Policy::OneOf(controllers) => {
-                    ensure!(
-                        proof.len() == 1
-                            && proof.values().all(|sig| controllers.contains(&sig.did)),
-                        RevErr::<T>::NotAuthorized
-                    );
+            WithNonce::try_inc_opt_nonce_with(registry_opt, action.nonce(), |registry| {
+                // check the signer set satisfies policy
+                match &registry.as_ref().unwrap().policy {
+                    Policy::OneOf(controllers) => {
+                        ensure!(
+                            proof.len() == 1
+                                && proof.values().all(|sig| controllers.contains(&sig.did)),
+                            RevErr::<T>::NotAuthorized
+                        );
+                    }
                 }
-            }
 
-            // check each signature is valid over payload and signed by the claimed signer
-            for (signer, sig) in proof {
-                let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(&action, &sig)?;
-                ensure!(valid && (signer == sig.did), RevErr::<T>::NotAuthorized);
-            }
+                // check each signature is valid over payload and signed by the claimed signer
+                for (signer, sig) in proof {
+                    let valid =
+                        did::Module::<T>::verify_sig_from_auth_or_control_key(&action, &sig)?;
+                    ensure!(valid && (signer == sig.did), RevErr::<T>::NotAuthorized);
+                }
 
-            let WithNonce { data, nonce } = registry;
-            let mut data_opt = Some(data);
-            let res = f(action, &mut data_opt)?;
-            *registry_opt = data_opt.map(|data| WithNonce { data, nonce });
-
-            Ok(res)
+                f(action, registry).map_err(DispatchError::from)
+            })
+            .ok_or(RevErr::<T>::NoReg)?
         })
     }
 

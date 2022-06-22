@@ -342,7 +342,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Option<PublicKeyWithParams> {
         BbsPlusKeys::get(&key_ref.0, &key_ref.1).map(|pk| {
             let params = match &pk.params_ref {
-                Some(r) => BbsPlusParams::<T>::get(r.0, r.1).map(|t| t.data),
+                Some(r) => BbsPlusParams::<T>::get(r.0, r.1).map(|t| t.data().clone()),
                 _ => None,
             };
             (pk, params)
@@ -352,7 +352,7 @@ impl<T: Config + Debug> Module<T> {
     pub fn get_params_by_did(id: &BBSPlusParamsOwner) -> BTreeMap<IncId, BbsPlusParameters> {
         let mut params = BTreeMap::new();
         for (idx, val) in BbsPlusParams::<T>::iter_prefix(*id) {
-            params.insert(idx, val.data);
+            params.insert(idx, val.data().clone());
         }
         params
     }
@@ -361,7 +361,7 @@ impl<T: Config + Debug> Module<T> {
         let mut keys = BTreeMap::new();
         for (idx, pk) in BbsPlusKeys::iter_prefix(id) {
             let params = match &pk.params_ref {
-                Some(r) => BbsPlusParams::<T>::get(r.0, r.1).map(|t| t.data),
+                Some(r) => BbsPlusParams::<T>::get(r.0, r.1).map(|t| t.data().clone()),
                 _ => None,
             };
             keys.insert(idx, (pk, params));

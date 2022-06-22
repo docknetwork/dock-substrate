@@ -31,9 +31,12 @@ fn check_did_detail(
     nonce: <Test as frame_system::Config>::BlockNumber,
 ) {
     let did_detail = DIDModule::onchain_did_details(did).unwrap();
-    assert_eq!(did_detail.last_key_id, last_key_id.into());
-    assert_eq!(did_detail.active_controller_keys, active_controller_keys);
-    assert_eq!(did_detail.active_controllers, active_controllers);
+    assert_eq!(did_detail.data().last_key_id, last_key_id.into());
+    assert_eq!(
+        did_detail.data().active_controller_keys,
+        active_controller_keys
+    );
+    assert_eq!(did_detail.data().active_controllers, active_controllers);
     assert_eq!(
         did_detail.nonce,
         <Test as system::Config>::BlockNumber::from(nonce)
