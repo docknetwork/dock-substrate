@@ -62,9 +62,7 @@ decl_error! {
         /// There is already a blob with same id
         BlobAlreadyExists,
         /// There is no such DID registered
-        DidDoesNotExist,
-        /// Signature verification failed while adding blob
-        InvalidSig
+        DidDoesNotExist
     }
 }
 
@@ -90,12 +88,8 @@ decl_module! {
             signature: DidSignature<BlobOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&blob, &signature)?,
-                BlobError::<T>::InvalidSig
-            );
 
-            did::Module::<T>::try_exec_by_onchain_did(blob, signature.did, Self::new_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(blob, signature, Self::new_)
             // Self::new_(blob, signature.did)?;
             // Ok(())
         }
@@ -253,7 +247,7 @@ mod tests {
         ext().execute_with(|| {
             {
                 run_to_block(10);
-                // An invalid signature while adding a blob should fail with error InvalidSig.
+                // An invalid signature while adding a blob should fail with error InvalidSignature.
                 let (author, author_kp) = newdid();
                 let bl = Blob {
                     id: rand::random(),
@@ -275,7 +269,7 @@ mod tests {
                     did_sig(&att, &author_kp, BlobOwner(author), 1),
                 )
                 .unwrap_err();
-                assert_eq!(err, BlobError::<Test>::InvalidSig.into());
+                assert_eq!(err, did::Error::<Test>::InvalidSignature.into());
             }
 
             {
@@ -305,7 +299,7 @@ mod tests {
                     ),
                 )
                 .unwrap_err();
-                assert_eq!(err, BlobError::<Test>::InvalidSig.into());
+                assert_eq!(err, did::Error::<Test>::InvalidSignature.into());
             }
         })
     }

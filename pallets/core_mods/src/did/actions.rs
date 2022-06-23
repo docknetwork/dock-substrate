@@ -80,3 +80,47 @@ impl_action_with_nonce!(
         RemoveServiceEndpoint with 1 as len, did as target,
         DidRemoval with 1 as len, did as target
 );
+
+/// Wraps any action in an action with the given target.
+pub(super) struct ActionWrapper<T: Config, A, D> {
+    pub nonce: T::BlockNumber,
+    pub action: A,
+    pub target: D,
+}
+
+impl<T: Config, A, D> ActionWrapper<T, A, D> {
+    /// Wraps any action in an action with the given target.
+    pub fn new(nonce: T::BlockNumber, action: A, target: D) -> Self {
+        Self {
+            nonce,
+            target,
+            action,
+        }
+    }
+}
+
+impl<T: Config, A: Action<T>, D: Copy> Action<T> for ActionWrapper<T, A, D> {
+    type Target = D;
+
+    fn target(&self) -> Self::Target {
+        self.target
+    }
+
+    fn len(&self) -> u32 {
+        self.action.len()
+    }
+
+    fn to_state_change(&self) -> crate::StateChange<'_, T> {
+        self.action.to_state_change()
+    }
+
+    fn into_state_change(self) -> crate::StateChange<'static, T> {
+        self.action.into_state_change()
+    }
+}
+
+impl<T: Config, A: Action<T>, D: Copy> ActionWithNonce<T> for ActionWrapper<T, A, D> {
+    fn nonce(&self) -> T::BlockNumber {
+        self.nonce
+    }
+}

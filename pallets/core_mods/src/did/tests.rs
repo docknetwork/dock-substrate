@@ -862,7 +862,7 @@ fn add_keys_to_did() {
                     sig
                 }
             ),
-            Error::<Test>::InvalidSig
+            Error::<Test>::InvalidSignature
         );
 
         // Using wrong key_id should fail
@@ -885,7 +885,7 @@ fn add_keys_to_did() {
                     sig
                 }
             ),
-            Error::<Test>::InvalidSig
+            Error::<Test>::InvalidSignature
         );
 
         // Using wrong key type should fail
@@ -1512,7 +1512,7 @@ fn add_controllers_to_did() {
                     sig
                 }
             ),
-            Error::<Test>::InvalidSig
+            Error::<Test>::InvalidSignature
         );
 
         // Valid signature should work

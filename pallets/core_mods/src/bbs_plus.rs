@@ -125,7 +125,6 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Config> where T: Debug {
-        InvalidSig,
         LabelTooBig,
         ParamsTooBig,
         PublicKeyTooBig,
@@ -185,12 +184,8 @@ decl_module! {
             signature: DidSignature<BBSPlusParamsOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&params, &signature)?,
-                Error::<T>::InvalidSig
-            );
 
-            did::Module::<T>::try_exec_by_onchain_did(params, signature.did, Self::add_params_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(params, signature, Self::add_params_)
             // Self::add_params_(params, signature.did)
         }
 
@@ -207,12 +202,8 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
             // Only controller can add a key
-            ensure!(
-                did::Module::<T>::verify_sig_from_controller(&public_key, &signature)?,
-                Error::<T>::InvalidSig
-            );
 
-            <did::Module<T>>::try_exec_onchain_did_action(public_key, Self::add_public_key_)
+            <did::Module<T>>::try_exec_signed_action_over_onchain_did(public_key, signature, Self::add_public_key_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -222,12 +213,8 @@ decl_module! {
             signature: DidSignature<BBSPlusParamsOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&remove, &signature)?,
-                Error::<T>::InvalidSig
-            );
-            did::Module::<T>::try_exec_by_onchain_did(remove, signature.did, Self::remove_params_)
-            // Self::remove_params_(remove, signature.did)
+
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_params_)
         }
 
         /// Remove BBS+ public key. Only the DID controller can remove key and it should use the nonce from the DID module.
@@ -239,13 +226,8 @@ decl_module! {
             signature: DidSignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
-            // Only controller can add a key
-            ensure!(
-                did::Module::<T>::verify_sig_from_controller(&remove, &signature)?,
-                Error::<T>::InvalidSig
-            );
 
-            <did::Module<T>>::try_exec_onchain_did_action(remove, Self::remove_public_key_)
+            <did::Module<T>>::try_exec_signed_action_over_onchain_did(remove, signature, Self::remove_public_key_)
         }
     }
 }
@@ -487,7 +469,7 @@ mod test {
                     },
                     sig.clone()
                 ),
-                Error::<Test>::InvalidSig
+                did::Error::<Test>::InvalidSignature
             );
             assert_eq!(
                 ParamsCounter::get(&BBSPlusParamsOwner(author)),
@@ -881,7 +863,7 @@ mod test {
 
             assert_err!(
                 BBSPlusMod::add_public_key(Origin::signed(1), ak.clone(), sig.clone()),
-                Error::<Test>::InvalidSig
+                did::Error::<Test>::InvalidSignature
             );
             assert_eq!(
                 ParamsCounter::get(&BBSPlusParamsOwner(author)),
@@ -1363,7 +1345,7 @@ mod test {
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+            assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
                 ak,
                 BBSPlusMod::add_public_key_
             )
@@ -1386,7 +1368,7 @@ mod test {
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+            assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
                 ak,
                 BBSPlusMod::add_public_key_
             )
@@ -1409,7 +1391,7 @@ mod test {
                 nonce: did_detail.next_nonce(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+            assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
                 ak,
                 BBSPlusMod::add_public_key_
             )
@@ -1481,7 +1463,7 @@ mod test {
                 nonce: did_detail_1.next_nonce(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+            assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
                 ak,
                 BBSPlusMod::add_public_key_
             )
@@ -1524,7 +1506,7 @@ mod test {
                 nonce: did_detail_1.next_nonce(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+            assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
                 ak,
                 BBSPlusMod::add_public_key_
             )
@@ -1646,7 +1628,7 @@ mod test {
                 did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
-            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+            assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
                 ak,
                 BBSPlusMod::add_public_key_
             )
@@ -1662,7 +1644,7 @@ mod test {
                 did: Controller(author_1.clone()),
                 nonce: did_detail_1.next_nonce(),
             };
-            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+            assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
                 ak,
                 BBSPlusMod::add_public_key_
             )
@@ -1678,7 +1660,7 @@ mod test {
                 did: Controller(author.clone()),
                 nonce: did_detail.next_nonce(),
             };
-            assert!(<did::Module<Test>>::try_exec_onchain_did_action(
+            assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
                 ak,
                 BBSPlusMod::add_public_key_
             )

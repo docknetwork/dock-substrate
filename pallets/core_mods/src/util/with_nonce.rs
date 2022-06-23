@@ -42,9 +42,9 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         &self.data
     }
 
-    /// Attempts to increase current nonce if provided nonce is equal to current nonce plus 1, otherwise
-    /// returns an error.
-    pub fn try_inc_nonce(&mut self, nonce: T::BlockNumber) -> Result<&mut D, DispatchError> {
+    /// Returns mutable referenct to the underlying data if provided nonce is equal to current nonce plus 1,
+    /// otherwise returns an error.
+    pub fn try_update(&mut self, nonce: T::BlockNumber) -> Result<&mut D, DispatchError> {
         if nonce == self.next_nonce() {
             self.nonce = nonce;
 
@@ -54,11 +54,9 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         }
     }
 
-    /// If supplied value is `Some(_)`, attempts to increase current nonce if provided nonce is equal to
-    /// current nonce plus 1, otherwise returns an error.
-    /// If value is `None`, `None` will be returned.
-    ///
-    pub fn try_inc_opt_nonce_with<S, F, E, R>(
+    /// If supplied value is `Some(_)`, attempts to increase current nonce - succeeds if provided nonce is equal to
+    /// current nonce plus 1, otherwise returns an error. If value is `None`, `None` will be returned.
+    pub fn try_update_opt_with<S, F, E, R>(
         this_opt: &mut Option<S>,
         nonce: T::BlockNumber,
         f: F,
@@ -70,7 +68,7 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
     {
         let mut this = this_opt.take()?.try_into().ok()?;
 
-        if let err @ Err(_) = this.try_inc_nonce(nonce) {
+        if let err @ Err(_) = this.try_update(nonce) {
             return Some(err.map(|_| unreachable!()));
         }
 

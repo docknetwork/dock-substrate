@@ -330,7 +330,7 @@ impl<T: Config + Debug> Module<T> {
             // Check if nonce is valid and increase it
             let mut did_detail = did::Module::<T>::onchain_did_details(signer)?;
             did_detail
-                .try_inc_nonce(new_nonce)
+                .try_update(new_nonce)
                 .map_err(|_| MasterError::<T>::IncorrectNonce)?;
             // Verify signature
             let valid = SignableAction::<T>::verify_sig(&new_payload, new_nonce, &sig);

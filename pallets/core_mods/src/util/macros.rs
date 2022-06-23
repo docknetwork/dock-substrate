@@ -133,16 +133,3 @@ macro_rules! impl_wrapper {
         }
     };
 }
-
-#[macro_export]
-macro_rules! ensure_signed_payload_from_auth_or_controller {
-    ($origin: ident, $payload: expr, $sig: expr) => {
-        // Ensure that extrinsic was sent from a signed origin and that payload was signed by DID's
-        // auth or control key
-        ensure_signed($origin)?;
-        ensure!(
-            did::Module::<T>::verify_sig_from_auth_or_control_key($payload, $sig)?,
-            Error::<T>::InvalidSig
-        );
-    };
-}

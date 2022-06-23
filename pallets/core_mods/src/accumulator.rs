@@ -1,6 +1,5 @@
 use crate::did;
 use crate::did::{Did, DidSignature};
-use crate::ensure_signed_payload_from_auth_or_controller;
 use crate::types::CurveType;
 use crate::util::IncId;
 use codec::{Decode, Encode};
@@ -209,7 +208,6 @@ decl_event!(
 
 decl_error! {
     pub enum Error for Module<T: Config> where T: Debug {
-        InvalidSig,
         LabelTooBig,
         ParamsTooBig,
         PublicKeyTooBig,
@@ -308,9 +306,9 @@ decl_module! {
             params: AddAccumulatorParams<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed_payload_from_auth_or_controller!(origin, &params, &signature);
+            ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_by_onchain_did(params, signature.did, Self::add_params_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(params, signature, Self::add_params_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 2)
@@ -322,9 +320,9 @@ decl_module! {
             public_key: AddAccumulatorPublicKey<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed_payload_from_auth_or_controller!(origin, &public_key, &signature);
+            ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_by_onchain_did(public_key, signature.did, Self::add_public_key_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(public_key, signature, Self::add_public_key_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -333,9 +331,9 @@ decl_module! {
             remove: RemoveAccumulatorParams<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed_payload_from_auth_or_controller!(origin, &remove, &signature);
+            ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_by_onchain_did(remove, signature.did, Self::remove_params_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_params_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -344,9 +342,9 @@ decl_module! {
             remove: RemoveAccumulatorPublicKey<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed_payload_from_auth_or_controller!(origin, &remove, &signature);
+            ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_by_onchain_did(remove, signature.did, Self::remove_public_key_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_public_key_)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -363,9 +361,9 @@ decl_module! {
             add_accumulator: AddAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed_payload_from_auth_or_controller!(origin, &add_accumulator, &signature);
+            ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_by_onchain_did(add_accumulator, signature.did, Self::add_accumulator_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(add_accumulator, signature, Self::add_accumulator_)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -382,9 +380,9 @@ decl_module! {
             update: UpdateAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed_payload_from_auth_or_controller!(origin, &update, &signature);
+            ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_by_onchain_did(update, signature.did, Self::update_accumulator_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(update, signature, Self::update_accumulator_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(1, 2)+ signature.weight()]
@@ -393,9 +391,9 @@ decl_module! {
             remove: RemoveAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed_payload_from_auth_or_controller!(origin, &remove, &signature);
+            ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_by_onchain_did(remove, signature.did, Self::remove_accumulator_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_accumulator_)
         }
     }
 }

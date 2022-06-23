@@ -56,8 +56,6 @@ decl_error! {
         /// Check to see that the provided priority is not zero as that could be the cause of this
         /// error.
         PriorityTooLow,
-        /// Signature verification failed while adding attestation
-        InvalidSig
     }
 }
 
@@ -107,13 +105,8 @@ decl_module! {
             signature: DidSignature<Attester>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
-            // check
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&attests, &signature)?,
-                Error::<T>::InvalidSig
-            );
 
-            did::Module::<T>::try_exec_by_onchain_did(attests, signature.did, Self::set_claim_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(attests, signature, Self::set_claim_)
             // Self::set_claim_(attests, signature.did)
         }
     }
@@ -200,7 +193,7 @@ mod test {
         });
     }
 
-    /// Trigger the InvalidSig error by tweaking a value in the plaintext after signing
+    /// Trigger the InvalidSignature error by tweaking a value in the plaintext after signing
     #[test]
     fn invalid_sig_a() {
         ext().execute_with(|| {
@@ -231,11 +224,11 @@ mod test {
                 sig,
             )
             .unwrap_err();
-            assert_eq!(err, Er::InvalidSig.into());
+            assert_eq!(err, did::Error::<Test>::InvalidSignature.into());
         });
     }
 
-    /// Trigger the InvalidSig error using a different did for signing
+    /// Trigger the InvalidSignature error using a different did for signing
     #[test]
     fn invalid_sig_b() {
         ext().execute_with(|| {
@@ -264,7 +257,7 @@ mod test {
                 ),
             )
             .unwrap_err();
-            assert_eq!(err, Er::InvalidSig.into());
+            assert_eq!(err, did::Error::<Test>::InvalidSignature.into());
         });
     }
 

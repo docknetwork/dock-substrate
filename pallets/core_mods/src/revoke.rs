@@ -338,7 +338,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_registry_action(revoke, proof, Self::revoke_)?;
+            Self::try_exec_action_over_registry(revoke, proof, Self::revoke_)?;
             Ok(())
         }
 
@@ -361,7 +361,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_registry_action(unrevoke, proof, Self::unrevoke_)?;
+            Self::try_exec_action_over_registry(unrevoke, proof, Self::unrevoke_)?;
             Ok(())
         }
 
@@ -386,7 +386,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_removable_registry_action(removal, proof, Self::remove_registry_)?;
+            Self::try_exec_removable_action_over_registry(removal, proof, Self::remove_registry_)?;
             Ok(())
         }
     }
@@ -463,7 +463,7 @@ impl<T: Config + Debug> Module<T> {
 
     /// Executes action over target registry providing a mutable reference if all checks succeed.
     ///
-    /// Unlike `try_exec_registry_action`, this action may result in a removal of a DID, if the value under option
+    /// Unlike `try_exec_action_over_registry`, this action may result in a removal of a Registry, if the value under option
     /// will be taken.
     ///
     /// Checks:
@@ -473,7 +473,7 @@ impl<T: Config + Debug> Module<T> {
     ///
     /// Returns a mutable reference to the underlying registry wrapped into an option if the command is authorized,
     /// otherwise returns Err.
-    pub(crate) fn try_exec_removable_registry_action<A, F, R, E>(
+    pub(crate) fn try_exec_removable_action_over_registry<A, F, R, E>(
         action: A,
         proof: PAuth<T>,
         f: F,
@@ -502,26 +502,25 @@ impl<T: Config + Debug> Module<T> {
             let mut new_did_details = BTreeMap::new();
 
             // check each signature is valid over payload and signed by the claimed signer
-            for (signer, (sig, nonce)) in proof.auths.iter() {
-                let new_nonce = *nonce;
+            for (signer, (sig, nonce)) in proof.auths.into_iter() {
                 // Check if nonce is valid and increase it
-                let mut did_detail = did::Module::<T>::onchain_did_details(signer)?;
+                let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;
                 did_detail
-                    .try_inc_nonce(new_nonce)
+                    .try_update(nonce)
                     .map_err(|_| RevErr::<T>::IncorrectNonce)?;
                 // Verify signature
-                let valid = SignableAction::<T>::verify_sig(&action, new_nonce, &sig);
-                ensure!(valid && (*signer == sig.did), RevErr::<T>::NotAuthorized);
+                let valid = SignableAction::<T>::verify_sig(&action, nonce, &sig);
+                ensure!(valid && (signer == sig.did), RevErr::<T>::NotAuthorized);
                 new_did_details.insert(signer, did_detail);
             }
 
             let mut data_opt = Some(registry);
             let res = f(action, &mut data_opt)?;
-            *registry_opt = data_opt.map(|data| data);
+            *registry_opt = data_opt;
 
             // The nonce of each DID must be updated
             for (signer, did_details) in new_did_details {
-                did::Module::<T>::insert_onchain_did(signer, did_details);
+                did::Module::<T>::insert_onchain_did(&signer, did_details);
             }
 
             Ok(res)
@@ -536,7 +535,7 @@ impl<T: Config + Debug> Module<T> {
     /// 2. Verify that `proof` authorizes `action` according to `policy`.
     ///
     /// Returns a mutable reference to the underlying registry if the command is authorized, otherwise returns Err.
-    pub(crate) fn try_exec_registry_action<A, F, R, E>(
+    pub(crate) fn try_exec_action_over_registry<A, F, R, E>(
         action: A,
         proof: PAuth<T>,
         f: F,
@@ -546,7 +545,7 @@ impl<T: Config + Debug> Module<T> {
         A: SignableAction<T>,
         DispatchError: From<RevErr<T>> + From<E>,
     {
-        Self::try_exec_removable_registry_action(action, proof, |action, reg| {
+        Self::try_exec_removable_action_over_registry(action, proof, |action, reg| {
             f(action, reg.as_mut().unwrap())
         })
     }
@@ -1168,7 +1167,7 @@ pub mod tests {
                 let old_nonces = get_nonces(signers);
                 let command = &rev;
                 let proof = get_pauth(command, &signers);
-                let res = RevoMod::try_exec_registry_action(command.clone(), proof, |_, _| {
+                let res = RevoMod::try_exec_action_over_registry(command.clone(), proof, |_, _| {
                     Ok::<_, DispatchError>(())
                 });
                 assert_eq!(res.is_ok(), *expect_success);
