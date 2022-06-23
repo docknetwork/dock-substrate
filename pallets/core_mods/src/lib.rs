@@ -41,12 +41,12 @@ pub enum StateChange<'a, T: frame_system::Config> {
     RemoveAccumulator(Cow<'a, accumulator::RemoveAccumulator<T>>),
 }
 
-/// Transforms given action to `StateChange`.
-pub trait ToStateChange<T: frame_system::Config>: Action<T> {
-    /// Converts the given action to the state change.
+/// Converts the given entity to the state change.
+pub trait ToStateChange<T: frame_system::Config> {
+    /// Converts the given entity to the state change.
     fn to_state_change(&self) -> StateChange<'_, T>;
 
-    /// Converts the given action to the state change.
+    /// Transforms given entity into `StateChange`.
     fn into_state_change(self) -> StateChange<'static, T>;
 }
 
