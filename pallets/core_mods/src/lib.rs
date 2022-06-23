@@ -50,7 +50,7 @@ pub trait ToStateChange<T: frame_system::Config> {
     fn into_state_change(self) -> StateChange<'static, T>;
 }
 
-/// Describes an action which can be performed on some `Target`
+/// Describes an action which can be performed on some `Target`.
 pub trait Action<T: frame_system::Config> {
     /// Action target.
     type Target;

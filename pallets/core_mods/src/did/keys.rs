@@ -98,6 +98,8 @@ impl<T: Config + Debug> Module<T> {
             ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
+        ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
+
         // If DID was not self controlled first, check if it can become by looking
         let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
         *active_controller_keys += controller_keys_count;
@@ -125,6 +127,8 @@ impl<T: Config + Debug> Module<T> {
             ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
+        ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
+
         for key_id in &keys {
             let key = DidKeys::get(&did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 

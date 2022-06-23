@@ -47,6 +47,19 @@ where
         }: AddServiceEndpoint<T>,
         _: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
+        ensure!(!id.is_empty(), Error::<T>::InvalidServiceEndpoint);
+        ensure!(
+            T::MaxServiceEndpointIdSize::get() as usize >= id.len(),
+            Error::<T>::InvalidServiceEndpoint
+        );
+        ensure!(
+            endpoint.is_valid(
+                T::MaxServiceEndpointOrigins::get() as usize,
+                T::MaxServiceEndpointOriginSize::get() as usize
+            ),
+            Error::<T>::InvalidServiceEndpoint
+        );
+
         if Self::did_service_endpoints(&did, &id).is_some() {
             fail!(Error::<T>::ServiceEndpointAlreadyExists)
         }
@@ -60,6 +73,8 @@ where
         RemoveServiceEndpoint { did, id, .. }: RemoveServiceEndpoint<T>,
         _: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
+        ensure!(!id.is_empty(), Error::<T>::InvalidServiceEndpoint);
+
         if Self::did_service_endpoints(&did, &id).is_none() {
             fail!(Error::<T>::ServiceEndpointDoesNotExist)
         }

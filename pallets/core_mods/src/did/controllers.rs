@@ -17,6 +17,8 @@ impl<T: Config + Debug> Module<T> {
             active_controllers, ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
+        ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
+
         for ctrl in &controllers {
             if Self::is_controller(&did, ctrl) {
                 fail!(Error::<T>::ControllerIsAlreadyAdded)
@@ -40,6 +42,8 @@ impl<T: Config + Debug> Module<T> {
             active_controllers, ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
+        ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
+
         for controller_did in &controllers {
             if !Self::is_controller(&did, controller_did) {
                 fail!(Error::<T>::NoControllerForDid)

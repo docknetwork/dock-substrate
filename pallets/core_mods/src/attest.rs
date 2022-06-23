@@ -43,7 +43,7 @@ pub struct SetAttestationClaim<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-crate::impl_action_with_nonce! { for (): SetAttestationClaim with { |_| 1} as len, () as target }
+crate::impl_action_with_nonce! { for (): SetAttestationClaim with 1 as len, () as target }
 
 decl_error! {
     /// Error for the attest module.

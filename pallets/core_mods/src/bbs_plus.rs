@@ -85,14 +85,14 @@ pub struct RemoveBBSPlusPublicKey<T: frame_system::Config> {
 
 crate::impl_action_with_nonce!(
     for Controller:
-        AddBBSPlusPublicKey with { |_| 1 } as len, did as target,
-        RemoveBBSPlusPublicKey with { |_| 1 } as len, did as target
+        AddBBSPlusPublicKey with 1 as len, did as target,
+        RemoveBBSPlusPublicKey with 1 as len, did as target
 );
 
 crate::impl_action_with_nonce!(
     for ():
-        AddBBSPlusParams with { |_| 1 } as len, () as target,
-        RemoveBBSPlusParams with { |_| 1 } as len, () as target
+        AddBBSPlusParams with 1 as len, () as target,
+        RemoveBBSPlusParams with 1 as len, () as target
 );
 
 /// The module's configuration trait.
@@ -186,7 +186,6 @@ decl_module! {
             ensure_signed(origin)?;
 
             did::Module::<T>::try_exec_signed_action_from_onchain_did(params, signature, Self::add_params_)
-            // Self::add_params_(params, signature.did)
         }
 
         /// Add a BBS+ public key. Only the DID controller can add key and it should use the nonce from the DID module.

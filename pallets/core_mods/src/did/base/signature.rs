@@ -51,13 +51,13 @@ impl<T: Config + Debug> Module<T> {
 
     /// Verifies that `did`'s key with id `key_id` can either authenticate or control otherwise returns an error.
     /// Then provided signature will be verified against the supplied public key and `true` returned for a valid signature.
-    pub fn verify_sig_from_auth_or_control_key<A, D>(
-        action: &A,
+    pub fn verify_sig_from_auth_or_control_key<Sc, D>(
+        action: &Sc,
         sig: &DidSignature<D>,
     ) -> Result<bool, Error<T>>
     where
         D: Into<Did> + Copy,
-        A: ToStateChange<T>,
+        Sc: ToStateChange<T>,
     {
         let signer_pubkey = Self::auth_or_control_key(&sig.did.into(), sig.key_id)?;
 

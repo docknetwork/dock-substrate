@@ -42,7 +42,7 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         &self.data
     }
 
-    /// Returns mutable referenct to the underlying data if provided nonce is equal to current nonce plus 1,
+    /// Returns mutable reference to the underlying data if provided nonce is equal to current nonce plus 1,
     /// otherwise returns an error.
     pub fn try_update(&mut self, nonce: T::BlockNumber) -> Result<&mut D, DispatchError> {
         if nonce == self.next_nonce() {
@@ -64,7 +64,8 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
     where
         F: FnOnce(&mut Option<D>) -> Result<R, E>,
         E: Into<DispatchError>,
-        S: From<Self> + TryInto<Self>,
+        S: TryInto<Self>,
+        Self: Into<S>,
     {
         let mut this = this_opt.take()?.try_into().ok()?;
 

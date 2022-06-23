@@ -730,7 +730,7 @@ fn add_keys_to_did() {
                     sig
                 }
             ),
-            Error::<Test>::NoKeyProvided
+            Error::<Test>::OnlyControllerCanUpdate
         );
 
         let add_keys = AddKeys {
@@ -1382,7 +1382,7 @@ fn add_controllers_to_did() {
                     sig
                 }
             ),
-            Error::<Test>::NoControllerProvided
+            Error::<Test>::OnlyControllerCanUpdate
         );
 
         let add_controllers = AddControllers {

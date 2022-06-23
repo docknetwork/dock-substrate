@@ -22,6 +22,16 @@ impl<T: Config> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
     }
 }
 
+impl<T: Config + Debug> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
+    type Error = Error<T>;
+
+    fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
+        details
+            .into_offchain()
+            .ok_or(Error::<T>::CannotGetDetailForOffChainDid)
+    }
+}
+
 impl<T: Config + Debug> OffChainDidDetails<T> {
     /// Constructs new off-chain DID details using supplied params.
     pub fn new(account_id: T::AccountId, doc_ref: OffChainDidDocRef) -> Self {
@@ -69,12 +79,15 @@ impl<T: Config + Debug> Module<T> {
         did: Did,
         did_doc_ref: OffChainDidDocRef,
     ) -> Result<(), Error<T>> {
+        ensure!(
+            T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
+            Error::<T>::DidDocUriTooBig
+        );
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
-        let details: StoredDidDetails<T> =
-            OffChainDidDetails::new(caller, did_doc_ref.clone()).into();
-        Dids::<T>::insert(did, details);
+        let details = OffChainDidDetails::new(caller, did_doc_ref.clone());
+        Self::insert_did(did, details);
 
         deposit_indexed_event!(OffChainDidAdded(did, did_doc_ref) over did);
         Ok(())
@@ -85,6 +98,10 @@ impl<T: Config + Debug> Module<T> {
         did: Did,
         did_doc_ref: OffChainDidDocRef,
     ) -> Result<(), Error<T>> {
+        ensure!(
+            T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
+            Error::<T>::DidDocUriTooBig
+        );
         Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
         let details: StoredDidDetails<T> =
@@ -115,7 +132,6 @@ impl<T: Config + Debug> Module<T> {
     pub fn offchain_did_details(did: &Did) -> Result<OffChainDidDetails<T>, Error<T>> {
         Self::did(did)
             .ok_or(Error::<T>::DidDoesNotExist)?
-            .into_offchain()
-            .ok_or(Error::<T>::CannotGetDetailForOffChainDid)
+            .try_into()
     }
 }

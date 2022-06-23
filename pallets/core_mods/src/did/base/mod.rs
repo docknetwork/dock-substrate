@@ -10,9 +10,6 @@ pub use offchain::*;
 pub use onchain::*;
 pub use signature::DidSignature;
 
-/// Raw DID representation.
-pub type RawDid = [u8; Did::BYTE_SIZE];
-
 /// The type of the Dock DID.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -24,6 +21,9 @@ impl Did {
 }
 
 impl_wrapper! { Did, RawDid }
+
+/// Raw DID representation.
+pub type RawDid = [u8; Did::BYTE_SIZE];
 
 impl Index<RangeFull> for Did {
     type Output = RawDid;
@@ -83,5 +83,11 @@ impl<T: Config> StoredDidDetails<T> {
             StoredDidDetails::OnChain(details) => Some(details),
             _ => None,
         }
+    }
+}
+
+impl<T: Config + Debug> Module<T> {
+    pub(crate) fn insert_did<D: Into<StoredDidDetails<T>>>(did: Did, did_details: D) {
+        Dids::<T>::insert(did, did_details.into())
     }
 }

@@ -14,7 +14,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
-use sp_std::convert::TryFrom;
+use sp_std::convert::{TryFrom, TryInto};
 use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
 
 pub use base::*;
@@ -144,17 +144,16 @@ decl_storage! {
                 this.dids.iter().all(|(_, key)| key.can_control())
             });
 
-            for (did, key) in this.dids.iter() {
+            for (did, key) in &this.dids {
                 let mut key_id = IncId::new();
                 key_id.inc();
-                let did_details: StoredDidDetails<T> = StoredOnChainDidDetails::new(
+                let did_details = StoredOnChainDidDetails::new(
                     OnChainDidDetails::new(key_id, 1u32, 1u32),
-                )
-                .into();
+                );
 
-                Dids::insert(&did, did_details);
-                DidKeys::insert(&did, key_id, key);
-                DidControllers::insert(&did, Controller(*did), ());
+                <Module<T>>::insert_did(*did, did_details);
+                DidKeys::insert(did, key_id, key);
+                DidControllers::insert(did, Controller(*did), ());
             }
         })
     }
@@ -178,10 +177,6 @@ decl_module! {
         pub fn new_offchain(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
             // Only `did_owner` can update or remove this DID
             let did_owner = ensure_signed(origin)?.into();
-            ensure!(
-                T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
-                Error::<T>::DidDocUriTooBig
-            );
 
             Self::new_offchain_(did_owner, did, did_doc_ref)?;
             Ok(())
@@ -191,10 +186,6 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_ref.len() as u64 * T::DidDocRefPerByteWeight::get()]
         pub fn set_offchain_did_uri(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
             let caller = ensure_signed(origin)?;
-            ensure!(
-                T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
-                Error::<T>::DidDocUriTooBig
-            );
 
             Self::set_offchain_did_uri_(caller, did, did_doc_ref)?;
             Ok(())
@@ -229,7 +220,6 @@ decl_module! {
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
         fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
-            ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(keys, sig, Self::add_keys_)
@@ -240,7 +230,6 @@ decl_module! {
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
         fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
-            ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(keys, sig, Self::remove_keys_)
@@ -251,7 +240,6 @@ decl_module! {
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
-            ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(controllers, sig, Self::add_controllers_)
@@ -262,7 +250,6 @@ decl_module! {
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
-            ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(controllers, sig, Self::remove_controllers_)
@@ -272,13 +259,7 @@ decl_module! {
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
-            ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure_signed(origin)?;
-            ensure!(
-                T::MaxServiceEndpointIdSize::get() as usize >= service_endpoint.id.len(),
-                Error::<T>::InvalidServiceEndpoint
-            );
-            ensure!(service_endpoint.endpoint.is_valid(T::MaxServiceEndpointOrigins::get() as usize, T::MaxServiceEndpointOriginSize::get() as usize), Error::<T>::InvalidServiceEndpoint);
 
             Self::try_exec_signed_action_over_onchain_did(service_endpoint, sig, Self::add_service_endpoint_)
         }
@@ -287,7 +268,6 @@ decl_module! {
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
-            ensure!(!service_endpoint.id.is_empty(), Error::<T>::InvalidServiceEndpoint);
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(service_endpoint, sig, Self::remove_service_endpoint_)

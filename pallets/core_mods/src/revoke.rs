@@ -429,7 +429,7 @@ impl<T: Config + Debug> Module<T> {
             let mut new_did_details = BTreeMap::new();
 
             // check each signature is valid over payload and signed by the claimed signer
-            for (signer, (sig, nonce)) in proof.auths.into_iter() {
+            for (signer, (sig, nonce)) in proof.auths {
                 // Check if nonce is valid and increase it
                 let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;
                 did_detail
@@ -450,7 +450,7 @@ impl<T: Config + Debug> Module<T> {
 
             // The nonce of each DID must be updated
             for (signer, did_details) in new_did_details {
-                did::Module::<T>::insert_onchain_did(&signer, did_details);
+                did::Module::<T>::insert_did(signer, did_details);
             }
 
             Ok(res)
@@ -519,7 +519,7 @@ pub mod tests {
     pub fn inc_nonce(d: &Did) {
         let mut did_detail = DIDModule::onchain_did_details(&d).unwrap();
         did_detail.nonce = did_detail.next_nonce();
-        DIDModule::insert_onchain_did(d, did_detail);
+        DIDModule::insert_did(*d, did_detail);
     }
 
     pub fn get_nonces(signers: &[(Did, &sr25519::Pair)]) -> BTreeMap<Did, u64> {

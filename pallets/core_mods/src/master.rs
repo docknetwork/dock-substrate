@@ -327,7 +327,7 @@ impl<T: Config + Debug> Module<T> {
 
         // The nonce of each DID must be updated
         for (signer, did_details) in new_did_details {
-            did::Module::<T>::insert_onchain_did(&signer, did_details);
+            did::Module::<T>::insert_did(*signer, did_details);
         }
 
         // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,

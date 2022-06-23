@@ -31,7 +31,7 @@ impl<T: Config + Debug> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
         details
             .into_onchain()
-            .ok_or(Error::<T>::CannotGetDetailForOffChainDid)
+            .ok_or(Error::<T>::CannotGetDetailForOnChainDid)
     }
 }
 
@@ -79,12 +79,13 @@ impl<T: Config + Debug> Module<T> {
             DidControllers::insert(&did, &ctrl, ());
         }
 
-        let did_details: StoredDidDetails<T> = StoredOnChainDidDetails::new(
-            OnChainDidDetails::new(last_key_id, controller_keys_count, controllers.len() as u32),
-        )
-        .into();
+        let did_details = WithNonce::new(OnChainDidDetails::new(
+            last_key_id,
+            controller_keys_count,
+            controllers.len() as u32,
+        ));
 
-        Dids::<T>::insert(did, did_details);
+        Self::insert_did(did, did_details);
 
         deposit_indexed_event!(OnChainDidAdded(did));
         Ok(())
@@ -159,7 +160,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, S) -> Result<R, E>,
-        A: ActionWithNonce<T> + ToStateChange<T>,
+        A: ActionWithNonce<T, Target = ()> + ToStateChange<T>,
         S: Into<Did> + Copy,
         DispatchError: From<Error<T>> + From<E>,
     {
@@ -211,11 +212,6 @@ impl<T: Config + Debug> Module<T> {
             })
             .ok_or(Error::<T>::DidDoesNotExist)?
         })
-    }
-
-    pub(crate) fn insert_onchain_did(did: &Did, onchain_did_detail: StoredOnChainDidDetails<T>) {
-        let did_details: StoredDidDetails<T> = onchain_did_detail.into();
-        Dids::<T>::insert(did, did_details)
     }
 
     pub fn is_onchain_did(did: &Did) -> Result<bool, Error<T>> {

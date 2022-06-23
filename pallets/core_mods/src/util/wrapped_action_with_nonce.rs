@@ -4,15 +4,15 @@ use frame_system::Config;
 
 /// Wraps any value in an action with the supplied nonce and given target.
 #[derive(Clone, Debug, PartialEq, Encode, Decode)]
-pub struct WrappedActionWithNonce<T: Config, A, D> {
+pub struct WrappedActionWithNonce<T: Config, A, Ta> {
     pub nonce: T::BlockNumber,
-    pub target: D,
+    pub target: Ta,
     pub action: A,
 }
 
-impl<T: Config, A, D> WrappedActionWithNonce<T, A, D> {
+impl<T: Config, A, Ta> WrappedActionWithNonce<T, A, Ta> {
     /// Wraps any value in an action with the supplied nonce and given target.
-    pub fn new(nonce: T::BlockNumber, target: D, action: A) -> Self {
+    pub fn new(nonce: T::BlockNumber, target: Ta, action: A) -> Self {
         Self {
             nonce,
             target,
@@ -21,8 +21,8 @@ impl<T: Config, A, D> WrappedActionWithNonce<T, A, D> {
     }
 }
 
-impl<T: Config, A: Action<T>, D: Clone> Action<T> for WrappedActionWithNonce<T, A, D> {
-    type Target = D;
+impl<T: Config, A: Action<T>, Ta: Clone> Action<T> for WrappedActionWithNonce<T, A, Ta> {
+    type Target = Ta;
 
     fn target(&self) -> Self::Target {
         self.target.clone()
@@ -33,14 +33,14 @@ impl<T: Config, A: Action<T>, D: Clone> Action<T> for WrappedActionWithNonce<T, 
     }
 }
 
-impl<T: Config, A: Action<T>, D: Clone> ActionWithNonce<T> for WrappedActionWithNonce<T, A, D> {
+impl<T: Config, A: Action<T>, Ta: Clone> ActionWithNonce<T> for WrappedActionWithNonce<T, A, Ta> {
     fn nonce(&self) -> T::BlockNumber {
         self.nonce
     }
 }
 
-impl<T: frame_system::Config, A: Action<T> + ToStateChange<T>, D: Clone> ToStateChange<T>
-    for WrappedActionWithNonce<T, A, D>
+impl<T: frame_system::Config, A: ToStateChange<T>, Ta: Clone> ToStateChange<T>
+    for WrappedActionWithNonce<T, A, Ta>
 {
     fn to_state_change(&self) -> crate::StateChange<'_, T> {
         self.action.to_state_change()
