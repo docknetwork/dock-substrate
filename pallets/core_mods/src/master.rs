@@ -57,12 +57,9 @@
 //! This module implement partial replay protection to prevent unauthorized resubmission of votes
 //! from previous rounds.
 
-use crate::revoke::{PAuth, SignableAction};
-use crate::{
-    did,
-    did::{Did, DidSignature},
-    revoke::get_weight_for_pauth,
-};
+use crate::revoke::PAuth;
+use crate::util::WithNonce;
+use crate::{did, did::Did, revoke::get_weight_for_pauth};
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -71,6 +68,7 @@ use alloc::{
 use codec::{Decode, Encode};
 use core::default::Default;
 use core::fmt::Debug;
+use core::marker::PhantomData;
 
 use frame_support::dispatch::PostDispatchInfo;
 use frame_support::{
@@ -87,21 +85,18 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct MasterVote {
+pub struct MasterVoteRaw<T> {
     /// The serialized Call to be run as root.
     proposal: Vec<u8>,
     /// The round for which the vote is to be valid
     round_no: u64,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    _marker: PhantomData<T>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct MasterVoteSigningPayload<T: frame_system::Config> {
-    /// The serialized Call to be run as root.
-    proposal: Vec<u8>,
-    /// The round for which the vote is to be valid
-    round_no: u64,
-    nonce: T::BlockNumber,
+crate::impl_action! {
+    for (): MasterVoteRaw with 1 as len, () as target no_state_change
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
@@ -111,32 +106,10 @@ pub struct Membership {
     pub vote_requirement: u64,
 }
 
-impl<T: system::Config + did::Config + Debug> SignableAction<T> for MasterVote {
-    type SigningPayload = MasterVoteSigningPayload<T>;
+pub type MasterVote<T> = WithNonce<T, MasterVoteRaw<T>>;
 
-    fn target(&self) -> crate::revoke::RegistryId {
-        unimplemented!()
-    }
-
-    fn verify_sig(&self, nonce: T::BlockNumber, sig: &DidSignature<Did>) -> bool {
-        let m = SignableAction::<T>::to_encoded_signing_payload(self, nonce);
-        did::Module::<T>::verify_sig_from_auth_or_control_key_on_bytes(&m, sig).unwrap_or(false)
-    }
-
-    fn to_encoded_signing_payload(&self, nonce: T::BlockNumber) -> Vec<u8> {
-        crate::StateChange::<'_, T>::MasterVote(sp_std::borrow::Cow::Borrowed(
-            &self.to_signing_payload(nonce),
-        ))
-        .encode()
-    }
-
-    fn to_signing_payload(&self, nonce: T::BlockNumber) -> Self::SigningPayload {
-        MasterVoteSigningPayload {
-            proposal: self.proposal.clone(),
-            round_no: self.round_no,
-            nonce,
-        }
-    }
+crate::impl_action_with_nonce! {
+    for (): MasterVote with 1 as len, () as target
 }
 
 impl Default for Membership {
@@ -317,7 +290,8 @@ impl<T: Config + Debug> Module<T> {
             MasterError::<T>::NotMember,
         );
 
-        let new_payload = MasterVote {
+        let new_payload = MasterVoteRaw {
+            _marker: PhantomData,
             proposal: proposal.encode(),
             round_no: Round::get(),
         };
@@ -325,15 +299,18 @@ impl<T: Config + Debug> Module<T> {
         let mut new_did_details = BTreeMap::new();
 
         // check each signature is valid over payload and signed by the claimed signer
-        for (signer, (sig, nonce)) in auth.auths.iter() {
-            let new_nonce = *nonce;
+        for (signer, (sig, nonce)) in &auth.auths {
+            let nonce = *nonce;
             // Check if nonce is valid and increase it
-            let mut did_detail = did::Module::<T>::onchain_did_details(signer)?;
+            let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;
             did_detail
-                .try_update(new_nonce)
+                .try_update(nonce)
                 .map_err(|_| MasterError::<T>::IncorrectNonce)?;
             // Verify signature
-            let valid = SignableAction::<T>::verify_sig(&new_payload, new_nonce, &sig);
+            let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(
+                &WithNonce::new_with_nonce(new_payload.clone(), nonce),
+                &sig,
+            )?;
             ensure!(valid && (*signer == sig.did), MasterError::<T>::BadSig);
             new_did_details.insert(signer, did_detail);
         }
@@ -350,7 +327,7 @@ impl<T: Config + Debug> Module<T> {
 
         // The nonce of each DID must be updated
         for (signer, did_details) in new_did_details {
-            did::Module::<T>::insert_onchain_did(signer, did_details);
+            did::Module::<T>::insert_onchain_did(&signer, did_details);
         }
 
         // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,
@@ -423,8 +400,8 @@ mod test {
     use codec::Encode;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
     use super::{
-        Call as MasterCall, DispatchError, Event, MasterError, MasterVote, Members, Membership,
-        Round,
+        Call as MasterCall, DispatchError, Event, MasterError, MasterVoteRaw, Members, Membership,
+        PhantomData, Round,
     };
     use crate::revoke::tests::{check_nonce_increase, get_nonces, get_pauth};
     use crate::revoke::PAuth;
@@ -550,7 +527,8 @@ mod test {
             run_to_block(15);
 
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = MasterVote {
+            let sc = MasterVoteRaw {
+                _marker: PhantomData,
                 proposal: call.encode(),
                 round_no: Round::get(),
             };
@@ -623,7 +601,8 @@ mod test {
         ext().execute_with(|| {
             let (dida, didak) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = MasterVote {
+            let sc = MasterVoteRaw {
+                _marker: PhantomData,
                 proposal: call.encode(),
                 round_no: Round::get(),
             };
@@ -647,7 +626,8 @@ mod test {
             let (didc, didck) = newdid();
             let kv = (vec![4; 200], vec![5; 200]);
             let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
-            let sc = MasterVote {
+            let sc = MasterVoteRaw {
+                _marker: PhantomData,
                 proposal: call.encode(),
                 round_no: Round::get(),
             };
@@ -682,7 +662,8 @@ mod test {
             let kv = (vec![4; 200], vec![5; 200]);
             let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
 
-            let sc = MasterVote {
+            let sc = MasterVoteRaw {
+                _marker: PhantomData,
                 proposal: call.encode(),
                 round_no: Round::get(),
             };
@@ -718,7 +699,8 @@ mod test {
                 let kv = (vec![4; 200], vec![5; 200]);
                 let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
 
-                let sc = MasterVote {
+                let sc = MasterVoteRaw {
+                    _marker: PhantomData,
                     proposal: call.encode(),
                     round_no: 0,
                 };
@@ -738,7 +720,8 @@ mod test {
                 let kv = (vec![6; 200], vec![9; 200]);
                 let call = Call::System(system::Call::<Test>::set_storage(vec![kv.clone()]));
 
-                let sc = MasterVote {
+                let sc = MasterVoteRaw {
+                    _marker: PhantomData,
                     proposal: call.encode(),
                     round_no: 1,
                 };
@@ -767,7 +750,8 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Box::new(Call::System(system::Call::<Test>::set_storage(vec![])));
-            let sc = MasterVote {
+            let sc = MasterVoteRaw {
+                _marker: PhantomData,
                 proposal: call.encode(),
                 round_no: 0,
             };
@@ -788,7 +772,10 @@ mod test {
 
             {
                 // wrong payload
-                let sc = crate::revoke::RemoveRegistry { registry_id: RGA };
+                let sc = crate::revoke::RemoveRegistryRaw {
+                    registry_id: RGA,
+                    _marker: PhantomData,
+                };
                 let pauth = get_pauth(&sc, &[(dida, &didak)]);
                 let err = MasterMod::execute(Origin::signed(0), call.clone(), pauth).unwrap_err();
                 assert_eq!(err, MasterError::<Test>::BadSig.into());
@@ -806,7 +793,8 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Box::new(Call::System(system::Call::<Test>::set_storage(vec![])));
-            let sc = MasterVote {
+            let sc = MasterVoteRaw {
+                _marker: PhantomData,
                 proposal: call.encode(),
                 round_no: 0,
             };
@@ -825,7 +813,8 @@ mod test {
                 vote_requirement: 1,
             });
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = MasterVote {
+            let sc = MasterVoteRaw {
+                _marker: PhantomData,
                 proposal: call.encode(),
                 round_no: Round::get(),
             };
@@ -846,7 +835,8 @@ mod test {
             let (dida, didak) = newdid();
             let (didb, _didbk) = newdid();
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
-            let sc = MasterVote {
+            let sc = MasterVoteRaw {
+                _marker: PhantomData,
                 proposal: call.encode(),
                 round_no: Round::get(),
             };

@@ -22,11 +22,11 @@ pub enum StateChange<'a, T: frame_system::Config> {
     AddServiceEndpoint(Cow<'a, did::AddServiceEndpoint<T>>),
     RemoveServiceEndpoint(Cow<'a, did::RemoveServiceEndpoint<T>>),
     DidRemoval(Cow<'a, did::DidRemoval<T>>),
-    Revoke(Cow<'a, revoke::RevokeSigningPayload<T>>),
-    UnRevoke(Cow<'a, revoke::UnRevokeSigningPayload<T>>),
-    RemoveRegistry(Cow<'a, revoke::RemoveRegistrySigningPayload<T>>),
+    Revoke(Cow<'a, revoke::Revoke<T>>),
+    UnRevoke(Cow<'a, revoke::UnRevoke<T>>),
+    RemoveRegistry(Cow<'a, revoke::RemoveRegistry<T>>),
     AddBlob(Cow<'a, blob::AddBlob<T>>),
-    MasterVote(Cow<'a, master::MasterVoteSigningPayload<T>>),
+    MasterVote(Cow<'a, master::MasterVote<T>>),
     SetAttestationClaim(Cow<'a, attest::SetAttestationClaim<T>>),
     AddBBSPlusParams(Cow<'a, bbs_plus::AddBBSPlusParams<T>>),
     AddBBSPlusPublicKey(Cow<'a, bbs_plus::AddBBSPlusPublicKey<T>>),
@@ -39,6 +39,15 @@ pub enum StateChange<'a, T: frame_system::Config> {
     AddAccumulator(Cow<'a, accumulator::AddAccumulator<T>>),
     UpdateAccumulator(Cow<'a, accumulator::UpdateAccumulator<T>>),
     RemoveAccumulator(Cow<'a, accumulator::RemoveAccumulator<T>>),
+}
+
+/// Transforms given action to `StateChange`.
+pub trait ToStateChange<T: frame_system::Config>: Action<T> {
+    /// Converts the given action to the state change.
+    fn to_state_change(&self) -> StateChange<'_, T>;
+
+    /// Converts the given action to the state change.
+    fn into_state_change(self) -> StateChange<'static, T>;
 }
 
 /// Describes an action which can be performed on some `Target`
@@ -56,12 +65,6 @@ pub trait Action<T: frame_system::Config> {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
-    /// Converts the given action to the state change.
-    fn to_state_change(&self) -> StateChange<'_, T>;
-
-    /// Converts the given action to the state change.
-    fn into_state_change(self) -> StateChange<'static, T>;
 }
 
 /// Describes an action with nonce which can be performed on some `Target`

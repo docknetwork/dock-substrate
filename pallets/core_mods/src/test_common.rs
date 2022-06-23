@@ -8,6 +8,7 @@ use crate::did::{self, Did, DidKey, DidSignature};
 use crate::master;
 use crate::revoke;
 use crate::Action;
+use crate::ToStateChange;
 use crate::{accumulator, StateChange};
 use crate::{keys_and_sigs, util};
 
@@ -293,7 +294,7 @@ pub fn sign<T: frame_system::Config>(
     })
 }
 
-pub fn did_sig<T: frame_system::Config, A: Action<T>, D: Into<Did>>(
+pub fn did_sig<T: frame_system::Config, A: ToStateChange<T>, D: Into<Did>>(
     change: &A,
     keypair: &sr25519::Pair,
     did: D,

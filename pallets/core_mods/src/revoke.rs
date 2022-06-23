@@ -1,10 +1,12 @@
 use crate::did::{self, Did, DidSignature};
 use crate::keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
+use crate::util::WithNonce;
 use crate::{self as dock};
-use alloc::borrow::Cow;
+use crate::{Action, ToStateChange};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
+use core::marker::PhantomData;
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -15,7 +17,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
-use sp_std::vec::Vec;
 
 /// Points to an on-chain revocation registry.
 pub type RegistryId = [u8; 32];
@@ -72,23 +73,14 @@ pub struct AddRegistry {
 /// but has no effect.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Revoke {
+pub struct RevokeRaw<T> {
     /// The registry on which to operate
     pub registry_id: RegistryId,
     /// Credential ids which will be revoked
     pub revoke_ids: BTreeSet<RevokeId>,
-}
-
-/// The transformed payload created from `Revoke` for signing.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RevokeSigningPayload<T: frame_system::Config> {
-    /// The registry on which to operate
-    pub registry_id: RegistryId,
-    /// Credential ids which will be revoked
-    pub revoke_ids: BTreeSet<RevokeId>,
-    /// Nonce used by signer
-    pub nonce: T::BlockNumber,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    _marker: PhantomData<T>,
 }
 
 /// Command to remove a set of revocations within a registry.
@@ -96,124 +88,52 @@ pub struct RevokeSigningPayload<T: frame_system::Config> {
 /// but has no effect.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct UnRevoke {
+pub struct UnRevokeRaw<T> {
     /// The registry on which to operate
     pub registry_id: RegistryId,
     /// Credential ids which will be revoked
     pub revoke_ids: BTreeSet<RevokeId>,
-}
-
-/// The transformed payload created from `UnRevoke` for signing.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct UnRevokeSigningPayload<T: frame_system::Config> {
-    /// The registry on which to operate
-    pub registry_id: RegistryId,
-    /// Credential ids which will be revoked
-    pub revoke_ids: BTreeSet<RevokeId>,
-    /// Nonce used by signer
-    pub nonce: T::BlockNumber,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    _marker: PhantomData<T>,
 }
 
 /// Command to remove an entire registry. Removes all revocations in the registry as well as
 /// registry metadata.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RemoveRegistry {
+pub struct RemoveRegistryRaw<T> {
     /// The registry on which to operate
     pub registry_id: RegistryId,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub _marker: PhantomData<T>,
 }
 
-/// The transformed payload created from `Revoke` for signing.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct RemoveRegistrySigningPayload<T: frame_system::Config> {
-    /// The registry on which to operate
-    pub registry_id: RegistryId,
-    /// Nonce used by signer
-    pub nonce: T::BlockNumber,
+crate::impl_action! {
+    for RegistryId:
+        RevokeRaw with 1 as len, registry_id as target no_state_change,
+        UnRevokeRaw with 1 as len, registry_id as target no_state_change,
+        RemoveRegistryRaw with 1 as len, registry_id as target no_state_change
 }
 
-/// A trait representing a signable action. The action is first transformed to a payload by using nonce
-/// and then passed to the verification function.
-pub trait SignableAction<T: system::Config + did::Config + Debug> {
-    /// The type of the signing payload
-    type SigningPayload;
+/// Command to create a set of revocations withing a registry.
+/// Creation of revocations is idempotent; creating a revocation that already exists is allowed,
+/// but has no effect.
+pub type Revoke<T> = WithNonce<T, RevokeRaw<T>>;
+/// Command to remove a set of revocations within a registry.
+/// Removal of revocations is idempotent; removing a revocation that doesn't exists is allowed,
+/// but has no effect.
+pub type UnRevoke<T> = WithNonce<T, UnRevokeRaw<T>>;
+/// Command to remove an entire registry. Removes all revocations in the registry as well as
+/// registry metadata.
+pub type RemoveRegistry<T> = WithNonce<T, RemoveRegistryRaw<T>>;
 
-    fn target(&self) -> RegistryId;
-
-    /// Verify the signature on the action. This will transform the action to the signed payload first.
-    fn verify_sig(&self, nonce: T::BlockNumber, sig: &DidSignature<Did>) -> bool {
-        let m = SignableAction::<T>::to_encoded_signing_payload(self, nonce);
-        did::Module::<T>::verify_sig_from_auth_or_control_key_on_bytes(&m, sig).unwrap_or(false)
-    }
-
-    /// Transform the action to signing payload bytes by adding the nonce to it
-    fn to_encoded_signing_payload(&self, nonce: T::BlockNumber) -> Vec<u8>;
-
-    /// Transform the action to signing payload by adding the nonce to it
-    fn to_signing_payload(&self, nonce: T::BlockNumber) -> Self::SigningPayload;
-}
-
-impl<T: system::Config + did::Config + Debug> SignableAction<T> for Revoke {
-    type SigningPayload = RevokeSigningPayload<T>;
-
-    fn target(&self) -> RegistryId {
-        self.registry_id
-    }
-
-    fn to_encoded_signing_payload(&self, nonce: T::BlockNumber) -> Vec<u8> {
-        crate::StateChange::<'_, T>::Revoke(Cow::Borrowed(&self.to_signing_payload(nonce))).encode()
-    }
-
-    fn to_signing_payload(&self, nonce: T::BlockNumber) -> Self::SigningPayload {
-        RevokeSigningPayload {
-            registry_id: self.registry_id.clone(),
-            revoke_ids: self.revoke_ids.clone(),
-            nonce,
-        }
-    }
-}
-
-impl<T: system::Config + did::Config + Debug> SignableAction<T> for UnRevoke {
-    type SigningPayload = UnRevokeSigningPayload<T>;
-
-    fn target(&self) -> RegistryId {
-        self.registry_id
-    }
-
-    fn to_encoded_signing_payload(&self, nonce: T::BlockNumber) -> Vec<u8> {
-        crate::StateChange::<'_, T>::UnRevoke(Cow::Borrowed(&self.to_signing_payload(nonce)))
-            .encode()
-    }
-
-    fn to_signing_payload(&self, nonce: T::BlockNumber) -> Self::SigningPayload {
-        UnRevokeSigningPayload {
-            registry_id: self.registry_id.clone(),
-            revoke_ids: self.revoke_ids.clone(),
-            nonce,
-        }
-    }
-}
-
-impl<T: system::Config + did::Config + Debug> SignableAction<T> for RemoveRegistry {
-    type SigningPayload = RemoveRegistrySigningPayload<T>;
-
-    fn target(&self) -> RegistryId {
-        self.registry_id
-    }
-
-    fn to_encoded_signing_payload(&self, nonce: T::BlockNumber) -> Vec<u8> {
-        crate::StateChange::<'_, T>::RemoveRegistry(Cow::Borrowed(&self.to_signing_payload(nonce)))
-            .encode()
-    }
-
-    fn to_signing_payload(&self, nonce: T::BlockNumber) -> Self::SigningPayload {
-        RemoveRegistrySigningPayload {
-            registry_id: self.registry_id.clone(),
-            nonce,
-        }
-    }
+crate::impl_action_with_nonce! {
+    for RegistryId:
+        UnRevoke with 1 as len, { |a: &UnRevoke<T>| a.data().registry_id } as target,
+        Revoke with 1 as len, { |a: &Revoke<T>| a.data().registry_id } as target,
+        RemoveRegistry with 1 as len, { |a: &RemoveRegistry<T>| a.data().registry_id } as target
 }
 
 /// Return counts of different signature types in given PAuth as 3-Tuple as (no. of Sr22519 sigs,
@@ -333,7 +253,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn revoke(
             origin,
-            revoke: dock::revoke::Revoke,
+            revoke: dock::revoke::RevokeRaw<T>,
             proof: dock::revoke::PAuth<T>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
@@ -356,7 +276,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn unrevoke(
             origin,
-            unrevoke: dock::revoke::UnRevoke,
+            unrevoke: dock::revoke::UnRevokeRaw<T>,
             proof: dock::revoke::PAuth<T>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
@@ -381,7 +301,7 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 2) + 100_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
         pub fn remove_registry(
             origin,
-            removal: dock::revoke::RemoveRegistry,
+            removal: dock::revoke::RemoveRegistryRaw<T>,
             proof: dock::revoke::PAuth<T>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
@@ -412,11 +332,12 @@ impl<T: Config + Debug> Module<T> {
     }
 
     fn revoke_(
-        Revoke {
+        RevokeRaw {
+            _marker: PhantomData,
             registry_id,
             revoke_ids,
             ..
-        }: Revoke,
+        }: RevokeRaw<T>,
         _: &mut Registry,
     ) -> DispatchResult {
         // execute
@@ -429,11 +350,12 @@ impl<T: Config + Debug> Module<T> {
     }
 
     fn unrevoke_(
-        UnRevoke {
+        UnRevokeRaw {
+            _marker: PhantomData,
             revoke_ids,
             registry_id,
             ..
-        }: UnRevoke,
+        }: UnRevokeRaw<T>,
         registry: &mut Registry,
     ) -> DispatchResult {
         ensure!(!registry.add_only, RevErr::<T>::AddOnly);
@@ -448,7 +370,11 @@ impl<T: Config + Debug> Module<T> {
     }
 
     fn remove_registry_(
-        RemoveRegistry { registry_id, .. }: RemoveRegistry,
+        RemoveRegistryRaw {
+            _marker: PhantomData,
+            registry_id,
+            ..
+        }: RemoveRegistryRaw<T>,
         registry: &mut Option<Registry>,
     ) -> DispatchResult {
         let registry = registry.take().unwrap();
@@ -480,7 +406,8 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Option<Registry>) -> Result<R, E>,
-        A: SignableAction<T>,
+        A: Action<T, Target = RegistryId> + Clone,
+        WithNonce<T, A>: ToStateChange<T>,
         DispatchError: From<RevErr<T>> + From<E>,
     {
         Registries::try_mutate_exists(action.target(), |registry_opt| {
@@ -509,7 +436,10 @@ impl<T: Config + Debug> Module<T> {
                     .try_update(nonce)
                     .map_err(|_| RevErr::<T>::IncorrectNonce)?;
                 // Verify signature
-                let valid = SignableAction::<T>::verify_sig(&action, nonce, &sig);
+                let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(
+                    &WithNonce::new_with_nonce(action.clone(), nonce),
+                    &sig,
+                )?;
                 ensure!(valid && (signer == sig.did), RevErr::<T>::NotAuthorized);
                 new_did_details.insert(signer, did_detail);
             }
@@ -542,7 +472,8 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Registry) -> Result<R, E>,
-        A: SignableAction<T>,
+        A: Action<T, Target = RegistryId> + Clone,
+        WithNonce<T, A>: ToStateChange<T>,
         DispatchError: From<RevErr<T>> + From<E>,
     {
         Self::try_exec_removable_action_over_registry(action, proof, |action, reg| {
@@ -553,24 +484,32 @@ impl<T: Config + Debug> Module<T> {
 
 #[cfg(test)]
 pub mod tests {
-    use super::{
-        AddRegistry, BTreeMap, Did, DidSignature, PAuth, Policy, Registry, RegistryId,
-        RemoveRegistry, RevErr, Revoke, RevokeId, SignableAction, UnRevoke,
-    };
+    use super::*;
     use crate::test_common::*;
+    use crate::util::WithNonce;
+    use crate::Action;
+    use crate::ToStateChange;
     use sp_core::sr25519;
 
-    pub fn get_pauth(
-        action: &impl SignableAction<Test>,
+    pub fn get_pauth<A: Action<Test> + Clone>(
+        action: &A,
         signers: &[(Did, &sr25519::Pair)],
-    ) -> PAuth<Test> {
+    ) -> PAuth<Test>
+    where
+        WithNonce<Test, A>: ToStateChange<Test>,
+    {
         let auths: BTreeMap<Did, (DidSignature<Did>, u64)> = signers
             .iter()
             .map(|(did, kp)| {
                 let did_detail = DIDModule::onchain_did_details(&did).unwrap();
                 let next_nonce = did_detail.next_nonce();
-                let sp = SignableAction::<Test>::to_encoded_signing_payload(action, next_nonce);
-                let sig = did_sig_on_bytes::<Test, _>(&sp, &kp, did.clone(), 1);
+                let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
+                let sig = did_sig_on_bytes::<Test, _>(
+                    &sp.to_state_change().encode(),
+                    &kp,
+                    did.clone(),
+                    1,
+                );
                 (did.clone(), (sig, next_nonce))
             })
             .collect();
@@ -651,7 +590,8 @@ pub mod tests {
                 };
                 RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
 
-                let rev = Revoke {
+                let rev = RevokeRaw {
+                    _marker: PhantomData,
                     registry_id: regid,
                     revoke_ids: random::<[RevokeId; 32]>().iter().cloned().collect(),
                 };
@@ -710,14 +650,16 @@ pub mod tests {
             };
             RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
 
-            let unrevoke = UnRevoke {
+            let unrevoke = UnRevokeRaw {
+                _marker: PhantomData,
                 registry_id,
                 revoke_ids: BTreeSet::new(),
             };
             let ur_proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
             RevoMod::unrevoke(Origin::signed(ABBA), unrevoke.clone(), ur_proof).unwrap();
 
-            let rev = Revoke {
+            let rev = RevokeRaw {
+                _marker: PhantomData,
                 registry_id,
                 revoke_ids: BTreeSet::new(),
             };
@@ -763,7 +705,8 @@ pub mod tests {
             assert_eq!(
                 RevoMod::revoke(
                     Origin::signed(ABBA),
-                    Revoke {
+                    RevokeRaw {
+                        _marker: PhantomData,
                         registry_id,
                         revoke_ids: BTreeSet::new(),
                     },
@@ -776,7 +719,8 @@ pub mod tests {
             assert_eq!(
                 RevoMod::unrevoke(
                     Origin::signed(ABBA),
-                    UnRevoke {
+                    UnRevokeRaw {
+                        _marker: PhantomData,
                         registry_id,
                         revoke_ids: BTreeSet::new(),
                     },
@@ -789,7 +733,10 @@ pub mod tests {
             assert_eq!(
                 RevoMod::remove_registry(
                     Origin::signed(ABBA),
-                    RemoveRegistry { registry_id },
+                    RemoveRegistryRaw {
+                        _marker: PhantomData,
+                        registry_id
+                    },
                     PAuth {
                         auths: BTreeMap::new()
                     },
@@ -821,7 +768,8 @@ pub mod tests {
 
             RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
 
-            let rev = Revoke {
+            let rev = RevokeRaw {
+                _marker: PhantomData,
                 registry_id,
                 revoke_ids: BTreeSet::new(),
             };
@@ -831,7 +779,8 @@ pub mod tests {
             inc_nonce(&DIDA);
             assert_eq!(RevoMod::revoke(Origin::signed(ABBA), rev, proof), err);
 
-            let unrevoke = UnRevoke {
+            let unrevoke = UnRevokeRaw {
+                _marker: PhantomData,
                 registry_id,
                 revoke_ids: BTreeSet::new(),
             };
@@ -844,7 +793,10 @@ pub mod tests {
                 err
             );
 
-            let remove = RemoveRegistry { registry_id };
+            let remove = RemoveRegistryRaw {
+                _marker: PhantomData,
+                registry_id,
+            };
             let proof = get_pauth(&remove, &[(DIDA, &kpa)]);
 
             // Increase nonce to make the auth chekc fail
@@ -879,7 +831,8 @@ pub mod tests {
 
             RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
 
-            let unrevoke = UnRevoke {
+            let unrevoke = UnRevokeRaw {
+                _marker: PhantomData,
                 registry_id,
                 revoke_ids,
             };
@@ -889,7 +842,10 @@ pub mod tests {
                 err
             );
 
-            let remove = RemoveRegistry { registry_id };
+            let remove = RemoveRegistryRaw {
+                _marker: PhantomData,
+                registry_id,
+            };
             let proof = get_pauth(&remove, &[(DIDA, &kpa)]);
             assert_eq!(
                 RevoMod::remove_registry(Origin::signed(ABBA), remove, proof),
@@ -982,7 +938,8 @@ pub mod tests {
             ];
             for (i, ids) in cases.into_iter().enumerate() {
                 println!("Revoke ids: {:?}", ids);
-                let revoke = Revoke {
+                let revoke = RevokeRaw {
+                    _marker: PhantomData,
                     registry_id,
                     revoke_ids: ids.iter().cloned().collect(),
                 };
@@ -1045,7 +1002,8 @@ pub mod tests {
                 let revoke_ids: BTreeSet<RevokeId> = ids.iter().cloned().collect();
                 match action {
                     Action::Revoke => {
-                        let revoke = Revoke {
+                        let revoke = RevokeRaw {
+                            _marker: PhantomData,
                             registry_id,
                             revoke_ids,
                         };
@@ -1053,7 +1011,8 @@ pub mod tests {
                         RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
                     }
                     Action::UnRevo => {
-                        let unrevoke = UnRevoke {
+                        let unrevoke = UnRevokeRaw {
+                            _marker: PhantomData,
                             registry_id,
                             revoke_ids: revoke_ids.clone(),
                         };
@@ -1096,7 +1055,10 @@ pub mod tests {
             assert!(Registries::contains_key(registry_id));
 
             // destroy reg
-            let rem = RemoveRegistry { registry_id };
+            let rem = RemoveRegistryRaw {
+                _marker: PhantomData,
+                registry_id,
+            };
             let proof = get_pauth(&rem, &[(DIDA, &kpa)]);
             RevoMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
 
@@ -1136,7 +1098,8 @@ pub mod tests {
 
             let (a, b, c): (Did, Did, Did) = (Did(random()), Did(random()), Did(random()));
             let (kpa, kpb, kpc) = (create_did(a), create_did(b), create_did(c));
-            let rev = Revoke {
+            let rev = RevokeRaw {
+                _marker: PhantomData,
                 registry_id: RGA,
                 revoke_ids: BTreeSet::new(),
             };
@@ -1221,7 +1184,8 @@ pub mod tests {
             };
 
             RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
-            let revoke = Revoke {
+            let revoke = RevokeRaw {
+                _marker: PhantomData,
                 registry_id,
                 revoke_ids: once(revid).collect(),
             };
@@ -1299,7 +1263,7 @@ mod benchmarking {
 
             Registries::insert(reg_id, (Registry {policy: oneof(&[did]), add_only: false}, block_number));
 
-            let rev_cmd = Revoke {registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), nonce: n};
+            let rev_cmd = RevokeRaw {_marker: PhantomData,registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), nonce: n};
             let mut p_auth = BTreeMap::new();
             p_auth.insert(did, signature);
         }: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
@@ -1327,7 +1291,7 @@ mod benchmarking {
             for r_id in &revoke_ids {
                 Revocations::insert(reg_id, r_id, ());
             }
-            let rev_cmd = UnRevoke {registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), nonce: n};
+            let rev_cmd = UnRevokeRaw {_marker: PhantomData,registry_id: reg_id, revoke_ids: revoke_ids.clone().into_iter().collect(), nonce: n};
             let mut p_auth = BTreeMap::new();
             p_auth.insert(did, signature);
         }: _(RawOrigin::Signed(caller), rev_cmd, p_auth)
@@ -1355,7 +1319,7 @@ mod benchmarking {
             for k in 0..i {
                 Revocations::insert(reg_id, [k as u8; 32], ());
             }
-            let rem_cmd = RemoveRegistry {registry_id: reg_id, nonce: n};
+            let rem_cmd = RemoveRegistryRaw { _marker: PhantomData,registry_id: reg_id, nonce: n};
             let mut p_auth = BTreeMap::new();
             p_auth.insert(did, signature);
         }: _(RawOrigin::Signed(caller), rem_cmd, p_auth)

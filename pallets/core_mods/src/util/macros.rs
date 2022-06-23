@@ -34,8 +34,25 @@ macro_rules! field_accessor {
 }
 
 #[macro_export]
+macro_rules! impl_to_state_change {
+    ($type: ident) => {
+        impl<T: frame_system::Config> $crate::ToStateChange<T> for $type<T> {
+            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
+            }
+
+            fn into_state_change(self) -> $crate::StateChange<'static, T> {
+                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
+            }
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! impl_action {
     ($type: ident for $target: ty: with $len: tt as len, $target_field: tt as target) => {
+        $crate::impl_to_state_change! { $type }
+
         impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
             type Target = $target;
 
@@ -46,19 +63,24 @@ macro_rules! impl_action {
             fn len(&self) -> u32 {
                 $crate::field_accessor!(self, $len.len() as u32)
             }
+        }
+    };
+    ($type: ident for $target: ty: with $len: tt as len, $target_field: tt as target no_state_change) => {
+        impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
+            type Target = $target;
 
-            fn to_state_change(&self) -> $crate::StateChange<'_, T> {
-                $crate::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
+            fn target(&self) -> $target {
+                $crate::field_accessor!(self, $target_field)
             }
 
-            fn into_state_change(self) -> $crate::StateChange<'static, T> {
-                $crate::StateChange::$type(sp_std::borrow::Cow::Owned(self))
+            fn len(&self) -> u32 {
+                $crate::field_accessor!(self, $len.len() as u32)
             }
         }
     };
-    (for $target: ty: $($type: ident with $len: tt as len, $target_field: tt as target),+) => {
+    (for $target: ty: $($type: ident with $len: tt as len, $target_field: tt as target $($addition: tt)?),+) => {
         $(
-            $crate::impl_action! { $type for $target: with $len as len, $target_field as target }
+            $crate::impl_action! { $type for $target: with $len as len, $target_field as target $($addition)? }
         )+
     };
 }

@@ -1,4 +1,5 @@
 use super::*;
+use crate::ToStateChange;
 
 use crate::did::service_endpoints::ServiceEndpointType;
 use crate::keys_and_sigs::{get_secp256k1_keypair, SigValue};

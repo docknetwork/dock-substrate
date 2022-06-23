@@ -352,7 +352,7 @@ mod test {
     use frame_support::assert_err;
     use sp_core::{sr25519, H256};
 
-    fn sign_add_params<T: frame_system::Config>(
+    fn sign_add_params<T: Config>(
         keypair: &sr25519::Pair,
         ap: &AddBBSPlusParams<T>,
         signer: Did,
@@ -361,7 +361,7 @@ mod test {
         did_sig::<T, _, _>(ap, keypair, BBSPlusParamsOwner(signer), key_id)
     }
 
-    fn sign_remove_params<T: frame_system::Config>(
+    fn sign_remove_params<T: Config>(
         keypair: &sr25519::Pair,
         rp: &RemoveBBSPlusParams<T>,
         signer: Did,
@@ -370,7 +370,7 @@ mod test {
         did_sig::<T, _, _>(rp, keypair, BBSPlusParamsOwner(signer), key_id)
     }
 
-    fn sign_add_key<T: frame_system::Config>(
+    fn sign_add_key<T: Config>(
         keypair: &sr25519::Pair,
         ak: &AddBBSPlusPublicKey<T>,
         signer: Did,
@@ -379,7 +379,7 @@ mod test {
         did_sig::<T, _, _>(ak, keypair, Controller(signer), key_id)
     }
 
-    fn sign_remove_key<T: frame_system::Config>(
+    fn sign_remove_key<T: Config>(
         keypair: &sr25519::Pair,
         rk: &RemoveBBSPlusPublicKey<T>,
         signer: Did,

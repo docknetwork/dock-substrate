@@ -1,6 +1,7 @@
-use sp_runtime::DispatchError;
-
 use super::super::*;
+use crate::util::WrappedActionWithNonce;
+use crate::ToStateChange;
+use sp_runtime::DispatchError;
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a write (through an extrinsic)
 pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
@@ -112,7 +113,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
-        A: ActionWithNonce<T>,
+        A: ActionWithNonce<T> + ToStateChange<T>,
         A::Target: Into<Did>,
         DispatchError: From<Error<T>> + From<E>,
     {
@@ -135,7 +136,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
-        A: ActionWithNonce<T>,
+        A: ActionWithNonce<T> + ToStateChange<T>,
         A::Target: Into<Did>,
         DispatchError: From<Error<T>> + From<E>,
     {
@@ -158,7 +159,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(A, S) -> Result<R, E>,
-        A: ActionWithNonce<T>,
+        A: ActionWithNonce<T> + ToStateChange<T>,
         S: Into<Did> + Copy,
         DispatchError: From<Error<T>> + From<E>,
     {
@@ -168,8 +169,8 @@ impl<T: Config + Debug> Module<T> {
         );
 
         Self::try_exec_action_over_onchain_did(
-            ActionWrapper::new(action.nonce(), action, signature.did),
-            |ActionWrapper { action, target, .. }, _| f(action, target),
+            WrappedActionWithNonce::new(action.nonce(), signature.did, action),
+            |WrappedActionWithNonce { action, target, .. }, _| f(action, target),
         )
     }
 
