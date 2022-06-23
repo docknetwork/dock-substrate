@@ -341,3 +341,14 @@ pub fn run_to_block(n: u64) {
         System::on_initialize(System::block_number());
     }
 }
+
+pub fn check_nonce(d: &Did, nonce: u64) {
+    let did_detail = DIDModule::onchain_did_details(&d).unwrap();
+    assert_eq!(did_detail.nonce, nonce);
+}
+
+pub fn inc_nonce(d: &Did) {
+    let mut did_detail = DIDModule::onchain_did_details(&d).unwrap();
+    did_detail.nonce = did_detail.next_nonce();
+    DIDModule::insert_onchain_did(d, did_detail);
+}

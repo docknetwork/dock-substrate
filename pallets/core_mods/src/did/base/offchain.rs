@@ -80,7 +80,7 @@ impl<T: Config + Debug> Module<T> {
         Ok(())
     }
 
-    pub(crate) fn set_offchain_did_uri_(
+    pub(crate) fn set_offchain_did_doc_ref_(
         caller: T::AccountId,
         did: Did,
         did_doc_ref: OffChainDidDocRef,

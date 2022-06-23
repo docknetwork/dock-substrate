@@ -1,7 +1,7 @@
+use crate as dock;
 use crate::did::{self, Did, DidSignature};
 use crate::keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
 use crate::util::WithNonce;
-use crate::{self as dock};
 use crate::{Action, ToStateChange};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
@@ -516,12 +516,6 @@ pub mod tests {
         PAuth { auths }
     }
 
-    pub fn inc_nonce(d: &Did) {
-        let mut did_detail = DIDModule::onchain_did_details(&d).unwrap();
-        did_detail.nonce = did_detail.next_nonce();
-        DIDModule::insert_onchain_did(d, did_detail);
-    }
-
     pub fn get_nonces(signers: &[(Did, &sr25519::Pair)]) -> BTreeMap<Did, u64> {
         let mut nonces = BTreeMap::new();
         for (d, _) in signers {
@@ -786,7 +780,7 @@ pub mod tests {
             };
             let proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
 
-            // Increase nonce to make the auth chekc fail
+            // Increase nonce to make the auth check fail
             inc_nonce(&DIDA);
             assert_eq!(
                 RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, proof,),
@@ -799,7 +793,7 @@ pub mod tests {
             };
             let proof = get_pauth(&remove, &[(DIDA, &kpa)]);
 
-            // Increase nonce to make the auth chekc fail
+            // Increase nonce to make the auth check fail
             inc_nonce(&DIDA);
             assert_eq!(
                 RevoMod::remove_registry(Origin::signed(ABBA), remove, proof,),
@@ -944,10 +938,12 @@ pub mod tests {
                     revoke_ids: ids.iter().cloned().collect(),
                 };
                 let proof = get_pauth(&revoke, &[(DIDA, &kpa)]);
+                let old_nonces = get_nonces(&[((DIDA, &kpa))]);
                 RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
                 assert!(ids
                     .iter()
                     .all(|id| Revocations::contains_key(registry_id, id)));
+                check_nonce_increase(old_nonces, &[((DIDA, &kpa))]);
                 run_to_block(1 + 1 + i as u64);
             }
         }
@@ -1008,7 +1004,9 @@ pub mod tests {
                             revoke_ids,
                         };
                         let proof = get_pauth(&revoke, &[(DIDA, &kpa)]);
+                        let old_nonces = get_nonces(&[((DIDA, &kpa))]);
                         RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
+                        check_nonce_increase(old_nonces, &[((DIDA, &kpa))]);
                     }
                     Action::UnRevo => {
                         let unrevoke = UnRevokeRaw {
@@ -1016,8 +1014,10 @@ pub mod tests {
                             registry_id,
                             revoke_ids: revoke_ids.clone(),
                         };
+                        let old_nonces = get_nonces(&[((DIDA, &kpa))]);
                         let proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
                         RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, proof).unwrap();
+                        check_nonce_increase(old_nonces, &[((DIDA, &kpa))]);
                     }
                     Action::AsrtRv => {
                         assert!(revoke_ids
@@ -1060,7 +1060,9 @@ pub mod tests {
                 registry_id,
             };
             let proof = get_pauth(&rem, &[(DIDA, &kpa)]);
+            let old_nonces = get_nonces(&[((DIDA, &kpa))]);
             RevoMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
+            check_nonce_increase(old_nonces, &[((DIDA, &kpa))]);
 
             // assert not exists
             assert!(!Registries::contains_key(registry_id));

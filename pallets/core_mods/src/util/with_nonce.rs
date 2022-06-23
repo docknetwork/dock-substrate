@@ -18,11 +18,7 @@ use sp_std::convert::TryInto;
 pub struct WithNonce<T: frame_system::Config, D> {
     pub nonce: T::BlockNumber,
     #[cfg_attr(feature = "serde", serde(flatten))]
-    #[cfg(test)]
     pub data: D,
-    #[cfg_attr(feature = "serde", serde(flatten))]
-    #[cfg(not(test))]
-    data: D,
 }
 
 impl<T: frame_system::Config, D> WithNonce<T, D> {
@@ -42,7 +38,7 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         &self.data
     }
 
-    /// Returns mutable referenct to the underlying data if provided nonce is equal to current nonce plus 1,
+    /// Returns mutable reference to the underlying data if provided nonce is equal to current nonce plus 1,
     /// otherwise returns an error.
     pub fn try_update(&mut self, nonce: T::BlockNumber) -> Result<&mut D, DispatchError> {
         if nonce == self.next_nonce() {

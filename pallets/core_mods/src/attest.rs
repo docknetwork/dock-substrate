@@ -107,7 +107,6 @@ decl_module! {
             ensure_signed(origin)?;
 
             did::Module::<T>::try_exec_signed_action_from_onchain_did(attests, signature, Self::set_claim_)
-            // Self::set_claim_(attests, signature.did)
         }
     }
 }
@@ -269,6 +268,7 @@ mod test {
 
             let (did, kp) = newdid();
             let did = Attester(did);
+            check_nonce(&did, 10);
 
             // same iri
             set_claim(
@@ -281,6 +281,7 @@ mod test {
                 10 + 1,
             )
             .unwrap();
+            check_nonce(&did, 10 + 1);
             assert_eq!(
                 set_claim(
                     &did,
@@ -306,6 +307,8 @@ mod test {
                 11 + 1,
             )
             .unwrap();
+            check_nonce(&did, 11 + 1);
+
             assert_eq!(
                 set_claim(
                     &did,
@@ -334,6 +337,8 @@ mod test {
             let prios: Vec<u64> = (0..200).map(|_| rand::random::<u64>()).collect();
             let mut nonce = 10 + 1;
             for priority in &prios {
+                check_nonce(&did, nonce - 1);
+
                 let _ = set_claim(
                     &did,
                     &Attestation {
@@ -344,6 +349,7 @@ mod test {
                     nonce,
                 )
                 .and_then(|_| {
+                    check_nonce(&did, nonce);
                     nonce += 1;
                     Ok(())
                 });
@@ -364,6 +370,8 @@ mod test {
 
             let (did, kp) = newdid();
             let did = Attester(did);
+            check_nonce(&did, 10);
+
             set_claim(
                 &did,
                 &Attestation {
@@ -374,6 +382,7 @@ mod test {
                 10 + 1,
             )
             .unwrap();
+            check_nonce(&did, 10 + 1);
             let err = set_claim(
                 &did,
                 &Attestation {
@@ -403,6 +412,7 @@ mod test {
                     iri: None,
                 }
             );
+            check_nonce(&did, 10);
             set_claim(
                 &did,
                 &Attestation {
@@ -413,6 +423,7 @@ mod test {
                 10 + 1,
             )
             .unwrap();
+            check_nonce(&did, 10 + 1);
             assert_eq!(
                 Attestations::get(did),
                 Attestation {
@@ -432,6 +443,8 @@ mod test {
             let (did, kp) = newdid();
             let did = Attester(did);
             for (i, priority) in [1, 2, 4].iter().enumerate() {
+                let nonce = 10 + 1 + i as u64;
+                check_nonce(&did, nonce - 1);
                 set_claim(
                     &did,
                     &Attestation {
@@ -439,9 +452,10 @@ mod test {
                         iri: None,
                     },
                     &kp,
-                    10 + 1 + i as u64,
+                    nonce,
                 )
                 .unwrap();
+                check_nonce(&did, nonce);
             }
         });
     }
