@@ -1,6 +1,5 @@
 //! Boilerplate for runtime module unit tests
 
-use crate::accumulator;
 use crate::anchor;
 use crate::attest;
 use crate::bbs_plus;
@@ -9,6 +8,7 @@ use crate::did::{self, Did, DidKey, DidSignature};
 use crate::master;
 use crate::revoke;
 use crate::Action;
+use crate::{accumulator, StateChange};
 use crate::{keys_and_sigs, util};
 
 use crate::keys_and_sigs::SigValue;
@@ -248,11 +248,6 @@ pub fn ext() -> sp_io::TestExternalities {
     ret
 }
 
-// get the current block number from the system module
-pub fn block_no() -> u64 {
-    system::Module::<Test>::block_number()
-}
-
 /// create a OneOf policy
 pub fn oneof(dids: &[Did]) -> Policy {
     Policy::OneOf(dids.iter().cloned().collect())
@@ -290,7 +285,7 @@ pub fn newdid() -> (Did, sr25519::Pair) {
 }
 
 pub fn sign<T: frame_system::Config>(
-    payload: &crate::StateChange<T>,
+    payload: &StateChange<T>,
     keypair: &sr25519::Pair,
 ) -> SigValue {
     SigValue::Sr25519(util::Bytes64 {
@@ -305,6 +300,22 @@ pub fn did_sig<T: frame_system::Config, A: Action<T>, D: Into<Did>>(
     key_id: u32,
 ) -> DidSignature<D> {
     let sig = sign(&change.to_state_change(), keypair);
+    DidSignature {
+        did,
+        key_id: key_id.into(),
+        sig,
+    }
+}
+
+pub fn did_sig_on_bytes<T: frame_system::Config, D: Into<Did>>(
+    msg_bytes: &[u8],
+    keypair: &sr25519::Pair,
+    did: D,
+    key_id: u32,
+) -> DidSignature<D> {
+    let sig = SigValue::Sr25519(util::Bytes64 {
+        value: keypair.sign(msg_bytes).0,
+    });
     DidSignature {
         did,
         key_id: key_id.into(),

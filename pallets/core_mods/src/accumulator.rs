@@ -1,7 +1,8 @@
 use crate::did;
 use crate::did::{Did, DidSignature};
+use crate::ensure_signed_payload_from_auth_or_controller;
 use crate::types::CurveType;
-use crate::util::{IncId, WithNonce};
+use crate::util::IncId;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use frame_support::{
@@ -12,7 +13,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
-use sp_std::marker::PhantomData;
 use sp_std::vec::Vec;
 
 pub type ParametersStorageKey = (AccumulatorOwner, IncId);
@@ -48,9 +48,7 @@ pub struct AccumulatorParameters {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddAccumulatorParams<T: frame_system::Config> {
     params: AccumulatorParameters,
-    #[codec(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    _marker: PhantomData<T>,
+    nonce: T::BlockNumber,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
@@ -66,9 +64,7 @@ pub struct AccumulatorPublicKey {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddAccumulatorPublicKey<T: frame_system::Config> {
     public_key: AccumulatorPublicKey,
-    #[codec(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    _marker: PhantomData<T>,
+    nonce: T::BlockNumber,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
@@ -112,9 +108,7 @@ pub struct UniversalAccumulator {
 pub struct AddAccumulator<T: frame_system::Config> {
     pub id: AccumulatorId,
     pub accumulator: Accumulator,
-    #[codec(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    _marker: PhantomData<T>,
+    pub nonce: T::BlockNumber,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
@@ -137,31 +131,15 @@ pub struct UpdateAccumulator<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-crate::impl_action! {
+crate::impl_action_with_nonce! {
     for ():
         AddAccumulatorParams with 1 as len, () as target,
-        AddAccumulatorPublicKey with 1 as len, () as target
-}
-
-crate::impl_action! {
-    for ParametersStorageKey:
-        RemoveAccumulatorParams with 1 as len, params_ref as target
-}
-
-crate::impl_action! {
-    for PublicKeyStorageKey:
-        RemoveAccumulatorPublicKey with 1 as len, key_ref as target
-}
-
-crate::impl_action! {
-    for AccumulatorId:
-        AddAccumulator with 1 as len, id as target
-}
-
-crate::impl_action_with_nonce! {
-    for AccumulatorId:
-        RemoveAccumulator with 1 as len, id as target,
-        UpdateAccumulator with 1 as len, id as target
+        AddAccumulatorPublicKey with 1 as len, () as target,
+        RemoveAccumulatorParams with 1 as len, () as target,
+        RemoveAccumulatorPublicKey with 1 as len, () as target,
+        AddAccumulator with 1 as len, () as target,
+        UpdateAccumulator with 1 as len, () as target,
+        RemoveAccumulator with 1 as len, () as target
 }
 
 impl Accumulator {
@@ -240,6 +218,7 @@ decl_error! {
         AccumulatedTooBig,
         AccumulatorDoesntExist,
         AccumulatorAlreadyExists,
+        NotPublicKeyOwner,
         NotAccumulatorOwner,
         IncorrectNonce,
     }
@@ -251,8 +230,6 @@ pub struct StoredAccumulatorOwnerCounters {
     params_counter: IncId,
     key_counter: IncId,
 }
-
-type StoredAccumulator<T> = WithNonce<T, AccumulatorWithUpdateInfo<T>>;
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -278,28 +255,26 @@ decl_storage! {
             map hasher(blake2_128_concat) AccumulatorOwner => StoredAccumulatorOwnerCounters;
 
         pub AccumulatorParams get(fn get_params):
-            double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<WithNonce<T, AccumulatorParameters>>;
+            double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<AccumulatorParameters>;
 
         /// Public key storage is kept separate from accumulator storage and a single key can be used to manage
         /// several accumulators. It is assumed that whoever (DID) owns the public key, owns the accumulator as
         /// well and only that DID can update accumulator.
         pub AccumulatorKeys get(fn get_key):
-            double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<WithNonce<T, AccumulatorPublicKey>>;
+            double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<AccumulatorPublicKey>;
 
-        /// Stores latest accumulator as key value: accumulator id -> (created_at, last_updated_at, nonce, Accumulator)
+        /// Stores latest accumulator as key value: accumulator id -> (created_at, last_updated_at, Accumulator)
         /// `created_at` is the block number when the accumulator was created and is intended to serve as a starting
         /// point for anyone looking for all updates to the accumulator. `last_updated_at` is the block number when
         /// the last update was sent. `created_at` and `last_updated_at` together indicate which blocks should be
         /// considered for finding accumulator updates.
-        /// `nonce` is the an always incrementing number starting at 0 to help with replay protection. Each new
-        /// update is supposed to have 1 higher nonce than the current one.
         /// Historical values and updates are persisted as events indexed with the accumulator id. The reason for
         /// not storing past values is to save storage in chain state. Another option could have been to store
         /// block numbers for the updates so that each block from `created_at` doesn't need to be scanned but
         /// even that requires large storage as we expect millions of updates.
         /// Just keeping the latest accumulated value allows for any potential on chain verification as well.
         pub Accumulators get(fn get_accumulator):
-            map hasher(blake2_128_concat) AccumulatorId => Option<StoredAccumulator<T>>;
+            map hasher(blake2_128_concat) AccumulatorId => Option<AccumulatorWithUpdateInfo<T>>;
     }
 }
 
@@ -333,14 +308,9 @@ decl_module! {
             params: AddAccumulatorParams<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&params, &signature)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_payload_from_auth_or_controller!(origin, &params, &signature);
 
-            Module::<T>::add_params_(params, signature.did)?;
-            Ok(())
+            did::Module::<T>::try_exec_by_onchain_did(params, signature.did, Self::add_params_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 2)
@@ -352,14 +322,9 @@ decl_module! {
             public_key: AddAccumulatorPublicKey<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&public_key, &signature)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_payload_from_auth_or_controller!(origin, &public_key, &signature);
 
-            Module::<T>::add_public_key_(public_key, signature.did)?;
-            Ok(())
+            did::Module::<T>::try_exec_by_onchain_did(public_key, signature.did, Self::add_public_key_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -368,13 +333,9 @@ decl_module! {
             remove: RemoveAccumulatorParams<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&remove, &signature)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_payload_from_auth_or_controller!(origin, &remove, &signature);
 
-            Module::<T>::remove_params_(remove, signature.did)
+            did::Module::<T>::try_exec_by_onchain_did(remove, signature.did, Self::remove_params_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -383,14 +344,9 @@ decl_module! {
             remove: RemoveAccumulatorPublicKey<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&remove, &signature)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_payload_from_auth_or_controller!(origin, &remove, &signature);
 
-            Module::<T>::remove_public_key_(remove, signature.did)?;
-            Ok(())
+            did::Module::<T>::try_exec_by_onchain_did(remove, signature.did, Self::remove_public_key_)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -407,13 +363,9 @@ decl_module! {
             add_accumulator: AddAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&add_accumulator, &signature)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_payload_from_auth_or_controller!(origin, &add_accumulator, &signature);
 
-            Module::<T>::add_accumulator_(add_accumulator)
+            did::Module::<T>::try_exec_by_onchain_did(add_accumulator, signature.did, Self::add_accumulator_)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -430,14 +382,9 @@ decl_module! {
             update: UpdateAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&update, &signature)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_payload_from_auth_or_controller!(origin, &update, &signature);
 
-            Module::<T>::update_accumulator_(update, signature.did)?;
-            Ok(())
+            did::Module::<T>::try_exec_by_onchain_did(update, signature.did, Self::update_accumulator_)
         }
 
         #[weight = T::DbWeight::get().reads_writes(1, 2)+ signature.weight()]
@@ -446,13 +393,9 @@ decl_module! {
             remove: RemoveAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
-            ensure_signed(origin)?;
-            ensure!(
-                did::Module::<T>::verify_sig_from_auth_or_control_key(&remove, &signature)?,
-                Error::<T>::InvalidSig
-            );
+            ensure_signed_payload_from_auth_or_controller!(origin, &remove, &signature);
 
-            Module::<T>::remove_accumulator_(remove, signature.did)
+            did::Module::<T>::try_exec_by_onchain_did(remove, signature.did, Self::remove_accumulator_)
         }
     }
 }
@@ -460,7 +403,7 @@ decl_module! {
 impl<T: Config + Debug> Module<T> {
     fn add_params_(
         AddAccumulatorParams { params, .. }: AddAccumulatorParams<T>,
-        signer: AccumulatorOwner,
+        owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
             T::LabelMaxSize::get() as usize >= params.label.as_ref().map_or_else(|| 0, |l| l.len()),
@@ -472,16 +415,16 @@ impl<T: Config + Debug> Module<T> {
         );
 
         let params_counter =
-            AccumulatorOwnerCounters::mutate(&signer, |counters| *counters.params_counter.inc());
-        AccumulatorParams::<T>::insert(&signer, params_counter, WithNonce::new(params));
+            AccumulatorOwnerCounters::mutate(&owner, |counters| *counters.params_counter.inc());
+        AccumulatorParams::insert(&owner, params_counter, params);
 
-        Self::deposit_event(Event::ParamsAdded(signer, params_counter));
+        Self::deposit_event(Event::ParamsAdded(owner, params_counter));
         Ok(())
     }
 
     fn add_public_key_(
         AddAccumulatorPublicKey { public_key, .. }: AddAccumulatorPublicKey<T>,
-        signer: AccumulatorOwner,
+        owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
             T::PublicKeyMaxSize::get() as usize >= public_key.bytes.len(),
@@ -490,7 +433,7 @@ impl<T: Config + Debug> Module<T> {
         match public_key.params_ref {
             Some(params_ref) => {
                 ensure!(
-                    AccumulatorParams::<T>::contains_key(&params_ref.0, &params_ref.1),
+                    AccumulatorParams::contains_key(&params_ref.0, &params_ref.1),
                     Error::<T>::ParamsDontExist
                 );
             }
@@ -498,27 +441,28 @@ impl<T: Config + Debug> Module<T> {
         }
 
         let keys_counter =
-            AccumulatorOwnerCounters::mutate(&signer, |counters| *counters.key_counter.inc());
-        AccumulatorKeys::<T>::insert(&signer, keys_counter, WithNonce::new(public_key));
+            AccumulatorOwnerCounters::mutate(&owner, |counters| *counters.key_counter.inc());
+        AccumulatorKeys::insert(&owner, keys_counter, public_key);
 
-        Self::deposit_event(Event::KeyAdded(signer, keys_counter));
+        Self::deposit_event(Event::KeyAdded(owner, keys_counter));
         Ok(())
     }
 
     fn remove_params_(
         RemoveAccumulatorParams {
             params_ref: (did, counter),
-            nonce,
+            ..
         }: RemoveAccumulatorParams<T>,
-        signer: AccumulatorOwner,
+        owner: AccumulatorOwner,
     ) -> DispatchResult {
         // Only the DID that added the param can remove it
-        ensure!(did == signer, Error::<T>::NotAccumulatorOwner);
-        AccumulatorParams::<T>::get(did, counter)
-            .ok_or(Error::<T>::ParamsDontExist)?
-            .try_inc_nonce(nonce)?;
+        ensure!(did == owner, Error::<T>::NotAccumulatorOwner);
+        ensure!(
+            AccumulatorParams::contains_key(did, counter),
+            Error::<T>::ParamsDontExist
+        );
 
-        AccumulatorParams::<T>::remove(did, counter);
+        AccumulatorParams::remove(did, counter);
 
         Self::deposit_event(Event::ParamsRemoved(did, counter));
         Ok(())
@@ -527,16 +471,17 @@ impl<T: Config + Debug> Module<T> {
     fn remove_public_key_(
         RemoveAccumulatorPublicKey {
             key_ref: (did, counter),
-            nonce,
+            ..
         }: RemoveAccumulatorPublicKey<T>,
-        signer: AccumulatorOwner,
+        owner: AccumulatorOwner,
     ) -> DispatchResult {
-        ensure!(did == signer, Error::<T>::NotAccumulatorOwner);
-        AccumulatorKeys::<T>::get(&did, &counter)
-            .ok_or(Error::<T>::ParamsDontExist)?
-            .try_inc_nonce(nonce)?;
+        ensure!(did == owner, Error::<T>::NotAccumulatorOwner);
+        ensure!(
+            AccumulatorKeys::contains_key(did, counter),
+            Error::<T>::PublicKeyDoesntExist
+        );
 
-        AccumulatorKeys::<T>::remove(&did, &counter);
+        AccumulatorKeys::remove(&did, &counter);
 
         Self::deposit_event(Event::KeyRemoved(did, counter));
         Ok(())
@@ -546,6 +491,7 @@ impl<T: Config + Debug> Module<T> {
         AddAccumulator {
             id, accumulator, ..
         }: AddAccumulator<T>,
+        owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
             T::AccumulatedMaxSize::get() as usize >= accumulator.accumulated().len(),
@@ -558,16 +504,17 @@ impl<T: Config + Debug> Module<T> {
 
         let key_ref = accumulator.key_ref();
         ensure!(
-            AccumulatorKeys::<T>::contains_key(&key_ref.0, &key_ref.1),
+            AccumulatorKeys::contains_key(&key_ref.0, &key_ref.1),
             Error::<T>::PublicKeyDoesntExist
         );
+        ensure!(key_ref.0 == owner, Error::<T>::NotPublicKeyOwner);
 
         let accumulated = accumulator.accumulated().to_vec();
 
         let current_block = <system::Module<T>>::block_number();
         Accumulators::<T>::insert(
             id,
-            StoredAccumulator::new(AccumulatorWithUpdateInfo::new(accumulator, current_block)),
+            AccumulatorWithUpdateInfo::new(accumulator, current_block),
         );
 
         crate::deposit_indexed_event!(AccumulatorAdded(id, accumulated) over id);
@@ -578,10 +525,9 @@ impl<T: Config + Debug> Module<T> {
         UpdateAccumulator {
             id,
             new_accumulated,
-            nonce,
             ..
         }: UpdateAccumulator<T>,
-        signer: AccumulatorOwner,
+        owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
             T::AccumulatedMaxSize::get() as usize >= new_accumulated.len(),
@@ -591,12 +537,11 @@ impl<T: Config + Debug> Module<T> {
         Accumulators::<T>::try_mutate(id, |accumulator| -> DispatchResult {
             let accumulator = accumulator
                 .as_mut()
-                .ok_or(Error::<T>::AccumulatorDoesntExist)?
-                .try_inc_nonce(nonce)?;
+                .ok_or(Error::<T>::AccumulatorDoesntExist)?;
 
             // Only the DID that added the accumulator can update it
             ensure!(
-                *accumulator.accumulator.owner_did() == signer,
+                *accumulator.accumulator.owner_did() == owner,
                 Error::<T>::NotAccumulatorOwner
             );
 
@@ -615,11 +560,10 @@ impl<T: Config + Debug> Module<T> {
     }
 
     fn remove_accumulator_(
-        RemoveAccumulator { id, nonce }: RemoveAccumulator<T>,
+        RemoveAccumulator { id, .. }: RemoveAccumulator<T>,
         signer: AccumulatorOwner,
     ) -> DispatchResult {
-        let mut acc_opt = Accumulators::<T>::get(&id).ok_or(Error::<T>::AccumulatorDoesntExist)?;
-        let accumulator = acc_opt.try_inc_nonce(nonce)?;
+        let accumulator = Accumulators::<T>::get(&id).ok_or(Error::<T>::AccumulatorDoesntExist)?;
 
         // Only the DID that added the accumulator can remove it
         ensure!(
@@ -635,21 +579,13 @@ impl<T: Config + Debug> Module<T> {
     pub fn get_public_key_with_params(
         key_ref: &PublicKeyStorageKey,
     ) -> Option<PublicKeyWithParams> {
-        AccumulatorKeys::<T>::get(&key_ref.0, &key_ref.1)
-            .as_ref()
-            .map(WithNonce::data)
-            .cloned()
-            .map(|pk| {
-                let params = match &pk.params_ref {
-                    Some(r) => AccumulatorParams::<T>::get(r.0, r.1)
-                        .as_ref()
-                        .map(WithNonce::data)
-                        .cloned()
-                        .map(|p| p),
-                    _ => None,
-                };
-                (pk, params)
-            })
+        AccumulatorKeys::get(&key_ref.0, &key_ref.1).map(|pk| {
+            let params = match &pk.params_ref {
+                Some(r) => AccumulatorParams::get(r.0, r.1).map(|p| p),
+                _ => None,
+            };
+            (pk, params)
+        })
     }
 
     /// Get accumulated value with public key and params.
@@ -657,8 +593,8 @@ impl<T: Config + Debug> Module<T> {
         id: &AccumulatorId,
     ) -> Option<(Vec<u8>, Option<PublicKeyWithParams>)> {
         Accumulators::<T>::get(&id).map(|stored_acc| {
-            let pk_p = Self::get_public_key_with_params(&stored_acc.data().accumulator.key_ref());
-            (stored_acc.data().accumulator.accumulated().to_vec(), pk_p)
+            let pk_p = Self::get_public_key_with_params(&stored_acc.accumulator.key_ref());
+            (stored_acc.accumulator.accumulated().to_vec(), pk_p)
         })
     }
 }
@@ -672,15 +608,11 @@ mod test {
 
     fn sign_add_params<T: frame_system::Config>(
         keypair: &sr25519::Pair,
-        params: &AccumulatorParameters,
+        params: &AddAccumulatorParams<T>,
         signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature<AccumulatorOwner> {
-        let payload = AddAccumulatorParams {
-            params: params.clone(),
-            _marker: PhantomData,
-        };
-        did_sig::<T, _, _>(&payload, keypair, signer, key_id)
+        did_sig::<T, _, _>(params, keypair, signer, key_id)
     }
 
     fn sign_remove_params<T: frame_system::Config>(
@@ -694,15 +626,11 @@ mod test {
 
     fn sign_add_key<T: frame_system::Config>(
         keypair: &sr25519::Pair,
-        public_key: &AccumulatorPublicKey,
+        public_key: &AddAccumulatorPublicKey<T>,
         signer: AccumulatorOwner,
         key_id: u32,
     ) -> DidSignature<AccumulatorOwner> {
-        let payload = AddAccumulatorPublicKey {
-            public_key: public_key.clone(),
-            _marker: PhantomData,
-        };
-        did_sig::<T, _, _>(&payload, keypair, signer, key_id)
+        did_sig::<T, _, _>(public_key, keypair, signer, key_id)
     }
 
     fn sign_remove_key<T: frame_system::Config>(
@@ -765,11 +693,13 @@ mod test {
 
             let (author, author_kp) = newdid();
             let author = AccumulatorOwner(author);
+            let mut next_nonce = 10 + 1;
 
             run_to_block(11);
 
             let (author_1, author_1_kp) = newdid();
             let author_1 = AccumulatorOwner(author_1);
+            let next_nonce_1 = 11 + 1;
 
             run_to_block(20);
 
@@ -781,7 +711,7 @@ mod test {
             let add_accum = AddAccumulator {
                 id: id.clone(),
                 accumulator: accumulator.clone(),
-                _marker: PhantomData,
+                nonce: next_nonce,
             };
             let sig = sign_add_accum(&author_kp, &add_accum, author.clone(), 1);
             assert_err!(
@@ -795,7 +725,7 @@ mod test {
             let add_accum = AddAccumulator {
                 id: id.clone(),
                 accumulator: accumulator.clone(),
-                _marker: PhantomData,
+                nonce: next_nonce,
             };
             let sig = sign_add_accum(&author_kp, &add_accum, author.clone(), 1);
             assert_err!(
@@ -810,16 +740,13 @@ mod test {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![1; 100],
             };
-            let sig = sign_add_params::<Test>(&author_kp, &params, author.clone(), 1);
-            AccumMod::add_params(
-                Origin::signed(1),
-                AddAccumulatorParams {
-                    params: params.clone(),
-                    _marker: PhantomData,
-                },
-                sig,
-            )
-            .unwrap();
+            let ap = AddAccumulatorParams {
+                params: params.clone(),
+                nonce: next_nonce,
+            };
+            let sig = sign_add_params::<Test>(&author_kp, &ap, author.clone(), 1);
+            AccumMod::add_params(Origin::signed(1), ap, sig).unwrap();
+            next_nonce += 1;
 
             run_to_block(50);
 
@@ -828,16 +755,13 @@ mod test {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![2; 100],
             };
-            let sig = sign_add_key::<Test>(&author_kp, &key, author.clone(), 1);
-            AccumMod::add_public_key(
-                Origin::signed(1),
-                AddAccumulatorPublicKey {
-                    public_key: key.clone(),
-                    _marker: PhantomData,
-                },
-                sig,
-            )
-            .unwrap();
+            let ak = AddAccumulatorPublicKey {
+                public_key: key.clone(),
+                nonce: next_nonce,
+            };
+            let sig = sign_add_key::<Test>(&author_kp, &ak, author.clone(), 1);
+            AccumMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
+            next_nonce += 1;
 
             run_to_block(60);
 
@@ -849,12 +773,19 @@ mod test {
             let add_accum = AddAccumulator {
                 id: id.clone(),
                 accumulator: accumulator.clone(),
-                _marker: PhantomData,
+                nonce: next_nonce,
             };
             let sig = sign_add_accum(&author_kp, &add_accum, author.clone(), 1);
             AccumMod::add_accumulator(Origin::signed(1), add_accum.clone(), sig.clone()).unwrap();
+            next_nonce += 1;
 
             // Cannot add with same id again
+            let add_accum = AddAccumulator {
+                id: id.clone(),
+                accumulator: accumulator.clone(),
+                nonce: next_nonce,
+            };
+            let sig = sign_add_accum(&author_kp, &add_accum, author.clone(), 1);
             assert_err!(
                 AccumMod::add_accumulator(Origin::signed(1), add_accum.clone(), sig),
                 Error::<Test>::AccumulatorAlreadyExists
@@ -868,7 +799,7 @@ mod test {
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: Some(vec![vec![9, 4]]),
                 witness_update_info: Some(vec![1, 1, 2, 3]),
-                nonce: 60 + 1,
+                nonce: next_nonce,
             };
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             assert_err!(
@@ -879,6 +810,7 @@ mod test {
             update_accum.id = id.clone();
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
+            next_nonce += 1;
 
             run_to_block(80);
 
@@ -888,7 +820,7 @@ mod test {
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: Some(vec![vec![9, 4]]),
                 witness_update_info: Some(vec![1, 1, 2, 3]),
-                nonce: 61 + 1,
+                nonce: next_nonce,
             };
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             assert_err!(
@@ -914,74 +846,92 @@ mod test {
             update_accum.witness_update_info = Some(vec![11, 12, 21, 23, 35, 50]);
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
+            next_nonce += 1;
 
             run_to_block(90);
 
-            update_accum.nonce = 90;
+            update_accum.nonce = next_nonce - 1;
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
                 sp_runtime::DispatchError::Other("Incorrect nonce")
             );
 
-            update_accum.nonce = 62 + 1;
+            update_accum.nonce = next_nonce;
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
+            next_nonce += 1;
 
             run_to_block(100);
 
-            update_accum.nonce = 63 + 1;
+            update_accum.nonce = next_nonce;
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
+            next_nonce += 1;
 
             // Only accumulator owner can update it
-            update_accum.nonce = 64 + 1;
+            update_accum.nonce = next_nonce_1;
             let sig = sign_update_accum(&author_1_kp, &update_accum, author_1.clone(), 1);
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
                 Error::<Test>::NotAccumulatorOwner
             );
+            update_accum.nonce = next_nonce;
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             AccumMod::update_accumulator(Origin::signed(1), update_accum, sig).unwrap();
+            next_nonce += 1;
 
             // Only accumulator owner can remove it
             let rem_accum = RemoveAccumulator {
                 id: id.clone(),
-                nonce: 65 + 1,
+                nonce: next_nonce_1,
             };
             let sig = sign_remove_accum(&author_1_kp, &rem_accum, author_1.clone(), 1);
             assert_err!(
                 AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig),
                 Error::<Test>::NotAccumulatorOwner
             );
+            let rem_accum = RemoveAccumulator {
+                id: id.clone(),
+                nonce: next_nonce,
+            };
             let sig = sign_remove_accum(&author_kp, &rem_accum, author.clone(), 1);
             AccumMod::remove_accumulator(Origin::signed(1), rem_accum, sig).unwrap();
+            next_nonce += 1;
 
             // Only key owner can remove it
             let rem = RemoveAccumulatorPublicKey {
                 key_ref: (author.clone(), 1u8.into()),
-                nonce: 50 + 1,
+                nonce: next_nonce_1,
             };
-
             let sig = sign_remove_key(&author_1_kp, &rem, author_1.clone(), 1);
             assert_err!(
                 AccumMod::remove_public_key(Origin::signed(1), rem.clone(), sig),
                 Error::<Test>::NotAccumulatorOwner
             );
+            let rem = RemoveAccumulatorPublicKey {
+                key_ref: (author.clone(), 1u8.into()),
+                nonce: next_nonce,
+            };
             let sig = sign_remove_key(&author_kp, &rem, author.clone(), 1);
             AccumMod::remove_public_key(Origin::signed(1), rem, sig).unwrap();
+            next_nonce += 1;
 
             // Only params owner can remove it
             let rem = RemoveAccumulatorParams {
                 params_ref: (author.clone(), 1u8.into()),
-                nonce: 40 + 1,
+                nonce: next_nonce_1,
             };
-
             let sig = sign_remove_params(&author_1_kp, &rem, author_1.clone(), 1);
             assert_err!(
                 AccumMod::remove_params(Origin::signed(1), rem.clone(), sig),
                 Error::<Test>::NotAccumulatorOwner
             );
+
+            let rem = RemoveAccumulatorParams {
+                params_ref: (author.clone(), 1u8.into()),
+                nonce: next_nonce,
+            };
             let sig = sign_remove_params(&author_kp, &rem, author.clone(), 1);
             AccumMod::remove_params(Origin::signed(1), rem, sig).unwrap();
         });
@@ -994,6 +944,7 @@ mod test {
 
             let (author, author_kp) = newdid();
             let author = AccumulatorOwner(author);
+            let mut next_nonce = 10 + 1;
 
             run_to_block(20);
 
@@ -1002,22 +953,24 @@ mod test {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![1; 100],
             };
-            let sig = sign_add_params::<Test>(&author_kp, &params, author.clone(), 1);
+            let ap = AddAccumulatorParams {
+                params: params.clone(),
+                nonce: next_nonce,
+            };
+            let sig = sign_add_params::<Test>(&author_kp, &ap, author.clone(), 1);
             AccumMod::add_params(
                 Origin::signed(1),
                 AddAccumulatorParams {
                     params: params.clone(),
-                    _marker: PhantomData,
+                    nonce: next_nonce,
                 },
                 sig,
             )
             .unwrap();
+            next_nonce += 1;
             assert_eq!(
-                AccumulatorParams::<Test>::get(&author, IncId::from(1u8)),
-                Some(WithNonce {
-                    data: params.clone(),
-                    nonce: 20
-                })
+                AccumulatorParams::get(&author, IncId::from(1u8)),
+                Some(params.clone())
             );
             assert!(accumulator_events()
                 .contains(&(super::Event::ParamsAdded(author, 1u8.into()), vec![])));
@@ -1029,22 +982,24 @@ mod test {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![2; 100],
             };
-            let sig = sign_add_key::<Test>(&author_kp, &key, author.clone(), 1);
+            let ak = AddAccumulatorPublicKey {
+                public_key: key.clone(),
+                nonce: next_nonce,
+            };
+            let sig = sign_add_key::<Test>(&author_kp, &ak, author.clone(), 1);
             AccumMod::add_public_key(
                 Origin::signed(1),
                 AddAccumulatorPublicKey {
                     public_key: key.clone(),
-                    _marker: PhantomData,
+                    nonce: next_nonce,
                 },
                 sig,
             )
             .unwrap();
+            next_nonce += 1;
             assert_eq!(
-                AccumulatorKeys::<Test>::get(&author, IncId::from(1u8)),
-                Some(WithNonce {
-                    data: key.clone(),
-                    nonce: 30
-                })
+                AccumulatorKeys::get(&author, IncId::from(1u8)),
+                Some(key.clone())
             );
             assert!(accumulator_events()
                 .contains(&(super::Event::KeyAdded(author, 1u8.into()), vec![])));
@@ -1059,16 +1014,14 @@ mod test {
             let add_accum = AddAccumulator {
                 id: id.clone(),
                 accumulator: accumulator.clone(),
-                _marker: PhantomData,
+                nonce: next_nonce,
             };
             let sig = sign_add_accum(&author_kp, &add_accum, author.clone(), 1);
             AccumMod::add_accumulator(Origin::signed(1), add_accum.clone(), sig).unwrap();
+            next_nonce += 1;
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some(WithNonce {
-                    data: AccumulatorWithUpdateInfo::new(accumulator.clone(), 40),
-                    nonce: 40
-                })
+                Some(AccumulatorWithUpdateInfo::new(accumulator.clone(), 40))
             );
             assert!(accumulator_events().contains(&(
                 super::Event::AccumulatorAdded(id.clone(), accumulator.accumulated().to_vec()),
@@ -1083,7 +1036,7 @@ mod test {
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: Some(vec![vec![9, 4]]),
                 witness_update_info: Some(vec![1, 2, 3, 4]),
-                nonce: 50,
+                nonce: next_nonce + 1,
             };
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             assert_err!(
@@ -1091,29 +1044,28 @@ mod test {
                 sp_runtime::DispatchError::Other("Incorrect nonce")
             );
 
-            update_accum.nonce = 40;
+            update_accum.nonce = next_nonce - 1;
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
                 sp_runtime::DispatchError::Other("Incorrect nonce")
             );
 
-            update_accum.nonce = 40 + 1;
+            update_accum.nonce = next_nonce;
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
+            next_nonce += 1;
+
             let accumulator = Accumulator::Positive(AccumulatorCommon {
                 accumulated: vec![4; 32],
                 key_ref: (author.clone(), 1u8.into()),
             });
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some(WithNonce {
-                    data: AccumulatorWithUpdateInfo {
-                        created_at: 40,
-                        last_updated_at: 50,
-                        accumulator: accumulator.clone()
-                    },
-                    nonce: 41
+                Some(AccumulatorWithUpdateInfo {
+                    created_at: 40,
+                    last_updated_at: 50,
+                    accumulator: accumulator.clone()
                 })
             );
             assert!(accumulator_events().contains(&(
@@ -1129,23 +1081,22 @@ mod test {
                 additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
                 removals: None,
                 witness_update_info: Some(vec![1, 1, 0, 11, 8, 19]),
-                nonce: 41 + 1,
+                nonce: next_nonce,
             };
             let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
             AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
+            next_nonce += 1;
+
             let accumulator = Accumulator::Positive(AccumulatorCommon {
                 accumulated: vec![5; 32],
                 key_ref: (author.clone(), 1u8.into()),
             });
             assert_eq!(
                 Accumulators::<Test>::get(&id),
-                Some(WithNonce {
-                    data: AccumulatorWithUpdateInfo {
-                        created_at: 40,
-                        last_updated_at: 60,
-                        accumulator: accumulator.clone()
-                    },
-                    nonce: 42
+                Some(AccumulatorWithUpdateInfo {
+                    created_at: 40,
+                    last_updated_at: 60,
+                    accumulator: accumulator.clone()
                 })
             );
             assert!(accumulator_events().contains(&(
@@ -1157,7 +1108,7 @@ mod test {
 
             let mut rem_accum = RemoveAccumulator {
                 id: id.clone(),
-                nonce: 70,
+                nonce: next_nonce - 1,
             };
             let sig = sign_remove_accum(&author_kp, &rem_accum, author.clone(), 1);
             assert_err!(
@@ -1165,14 +1116,14 @@ mod test {
                 sp_runtime::DispatchError::Other("Incorrect nonce")
             );
 
-            rem_accum.nonce = 60;
+            rem_accum.nonce = next_nonce + 1;
             let sig = sign_remove_accum(&author_kp, &rem_accum, author.clone(), 1);
             assert_err!(
                 AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig),
                 sp_runtime::DispatchError::Other("Incorrect nonce")
             );
 
-            rem_accum.nonce = 42 + 1;
+            rem_accum.nonce = next_nonce;
             let sig = sign_remove_accum(&author_kp, &rem_accum, author.clone(), 1);
             AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig).unwrap();
             assert_eq!(Accumulators::<Test>::get(&id), None);

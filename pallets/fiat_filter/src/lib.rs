@@ -144,7 +144,7 @@ impl<T: Config + Debug> Module<T> {
             _ => {}
         };
         match call.is_sub_type() {
-            Some(revoke::Call::new_registry(_id, _registry)) => {
+            Some(revoke::Call::new_registry(_add_registry)) => {
                 return Ok(PRICE_REVOKE_REGISTRY_CREATE)
             }
             Some(revoke::Call::remove_registry(_rm, _proof)) => {

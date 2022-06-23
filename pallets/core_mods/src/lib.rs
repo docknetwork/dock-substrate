@@ -8,7 +8,10 @@ use sp_std::borrow::Cow;
 
 /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
 /// This is done to make it unambiguous which command was intended as the SCALE codec's
-/// not self describing.
+/// not self describing. The enum variants are supposed to take care of replay protection by having a
+/// nonce or something else. A better approach would have been to make `StateChange` aware of nonce or nonces.
+/// There can be multiple nonces attached with a payload a multiple DIDs may take part in an action and they
+/// will have their own nonce. However this change will be a major disruption for now.
 /// Never change the order of variants in this enum
 #[derive(Encode, Decode)]
 pub enum StateChange<'a, T: frame_system::Config> {
@@ -19,11 +22,11 @@ pub enum StateChange<'a, T: frame_system::Config> {
     AddServiceEndpoint(Cow<'a, did::AddServiceEndpoint<T>>),
     RemoveServiceEndpoint(Cow<'a, did::RemoveServiceEndpoint<T>>),
     DidRemoval(Cow<'a, did::DidRemoval<T>>),
-    Revoke(Cow<'a, revoke::Revoke<T>>),
-    UnRevoke(Cow<'a, revoke::UnRevoke<T>>),
-    RemoveRegistry(Cow<'a, revoke::RemoveRegistry<T>>),
+    Revoke(Cow<'a, revoke::RevokeSigningPayload<T>>),
+    UnRevoke(Cow<'a, revoke::UnRevokeSigningPayload<T>>),
+    RemoveRegistry(Cow<'a, revoke::RemoveRegistrySigningPayload<T>>),
     AddBlob(Cow<'a, blob::AddBlob<T>>),
-    MasterVote(Cow<'a, master::MasterVote<T>>),
+    MasterVote(Cow<'a, master::MasterVoteSigningPayload<T>>),
     SetAttestationClaim(Cow<'a, attest::SetAttestationClaim<T>>),
     AddBBSPlusParams(Cow<'a, bbs_plus::AddBBSPlusParams<T>>),
     AddBBSPlusPublicKey(Cow<'a, bbs_plus::AddBBSPlusPublicKey<T>>),

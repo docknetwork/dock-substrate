@@ -6,7 +6,7 @@ use crate::did::{Did, DidSignature};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use core::marker::PhantomData;
+
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
     weights::Weight,
@@ -39,13 +39,11 @@ pub struct Blob {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AddBlob<T: frame_system::Config> {
     pub blob: Blob,
-    #[codec(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    _marker: PhantomData<T>,
+    pub nonce: T::BlockNumber,
 }
 
-crate::impl_action! {
-    AddBlob for BlobId: with 1 as len, { |add_blob: &AddBlob<T>| add_blob.blob.id } as target
+crate::impl_action_with_nonce! {
+    AddBlob for (): with 1 as len, () as target
 }
 
 pub trait Config: system::Config + did::Config {
@@ -97,8 +95,9 @@ decl_module! {
                 BlobError::<T>::InvalidSig
             );
 
-            Module::<T>::new_(blob, signature.did)?;
-            Ok(())
+            did::Module::<T>::try_exec_by_onchain_did(blob, signature.did, Self::new_)
+            // Self::new_(blob, signature.did)?;
+            // Ok(())
         }
     }
 }
@@ -124,7 +123,6 @@ impl<T: Config + Debug> Module<T> {
 
 #[cfg(test)]
 mod tests {
-    use core::marker::PhantomData;
 
     use super::{did, Blob, BlobError, BlobId, BlobOwner, Blobs, DispatchResult};
     use crate::{blob::AddBlob, did::Did, test_common::*};
@@ -136,6 +134,7 @@ mod tests {
         content: Vec<u8>,
         author: BlobOwner,
         author_kp: sr25519::Pair,
+        nonce: u64,
     ) -> DispatchResult {
         let bl = Blob {
             id,
@@ -150,17 +149,9 @@ mod tests {
             Origin::signed(ABBA),
             AddBlob {
                 blob: bl.clone(),
-                _marker: PhantomData,
+                nonce,
             },
-            did_sig::<Test, _, _>(
-                &AddBlob {
-                    blob: bl,
-                    _marker: PhantomData,
-                },
-                &author_kp,
-                author,
-                1,
-            ),
+            did_sig::<Test, _, _>(&AddBlob { blob: bl, nonce }, &author_kp, author, 1),
         )
     }
 
@@ -170,53 +161,75 @@ mod tests {
 
     #[test]
     fn add_blob() {
-        fn add(size: usize) {
+        fn add(size: usize, block_no: u64) {
+            run_to_block(block_no);
+
             let id: BlobId = rand::random();
             let noise = random_bytes(size);
             let (author, author_kp) = newdid();
             assert_eq!(Blobs::get(id), None);
-            create_blob(id, noise.clone(), BlobOwner(author), author_kp).unwrap();
+            create_blob(
+                id,
+                noise.clone(),
+                BlobOwner(author),
+                author_kp,
+                block_no + 1,
+            )
+            .unwrap();
             // Can retrieve a valid blob and the blob contents and author match the given ones.
             assert_eq!(Blobs::get(id), Some((BlobOwner(author), noise)));
         }
 
         ext().execute_with(|| {
             // Can add a blob with unique id, blob data of < MaxBlobSize bytes and a valid signature.
-            add(get_max_blob_size() - 1);
-            add(get_max_blob_size() - 2);
-            add(0);
+            add(get_max_blob_size() - 1, 10);
+            add(get_max_blob_size() - 2, 20);
+            add(0, 30);
             // Can add a blob with unique id, blob data of MaxBlobSize bytes and a valid signature.
-            add(get_max_blob_size());
+            add(get_max_blob_size(), 40);
         });
     }
 
     #[test]
     fn err_blob_too_big() {
-        fn add_too_big(size: usize) {
+        fn add_too_big(size: usize, block_no: u64) {
+            run_to_block(block_no);
+
             let (author, author_kp) = newdid();
             let noise = random_bytes(size);
             let id = rand::random();
             assert_eq!(Blobs::get(id), None);
-            let err = create_blob(id, noise, BlobOwner(author), author_kp).unwrap_err();
+            let err =
+                create_blob(id, noise, BlobOwner(author), author_kp, block_no + 1).unwrap_err();
             assert_eq!(err, BlobError::<Test>::BlobTooBig.into());
             assert_eq!(Blobs::get(id), None);
         }
 
         ext().execute_with(|| {
-            add_too_big(get_max_blob_size() + 1);
-            add_too_big(get_max_blob_size() + 2);
+            add_too_big(get_max_blob_size() + 1, 10);
+            add_too_big(get_max_blob_size() + 2, 20);
         });
     }
 
     #[test]
     fn err_blob_already_exists() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             // Adding a blob with already used id fails with error BlobAlreadyExists.
             let id = rand::random();
             let (author, author_kp) = newdid();
             assert_eq!(Blobs::get(id), None);
-            create_blob(id, random_bytes(10), BlobOwner(author), author_kp.clone()).unwrap();
-            let err = create_blob(id, random_bytes(10), BlobOwner(author), author_kp).unwrap_err();
+            create_blob(
+                id,
+                random_bytes(10),
+                BlobOwner(author),
+                author_kp.clone(),
+                10 + 1,
+            )
+            .unwrap();
+            let err = create_blob(id, random_bytes(10), BlobOwner(author), author_kp, 11 + 1)
+                .unwrap_err();
             assert_eq!(err, BlobError::<Test>::BlobAlreadyExists.into());
         });
     }
@@ -224,10 +237,13 @@ mod tests {
     #[test]
     fn err_did_does_not_exist() {
         ext().execute_with(|| {
+            run_to_block(10);
+
             // Adding a blob with an unregistered DID fails with error DidDoesNotExist.
             let author = BlobOwner(Did(rand::random()));
             let author_kp = gen_kp();
-            let err = create_blob(rand::random(), random_bytes(10), author, author_kp).unwrap_err();
+            let err = create_blob(rand::random(), random_bytes(10), author, author_kp, 10 + 1)
+                .unwrap_err();
             assert_eq!(err, did::Error::<Test>::NoKeyForDid.into());
         });
     }
@@ -236,29 +252,35 @@ mod tests {
     fn err_invalid_sig() {
         ext().execute_with(|| {
             {
+                run_to_block(10);
                 // An invalid signature while adding a blob should fail with error InvalidSig.
                 let (author, author_kp) = newdid();
                 let bl = Blob {
                     id: rand::random(),
                     blob: random_bytes(10),
                 };
-                let remreg = crate::revoke::RemoveRegistry::<Test> {
-                    registry_id: rand::random(),
-                    nonce: 10,
+                let att = crate::attest::SetAttestationClaim::<Test> {
+                    attest: crate::attest::Attestation {
+                        priority: 1,
+                        iri: None,
+                    },
+                    nonce: 10 + 1,
                 };
                 let err = BlobMod::new(
                     Origin::signed(ABBA),
                     AddBlob {
                         blob: bl.clone(),
-                        _marker: PhantomData,
+                        nonce: 10 + 1,
                     },
-                    did_sig(&remreg, &author_kp, BlobOwner(author), 1),
+                    did_sig(&att, &author_kp, BlobOwner(author), 1),
                 )
                 .unwrap_err();
                 assert_eq!(err, BlobError::<Test>::InvalidSig.into());
             }
 
             {
+                run_to_block(20);
+
                 // signature by other party
                 let (author, _) = newdid();
                 let (_, author_kp) = newdid();
@@ -270,12 +292,12 @@ mod tests {
                     Origin::signed(ABBA),
                     AddBlob {
                         blob: bl.clone(),
-                        _marker: PhantomData,
+                        nonce: 20 + 1,
                     },
                     did_sig::<Test, _, _>(
                         &AddBlob {
                             blob: bl,
-                            _marker: PhantomData,
+                            nonce: 20 + 1,
                         },
                         &author_kp,
                         BlobOwner(author),
