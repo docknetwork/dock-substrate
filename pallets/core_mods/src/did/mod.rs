@@ -1,6 +1,7 @@
 use crate as dock;
 use crate::keys_and_sigs::PublicKey;
 use crate::util::*;
+use crate::StorageVersion;
 use crate::{deposit_indexed_event, impl_action_with_nonce, impl_bits_conversion, impl_wrapper};
 use crate::{Action, ActionWithNonce};
 pub use actions::*;
@@ -27,7 +28,6 @@ mod base;
 mod controllers;
 mod details_aggregator;
 mod keys;
-mod migrations;
 mod service_endpoints;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -107,18 +107,6 @@ decl_event!(
         OnChainDidRemoved(Did),
     }
 );
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
-pub enum StorageVersion {
-    SingleKey,
-    MultiKey,
-}
-
-impl Default for StorageVersion {
-    fn default() -> Self {
-        Self::SingleKey
-    }
-}
 
 decl_storage! {
     trait Store for Module<T: Config> as DIDModule where T: Debug {
@@ -287,10 +275,10 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             if Version::get() == StorageVersion::SingleKey {
-                let weight = migrations::single_key::migrate_to_multi_key::<T>();
+                let weight = crate::migrations::did::single_key::migrate_to_multi_key::<T>();
                 Version::put(StorageVersion::MultiKey);
 
-                weight
+                T::DbWeight::get().writes(1) + weight
             } else {
                 0
             }

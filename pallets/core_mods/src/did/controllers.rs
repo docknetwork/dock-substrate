@@ -6,7 +6,7 @@ use super::*;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Controller(pub Did);
 
-impl_wrapper!(Controller, Did);
+impl_wrapper!(Controller, Did, for test use tests with rand Did(rand::random()));
 
 impl<T: Config + Debug> Module<T> {
     pub(crate) fn add_controllers_(

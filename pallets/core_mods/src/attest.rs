@@ -20,7 +20,7 @@ pub type Iri = Vec<u8>;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Attester(pub Did);
 
-crate::impl_wrapper!(Attester, Did);
+crate::impl_wrapper!(Attester, Did, for test use tests with rand Did(rand::random()));
 
 pub trait Config: system::Config + did::Config {
     /// The cost charged by the network to store a single byte in chain-state for the life of the

@@ -94,7 +94,7 @@ impl<T: Config + Debug> Module<T> {
         OnChainDidDetails {
             active_controllers,
             active_controller_keys,
-            last_key_id,
+            key_counter,
             ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
@@ -111,7 +111,7 @@ impl<T: Config + Debug> Module<T> {
             *active_controllers += 1;
         }
 
-        for (key, key_id) in keys_to_insert.iter().zip(last_key_id) {
+        for (key, key_id) in keys_to_insert.iter().zip(key_counter) {
             DidKeys::insert(did, key_id, key);
         }
 

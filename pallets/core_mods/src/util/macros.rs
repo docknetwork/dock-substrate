@@ -121,7 +121,9 @@ macro_rules! deposit_indexed_event {
 
 #[macro_export]
 macro_rules! impl_wrapper {
-    ($wrapper: ident, $type: ty) => {
+    ($wrapper: ident, $type: ty $(,$($rest: tt)*)?) => {
+        $($crate::impl_encode_decode_wrapper_tests! { $wrapper, $type, $($rest)* })?
+
         impl sp_std::borrow::Borrow<$type> for $wrapper {
             fn borrow(&self) -> &$type {
                 &self.0
@@ -151,6 +153,38 @@ macro_rules! impl_wrapper {
         impl sp_std::ops::DerefMut for $wrapper {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 &mut self.0
+            }
+        }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_encode_decode_wrapper_tests {
+    ($wrapper: ident, $type: ty, for test use $mod: ident with rand $rand: expr) => {
+        #[cfg(test)]
+        pub mod $mod {
+            use super::*;
+            use codec::{Decode, Encode};
+
+            #[test]
+            pub fn encode_decode() {
+                let type_value: $type = $rand;
+                let wrapper_value = $wrapper(type_value.clone());
+
+                let encoded_wrapper = Encode::encode(&wrapper_value);
+                let encoded_type = Encode::encode(&type_value);
+
+                assert_eq!(encoded_type, encoded_wrapper);
+
+                let decoded_wrapper: $wrapper = Decode::decode(&mut &encoded_wrapper[..]).unwrap();
+                assert_eq!(decoded_wrapper, wrapper_value);
+                let decoded_wrapper: $wrapper = Decode::decode(&mut &encoded_type[..]).unwrap();
+                assert_eq!(decoded_wrapper, wrapper_value);
+
+                let decoded_type: $type = Decode::decode(&mut &encoded_type[..]).unwrap();
+                assert_eq!(decoded_type, type_value);
+                let decoded_type: $type = Decode::decode(&mut &encoded_wrapper[..]).unwrap();
+                assert_eq!(decoded_type, type_value);
             }
         }
     };

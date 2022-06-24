@@ -1,7 +1,7 @@
 use crate::did::{self, Did, DidSignature};
 use crate::keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
 use crate::util::WithNonce;
-use crate::{self as dock};
+use crate::{self as dock, StorageVersion};
 use crate::{Action, ToStateChange};
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode};
@@ -206,7 +206,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Config> as Revoke where T: Debug {
         /// Registry metadata
-        Registries get(fn get_revocation_registry):
+        pub(crate) Registries get(fn get_revocation_registry):
             map hasher(blake2_128_concat) dock::revoke::RegistryId => Option<Registry>;
 
         // double_map requires and explicit hasher specification for the second key. blake2_256 is
@@ -214,6 +214,8 @@ decl_storage! {
         /// The single global revocation set
         Revocations get(fn get_revocation_status):
             double_map hasher(blake2_128_concat) dock::revoke::RegistryId, hasher(opaque_blake2_256) dock::revoke::RevokeId => Option<()>;
+
+        pub Version get(fn version): StorageVersion;
     }
 }
 
@@ -308,6 +310,17 @@ decl_module! {
 
             Self::try_exec_removable_action_over_registry(removal, proof, Self::remove_registry_)?;
             Ok(())
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            T::DbWeight::get().reads(1) + if Self::version() == StorageVersion::SingleKey {
+                let weight = crate::migrations::revoke::single_key::migrate_to_multi_key::<T>();
+                Version::put(StorageVersion::MultiKey);
+
+                T::DbWeight::get().writes(1) + weight
+            } else {
+                0
+            }
         }
     }
 }

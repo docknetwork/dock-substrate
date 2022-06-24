@@ -1,7 +1,7 @@
-use crate::did;
 use crate::did::{Did, DidSignature};
 use crate::types::CurveType;
 use crate::util::IncId;
+use crate::{did, StorageVersion};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use frame_support::{
@@ -24,7 +24,7 @@ pub type PublicKeyWithParams = (AccumulatorPublicKey, Option<AccumulatorParamete
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct AccumulatorId([u8; 32]);
 
-crate::impl_wrapper!(AccumulatorId, [u8; 32]);
+crate::impl_wrapper!(AccumulatorId, [u8; 32], for test use acc_tests with rand rand::random());
 
 /// Accumulator owner - DID with the ability to control given accumulator keys, params, etc.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
@@ -32,7 +32,7 @@ crate::impl_wrapper!(AccumulatorId, [u8; 32]);
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct AccumulatorOwner(pub Did);
 
-crate::impl_wrapper!(AccumulatorOwner, Did);
+crate::impl_wrapper!(AccumulatorOwner, Did, for test use tests with rand Did(rand::random()));
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -225,16 +225,16 @@ decl_error! {
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StoredAccumulatorOwnerCounters {
-    params_counter: IncId,
-    key_counter: IncId,
+    pub params_counter: IncId,
+    pub key_counter: IncId,
 }
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AccumulatorWithUpdateInfo<T: frame_system::Config> {
-    created_at: T::BlockNumber,
-    last_updated_at: T::BlockNumber,
-    accumulator: Accumulator,
+    pub created_at: T::BlockNumber,
+    pub last_updated_at: T::BlockNumber,
+    pub accumulator: Accumulator,
 }
 
 impl<T: frame_system::Config> AccumulatorWithUpdateInfo<T> {
@@ -273,6 +273,8 @@ decl_storage! {
         /// Just keeping the latest accumulated value allows for any potential on chain verification as well.
         pub Accumulators get(fn get_accumulator):
             map hasher(blake2_128_concat) AccumulatorId => Option<AccumulatorWithUpdateInfo<T>>;
+
+        pub Version get(fn version): StorageVersion;
     }
 }
 
@@ -394,6 +396,17 @@ decl_module! {
             ensure_signed(origin)?;
 
             did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_accumulator_)
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            T::DbWeight::get().reads(1) + if Self::version() == StorageVersion::SingleKey {
+                let weight = crate::migrations::accumulator::single_key::migrate_to_multi_key::<T>();
+                Version::put(StorageVersion::MultiKey);
+
+                T::DbWeight::get().writes(1) + weight
+            } else {
+                0
+            }
         }
     }
 }

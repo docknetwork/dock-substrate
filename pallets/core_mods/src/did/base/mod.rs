@@ -20,7 +20,7 @@ impl Did {
     pub const BYTE_SIZE: usize = 32;
 }
 
-impl_wrapper! { Did, RawDid }
+impl_wrapper! { Did, RawDid, for test use tests with rand rand::random() }
 
 /// Raw DID representation.
 pub type RawDid = [u8; Did::BYTE_SIZE];

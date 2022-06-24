@@ -19,7 +19,7 @@ use frame_system::{self as system, ensure_signed};
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct BlobOwner(pub Did);
 
-crate::impl_wrapper!(BlobOwner, Did);
+crate::impl_wrapper!(BlobOwner, Did, for test use blob_owner_tests with rand Did(rand::random()));
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;

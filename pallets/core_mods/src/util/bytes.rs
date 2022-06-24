@@ -10,7 +10,9 @@ use sp_std::vec::Vec;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WrappedBytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
 
-impl_wrapper! { WrappedBytes, Vec<u8> }
+#[cfg(test)]
+use rand::distributions::Distribution;
+impl_wrapper! { WrappedBytes, Vec<u8>, for test use tests with rand rand::distributions::Standard.sample_iter(&mut rand::thread_rng()).take(32).collect() }
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array

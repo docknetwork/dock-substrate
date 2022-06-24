@@ -3,10 +3,10 @@
 //! and BBS+ keys are moved to the DID module. Not making this change as it will be a disruption for the client
 //! library. This decision must be revisited if the signature params become irrelevant.
 
-use crate::did;
 use crate::did::{Controller, Did, DidSignature, OnChainDidDetails};
 use crate::types::CurveType;
 use crate::util::IncId;
+use crate::{did, StorageVersion};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 
@@ -29,7 +29,7 @@ pub type PublicKeyWithParams = (BbsPlusPublicKey, Option<BbsPlusParameters>);
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct BBSPlusParamsOwner(pub Did);
 
-crate::impl_wrapper!(BBSPlusParamsOwner, Did);
+crate::impl_wrapper!(BBSPlusParamsOwner, Did, for test use tests with rand Did(rand::random()));
 
 /// Signature params in G1 for BBS+ signatures
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
@@ -152,6 +152,8 @@ decl_storage! {
         /// chain but makes up for one less storage value
         pub BbsPlusKeys get(fn get_key):
             double_map hasher(blake2_128_concat) Controller, hasher(identity) IncId => Option<BbsPlusPublicKey>;
+
+        pub Version get(fn version): StorageVersion;
     }
 }
 
@@ -228,6 +230,17 @@ decl_module! {
 
             <did::Module<T>>::try_exec_signed_action_over_onchain_did(remove, signature, Self::remove_public_key_)
         }
+
+        fn on_runtime_upgrade() -> Weight {
+            T::DbWeight::get().reads(1) + if Self::version() == StorageVersion::SingleKey {
+                let weight = crate::migrations::bbs_plus::single_key::migrate_to_multi_key::<T>();
+                Version::put(StorageVersion::MultiKey);
+
+                T::DbWeight::get().writes(1) + weight
+            } else {
+                0
+            }
+        }
     }
 }
 
@@ -256,7 +269,7 @@ impl<T: Config + Debug> Module<T> {
         AddBBSPlusPublicKey {
             did: owner, key, ..
         }: AddBBSPlusPublicKey<T>,
-        OnChainDidDetails { last_key_id, .. }: &mut OnChainDidDetails,
+        OnChainDidDetails { key_counter, .. }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
         ensure!(
             T::PublicKeyMaxSize::get() as usize >= key.bytes.len(),
@@ -270,9 +283,9 @@ impl<T: Config + Debug> Module<T> {
             // Note: Once we have more than 1 curve type, it should check that params and key
             // both have same curve type
         };
-        BbsPlusKeys::insert(owner, last_key_id.inc(), key);
+        BbsPlusKeys::insert(owner, key_counter.inc(), key);
 
-        Self::deposit_event(Event::KeyAdded(owner, *last_key_id));
+        Self::deposit_event(Event::KeyAdded(owner, *key_counter));
         Ok(())
     }
 

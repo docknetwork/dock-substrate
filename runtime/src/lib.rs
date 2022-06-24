@@ -173,8 +173,8 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 35,
-    impl_version: 1,
+    spec_version: 36,
+    impl_version: 2,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
 };
@@ -1334,6 +1334,7 @@ construct_runtime!(
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
         Utility: pallet_utility::{Module, Call, Event},
+        BbsPlus: bbs_plus::{Module, Call, Storage, Event},
         DIDModule: did::{Module, Call, Storage, Event, Config},
         Revoke: revoke::{Module, Call, Storage, Event},
         BlobStore: blob::{Module, Call, Storage},
@@ -1364,7 +1365,6 @@ construct_runtime!(
         Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
         Tips: pallet_tips::{Module, Call, Storage, Event<T>},
         Identity: pallet_identity::{Module, Call, Storage, Event<T>},
-        BbsPlus: bbs_plus::{Module, Call, Storage, Event},
         Accumulator: accumulator::{Module, Call, Storage, Event},
     }
 );

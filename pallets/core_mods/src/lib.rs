@@ -41,6 +41,18 @@ pub enum StateChange<'a, T: frame_system::Config> {
     RemoveAccumulator(Cow<'a, accumulator::RemoveAccumulator<T>>),
 }
 
+#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum StorageVersion {
+    SingleKey,
+    MultiKey,
+}
+
+impl Default for StorageVersion {
+    fn default() -> Self {
+        Self::SingleKey
+    }
+}
+
 /// Converts the given entity to the state change.
 pub trait ToStateChange<T: frame_system::Config> {
     /// Converts the given entity to the state change.
@@ -83,6 +95,7 @@ pub mod blob;
 pub mod did;
 pub mod keys_and_sigs;
 pub mod master;
+mod migrations;
 pub mod revoke;
 pub mod runtime_api;
 pub mod types;

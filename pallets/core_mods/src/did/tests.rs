@@ -26,13 +26,13 @@ fn only_key_agreement(key: &DidKey) {
 
 fn check_did_detail(
     did: &Did,
-    last_key_id: u32,
+    key_counter: u32,
     active_controller_keys: u32,
     active_controllers: u32,
     nonce: <Test as frame_system::Config>::BlockNumber,
 ) {
     let did_detail = DIDModule::onchain_did_details(did).unwrap();
-    assert_eq!(did_detail.data().last_key_id, last_key_id.into());
+    assert_eq!(did_detail.data().key_counter, key_counter.into());
     assert_eq!(
         did_detail.data().active_controller_keys,
         active_controller_keys
