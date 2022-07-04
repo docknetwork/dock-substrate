@@ -24,7 +24,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = '../runtime'
-version = '0.17.0'
+version = '0.18.0'
 
 [dependencies.sc-basic-authorship]
 version = '0.9.0'
@@ -289,7 +289,7 @@ version = '0.0.1'
 
 [dependencies.core_mods_rpc]
 path = '../pallets/core_mods/rpc'
-version = '0.0.2'
+version = '0.1.0'
 
 [[bin]]
 name = 'dock-node'

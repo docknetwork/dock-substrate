@@ -871,7 +871,7 @@ checksum = "b3a71ab494c0b5b860bdc8407ae08978052417070c2ced38573a9157ad75b8ac"
 
 [[package]]
 name = "core_mods"
-version = "0.4.0"
+version = "0.5.0"
 dependencies = [
  "bitflags",
  "frame-benchmarking",
@@ -894,7 +894,7 @@ dependencies = [
 
 [[package]]
 name = "core_mods_rpc"
-version = "0.0.2"
+version = "0.1.0"
 dependencies = [
  "core_mods",
  "jsonrpc-core 15.1.0",
@@ -1386,7 +1386,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.17.0"
+version = "0.18.0"
 dependencies = [
  "common",
  "core_mods",
@@ -1890,7 +1890,7 @@ dependencies = [
 
 [[package]]
 name = "fiat_filter_rpc"
-version = "0.0.1"
+version = "0.0.2"
 dependencies = [
  "fiat_filter_rpc_runtime_api",
  "jsonrpc-core 15.1.0",

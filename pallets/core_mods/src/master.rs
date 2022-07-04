@@ -57,9 +57,9 @@
 //! This module implement partial replay protection to prevent unauthorized resubmission of votes
 //! from previous rounds.
 
-use crate::revoke::PAuth;
+use crate::revoke::{get_weight_for_did_sigs, DidSigs};
 use crate::util::WithNonce;
-use crate::{did, did::Did, revoke::get_weight_for_pauth};
+use crate::{did, did::Did};
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -127,10 +127,10 @@ const MIN_WEIGHT: Weight = 10_000;
 
 /// Minimum weight for master's extrinsics. Considers cost of signature verification and update to round no
 fn get_min_weight_for_execute<T: frame_system::Config>(
-    auth: &PAuth<T>,
+    auth: &[DidSigs<T>],
     db_weights: RuntimeDbWeight,
 ) -> Weight {
-    MIN_WEIGHT + get_weight_for_pauth(&auth, db_weights) + db_weights.reads_writes(1, 1)
+    MIN_WEIGHT + get_weight_for_did_sigs(&auth, db_weights) + db_weights.reads_writes(1, 1)
 }
 
 pub trait Config: system::Config + crate::did::Config
@@ -212,7 +212,7 @@ decl_module! {
         pub fn execute(
             origin,
             proposal: Box<<T as Config>::Call>,
-            auth: PAuth<T>,
+            auth: Vec<DidSigs<T>>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
@@ -232,7 +232,7 @@ decl_module! {
         pub fn execute_unchecked_weight(
             origin,
             proposal: Box<<T as Config>::Call>,
-            auth: PAuth<T>,
+            auth: Vec<DidSigs<T>>,
             _weight: Weight,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
@@ -276,20 +276,10 @@ impl<T: Config + Debug> Module<T> {
     /// in this case
     fn execute_(
         proposal: Box<<T as Config>::Call>,
-        auth: PAuth<T>,
+        auth: Vec<DidSigs<T>>,
         given_weight: Option<Weight>,
     ) -> DispatchResultWithPostInfo {
         // check
-        let membership = Members::get();
-        ensure!(
-            auth.auths.len() as u64 >= membership.vote_requirement,
-            MasterError::<T>::InsufficientVotes,
-        );
-        ensure!(
-            auth.auths.keys().all(|k| membership.members.contains(k)),
-            MasterError::<T>::NotMember,
-        );
-
         let new_payload = MasterVoteRaw {
             _marker: PhantomData,
             proposal: proposal.encode(),
@@ -299,8 +289,9 @@ impl<T: Config + Debug> Module<T> {
         let mut new_did_details = BTreeMap::new();
 
         // check each signature is valid over payload and signed by the claimed signer
-        for (signer, (sig, nonce)) in &auth.auths {
-            let nonce = *nonce;
+        for a in auth.iter() {
+            let signer = a.sig.did;
+            let nonce = a.nonce;
             // Check if nonce is valid and increase it
             let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;
             did_detail
@@ -309,11 +300,23 @@ impl<T: Config + Debug> Module<T> {
             // Verify signature
             let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(
                 &WithNonce::new_with_nonce(new_payload.clone(), nonce),
-                &sig,
+                &a.sig,
             )?;
-            ensure!(valid && (*signer == sig.did), MasterError::<T>::BadSig);
+            ensure!(valid, MasterError::<T>::BadSig);
             new_did_details.insert(signer, did_detail);
         }
+
+        let authors = new_did_details.keys().cloned().collect::<Vec<_>>();
+
+        let membership = Members::get();
+        ensure!(
+            authors.len() as u64 >= membership.vote_requirement,
+            MasterError::<T>::InsufficientVotes,
+        );
+        ensure!(
+            authors.iter().all(|k| membership.members.contains(k)),
+            MasterError::<T>::NotMember,
+        );
 
         // execute call and collect dispatch info to return
         let dispatch_result = proposal
@@ -333,8 +336,6 @@ impl<T: Config + Debug> Module<T> {
         // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,
         // then this weight is used.
         let dispatch_decl_weight = proposal.get_dispatch_info().weight;
-
-        let authors = auth.auths.keys().cloned().collect();
 
         // If weight was not given in `given_weight`, look for weight of dispatch in `post_info`. If
         // `post_info` does not have weight, use weight from declaration. Also add minimum weight for execution
@@ -404,9 +405,8 @@ mod test {
         PhantomData, Round,
     };
     use crate::revoke::tests::{check_nonce_increase, get_nonces, get_pauth};
-    use crate::revoke::PAuth;
     use crate::test_common::*;
-    use alloc::collections::{BTreeMap, BTreeSet};
+    use alloc::collections::BTreeSet;
     use frame_support::StorageValue;
     use frame_system as system;
     use sp_core::H256;
@@ -429,8 +429,7 @@ mod test {
             };
             let call = Call::MasterMod(MasterCall::set_members(new_members.clone()));
             assert_eq!(Round::get(), 0);
-            MasterMod::execute(Origin::signed(0), Box::new(call), PAuth { auths: map(&[]) })
-                .unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call), vec![]).unwrap();
             assert_eq!(Members::get(), new_members);
             assert_eq!(Round::get(), 2);
         });
@@ -446,20 +445,10 @@ mod test {
             });
             let call = Call::System(system::Call::<Test>::set_storage(vec![]));
             assert_eq!(Round::get(), 0);
-            MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                PAuth { auths: map(&[]) },
-            )
-            .unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), vec![]).unwrap();
             assert_eq!(Round::get(), 1);
-            MasterMod::execute_unchecked_weight(
-                Origin::signed(0),
-                Box::new(call),
-                PAuth { auths: map(&[]) },
-                1,
-            )
-            .unwrap();
+            MasterMod::execute_unchecked_weight(Origin::signed(0), Box::new(call), vec![], 1)
+                .unwrap();
             assert_eq!(Round::get(), 2);
         });
     }
@@ -473,9 +462,7 @@ mod test {
                 vote_requirement: 0,
             });
             let call = Call::System(system::Call::<Test>::remark(vec![]));
-            let err =
-                MasterMod::execute(Origin::signed(0), Box::new(call), PAuth { auths: map(&[]) })
-                    .unwrap_err();
+            let err = MasterMod::execute(Origin::signed(0), Box::new(call), vec![]).unwrap_err();
             assert_eq!(err.error, DispatchError::BadOrigin);
         });
     }
@@ -500,12 +487,7 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                PAuth { auths: map(&[]) },
-            )
-            .unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), vec![]).unwrap();
             assert_eq!(
                 master_events(),
                 vec![Event::<Test>::Executed(vec![], Box::new(call))]
@@ -558,12 +540,7 @@ mod test {
                 members: set(&[newdid().0]),
                 vote_requirement: 1,
             }));
-            MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                PAuth { auths: map(&[]) },
-            )
-            .unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), vec![]).unwrap();
             assert_eq!(
                 master_events(),
                 vec![
@@ -579,11 +556,7 @@ mod test {
                 members: set(&[]),
                 vote_requirement: 0,
             });
-            let res = MasterMod::execute(
-                Origin::signed(0),
-                Box::new(call.clone()),
-                PAuth { auths: map(&[]) },
-            );
+            let res = MasterMod::execute(Origin::signed(0), Box::new(call.clone()), vec![]);
             assert!(res.is_err());
             assert_eq!(
                 master_events(),
@@ -920,13 +893,6 @@ mod test {
                 }
             })
             .collect()
-    }
-
-    fn map<K: Ord, V>(slice: &[(K, V)]) -> BTreeMap<K, V>
-    where
-        (K, V): Clone,
-    {
-        slice.iter().cloned().collect()
     }
 
     fn set<E: Clone + Ord>(slice: &[E]) -> BTreeSet<E> {

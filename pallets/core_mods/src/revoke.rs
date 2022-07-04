@@ -17,6 +17,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
+use sp_std::vec::Vec;
 
 /// Points to an on-chain revocation registry.
 pub type RegistryId = [u8; 32];
@@ -24,12 +25,14 @@ pub type RegistryId = [u8; 32];
 /// Points to a revocation which may or may not exist in a registry.
 pub type RevokeId = [u8; 32];
 
-/// Proof of authorization to modify a registry. It can be made a set instead of a map but that causes serialization errors
+/// Collection of signatures sent by different DIDs.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct PAuth<T: frame_system::Config> {
-    /// Mapping from DID -> (signature from DID, nonce used by the signer)
-    pub auths: BTreeMap<Did, (DidSignature<Did>, T::BlockNumber)>,
+pub struct DidSigs<T: frame_system::Config> {
+    /// Signature by DID
+    pub sig: DidSignature<Did>,
+    /// Nonce used to make the above signature
+    pub nonce: T::BlockNumber,
 }
 
 /// Authorization logic for a registry.
@@ -136,15 +139,15 @@ crate::impl_action_with_nonce! {
         RemoveRegistry with 1 as len, { |a: &RemoveRegistry<T>| a.data().registry_id } as target
 }
 
-/// Return counts of different signature types in given PAuth as 3-Tuple as (no. of Sr22519 sigs,
+/// Return counts of different signature types in given `DidSigs` as 3-Tuple as (no. of Sr22519 sigs,
 /// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
 /// type is in `Weight` but realistically, it should fit in a u8
-fn count_sig_types<T: frame_system::Config>(auth: &PAuth<T>) -> (Weight, Weight, Weight) {
+fn count_sig_types<T: frame_system::Config>(auth: &[DidSigs<T>]) -> (Weight, Weight, Weight) {
     let mut sr = 0;
     let mut ed = 0;
     let mut secp = 0;
-    for (a, _) in auth.auths.values() {
-        match a.sig {
+    for a in auth.iter() {
+        match a.sig.sig {
             SigValue::Sr25519(_) => sr += 1,
             SigValue::Ed25519(_) => ed += 1,
             SigValue::Secp256k1(_) => secp += 1,
@@ -153,15 +156,15 @@ fn count_sig_types<T: frame_system::Config>(auth: &PAuth<T>) -> (Weight, Weight,
     (sr, ed, secp)
 }
 
-/// Computes weight of the given `PAuth`. Considers the no. and types of signatures and no. of reads. Disregards
+/// Computes weight of the given `DidSigs`. Considers the no. and types of signatures and no. of reads. Disregards
 /// message size as messages are hashed giving the same output size and hashing itself is very cheap.
 /// The extrinsic using it might decide to consider adding some weight proportional to the message size.
-pub fn get_weight_for_pauth<T: frame_system::Config>(
-    auth: &PAuth<T>,
+pub fn get_weight_for_did_sigs<T: frame_system::Config>(
+    auth: &[DidSigs<T>],
     db_weights: RuntimeDbWeight,
 ) -> Weight {
     let (sr, ed, secp) = count_sig_types(auth);
-    (db_weights.reads(auth.auths.len() as u64)
+    (db_weights.reads(auth.len() as u64)
         + (sr * SR25519_WEIGHT)
         + (ed * ED25519_WEIGHT)
         + (secp * SECP256K1_WEIGHT)) as Weight
@@ -250,11 +253,11 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `revoke.registry_id`.
-        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
+        #[weight = T::DbWeight::get().reads_writes(1, revoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_did_sigs(&proof, T::DbWeight::get())]
         pub fn revoke(
             origin,
             revoke: dock::revoke::RevokeRaw<T>,
-            proof: dock::revoke::PAuth<T>,
+            proof: Vec<DidSigs<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -273,11 +276,11 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `unrevoke.registry_id`.
-        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
+        #[weight = T::DbWeight::get().reads_writes(1, unrevoke.revoke_ids.len() as u64) + 75_000_000 + get_weight_for_did_sigs(&proof, T::DbWeight::get())]
         pub fn unrevoke(
             origin,
             unrevoke: dock::revoke::UnRevokeRaw<T>,
-            proof: dock::revoke::PAuth<T>,
+            proof: Vec<DidSigs<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -298,11 +301,11 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `removal.registry_id`.
-        #[weight = T::DbWeight::get().reads_writes(1, 2) + 100_000_000 + get_weight_for_pauth(&proof, T::DbWeight::get())]
+        #[weight = T::DbWeight::get().reads_writes(1, 2) + 100_000_000 + get_weight_for_did_sigs(&proof, T::DbWeight::get())]
         pub fn remove_registry(
             origin,
             removal: dock::revoke::RemoveRegistryRaw<T>,
-            proof: dock::revoke::PAuth<T>,
+            proof: Vec<DidSigs<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -401,7 +404,7 @@ impl<T: Config + Debug> Module<T> {
     /// otherwise returns Err.
     pub(crate) fn try_exec_removable_action_over_registry<A, F, R, E>(
         action: A,
-        proof: PAuth<T>,
+        proof: Vec<DidSigs<T>>,
         f: F,
     ) -> Result<R, DispatchError>
     where
@@ -416,11 +419,7 @@ impl<T: Config + Debug> Module<T> {
             match &registry.policy {
                 Policy::OneOf(controllers) => {
                     ensure!(
-                        proof.auths.len() == 1
-                            && proof
-                                .auths
-                                .values()
-                                .all(|(sig, _)| controllers.contains(&sig.did)),
+                        proof.len() == 1 && proof.iter().all(|a| controllers.contains(&a.sig.did)),
                         RevErr::<T>::NotAuthorized
                     );
                 }
@@ -429,18 +428,19 @@ impl<T: Config + Debug> Module<T> {
             let mut new_did_details = BTreeMap::new();
 
             // check each signature is valid over payload and signed by the claimed signer
-            for (signer, (sig, nonce)) in proof.auths.into_iter() {
+            for a in proof.into_iter() {
+                let signer = a.sig.did;
                 // Check if nonce is valid and increase it
                 let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;
                 did_detail
-                    .try_update(nonce)
+                    .try_update(a.nonce)
                     .map_err(|_| RevErr::<T>::IncorrectNonce)?;
                 // Verify signature
                 let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(
-                    &WithNonce::new_with_nonce(action.clone(), nonce),
-                    &sig,
+                    &WithNonce::new_with_nonce(action.clone(), a.nonce),
+                    &a.sig,
                 )?;
-                ensure!(valid && (signer == sig.did), RevErr::<T>::NotAuthorized);
+                ensure!(valid, RevErr::<T>::NotAuthorized);
                 new_did_details.insert(signer, did_detail);
             }
 
@@ -467,7 +467,7 @@ impl<T: Config + Debug> Module<T> {
     /// Returns a mutable reference to the underlying registry if the command is authorized, otherwise returns Err.
     pub(crate) fn try_exec_action_over_registry<A, F, R, E>(
         action: A,
-        proof: PAuth<T>,
+        proof: Vec<DidSigs<T>>,
         f: F,
     ) -> Result<R, DispatchError>
     where
@@ -494,11 +494,11 @@ pub mod tests {
     pub fn get_pauth<A: Action<Test> + Clone>(
         action: &A,
         signers: &[(Did, &sr25519::Pair)],
-    ) -> PAuth<Test>
+    ) -> Vec<DidSigs<Test>>
     where
         WithNonce<Test, A>: ToStateChange<Test>,
     {
-        let auths: BTreeMap<Did, (DidSignature<Did>, u64)> = signers
+        signers
             .iter()
             .map(|(did, kp)| {
                 let did_detail = DIDModule::onchain_did_details(&did).unwrap();
@@ -510,10 +510,12 @@ pub mod tests {
                     did.clone(),
                     1,
                 );
-                (did.clone(), (sig, next_nonce))
+                DidSigs {
+                    sig,
+                    nonce: next_nonce,
+                }
             })
-            .collect();
-        PAuth { auths }
+            .collect()
     }
 
     pub fn get_nonces(signers: &[(Did, &sr25519::Pair)]) -> BTreeMap<Did, u64> {
@@ -542,7 +544,7 @@ pub mod tests {
     mod errors {
         // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
         use super::*;
-        use alloc::collections::{BTreeMap, BTreeSet};
+        use alloc::collections::BTreeSet;
         use frame_support::dispatch::DispatchError;
 
         #[test]
@@ -704,9 +706,7 @@ pub mod tests {
                         registry_id,
                         revoke_ids: BTreeSet::new(),
                     },
-                    PAuth {
-                        auths: BTreeMap::new()
-                    }
+                    vec![]
                 ),
                 noreg
             );
@@ -718,9 +718,7 @@ pub mod tests {
                         registry_id,
                         revoke_ids: BTreeSet::new(),
                     },
-                    PAuth {
-                        auths: BTreeMap::new()
-                    },
+                    vec![],
                 ),
                 noreg
             );
@@ -731,9 +729,7 @@ pub mod tests {
                         _marker: PhantomData,
                         registry_id
                     },
-                    PAuth {
-                        auths: BTreeMap::new()
-                    },
+                    vec![],
                 ),
                 noreg
             );

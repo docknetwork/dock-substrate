@@ -5,7 +5,7 @@ use crate::did::service_endpoints::ServiceEndpointType;
 use crate::keys_and_sigs::{get_secp256k1_keypair, SigValue};
 use crate::test_common::*;
 use crate::util::{Bytes64, Bytes65};
-use frame_support::{assert_err, assert_noop, assert_ok};
+use frame_support::{assert_noop, assert_ok};
 use sp_core::{ed25519, sr25519, Pair};
 
 fn not_key_agreement(key: &DidKey) {

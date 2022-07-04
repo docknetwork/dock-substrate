@@ -201,7 +201,7 @@ decl_event!(
         KeyAdded(AccumulatorOwner, IncId),
         KeyRemoved(AccumulatorOwner, IncId),
         AccumulatorAdded(AccumulatorId, Vec<u8>),
-        UpdateAccumulatord(AccumulatorId, Vec<u8>),
+        AccumulatorUpdated(AccumulatorId, Vec<u8>),
         AccumulatorRemoved(AccumulatorId),
     }
 );
@@ -553,7 +553,7 @@ impl<T: Config + Debug> Module<T> {
 
         // The event stores only the accumulated value which can be used by the verifier.
         // For witness update, that information is retrieved by looking at the block and parsing the extrinsic.
-        crate::deposit_indexed_event!(UpdateAccumulatord(id, new_accumulated) over id);
+        crate::deposit_indexed_event!(AccumulatorUpdated(id, new_accumulated) over id);
         Ok(())
     }
 
@@ -1095,7 +1095,7 @@ mod test {
                 })
             );
             assert!(accumulator_events().contains(&(
-                super::Event::UpdateAccumulatord(id.clone(), accumulator.accumulated().to_vec()),
+                super::Event::AccumulatorUpdated(id.clone(), accumulator.accumulated().to_vec()),
                 vec![<Test as system::Config>::Hashing::hash(&id[..])]
             )));
 
@@ -1127,7 +1127,7 @@ mod test {
                 })
             );
             assert!(accumulator_events().contains(&(
-                super::Event::UpdateAccumulatord(id.clone(), accumulator.accumulated().to_vec()),
+                super::Event::AccumulatorUpdated(id.clone(), accumulator.accumulated().to_vec()),
                 vec![<Test as system::Config>::Hashing::hash(&id[..])]
             )));
 

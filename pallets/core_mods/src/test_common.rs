@@ -7,7 +7,6 @@ use crate::blob;
 use crate::did::{self, Did, DidKey, DidSignature};
 use crate::master;
 use crate::revoke;
-use crate::Action;
 use crate::ToStateChange;
 use crate::{accumulator, StateChange};
 use crate::{keys_and_sigs, util};
