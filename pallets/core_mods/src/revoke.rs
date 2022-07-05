@@ -439,7 +439,6 @@ impl<T: Config + Debug> Module<T> {
                                                        // check each signature is valid over payload and signed by the claimed signer
             for a in proof.into_iter() {
                 let signer = a.sig.did;
-                // let nonce = a.sig.nonce;
 
                 // Check if nonce is valid and increase it
                 let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;

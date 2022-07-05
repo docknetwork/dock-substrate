@@ -18,7 +18,11 @@ use sp_std::convert::TryInto;
 pub struct WithNonce<T: frame_system::Config, D> {
     pub nonce: T::BlockNumber,
     #[cfg_attr(feature = "serde", serde(flatten))]
+    #[cfg(test)]
     pub data: D,
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[cfg(not(test))]
+    data: D
 }
 
 /// A nonce handling-related error.
@@ -96,7 +100,11 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
             return Some(err.map(|_| unreachable!()).map_err(Into::into));
         }
 
-        WithNonce::try_update_opt_without_increasing_nonce_with::<Self, _, _, _>(&mut Some(this), f)
+        let mut this_data_opt = Some(this);
+        let res = WithNonce::try_update_opt_without_increasing_nonce_with::<Self, _, _, _>(&mut this_data_opt, f);
+        *this_opt = this_data_opt.map(Into::into);
+
+        res
     }
 
     /// If supplied value is `Some(_)`, will update given entity.
