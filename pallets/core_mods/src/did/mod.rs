@@ -227,7 +227,7 @@ decl_module! {
         pub fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(keys, sig, Self::add_keys_)
+            Self::try_exec_signed_action_from_controller(Self::add_keys_, keys, sig)
                 .map_err(|err| err.empty_payload_to(Error::<T>::NoKeyProvided))?;
             Ok(())
         }
@@ -239,7 +239,7 @@ decl_module! {
         pub fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(keys, sig, Self::remove_keys_)
+            Self::try_exec_signed_action_from_controller(Self::remove_keys_, keys, sig)
                 .map_err(|err| err.empty_payload_to(Error::<T>::NoKeyProvided))?;
             Ok(())
         }
@@ -251,7 +251,7 @@ decl_module! {
         pub fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(controllers, sig, Self::add_controllers_)
+            Self::try_exec_signed_action_from_controller(Self::add_controllers_, controllers, sig)
                 .map_err(|err| err.empty_payload_to(Error::<T>::NoControllerProvided))?;
             Ok(())
         }
@@ -263,7 +263,7 @@ decl_module! {
         pub fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(controllers, sig, Self::remove_controllers_)
+            Self::try_exec_signed_action_from_controller(Self::remove_controllers_, controllers, sig)
                 .map_err(|err| err.empty_payload_to(Error::<T>::NoControllerProvided))?;
             Ok(())
         }
@@ -274,7 +274,7 @@ decl_module! {
         pub fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(service_endpoint, sig, Self::add_service_endpoint_)?;
+            Self::try_exec_signed_action_from_controller(Self::add_service_endpoint_, service_endpoint, sig)?;
             Ok(())
         }
 
@@ -284,7 +284,7 @@ decl_module! {
         pub fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(service_endpoint, sig, Self::remove_service_endpoint_)?;
+            Self::try_exec_signed_action_from_controller(Self::remove_service_endpoint_, service_endpoint, sig)?;
             Ok(())
         }
 
@@ -296,7 +296,7 @@ decl_module! {
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_removable_action_from_onchain_did_over_onchain_did(removal, sig, Self::remove_onchain_did_)?;
+            Self::try_exec_signed_removable_action_from_controller(Self::remove_onchain_did_, removal, sig)?;
             Ok(())
         }
 

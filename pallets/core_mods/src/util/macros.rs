@@ -18,6 +18,19 @@ macro_rules! impl_bits_conversion {
 }
 
 #[macro_export]
+macro_rules! pub_for_test {
+    ($(#[$meta:meta])* fn $($val: tt)*) => {
+        #[cfg(test)]
+        $(#[$meta])*
+        pub fn $($val)*
+
+        #[cfg(not(test))]
+        $(#[$meta])*
+        fn $($val)*
+    }
+}
+
+#[macro_export]
 macro_rules! field_accessor {
     ($self: ident, () $($add: tt)*) => {
         ()

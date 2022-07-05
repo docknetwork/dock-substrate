@@ -106,7 +106,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(attests, signature, Self::set_claim_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::set_claim_, attests, signature)
         }
     }
 }

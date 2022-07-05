@@ -22,7 +22,7 @@ pub struct WithNonce<T: frame_system::Config, D> {
     pub data: D,
     #[cfg_attr(feature = "serde", serde(flatten))]
     #[cfg(not(test))]
-    data: D
+    data: D,
 }
 
 /// A nonce handling-related error.
@@ -101,7 +101,10 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         }
 
         let mut this_data_opt = Some(this);
-        let res = WithNonce::try_update_opt_without_increasing_nonce_with::<Self, _, _, _>(&mut this_data_opt, f);
+        let res = WithNonce::try_update_opt_without_increasing_nonce_with::<Self, _, _, _>(
+            &mut this_data_opt,
+            f,
+        );
         *this_opt = this_data_opt.map(Into::into);
 
         res

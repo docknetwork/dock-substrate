@@ -187,7 +187,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(params, signature, Self::add_params_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
         }
 
         /// Add a BBS+ public key. Only the DID controller can add key and it should use the nonce from the DID module.
@@ -204,7 +204,7 @@ decl_module! {
             ensure_signed(origin)?;
             // Only controller can add a key
 
-            <did::Module<T>>::try_exec_signed_action_from_onchain_did_over_onchain_did(public_key, signature, Self::add_public_key_)
+            <did::Module<T>>::try_exec_signed_action_from_controller(Self::add_public_key_, public_key, signature)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -215,7 +215,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_params_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
         }
 
         /// Remove BBS+ public key. Only the DID controller can remove key and it should use the nonce from the DID module.
@@ -228,7 +228,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            <did::Module<T>>::try_exec_signed_action_from_onchain_did_over_onchain_did(remove, signature, Self::remove_public_key_)
+            <did::Module<T>>::try_exec_signed_action_from_controller(Self::remove_public_key_, remove, signature)
         }
 
         fn on_runtime_upgrade() -> Weight {
@@ -1402,8 +1402,8 @@ mod test {
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
             assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+                BBSPlusMod::add_public_key_,
                 ak,
-                BBSPlusMod::add_public_key_
             )
             .is_ok());
             assert_eq!(
@@ -1422,8 +1422,8 @@ mod test {
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
             assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+                BBSPlusMod::add_public_key_,
                 ak,
-                BBSPlusMod::add_public_key_
             )
             .is_ok());
             assert_eq!(
@@ -1445,8 +1445,8 @@ mod test {
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
             assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+                BBSPlusMod::add_public_key_,
                 ak,
-                BBSPlusMod::add_public_key_
             )
             .is_ok());
             assert_eq!(
@@ -1517,8 +1517,8 @@ mod test {
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
             assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+                BBSPlusMod::add_public_key_,
                 ak,
-                BBSPlusMod::add_public_key_
             )
             .is_ok());
             assert_eq!(
@@ -1560,8 +1560,8 @@ mod test {
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
             assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+                BBSPlusMod::add_public_key_,
                 ak,
-                BBSPlusMod::add_public_key_
             )
             .is_ok());
             assert_eq!(
@@ -1682,8 +1682,8 @@ mod test {
                 nonce: did_detail.next_nonce(),
             };
             assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+                BBSPlusMod::add_public_key_,
                 ak,
-                BBSPlusMod::add_public_key_
             )
             .is_ok());
             assert_eq!(
@@ -1698,8 +1698,8 @@ mod test {
                 nonce: did_detail_1.next_nonce(),
             };
             assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+                BBSPlusMod::add_public_key_,
                 ak,
-                BBSPlusMod::add_public_key_
             )
             .is_ok());
             assert_eq!(
@@ -1714,8 +1714,8 @@ mod test {
                 nonce: did_detail.next_nonce(),
             };
             assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+                BBSPlusMod::add_public_key_,
                 ak,
-                BBSPlusMod::add_public_key_
             )
             .is_ok());
             assert_eq!(

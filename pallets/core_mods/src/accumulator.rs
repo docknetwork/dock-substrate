@@ -310,7 +310,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(params, signature, Self::add_params_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 2)
@@ -324,7 +324,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(public_key, signature, Self::add_public_key_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_public_key_, public_key, signature)
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -335,7 +335,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_params_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature, )
         }
 
         #[weight = T::DbWeight::get().reads_writes(2, 1) + signature.weight()]
@@ -346,7 +346,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_public_key_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_public_key_, remove, signature)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -365,7 +365,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(add_accumulator, signature, Self::add_accumulator_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_accumulator_, add_accumulator, signature)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -384,7 +384,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(update, signature, Self::update_accumulator_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::update_accumulator_, update, signature)
         }
 
         #[weight = T::DbWeight::get().reads_writes(1, 2)+ signature.weight()]
@@ -395,7 +395,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(remove, signature, Self::remove_accumulator_)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_accumulator_, remove, signature)
         }
 
         fn on_runtime_upgrade() -> Weight {
