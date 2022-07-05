@@ -34,7 +34,7 @@ mod service_endpoints;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
 #[cfg(test)]
-mod tests;
+pub mod tests;
 
 /// The module's configuration trait.
 pub trait Config: system::Config {
@@ -66,26 +66,26 @@ decl_error! {
         DidAlreadyExists,
         /// There is no such DID registered
         DidDoesNotExist,
-        /// For replay protection, an update to state is required to contain the same block number
-        /// in which the last update was performed.
-        DifferentBlockNumber,
         /// Signature type does not match public key type
         IncompatSigPubkey,
-        /// Signature verification failed while key update or did removal
+        /// Signature by DID failed verification
         InvalidSignature,
-        DidDocUriTooBig,
+        DidDocRefTooBig,
         NotAnOffChainDid,
         DidNotOwnedByAccount,
         NoControllerProvided,
+        /// The provided key type is not comptaible with the provided verification relationship
         IncompatibleVerificationRelation,
         CannotGetDetailForOffChainDid,
         CannotGetDetailForOnChainDid,
         NoKeyProvided,
         EmptyPayload,
         IncorrectNonce,
+        /// Only controller of a DID can update the DID Doc
         OnlyControllerCanUpdate,
         NoKeyForDid,
         NoControllerForDid,
+        /// The key does not have the required verification relationship
         InsufficientVerificationRelationship,
         ControllerIsAlreadyAdded,
         InvalidServiceEndpoint,
@@ -166,7 +166,7 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
-        fn deposit_event() = default;
+        pub fn deposit_event() = default;
 
         type Error = Error<T>;
 
@@ -189,10 +189,10 @@ decl_module! {
 
         // TODO: Fix weight
         #[weight = T::DbWeight::get().reads_writes(1, 1) + did_doc_ref.len() as u64 * T::DidDocRefPerByteWeight::get()]
-        pub fn set_offchain_did_uri(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
+        pub fn set_offchain_did_doc_ref(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
             let caller = ensure_signed(origin)?;
 
-            Self::set_offchain_did_uri_(caller, did, did_doc_ref)?;
+            Self::set_offchain_did_doc_ref_(caller, did, did_doc_ref)?;
             Ok(())
         }
 
@@ -224,10 +224,10 @@ decl_module! {
         /// verification relationships
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
-        fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        pub fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_over_onchain_did(keys, sig, Self::add_keys_)
+            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(keys, sig, Self::add_keys_)
                 .map_err(|err| err.empty_payload_to(Error::<T>::NoKeyProvided))?;
             Ok(())
         }
@@ -236,10 +236,10 @@ decl_module! {
         /// # **Note that removing all might make DID unusable**.
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight)]
-        fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        pub fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_over_onchain_did(keys, sig, Self::remove_keys_)
+            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(keys, sig, Self::remove_keys_)
                 .map_err(|err| err.empty_payload_to(Error::<T>::NoKeyProvided))?;
             Ok(())
         }
@@ -248,10 +248,10 @@ decl_module! {
         /// a DID that exists on or off chain. Does not check if the controller is already added.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        pub fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_over_onchain_did(controllers, sig, Self::add_controllers_)
+            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(controllers, sig, Self::add_controllers_)
                 .map_err(|err| err.empty_payload_to(Error::<T>::NoControllerProvided))?;
             Ok(())
         }
@@ -260,10 +260,10 @@ decl_module! {
         /// # **Note that removing all might make DID unusable**.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        pub fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_over_onchain_did(controllers, sig, Self::remove_controllers_)
+            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(controllers, sig, Self::remove_controllers_)
                 .map_err(|err| err.empty_payload_to(Error::<T>::NoControllerProvided))?;
             Ok(())
         }
@@ -271,20 +271,20 @@ decl_module! {
         /// Add a single service endpoint.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        pub fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_over_onchain_did(service_endpoint, sig, Self::add_service_endpoint_)?;
+            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(service_endpoint, sig, Self::add_service_endpoint_)?;
             Ok(())
         }
 
         /// Remove a single service endpoint.
         // TODO: Fix weights
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
-        fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        pub fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_over_onchain_did(service_endpoint, sig, Self::remove_service_endpoint_)?;
+            Self::try_exec_signed_action_from_onchain_did_over_onchain_did(service_endpoint, sig, Self::remove_service_endpoint_)?;
             Ok(())
         }
 
@@ -296,7 +296,7 @@ decl_module! {
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_removable_action_over_onchain_did(removal, sig, Self::remove_onchain_did_)?;
+            Self::try_exec_signed_removable_action_from_onchain_did_over_onchain_did(removal, sig, Self::remove_onchain_did_)?;
             Ok(())
         }
 

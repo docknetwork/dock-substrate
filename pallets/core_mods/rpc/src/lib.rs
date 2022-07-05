@@ -40,7 +40,7 @@ where
     #[rpc(name = "core_mods_didListDetails")]
     fn did_list_details(
         &self,
-        did: Vec<did::Did>,
+        dids: Vec<did::Did>,
         params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<BlockHash>,
     ) -> Result<Vec<Option<did::AggregatedDidDetailsResponse<T::T>>>>;
@@ -117,7 +117,7 @@ where
 
         api.did_details(&at, did, params).map_err(|e| RpcError {
             code: ErrorCode::ServerError(2),
-            message: "Unable to query BBS+ public key with params".into(),
+            message: "Unable to query DID details with params".into(),
             data: Some(format!("{:?}", e).into()),
         })
     }
@@ -136,7 +136,7 @@ where
         api.did_list_details(&at, dids, params)
             .map_err(|e| RpcError {
                 code: ErrorCode::ServerError(2),
-                message: "Unable to query BBS+ public key with params".into(),
+                message: "Unable to query DID details with params".into(),
                 data: Some(format!("{:?}", e).into()),
             })
     }

@@ -169,6 +169,7 @@ mod tests {
             .unwrap();
             // Can retrieve a valid blob and the blob contents and author match the given ones.
             assert_eq!(Blobs::get(id), Some((BlobOwner(author), noise)));
+            check_nonce(&author, block_no + 1);
         }
 
         ext().execute_with(|| {
@@ -190,10 +191,12 @@ mod tests {
             let noise = random_bytes(size);
             let id = rand::random();
             assert_eq!(Blobs::get(id), None);
+            check_nonce(&author, block_no);
             let err =
                 create_blob(id, noise, BlobOwner(author), author_kp, block_no + 1).unwrap_err();
             assert_eq!(err, BlobError::<Test>::BlobTooBig.into());
             assert_eq!(Blobs::get(id), None);
+            check_nonce(&author, block_no);
         }
 
         ext().execute_with(|| {
@@ -211,6 +214,7 @@ mod tests {
             let id = rand::random();
             let (author, author_kp) = newdid();
             assert_eq!(Blobs::get(id), None);
+            check_nonce(&author, 10);
             create_blob(
                 id,
                 random_bytes(10),
@@ -219,9 +223,11 @@ mod tests {
                 10 + 1,
             )
             .unwrap();
+            check_nonce(&author, 10 + 1);
             let err = create_blob(id, random_bytes(10), BlobOwner(author), author_kp, 11 + 1)
                 .unwrap_err();
             assert_eq!(err, BlobError::<Test>::BlobAlreadyExists.into());
+            check_nonce(&author, 10 + 1);
         });
     }
 
@@ -257,6 +263,7 @@ mod tests {
                     },
                     nonce: 10 + 1,
                 };
+                check_nonce(&author, 10);
                 let err = BlobMod::new(
                     Origin::signed(ABBA),
                     AddBlob {
@@ -267,6 +274,7 @@ mod tests {
                 )
                 .unwrap_err();
                 assert_eq!(err, did::Error::<Test>::InvalidSignature.into());
+                check_nonce(&author, 10);
             }
 
             {
@@ -279,6 +287,7 @@ mod tests {
                     id: rand::random(),
                     blob: random_bytes(10),
                 };
+                check_nonce(&author, 20);
                 let err = BlobMod::new(
                     Origin::signed(ABBA),
                     AddBlob {
@@ -297,6 +306,7 @@ mod tests {
                 )
                 .unwrap_err();
                 assert_eq!(err, did::Error::<Test>::InvalidSignature.into());
+                check_nonce(&author, 20);
             }
         })
     }

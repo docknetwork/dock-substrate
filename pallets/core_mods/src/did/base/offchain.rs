@@ -81,7 +81,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<(), Error<T>> {
         ensure!(
             T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
-            Error::<T>::DidDocUriTooBig
+            Error::<T>::DidDocRefTooBig
         );
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
@@ -93,14 +93,14 @@ impl<T: Config + Debug> Module<T> {
         Ok(())
     }
 
-    pub(crate) fn set_offchain_did_uri_(
+    pub(crate) fn set_offchain_did_doc_ref_(
         caller: T::AccountId,
         did: Did,
         did_doc_ref: OffChainDidDocRef,
     ) -> Result<(), Error<T>> {
         ensure!(
             T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
-            Error::<T>::DidDocUriTooBig
+            Error::<T>::DidDocRefTooBig
         );
         Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 

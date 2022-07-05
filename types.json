@@ -10,7 +10,6 @@
   "BlockLength": {
     "max": "PerDispatchClassU32"
   },
-  "Did": "[u8;32]",
   "Bytes32": {
     "value": "[u8;32]"
   },
@@ -23,33 +22,123 @@
   "Bytes65": {
     "value": "[u8;65]"
   },
+  "WrappedBytes": {
+    "0": "Vec<u8>"
+  },
+  "IncId": {
+    "0": "u32"
+  },
+  "RawDid": "[u8;32]",
+  "Did": {
+    "0": "RawDid"
+  },
+  "Attester": {
+    "0": "Did"
+  },
+  "BlobOwner": {
+    "0": "Did"
+  },
+  "Controller": {
+    "0": "Did"
+  },
+  "BBSPlusParamsOwner": {
+    "0": "Did"
+  },
+  "AccumulatorOwner": {
+    "0": "Did"
+  },
   "PublicKey": {
     "_enum": {
       "Sr25519": "Bytes32",
       "Ed25519": "Bytes32",
-      "Secp256k1": "Bytes33"
+      "Secp256k1": "Bytes33",
+      "X25519": "Bytes32"
     }
   },
-  "DidSignature": {
+  "SigValue": {
     "_enum": {
       "Sr25519": "Bytes64",
       "Ed25519": "Bytes64",
       "Secp256k1": "Bytes65"
     }
   },
-  "KeyDetail": {
-    "controller": "Did",
-    "public_key": "PublicKey"
-  },
-  "KeyUpdate": {
+  "DidSignature": {
     "did": "Did",
-    "public_key": "PublicKey",
-    "controller": "Option<Did>",
-    "last_modified_in_block": "BlockNumber"
+    "keyId": "IncId",
+    "sig": "SigValue"
+  },
+  "OffChainDidDocRef": {
+    "_enum": {
+      "CID": "WrappedBytes",
+      "URL": "WrappedBytes",
+      "Custom": "WrappedBytes"
+    }
+  },
+  "OffChainDidDetails": {
+    "accountId": "AccountId",
+    "docRef": "OffChainDidDocRef"
+  },
+  "OnChainDidDetails": {
+    "lastKeyId": "IncId",
+    "activeControllerKeys": "u32",
+    "activeControllers": "u32"
+  },
+  "StoredOnChainDidDetails": {
+    "nonce": "BlockNumber",
+    "lastKeyId": "IncId",
+    "activeControllerKeys": "u32",
+    "activeControllers": "u32"
+  },
+  "StoredDidDetails": {
+    "_enum": {
+      "OffChain": "OffChainDidDetails",
+      "OnChain": "StoredOnChainDidDetails"
+    }
+  },
+  "VerRelType": "u16",
+  "ServiceEndpointType": "u16",
+  "ServiceEndpoint": {
+    "types": "ServiceEndpointType",
+    "origins": "Vec<WrappedBytes>"
+  },
+  "DidKey": {
+    "publicKey": "PublicKey",
+    "verRels": "VerRelType"
+  },
+  "AddKeys": {
+    "did": "Did",
+    "keys": "Vec<DidKey>",
+    "nonce": "BlockNumber"
+  },
+  "RemoveKeys": {
+    "did": "Did",
+    "keys": "BTreeSet<IncId>",
+    "nonce": "BlockNumber"
+  },
+  "AddControllers": {
+    "did": "Did",
+    "controllers": "BTreeSet<Controller>",
+    "nonce": "BlockNumber"
+  },
+  "RemoveControllers": {
+    "did": "Did",
+    "controllers": "BTreeSet<Controller>",
+    "nonce": "BlockNumber"
+  },
+  "AddServiceEndpoint": {
+    "did": "Did",
+    "id": "WrappedBytes",
+    "endpoint": "ServiceEndpoint",
+    "nonce": "BlockNumber"
+  },
+  "RemoveServiceEndpoint": {
+    "did": "Did",
+    "id": "WrappedBytes",
+    "nonce": "BlockNumber"
   },
   "DidRemoval": {
     "did": "Did",
-    "last_modified_in_block": "BlockNumber"
+    "nonce": "BlockNumber"
   },
   "RegistryId": "[u8;32]",
   "RevokeId": "[u8;32]",
@@ -71,7 +160,9 @@
     "registry_id": "RegistryId",
     "last_modified": "BlockNumber"
   },
-  "PAuth": "BTreeMap<Did, DidSignature>",
+  "PAuth": {
+    "auths": "BTreeMap<Did, (DidSignature, BlockNumber)>"
+  },
   "Policy": {
     "_enum": {
       "OneOf": "BTreeSet<Did>"
@@ -80,8 +171,11 @@
   "BlobId": "[u8;32]",
   "Blob": {
     "id": "BlobId",
-    "blob": "Vec<u8>",
-    "author": "Did"
+    "blob": "Vec<u8>"
+  },
+  "AddBlob": {
+    "blob": "Blob",
+    "nonce": "BlockNumber"
   },
   "Balance": "u64",
   "BlockNumber": "u32",
@@ -89,18 +183,22 @@
     "swap_bonuses": "Vec<(Balance, BlockNumber)>",
     "vesting_bonuses": "Vec<(Balance, Balance, BlockNumber)>"
   },
-  "Payload": {
+  "MasterVoteSigningPayload": {
     "proposal": "Vec<u8>",
-    "round_no": "u64"
+    "round_no": "u64",
+    "nonce": "BlockNumber"
   },
   "Membership": {
     "members": "BTreeSet<Did>",
     "vote_requirement": "u64"
   },
-  "PMAuth": "BTreeMap<Did, DidSignature>",
   "Attestation": {
     "priority": "Compact<u64>",
     "iri": "Option<Vec<u8>>"
+  },
+  "SetAttestationClaim": {
+    "attest": "Attestation",
+    "nonce": "BlockNumber"
   },
   "ParamType": {
     "_enum": {
@@ -120,8 +218,8 @@
       "Bls12381": null
     }
   },
-  "ParametersStorageKey": "(did::Did, u32)",
-  "PublicKeyStorageKey": "(did::Did, u32)",
+  "BBSPlusParametersStorageKey": "(BBSPlusParamsOwner, IncId)",
+  "BBSPlusPublicKeyStorageKey": "(Controller, IncId)",
   "BbsPlusParameters": {
     "label": "Option<Vec<u8>>",
     "curve_type": "CurveType",
@@ -130,10 +228,32 @@
   "BbsPlusPublicKey": {
     "curve_type": "CurveType",
     "bytes": "Vec<u8>",
-    "params_ref": "Option<ParametersStorageKey>"
+    "params_ref": "Option<BBSPlusParametersStorageKey>"
   },
   "BbsPlusPublicKeyWithParams": "(BbsPlusPublicKey, Option<BbsPlusParameters>)",
-  "AccumulatorId": "[u8;32]",
+  "AddBBSPlusParams": {
+    "params": "BbsPlusParameters",
+    "nonce": "BlockNumber"
+  },
+  "AddBBSPlusPublicKey": {
+    "key": "BbsPlusPublicKey",
+    "did": "Controller",
+    "nonce": "BlockNumber"
+  },
+  "RemoveBBSPlusParams": {
+    "params_ref": "BBSPlusParametersStorageKey",
+    "nonce": "BlockNumber"
+  },
+  "RemoveBBSPlusPublicKey": {
+    "key_ref": "BBSPlusPublicKeyStorageKey",
+    "did": "Controller",
+    "nonce": "BlockNumber"
+  },
+  "AccumulatorId": {
+    "0": "[u8;32]"
+  },
+  "AccumParametersStorageKey": "(AccumulatorOwner, IncId)",
+  "AccumPublicKeyStorageKey": "(AccumulatorOwner, IncId)",
   "AccumulatorParameters": {
     "label": "Option<Vec<u8>>",
     "curve_type": "CurveType",
@@ -142,12 +262,12 @@
   "AccumulatorPublicKey": {
     "curve_type": "CurveType",
     "bytes": "Vec<u8>",
-    "params_ref": "Option<ParametersStorageKey>"
+    "params_ref": "Option<AccumParametersStorageKey>"
   },
-  "AccumulatorPublicKeyWithParams": "(AccumulatorPublicKey, Option<AccumulatorParameters>)",
+  "AccumPublicKeyWithParams": "(AccumulatorPublicKey, Option<AccumulatorParameters>)",
   "AccumulatorCommon": {
     "accumulated": "Vec<u8>",
-    "key_ref": "PublicKeyStorageKey"
+    "key_ref": "AccumPublicKeyStorageKey"
   },
   "UniversalAccumulator": {
     "common": "AccumulatorCommon",
@@ -159,9 +279,30 @@
       "Universal": "UniversalAccumulator"
     }
   },
+  "StoredAccumulatorOwnerCounters": {
+    "params_counter": "IncId",
+    "key_counter": "IncId"
+  },
+  "AddAccumulatorParams": {
+    "params": "AccumulatorParameters",
+    "nonce": "BlockNumber"
+  },
+  "AddAccumulatorPublicKey": {
+    "public_key": "AccumulatorPublicKey",
+    "nonce": "BlockNumber"
+  },
+  "RemoveAccumulatorParams": {
+    "params_ref": "AccumParametersStorageKey",
+    "nonce": "BlockNumber"
+  },
+  "RemoveAccumulatorPublicKey": {
+    "key_ref": "AccumPublicKeyStorageKey",
+    "nonce": "BlockNumber"
+  },
   "AddAccumulator": {
     "id": "AccumulatorId",
-    "accumulator": "Accumulator"
+    "accumulator": "Accumulator",
+    "nonce": "BlockNumber"
   },
   "RemoveAccumulator": {
     "id": "AccumulatorId",
@@ -179,22 +320,27 @@
   },
   "StateChange": {
     "_enum": {
-      "KeyUpdate": "KeyUpdate",
+      "AddKeys": "AddKeys",
+      "AddControllers": "AddControllers",
+      "RemoveKeys": "RemoveKeys",
+      "RemoveControllers": "RemoveControllers",
+      "AddServiceEndpoint": "AddServiceEndpoint",
+      "RemoveServiceEndpoint": "RemoveServiceEndpoint",
       "DidRemoval": "DidRemoval",
-      "Revoke": "Revoke",
-      "UnRevoke": "UnRevoke",
-      "RemoveRegistry": "RemoveRegistry",
-      "Blob": "Blob",
-      "MasterVote": "Payload",
-      "Attestation": "(Did, Attestation)",
-      "AddBBSPlusParams": "BbsPlusParameters",
-      "AddBBSPlusPublicKey": "BbsPlusPublicKey",
-      "RemoveBBSPlusParams": "ParametersStorageKey",
-      "RemoveBBSPlusPublicKey": "PublicKeyStorageKey",
-      "AddAccumulatorParams": "AccumulatorParameters",
-      "AddAccumulatorPublicKey": "AccumulatorPublicKey",
-      "RemoveAccumulatorParams": "ParametersStorageKey",
-      "RemoveAccumulatorPublicKey": "PublicKeyStorageKey",
+      "Revoke": "RevokeSigningPayload",
+      "UnRevoke": "UnRevokeSigningPayload",
+      "RemoveRegistry": "RemoveRegistrySigningPayload",
+      "AddBlob": "AddBlob",
+      "MasterVote": "MasterVoteSigningPayload",
+      "SetAttestationClaim": "SetAttestationClaim",
+      "AddBBSPlusParams": "AddBBSPlusParams",
+      "AddBBSPlusPublicKey": "AddBBSPlusPublicKey",
+      "RemoveBBSPlusParams": "RemoveBBSPlusParams",
+      "RemoveBBSPlusPublicKey": "RemoveBBSPlusPublicKey",
+      "AddAccumulatorParams": "AddAccumulatorParams",
+      "AddAccumulatorPublicKey": "AddAccumulatorPublicKey",
+      "RemoveAccumulatorParams": "RemoveAccumulatorParams",
+      "RemoveAccumulatorPublicKey": "RemoveAccumulatorPublicKey",
       "AddAccumulator": "AddAccumulator",
       "UpdateAccumulator": "UpdateAccumulator",
       "RemoveAccumulator": "RemoveAccumulator"
