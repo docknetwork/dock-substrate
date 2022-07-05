@@ -1,6 +1,7 @@
 use super::*;
+use sp_std::borrow::Borrow;
 
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct DidKey {
@@ -11,7 +12,7 @@ pub struct DidKey {
 }
 
 bitflags::bitflags! {
-    /// Different verification relation types specified in the DID spec here https://www.w3.org/TR/did-core/#verification-relationships
+    /// Different verification relation types specified in the DID spec here https://www.w3.org/TR/did-core/#verification-relationships.
     #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u16", into = "u16"))]
@@ -27,7 +28,6 @@ bitflags::bitflags! {
         const CAPABILITY_INVOCATION = 0b0100;
         /// https://www.w3.org/TR/did-core/#key-agreement
         const KEY_AGREEMENT = 0b1000;
-
         /// Includes `AUTHENTICATION`, `ASSERTION`, `CAPABILITY_INVOCATION`.
         /// We might add more relationships in future but these 3 are all we care about now.
         const ALL_FOR_SIGNING = 0b0111;
@@ -36,16 +36,39 @@ bitflags::bitflags! {
 
 impl_bits_conversion! { VerRelType, u16 }
 
+#[derive(Clone, Debug, Default)]
+pub struct PublicKeyParams<T> {
+    pub sr25519: T,
+    pub ed25519: T,
+    pub secp256k1: T,
+    pub x25519: T,
+}
+
+impl<T> PublicKeyParams<T> {
+    pub fn over_key<F: FnOnce(T) -> T>(mut self, public_key: &PublicKey, f: F) -> Self {
+        match public_key {
+            PublicKey::Sr25519(_) => self.sr25519 = f(self.sr25519),
+            PublicKey::Ed25519(_) => self.ed25519 = f(self.ed25519),
+            PublicKey::Secp256k1(_) => self.secp256k1 = f(self.secp256k1),
+            PublicKey::X25519(_) => self.x25519 = f(self.x25519),
+        };
+
+        self
+    }
+}
+
 impl DidKey {
-    pub fn new(public_key: PublicKey, ver_rels: VerRelType) -> Self {
+    /// Constructs new `DidKey` using given public key and verification relationships.
+    pub fn new(public_key: impl Into<PublicKey>, ver_rels: VerRelType) -> Self {
         DidKey {
-            public_key,
+            public_key: public_key.into(),
             ver_rels,
         }
     }
 
     /// Add all possible verification relationships for a given key
-    pub fn new_with_all_relationships(public_key: PublicKey) -> Self {
+    pub fn new_with_all_relationships(public_key: impl Into<PublicKey>) -> Self {
+        let public_key = public_key.into();
         let ver_rels = if public_key.can_sign() {
             // We might add more relationships in future but these 3 are all we care about now.
             VerRelType::ALL_FOR_SIGNING
@@ -98,8 +121,6 @@ impl<T: Config + Debug> Module<T> {
             ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
-        ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
-
         // If DID was not self controlled first, check if it can become by looking
         let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
         *active_controller_keys += controller_keys_count;
@@ -127,8 +148,6 @@ impl<T: Config + Debug> Module<T> {
             ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
-        ensure!(!keys.is_empty(), Error::<T>::NoKeyProvided);
-
         for key_id in &keys {
             let key = DidKeys::get(&did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
@@ -170,7 +189,7 @@ impl<T: Config + Debug> Module<T> {
         if did_key.can_authenticate_or_control() {
             Ok(did_key.public_key)
         } else {
-            fail!(Error::<T>::InsufficientVerificationRelationship)
+            Err(Error::<T>::InsufficientVerificationRelationship)
         }
     }
 
@@ -189,6 +208,7 @@ impl<T: Config + Debug> Module<T> {
                 if !key.is_valid() {
                     fail!(Error::<T>::IncompatibleVerificationRelation)
                 }
+
                 key
             };
             if key.can_control() {
@@ -199,5 +219,15 @@ impl<T: Config + Debug> Module<T> {
         }
 
         Ok((keys_to_insert, controller_keys_count))
+    }
+
+    pub(super) fn key_counts<I>(keys: I) -> PublicKeyParams<u32>
+    where
+        I: IntoIterator,
+        I::Item: Borrow<DidKey>,
+    {
+        keys.into_iter().fold(Default::default(), |params, key| {
+            params.over_key(&key.borrow().public_key, |val| val + 1)
+        })
     }
 }

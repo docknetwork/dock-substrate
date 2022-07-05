@@ -1,5 +1,6 @@
 use crate as dock;
 use crate::keys_and_sigs::PublicKey;
+use crate::util::with_nonce::NonceError;
 use crate::util::*;
 use crate::StorageVersion;
 use crate::{deposit_indexed_event, impl_action_with_nonce, impl_bits_conversion, impl_wrapper};
@@ -80,6 +81,7 @@ decl_error! {
         CannotGetDetailForOffChainDid,
         CannotGetDetailForOnChainDid,
         NoKeyProvided,
+        EmptyPayload,
         IncorrectNonce,
         OnlyControllerCanUpdate,
         NoKeyForDid,
@@ -89,6 +91,21 @@ decl_error! {
         InvalidServiceEndpoint,
         ServiceEndpointAlreadyExists,
         ServiceEndpointDoesNotExist
+    }
+}
+
+impl<T: Config + Debug> Error<T> {
+    fn empty_payload_to(self, to_err: Self) -> Self {
+        match self {
+            Self::EmptyPayload => to_err,
+            other => other,
+        }
+    }
+}
+
+impl<T: Config + Debug> From<NonceError> for Error<T> {
+    fn from(NonceError::IncorrectNonce: NonceError) -> Self {
+        Self::IncorrectNonce
     }
 }
 
@@ -139,7 +156,7 @@ decl_storage! {
                     OnChainDidDetails::new(key_id, 1u32, 1u32),
                 );
 
-                <Module<T>>::insert_did(*did, did_details);
+                <Module<T>>::insert_did_details(*did, did_details);
                 DidKeys::insert(did, key_id, key);
                 DidControllers::insert(did, Controller(*did), ());
             }
@@ -195,7 +212,7 @@ decl_module! {
         /// relation won't be usable and these 3 keep the logic most similar to before. Avoiding more
         /// explicit argument to keep the caller's experience simple.
         // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
-        #[weight = T::DbWeight::get().reads_writes(1, 1 + keys.len() as Weight + controllers.len() as Weight + 1)]
+        #[weight = T::DbWeight::get().reads_writes(1, 1 + Module::<T>::key_counts(keys).sr25519 as Weight + controllers.len() as Weight + 1)]
         pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<DidKey>, controllers: BTreeSet<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -211,6 +228,8 @@ decl_module! {
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(keys, sig, Self::add_keys_)
+                .map_err(|err| err.empty_payload_to(Error::<T>::NoKeyProvided))?;
+            Ok(())
         }
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
@@ -221,6 +240,8 @@ decl_module! {
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(keys, sig, Self::remove_keys_)
+                .map_err(|err| err.empty_payload_to(Error::<T>::NoKeyProvided))?;
+            Ok(())
         }
 
         /// Add new controllers. Does not check if the controller being added has any key or is even
@@ -231,6 +252,8 @@ decl_module! {
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(controllers, sig, Self::add_controllers_)
+                .map_err(|err| err.empty_payload_to(Error::<T>::NoControllerProvided))?;
+            Ok(())
         }
 
         /// Remove controllers. This is an atomic operation meaning that it will either remove all keys or do nothing.
@@ -241,6 +264,8 @@ decl_module! {
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_over_onchain_did(controllers, sig, Self::remove_controllers_)
+                .map_err(|err| err.empty_payload_to(Error::<T>::NoControllerProvided))?;
+            Ok(())
         }
 
         /// Add a single service endpoint.
@@ -249,7 +274,8 @@ decl_module! {
         fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_over_onchain_did(service_endpoint, sig, Self::add_service_endpoint_)
+            Self::try_exec_signed_action_over_onchain_did(service_endpoint, sig, Self::add_service_endpoint_)?;
+            Ok(())
         }
 
         /// Remove a single service endpoint.
@@ -258,7 +284,8 @@ decl_module! {
         fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_over_onchain_did(service_endpoint, sig, Self::remove_service_endpoint_)
+            Self::try_exec_signed_action_over_onchain_did(service_endpoint, sig, Self::remove_service_endpoint_)?;
+            Ok(())
         }
 
         /// Remove the on-chain DID. This will remove this DID's keys, controllers and service endpoints. But it won't remove storage

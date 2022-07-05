@@ -22,9 +22,12 @@ core_mods = { path = "../core_mods", default_features=false, version="0.4.0" }
 pallet-balances = { version = "3.0.0", git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
 common = { path = '../../common', version = '0.0.1' }
 
+[dev-dependencies.getrandom]
+version = "0.2"
+features = ["js"]
 
 [dev-dependencies]
-rand = "0.7.3"
+rand = "0.8.3"
 
 [features]
 default = ['std']

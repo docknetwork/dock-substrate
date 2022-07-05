@@ -121,8 +121,8 @@ macro_rules! deposit_indexed_event {
 
 #[macro_export]
 macro_rules! impl_wrapper {
-    ($wrapper: ident, $type: ty $(,$($rest: tt)*)?) => {
-        $($crate::impl_encode_decode_wrapper_tests! { $wrapper, $type, $($rest)* })?
+    ($wrapper: ident, $type: ty $(,$($tt: tt)*)?) => {
+        $($crate::impl_encode_decode_wrapper_tests! { $wrapper, $type, $($tt)* })?
 
         impl sp_std::borrow::Borrow<$type> for $wrapper {
             fn borrow(&self) -> &$type {
@@ -159,8 +159,22 @@ macro_rules! impl_wrapper {
 }
 
 #[macro_export]
+macro_rules! def_state_change {
+    ($(#[$meta:meta])* $name: ident: $($mod: ident::$type: ident),+) => {
+        #[derive(Encode, Decode, Debug, Clone)]
+        $(#[$meta])*
+        pub enum $name<'a, T: frame_system::Config> {
+            $($type(Cow<'a, $mod::$type<T>>)),+
+        }
+    }
+}
+
+#[macro_export]
 macro_rules! impl_encode_decode_wrapper_tests {
-    ($wrapper: ident, $type: ty, for test use $mod: ident with rand $rand: expr) => {
+    ($wrapper: ident, $type: ty, with tests as $mod: ident) => {
+        $crate::impl_encode_decode_wrapper_tests!($wrapper, $type, for rand use rand::random(), with tests as $mod);
+    };
+    ($wrapper: ident, $type: ty, for rand use $rand: expr, with tests as $mod: ident) => {
         #[cfg(test)]
         pub mod $mod {
             use super::*;

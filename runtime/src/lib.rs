@@ -1,6 +1,7 @@
 //! Dock testnet runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), feature(alloc_error_handler))]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 // #![cfg_attr(not(feature = "std"), default_alloc_error_handler)]
@@ -14,6 +15,29 @@ mod wasm {
     #[allow(dead_code)]
     const _: Option<&[u8]> = WASM_BINARY_BLOATY;
 }
+
+#[cfg(not(feature = "std"))]
+mod wasm_handlers {
+    #[panic_handler]
+    #[no_mangle]
+    pub fn panic(info: &core::panic::PanicInfo) -> ! {
+        unsafe {
+            let message = sp_std::alloc::format!("{}", info);
+            log::error!("{}", message);
+            // logging::log(LogLevel::Error, "runtime", message.as_bytes());
+            core::arch::wasm32::unreachable();
+        }
+    }
+
+    #[alloc_error_handler]
+    pub fn oom(_: core::alloc::Layout) -> ! {
+        log::error!("Runtime memory exhausted. Aborting");
+        unsafe {
+            core::arch::wasm32::unreachable();
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 pub use wasm::WASM_BINARY;
 
@@ -1806,13 +1830,13 @@ impl_runtime_apis! {
             // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency issues.
             // To get around that, we separated the Session benchmarks into its own crate, which is why
             // we need these two lines below.
-            use pallet_session_benchmarking::Module as SessionBench;
-            use pallet_offences_benchmarking::Module as OffencesBench;
-            use frame_system_benchmarking::Module as SystemBench;
+            //use pallet_session_benchmarking::Module as SessionBench;
+            //use pallet_offences_benchmarking::Module as OffencesBench;
+            //use frame_system_benchmarking::Module as SystemBench;
 
-            impl pallet_session_benchmarking::Config for Runtime {}
-            impl pallet_offences_benchmarking::Config for Runtime {}
-            impl frame_system_benchmarking::Config for Runtime {}
+            //impl pallet_session_benchmarking::Config for Runtime {}
+            //impl pallet_offences_benchmarking::Config for Runtime {}
+            //impl frame_system_benchmarking::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -1831,20 +1855,24 @@ impl_runtime_apis! {
             let params = (&config, &whitelist);
 
             add_benchmark!(params, batches, did, DIDModule);
-            add_benchmark!(params, batches, revoke, Revoke);
+            // add_benchmark!(params, batches, revoke, Revoke);
+            add_benchmark!(params, batches, bbs_plus, BbsPlus);
+            add_benchmark!(params, batches, attest, Attest);
+            add_benchmark!(params, batches, anchor, Anchor);
             add_benchmark!(params, batches, blob, BlobStore);
-            add_benchmark!(params, batches, balances, Balances);
-            add_benchmark!(params, batches, token_migration, MigrationModule);
-            add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+            add_benchmark!(params, batches, accumulator, Accumulator);
+            // add_benchmark!(params, batches, balances, Balances);
+            // add_benchmark!(params, batches, token_migration, MigrationModule);
+            // add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 
-            add_benchmark!(params, batches, pallet_collective, Council);
-            add_benchmark!(params, batches, pallet_democracy, Democracy);
-            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            // add_benchmark!(params, batches, pallet_collective, Council);
+            // add_benchmark!(params, batches, pallet_democracy, Democracy);
+            // add_benchmark!(params, batches, pallet_scheduler, Scheduler);
 
-            add_benchmark!(params, batches, pallet_babe, Babe);
-            add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
-            add_benchmark!(params, batches, pallet_grandpa, Grandpa);
-            add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            // add_benchmark!(params, batches, pallet_babe, Babe);
+            // add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
+            // add_benchmark!(params, batches, pallet_grandpa, Grandpa);
+            // add_benchmark!(params, batches, pallet_im_online, ImOnline);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

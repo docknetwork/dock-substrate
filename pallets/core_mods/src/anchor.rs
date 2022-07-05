@@ -52,25 +52,25 @@ decl_module! {
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
         pub fn deploy(
             origin,
-            dat: Vec<u8>,
+            data: Vec<u8>,
         ) -> DispatchResult {
-            Module::<T>::deploy_(origin, dat)
+            let account = ensure_signed(origin)?;
+
+            Module::<T>::deploy_(data, account)
         }
     }
 }
 
 impl<T: Config> Module<T> {
-    fn deploy_(origin: <T as system::Config>::Origin, dat: Vec<u8>) -> DispatchResult {
-        let acct = ensure_signed(origin)?;
-
+    fn deploy_(data: Vec<u8>, account: T::AccountId) -> DispatchResult {
         // check
-        let h = <T as system::Config>::Hashing::hash(&dat);
-        ensure!(Anchors::<T>::get(&h).is_none(), Error::<T>::AnchorExists);
+        let hash = <T as system::Config>::Hashing::hash(&data);
+        ensure!(Anchors::<T>::get(&hash).is_none(), Error::<T>::AnchorExists);
 
         // execute
-        let bn = <system::Module<T>>::block_number();
-        Anchors::<T>::insert(&h, &bn);
-        Self::deposit_event(Event::<T>::AnchorDeployed(h, acct, bn));
+        let last_block = <system::Module<T>>::block_number();
+        Anchors::<T>::insert(&hash, &last_block);
+        Self::deposit_event(Event::<T>::AnchorDeployed(hash, account, last_block));
 
         Ok(())
     }
@@ -141,5 +141,41 @@ mod tests {
                 }
             })
             .collect()
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks {
+    use super::*;
+    use crate::did::{Did, DidKey, DidSignature};
+    use crate::keys_and_sigs::*;
+    use crate::util::IncId;
+    use crate::ToStateChange;
+    use alloc::collections::BTreeSet;
+    use core::iter::repeat;
+    use frame_benchmarking::{benchmarks, whitelisted_caller};
+    use sp_application_crypto::Pair;
+    use sp_core::{ecdsa, ed25519, sr25519};
+    use sp_std::prelude::*;
+    use system::RawOrigin;
+
+    const MAX_ENTITY_AMOUNT: u32 = 1000;
+    const MAX_LEN: u32 = 10_000;
+    const SEED: u32 = 0;
+
+    benchmarks! {
+        where_clause { where T: core::fmt::Debug }
+
+        deploy {
+            let l in 0 .. MAX_LEN => ();
+
+            let caller = whitelisted_caller();
+            let data = vec![0; l as usize];
+
+        }: deploy(RawOrigin::Signed(caller), data.clone())
+        verify {
+            let hash = <T as system::Config>::Hashing::hash(&data);
+            assert_eq!(Anchors::<T>::get(&hash).unwrap(), <system::Module<T>>::block_number());
+        }
     }
 }

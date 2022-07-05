@@ -6,17 +6,17 @@ use sp_std::fmt;
 use sp_std::vec::Vec;
 
 /// Raw bytes wrapper providing ability to encode/decode in `hex` format.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WrappedBytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
 
 #[cfg(test)]
 use rand::distributions::Distribution;
-impl_wrapper! { WrappedBytes, Vec<u8>, for test use tests with rand rand::distributions::Standard.sample_iter(&mut rand::thread_rng()).take(32).collect() }
+impl_wrapper! { WrappedBytes, Vec<u8>, for rand use rand::distributions::Standard.sample_iter(&mut rand::thread_rng()).take(32).collect(), with tests as wrapped_bytes_tests }
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bytes32 {
     #[cfg_attr(feature = "serde", serde(with = "hex"))]
@@ -42,7 +42,7 @@ serde_big_array::big_array! {
 macro_rules! struct_over_byte_array {
     ( $name:ident, $size:tt ) => {
         /// A wrapper over a byte array
-        #[derive(Encode, Decode, Clone)]
+        #[derive(Encode, Decode, Clone, PartialOrd, Ord)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct $name {
             #[cfg_attr(feature = "serde", serde(with = "hex::big_array"))]
@@ -76,6 +76,18 @@ macro_rules! struct_over_byte_array {
             /// Return a slice to the underlying bytearray
             pub fn as_bytes(&self) -> &[u8] {
                 &self.value
+            }
+        }
+
+        impl From<[u8; $size]> for $name {
+            fn from(value: [u8; $size]) -> Self {
+                Self { value }
+            }
+        }
+
+        impl From<$name> for [u8; $size] {
+            fn from($name { value }: $name) -> Self {
+                value
             }
         }
     };

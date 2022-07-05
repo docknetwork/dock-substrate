@@ -24,7 +24,7 @@ pub type PublicKeyWithParams = (AccumulatorPublicKey, Option<AccumulatorParamete
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct AccumulatorId([u8; 32]);
 
-crate::impl_wrapper!(AccumulatorId, [u8; 32], for test use acc_tests with rand rand::random());
+crate::impl_wrapper!(AccumulatorId, [u8; 32], with tests as acc_tests);
 
 /// Accumulator owner - DID with the ability to control given accumulator keys, params, etc.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
@@ -32,7 +32,7 @@ crate::impl_wrapper!(AccumulatorId, [u8; 32], for test use acc_tests with rand r
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct AccumulatorOwner(pub Did);
 
-crate::impl_wrapper!(AccumulatorOwner, Did, for test use tests with rand Did(rand::random()));
+crate::impl_wrapper!(AccumulatorOwner, Did, for rand use Did(rand::random()), with tests as acc_owner_tests);
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -442,9 +442,9 @@ impl<T: Config + Debug> Module<T> {
             Error::<T>::PublicKeyTooBig
         );
         match public_key.params_ref {
-            Some(params_ref) => {
+            Some((acc_owner, params_id)) => {
                 ensure!(
-                    AccumulatorParams::contains_key(&params_ref.0, &params_ref.1),
+                    AccumulatorParams::contains_key(&acc_owner, &params_id),
                     Error::<T>::ParamsDontExist
                 );
             }
@@ -513,12 +513,12 @@ impl<T: Config + Debug> Module<T> {
             Error::<T>::AccumulatorAlreadyExists
         );
 
-        let key_ref = accumulator.key_ref();
+        let (acc_owner, key_id) = accumulator.key_ref();
         ensure!(
-            AccumulatorKeys::contains_key(&key_ref.0, &key_ref.1),
+            AccumulatorKeys::contains_key(&acc_owner, &key_id),
             Error::<T>::PublicKeyDoesntExist
         );
-        ensure!(key_ref.0 == owner, Error::<T>::NotPublicKeyOwner);
+        ensure!(acc_owner == owner, Error::<T>::NotPublicKeyOwner);
 
         let accumulated = accumulator.accumulated().to_vec();
 
@@ -1143,5 +1143,338 @@ mod test {
                 vec![<Test as system::Config>::Hashing::hash(&id[..])]
             )));
         });
+    }
+}
+
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks {
+    use super::*;
+    use crate::did::{Did, DidKey, DidSignature};
+    use crate::keys_and_sigs::*;
+    use crate::util::IncId;
+    use crate::ToStateChange;
+    use alloc::collections::BTreeSet;
+    use core::iter::repeat;
+    use frame_benchmarking::{benchmarks, whitelisted_caller};
+    use sp_application_crypto::Pair;
+    use sp_core::U256;
+    use sp_core::{ecdsa, ed25519, sr25519};
+    use sp_std::prelude::*;
+    use system::RawOrigin;
+
+    const MAX_PARAMS: u32 = 512;
+    const MAX_LABEL: u32 = 128;
+    const MAX_ACC: u32 = 128;
+    const MAX_KEY: u32 = 256;
+
+    crate::bench_with_all_pairs! {
+        with_pairs:
+        add_params_sr25519 for sr25519, add_params_ed25519 for ed25519, add_params_secp256k1 for secp256k1 {
+            {
+                let b in 0 .. MAX_PARAMS => ();
+                let l in 1 .. MAX_LABEL => ();
+            }
+            let pair as Pair;
+            let caller = whitelisted_caller();
+            let did = Did([1; Did::BYTE_SIZE]);
+            let public = pair.public();
+
+            crate::did::Module::<T>::new_onchain_(
+                did,
+                vec![DidKey::new_with_all_relationships(public)],
+                Default::default(),
+            ).unwrap();
+
+            let params = AccumulatorParameters {
+                curve_type: CurveType::Bls12381,
+                bytes: vec![3; b as usize],
+                label: Some(vec![0; l as usize])
+            };
+
+            let new_params = AddAccumulatorParams {
+                params: params.clone(),
+                nonce: 1u8.into()
+            };
+
+            let sig = pair.sign(&new_params.to_state_change().encode());
+            let signature = DidSignature::new(did, 1u32, sig);
+        }: add_params(RawOrigin::Signed(caller), new_params, signature)
+        verify {
+            assert_eq!(AccumulatorParams::get(AccumulatorOwner(did), IncId::from(1u8)).unwrap(), params);
+        }
+
+        remove_params_sr25519 for sr25519, remove_params_ed25519 for ed25519, remove_params_secp256k1 for secp256k1 {
+            {
+                let b in 0 .. MAX_PARAMS;
+            }
+            let pair as Pair;
+            let caller = whitelisted_caller();
+            let did = Did([1; Did::BYTE_SIZE]);
+            let public = pair.public();
+
+            crate::did::Module::<T>::new_onchain_(
+                did,
+                vec![DidKey::new_with_all_relationships(public)],
+                Default::default(),
+            ).unwrap();
+
+            Module::<T>::add_params_(
+                AddAccumulatorParams {
+                    params: AccumulatorParameters {
+                        curve_type: CurveType::Bls12381,
+                        bytes: vec![3; b as usize],
+                        label: Some(b"S".to_vec()),
+                    },
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+            let rem_params = RemoveAccumulatorParams {
+                params_ref: (AccumulatorOwner(did), 1u8.into()),
+                nonce: 1u8.into()
+            };
+
+            let sig = pair.sign(&rem_params.to_state_change().encode());
+            let signature = DidSignature::new(did, 1u32, sig);
+
+
+        }: remove_params(RawOrigin::Signed(caller), rem_params, signature)
+        verify {
+            assert!(AccumulatorParams::get(AccumulatorOwner(did), IncId::from(1u8)).is_none());
+        }
+
+        add_public_sr25519 for sr25519, add_public_ed25519 for ed25519, add_public_secp256k1 for secp256k1 {
+            {
+                let b in 0 .. MAX_KEY;
+            }
+            let pair as Pair;
+            let caller = whitelisted_caller();
+            let did = Did([1; Did::BYTE_SIZE]);
+            let public = pair.public();
+
+            crate::did::Module::<T>::new_onchain_(
+                did,
+                vec![DidKey::new_with_all_relationships(public)],
+                Default::default(),
+            ).unwrap();
+
+            Module::<T>::add_params_(
+                AddAccumulatorParams {
+                    params: AccumulatorParameters {
+                        curve_type: CurveType::Bls12381,
+                        bytes: vec![3; MAX_PARAMS as usize],
+                        label: Some(vec![1; MAX_LABEL as usize]),
+                    },
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+            let public_key = AccumulatorPublicKey {
+                curve_type: CurveType::Bls12381,
+                bytes: vec![3; b as usize],
+                /// The params used to generate the public key (`P_tilde` comes from params)
+                params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
+            };
+
+            let add_key = AddAccumulatorPublicKey {
+                public_key: public_key.clone(),
+                nonce: 1u8.into()
+            };
+
+            let sig = pair.sign(&add_key.to_state_change().encode());
+            let signature = DidSignature::new(did, 1u32, sig);
+
+        }: add_public_key(RawOrigin::Signed(caller), add_key, signature)
+        verify {
+            assert_eq!(AccumulatorKeys::get(AccumulatorOwner(did), IncId::from(1u8)).unwrap(), public_key);
+        }
+
+        remove_public_sr25519 for sr25519, remove_public_ed25519 for ed25519, remove_public_secp256k1 for secp256k1 {
+            {
+                let b in 0 .. MAX_KEY;
+            }
+            let pair as Pair;
+            let caller = whitelisted_caller();
+            let did = Did([1; Did::BYTE_SIZE]);
+            let public = pair.public();
+
+            crate::did::Module::<T>::new_onchain_(
+                did,
+                vec![DidKey::new_with_all_relationships(public)],
+                Default::default(),
+            ).unwrap();
+
+            Module::<T>::add_params_(
+                AddAccumulatorParams {
+                    params: AccumulatorParameters {
+                        curve_type: CurveType::Bls12381,
+                        bytes: vec![3; MAX_PARAMS as usize],
+                        label: Some(vec![1; MAX_LABEL as usize]),
+                    },
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+            Module::<T>::add_public_key_(
+                AddAccumulatorPublicKey {
+                    public_key: AccumulatorPublicKey {
+                        curve_type: CurveType::Bls12381,
+                        bytes: vec![3; b as usize],
+                        /// The params used to generate the public key (`P_tilde` comes from params)
+                        params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
+                    },
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+            let rem_key = RemoveAccumulatorPublicKey {
+                key_ref: (AccumulatorOwner(did), 1u8.into()),
+                nonce: 1u8.into()
+            };
+
+            let sig = pair.sign(&rem_key.to_state_change().encode());
+            let signature = DidSignature::new(did, 1u32, sig);
+
+
+        }: remove_public_key(RawOrigin::Signed(caller), rem_key, signature)
+        verify {
+            assert!(AccumulatorKeys::get(AccumulatorOwner(did), IncId::from(1u8)).is_none());
+        }
+
+        add_accumulator_sr25519 for sr25519, add_accumulator_ed25519 for ed25519, add_accumulator_secp256k1 for secp256k1 {
+            {
+                let b in 0 .. MAX_ACC;
+            }
+            let pair as Pair;
+            let caller = whitelisted_caller();
+            let did = Did([1; Did::BYTE_SIZE]);
+
+            let public = pair.public();
+            let accumulator = Accumulator::Positive(AccumulatorCommon {
+                accumulated: vec![3; b as usize],
+                key_ref: (AccumulatorOwner(did), 1u8.into()),
+            });
+
+            crate::did::Module::<T>::new_onchain_(
+                did,
+                vec![DidKey::new_with_all_relationships(public)],
+                Default::default(),
+            ).unwrap();
+
+            let acc_id: AccumulatorId = AccumulatorId([1; 32]);
+
+            Module::<T>::add_params_(
+                AddAccumulatorParams {
+                    params: AccumulatorParameters {
+                        curve_type: CurveType::Bls12381,
+                        bytes: vec![3; MAX_PARAMS as usize],
+                        label: Some(vec![1; MAX_LABEL as usize]),
+                    },
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+
+            Module::<T>::add_public_key_(
+                AddAccumulatorPublicKey {
+                    public_key: AccumulatorPublicKey {
+                        curve_type: CurveType::Bls12381,
+                        bytes: vec![3; MAX_KEY as usize],
+                        /// The params used to generate the public key (`P_tilde` comes from params)
+                        params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
+                    },
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+            let add_acc = AddAccumulator {
+                id: acc_id,
+                accumulator: accumulator.clone(),
+                nonce: 1u8.into()
+            };
+
+            let sig = pair.sign(&add_acc.to_state_change().encode());
+            let signature = DidSignature::new(did, 1u32, sig);
+
+        }: add_accumulator(RawOrigin::Signed(caller), add_acc.clone(), signature)
+        verify {
+            assert_eq!(Accumulators::<T>::get(acc_id).unwrap().accumulator, accumulator);
+        }
+
+        remove_accumulator_sr25519 for sr25519, remove_accumulator_ed25519 for ed25519, remove_accumulator_secp256k1 for secp256k1 {
+            {
+                let b in 0 .. MAX_ACC;
+            }
+            let pair as Pair;
+            let caller = whitelisted_caller();
+            let did = Did([1; Did::BYTE_SIZE]);
+            let public = pair.public();
+
+            let accumulator = Accumulator::Positive(AccumulatorCommon {
+                accumulated: vec![3; b as usize],
+                key_ref: (AccumulatorOwner(did), 1u8.into()),
+            });
+
+            crate::did::Module::<T>::new_onchain_(
+                did,
+                vec![DidKey::new_with_all_relationships(public)],
+                Default::default(),
+            ).unwrap();
+
+            let acc_id: AccumulatorId = AccumulatorId([2; 32]);
+
+            Module::<T>::add_params_(
+                AddAccumulatorParams {
+                    params: AccumulatorParameters {
+                        curve_type: CurveType::Bls12381,
+                        bytes: vec![3; MAX_PARAMS as usize],
+                        label: Some(vec![1; MAX_LABEL as usize]),
+                    },
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+
+            Module::<T>::add_public_key_(
+                AddAccumulatorPublicKey {
+                    public_key: AccumulatorPublicKey {
+                        curve_type: CurveType::Bls12381,
+                        bytes: vec![3; MAX_KEY as usize],
+                        /// The params used to generate the public key (`P_tilde` comes from params)
+                        params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
+                    },
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+            Module::<T>::add_accumulator_(
+                AddAccumulator {
+                    id: acc_id,
+                    accumulator,
+                    nonce: 1u8.into()
+                },
+                AccumulatorOwner(did)
+            ).unwrap();
+
+            let remove_acc = RemoveAccumulator {
+                id: acc_id,
+                nonce: 1u8.into()
+            };
+
+            let sig = pair.sign(&remove_acc.to_state_change().encode());
+            let signature = DidSignature::new(did, 1u32, sig);
+
+        }: remove_accumulator(RawOrigin::Signed(caller), remove_acc, signature)
+        verify {
+            assert!(Accumulators::<T>::get(acc_id).is_none());
+        }
     }
 }

@@ -38,7 +38,7 @@ default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
-# features = ['full_crypto']
+features = ["full_crypto"]
 
 [dependencies.sp-std]
 default-features = false
@@ -76,12 +76,16 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.hex-literal]
+version = "0.3.1"
+optional = true
+
 [dependencies.sp-application-crypto]
 default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
-# features = ['full_crypto']
+features = ["full_crypto"]
 
 [dependencies.frame-benchmarking]
 optional = true
@@ -99,8 +103,34 @@ features = ['static-context', 'hmac']
 version = '0.9'
 default-features = false
 
+[dependencies.getrandom]
+default-features = false
+version = "0.2"
+features = ["js"]
+optional = true
+
+[dependencies.rand]
+version = "0.8.3"
+default-features = false
+optional = true
+
+[dependencies.rand_chacha]
+version = "0.2.2"
+default-features = false
+optional = true
+
+[dependencies.schnorrkel]
+version = "0.9.1"
+default-features = false
+optional = true
+
+[dependencies.merlin]
+version = "2.0.1"
+default-features = false
+optional = true
+
 [dev-dependencies]
-rand = "0.7.3"
+rand = "0.8.3"
 
 [features]
 default = ['std']
@@ -113,6 +143,9 @@ std = [
     'sp-application-crypto/full_crypto',
     'serde',
     'serde-big-array',
+    'getrandom/std',
+    'serde-hex',
+    'serde-big-array',
     'sp-core/std',
     'sp-core/full_crypto',
     'sp-io/std',
@@ -122,12 +155,14 @@ std = [
     'sp-api/std',
     'libsecp256k1/std'
 ]
-serde = [
-    'dep:serde',
-    'serde-big-array',
-    'serde-hex'
-]
 
 runtime-benchmarks = [
     'frame-benchmarking',
+    'hex-literal',
+    'getrandom',
+    'schnorrkel',
+    'schnorrkel/chacha',
+    'rand_chacha',
+    'rand',
+    'merlin'
 ]

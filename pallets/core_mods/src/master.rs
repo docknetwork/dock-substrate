@@ -83,6 +83,22 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Membership {
+    pub members: BTreeSet<Did>,
+    pub vote_requirement: u64,
+}
+
+impl Default for Membership {
+    fn default() -> Self {
+        Membership {
+            members: BTreeSet::new(),
+            vote_requirement: 1,
+        }
+    }
+}
+
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MasterVoteRaw<T> {
@@ -99,26 +115,10 @@ crate::impl_action! {
     for (): MasterVoteRaw with 1 as len, () as target no_state_change
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Membership {
-    pub members: BTreeSet<Did>,
-    pub vote_requirement: u64,
-}
-
 pub type MasterVote<T> = WithNonce<T, MasterVoteRaw<T>>;
 
 crate::impl_action_with_nonce! {
     for (): MasterVote with 1 as len, () as target
-}
-
-impl Default for Membership {
-    fn default() -> Self {
-        Membership {
-            members: BTreeSet::new(),
-            vote_requirement: 1,
-        }
-    }
 }
 
 // Minimum weight of Master's extrinsics. This is not based on any computation but only there to account for
@@ -296,8 +296,7 @@ impl<T: Config + Debug> Module<T> {
             round_no: Round::get(),
         };
 
-        let mut new_did_details = BTreeMap::new();
-
+        let mut new_did_details = Vec::with_capacity(auth.auths.len());
         // check each signature is valid over payload and signed by the claimed signer
         for (signer, (sig, nonce)) in &auth.auths {
             let nonce = *nonce;
@@ -312,7 +311,8 @@ impl<T: Config + Debug> Module<T> {
                 &sig,
             )?;
             ensure!(valid && (*signer == sig.did), MasterError::<T>::BadSig);
-            new_did_details.insert(signer, did_detail);
+
+            new_did_details.push((signer, did_detail));
         }
 
         // execute call and collect dispatch info to return
@@ -327,7 +327,7 @@ impl<T: Config + Debug> Module<T> {
 
         // The nonce of each DID must be updated
         for (signer, did_details) in new_did_details {
-            did::Module::<T>::insert_did(*signer, did_details);
+            did::Module::<T>::insert_did_details(*signer, did_details);
         }
 
         // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,

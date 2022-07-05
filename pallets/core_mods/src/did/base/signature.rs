@@ -15,6 +15,14 @@ pub struct DidSignature<D: Into<Did>> {
 }
 
 impl<D: Into<Did>> DidSignature<D> {
+    pub fn new(did: impl Into<D>, key_id: impl Into<IncId>, sig: impl Into<SigValue>) -> Self {
+        Self {
+            did: did.into(),
+            key_id: key_id.into(),
+            sig: sig.into(),
+        }
+    }
+
     pub fn verify<T: Config + Debug>(
         &self,
         message: &[u8],
@@ -45,14 +53,15 @@ impl<T: Config + Debug> Module<T> {
     {
         Self::ensure_controller(&action.target().into(), &sig.did)?;
         let signer_pubkey = Self::control_key(&sig.did, sig.key_id)?;
+        let encoded_state_change = action.to_state_change().encode();
 
-        sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
+        sig.verify::<T>(&encoded_state_change, &signer_pubkey)
     }
 
     /// Verifies that `did`'s key with id `key_id` can either authenticate or control otherwise returns an error.
     /// Then provided signature will be verified against the supplied public key and `true` returned for a valid signature.
     pub fn verify_sig_from_auth_or_control_key<Sc, D>(
-        action: &Sc,
+        state_change: &Sc,
         sig: &DidSignature<D>,
     ) -> Result<bool, Error<T>>
     where
@@ -60,21 +69,8 @@ impl<T: Config + Debug> Module<T> {
         Sc: ToStateChange<T>,
     {
         let signer_pubkey = Self::auth_or_control_key(&sig.did.into(), sig.key_id)?;
+        let encoded_state_change = state_change.to_state_change().encode();
 
-        sig.verify::<T>(&action.to_state_change().encode(), &signer_pubkey)
-    }
-
-    /// Similar to `Self::verify_sig_from_auth_or_control_key` except that the signed message is
-    /// expected to be a byte slice.
-    pub fn verify_sig_from_auth_or_control_key_on_bytes<D>(
-        msg_bytes: &[u8],
-        sig: &DidSignature<D>,
-    ) -> Result<bool, Error<T>>
-    where
-        D: Into<Did> + Copy,
-    {
-        let signer_pubkey = Self::auth_or_control_key(&sig.did.into(), sig.key_id)?;
-
-        sig.verify::<T>(msg_bytes, &signer_pubkey)
+        sig.verify::<T>(&encoded_state_change, &signer_pubkey)
     }
 }

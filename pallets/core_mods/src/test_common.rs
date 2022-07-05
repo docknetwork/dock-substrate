@@ -317,6 +317,7 @@ pub fn did_sig_on_bytes<T: frame_system::Config, D: Into<Did>>(
     let sig = SigValue::Sr25519(util::Bytes64 {
         value: keypair.sign(msg_bytes).0,
     });
+
     DidSignature {
         did,
         key_id: key_id.into(),
@@ -326,9 +327,7 @@ pub fn did_sig_on_bytes<T: frame_system::Config, D: Into<Did>>(
 
 /// create a random byte array with set len
 pub fn random_bytes(len: usize) -> Vec<u8> {
-    let ret: Vec<u8> = (0..len).map(|_| rand::random()).collect();
-    assert_eq!(ret.len(), len);
-    ret
+    (0..len).map(|_| rand::random()).collect()
 }
 
 /// Changes the block number. Calls `on_finalize` and `on_initialize`

@@ -6,7 +6,7 @@ use super::*;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct Controller(pub Did);
 
-impl_wrapper!(Controller, Did, for test use tests with rand Did(rand::random()));
+impl_wrapper!(Controller, Did, for rand use Did(rand::random()), with tests as controller_tests);
 
 impl<T: Config + Debug> Module<T> {
     pub(crate) fn add_controllers_(
@@ -17,8 +17,6 @@ impl<T: Config + Debug> Module<T> {
             active_controllers, ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
-        ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
-
         for ctrl in &controllers {
             if Self::is_controller(&did, ctrl) {
                 fail!(Error::<T>::ControllerIsAlreadyAdded)
@@ -42,8 +40,6 @@ impl<T: Config + Debug> Module<T> {
             active_controllers, ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
-        ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
-
         for controller_did in &controllers {
             if !Self::is_controller(&did, controller_did) {
                 fail!(Error::<T>::NoControllerForDid)

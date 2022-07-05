@@ -838,7 +838,7 @@ fn add_keys_to_did() {
                         sig
                     }
                 ),
-                sp_runtime::DispatchError::Other("Incorrect nonce")
+                Error::<Test>::IncorrectNonce
             );
         }
 
@@ -1056,7 +1056,7 @@ fn remove_keys_from_did() {
                         sig
                     }
                 ),
-                sp_runtime::DispatchError::Other("Incorrect nonce")
+                Error::<Test>::IncorrectNonce
             );
         }
 
@@ -1246,7 +1246,7 @@ fn remove_controllers_from_did() {
                         sig
                     }
                 ),
-                sp_runtime::DispatchError::Other("Incorrect nonce")
+                Error::<Test>::IncorrectNonce
             );
         }
 
@@ -1492,7 +1492,7 @@ fn add_controllers_to_did() {
                         sig
                     }
                 ),
-                sp_runtime::DispatchError::Other("Incorrect nonce")
+                Error::<Test>::IncorrectNonce
             );
         }
 
@@ -2290,7 +2290,7 @@ fn did_removal() {
                     sig
                 }
             ),
-            sp_runtime::DispatchError::Other("Incorrect nonce")
+            Error::<Test>::IncorrectNonce
         );
         check_did_detail(&did_3, 1, 1, 2, 15);
 

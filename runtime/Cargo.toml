@@ -33,6 +33,10 @@ features = ['derive']
 package = 'parity-scale-codec'
 version = '2.0.0'
 
+[dependencies.rand]
+version = '0.8.3'
+optional = true
+
 [dependencies.frame-executive]
 default-features = false
 version = '3.0.0'
@@ -84,6 +88,7 @@ default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
+features = ["full_crypto"]
 
 [dependencies.sp-inherents]
 default-features = false
@@ -122,6 +127,12 @@ git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-transaction-pool]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.sp-npos-elections]
 default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
@@ -170,6 +181,12 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.sp-wasm-interface]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.transaction-payment]
 default-features = false
 package = 'pallet-transaction-payment'
@@ -185,6 +202,8 @@ branch = "frontier"
 
 [build-dependencies.substrate-wasm-builder]
 version = '4.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
 
 [dependencies.pallet-session]
 default_features = false
@@ -249,6 +268,12 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.sp-runtime-interface]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.pallet-im-online]
 default-features = false
 version = '3.0.0'
@@ -278,6 +303,13 @@ default-features = false
 version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
+
+[dependencies.sp-application-crypto]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+features = ["full_crypto"]
 
 [dependencies.pallet-election-provider-multi-phase]
 default-features = false
@@ -406,6 +438,27 @@ default-features = false
 path = '../pallets/staking_rewards'
 version = '0.2.0'
 
+[dev-dependencies.getrandom]
+version = "0.2"
+features = ["js"]
+default-features = false
+
+#[dependencies.getrandom]
+#default-features = false
+#package = "getrandom"
+#version = "0.1.16"
+# features = ["js"]
+#optional = true
+
+#[dependencies.schnorrkel]
+#version = "0.9.1"
+#default-features = false
+
+#[dependencies.rand_core]
+#version = "0.5.1"
+#default-features = false
+#features = ["getrandom"]
+
 [features]
 default = ['std']
 std = [
@@ -417,6 +470,10 @@ std = [
     'frame-support/std',
     'grandpa/std',
     'serde',
+    #'schnorrkel/std',
+    #"schnorrkel/u64_backend",
+    #"schnorrkel/rand",
+    #"schnorrkel/getrandom",
     'serde-big-array',
     'sp-api/std',
     'sp-block-builder/std',
@@ -435,8 +492,11 @@ std = [
     'sp-arithmetic/std',
     'sp-staking/std',
     'frame-system/std',
+    'sp-npos-elections/std',
+    'sp-runtime-interface/std',
     'frame-system-rpc-runtime-api/std',
     'timestamp/std',
+    'sp-wasm-interface/std',
     'transaction-payment/std',
     'pallet-transaction-payment-rpc-runtime-api/std',
     'pallet-session/std',
@@ -471,9 +531,10 @@ std = [
     'token_migration/std',
     'core_mods/std',
     'price_feed/std',
-     'fiat_filter/std',
+    'fiat_filter/std',
     #'fiat_filter_rpc_runtime_api/std',
     'staking_rewards/std',
+    'getrandom/std',
 ]
 runtime-benchmarks = [
   'frame-benchmarking',
@@ -481,10 +542,15 @@ runtime-benchmarks = [
   'frame-system/runtime-benchmarks',
   'sp-runtime/runtime-benchmarks',
   'balances/runtime-benchmarks',
-  'frame-system-benchmarking',
+  # 'frame-system-benchmarking',
   'token_migration/runtime-benchmarks',
   'core_mods/runtime-benchmarks',
+  'pallet-collective/runtime-benchmarks',
+  # 'sp-application-crypto/full_crypto',
+  'sp-core/full_crypto', 
   'hex-literal',
+  #"schnorrkel/getrandom",
+  #'schnorrkel/wasm-bindgen',
 ]
 
 # For building testnet, affects spec name and ss58 prefix

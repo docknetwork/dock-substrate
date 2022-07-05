@@ -25,6 +25,19 @@ pub struct WithNonce<T: frame_system::Config, D> {
     data: D,
 }
 
+/// A nonce handling-related error.
+#[derive(Clone, Copy, Debug)]
+pub enum NonceError {
+    /// Provided nonce is incorrect, i.e. doesn't equal to the current plus 1.
+    IncorrectNonce,
+}
+
+impl From<NonceError> for DispatchError {
+    fn from(NonceError::IncorrectNonce: NonceError) -> Self {
+        DispatchError::Other("Incorrect nonce")
+    }
+}
+
 impl<T: frame_system::Config, D> WithNonce<T, D> {
     /// Adds a nonce to the given `data`.
     /// Nonce will be equal to the current block number provided by the system.
@@ -42,15 +55,30 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         &self.data
     }
 
+    /// Takes underlying data. If you would like to update an entity, use `try_update` instead.
+    pub fn into_data(self) -> D {
+        self.data
+    }
+
+    /// Returns next nonce for the given entity.
+    pub fn next_nonce(&self) -> T::BlockNumber {
+        self.nonce + 1u8.into()
+    }
+
+    /// Returns `true` if given nonce is the next nonce for the given entity, i.e. is equal to current nonce plus 1.
+    pub fn is_next_nonce(&self, nonce: T::BlockNumber) -> bool {
+        nonce == self.next_nonce()
+    }
+
     /// Returns mutable reference to the underlying data if provided nonce is equal to current nonce plus 1,
     /// otherwise returns an error.
-    pub fn try_update(&mut self, nonce: T::BlockNumber) -> Result<&mut D, DispatchError> {
-        if nonce == self.next_nonce() {
+    pub fn try_update(&mut self, nonce: T::BlockNumber) -> Result<&mut D, NonceError> {
+        if self.is_next_nonce(nonce) {
             self.nonce = nonce;
 
             Ok(&mut self.data)
         } else {
-            Err(DispatchError::Other("Incorrect nonce"))
+            Err(NonceError::IncorrectNonce)
         }
     }
 
@@ -60,17 +88,17 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         this_opt: &mut Option<S>,
         nonce: T::BlockNumber,
         f: F,
-    ) -> Option<Result<R, DispatchError>>
+    ) -> Option<Result<R, E>>
     where
         F: FnOnce(&mut Option<D>) -> Result<R, E>,
-        E: Into<DispatchError>,
+        E: From<NonceError>,
         S: TryInto<Self>,
         Self: Into<S>,
     {
         let mut this = this_opt.take()?.try_into().ok()?;
 
         if let err @ Err(_) = this.try_update(nonce) {
-            return Some(err.map(|_| unreachable!()));
+            return Some(err.map(|_| unreachable!()).map_err(Into::into));
         }
 
         let Self { data, nonce } = this;
@@ -79,10 +107,5 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         *this_opt = data_opt.map(|data| Self { data, nonce }.into());
 
         Some(res)
-    }
-
-    /// Returns next nonce for the given entity.
-    pub fn next_nonce(&self) -> T::BlockNumber {
-        self.nonce + 1u8.into()
     }
 }

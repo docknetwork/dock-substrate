@@ -6,51 +6,39 @@ extern crate core;
 use codec::{Decode, Encode};
 use sp_std::borrow::Cow;
 
-/// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
-/// This is done to make it unambiguous which command was intended as the SCALE codec's
-/// not self describing. The enum variants are supposed to take care of replay protection by having a
-/// nonce or something else. A better approach would have been to make `StateChange` aware of nonce or nonces.
-/// There can be multiple nonces attached with a payload a multiple DIDs may take part in an action and they
-/// will have their own nonce. However this change will be a major disruption for now.
-/// Never change the order of variants in this enum
-#[derive(Encode, Decode)]
-pub enum StateChange<'a, T: frame_system::Config> {
-    AddKeys(Cow<'a, did::AddKeys<T>>),
-    AddControllers(Cow<'a, did::AddControllers<T>>),
-    RemoveKeys(Cow<'a, did::RemoveKeys<T>>),
-    RemoveControllers(Cow<'a, did::RemoveControllers<T>>),
-    AddServiceEndpoint(Cow<'a, did::AddServiceEndpoint<T>>),
-    RemoveServiceEndpoint(Cow<'a, did::RemoveServiceEndpoint<T>>),
-    DidRemoval(Cow<'a, did::DidRemoval<T>>),
-    Revoke(Cow<'a, revoke::Revoke<T>>),
-    UnRevoke(Cow<'a, revoke::UnRevoke<T>>),
-    RemoveRegistry(Cow<'a, revoke::RemoveRegistry<T>>),
-    AddBlob(Cow<'a, blob::AddBlob<T>>),
-    MasterVote(Cow<'a, master::MasterVote<T>>),
-    SetAttestationClaim(Cow<'a, attest::SetAttestationClaim<T>>),
-    AddBBSPlusParams(Cow<'a, bbs_plus::AddBBSPlusParams<T>>),
-    AddBBSPlusPublicKey(Cow<'a, bbs_plus::AddBBSPlusPublicKey<T>>),
-    RemoveBBSPlusParams(Cow<'a, bbs_plus::RemoveBBSPlusParams<T>>),
-    RemoveBBSPlusPublicKey(Cow<'a, bbs_plus::RemoveBBSPlusPublicKey<T>>),
-    AddAccumulatorParams(Cow<'a, accumulator::AddAccumulatorParams<T>>),
-    AddAccumulatorPublicKey(Cow<'a, accumulator::AddAccumulatorPublicKey<T>>),
-    RemoveAccumulatorParams(Cow<'a, accumulator::RemoveAccumulatorParams<T>>),
-    RemoveAccumulatorPublicKey(Cow<'a, accumulator::RemoveAccumulatorPublicKey<T>>),
-    AddAccumulator(Cow<'a, accumulator::AddAccumulator<T>>),
-    UpdateAccumulator(Cow<'a, accumulator::UpdateAccumulator<T>>),
-    RemoveAccumulator(Cow<'a, accumulator::RemoveAccumulator<T>>),
-}
-
-#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
-pub enum StorageVersion {
-    SingleKey,
-    MultiKey,
-}
-
-impl Default for StorageVersion {
-    fn default() -> Self {
-        Self::SingleKey
-    }
+def_state_change! {
+    /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
+    /// This is done to make it unambiguous which command was intended as the SCALE codec's
+    /// not self describing. The enum variants are supposed to take care of replay protection by having a
+    /// nonce or something else. A better approach would have been to make `StateChange` aware of nonce or nonces.
+    /// There can be multiple nonces attached with a payload a multiple DIDs may take part in an action and they
+    /// will have their own nonce. However this change will be a major disruption for now.
+    /// Never change the order of variants in this enum
+    StateChange:
+        did::AddKeys,
+        did::AddControllers,
+        did::RemoveKeys,
+        did::RemoveControllers,
+        did::AddServiceEndpoint,
+        did::RemoveServiceEndpoint,
+        did::DidRemoval,
+        revoke::Revoke,
+        revoke::UnRevoke,
+        revoke::RemoveRegistry,
+        blob::AddBlob,
+        master::MasterVote,
+        attest::SetAttestationClaim,
+        bbs_plus::AddBBSPlusParams,
+        bbs_plus::AddBBSPlusPublicKey,
+        bbs_plus::RemoveBBSPlusParams,
+        bbs_plus::RemoveBBSPlusPublicKey,
+        accumulator::AddAccumulatorParams,
+        accumulator::AddAccumulatorPublicKey,
+        accumulator::RemoveAccumulatorParams,
+        accumulator::RemoveAccumulatorPublicKey,
+        accumulator::AddAccumulator,
+        accumulator::UpdateAccumulator,
+        accumulator::RemoveAccumulator
 }
 
 /// Converts the given entity to the state change.
@@ -85,12 +73,25 @@ pub trait ActionWithNonce<T: frame_system::Config>: Action<T> {
     fn nonce(&self) -> T::BlockNumber;
 }
 
+/// Defines version of the storage being used.
+#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum StorageVersion {
+    /// The old version which supports only a single key for DID.
+    SingleKey,
+    /// Multi-key DID.
+    MultiKey,
+}
+
+impl Default for StorageVersion {
+    fn default() -> Self {
+        Self::SingleKey
+    }
+}
+
 pub mod accumulator;
 pub mod anchor;
 pub mod attest;
 pub mod bbs_plus;
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmark_utils;
 pub mod blob;
 pub mod did;
 pub mod keys_and_sigs;

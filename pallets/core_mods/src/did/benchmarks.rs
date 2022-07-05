@@ -1,163 +1,429 @@
 use super::*;
-use crate::benchmark_utils::{
-    get_data_for_did_removal, get_data_for_key_update, get_data_for_sig_ver, DID_DATA_SIZE,
-};
-use frame_benchmarking::{account, benchmarks};
+use crate::keys_and_sigs::*;
+use crate::ToStateChange;
+use alloc::collections::BTreeSet;
+use core::iter::once;
+use core::iter::repeat;
+use frame_benchmarking::{benchmarks, whitelisted_caller};
+use sp_application_crypto::Pair;
+use sp_core::U256;
+use sp_core::{ecdsa, ed25519, sr25519};
 use sp_std::prelude::*;
 use system::RawOrigin;
 
 const SEED: u32 = 0;
-const MAX_USER_INDEX: u32 = 1000;
+const MAX_ENTITY_AMOUNT: u32 = 100;
+const MAX_DID_DOC_REF_SIZE: u32 = 1024;
+const MAX_ORIGINS: u32 = 100;
+const MAX_ORIGIN_LENGTH: u32 = 1000;
+const MAX_SERVICE_ENDPOINT_ID_LENGTH: u32 = 100;
 
-benchmarks! {
-    _ {
-        // Origin
-        let u in 1 .. MAX_USER_INDEX => ();
-        // DID
-        let d in 0 .. 255 => ();
-        // Key
-        let k in 0 .. 255 => ();
-        // Key type
-        let t in 0 .. 2 => ();
-        // index into hardcoded public key and signature data
-        // Does not compile without the cast to u32
-        let i in 0 .. (DID_DATA_SIZE - 1) as u32 => ();
+#[macro_export]
+macro_rules! with_pair {
+    (let $pair: ident as Pair with idx $idx: expr; $($body: tt)+) => {
+        $crate::with_pair!(let $pair as Pair with idx $idx, seed &[1; 32]; $($body)+ )
+    };
+    (let $pair: ident as Pair with idx $idx: expr, seed $seed: expr; $($body: tt)+) => {
+        match $idx {
+            0 => {
+                let $pair = $crate::def_pair!(sr25519, $seed);
+                $($body)+
+            },
+            1 => {
+                let $pair = $crate::def_pair!(ed25519, $seed);
+                $($body)+
+            },
+            2 => {
+                let $pair = $crate::def_pair!(secp256k1, $seed);
+                $($body)+
+            }
+            _ => unimplemented!()
+        }
     }
+}
 
-    new {
-        let u in ...;
-        let d in ...;
-        let k in ...;
-        let t in ...;
+#[macro_export]
+macro_rules! def_pair {
+    (sr25519, $seed: expr) => {{
+        let pair = sr25519::Pair::from_seed($seed);
+        struct TestSr25519Pair {
+            pair: sr25519::Pair,
+        }
 
-        let caller = account("caller", u, SEED);
-        let did: Did = [d as u8; Did::BYTE_SIZE].into();
-        let pk = match t {
-            n if n == 0 => PublicKey::Sr25519(Bytes32 { value: [k as u8; 32] }),
-            n if n == 1 => PublicKey::Ed25519(Bytes32 { value: [k as u8; 32] }),
-            _ => PublicKey::Secp256k1(Bytes33 { value: [k as u8; 33] }),
+        impl TestSr25519Pair {
+            fn sign(&self, msg: &[u8]) -> sr25519::Signature {
+                use rand_chacha::rand_core::SeedableRng;
+                use schnorrkel::context::attach_rng;
+                use schnorrkel::*;
+                use sp_std::convert::TryInto;
+
+                let mut transcript = merlin::Transcript::new(b"SigningContext");
+                transcript.append_message(b"", b"substrate");
+                transcript.append_message(b"sign-bytes", msg);
+                let context = attach_rng(transcript, rand_chacha::ChaChaRng::from_seed([10u8; 32]));
+
+                let sk = SecretKey::from_bytes(&self.pair.to_raw_vec()[..]).unwrap();
+
+                sk.sign(
+                    context,
+                    &PublicKey::from_bytes(&self.pair.public()[..]).unwrap(),
+                )
+                .into()
+            }
+
+            fn public(&self) -> sr25519::Public {
+                self.pair.public()
+            }
+        }
+
+        TestSr25519Pair { pair }
+    }};
+    (ed25519, $seed: expr) => {
+        ed25519::Pair::from_seed($seed)
+    };
+    (secp256k1, $seed: expr) => {
+        get_secp256k1_keypair_1($seed)
+    };
+}
+
+#[macro_export]
+macro_rules! bench_with_all_pairs {
+    (
+        with_pairs:
+            $(
+                $bench_name_sr25519: ident for sr25519,
+                $bench_name_ed25519: ident for ed25519,
+                $bench_name_secp256k1: ident for secp256k1
+                {
+                    { $($init: tt)* }
+                    let $pair: ident as Pair;
+                    $($body: tt)+
+                }: $call_tt: tt($($call_e: expr),+)
+                verify { $($verification: tt)* }
+            )+
+        $(;
+            standard:
+                    $($other: tt)*
+        )?
+    ) => {
+        benchmarks! {
+            where_clause { where T: core::fmt::Debug }
+
+            $(
+                $bench_name_sr25519 {
+                    $($init)*
+                    let $pair = $crate::def_pair!(sr25519, &[4; 32]);
+                    $($body)+;
+                }: $call_tt($($call_e),+) verify { $($verification)* }
+
+                $bench_name_ed25519 {
+                    $($init)*
+                    let $pair = $crate::def_pair!(ed25519, &[3; 32]);
+                    $($body)+
+                }: $call_tt($($call_e),+) verify { $($verification)* }
+
+                $bench_name_secp256k1 {
+                    $($init)*
+                    let $pair = $crate::def_pair!(secp256k1, &[2; 32]);
+                    $($body)+
+                }: $call_tt($($call_e),+) verify { $($verification)* }
+            )+
+
+            $($($other)*)?
+        }
+    };
+    ($bench_name: ident for $pair: ident { { $($init: tt)* } $($body: tt)+ } $($rest: tt)*) => {
+        $bench_name {
+            $($init)*
+            let $pair = $crate::def_pair!($pair, &[1; 32]);
+            $($body)+
+        }
+        $($rest)*
+    };
+}
+
+#[macro_export]
+bench_with_all_pairs! {
+    with_pairs:
+    add_keys_sr25519 for sr25519, add_keys_ed25519 for ed25519, add_keys_secp256k1 for secp256k1 {
+        {
+            let k in 1 .. MAX_ENTITY_AMOUNT;
+        }
+        let pair as Pair;
+        let caller = whitelisted_caller();
+        let did = Did([1; Did::BYTE_SIZE]);
+        let did_key = DidKey::new_with_all_relationships(pair.public());
+
+        crate::did::Module::<T>::new_onchain_(
+            did,
+            vec![did_key.clone()],
+            Default::default(),
+        ).unwrap();
+
+        let keys: Vec<_> =
+            (0..k)
+                .map(|idx| def_pair!(secp256k1, &[10 + idx as u8; 32]).public())
+                .map(DidKey::new_with_all_relationships)
+                .collect();
+
+        let key_update = AddKeys {
+            did,
+            keys: keys.clone(),
+            nonce: 1u8.into()
         };
 
-    }: _(RawOrigin::Signed(caller), did, KeyDetail {controller: did, public_key: pk})
+        // frame_support::log::error!("A {:?} {}", PublicKey::from(public), s);
+        let sig = pair.sign(&key_update.to_state_change().encode());
+        // frame_support::log::error!("B");
+        let signature = DidSignature::new(did, 1u32, sig);
+    }: add_keys(RawOrigin::Signed(caller), key_update, signature)
     verify {
-        let value = Self::did(did);
-        assert!(value.is_some());
+        let mut stored_keys = DidKeys::iter_prefix_values(did).collect::<Vec<_>>();
+        stored_keys.sort_by_key(|key| key.public_key.as_slice().to_vec());
+
+        let mut keys = keys.into_iter().collect::<Vec<_>>();
+        keys.push(did_key);
+        keys.sort_by_key(|key| key.public_key.as_slice().to_vec());
+
+        assert_eq!(stored_keys, keys);
     }
 
-    // Using hardcoded data for keys and signatures and key generation and signing is not
-    // available with benchmarks
+    remove_keys_sr25519 for sr25519, remove_keys_ed25519 for ed25519, remove_keys_secp256k1 for secp256k1 {
+        {
+            let k in 1 .. MAX_ENTITY_AMOUNT;
+        }
+        let pair as Pair;
+        let caller = whitelisted_caller();
+        let did = Did([1; Did::BYTE_SIZE]);
+        let public = pair.public();
 
-    key_update_sr25519 {
-        let u in ...;
-        let i in ...;
+        let keys: Vec<_> =
+            (0..k)
+                .map(|i| ed25519::Pair::from_seed(&U256::from(i).into()))
+                .map(|pair| DidKey::new_with_all_relationships(pair.public()))
+                .chain(once(DidKey::new_with_all_relationships(public)))
+                .collect();
 
-        let caller = account("caller", u, SEED);
+        crate::did::Module::<T>::new_onchain_(
+            did,
+            keys.clone(),
+            Default::default(),
+        ).unwrap();
 
-        let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(0, i as usize);
-        let detail = KeyDetail::new(did.clone(), pk_1);
-        let block_number = <T as system::Config>::BlockNumber::from(n);
-        Dids::<T>::insert(did.clone(), (detail, block_number));
+        let key_update = RemoveKeys {
+            did,
+            keys: (1..=k + 1).map(IncId::from).collect(),
+            nonce: 1u8.into()
+        };
 
-        let key_update = KeyUpdate::new(
-            did.clone(),
-            pk_2,
-            None,
-            n,
-        );
-    }: update_key(RawOrigin::Signed(caller), key_update, sig)
+        let sig = pair.sign(&key_update.to_state_change().encode());
+        let signature = DidSignature::new(did, 1u32, sig);
+    }: remove_keys(RawOrigin::Signed(caller), key_update, signature)
     verify {
-        let value = Self::did(did);
-        assert!(value.is_some());
+        assert_eq!(DidKeys::iter_prefix(did).count(), 0);
     }
 
-    key_update_ed25519 {
-        let u in ...;
-        let i in ...;
+    add_controllers_sr25519 for sr25519, add_controllers_ed25519 for ed25519, add_controllers_secp256k1 for secp256k1 {
+        {
+            let k in 1 .. MAX_ENTITY_AMOUNT;
+        }
+        let pair as Pair;
+        let caller = whitelisted_caller();
+        let did = Did([2; Did::BYTE_SIZE]);
+        let public = pair.public();
 
-        let caller = account("caller", u, SEED);
+        crate::did::Module::<T>::new_onchain_(
+            did,
+            vec![DidKey::new_with_all_relationships(public)],
+            Default::default(),
+        ).unwrap();
 
-        let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(1, i as usize);
-        let detail = KeyDetail::new(did.clone(), pk_1);
-        let block_number = <T as system::Config>::BlockNumber::from(n);
-        Dids::<T>::insert(did.clone(), (detail, block_number));
+        let controllers: BTreeSet<_> = (0..k)
+            .map(|i| U256::from(i).into())
+            .map(Did)
+            .map(Controller)
+            .collect();
 
-        let key_update = KeyUpdate::new(
-            did.clone(),
-            pk_2,
-            None,
-            n,
-        );
-    }: update_key(RawOrigin::Signed(caller), key_update, sig)
+        let new_controllers = AddControllers {
+            did,
+            controllers: controllers.clone(),
+            nonce: 1u8.into()
+        };
+
+        let sig = pair.sign(&new_controllers.to_state_change().encode());
+        let signature = DidSignature::new(did, 1u32, sig);
+    }: add_controllers(RawOrigin::Signed(caller), new_controllers, signature)
     verify {
-        let value = Self::did(did);
-        assert!(value.is_some());
+        let mut stored_controllers = DidControllers::iter_prefix(did).map(|(cnt, _)| cnt).collect::<Vec<_>>();
+        stored_controllers.sort();
+
+        let mut controllers = controllers.into_iter().collect::<Vec<_>>();
+        controllers.push(Controller(did));
+        controllers.sort();
+
+        assert_eq!(stored_controllers, controllers);
     }
 
-    key_update_secp256k1 {
-        let u in ...;
-        let i in ...;
+    remove_controllers_sr25519 for sr25519, remove_controllers_ed25519 for ed25519, remove_controllers_secp256k1 for secp256k1 {
+        {
+            let k in 1 .. MAX_ENTITY_AMOUNT;
+        }
+        let pair as Pair;
+        let caller = whitelisted_caller();
+        let did = Did([3; Did::BYTE_SIZE]);
+        let public = pair.public();
+        let controllers: BTreeSet<_> = (0..k)
+            .map(|i| U256::from(i).into())
+            .map(Did)
+            .map(Controller)
+            .collect();
 
-        let caller = account("caller", u, SEED);
+        crate::did::Module::<T>::new_onchain_(
+            did,
+            vec![DidKey::new_with_all_relationships(public)],
+            controllers.clone(),
+        ).unwrap();
 
-        let (n, did, pk_1, pk_2, sig) = get_data_for_key_update(2, i as usize);
-        let detail = KeyDetail::new(did.clone(), pk_1);
-        let block_number = <T as system::Config>::BlockNumber::from(n);
-        Dids::<T>::insert(did.clone(), (detail, block_number));
+        let rem_controllers = RemoveControllers {
+            did,
+            controllers: controllers.clone().into_iter().chain(once(Controller(did))).collect(),
+            nonce: 1u8.into()
+        };
 
-        let key_update = KeyUpdate::new(
-            did.clone(),
-            pk_2,
-            None,
-            n,
-        );
-    }: update_key(RawOrigin::Signed(caller), key_update, sig)
+        let sig = pair.sign(&rem_controllers.to_state_change().encode());
+        let signature = DidSignature::new(did, 1u32, sig);
+    }: remove_controllers(RawOrigin::Signed(caller), rem_controllers, signature)
     verify {
-        let value = Self::did(did);
-        assert!(value.is_some());
+        assert_eq!(DidControllers::iter_prefix(did).count(), 0);
     }
 
-    remove_sr25519 {
-        let u in ...;
-        let i in ...;
+    add_service_endpoint_sr25519 for sr25519, add_service_endpoint_ed25519 for ed25519, add_service_endpoint_secp256k1 for secp256k1 {
+        {
+            let o in 1 .. MAX_ORIGINS;
+            let l in 1 .. MAX_ORIGIN_LENGTH;
+            let i in 1 .. MAX_SERVICE_ENDPOINT_ID_LENGTH;
+        }
+        let pair as Pair;
+        let caller = whitelisted_caller();
+        let did = Did([3; Did::BYTE_SIZE]);
+        let public = pair.public();
 
-        let caller = account("caller", u, SEED);
+        crate::did::Module::<T>::new_onchain_(
+            did,
+            vec![DidKey::new_with_all_relationships(public)],
+            Default::default(),
+        ).unwrap();
 
-        let (n, did, pk, sig) = get_data_for_did_removal(0, i as usize);
-        let detail = KeyDetail::new(did.clone(), pk);
-        let block_number = <T as system::Config>::BlockNumber::from(n);
-        Dids::<T>::insert(did.clone(), (detail, block_number));
+        let add_endpoint = AddServiceEndpoint {
+            did,
+            id: WrappedBytes(vec![1; i as usize]),
+            endpoint: ServiceEndpoint {
+                origins: (0..o).map(|i| vec![i as u8; l as usize].into()).collect(),
+                types: crate::did::service_endpoints::ServiceEndpointType::LINKED_DOMAINS
+            },
+            nonce: 1u8.into()
+        };
 
-        let remove = DidRemoval::new(
-            did.clone(),
-            n,
-        );
-    }: remove(RawOrigin::Signed(caller), remove, sig)
+        let sig = pair.sign(&add_endpoint.to_state_change().encode());
+        let signature = DidSignature::new(did, 1u32, sig);
+    }: add_service_endpoint(RawOrigin::Signed(caller), add_endpoint.clone(), signature)
     verify {
-        let value = Self::did(did);
-        assert!(value.is_none());
+        assert_eq!(DidServiceEndpoints::get(did, WrappedBytes(vec![1; i as usize])).unwrap(), add_endpoint.endpoint);
     }
 
-    sig_ver_sr25519 {
-        let i in ...;
-        let (msg, pk, sig) = get_data_for_sig_ver(0, i as usize);
+    remove_service_endpoint_sr25519 for sr25519, remove_service_endpoint_ed25519 for ed25519, remove_service_endpoint_secp256k1 for secp256k1 {
+        {
+            let o in 1 .. MAX_ORIGINS;
+            let l in 1 .. MAX_ORIGIN_LENGTH;
+            let i in 1 .. MAX_SERVICE_ENDPOINT_ID_LENGTH;
+        }
+        let pair as Pair;
+        let caller = whitelisted_caller();
+        let did = Did([3; Did::BYTE_SIZE]);
+        let public = pair.public();
 
-    }: {
-        assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
+        crate::did::Module::<T>::new_onchain_(
+            did,
+            vec![DidKey::new_with_all_relationships(public)],
+            Default::default(),
+        ).unwrap();
+
+        crate::did::Module::<T>::add_service_endpoint_(
+            AddServiceEndpoint {
+                did,
+                id: WrappedBytes(vec![1; i as usize]),
+                endpoint: ServiceEndpoint {
+                    origins: (0..o).map(|i| vec![i as u8; l as usize].into()).collect(),
+                    types: crate::did::service_endpoints::ServiceEndpointType::LINKED_DOMAINS
+                },
+                nonce: 1u8.into()
+            },
+            &mut Default::default()
+        ).unwrap();
+
+        let remove_endpoint = RemoveServiceEndpoint {
+            id: WrappedBytes(vec![1; i as usize]),
+            did,
+            nonce: 1u8.into()
+        };
+
+        let sig = pair.sign(&remove_endpoint.to_state_change().encode());
+        let signature = DidSignature::new(did, 1u32, sig);
+    }: remove_service_endpoint(RawOrigin::Signed(caller), remove_endpoint.clone(), signature)
+    verify {
+       assert!(DidServiceEndpoints::get(did, WrappedBytes(vec![1; i as usize])).is_none());
+    };
+
+    standard:
+    new_onchain {
+        let k in 1 .. MAX_ENTITY_AMOUNT => ();
+        let c in 1 .. MAX_ENTITY_AMOUNT => ();
+
+        let caller = whitelisted_caller();
+        let did = Did([4; Did::BYTE_SIZE]);
+
+        let keys: Vec<_> = (0..k)
+            .map(|i| ed25519::Pair::from_seed(&U256::from(i).into()))
+            .map(|pair| DidKey::new_with_all_relationships(pair.public()))
+            .collect();
+        let controllers: BTreeSet<_> = (0..c)
+            .map(|i| U256::from(i).into())
+            .map(Did)
+            .map(Controller)
+            .collect();
+
+    }: new_onchain(RawOrigin::Signed(caller), did, keys.clone(), controllers.clone())
+    verify {
+        assert_eq!(Dids::<T>::get(did).unwrap().into_onchain().unwrap(), WithNonce::new(OnChainDidDetails::new((keys.len() as u32).into(), keys.iter().filter(|key| key.can_control() || key.ver_rels.is_empty()).count() as u32, controllers.len() as u32 + 1)));
+
+        let mut stored_keys = DidKeys::iter_prefix_values(did).collect::<Vec<_>>();
+        stored_keys.sort_by_key(|key| key.public_key.as_slice().to_vec());
+
+        let mut keys = keys.into_iter().collect::<Vec<_>>();
+        keys.sort_by_key(|key| key.public_key.as_slice().to_vec());
+
+        assert_eq!(stored_keys, keys);
+
+        let mut stored_controllers = DidControllers::iter_prefix(did).map(|(cnt, _)| cnt).collect::<Vec<_>>();
+        stored_controllers.sort();
+
+        let mut controllers = controllers.into_iter().collect::<Vec<_>>();
+        controllers.push(Controller(did));
+        controllers.sort();
+
+        assert_eq!(stored_controllers, controllers);
     }
 
-    sig_ver_ed25519 {
-        let i in ...;
-        let (msg, pk, sig) = get_data_for_sig_ver(1, i as usize);
+    new_offchain {
+        let k in 1 .. MAX_DID_DOC_REF_SIZE => ();
 
-    }: {
-        assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
-    }
+        let caller: T::AccountId = whitelisted_caller();
+        let did = Did([4; Did::BYTE_SIZE]);
 
-    sig_ver_secp256k1 {
-        let i in ...;
-        let (msg, pk, sig) = get_data_for_sig_ver(2, i as usize);
+        let did_doc_ref = OffChainDidDocRef::CID((0..k).map(|k| k as u8).collect::<Vec<_>>().into());
 
-    }: {
-        assert!(super::Module::<T>::verify_sig_with_public_key(&sig, &msg, &pk).unwrap());
+    }: new_offchain(RawOrigin::Signed(caller.clone()), did, did_doc_ref.clone())
+    verify {
+        assert_eq!(Module::<T>::offchain_did_details(&did).unwrap(), OffChainDidDetails::new(caller, did_doc_ref));
     }
 }

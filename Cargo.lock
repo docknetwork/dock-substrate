@@ -877,10 +877,15 @@ dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
+ "getrandom 0.2.3",
  "hex",
+ "hex-literal",
  "libsecp256k1 0.7.0",
+ "merlin",
  "parity-scale-codec",
- "rand 0.7.3",
+ "rand 0.8.4",
+ "rand_chacha 0.2.2",
+ "schnorrkel",
  "serde",
  "serde-big-array",
  "sha2 0.9.5",
@@ -1400,6 +1405,7 @@ dependencies = [
  "frame-system",
  "frame-system-benchmarking",
  "frame-system-rpc-runtime-api",
+ "getrandom 0.2.3",
  "hex",
  "hex-literal",
  "log",
@@ -1444,6 +1450,7 @@ dependencies = [
  "serde-big-array",
  "smallvec 1.6.1",
  "sp-api",
+ "sp-application-crypto",
  "sp-arithmetic",
  "sp-authority-discovery",
  "sp-block-builder",
@@ -1451,13 +1458,16 @@ dependencies = [
  "sp-core",
  "sp-inherents",
  "sp-io",
+ "sp-npos-elections",
  "sp-offchain",
  "sp-runtime",
+ "sp-runtime-interface",
  "sp-session",
  "sp-staking",
  "sp-std",
  "sp-transaction-pool",
  "sp-version",
+ "sp-wasm-interface",
  "staking_rewards",
  "static_assertions",
  "substrate-wasm-builder",
@@ -1878,9 +1888,10 @@ dependencies = [
  "core_mods",
  "frame-support",
  "frame-system",
+ "getrandom 0.2.3",
  "pallet-balances",
  "parity-scale-codec",
- "rand 0.7.3",
+ "rand 0.8.4",
  "serde",
  "sp-core",
  "sp-io",
@@ -2483,8 +2494,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7fcd999463524c52659517fe2cea98493cfe485d10565e7b0fb07dbba7ad2753"
 dependencies = [
  "cfg-if 1.0.0",
+ "js-sys",
  "libc",
  "wasi 0.10.0+wasi-snapshot-preview1",
+ "wasm-bindgen",
 ]
 
 [[package]]
@@ -4597,6 +4610,7 @@ name = "pallet-collective"
 version = "3.0.0"
 source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -7226,6 +7240,7 @@ dependencies = [
  "getrandom 0.1.16",
  "merlin",
  "rand 0.7.3",
+ "rand_chacha 0.2.2",
  "rand_core 0.5.1",
  "serde",
  "sha2 0.8.2",
@@ -8435,8 +8450,7 @@ dependencies = [
 [[package]]
 name = "substrate-wasm-builder"
 version = "4.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "93a3d51ad6abbc408b03ea962062bfcc959b438a318d7d4bedd181e1effd0610"
+source = "git+https://github.com/paritytech/substrate.git?branch=frontier#39b31316815ec6d709e7ad7c1a31c436d14c53e6"
 dependencies = [
  "ansi_term 0.12.1",
  "atty",

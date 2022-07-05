@@ -44,7 +44,7 @@ pub mod single_key {
             );
             DidControllers::insert(did, Controller(controller), ());
             let did_details: StoredDidDetails<T> =
-                WithNonce::new_with_nonce(OnChainDidDetails::new(key_counter, 1u8, 1u8), nonce)
+                WithNonce::new_with_nonce(OnChainDidDetails::new(key_counter, 1u32, 1u32), nonce)
                     .into();
 
             Some(did_details)

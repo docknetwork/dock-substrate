@@ -19,7 +19,7 @@ use frame_system::{self as system, ensure_signed};
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct BlobOwner(pub Did);
 
-crate::impl_wrapper!(BlobOwner, Did, for test use blob_owner_tests with rand Did(rand::random()));
+crate::impl_wrapper!(BlobOwner, Did, for rand use Did(rand::random()), with tests as blob_owner_tests);
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;
@@ -90,8 +90,6 @@ decl_module! {
             ensure_signed(origin)?;
 
             did::Module::<T>::try_exec_signed_action_from_onchain_did(blob, signature, Self::new_)
-            // Self::new_(blob, signature.did)?;
-            // Ok(())
         }
     }
 }
@@ -117,7 +115,6 @@ impl<T: Config + Debug> Module<T> {
 
 #[cfg(test)]
 mod tests {
-
     use super::{did, Blob, BlobError, BlobId, BlobOwner, Blobs, DispatchResult};
     use crate::{blob::AddBlob, did::Did, test_common::*};
     use frame_support::StorageMap;
@@ -308,9 +305,11 @@ mod tests {
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarking {
     use super::*;
-    use crate::benchmark_utils::{get_data_for_blob, BLOB_DATA_SIZE};
-    use crate::did::{BlobOwners, KeyDetail};
+    use crate::keys_and_sigs::*;
+    use crate::{did::DidKey, ToStateChange};
     use frame_benchmarking::{account, benchmarks};
+    use sp_core::sr25519;
+    use sp_core::Pair;
     use sp_std::prelude::*;
     use system::RawOrigin;
 
@@ -318,31 +317,32 @@ mod benchmarking {
     const MAX_USER_INDEX: u32 = 1000;
 
     benchmarks! {
-        _ {
-            // Origin
-            let u in 1 .. MAX_USER_INDEX => ();
-            let i in 0 .. (BLOB_DATA_SIZE - 1) as u32 => ();
-        }
+        where_clause {  where T: Debug }
 
         new {
-            let u in ...;
-            let i in ...;
+            let u in 1 .. MAX_USER_INDEX => ();
 
             let caller = account("caller", u, SEED);
             let n = 0;
 
-            let (did, pk, id, content, sig) = get_data_for_blob(i as usize);
+            let pair_sr_1 = sr25519::Pair::from_seed(&[3; 32]);
+            let pk_sr_1 = pair_sr_1.public();
+            let did = Did([1; Did::BYTE_SIZE]);
 
-            let detail = KeyDetail::new(did.clone(), pk);
-            let block_number = <T as system::Config>::BlockNumber::from(n);
-            BlobOwners::<T>::insert(did.clone(), (detail, block_number));
+            did::Module::<T>::new_onchain_(did, vec![DidKey::new_with_all_relationships(pk_sr_1)], Default::default()).unwrap();
+            let id = Default::default();
 
             let blob = Blob {
                 id,
-                blob: content,
-                author: did,
+                blob: (0..u).map(|i| i as u8).collect(),
             };
-        }: _(RawOrigin::Signed(caller), blob, sig)
+            let add_blob = AddBlob {
+                blob,
+                nonce: 1u8.into()
+            };
+            let sig = SigValue::sr25519(&add_blob.to_state_change().encode(), &pair_sr_1);
+            let signature = DidSignature::new(did.clone(), 1u32, sig);
+        }: _(RawOrigin::Signed(caller), add_blob, signature)
         verify {
             let value = Blobs::get(id);
             assert!(value.is_some());

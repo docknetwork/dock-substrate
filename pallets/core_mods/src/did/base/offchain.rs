@@ -53,7 +53,7 @@ impl<T: Config + Debug> OffChainDidDetails<T> {
 /// does not check if the bytes are indeed valid as per the enum variant
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type"))]
+#[cfg_attr(feature = "serde", serde(tag = "type", content = "data"))]
 pub enum OffChainDidDocRef {
     /// Content IDentifier as per https://github.com/multiformats/cid.
     CID(WrappedBytes),
@@ -87,7 +87,7 @@ impl<T: Config + Debug> Module<T> {
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
         let details = OffChainDidDetails::new(caller, did_doc_ref.clone());
-        Self::insert_did(did, details);
+        Self::insert_did_details(did, details);
 
         deposit_indexed_event!(OffChainDidAdded(did, did_doc_ref) over did);
         Ok(())

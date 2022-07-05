@@ -1,7 +1,6 @@
 use super::super::*;
 use crate::util::WrappedActionWithNonce;
 use crate::ToStateChange;
-use sp_runtime::DispatchError;
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a write (through an extrinsic)
 pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
@@ -41,11 +40,7 @@ impl OnChainDidDetails {
     /// - `key_counter` - last incremental identifier of the key being used for the given DID.
     /// - `active_controller_keys` - amount of currently active controller keys for the given DID.
     /// - `active_controllers` - amount of currently active controllers for the given DID.
-    pub fn new(
-        key_counter: IncId,
-        active_controller_keys: impl Into<u32>,
-        active_controllers: impl Into<u32>,
-    ) -> Self {
+    pub fn new(key_counter: IncId, active_controller_keys: u32, active_controllers: u32) -> Self {
         Self {
             key_counter,
             active_controller_keys: active_controller_keys.into(),
@@ -85,7 +80,7 @@ impl<T: Config + Debug> Module<T> {
             controllers.len() as u32,
         ));
 
-        Self::insert_did(did, did_details);
+        Self::insert_did_details(did, did_details);
 
         deposit_indexed_event!(OnChainDidAdded(did));
         Ok(())
@@ -94,7 +89,7 @@ impl<T: Config + Debug> Module<T> {
     pub(crate) fn remove_onchain_did_(
         DidRemoval { did, .. }: DidRemoval<T>,
         details: &mut Option<OnChainDidDetails>,
-    ) -> Result<Option<()>, DispatchError> {
+    ) -> Result<(), Error<T>> {
         // This will result in the removal of DID from storage map `Dids`
         details.take();
         DidKeys::remove_prefix(did);
@@ -102,7 +97,7 @@ impl<T: Config + Debug> Module<T> {
         DidServiceEndpoints::remove_prefix(did);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
-        Ok(None)
+        Ok(())
     }
 
     /// Verifies signature, then executes action over target on-chain DID providing
@@ -111,12 +106,12 @@ impl<T: Config + Debug> Module<T> {
         action: A,
         signature: DidSignature<Controller>,
         f: F,
-    ) -> Result<R, DispatchError>
+    ) -> Result<R, E>
     where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
         A: ActionWithNonce<T> + ToStateChange<T>,
         A::Target: Into<Did>,
-        DispatchError: From<Error<T>> + From<E>,
+        E: From<Error<T>> + From<NonceError>,
     {
         ensure!(
             Self::verify_sig_from_controller(&action, &signature)?,
@@ -134,12 +129,12 @@ impl<T: Config + Debug> Module<T> {
         action: A,
         signature: DidSignature<Controller>,
         f: F,
-    ) -> Result<R, DispatchError>
+    ) -> Result<R, E>
     where
         F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
         A: ActionWithNonce<T> + ToStateChange<T>,
         A::Target: Into<Did>,
-        DispatchError: From<Error<T>> + From<E>,
+        E: From<Error<T>> + From<NonceError>,
     {
         ensure!(
             Self::verify_sig_from_controller(&action, &signature)?,
@@ -157,12 +152,12 @@ impl<T: Config + Debug> Module<T> {
         action: A,
         signature: DidSignature<S>,
         f: F,
-    ) -> Result<R, DispatchError>
+    ) -> Result<R, E>
     where
         F: FnOnce(A, S) -> Result<R, E>,
         A: ActionWithNonce<T, Target = ()> + ToStateChange<T>,
         S: Into<Did> + Copy,
-        DispatchError: From<Error<T>> + From<E>,
+        E: From<Error<T>> + From<NonceError>,
     {
         ensure!(
             Self::verify_sig_from_auth_or_control_key(&action, &signature)?,
@@ -177,15 +172,12 @@ impl<T: Config + Debug> Module<T> {
 
     /// Executes action over target on-chain DID providing a mutable reference if the given
     /// nonce is correct, i.e. 1 more than the current nonce.
-    pub(crate) fn try_exec_action_over_onchain_did<A, F, R, E>(
-        action: A,
-        f: F,
-    ) -> Result<R, DispatchError>
+    pub(crate) fn try_exec_action_over_onchain_did<A, F, R, E>(action: A, f: F) -> Result<R, E>
     where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
         A: ActionWithNonce<T>,
         A::Target: Into<Did>,
-        DispatchError: From<Error<T>> + From<E>,
+        E: From<Error<T>> + From<NonceError>,
     {
         Self::try_exec_removable_action_over_onchain_did(action, |action, details_opt| {
             f(action, details_opt.as_mut().unwrap())
@@ -199,16 +191,18 @@ impl<T: Config + Debug> Module<T> {
     pub(crate) fn try_exec_removable_action_over_onchain_did<A, F, R, E>(
         action: A,
         f: F,
-    ) -> Result<R, DispatchError>
+    ) -> Result<R, E>
     where
         F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
         A: ActionWithNonce<T>,
         A::Target: Into<Did>,
-        DispatchError: From<Error<T>> + From<E>,
+        E: From<Error<T>> + From<NonceError>,
     {
+        ensure!(!action.is_empty(), Error::<T>::EmptyPayload);
+
         Dids::<T>::try_mutate_exists(action.target().into(), |details_opt| {
             WithNonce::try_update_opt_with(details_opt, action.nonce(), |data_opt| {
-                f(action, data_opt).map_err(DispatchError::from)
+                f(action, data_opt)
             })
             .ok_or(Error::<T>::DidDoesNotExist)?
         })
@@ -225,7 +219,6 @@ impl<T: Config + Debug> Module<T> {
     pub fn onchain_did_details(did: &Did) -> Result<StoredOnChainDidDetails<T>, Error<T>> {
         Self::did(did)
             .ok_or(Error::<T>::DidDoesNotExist)?
-            .into_onchain()
-            .ok_or(Error::<T>::CannotGetDetailForOnChainDid)
+            .try_into()
     }
 }
