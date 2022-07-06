@@ -6,7 +6,7 @@ use sp_std::fmt;
 use sp_std::vec::Vec;
 
 /// Raw bytes wrapper providing ability to encode/decode in `hex` format.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct WrappedBytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
 

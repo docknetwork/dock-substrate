@@ -110,6 +110,7 @@ impl From<accumulator::Event> for TestEvent {
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
+    pub const MaxControllers: u32 = 15;
 }
 
 impl system::Config for Test {
@@ -150,6 +151,7 @@ impl crate::did::Config for Test {
 
 impl crate::revoke::Config for Test {
     type Event = TestEvent;
+    type MaxControllers = MaxControllers;
 }
 
 parameter_types! {

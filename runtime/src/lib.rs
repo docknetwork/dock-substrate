@@ -726,6 +726,7 @@ parameter_types! {
     pub const MaxServiceEndpointOrigins: u16 = 64;
     pub const MaxServiceEndpointOriginSize: u16 = 1025;
     pub const ServiceEndpointOriginPerByteWeight: Weight = 10;
+    pub const MaxControllers: u32 = 15;
 }
 
 impl did::Config for Runtime {
@@ -741,6 +742,7 @@ impl did::Config for Runtime {
 
 impl revoke::Config for Runtime {
     type Event = Event;
+    type MaxControllers = MaxControllers;
 }
 
 impl bbs_plus::Config for Runtime {
@@ -1855,7 +1857,7 @@ impl_runtime_apis! {
             let params = (&config, &whitelist);
 
             add_benchmark!(params, batches, did, DIDModule);
-            // add_benchmark!(params, batches, revoke, Revoke);
+            add_benchmark!(params, batches, revoke, Revoke);
             add_benchmark!(params, batches, bbs_plus, BbsPlus);
             add_benchmark!(params, batches, attest, Attest);
             add_benchmark!(params, batches, anchor, Anchor);

@@ -72,10 +72,10 @@ pub struct DidRemoval<T: frame_system::Config> {
 
 impl_action_with_nonce!(
     for Did:
-        AddKeys with keys as len, did as target,
-        RemoveKeys with keys as len, did as target,
-        AddControllers with controllers as len, did as target,
-        RemoveControllers with controllers as len, did as target,
+        AddKeys with keys.len() as len, did as target,
+        RemoveKeys with keys.len() as len, did as target,
+        AddControllers with controllers.len() as len, did as target,
+        RemoveControllers with controllers.len() as len, did as target,
         AddServiceEndpoint with 1 as len, did as target,
         RemoveServiceEndpoint with 1 as len, did as target,
         DidRemoval with 1 as len, did as target

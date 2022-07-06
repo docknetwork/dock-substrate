@@ -38,10 +38,10 @@ use frame_support::traits::ExistenceRequirement;
 type BalanceOf<T> =
     <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks;
 #[cfg(test)]
 mod tests;
-
-mod benchmarking;
 
 /// Struct to encode all the bonuses of an account.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]

@@ -54,7 +54,6 @@ pub trait ToStateChange<T: frame_system::Config> {
 pub trait Action<T: frame_system::Config> {
     /// Action target.
     type Target;
-
     /// Returns underlying action target.
     fn target(&self) -> Self::Target;
 
@@ -88,19 +87,21 @@ impl Default for StorageVersion {
     }
 }
 
-pub mod accumulator;
-pub mod anchor;
-pub mod attest;
-pub mod bbs_plus;
-pub mod blob;
-pub mod did;
 pub mod keys_and_sigs;
-pub mod master;
 mod migrations;
-pub mod revoke;
+mod modules;
 pub mod runtime_api;
 pub mod types;
 pub mod util;
+
+pub use modules::accumulator;
+pub use modules::anchor;
+pub use modules::attest;
+pub use modules::bbs_plus;
+pub use modules::blob;
+pub use modules::did;
+pub use modules::master;
+pub use modules::revoke;
 
 #[cfg(test)]
 mod test_common;

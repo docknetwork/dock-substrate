@@ -221,6 +221,7 @@ impl<T: Config + Debug> Module<T> {
         Ok((keys_to_insert, controller_keys_count))
     }
 
+    #[allow(unused)]
     pub(super) fn key_counts<I>(keys: I) -> PublicKeyParams<u32>
     where
         I: IntoIterator,
