@@ -1,5 +1,4 @@
 use super::*;
-use crate::keys_and_sigs::*;
 use crate::{did::DidKey, ToStateChange};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_core::sr25519;

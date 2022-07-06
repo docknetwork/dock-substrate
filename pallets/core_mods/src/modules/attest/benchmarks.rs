@@ -1,11 +1,6 @@
 use super::*;
 use crate::did::{Did, DidKey, DidSignature};
-use crate::keys_and_sigs::*;
-use crate::util::IncId;
 use crate::ToStateChange;
-use alloc::collections::BTreeSet;
-use core::iter::repeat;
-use core::marker::PhantomData;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_std::prelude::*;
 use system::RawOrigin;

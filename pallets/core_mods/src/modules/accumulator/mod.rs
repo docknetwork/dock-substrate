@@ -293,7 +293,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_accumulator_sr25519,
             SigValue::Ed25519(_) => Self::remove_accumulator_ed25519,
             SigValue::Secp256k1(_) => Self::remove_accumulator_secp256k1,
-        })(1)
+        })()
     }
 
     fn update_accumulator(
@@ -314,6 +314,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
                 .sum::<u32>()
                 .checked_div(acc.additions.as_ref().map_or(0, |v| v.len()) as u32)
                 .unwrap_or(0),
+            acc.removals.as_ref().map_or(0, |v| v.len()) as u32,
             acc.removals
                 .iter()
                 .flatten()

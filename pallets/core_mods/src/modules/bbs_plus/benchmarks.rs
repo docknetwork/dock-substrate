@@ -3,7 +3,6 @@ use crate::did::{Did, DidKey, DidSignature};
 use crate::util::IncId;
 use crate::ToStateChange;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
-use sp_core::{ecdsa, ed25519, sr25519};
 use sp_std::prelude::*;
 use system::RawOrigin;
 

@@ -1,13 +1,6 @@
 use super::*;
 use crate::did::{Did, DidKey, DidSignature};
-use crate::keys_and_sigs::*;
-use crate::util::IncId;
-use crate::ToStateChange;
-use alloc::collections::BTreeSet;
-use core::iter::repeat;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
-use sp_application_crypto::Pair;
-use sp_core::{ecdsa, ed25519, sr25519};
 use sp_std::prelude::*;
 use system::RawOrigin;
 

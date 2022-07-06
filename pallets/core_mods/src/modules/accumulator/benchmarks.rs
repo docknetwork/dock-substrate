@@ -1,10 +1,7 @@
 use super::*;
-use crate::did::{Did, DidKey, DidSignature};
 use crate::util::IncId;
 use crate::ToStateChange;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
-use sp_core::U256;
-use sp_core::{ecdsa, ed25519, sr25519};
 use sp_std::prelude::*;
 use system::RawOrigin;
 
@@ -50,7 +47,6 @@ crate::bench_with_all_pairs! {
     }
 
     remove_params_sr25519 for sr25519, remove_params_ed25519 for ed25519, remove_params_secp256k1 for secp256k1 {
-        {}
         let pair as Pair;
         let caller = whitelisted_caller();
         let did = Did([1; Did::BYTE_SIZE]);
@@ -136,7 +132,6 @@ crate::bench_with_all_pairs! {
     }
 
     remove_public_sr25519 for sr25519, remove_public_ed25519 for ed25519, remove_public_secp256k1 for secp256k1 {
-        {}
         let pair as Pair;
         let caller = whitelisted_caller();
         let did = Did([1; Did::BYTE_SIZE]);
@@ -256,6 +251,7 @@ crate::bench_with_all_pairs! {
             let c in 0 .. 100;
             let d in 0 .. 30;
             let e in 0 .. 100;
+            let f in 0 .. 100;
         }
         let pair as Pair;
         let caller = whitelisted_caller();
@@ -315,8 +311,8 @@ crate::bench_with_all_pairs! {
             id: acc_id,
             new_accumulated: new_accumulated.clone(),
             additions: Some((0..b).map(|i| vec![i as u8; c as usize]).collect()),
-            removals: Some((0..c).map(|i| vec![i as u8; d as usize]).collect()),
-            witness_update_info: Some(vec![5; e as usize]),
+            removals: Some((0..d).map(|i| vec![i as u8; e as usize]).collect()),
+            witness_update_info: Some(vec![5; f as usize]),
             nonce: 1u32.into(),
         };
 
@@ -329,7 +325,6 @@ crate::bench_with_all_pairs! {
     }
 
     remove_accumulator_sr25519 for sr25519, remove_accumulator_ed25519 for ed25519, remove_accumulator_secp256k1 for secp256k1 {
-        {}
 
         let pair as Pair;
         let caller = whitelisted_caller();
