@@ -244,7 +244,7 @@ decl_module! {
         }
 
         /// Add new controllers. Does not check if the controller being added has any key or is even
-        /// a DID that exists on or off chain. Does not check if the controller is already added.s
+        /// a DID that exists on or off chain. Does not check if the controller is already added.
         #[weight = SubstrateWeight::<T>::add_controllers(&controllers, &sig)]
         pub fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -255,7 +255,7 @@ decl_module! {
         }
 
         /// Remove controllers. This is an atomic operation meaning that it will either remove all keys or do nothing.
-        /// # **Note that removing all might make DID unusable**.s
+        /// # **Note that removing all might make DID unusable**.
         #[weight = SubstrateWeight::<T>::remove_controllers(&controllers, &sig)]
         pub fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -265,7 +265,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Add a single service endpoint.s
+        /// Add a single service endpoint.
         #[weight = SubstrateWeight::<T>::add_service_endpoint(&service_endpoint, &sig)]
         pub fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -274,7 +274,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove a single service endpoint.s
+        /// Remove a single service endpoint.
         #[weight = SubstrateWeight::<T>::remove_service_endpoint(&service_endpoint, &sig)]
         pub fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
