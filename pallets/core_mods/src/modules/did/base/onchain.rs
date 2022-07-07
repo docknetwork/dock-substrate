@@ -114,7 +114,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<R, E>
     where
         F: FnOnce(A, S) -> Result<R, E>,
-        A: ActionWithNonce<T> + ToStateChange<T>,
+        A: ActionWithNonce<T, Target = ()> + ToStateChange<T>,
         S: Into<Did> + Copy,
         E: From<Error<T>> + From<NonceError>,
     {
