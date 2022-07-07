@@ -1,5 +1,4 @@
-use core::fmt;
-use core::marker::PhantomData;
+use core::{fmt, marker::PhantomData};
 use serde::{
     self,
     de::{Error, Visitor},

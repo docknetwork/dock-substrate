@@ -1,14 +1,9 @@
 use super::*;
-use crate::test_common::*;
-use crate::util::WithNonce;
-use crate::Action;
-use crate::ToStateChange;
+use crate::{test_common::*, util::WithNonce, Action, ToStateChange};
 use alloc::collections::BTreeMap;
-use core::iter::once;
-use core::marker::PhantomData;
+use core::{iter::once, marker::PhantomData};
 use frame_support::assert_noop;
-use sp_core::sr25519;
-use sp_core::U256;
+use sp_core::{sr25519, U256};
 
 pub fn get_pauth<A: Action<Test> + Clone>(
     action: &A,

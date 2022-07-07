@@ -27,8 +27,7 @@ use frame_support::{
     },
     weights::{Pays, Weight},
 };
-use sp_std::marker::PhantomData;
-use sp_std::prelude::Vec;
+use sp_std::{marker::PhantomData, prelude::Vec};
 
 use frame_system::{self as system, ensure_root, ensure_signed};
 extern crate alloc;

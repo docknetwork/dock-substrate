@@ -1,8 +1,11 @@
-use crate::did::{Did, DidSignature};
-use crate::keys_and_sigs::SigValue;
-use crate::types::CurveType;
-use crate::util::IncId;
-use crate::{did, StorageVersion};
+use crate::{
+    did,
+    did::{Did, DidSignature},
+    keys_and_sigs::SigValue,
+    types::CurveType,
+    util::IncId,
+    StorageVersion,
+};
 pub use actions::*;
 use codec::{Decode, Encode};
 use common::arith_utils::DivCeil;

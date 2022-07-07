@@ -1,18 +1,15 @@
 //! Boilerplate for runtime module unit tests
 
-use crate::anchor;
-use crate::attest;
-use crate::bbs_plus;
-use crate::blob;
-use crate::did::{self, Did, DidKey, DidSignature};
-use crate::master;
-use crate::revoke;
-use crate::ToStateChange;
-use crate::{accumulator, StateChange};
-use crate::{keys_and_sigs, util};
+use crate::{
+    accumulator, anchor, attest, bbs_plus, blob,
+    did::{self, Did, DidKey, DidSignature},
+    keys_and_sigs, master, revoke, util, StateChange, ToStateChange,
+};
 
-use crate::keys_and_sigs::SigValue;
-use crate::revoke::{Policy, RegistryId, RevokeId};
+use crate::{
+    keys_and_sigs::SigValue,
+    revoke::{Policy, RegistryId, RevokeId},
+};
 use codec::{Decode, Encode};
 use frame_support::{
     parameter_types,

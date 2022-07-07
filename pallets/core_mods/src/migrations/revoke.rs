@@ -3,8 +3,7 @@
 pub mod single_key {
     use crate::revoke::*;
     use core::fmt::Debug;
-    use frame_support::*;
-    use frame_support::{log, pallet_prelude::*};
+    use frame_support::{log, pallet_prelude::*, *};
 
     pub fn migrate_to_multi_key<T: crate::revoke::Config + Debug>() -> Weight {
         let mut records = 0;

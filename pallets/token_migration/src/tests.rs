@@ -3,14 +3,13 @@ use crate as token_migration;
 use super::*;
 
 use super::Call as MigrateCall;
-use frame_support::sp_runtime::{
-    testing::Header,
-    traits::{BlakeTwo256, IdentityLookup},
-    Perbill,
-};
 use frame_support::{
     assert_err, assert_ok, parameter_types,
-    sp_runtime::traits::{ConvertInto, SaturatedConversion},
+    sp_runtime::{
+        testing::Header,
+        traits::{BlakeTwo256, ConvertInto, IdentityLookup, SaturatedConversion},
+        Perbill,
+    },
     weights::{constants::WEIGHT_PER_SECOND, DispatchClass, DispatchInfo, Weight},
 };
 use frame_system::{self as system, RawOrigin};

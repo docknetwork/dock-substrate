@@ -2,8 +2,7 @@ use crate::impl_wrapper;
 #[cfg(feature = "serde")]
 use crate::util::hex;
 use codec::{Decode, Encode};
-use sp_std::fmt;
-use sp_std::vec::Vec;
+use sp_std::{fmt, vec::Vec};
 
 /// Raw bytes wrapper providing ability to encode/decode in `hex` format.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]

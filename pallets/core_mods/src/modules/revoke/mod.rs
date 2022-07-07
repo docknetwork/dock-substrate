@@ -1,13 +1,13 @@
 use crate as dock;
-use crate::did::{self, Did, DidSignature};
-use crate::keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
-use crate::util::{NonceError, WithNonce};
-use crate::StorageVersion;
-use crate::{Action, ToStateChange};
+use crate::{
+    did::{self, Did, DidSignature},
+    keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT},
+    util::{NonceError, WithNonce},
+    Action, StorageVersion, ToStateChange,
+};
 use alloc::collections::BTreeSet;
 use codec::{Decode, Encode};
-use core::fmt::Debug;
-use core::marker::PhantomData;
+use core::{fmt::Debug, marker::PhantomData};
 use sp_std::vec::Vec;
 
 pub use actions::*;

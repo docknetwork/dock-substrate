@@ -1,9 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod single_key {
-    use crate::bbs_plus::*;
-    use crate::did::Did;
-    use crate::util::*;
+    use crate::{bbs_plus::*, did::Did, util::*};
     use core::fmt::Debug;
     use frame_support::{decl_module, decl_storage, log, pallet_prelude::*};
     use sp_std::prelude::*;

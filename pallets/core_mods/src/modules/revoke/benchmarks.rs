@@ -1,10 +1,8 @@
 use super::*;
-use crate::did::Did;
-use crate::did::DidKey;
+use crate::did::{Did, DidKey};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_core::U256;
-use sp_std::iter::once;
-use sp_std::prelude::*;
+use sp_std::{iter::once, prelude::*};
 use system::RawOrigin;
 
 const MAX_REVOCATIONS: u32 = 1000;

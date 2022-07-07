@@ -1,10 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use common::arith_utils::DivCeil;
-use common::traits::PriceProvider;
+use common::{arith_utils::DivCeil, traits::PriceProvider};
 use core::fmt::Debug;
 use core_mods::{anchor, attest, blob, did, revoke};
-use frame_support::traits::Get;
 use frame_support::{
     decl_error, decl_module,
     dispatch::{
@@ -12,7 +10,7 @@ use frame_support::{
         UnfilteredDispatchable,
     },
     fail,
-    traits::{Currency, ExistenceRequirement, IsSubType, WithdrawReasons},
+    traits::{Currency, ExistenceRequirement, Get, IsSubType, WithdrawReasons},
     weights::{GetDispatchInfo, Pays, Weight},
     Parameter,
 };

@@ -1,6 +1,5 @@
 use super::super::*;
-use crate::util::WrappedActionWithNonce;
-use crate::ToStateChange;
+use crate::{util::WrappedActionWithNonce, ToStateChange};
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
 /// write (through an extrinsic). The nonce starts from the block number when the DID was created to avoid

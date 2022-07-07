@@ -1,15 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub mod single_key {
-    use crate::did::*;
-    use crate::keys_and_sigs::PublicKey;
-    use crate::util::*;
-    use crate::StorageVersion;
+    use crate::{did::*, keys_and_sigs::PublicKey, util::*, StorageVersion};
     use codec::{Decode, Encode};
     use core::fmt::Debug;
-    use frame_support::weights::Weight;
-    use frame_support::*;
-    use frame_support::{log, traits::Get};
+    use frame_support::{log, traits::Get, weights::Weight, *};
     use sp_std::prelude::*;
 
     #[derive(Encode, Decode, Clone, PartialEq, Debug)]

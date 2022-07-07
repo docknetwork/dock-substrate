@@ -1,7 +1,5 @@
 use super::*;
-use crate::did::DidKey;
-use crate::util::IncId;
-use crate::ToStateChange;
+use crate::{did::DidKey, util::IncId, ToStateChange};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_std::prelude::*;
 use system::RawOrigin;

@@ -255,8 +255,7 @@ macro_rules! def_pair {
         impl TestSr25519Pair {
             fn sign(&self, msg: &[u8]) -> sp_core::sr25519::Signature {
                 use rand_chacha::rand_core::SeedableRng;
-                use schnorrkel::context::attach_rng;
-                use schnorrkel::*;
+                use schnorrkel::{context::attach_rng, *};
 
                 let mut transcript = merlin::Transcript::new(b"SigningContext");
                 transcript.append_message(b"", b"substrate");

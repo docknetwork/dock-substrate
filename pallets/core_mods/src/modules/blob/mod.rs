@@ -1,9 +1,11 @@
 //! Generic immutable single-owner storage.
 
 use crate as dock;
-use crate::did;
-use crate::did::{Did, DidSignature};
-use crate::keys_and_sigs::SigValue;
+use crate::{
+    did,
+    did::{Did, DidSignature},
+    keys_and_sigs::SigValue,
+};
 use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::fmt::Debug;

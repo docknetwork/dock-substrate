@@ -57,24 +57,25 @@
 //! This module implement partial replay protection to prevent unauthorized resubmission of votes
 //! from previous rounds.
 
-use crate::revoke::{get_weight_for_did_sigs, DidSigs};
-use crate::util::WithNonce;
-use crate::{did, did::Did};
+use crate::{
+    did,
+    did::Did,
+    revoke::{get_weight_for_did_sigs, DidSigs},
+    util::WithNonce,
+};
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
 };
 use codec::{Decode, Encode};
-use core::default::Default;
-use core::fmt::Debug;
-use core::marker::PhantomData;
+use core::{default::Default, fmt::Debug, marker::PhantomData};
 
-use frame_support::dispatch::PostDispatchInfo;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{
         DispatchError, DispatchErrorWithPostInfo, DispatchResult, DispatchResultWithPostInfo,
+        PostDispatchInfo,
     },
     ensure,
     traits::{Get, UnfilteredDispatchable},

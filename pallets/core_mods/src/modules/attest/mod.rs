@@ -2,8 +2,10 @@
 //! claimgraphs. These attestations are not stored on-chain; rather, the attester chooses a storage
 //! method by specifying an Iri.
 
-use crate::did::{self, Did, DidSignature};
-use crate::keys_and_sigs::SigValue;
+use crate::{
+    did::{self, Did, DidSignature},
+    keys_and_sigs::SigValue,
+};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use frame_support::{

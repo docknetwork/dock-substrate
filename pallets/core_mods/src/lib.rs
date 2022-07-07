@@ -94,14 +94,7 @@ pub mod runtime_api;
 pub mod types;
 pub mod util;
 
-pub use modules::accumulator;
-pub use modules::anchor;
-pub use modules::attest;
-pub use modules::bbs_plus;
-pub use modules::blob;
-pub use modules::did;
-pub use modules::master;
-pub use modules::revoke;
+pub use modules::{accumulator, anchor, attest, bbs_plus, blob, did, master, revoke};
 
 #[cfg(test)]
 mod test_common;

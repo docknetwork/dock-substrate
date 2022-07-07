@@ -1,6 +1,5 @@
 use super::super::*;
-use crate::keys_and_sigs::SigValue;
-use crate::ToStateChange;
+use crate::{keys_and_sigs::SigValue, ToStateChange};
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

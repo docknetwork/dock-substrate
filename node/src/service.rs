@@ -17,9 +17,11 @@ use sc_finality_grandpa::{
 use sc_service::{error::Error as ServiceError, BasePath, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
 use sp_inherents::InherentDataProviders;
-use std::collections::{BTreeMap, HashMap};
-use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::{
+    collections::{BTreeMap, HashMap},
+    sync::{Arc, Mutex},
+    time::Duration,
+};
 
 use crate::cli::Cli;
 

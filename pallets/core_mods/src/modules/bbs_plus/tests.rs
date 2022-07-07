@@ -1,7 +1,8 @@
 use super::*;
-use crate::did::tests::check_did_detail;
-use crate::did::AddControllers;
-use crate::test_common::*;
+use crate::{
+    did::{tests::check_did_detail, AddControllers},
+    test_common::*,
+};
 use frame_support::assert_err;
 use sp_core::{sr25519, H256};
 

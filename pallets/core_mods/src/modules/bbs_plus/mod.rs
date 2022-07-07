@@ -3,11 +3,14 @@
 //! and BBS+ keys are moved to the DID module. Not making this change as it will be a disruption for the client
 //! library. This decision must be revisited if the signature params become irrelevant.
 
-use crate::did::{Controller, Did, DidSignature, OnChainDidDetails};
-use crate::keys_and_sigs::SigValue;
-use crate::types::CurveType;
-use crate::util::IncId;
-use crate::{did, StorageVersion};
+use crate::{
+    did,
+    did::{Controller, Did, DidSignature, OnChainDidDetails},
+    keys_and_sigs::SigValue,
+    types::CurveType,
+    util::IncId,
+    StorageVersion,
+};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 

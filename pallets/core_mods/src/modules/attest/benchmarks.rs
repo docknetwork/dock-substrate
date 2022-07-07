@@ -1,6 +1,8 @@
 use super::*;
-use crate::did::{Did, DidKey, DidSignature};
-use crate::ToStateChange;
+use crate::{
+    did::{Did, DidKey, DidSignature},
+    ToStateChange,
+};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_std::prelude::*;
 use system::RawOrigin;

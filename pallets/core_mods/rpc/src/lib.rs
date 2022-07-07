@@ -2,8 +2,10 @@ pub use self::gen_client::Client as PriceFeedClient;
 // use core_mods::accumulator;
 //use core_mods::bbs_plus;
 use core::marker::PhantomData;
-pub use core_mods::did::{self, Config};
-pub use core_mods::runtime_api::CoreModsApi as CoreModsRuntimeApi;
+pub use core_mods::{
+    did::{self, Config},
+    runtime_api::CoreModsApi as CoreModsRuntimeApi,
+};
 use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
 use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;

@@ -3,8 +3,8 @@ use crate as staking_rewards;
 use frame_support::{assert_noop, assert_ok, parameter_types};
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
-use sp_runtime::curve::PiecewiseLinear;
 use sp_runtime::{
+    curve::PiecewiseLinear,
     testing::Header,
     traits::{BadOrigin, BlakeTwo256, IdentityLookup},
     Perbill, Percent,

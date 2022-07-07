@@ -46,15 +46,9 @@ extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
 
-pub use core_mods::accumulator;
-pub use core_mods::anchor;
-pub use core_mods::attest;
-pub use core_mods::bbs_plus;
-pub use core_mods::blob;
-pub use core_mods::did;
-pub use core_mods::keys_and_sigs;
-pub use core_mods::master;
-pub use core_mods::revoke;
+pub use core_mods::{
+    accumulator, anchor, attest, bbs_plus, blob, did, keys_and_sigs, master, revoke,
+};
 pub mod weight_to_fee;
 
 pub use poa;
@@ -79,24 +73,23 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureOneOf, EnsureRoot,
 };
-use grandpa::fg_primitives;
-use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
 use pallet_sudo as sudo;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::u32_trait::{_1, _2, _3, _4, _5};
 use sp_core::{
     crypto::{KeyTypeId, Public},
+    u32_trait::{_1, _2, _3, _4, _5},
     OpaqueMetadata, H160, H256, U256,
-};
-use sp_runtime::traits::{
-    AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic, IdentifyAccount,
-    NumberFor, OpaqueKeys, StaticLookup, Verify,
 };
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
+    traits::{
+        AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic, IdentifyAccount,
+        NumberFor, OpaqueKeys, StaticLookup, Verify,
+    },
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, ModuleId, MultiSignature, Perbill, Percent, Permill,
     Perquintill, SaturatedConversion,

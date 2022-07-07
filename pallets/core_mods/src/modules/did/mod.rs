@@ -1,11 +1,10 @@
 use crate as dock;
-use crate::keys_and_sigs::PublicKey;
-use crate::keys_and_sigs::SigValue;
-use crate::util::with_nonce::NonceError;
-use crate::util::*;
-use crate::StorageVersion;
-use crate::{deposit_indexed_event, impl_action_with_nonce, impl_bits_conversion, impl_wrapper};
-use crate::{Action, ActionWithNonce};
+use crate::{
+    deposit_indexed_event, impl_action_with_nonce, impl_bits_conversion, impl_wrapper,
+    keys_and_sigs::{PublicKey, SigValue},
+    util::{with_nonce::NonceError, *},
+    Action, ActionWithNonce, StorageVersion,
+};
 pub use actions::*;
 pub use base::{offchain, onchain, signature};
 use codec::{Decode, Encode};
@@ -18,8 +17,11 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
-use sp_std::convert::{TryFrom, TryInto};
-use sp_std::{collections::btree_set::BTreeSet, vec::Vec};
+use sp_std::{
+    collections::btree_set::BTreeSet,
+    convert::{TryFrom, TryInto},
+    vec::Vec,
+};
 use weights::*;
 
 pub use base::*;
