@@ -27,187 +27,188 @@
 // --template
 // node/module-weight-template.hbs
 
-
-#![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight, Weight},
+};
 use sp_std::marker::PhantomData;
 
 /// Weight functions needed for bbs_plus.
 pub trait WeightInfo {
-	fn add_params_sr25519(b: u32, l: u32, ) -> Weight;
-	fn add_params_ed25519(b: u32, l: u32, ) -> Weight;
-	fn add_params_secp256k1(b: u32, l: u32, ) -> Weight;
-	fn remove_params_sr25519() -> Weight;
-	fn remove_params_ed25519() -> Weight;
-	fn remove_params_secp256k1() -> Weight;
-	fn add_public_sr25519(b: u32, ) -> Weight;
-	fn add_public_ed25519(b: u32, ) -> Weight;
-	fn add_public_secp256k1(b: u32, ) -> Weight;
-	fn remove_public_sr25519() -> Weight;
-	fn remove_public_ed25519() -> Weight;
-	fn remove_public_secp256k1() -> Weight;
+    fn add_params_sr25519(b: u32, l: u32) -> Weight;
+    fn add_params_ed25519(b: u32, l: u32) -> Weight;
+    fn add_params_secp256k1(b: u32, l: u32) -> Weight;
+    fn remove_params_sr25519() -> Weight;
+    fn remove_params_ed25519() -> Weight;
+    fn remove_params_secp256k1() -> Weight;
+    fn add_public_sr25519(b: u32) -> Weight;
+    fn add_public_ed25519(b: u32) -> Weight;
+    fn add_public_secp256k1(b: u32) -> Weight;
+    fn remove_public_sr25519() -> Weight;
+    fn remove_public_ed25519() -> Weight;
+    fn remove_public_secp256k1() -> Weight;
 }
 
 /// Weights for bbs_plus using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn add_params_sr25519(b: u32, l: u32, ) -> Weight {
-		(65_606_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((9_000 as Weight).saturating_mul(b as Weight))
-			// Standard Error: 0
-			.saturating_add((3_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
-	}
-	fn add_params_ed25519(b: u32, l: u32, ) -> Weight {
-		(64_302_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((5_000 as Weight).saturating_mul(b as Weight))
-			// Standard Error: 0
-			.saturating_add((10_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
-	}
-	fn add_params_secp256k1(b: u32, _l: u32, ) -> Weight {
-		(215_069_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((6_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(3 as Weight))
-	}
-	fn remove_params_sr25519() -> Weight {
-		(68_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	fn remove_params_ed25519() -> Weight {
-		(65_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	fn remove_params_secp256k1() -> Weight {
-		(214_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(3 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	fn add_public_sr25519(b: u32, ) -> Weight {
-		(73_809_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((2_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	fn add_public_ed25519(b: u32, ) -> Weight {
-		(71_616_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((1_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	fn add_public_secp256k1(b: u32, ) -> Weight {
-		(219_940_000 as Weight)
-			// Standard Error: 1_000
-			.saturating_add((4_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	fn remove_public_sr25519() -> Weight {
-		(73_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	fn remove_public_ed25519() -> Weight {
-		(71_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
-	fn remove_public_secp256k1() -> Weight {
-		(219_000_000 as Weight)
-			.saturating_add(T::DbWeight::get().reads(4 as Weight))
-			.saturating_add(T::DbWeight::get().writes(2 as Weight))
-	}
+    fn add_params_sr25519(b: u32, l: u32) -> Weight {
+        (65_606_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((9_000 as Weight).saturating_mul(b as Weight))
+            // Standard Error: 0
+            .saturating_add((3_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+    }
+    fn add_params_ed25519(b: u32, l: u32) -> Weight {
+        (64_302_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((5_000 as Weight).saturating_mul(b as Weight))
+            // Standard Error: 0
+            .saturating_add((10_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+    }
+    fn add_params_secp256k1(b: u32, _l: u32) -> Weight {
+        (215_069_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((6_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+    }
+    fn remove_params_sr25519() -> Weight {
+        (68_000_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
+    fn remove_params_ed25519() -> Weight {
+        (65_000_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
+    fn remove_params_secp256k1() -> Weight {
+        (214_000_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
+    fn add_public_sr25519(b: u32) -> Weight {
+        (73_809_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((2_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
+    fn add_public_ed25519(b: u32) -> Weight {
+        (71_616_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((1_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
+    fn add_public_secp256k1(b: u32) -> Weight {
+        (219_940_000 as Weight)
+            // Standard Error: 1_000
+            .saturating_add((4_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
+    fn remove_public_sr25519() -> Weight {
+        (73_000_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
+    fn remove_public_ed25519() -> Weight {
+        (71_000_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
+    fn remove_public_secp256k1() -> Weight {
+        (219_000_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	fn add_params_sr25519(b: u32, l: u32, ) -> Weight {
-		(65_606_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((9_000 as Weight).saturating_mul(b as Weight))
-			// Standard Error: 0
-			.saturating_add((3_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn add_params_ed25519(b: u32, l: u32, ) -> Weight {
-		(64_302_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((5_000 as Weight).saturating_mul(b as Weight))
-			// Standard Error: 0
-			.saturating_add((10_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn add_params_secp256k1(b: u32, _l: u32, ) -> Weight {
-		(215_069_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((6_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(3 as Weight))
-	}
-	fn remove_params_sr25519() -> Weight {
-		(68_000_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn remove_params_ed25519() -> Weight {
-		(65_000_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn remove_params_secp256k1() -> Weight {
-		(214_000_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(3 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn add_public_sr25519(b: u32, ) -> Weight {
-		(73_809_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((2_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn add_public_ed25519(b: u32, ) -> Weight {
-		(71_616_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((1_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn add_public_secp256k1(b: u32, ) -> Weight {
-		(219_940_000 as Weight)
-			// Standard Error: 1_000
-			.saturating_add((4_000 as Weight).saturating_mul(b as Weight))
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn remove_public_sr25519() -> Weight {
-		(73_000_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn remove_public_ed25519() -> Weight {
-		(71_000_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
-	fn remove_public_secp256k1() -> Weight {
-		(219_000_000 as Weight)
-			.saturating_add(RocksDbWeight::get().reads(4 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(2 as Weight))
-	}
+    fn add_params_sr25519(b: u32, l: u32) -> Weight {
+        (65_606_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((9_000 as Weight).saturating_mul(b as Weight))
+            // Standard Error: 0
+            .saturating_add((3_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+    }
+    fn add_params_ed25519(b: u32, l: u32) -> Weight {
+        (64_302_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((5_000 as Weight).saturating_mul(b as Weight))
+            // Standard Error: 0
+            .saturating_add((10_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+    }
+    fn add_params_secp256k1(b: u32, _l: u32) -> Weight {
+        (215_069_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((6_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+    }
+    fn remove_params_sr25519() -> Weight {
+        (68_000_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
+    fn remove_params_ed25519() -> Weight {
+        (65_000_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
+    fn remove_params_secp256k1() -> Weight {
+        (214_000_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
+    fn add_public_sr25519(b: u32) -> Weight {
+        (73_809_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((2_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
+    fn add_public_ed25519(b: u32) -> Weight {
+        (71_616_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((1_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
+    fn add_public_secp256k1(b: u32) -> Weight {
+        (219_940_000 as Weight)
+            // Standard Error: 1_000
+            .saturating_add((4_000 as Weight).saturating_mul(b as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
+    fn remove_public_sr25519() -> Weight {
+        (73_000_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
+    fn remove_public_ed25519() -> Weight {
+        (71_000_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
+    fn remove_public_secp256k1() -> Weight {
+        (219_000_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
+    }
 }

@@ -5,6 +5,7 @@ use crate::util::IncId;
 use crate::{did, StorageVersion};
 pub use actions::*;
 use codec::{Decode, Encode};
+use common::arith_utils::DivCeil;
 use core::fmt::Debug;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -312,7 +313,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
                 .flatten()
                 .map(|v| v.len() as u32)
                 .sum::<u32>()
-                .checked_div(acc.additions.as_ref().map_or(0, |v| v.len()) as u32)
+                .checked_div_ceil(acc.additions.as_ref().map_or(0, |v| v.len()) as u32)
                 .unwrap_or(0),
             acc.removals.as_ref().map_or(0, |v| v.len()) as u32,
             acc.removals
@@ -320,7 +321,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
                 .flatten()
                 .map(|v| v.len() as u32)
                 .sum::<u32>()
-                .checked_div(acc.removals.as_ref().map_or(0, |v| v.len()) as u32)
+                .checked_div_ceil(acc.removals.as_ref().map_or(0, |v| v.len()) as u32)
                 .unwrap_or(0),
             acc.witness_update_info.as_ref().map_or(0, |v| v.len()) as u32,
         )

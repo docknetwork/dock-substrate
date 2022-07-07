@@ -27,38 +27,39 @@
 // --template
 // node/module-weight-template.hbs
 
-
-#![cfg_attr(rustfmt, rustfmt_skip)]
 #![allow(unused_parens)]
 #![allow(unused_imports)]
 
-use frame_support::{traits::Get, weights::{Weight, constants::RocksDbWeight}};
+use frame_support::{
+    traits::Get,
+    weights::{constants::RocksDbWeight, Weight},
+};
 use sp_std::marker::PhantomData;
 
 /// Weight functions needed for anchor.
 pub trait WeightInfo {
-	fn deploy(l: u32, ) -> Weight;
+    fn deploy(l: u32) -> Weight;
 }
 
 /// Weights for anchor using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-	fn deploy(l: u32, ) -> Weight {
-		(16_997_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((1_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(T::DbWeight::get().reads(1 as Weight))
-			.saturating_add(T::DbWeight::get().writes(1 as Weight))
-	}
+    fn deploy(l: u32) -> Weight {
+        (16_997_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((1_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(T::DbWeight::get().reads(1 as Weight))
+            .saturating_add(T::DbWeight::get().writes(1 as Weight))
+    }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-	fn deploy(l: u32, ) -> Weight {
-		(16_997_000 as Weight)
-			// Standard Error: 0
-			.saturating_add((1_000 as Weight).saturating_mul(l as Weight))
-			.saturating_add(RocksDbWeight::get().reads(1 as Weight))
-			.saturating_add(RocksDbWeight::get().writes(1 as Weight))
-	}
+    fn deploy(l: u32) -> Weight {
+        (16_997_000 as Weight)
+            // Standard Error: 0
+            .saturating_add((1_000 as Weight).saturating_mul(l as Weight))
+            .saturating_add(RocksDbWeight::get().reads(1 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(1 as Weight))
+    }
 }

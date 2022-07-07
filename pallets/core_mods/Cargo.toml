@@ -11,6 +11,10 @@ targets = ['x86_64-unknown-linux-gnu']
 [dependencies.bitflags]
 version = "1.3.2"
 
+[dependencies.common]
+path = '../../common'
+version = '0.0.1'
+
 [dependencies.serde-hex]
 package = "hex"
 default-features = false

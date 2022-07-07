@@ -15,9 +15,12 @@ pub mod traits {
 }
 
 pub mod arith_utils {
-    pub trait DivCeil {
+    pub trait DivCeil: Sized {
         fn div_ceil(&self, other: Self) -> Self;
+
+        fn checked_div_ceil(&self, other: Self) -> Option<Self>;
     }
+
     impl DivCeil for u32 {
         fn div_ceil(&self, other: Self) -> Self {
             let (q, r) = (self / other, self % other);
@@ -26,6 +29,12 @@ pub mod arith_utils {
             } else {
                 q + 1_u32
             }
+        }
+
+        fn checked_div_ceil(&self, other: Self) -> Option<Self> {
+            let (q, r) = (self.checked_div(other)?, self.checked_rem(other)?);
+
+            if r == 0 { q } else { q + 1_u32 }.into()
         }
     }
 }

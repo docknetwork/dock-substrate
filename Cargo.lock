@@ -874,6 +874,7 @@ name = "core_mods"
 version = "0.5.0"
 dependencies = [
  "bitflags",
+ "common",
  "frame-benchmarking",
  "frame-support",
  "frame-system",

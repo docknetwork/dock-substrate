@@ -1,4 +1,5 @@
 use super::*;
+use crate::did::DidKey;
 use crate::util::IncId;
 use crate::ToStateChange;
 use frame_benchmarking::{benchmarks, whitelisted_caller};

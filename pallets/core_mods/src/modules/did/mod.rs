@@ -9,6 +9,7 @@ use crate::{Action, ActionWithNonce};
 pub use actions::*;
 pub use base::{offchain, onchain, signature};
 use codec::{Decode, Encode};
+use common::arith_utils::DivCeil;
 use core::fmt::Debug;
 pub use details_aggregator::*;
 use frame_support::{
@@ -365,7 +366,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
                 .iter()
                 .map(|v| v.len() as u32)
                 .sum::<u32>()
-                .checked_div(endpoint.origins.len() as u32)
+                .checked_div_ceil(endpoint.origins.len() as u32)
                 .unwrap_or(0),
         )
     }
