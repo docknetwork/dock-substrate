@@ -380,7 +380,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                     ),
                 ],
                 stash: 1_000 * DOCK,
-                validator_count: 3,
+                validator_count: 1,
                 poa_last_block: Hash::from_str(
                     "0d84a546e4fdde4bf7c56c764a42457ee05b45bdc0c20e765903ab96465b8b3e",
                 )
