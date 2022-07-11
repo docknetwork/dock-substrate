@@ -1,7 +1,7 @@
 - hosts: '{{ host }}'
   tasks:
   - name: Pull latest code
-    when: rebuild_node | bool
+    when: rebuild_node | default('true') | bool
     shell:
       chdir: /home/ubuntu/dock-substrate
       cmd: git pull
@@ -19,14 +19,18 @@
 
   # purge-chain command does not remove frontier folder. Not removing entire `dock_pos_testnet` to keep the keys
   - name: Purge db
+    become: yes
+    become_method: sudo
     file:
       state: absent
-      path: /home/ubuntu/.local/share/dock-node/chains/dock_pos_testnet/db
+      path: /home/ubuntu/dock-node/chains/dock_pos_testnet/db
 
   - name: Purge frontier
+    become: yes
+    become_method: sudo
     file:
       state: absent
-      path: /home/ubuntu/.local/share/dock-node/chains/dock_pos_testnet/frontier
+      path: /home/ubuntu/dock-node/chains/dock_pos_testnet/frontier
 
   - name: Start node
     become: yes
