@@ -313,8 +313,8 @@ pub fn pos_testnet_config() -> ChainSpec {
                     "3BHXvWftruGuZZDnPgwnhp3C4ghba4QY6MEURcvLYH6wtcwQ",
                     "37uJHxaphdga4gy9zNk1KDgwMZJF3Zp2gkzSkDWRPgThR4nN",
                     "3AJJBL4KQ49h32yQuu1HkSnSJUjSooZED9Z2De2zE2EPXxbN",
-                    "3866t5dsM4LyVavJzmqySgBj6auiFGHFGZc7WjSsEjehVSpM",
-                    "38aKrxaL5ES46s6RHhB9ue6rwFbh6vVdzbY7KGcfYMAytWNS",
+                    "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF",	// Test issuer
+                    "37yrw7s12i6VtGHAA6XkKL6onUTpk4KXoeCAx6eiW9Xc1KjC", // Faucet
                     "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5", // Council 2
                 ]
                 .iter()
