@@ -1,4 +1,4 @@
-FROM ubuntu:bionic AS builder
+FROM ubuntu:jammy AS builder
 
 # The node will be built in this directory
 WORKDIR /dock-node
@@ -6,7 +6,7 @@ WORKDIR /dock-node
 RUN apt -y update && \
 	apt install -y --no-install-recommends \
 	software-properties-common curl git file binutils binutils-dev \
-	make cmake ca-certificates g++ zip dpkg-dev python openssl gettext\
+	make cmake ca-certificates g++ zip dpkg-dev openssl gettext\
 	build-essential pkg-config libssl-dev libudev-dev time clang
 
 # install rustup
@@ -44,7 +44,7 @@ ARG features
 RUN cargo build --release $features
 
 # Final stage. Copy the node executable and the script
-FROM debian:stretch-slim
+FROM ubuntu:jammy
 
 WORKDIR /dock-node
 
