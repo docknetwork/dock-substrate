@@ -53,7 +53,6 @@ impl<T: Config + Debug> OffChainDidDetails<T> {
 /// does not check if the bytes are indeed valid as per the enum variant
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(tag = "type", content = "data"))]
 pub enum OffChainDidDocRef {
     /// Content IDentifier as per https://github.com/multiformats/cid.
     CID(WrappedBytes),

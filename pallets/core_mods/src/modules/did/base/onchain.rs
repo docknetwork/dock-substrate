@@ -13,7 +13,7 @@ pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct OnChainDidDetails {
     /// Number of keys added for this DID so far.
-    pub key_counter: IncId,
+    pub last_key_id: IncId,
     /// Number of currently active controller keys.
     pub active_controller_keys: u32,
     /// Number of currently active controllers.
@@ -39,12 +39,12 @@ impl<T: Config + Debug> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails
 impl OnChainDidDetails {
     /// Constructs new on-chain DID details using supplied params.
     ///
-    /// - `key_counter` - last incremental identifier of the key being used for the given DID.
+    /// - `last_key_id` - last incremental identifier of the key being used for the given DID.
     /// - `active_controller_keys` - amount of currently active controller keys for the given DID.
     /// - `active_controllers` - amount of currently active controllers for the given DID.
-    pub fn new(key_counter: IncId, active_controller_keys: u32, active_controllers: u32) -> Self {
+    pub fn new(last_key_id: IncId, active_controller_keys: u32, active_controllers: u32) -> Self {
         Self {
-            key_counter,
+            last_key_id,
             active_controller_keys: active_controller_keys.into(),
             active_controllers: active_controllers.into(),
         }
@@ -67,8 +67,8 @@ impl<T: Config + Debug> Module<T> {
         }
         ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
 
-        let mut key_counter = IncId::new();
-        for (key, key_id) in keys_to_insert.into_iter().zip(&mut key_counter) {
+        let mut last_key_id = IncId::new();
+        for (key, key_id) in keys_to_insert.into_iter().zip(&mut last_key_id) {
             DidKeys::insert(&did, key_id, key);
         }
 
@@ -77,7 +77,7 @@ impl<T: Config + Debug> Module<T> {
         }
 
         let did_details = WithNonce::new(OnChainDidDetails::new(
-            key_counter,
+            last_key_id,
             controller_keys_count,
             controllers.len() as u32,
         ));

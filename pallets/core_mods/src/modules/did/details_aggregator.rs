@@ -10,7 +10,6 @@ use super::*;
 )]
 pub struct AggregatedDidDetailsResponse<T: Config> {
     did: Did,
-    #[cfg_attr(feature = "serde", serde(flatten))]
     details: StoredDidDetails<T>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     keys: Option<Vec<DidKeyWithId>>,

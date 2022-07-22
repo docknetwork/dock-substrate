@@ -25,7 +25,7 @@ impl<T: Config + Debug> Module<T> {
         AddBBSPlusPublicKey {
             did: owner, key, ..
         }: AddBBSPlusPublicKey<T>,
-        OnChainDidDetails { key_counter, .. }: &mut OnChainDidDetails,
+        OnChainDidDetails { last_key_id, .. }: &mut OnChainDidDetails,
     ) -> DispatchResult {
         ensure!(
             T::PublicKeyMaxSize::get() as usize >= key.bytes.len(),
@@ -39,9 +39,9 @@ impl<T: Config + Debug> Module<T> {
             // Note: Once we have more than 1 curve type, it should check that params and key
             // both have same curve type
         };
-        BbsPlusKeys::insert(owner, key_counter.inc(), key);
+        BbsPlusKeys::insert(owner, last_key_id.inc(), key);
 
-        Self::deposit_event(Event::KeyAdded(owner, *key_counter));
+        Self::deposit_event(Event::KeyAdded(owner, *last_key_id));
         Ok(())
     }
 

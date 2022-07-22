@@ -40,7 +40,6 @@ impl Index<RangeFull> for Did {
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
-#[cfg_attr(feature = "serde", serde(tag = "type"))]
 pub enum StoredDidDetails<T: Config> {
     /// For off-chain DID, most data is stored off-chain.
     OffChain(OffChainDidDetails<T>),

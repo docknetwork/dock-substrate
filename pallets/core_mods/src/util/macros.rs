@@ -341,12 +341,4 @@ macro_rules! bench_with_all_pairs {
             $($($other)*)?
         }
     };
-    ($bench_name: ident for $pair: ident { { $($init: tt)* } $($body: tt)+ } $($rest: tt)*) => {
-        $bench_name {
-            $($init)*
-            let $pair = $crate::def_pair!($pair, &[1; 32]);
-            $($body)+
-        }
-        $($rest)*
-    };
 }
