@@ -22,31 +22,15 @@
   "Bytes65": {
     "value": "[u8;65]"
   },
-  "WrappedBytes": {
-    "0": "Vec<u8>"
-  },
-  "IncId": {
-    "0": "u32"
-  },
+  "WrappedBytes": "Vec<u8>",
+  "IncId": "u32",
   "RawDid": "[u8;32]",
-  "Did": {
-    "0": "RawDid"
-  },
-  "Attester": {
-    "0": "Did"
-  },
-  "BlobOwner": {
-    "0": "Did"
-  },
-  "Controller": {
-    "0": "Did"
-  },
-  "BBSPlusParamsOwner": {
-    "0": "Did"
-  },
-  "AccumulatorOwner": {
-    "0": "Did"
-  },
+  "Did": "RawDid",
+  "Attester": "Did",
+  "BlobOwner": "Did",
+  "Controller": "Did",
+  "BBSPlusParamsOwner": "Did",
+  "AccumulatorOwner": "Did",
   "PublicKey": {
     "_enum": {
       "Sr25519": "Bytes32",
@@ -140,28 +124,60 @@
     "did": "Did",
     "nonce": "BlockNumber"
   },
+  "AggregatedDidDetailsRequestParams": "u8",
+  "DidKeyWithId": {
+    "id": "IncId",
+    "key": "DidKey"
+  },
+  "ServiceEndpointWithId": {
+    "id": "WrappedBytes",
+    "endpoint": "ServiceEndpoint"
+  },
+  "AggregatedDidDetailsResponse": {
+    "id": "Did",
+    "details": "StoredDidDetails",
+    "keys": "Option<Vec<DidKeyWithId>>",
+    "controllers": "Option<Vec<Controller>>",
+    "serviceEndpoints": "Option<Vec<ServiceEndpointWithId>>"
+  },
   "RegistryId": "[u8;32]",
   "RevokeId": "[u8;32]",
   "Registry": {
     "policy": "Policy",
     "add_only": "bool"
   },
-  "Revoke": {
+  "AddRegistry": {
+    "id": "RegistryId",
+    "registry": "Registry"
+  },
+  "RevokeRaw": {
     "registry_id": "RegistryId",
-    "revoke_ids": "BTreeSet<RevokeId>",
-    "last_modified": "BlockNumber"
+    "revoke_ids": "BTreeSet<RevokeId>"
+  },
+  "UnRevokeRaw": {
+    "registry_id": "RegistryId",
+    "revoke_ids": "BTreeSet<RevokeId>"
+  },
+  "RemoveRegistryRaw": {
+    "registry_id": "RegistryId"
+  },
+  "Revoke": {
+    "nonce": "BlockNumber",
+    "registry_id": "RegistryId",
+    "revoke_ids": "BTreeSet<RevokeId>"
   },
   "UnRevoke": {
+    "nonce": "BlockNumber",
     "registry_id": "RegistryId",
-    "revoke_ids": "BTreeSet<RevokeId>",
-    "last_modified": "BlockNumber"
+    "revoke_ids": "BTreeSet<RevokeId>"
   },
   "RemoveRegistry": {
-    "registry_id": "RegistryId",
-    "last_modified": "BlockNumber"
+    "nonce": "BlockNumber",
+    "registry_id": "RegistryId"
   },
-  "PAuth": {
-    "auths": "BTreeMap<Did, (DidSignature, BlockNumber)>"
+  "DidSigs": {
+    "sig": "DidSignature",
+    "nonce": "BlockNumber"
   },
   "Policy": {
     "_enum": {
@@ -183,10 +199,10 @@
     "swap_bonuses": "Vec<(Balance, BlockNumber)>",
     "vesting_bonuses": "Vec<(Balance, Balance, BlockNumber)>"
   },
-  "MasterVoteSigningPayload": {
+  "MasterVote": {
+    "nonce": "BlockNumber",
     "proposal": "Vec<u8>",
-    "round_no": "u64",
-    "nonce": "BlockNumber"
+    "round_no": "u64"
   },
   "Membership": {
     "members": "BTreeSet<Did>",
@@ -249,9 +265,7 @@
     "did": "Controller",
     "nonce": "BlockNumber"
   },
-  "AccumulatorId": {
-    "0": "[u8;32]"
-  },
+  "AccumulatorId": "[u8;32]",
   "AccumParametersStorageKey": "(AccumulatorOwner, IncId)",
   "AccumPublicKeyStorageKey": "(AccumulatorOwner, IncId)",
   "AccumulatorParameters": {
@@ -306,8 +320,12 @@
   },
   "RemoveAccumulator": {
     "id": "AccumulatorId",
+    "nonce": "BlockNumber"
+  },
+  "AccumulatorWithUpdateInfo": {
     "created_at": "BlockNumber",
-    "nonce": "u32"
+    "last_updated_at": "BlockNumber",
+    "accumulator": "Accumulator"
   },
   "UpdateAccumulator": {
     "id": "AccumulatorId",
@@ -315,8 +333,7 @@
     "additions": "Option<Vec<Vec<u8>>>",
     "removals": "Option<Vec<Vec<u8>>>",
     "witness_update_info": "Option<Vec<u8>>",
-    "created_at": "BlockNumber",
-    "nonce": "u32"
+    "nonce": "BlockNumber"
   },
   "StateChange": {
     "_enum": {
@@ -327,11 +344,11 @@
       "AddServiceEndpoint": "AddServiceEndpoint",
       "RemoveServiceEndpoint": "RemoveServiceEndpoint",
       "DidRemoval": "DidRemoval",
-      "Revoke": "RevokeSigningPayload",
-      "UnRevoke": "UnRevokeSigningPayload",
-      "RemoveRegistry": "RemoveRegistrySigningPayload",
+      "Revoke": "Revoke",
+      "UnRevoke": "UnRevoke",
+      "RemoveRegistry": "RemoveRegistry",
       "AddBlob": "AddBlob",
-      "MasterVote": "MasterVoteSigningPayload",
+      "MasterVote": "MasterVote",
       "SetAttestationClaim": "SetAttestationClaim",
       "AddBBSPlusParams": "AddBBSPlusParams",
       "AddBBSPlusPublicKey": "AddBBSPlusPublicKey",

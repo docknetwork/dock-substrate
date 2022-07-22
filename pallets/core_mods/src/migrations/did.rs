@@ -23,21 +23,24 @@ pub mod single_key {
             let (
                 KeyDetail {
                     public_key,
-                    controller,
+                    ..
                 },
                 nonce,
             ) = record;
 
+            // BBS+ keys would have surely been created after the key in DID module so their indices
+            // will start from 2
             let mut key_counter = single_key_bbs
                 .then(|| IncId::from(super::super::bbs_plus::single_key::DidCounters::get(did).1))
                 .unwrap_or_default();
+            key_counter.inc();
 
             DidKeys::insert(
                 did,
-                key_counter.inc(),
+                IncId::from(1u32),
                 DidKey::new_with_all_relationships(public_key),
             );
-            DidControllers::insert(did, Controller(controller), ());
+            DidControllers::insert(did, Controller(did), ());
             let did_details: StoredDidDetails<T> =
                 WithNonce::new_with_nonce(OnChainDidDetails::new(key_counter, 1u32, 1u32), nonce)
                     .into();
