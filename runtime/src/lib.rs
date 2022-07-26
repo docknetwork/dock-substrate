@@ -853,6 +853,8 @@ parameter_types! {
     pub const DesiredMembers: u32 = 6;
     pub const DesiredRunnersUp: u32 = 3;
     pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
+    /// 3 days in blocks for each candidate to be allowed for the election
+    pub CandidacyDelay: <Runtime as frame_system::Config>::BlockNumber = 86400u32.into();
 }
 
 // Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
@@ -863,6 +865,7 @@ impl pallet_elections_phragmen::Config for Runtime {
     type ModuleId = ElectionsPhragmenModuleId;
     type Currency = Balances;
     type ChangeMembers = Council;
+    type CandidacyDelay = CandidacyDelay;
     // NOTE: this implies that council's genesis members cannot be set directly and must come from
     // this module.
     type InitializeMembers = Council;
