@@ -3,8 +3,8 @@
 pub mod single_key {
     use crate::{bbs_plus, bbs_plus::Config, did::Did, util::*};
     use core::fmt::Debug;
-    use sp_std::collections::btree_map::BTreeMap;
     use frame_support::{decl_module, decl_storage, log, pallet_prelude::*};
+    use sp_std::collections::btree_map::BTreeMap;
     use sp_std::prelude::*;
 
     decl_storage! {

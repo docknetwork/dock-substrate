@@ -69,6 +69,7 @@ impl<T: Config + Debug> Module<T> {
     pub(super) fn remove_public_key_(
         RemoveBBSPlusPublicKey {
             key_ref: (did, counter),
+            did: owner,
             ..
         }: RemoveBBSPlusPublicKey<T>,
         _: &mut OnChainDidDetails,
@@ -77,6 +78,8 @@ impl<T: Config + Debug> Module<T> {
             BbsPlusKeys::contains_key(&did, &counter),
             Error::<T>::PublicKeyDoesntExist
         );
+
+        ensure!(did == owner, Error::<T>::NotOwner);
 
         BbsPlusKeys::remove(&did, &counter);
 

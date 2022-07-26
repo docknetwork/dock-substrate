@@ -1,7 +1,6 @@
 use super::*;
 use crate::{did::DidKey, ToStateChange};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
-use sp_core::{sr25519, Pair};
 use sp_std::prelude::*;
 use system::RawOrigin;
 

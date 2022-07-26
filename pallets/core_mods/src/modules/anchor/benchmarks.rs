@@ -1,5 +1,4 @@
 use super::*;
-use crate::did::{Did, DidKey, DidSignature};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_std::prelude::*;
 use system::RawOrigin;

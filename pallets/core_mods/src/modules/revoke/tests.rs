@@ -28,12 +28,6 @@ where
         .collect()
 }
 
-pub fn inc_nonce(d: &Did) {
-    let mut did_detail = DIDModule::onchain_did_details(&d).unwrap();
-    did_detail.nonce = did_detail.next_nonce();
-    DIDModule::insert_did_details(*d, did_detail);
-}
-
 pub fn get_nonces(signers: &[(Did, &sr25519::Pair)]) -> BTreeMap<Did, u64> {
     let mut nonces = BTreeMap::new();
     for (d, _) in signers {

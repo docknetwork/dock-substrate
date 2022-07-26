@@ -673,6 +673,18 @@ fn add_remove_public_key() {
         let rf = (author.clone(), 3u8.into());
         let rk = RemoveBBSPlusPublicKey {
             key_ref: rf,
+            did: author_1.clone(),
+            nonce: next_nonce_1,
+        };
+        let sig = sign_remove_key(&author_kp_1, &rk, author_1.clone(), 1);
+        assert_err!(
+            BBSPlusMod::remove_public_key(Origin::signed(1), rk, sig.clone()),
+            Error::<Test>::NotOwner
+        );
+
+        let rf = (author.clone(), 3u8.into());
+        let rk = RemoveBBSPlusPublicKey {
+            key_ref: rf,
             did: author.clone(),
             nonce: next_nonce,
         };

@@ -20,13 +20,7 @@ pub mod single_key {
 
         Dids::<T>::translate(|did: Did, record| {
             records += 1;
-            let (
-                KeyDetail {
-                    public_key,
-                    ..
-                },
-                nonce,
-            ) = record;
+            let (KeyDetail { public_key, .. }, nonce) = record;
 
             // BBS+ keys would have surely been created after the key in DID module so their indices
             // will start from 2
