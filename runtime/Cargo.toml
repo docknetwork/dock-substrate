@@ -322,49 +322,49 @@ optional = true
 [dependencies.pallet-evm]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 #path = '../../../frontier/frame/evm'
 
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.pallet-evm-precompile-simple]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 
 [dependencies.pallet-evm-precompile-sha3fips]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 
 [dependencies.pallet-evm-precompile-ed25519]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 
 [dependencies.pallet-evm-precompile-modexp]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 
 [dependencies.pallet-evm-precompile-bn128]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 
 [dependencies.pallet-evm-precompile-dispatch]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 
 [dependencies.fp-rpc]
 default-features = false
 git = 'https://github.com/olegnn/frontier.git'
-rev = 'c2d0ab397b48f0959b671d14a7db8945c6dbe5de'
+rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]
