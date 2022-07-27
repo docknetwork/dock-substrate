@@ -24,43 +24,43 @@ version = '1.0.119'
 [dependencies.frame-support]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-std]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-core]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-api]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [dependencies.pallet-evm]
 default-features = false
-git = 'https://github.com/olegnn/frontier.git'
-rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '18568ebcc98de8d6c3aac52777146a59a2188be9'
 #path = '../../../../frontier/frame/evm'
 
 [dependencies.common]
@@ -71,20 +71,20 @@ version = '0.0.1'
 package = 'pallet-balances'
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [dev-dependencies.timestamp]
 package = 'pallet-timestamp'
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [dev-dependencies.sp-io]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/olegnn/substrate.git"
+git = "https://github.com/docknetwork/substrate.git"
 branch = "frontier"
 
 [features]

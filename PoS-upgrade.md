@@ -1,6 +1,6 @@
 # PoS upgrade
 As there is no way to change consensus algorithm from Aura to Babe through a forkless upgrade, we will fork the chain with 
-a process [re-genesis](https://github.com/olegnn/substrate/issues/7458), i.e. we will start a new chain with new 
+a process [re-genesis](https://github.com/docknetwork/substrate/issues/7458), i.e. we will start a new chain with new 
 genesis, but the state (and not the blocks) of the old chain (PoA) will be included in the new chain's genesis so that account balances, 
 contracts, DIDs, etc are not lost. This new genesis will also include the PoA chain's last block hash. The new chain-will have 
 new `spec_name` so that a client can simultaneously connect to both chains (we will be hosting a PoA chain for a while). Below 

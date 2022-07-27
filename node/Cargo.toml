@@ -28,136 +28,136 @@ version = '0.18.0'
 
 [dependencies.sc-basic-authorship]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-cli]
 optional = true
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-finality-grandpa-warp-sync]
 optional = true
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-client-api]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-consensus]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 
 
 [dependencies.sc-consensus-babe]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-consensus-babe-rpc]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-consensus-epochs]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-consensus-slots]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-executor]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-finality-grandpa]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-finality-grandpa-rpc]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-network]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-authority-discovery]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-service]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-transaction-pool]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-telemetry]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-sync-state-rpc]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-authority-discovery]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-core]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-finality-grandpa]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-consensus]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-consensus-babe]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-inherents]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-runtime]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-transaction-pool]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [build-dependencies.substrate-build-script-utils]
@@ -166,109 +166,109 @@ version = '3.0.0'
 
 [dependencies.sc-rpc]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-rpc-api]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sc-chain-spec]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-api]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-block-builder]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-blockchain]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.sp-keystore]
 version = '0.9.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.pallet-im-online]
 default-features = false
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.pallet-authority-discovery]
 default-features = false
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.node-inspect]
 optional = true
 version = '0.8.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.frame-benchmarking]
 default-features = false
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.frame-benchmarking-cli]
 optional = true
 default-features = false
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.substrate-frame-rpc-system]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.pallet-transaction-payment-rpc]
 version = '3.0.0'
-git = 'https://github.com/olegnn/substrate.git'
+git = 'https://github.com/docknetwork/substrate.git'
 branch = "frontier"
 
 [dependencies.pallet-ethereum]
 default-features = false
-git = 'https://github.com/olegnn/frontier.git'
-rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '18568ebcc98de8d6c3aac52777146a59a2188be9'
 #path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-rpc]
-git = 'https://github.com/olegnn/frontier.git'
-rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '18568ebcc98de8d6c3aac52777146a59a2188be9'
 #path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
-git = 'https://github.com/olegnn/frontier.git'
-rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '18568ebcc98de8d6c3aac52777146a59a2188be9'
 #path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
-git = 'https://github.com/olegnn/frontier.git'
-rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '18568ebcc98de8d6c3aac52777146a59a2188be9'
 #path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
-git = 'https://github.com/olegnn/frontier.git'
-rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '18568ebcc98de8d6c3aac52777146a59a2188be9'
 #path = '../../../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
-git = 'https://github.com/olegnn/frontier.git'
-rev = '691ed872f1c1adb82e3b6926504818c4a1386c6f'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '18568ebcc98de8d6c3aac52777146a59a2188be9'
 #path = '../../../frontier/client/db'
 
 [dependencies.poa_rpc]

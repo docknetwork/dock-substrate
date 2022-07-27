@@ -853,8 +853,8 @@ parameter_types! {
     pub const DesiredMembers: u32 = 6;
     pub const DesiredRunnersUp: u32 = 3;
     pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
-    /// 3 days in blocks for each candidate to be allowed for the election
-    pub CandidacyDelay: <Runtime as frame_system::Config>::BlockNumber = 86400u32.into();
+    /// Require 3 days in blocks for each candidate to be allowed for the election.
+    pub const CandidacyDelay: u32 = 86400;
 }
 
 // Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
@@ -886,7 +886,7 @@ parameter_types! {
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 10;
     /// Proposal with lifetime less than 2 hours (in blocks) requires to be approved by all members.
-    pub ShortTimeProposal: <Runtime as frame_system::Config>::BlockNumber = 2400u32.into();
+    pub const ShortTimeProposal: u32 = 2400;
 }
 
 type CouncilCollective = pallet_collective::Instance1;
