@@ -79,7 +79,7 @@ impl balances::Config for TestRuntime {
     type MaxLocks = ();
 }
 
-impl Trait for TestRuntime {
+impl Config for TestRuntime {
     type Currency = Balances;
 }
 

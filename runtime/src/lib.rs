@@ -1,8 +1,10 @@
 //! Dock testnet runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![cfg_attr(not(feature = "std"), feature(alloc_error_handler))]
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
+// #![cfg_attr(not(feature = "std"), default_alloc_error_handler)]
 
 // Make the WASM_BINARY available, but hide WASM_BINARY_BLOATY.
 #[cfg(feature = "std")]
@@ -13,6 +15,29 @@ mod wasm {
     #[allow(dead_code)]
     const _: Option<&[u8]> = WASM_BINARY_BLOATY;
 }
+
+#[cfg(not(feature = "std"))]
+mod wasm_handlers {
+    #[panic_handler]
+    #[no_mangle]
+    pub fn panic(info: &core::panic::PanicInfo) -> ! {
+        unsafe {
+            let message = sp_std::alloc::format!("{}", info);
+            log::error!("{}", message);
+            // logging::log(LogLevel::Error, "runtime", message.as_bytes());
+            core::arch::wasm32::unreachable();
+        }
+    }
+
+    #[alloc_error_handler]
+    pub fn oom(_: core::alloc::Layout) -> ! {
+        log::error!("Runtime memory exhausted. Aborting");
+        unsafe {
+            core::arch::wasm32::unreachable();
+        }
+    }
+}
+
 #[cfg(feature = "std")]
 pub use wasm::WASM_BINARY;
 
@@ -21,14 +46,9 @@ extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
 
-pub use core_mods::accumulator;
-pub use core_mods::anchor;
-pub use core_mods::attest;
-pub use core_mods::bbs_plus;
-pub use core_mods::blob;
-pub use core_mods::did;
-pub use core_mods::master;
-pub use core_mods::revoke;
+pub use core_mods::{
+    accumulator, anchor, attest, bbs_plus, blob, did, keys_and_sigs, master, revoke,
+};
 pub mod weight_to_fee;
 
 pub use poa;
@@ -53,29 +73,27 @@ use frame_system::{
     limits::{BlockLength, BlockWeights},
     EnsureOneOf, EnsureRoot,
 };
-use grandpa::fg_primitives;
-use grandpa::{AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
 use pallet_sudo as sudo;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
-use sp_core::u32_trait::{_1, _2, _3, _4, _5};
 use sp_core::{
     crypto::{KeyTypeId, Public},
+    u32_trait::{_1, _2, _3, _4, _5},
     OpaqueMetadata, H160, H256, U256,
-};
-use sp_runtime::traits::{
-    AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic, IdentifyAccount,
-    NumberFor, OpaqueKeys, StaticLookup, Verify,
 };
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
+    traits::{
+        AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Extrinsic, IdentifyAccount,
+        NumberFor, OpaqueKeys, StaticLookup, Verify,
+    },
     transaction_validity::{TransactionPriority, TransactionSource, TransactionValidity},
     ApplyExtrinsicResult, FixedPointNumber, ModuleId, MultiSignature, Perbill, Percent, Permill,
     Perquintill, SaturatedConversion,
 };
-use sp_std::collections::btree_map::BTreeMap;
 use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
@@ -172,7 +190,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 35,
+    spec_version: 36,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -354,7 +372,8 @@ parameter_types! {
 
 impl system::Config for Runtime {
     /// The basic call filter to use in dispatchable.
-    type BaseCallFilter = BaseFilter;
+    //type BaseCallFilter = BaseFilter;
+    type BaseCallFilter = ();
     /// The ubiquitous origin type.
     type Origin = Origin;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -693,13 +712,31 @@ parameter_types! {
     pub const AccumulatorParamsPerByteWeight: Weight = 10;
     pub const AccumulatedMaxSize: u32 = 128;
     pub const AccumulatedPerByteWeight: Weight = 10;
+    pub const MaxDidDocRefSize: u16 = 1024;
+    pub const DidDocRefPerByteWeight: Weight = 10;
+    pub const MaxServiceEndpointIdSize: u16 = 1024;
+    pub const ServiceEndpointIdPerByteWeight: Weight = 10;
+    pub const MaxServiceEndpointOrigins: u16 = 64;
+    pub const MaxServiceEndpointOriginSize: u16 = 1025;
+    pub const ServiceEndpointOriginPerByteWeight: Weight = 10;
+    pub const MaxControllers: u32 = 15;
 }
 
-impl did::Trait for Runtime {
+impl did::Config for Runtime {
     type Event = Event;
+    type MaxDidDocRefSize = MaxDidDocRefSize;
+    type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
+    type MaxServiceEndpointIdSize = MaxServiceEndpointIdSize;
+    type ServiceEndpointIdPerByteWeight = ServiceEndpointIdPerByteWeight;
+    type MaxServiceEndpointOrigins = MaxServiceEndpointOrigins;
+    type MaxServiceEndpointOriginSize = MaxServiceEndpointOriginSize;
+    type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
 
-impl revoke::Trait for Runtime {}
+impl revoke::Config for Runtime {
+    type Event = Event;
+    type MaxControllers = MaxControllers;
+}
 
 impl bbs_plus::Config for Runtime {
     type Event = Event;
@@ -723,7 +760,7 @@ impl accumulator::Config for Runtime {
     type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
 }
 
-impl blob::Trait for Runtime {
+impl blob::Config for Runtime {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
 }
@@ -762,7 +799,7 @@ impl pallet_offences::Config for Runtime {
     type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
-impl poa::Trait for Runtime {
+impl poa::Config for Runtime {
     type Currency = balances::Module<Runtime>;
 }
 
@@ -777,7 +814,7 @@ parameter_types! {
 const_assert!(VestingMilestones::get() > 0);
 const_assert!(VestingDuration::get() > 0);
 
-impl token_migration::Trait for Runtime {
+impl token_migration::Config for Runtime {
     type Event = Event;
     type Currency = balances::Module<Runtime>;
     type BlockNumberToBalance = ConvertInto;
@@ -803,7 +840,7 @@ impl pallet_utility::Config for Runtime {
     type WeightInfo = pallet_utility::weights::SubstrateWeight<Runtime>;
 }
 
-impl master::Trait for Runtime {
+impl master::Config for Runtime {
     type Event = Event;
     type Call = Call;
 }
@@ -813,11 +850,11 @@ impl sudo::Config for Runtime {
     type Call = Call;
 }
 
-impl anchor::Trait for Runtime {
+impl anchor::Config for Runtime {
     type Event = Event;
 }
 
-impl attest::Trait for Runtime {
+impl attest::Config for Runtime {
     type StorageWeight = StorageWeight;
 }
 
@@ -1316,8 +1353,9 @@ construct_runtime!(
         Authorship: pallet_authorship::{Module, Call, Storage},
         TransactionPayment: transaction_payment::{Module, Storage},
         Utility: pallet_utility::{Module, Call, Event},
+        BbsPlus: bbs_plus::{Module, Call, Storage, Event},
         DIDModule: did::{Module, Call, Storage, Event, Config},
-        Revoke: revoke::{Module, Call, Storage},
+        Revoke: revoke::{Module, Call, Storage, Event},
         BlobStore: blob::{Module, Call, Storage},
         Master: master::{Module, Call, Storage, Event<T>, Config},
         Sudo: sudo::{Module, Call, Storage, Event<T>, Config<T>},
@@ -1346,7 +1384,6 @@ construct_runtime!(
         Elections: pallet_elections_phragmen::{Module, Call, Storage, Event<T>, Config<T>},
         Tips: pallet_tips::{Module, Call, Storage, Event<T>},
         Identity: pallet_identity::{Module, Call, Storage, Event<T>},
-        BbsPlus: bbs_plus::{Module, Call, Storage, Event},
         Accumulator: accumulator::{Module, Call, Storage, Event},
     }
 );
@@ -1727,14 +1764,14 @@ impl_runtime_apis! {
         }
     }
 
-    impl fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi<Block, Balance> for Runtime {
+    /*impl fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi<Block, Balance> for Runtime {
         fn get_call_fee_dock(uxt: <Block as BlockT>::Extrinsic) -> Result<Balance, fiat_filter_rpc_runtime_api::Error> {
             match FiatFilterModule::get_call_fee_dock_(&uxt.function) {
                 Ok((fee_microdock,_weight)) => Ok(fee_microdock),
                 Err(e) => Err(fiat_filter_rpc_runtime_api::Error::new_getcallfeedock(e))
             }
         }
-    }
+    }*/
 
     impl staking_rewards::runtime_api::StakingRewardsApi<Block, Balance> for Runtime {
         fn yearly_emission(total_staked: Balance, total_issuance: Balance) -> Balance {
@@ -1746,8 +1783,18 @@ impl_runtime_apis! {
         }
     }
 
-    impl core_mods::runtime_api::CoreModsApi<Block> for Runtime {
-        fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {
+    impl core_mods::runtime_api::CoreModsApi<Block, Runtime> for Runtime {
+        fn did_details(did: did::Did, params: Option<did::AggregatedDidDetailsRequestParams>) -> Option<did::AggregatedDidDetailsResponse<Runtime>> {
+            DIDModule::aggregate_did_details(&did, params.unwrap_or_default())
+        }
+
+        fn did_list_details(dids: Vec<did::Did>, params: Option<did::AggregatedDidDetailsRequestParams>) -> Vec<Option<did::AggregatedDidDetailsResponse<Runtime>>> {
+            let params = params.unwrap_or_default();
+
+            dids.into_iter().map(|did| DIDModule::aggregate_did_details(&did, params)).collect()
+        }
+
+        /*fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {
             BbsPlus::get_public_key_with_params(&id)
         }
 
@@ -1765,7 +1812,7 @@ impl_runtime_apis! {
 
         fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::PublicKeyWithParams>)> {
             Accumulator::get_accumulator_with_public_key_and_params(&id)
-        }
+        }*/
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -1778,13 +1825,13 @@ impl_runtime_apis! {
             // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency issues.
             // To get around that, we separated the Session benchmarks into its own crate, which is why
             // we need these two lines below.
-            use pallet_session_benchmarking::Module as SessionBench;
-            use pallet_offences_benchmarking::Module as OffencesBench;
-            use frame_system_benchmarking::Module as SystemBench;
+            //use pallet_session_benchmarking::Module as SessionBench;
+            //use pallet_offences_benchmarking::Module as OffencesBench;
+            //use frame_system_benchmarking::Module as SystemBench;
 
-            impl pallet_session_benchmarking::Config for Runtime {}
-            impl pallet_offences_benchmarking::Config for Runtime {}
-            impl frame_system_benchmarking::Config for Runtime {}
+            //impl pallet_session_benchmarking::Config for Runtime {}
+            //impl pallet_offences_benchmarking::Config for Runtime {}
+            //impl frame_system_benchmarking::Config for Runtime {}
 
             let whitelist: Vec<TrackedStorageKey> = vec![
                 // Block Number
@@ -1804,19 +1851,23 @@ impl_runtime_apis! {
 
             add_benchmark!(params, batches, did, DIDModule);
             add_benchmark!(params, batches, revoke, Revoke);
+            add_benchmark!(params, batches, bbs_plus, BbsPlus);
+            add_benchmark!(params, batches, attest, Attest);
+            add_benchmark!(params, batches, anchor, Anchor);
             add_benchmark!(params, batches, blob, BlobStore);
-            add_benchmark!(params, batches, balances, Balances);
-            add_benchmark!(params, batches, token_migration, MigrationModule);
-            add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
+            add_benchmark!(params, batches, accumulator, Accumulator);
+            // add_benchmark!(params, batches, balances, Balances);
+            // add_benchmark!(params, batches, token_migration, MigrationModule);
+            // add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 
-            add_benchmark!(params, batches, pallet_collective, Council);
-            add_benchmark!(params, batches, pallet_democracy, Democracy);
-            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            // add_benchmark!(params, batches, pallet_collective, Council);
+            // add_benchmark!(params, batches, pallet_democracy, Democracy);
+            // add_benchmark!(params, batches, pallet_scheduler, Scheduler);
 
-            add_benchmark!(params, batches, pallet_babe, Babe);
-            add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
-            add_benchmark!(params, batches, pallet_grandpa, Grandpa);
-            add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            // add_benchmark!(params, batches, pallet_babe, Babe);
+            // add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
+            // add_benchmark!(params, batches, pallet_grandpa, Grandpa);
+            // add_benchmark!(params, batches, pallet_im_online, ImOnline);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

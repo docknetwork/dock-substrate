@@ -1,15 +1,15 @@
 //! Boilerplate for runtime module unit tests
 
-use crate::accumulator;
-use crate::anchor;
-use crate::attest;
-use crate::bbs_plus;
-use crate::blob;
-use crate::did::{self, Did, DidSignature};
-use crate::master;
-use crate::revoke;
+use crate::{
+    accumulator, anchor, attest, bbs_plus, blob,
+    did::{self, Did, DidKey, DidSignature},
+    keys_and_sigs, master, revoke, util, StateChange, ToStateChange,
+};
 
-use crate::revoke::{Policy, RegistryId, RevokeId};
+use crate::{
+    keys_and_sigs::SigValue,
+    revoke::{Policy, RegistryId, RevokeId},
+};
 use codec::{Decode, Encode};
 use frame_support::{
     parameter_types,
@@ -36,7 +36,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
         DIDModule: did::{Module, Call, Storage, Event, Config},
-        RevoMod: revoke::{Module, Call, Storage},
+        RevoMod: revoke::{Module, Call, Storage, Event},
         BlobMod: blob::{Module, Call, Storage},
         MasterMod: master::{Module, Call, Storage, Event<T>, Config},
         AnchorMod: anchor::{Module, Call, Storage, Event<T>},
@@ -48,6 +48,8 @@ frame_support::construct_runtime!(
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum TestEvent {
+    Did(crate::did::Event),
+    Revoke(crate::revoke::Event),
     Master(crate::master::Event<Test>),
     Anchor(crate::anchor::Event<Test>),
     Unknown,
@@ -67,15 +69,27 @@ impl From<()> for TestEvent {
     }
 }
 
-impl From<crate::master::Event<Test>> for TestEvent {
-    fn from(other: crate::master::Event<Test>) -> Self {
-        Self::Master(other)
+impl From<crate::did::Event> for TestEvent {
+    fn from(other: crate::did::Event) -> Self {
+        Self::Did(other)
+    }
+}
+
+impl From<crate::revoke::Event> for TestEvent {
+    fn from(other: crate::revoke::Event) -> Self {
+        Self::Revoke(other)
     }
 }
 
 impl From<crate::anchor::Event<Test>> for TestEvent {
     fn from(other: crate::anchor::Event<Test>) -> Self {
         Self::Anchor(other)
+    }
+}
+
+impl From<crate::master::Event<Test>> for TestEvent {
+    fn from(other: crate::master::Event<Test>) -> Self {
+        Self::Master(other)
     }
 }
 
@@ -93,6 +107,7 @@ impl From<accumulator::Event> for TestEvent {
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
+    pub const MaxControllers: u32 = 15;
 }
 
 impl system::Config for Test {
@@ -120,11 +135,21 @@ impl system::Config for Test {
     type SS58Prefix = ();
 }
 
-impl crate::did::Trait for Test {
-    type Event = ();
+impl crate::did::Config for Test {
+    type Event = TestEvent;
+    type MaxDidDocRefSize = MaxDidDocRefSize;
+    type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
+    type MaxServiceEndpointIdSize = MaxServiceEndpointIdSize;
+    type ServiceEndpointIdPerByteWeight = ServiceEndpointIdPerByteWeight;
+    type MaxServiceEndpointOrigins = MaxServiceEndpointOrigins;
+    type MaxServiceEndpointOriginSize = MaxServiceEndpointOriginSize;
+    type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
 }
 
-impl crate::revoke::Trait for Test {}
+impl crate::revoke::Config for Test {
+    type Event = TestEvent;
+    type MaxControllers = MaxControllers;
+}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
@@ -137,23 +162,30 @@ parameter_types! {
     pub const PublicKeyPerByteWeight: Weight = 10;
     pub const AccumulatedMaxSize: u32 = 256;
     pub const AccumulatedPerByteWeight: Weight = 10;
+    pub const MaxDidDocRefSize: u16 = 128;
+    pub const DidDocRefPerByteWeight: Weight = 10;
+    pub const MaxServiceEndpointIdSize: u16 = 256;
+    pub const ServiceEndpointIdPerByteWeight: Weight = 10;
+    pub const MaxServiceEndpointOrigins: u16 = 20;
+    pub const MaxServiceEndpointOriginSize: u16 = 256;
+    pub const ServiceEndpointOriginPerByteWeight: Weight = 10;
 }
 
-impl crate::blob::Trait for Test {
+impl crate::anchor::Config for Test {
+    type Event = TestEvent;
+}
+
+impl crate::blob::Config for Test {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
 }
 
-impl crate::master::Trait for Test {
+impl crate::master::Config for Test {
     type Event = TestEvent;
     type Call = Call;
 }
 
-impl crate::anchor::Trait for Test {
-    type Event = TestEvent;
-}
-
-impl crate::attest::Trait for Test {
+impl crate::attest::Config for Test {
     type StorageWeight = StorageWeight;
 }
 
@@ -180,13 +212,13 @@ impl accumulator::Config for Test {
 }
 
 pub const ABBA: u64 = 0;
+pub const DIDA: Did = Did([0u8; 32]);
+pub const DIDB: Did = Did([1u8; 32]);
+pub const DIDC: Did = Did([2u8; 32]);
 pub const RGA: RegistryId = [0u8; 32];
 pub const RA: RevokeId = [0u8; 32];
 pub const RB: RevokeId = [1u8; 32];
 pub const RC: RevokeId = [2u8; 32];
-pub const DIDA: Did = [0u8; 32];
-pub const DIDB: Did = [1u8; 32];
-pub const DIDC: Did = [2u8; 32];
 
 /// check whether test externalities are available
 pub fn in_ext() -> bool {
@@ -215,11 +247,6 @@ pub fn ext() -> sp_io::TestExternalities {
     ret
 }
 
-// get the current block number from the system module
-pub fn block_no() -> u64 {
-    system::Module::<Test>::block_number()
-}
-
 /// create a OneOf policy
 pub fn oneof(dids: &[Did]) -> Policy {
     Policy::OneOf(dids.iter().cloned().collect())
@@ -236,15 +263,15 @@ pub fn gen_kp() -> sr25519::Pair {
 pub fn create_did(did: did::Did) -> sr25519::Pair {
     let kp = gen_kp();
     println!("did pk: {:?}", kp.public().0);
-    did::Module::<Test>::new(
+    did::Module::<Test>::new_onchain(
         Origin::signed(ABBA),
         did,
-        did::KeyDetail::new(
-            [100; 32],
-            did::PublicKey::Sr25519(did::Bytes32 {
+        vec![DidKey::new_with_all_relationships(
+            keys_and_sigs::PublicKey::Sr25519(util::Bytes32 {
                 value: kp.public().0,
             }),
-        ),
+        )],
+        vec![].into_iter().collect(),
     )
     .unwrap();
     kp
@@ -252,21 +279,53 @@ pub fn create_did(did: did::Did) -> sr25519::Pair {
 
 /// create a did with a random id and random signing key
 pub fn newdid() -> (Did, sr25519::Pair) {
-    let d: Did = rand::random();
+    let d: Did = Did(rand::random());
     (d, create_did(d))
 }
 
-pub fn sign(payload: &crate::StateChange, keypair: &sr25519::Pair) -> DidSignature {
-    DidSignature::Sr25519(did::Bytes64 {
+pub fn sign<T: frame_system::Config>(
+    payload: &StateChange<T>,
+    keypair: &sr25519::Pair,
+) -> SigValue {
+    SigValue::Sr25519(util::Bytes64 {
         value: keypair.sign(&payload.encode()).0,
     })
 }
 
+pub fn did_sig<T: frame_system::Config, A: ToStateChange<T>, D: Into<Did>>(
+    change: &A,
+    keypair: &sr25519::Pair,
+    did: D,
+    key_id: u32,
+) -> DidSignature<D> {
+    let sig = sign(&change.to_state_change(), keypair);
+    DidSignature {
+        did,
+        key_id: key_id.into(),
+        sig,
+    }
+}
+
+pub fn did_sig_on_bytes<T: frame_system::Config, D: Into<Did>>(
+    msg_bytes: &[u8],
+    keypair: &sr25519::Pair,
+    did: D,
+    key_id: u32,
+) -> DidSignature<D> {
+    let sig = SigValue::Sr25519(util::Bytes64 {
+        value: keypair.sign(msg_bytes).0,
+    });
+
+    DidSignature {
+        did,
+        key_id: key_id.into(),
+        sig,
+    }
+}
+
 /// create a random byte array with set len
 pub fn random_bytes(len: usize) -> Vec<u8> {
-    let ret: Vec<u8> = (0..len).map(|_| rand::random()).collect();
-    assert_eq!(ret.len(), len);
-    ret
+    (0..len).map(|_| rand::random()).collect()
 }
 
 /// Changes the block number. Calls `on_finalize` and `on_initialize`
@@ -278,4 +337,15 @@ pub fn run_to_block(n: u64) {
         System::set_block_number(System::block_number() + 1);
         System::on_initialize(System::block_number());
     }
+}
+
+pub fn check_nonce(d: &Did, nonce: u64) {
+    let did_detail = DIDModule::onchain_did_details(&d).unwrap();
+    assert_eq!(did_detail.nonce, nonce);
+}
+
+pub fn inc_nonce(d: &Did) {
+    let mut did_detail = DIDModule::onchain_did_details(&d).unwrap();
+    did_detail.nonce = did_detail.next_nonce();
+    DIDModule::insert_did_details(*d, did_detail);
 }

@@ -1,5 +1,6 @@
 use dock_runtime::{
-    did::{self, Did, KeyDetail},
+    did::{Did, DidKey},
+    keys_and_sigs::PublicKey,
     master::Membership,
     AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
     EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
@@ -12,16 +13,14 @@ use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use sc_service::{ChainType, Properties};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::{AuthorityId as BabeId, BabeEpochConfiguration};
-use sp_core::crypto::Ss58Codec;
-use sp_core::{sr25519, Pair, Public};
+use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
 use sp_finality_grandpa::AuthorityId as GrandpaId;
 use sp_runtime::traits::{IdentifyAccount, Verify};
 
 use serde_json::map::Map;
 
 use sp_runtime::Perbill;
-use std::collections::BTreeMap;
-use std::str::FromStr;
+use std::{collections::BTreeMap, str::FromStr};
 
 fn session_keys(
     babe: BabeId,
@@ -92,11 +91,11 @@ where
 }
 
 /// Create a non-secure development did with specified secret key
-fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, KeyDetail) {
+fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, DidKey) {
     let pk = sr25519::Pair::from_seed(seed).public().0;
     (
-        *did,
-        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+        Did(*did),
+        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
     )
 }
 
@@ -158,8 +157,7 @@ pub fn development_config() -> ChainSpec {
                         b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .cloned()
-                    .cloned()
+                    .map(|d| Did(**d))
                     .collect(),
                     vote_requirement: 2,
                 },
@@ -235,8 +233,7 @@ pub fn local_testnet_config() -> ChainSpec {
                         b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .cloned()
-                    .cloned()
+                    .map(|d| Did(**d))
                     .collect(),
                     vote_requirement: 2,
                 },
@@ -310,10 +307,10 @@ pub fn pos_testnet_config() -> ChainSpec {
                 endowed_accounts: [
                     "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr", // Dock V1
                     "36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN", // Sudo
-                    "3BHXvWftruGuZZDnPgwnhp3C4ghba4QY6MEURcvLYH6wtcwQ",
-                    "37uJHxaphdga4gy9zNk1KDgwMZJF3Zp2gkzSkDWRPgThR4nN",
+                    "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF", // API
+                    "37yrw7s12i6VtGHAA6XkKL6onUTpk4KXoeCAx6eiW9Xc1KjC", // Faucet
                     "3AJJBL4KQ49h32yQuu1HkSnSJUjSooZED9Z2De2zE2EPXxbN",
-                    "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF",	// Test issuer
+                    "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF", // Test issuer
                     "37yrw7s12i6VtGHAA6XkKL6onUTpk4KXoeCAx6eiW9Xc1KjC", // Faucet
                     "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5", // Council 2
                 ]
@@ -328,8 +325,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                         b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .cloned()
-                    .cloned()
+                    .map(|d| Did(**d))
                     .collect(),
                     vote_requirement: 2,
                 },
@@ -351,8 +347,8 @@ pub fn pos_testnet_config() -> ChainSpec {
                 .cloned()
                 .map(|(did, pk)| {
                     (
-                        *did,
-                        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+                        Did(*did),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
                 .collect(),
@@ -536,8 +532,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                         b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .cloned()
-                    .cloned()
+                    .map(|d| Did(**d))
                     .collect(),
                     vote_requirement: 2,
                 },
@@ -559,8 +554,8 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 .cloned()
                 .map(|(did, pk)| {
                     (
-                        *did,
-                        KeyDetail::new(*did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+                        Did(*did),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
                 .collect(),
@@ -624,7 +619,7 @@ struct GenesisBuilder {
     )>,
     endowed_accounts: Vec<AccountId>,
     master: Membership,
-    dids: Vec<(Did, KeyDetail)>,
+    dids: Vec<(Did, DidKey)>,
     sudo: AccountId,
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
@@ -737,7 +732,7 @@ impl GenesisBuilder {
             if !self.dids.iter().any(|(k, _v)| k == did) {
                 return Err(format!(
                     "Master contains DID {:x?}.. that is not pre-declared",
-                    did[0],
+                    did,
                 ));
             }
         }
@@ -758,8 +753,8 @@ mod test {
         assert_eq!(
             did_from_seed(&did, &sk),
             (
-                did,
-                KeyDetail::new(did, did::PublicKey::Sr25519(did::Bytes32 { value: pk })),
+                Did(did),
+                DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
             )
         );
     }

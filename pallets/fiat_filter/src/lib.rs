@@ -1,9 +1,8 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use common::arith_utils::DivCeil;
-use common::traits::PriceProvider;
+use common::{arith_utils::DivCeil, traits::PriceProvider};
+use core::fmt::Debug;
 use core_mods::{anchor, attest, blob, did, revoke};
-use frame_support::traits::Get;
 use frame_support::{
     decl_error, decl_module,
     dispatch::{
@@ -11,23 +10,29 @@ use frame_support::{
         UnfilteredDispatchable,
     },
     fail,
-    traits::{Currency, ExistenceRequirement, IsSubType, WithdrawReasons},
+    traits::{Currency, ExistenceRequirement, Get, IsSubType, WithdrawReasons},
     weights::{GetDispatchInfo, Pays, Weight},
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
 use sp_std::boxed::Box;
 
-#[cfg(test)]
-mod test_mock;
-#[cfg(test)]
-#[allow(non_snake_case)]
-mod tests;
+// #[cfg(test)]
+// mod test_mock;
+// #[cfg(test)]
+// #[allow(non_snake_case)]
+// mod tests;
 
 /// The pallet's configuration trait
 /// Configure the pallet by specifying the parameters and types on which it depends.
 pub trait Config:
-    system::Config + did::Trait + anchor::Trait + blob::Trait + revoke::Trait + attest::Trait
+    system::Config
+    + did::Config
+    + anchor::Config
+    + blob::Config
+    + revoke::Config
+    + attest::Config
+    + Debug
 {
     /// Config option for updating the DockFiatRate
     type PriceProvider: common::traits::PriceProvider;
@@ -52,7 +57,7 @@ pub trait Config:
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Module<T: Config> where T: Debug {
         /// Call is not among the core_mods ones that should go through fiat_filter
         UnexpectedCall,
     }
@@ -63,7 +68,7 @@ decl_error! {
 decl_module! {
     pub struct Module<T: Config> for enum Call
     where
-        origin: T::Origin
+        origin: T::Origin, T: Debug
     {
         const MinDockFiatRate: u32 = T::MinDockFiatRate::get();
 
@@ -86,9 +91,11 @@ type AmountUsd = u32;
 pub mod fiat_rate {
     // all prices given in nUSD (billionth USD)
     // This unit is chosen to avoid multiplications later in get_call_fee_dock_()
-    pub const PRICE_DID_CREATE: u32 = 150_000_000; // 150_000_000/1B or 0.15 USD
+    pub const PRICE_OFFCHAIN_DID_CREATE: u32 = 150_000_000; // 50_000_000/1B or 0.5 USD
+    pub const PRICE_ONCHAIN_DID_CREATE: u32 = 150_000_000; // 150_000_000/1B or 0.15 USD
     pub const PRICE_DID_KEY_UPDATE: u32 = 170_000_000;
-    pub const PRICE_DID_REMOVE: u32 = 150_000_000;
+    pub const PRICE_OFFCHAIN_DID_REMOVE: u32 = 50_000_000;
+    pub const PRICE_ONCHAIN_DID_REMOVE: u32 = 150_000_000;
     pub const PRICE_ANCHOR_OP_PER_BYTE: u32 = 3438;
     pub const PRICE_REVOKE_REGISTRY_CREATE: u32 = 130_000_000;
     pub const PRICE_REVOKE_REGISTRY_REMOVE: u32 = 170_000_000;
@@ -101,15 +108,21 @@ pub mod fiat_rate {
 }
 
 // private helper functions
-impl<T: Config> Module<T> {
+impl<T: Config + Debug> Module<T> {
     /// Get fee in fiat unit for a given Call
     /// Result expressed in nUSD (billionth USD)
     fn get_call_fee_fiat_(call: &<T as Config>::Call) -> Result<AmountUsd, DispatchError> {
         use fiat_rate::*;
         match call.is_sub_type() {
-            Some(did::Call::new(_did, _detail)) => return Ok(PRICE_DID_CREATE),
-            Some(did::Call::update_key(_key_update, _sig)) => return Ok(PRICE_DID_KEY_UPDATE),
-            Some(did::Call::remove(_to_remove, _sig)) => return Ok(PRICE_DID_REMOVE),
+            Some(did::Call::new_offchain(_, _)) => return Ok(PRICE_OFFCHAIN_DID_CREATE),
+            // TODO: This needs to be revisited as it should depend on the number of keys and controllers
+            Some(did::Call::new_onchain(_, _, __)) => return Ok(PRICE_ONCHAIN_DID_CREATE),
+            // TODO: This needs to be revisited as it should depend on the number of keys
+            Some(did::Call::add_keys(_, _)) => return Ok(PRICE_DID_KEY_UPDATE),
+            // TODO: This needs to be revisited as it should depend on the number of keys
+            Some(did::Call::add_controllers(_, _)) => return Ok(PRICE_DID_KEY_UPDATE),
+            Some(did::Call::remove_offchain_did(_)) => return Ok(PRICE_OFFCHAIN_DID_REMOVE),
+            Some(did::Call::remove_onchain_did(_, _)) => return Ok(PRICE_ONCHAIN_DID_REMOVE),
             _ => {}
         };
         match call.is_sub_type() {
@@ -120,7 +133,7 @@ impl<T: Config> Module<T> {
         };
         match call.is_sub_type() {
             Some(blob::Call::new(blob, _sig)) => {
-                let size: u32 = blob.blob.len() as u32;
+                let size: u32 = blob.blob.blob.len() as u32;
                 let price = PRICE_BLOB_OP_BASE.saturating_add(
                     (size.div_ceil(100)).saturating_mul(PRICE_ATTEST_OP_PER_100_BYTES),
                 );
@@ -129,7 +142,7 @@ impl<T: Config> Module<T> {
             _ => {}
         };
         match call.is_sub_type() {
-            Some(revoke::Call::new_registry(_id, _registry)) => {
+            Some(revoke::Call::new_registry(_add_registry)) => {
                 return Ok(PRICE_REVOKE_REGISTRY_CREATE)
             }
             Some(revoke::Call::remove_registry(_rm, _proof)) => {
@@ -149,8 +162,9 @@ impl<T: Config> Module<T> {
             _ => {}
         };
         match call.is_sub_type() {
-            Some(attest::Call::set_claim(_attester, attestation, _sig)) => {
+            Some(attest::Call::set_claim(attestation, _sig)) => {
                 let iri_size_100bytes: u32 = attestation
+                    .attest
                     .iri
                     .as_ref()
                     .map_or_else(|| 1, |i| (i.len() as u32).div_ceil(100));

@@ -14,9 +14,11 @@
 // You should have received a copy of the GNU General Public License
 // along with Substrate.  If not, see <http://www.gnu.org/licenses/>.
 
-use crate::chain_spec;
-use crate::cli::{Cli, Subcommand};
-use crate::service;
+use crate::{
+    chain_spec,
+    cli::{Cli, Subcommand},
+    service,
+};
 use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
 

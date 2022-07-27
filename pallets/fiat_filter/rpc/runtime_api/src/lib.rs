@@ -1,8 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 use codec::Codec;
-use sp_runtime::traits::MaybeDisplay;
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::MaybeDisplay, DispatchError};
 
 #[derive(Debug, PartialEq, codec::Encode, codec::Decode)]
 pub enum Error {
