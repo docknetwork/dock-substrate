@@ -41,7 +41,7 @@ rustup update nightly
 rustup target add wasm32-unknown-unknown --toolchain nightly
 ```
 
-The project is known to build with cargo 1.51.0 and rust 1.51.0. Upgrade to these versions or higher if unable to build
+The project is known to build with cargo 1.62.1 and rust 1.62.1. Upgrade to these versions or higher if unable to build
 
 Now you can build the node binary.
 
@@ -65,6 +65,24 @@ cargo build --release --features mainnet
 The `spec_name` with the above command will be `dock-pos-main-runtime` and ss58 prefix will be 22.
 
 Running without any features will result in `spec_name` of `dock-dev-runtime`
+
+When building a node to run in the network, it's recommended to build with `production` profile rather than `--release` like this
+
+```bash
+cargo build --profile=production
+```
+
+You can add the above features to it. For testnet
+
+```bash
+cargo build --profile=production --features testnet
+```
+
+For mainnet
+
+```bash
+cargo build --profile=production --features mainnet
+```
 
 ### Building a node for testing staking, governance
 
