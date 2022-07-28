@@ -24,17 +24,14 @@ pub mod arith_utils {
     impl DivCeil for u32 {
         fn div_ceil(&self, other: Self) -> Self {
             let (q, r) = (self / other, self % other);
-            if r == 0 {
-                q
-            } else {
-                q + 1_u32
-            }
+
+            q + (r != 0) as u32
         }
 
         fn checked_div_ceil(&self, other: Self) -> Option<Self> {
             let (q, r) = (self.checked_div(other)?, self.checked_rem(other)?);
 
-            if r == 0 { q } else { q + 1_u32 }.into()
+            Some(q + (r != 0) as u32)
         }
     }
 }

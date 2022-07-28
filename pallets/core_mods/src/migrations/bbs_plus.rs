@@ -4,8 +4,7 @@ pub mod single_key {
     use crate::{bbs_plus, bbs_plus::Config, did::Did, util::*};
     use core::fmt::Debug;
     use frame_support::{decl_module, decl_storage, log, pallet_prelude::*};
-    use sp_std::collections::btree_map::BTreeMap;
-    use sp_std::prelude::*;
+    use sp_std::{collections::btree_map::BTreeMap, prelude::*};
 
     decl_storage! {
         trait Store for Module<T: Config> as BBSPlusModule {
@@ -19,7 +18,7 @@ pub mod single_key {
             /// Its assumed that the public keys are always members of G2. It does impact any logic on the
             /// chain but makes up for one less storage value
             pub BbsPlusKeys get(fn get_key):
-                double_map hasher(blake2_128_concat) Did, hasher(identity) u32 => Option<bbs_plus::BbsPlusPublicKey>;
+                double_map hasher(blake2_128_concat) Did, hasher(identity) u32 => Option<bbs_plus::BBSPlusPublicKey>;
         }
     }
 

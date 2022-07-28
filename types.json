@@ -134,11 +134,12 @@
     "endpoint": "ServiceEndpoint"
   },
   "AggregatedDidDetailsResponse": {
-    "id": "Did",
+    "did": "Did",
     "details": "StoredDidDetails",
     "keys": "Option<Vec<DidKeyWithId>>",
     "controllers": "Option<Vec<Controller>>",
-    "serviceEndpoints": "Option<Vec<ServiceEndpointWithId>>"
+    "serviceEndpoints": "Option<Vec<ServiceEndpointWithId>>",
+    "attestation": "Option<Attestation>"
   },
   "RegistryId": "[u8;32]",
   "RevokeId": "[u8;32]",
@@ -236,23 +237,23 @@
   },
   "BBSPlusParametersStorageKey": "(BBSPlusParamsOwner, IncId)",
   "BBSPlusPublicKeyStorageKey": "(Controller, IncId)",
-  "BbsPlusParameters": {
+  "BBSPlusParameters": {
     "label": "Option<Vec<u8>>",
     "curve_type": "CurveType",
     "bytes": "Vec<u8>"
   },
-  "BbsPlusPublicKey": {
+  "BBSPlusPublicKey": {
     "curve_type": "CurveType",
     "bytes": "Vec<u8>",
     "params_ref": "Option<BBSPlusParametersStorageKey>"
   },
-  "BbsPlusPublicKeyWithParams": "(BbsPlusPublicKey, Option<BbsPlusParameters>)",
+  "BBSPlusPublicKeyWithParams": "(BBSPlusPublicKey, Option<BBSPlusParameters>)",
   "AddBBSPlusParams": {
-    "params": "BbsPlusParameters",
+    "params": "BBSPlusParameters",
     "nonce": "BlockNumber"
   },
   "AddBBSPlusPublicKey": {
-    "key": "BbsPlusPublicKey",
+    "key": "BBSPlusPublicKey",
     "did": "Controller",
     "nonce": "BlockNumber"
   },

@@ -94,6 +94,7 @@ use sp_runtime::{
     ApplyExtrinsicResult, FixedPointNumber, ModuleId, MultiSignature, Perbill, Percent, Permill,
     Perquintill, SaturatedConversion,
 };
+use sp_std::collections::btree_map::BTreeMap;
 use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
@@ -110,6 +111,7 @@ use sp_std::{convert::TryFrom, marker::PhantomData, prelude::*};
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use core_mods::util::IncId;
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use sp_runtime::curve::PiecewiseLinear;
@@ -1794,25 +1796,25 @@ impl_runtime_apis! {
             dids.into_iter().map(|did| DIDModule::aggregate_did_details(&did, params)).collect()
         }
 
-        /*fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {
+        fn bbs_plus_public_key_with_params(id: bbs_plus::BBSPlusPublicKeyStorageKey) -> Option<bbs_plus::BBSPlusPublicKeyWithParams> {
             BbsPlus::get_public_key_with_params(&id)
         }
 
-        fn bbs_plus_params_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::BbsPlusParameters> {
-            BbsPlus::get_params_by_did(&did)
+        fn bbs_plus_params_by_did(owner: bbs_plus::BBSPlusParamsOwner) -> BTreeMap<IncId, bbs_plus::BBSPlusParameters> {
+            BbsPlus::get_params_by_did(&owner)
         }
 
-        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::PublicKeyWithParams> {
+        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams> {
             BbsPlus::get_public_key_by_did(&did)
         }
 
-        fn accumulator_public_key_with_params(id: accumulator::PublicKeyStorageKey) -> Option<accumulator::PublicKeyWithParams> {
+        fn accumulator_public_key_with_params(id: accumulator::AccumPublicKeyStorageKey) -> Option<accumulator::AccumPublicKeyWithParams> {
             Accumulator::get_public_key_with_params(&id)
         }
 
-        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::PublicKeyWithParams>)> {
+        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)> {
             Accumulator::get_accumulator_with_public_key_and_params(&id)
-        }*/
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]

@@ -31,13 +31,6 @@ pub struct AccumulatorParameters {
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct AddAccumulatorParams<T: frame_system::Config> {
-    pub params: AccumulatorParameters,
-    pub nonce: T::BlockNumber,
-}
-
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct AccumulatorPublicKey {
     pub curve_type: CurveType,
     pub bytes: Vec<u8>,
@@ -115,11 +108,11 @@ pub struct AccumulatorWithUpdateInfo<T: frame_system::Config> {
 }
 
 impl<T: frame_system::Config> AccumulatorWithUpdateInfo<T> {
-    pub fn new(accumulator: Accumulator, block_number: T::BlockNumber) -> Self {
+    pub fn new(accumulator: Accumulator, created_at: T::BlockNumber) -> Self {
         Self {
             accumulator,
-            created_at: block_number,
-            last_updated_at: block_number,
+            created_at,
+            last_updated_at: created_at,
         }
     }
 }

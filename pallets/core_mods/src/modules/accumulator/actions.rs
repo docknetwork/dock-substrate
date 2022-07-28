@@ -9,6 +9,13 @@ pub struct AddAccumulatorPublicKey<T: frame_system::Config> {
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct AddAccumulatorParams<T: frame_system::Config> {
+    pub params: AccumulatorParameters,
+    pub nonce: T::BlockNumber,
+}
+
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct RemoveAccumulatorParams<T: frame_system::Config> {
     pub params_ref: AccumParametersStorageKey,
     pub nonce: T::BlockNumber,
@@ -50,12 +57,20 @@ pub struct UpdateAccumulator<T: frame_system::Config> {
 }
 
 crate::impl_action_with_nonce! {
+    for AccumulatorId:
+        UpdateAccumulator with 1 as len, id as target,
+        RemoveAccumulator with 1 as len, id as target
+}
+
+crate::impl_action_with_nonce! {
     for ():
-        AddAccumulatorParams with 1 as len, () as target,
-        AddAccumulatorPublicKey with 1 as len, () as target,
-        RemoveAccumulatorParams with 1 as len, () as target,
-        RemoveAccumulatorPublicKey with 1 as len, () as target,
         AddAccumulator with 1 as len, () as target,
-        UpdateAccumulator with 1 as len, () as target,
-        RemoveAccumulator with 1 as len, () as target
+        AddAccumulatorParams with 1 as len, () as target,
+        AddAccumulatorPublicKey with 1 as len, () as target
+}
+
+crate::impl_action_with_nonce! {
+    for AccumulatorOwner:
+        RemoveAccumulatorPublicKey with 1 as len, key_ref.0 as target,
+        RemoveAccumulatorParams with 1 as len, params_ref.0 as target
 }

@@ -97,7 +97,7 @@ impl<T: Config + Debug> Module<T> {
         })
     }
 
-    pub fn get_params_by_did(id: &BBSPlusParamsOwner) -> BTreeMap<IncId, BbsPlusParameters> {
+    pub fn get_params_by_did(id: &BBSPlusParamsOwner) -> BTreeMap<IncId, BBSPlusParameters> {
         let mut params = BTreeMap::new();
         for (idx, val) in BbsPlusParams::iter_prefix(*id) {
             params.insert(idx, val);

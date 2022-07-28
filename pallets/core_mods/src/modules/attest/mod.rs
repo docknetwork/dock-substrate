@@ -38,7 +38,7 @@ pub trait Config: system::Config + did::Config {
     type StorageWeight: Get<Weight>;
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Attestation {
     #[codec(compact)]
@@ -92,7 +92,7 @@ decl_storage! {
         //
         // When Attestations::get(did).iri == Some(dat) and dat is a valid utf-8 Iri:
         // `[did dock:attestsDocumentContents dat]`.
-        Attestations: map hasher(blake2_128_concat) Attester => Attestation;
+        Attestations get (fn attestation): map hasher(blake2_128_concat) Attester => Attestation;
     }
 }
 
