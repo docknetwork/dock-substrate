@@ -16,7 +16,7 @@ use frame_system::{self as system};
 pub mod runtime_api;
 
 pub type BalanceOf<T> =
-    <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+    <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
 #[cfg(test)]
 mod tests;
@@ -26,13 +26,13 @@ mod tests;
 const TREASURY_ID: ModuleId = ModuleId(*b"Treasury");
 
 /// The pallet's configuration trait.
-pub trait Trait: system::Config {
+pub trait Config: system::Config {
     type Currency: ReservableCurrency<Self::AccountId>;
 }
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as PoAModule {
+    trait Store for Module<T: Config> as PoAModule {
         /// Remaining emission supply. This reduces after each epoch as emissions happen unless
         /// emissions are disabled.
         pub EmissionSupply get(fn emission_supply) config(): BalanceOf<T>;
@@ -43,7 +43,7 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         /*/// Force a transfer using root to transfer balance of reserved as well as free kind.
         /// This call is dangerous and can be abused by a malicious Root
         #[weight = T::DbWeight::get().reads_writes(1, 1)]
@@ -60,7 +60,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// The account ID that holds the Treasury's funds
     pub fn treasury_account() -> T::AccountId {
         TREASURY_ID.into_account()

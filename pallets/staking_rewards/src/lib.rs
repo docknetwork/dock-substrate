@@ -22,7 +22,7 @@ mod tests;
 // Milliseconds per year for the Julian year (365.25 days).
 const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
-pub trait Config: system::Config + poa::Trait {
+pub trait Config: system::Config + poa::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
     /// The percentage by which remaining emission supply decreases

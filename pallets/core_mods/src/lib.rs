@@ -1,52 +1,100 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 extern crate alloc;
+extern crate core;
 
 use codec::{Decode, Encode};
+use sp_std::borrow::Cow;
 
-/// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
-/// This is done to make it unambiguous which command was intended as the SCALE codec's
-/// not self describing.
-/// Never change the order of variants in this enum
-#[derive(Encode, Decode)]
-pub enum StateChange {
-    KeyUpdate(did::KeyUpdate),
-    DIDRemoval(did::DidRemoval),
-    Revoke(revoke::Revoke),
-    UnRevoke(revoke::UnRevoke),
-    RemoveRegistry(revoke::RemoveRegistry),
-    Blob(blob::Blob),
-    MasterVote(master::Payload),
-    Attestation((did::Did, attest::Attestation)),
-    AddBBSPlusParams(bbs_plus::BbsPlusParameters),
-    AddBBSPlusPublicKey(bbs_plus::BbsPlusPublicKey),
-    RemoveBBSPlusParams(bbs_plus::ParametersStorageKey),
-    RemoveBBSPlusPublicKey(bbs_plus::PublicKeyStorageKey),
-    AddAccumulatorParams(accumulator::AccumulatorParameters),
-    AddAccumulatorPublicKey(accumulator::AccumulatorPublicKey),
-    RemoveAccumulatorParams(accumulator::ParametersStorageKey),
-    RemoveAccumulatorPublicKey(accumulator::PublicKeyStorageKey),
-    AddAccumulator(accumulator::AddAccumulator),
-    UpdateAccumulator(accumulator::AccumulatorUpdate),
-    RemoveAccumulator(accumulator::RemoveAccumulator),
+def_state_change! {
+    /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
+    /// This is done to make it unambiguous which command was intended as the SCALE codec's
+    /// not self describing. The enum variants are supposed to take care of replay protection by having a
+    /// nonce or something else. A better approach would have been to make `StateChange` aware of nonce or nonces.
+    /// There can be multiple nonces attached with a payload a multiple DIDs may take part in an action and they
+    /// will have their own nonce. However this change will be a major disruption for now.
+    /// Never change the order of variants in this enum
+    StateChange:
+        did::AddKeys,
+        did::AddControllers,
+        did::RemoveKeys,
+        did::RemoveControllers,
+        did::AddServiceEndpoint,
+        did::RemoveServiceEndpoint,
+        did::DidRemoval,
+        revoke::Revoke,
+        revoke::UnRevoke,
+        revoke::RemoveRegistry,
+        blob::AddBlob,
+        master::MasterVote,
+        attest::SetAttestationClaim,
+        bbs_plus::AddBBSPlusParams,
+        bbs_plus::AddBBSPlusPublicKey,
+        bbs_plus::RemoveBBSPlusParams,
+        bbs_plus::RemoveBBSPlusPublicKey,
+        accumulator::AddAccumulatorParams,
+        accumulator::AddAccumulatorPublicKey,
+        accumulator::RemoveAccumulatorParams,
+        accumulator::RemoveAccumulatorPublicKey,
+        accumulator::AddAccumulator,
+        accumulator::UpdateAccumulator,
+        accumulator::RemoveAccumulator
 }
 
-// This should be same as the type defined in runtime/src/lib.rs. Less than ideal shortcut as this module shouldn't
-// be aware of runtime. A better approach would be to make modules typed.
-pub type BlockNumber = u32;
+/// Converts the given entity to the state change.
+pub trait ToStateChange<T: frame_system::Config> {
+    /// Converts the given entity to the state change.
+    fn to_state_change(&self) -> StateChange<'_, T>;
 
-pub mod accumulator;
-pub mod anchor;
-pub mod attest;
-pub mod bbs_plus;
-#[cfg(feature = "runtime-benchmarks")]
-mod benchmark_utils;
-pub mod blob;
-pub mod did;
-pub mod master;
-pub mod revoke;
+    /// Transforms given entity into `StateChange`.
+    fn into_state_change(self) -> StateChange<'static, T>;
+}
+
+/// Describes an action which can be performed on some `Target`.
+pub trait Action<T: frame_system::Config> {
+    /// Action target.
+    type Target;
+    /// Returns underlying action target.
+    fn target(&self) -> Self::Target;
+
+    /// Returns action unit length.
+    fn len(&self) -> u32;
+
+    /// Returns `true` if the action unit count is equal to zero.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
+/// Describes an action with nonce which can be performed on some `Target`
+pub trait ActionWithNonce<T: frame_system::Config>: Action<T> {
+    /// Returns action's nonce.
+    fn nonce(&self) -> T::BlockNumber;
+}
+
+/// Defines version of the storage being used.
+#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
+pub enum StorageVersion {
+    /// The old version which supports only a single key for DID.
+    SingleKey,
+    /// Multi-key DID.
+    MultiKey,
+}
+
+impl Default for StorageVersion {
+    fn default() -> Self {
+        Self::SingleKey
+    }
+}
+
+pub mod keys_and_sigs;
+mod migrations;
+mod modules;
 pub mod runtime_api;
 pub mod types;
+pub mod util;
+
+pub use modules::{accumulator, anchor, attest, bbs_plus, blob, did, master, revoke};
 
 #[cfg(test)]
 mod test_common;

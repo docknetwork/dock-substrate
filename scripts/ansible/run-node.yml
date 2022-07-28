@@ -15,7 +15,7 @@
     node_key_cmd: "{{ '--node-key='+ libp2p_key if (has_node_key) else '' }}"
 
     ext_rpc_flag: "{{ allow_ext_rpc | default('false') | bool }}"  # External RPC is disabled by default
-    external_rpc: "{{ '--rpc-external --ws-external --rpc-cors=all' if (ext_rpc_flag) else '' }}"
+    external_rpc: "{{ '--unsafe-rpc-external --unsafe-ws-external --rpc-cors=all' if (ext_rpc_flag) else '' }}"
 
     ext_prometheus_flag: "{{ allow_ext_prom | default('false') | bool }}"  # Listening to external Prometheus interfaces is disabled by default
     external_prom: "{{ '--prometheus-external' if (ext_prometheus_flag) else '' }}"
@@ -45,9 +45,9 @@
     # TODO: Allow light node as well
   tasks:
 
-  - fail:
-      msg: Validators cannot allow external RPC
-    when: is_val_flag | bool and ext_rpc_flag | bool
+  # - fail:
+  #     msg: Validators cannot allow external RPC
+  #   when: is_val_flag | bool and ext_rpc_flag | bool
 
   - name: Install required system packages (Will only run for Ubuntu/Debian)
     when: ansible_facts['os_family'] == "Debian"

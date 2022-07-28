@@ -184,8 +184,8 @@ pub fn newdid(origin: u64) -> (did::Did, sr25519::Pair) {
     (d, create_did(origin, d))
 }
 
-pub fn sign(payload: &StateChange, keypair: &sr25519::Pair) -> did::DidSignature {
-    did::DidSignature::Sr25519(did::Bytes64 {
+pub fn sign(payload: &StateChange, keypair: &sr25519::Pair) -> did::SigValue {
+    did::SigValue::Sr25519(did::Bytes64 {
         value: keypair.sign(&payload.encode()).0,
     })
 }

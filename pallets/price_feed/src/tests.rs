@@ -1,6 +1,6 @@
 use crate::{mock::*, ContractConfig, Error, ParamType, DUMMY_SOURCE, GAS_LIMIT, ZERO_VALUE};
 use common::traits::PriceProvider;
-use frame_support::{assert_err, StorageValue};
+use frame_support::{assert_noop, StorageValue};
 use pallet_evm::Runner;
 use sp_core::{H160, U256};
 
@@ -290,7 +290,7 @@ fn decoding_emv_resp() {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 96, 52, 215, 9, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32,
         ];
-        assert_err!(
+        assert_noop!(
             PriceFeedModule::decode_evm_response_to_price(&ret_params, &ret_value_1),
             Error::<Test>::PriceIsZero
         );
@@ -299,7 +299,7 @@ fn decoding_emv_resp() {
             0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
             0, 0, 32,
         ];
-        assert_err!(
+        assert_noop!(
             PriceFeedModule::decode_evm_response_to_price(&ret_params, &ret_value_2),
             Error::<Test>::ResponseParsingFailed
         );

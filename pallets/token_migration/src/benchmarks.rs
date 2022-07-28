@@ -10,24 +10,17 @@ const SEED: u32 = 0;
 const MAX_USER_INDEX: u32 = 1000;
 
 benchmarks! {
-        _ {
-            // Migrator
-            let u in 1 .. MAX_USER_INDEX => ();
-            // No of migrations
-            let n in 1 .. 1000 => ();
-        }
-
         // Assumes recipient account does not exist which is most likely to be the case
         migrate {
-            let u in ...;
-            let n in ...;
+            let u in 1 .. MAX_USER_INDEX => ();
+            let n in 1 .. 1000 => ();
 
             let migrator: T::AccountId = account("caller", u, SEED);
             // Setup migrator
             Migrators::<T>::insert(migrator.clone(), n as u16);
 
             // Fuel migrator such that he can pay each recipient
-            let recip_amount: BalanceOf<T> = 500.into();
+            let recip_amount: BalanceOf<T> = 500u32.into();
             let balance = recip_amount.saturating_mul((n+1).into());
             let _ = T::Currency::make_free_balance_be(&migrator, balance);
 

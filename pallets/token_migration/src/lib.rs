@@ -27,20 +27,20 @@ use frame_support::{
     },
     weights::{Pays, Weight},
 };
-use sp_std::marker::PhantomData;
-use sp_std::prelude::Vec;
+use sp_std::{marker::PhantomData, prelude::Vec};
 
 use frame_system::{self as system, ensure_root, ensure_signed};
 extern crate alloc;
 use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::traits::ExistenceRequirement;
 
-type BalanceOf<T> = <<T as Trait>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
+type BalanceOf<T> =
+    <<T as Config>::Currency as Currency<<T as system::Config>::AccountId>>::Balance;
 
+#[cfg(feature = "runtime-benchmarks")]
+mod benchmarks;
 #[cfg(test)]
 mod tests;
-
-mod benchmarking;
 
 /// Struct to encode all the bonuses of an account.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
@@ -58,7 +58,7 @@ impl<Balance, BlockNumber> Bonus<Balance, BlockNumber> {
 }
 
 /// The pallet's configuration trait.
-pub trait Trait: system::Config {
+pub trait Config: system::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
 
@@ -85,7 +85,7 @@ pub trait Trait: system::Config {
 
 // This pallet's storage items.
 decl_storage! {
-    trait Store for Module<T: Trait> as MigrationModule {
+    trait Store for Module<T: Config> as MigrationModule {
         /// Track accounts registered as migrators
         Migrators get(fn migrators): map hasher(blake2_128_concat) T::AccountId => Option<u16>;
 
@@ -134,7 +134,7 @@ decl_event!(
 // The pallet's errors
 decl_error! {
     /// Errors for the module.
-    pub enum Error for Module<T: Trait> {
+    pub enum Error for Module<T: Config> {
         MigratorAlreadyPresent,
         UnknownMigrator,
         ExceededMigrations,
@@ -160,7 +160,7 @@ decl_error! {
 
 decl_module! {
     /// The module declaration.
-    pub struct Module<T: Trait> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
 
         type Error = Error<T>;
 
@@ -323,7 +323,7 @@ decl_module! {
     }
 }
 
-impl<T: Trait> Module<T> {
+impl<T: Config> Module<T> {
     /// Deduct tokens from the migrator's account and decrease the allowed migrations
     fn migrate_(
         migrator: T::AccountId,
@@ -635,22 +635,22 @@ impl<T: Trait> Module<T> {
 /// Signed extension to ensure that only a Migrator can send the migrate extrinsic.
 /// This is necessary to prevent a `migrate` call done by non-Migrator to even enter a block.
 #[derive(Encode, Decode, Clone, Eq, PartialEq)]
-pub struct OnlyMigrator<T: Trait + Send + Sync>(PhantomData<T>);
+pub struct OnlyMigrator<T: Config + Send + Sync>(PhantomData<T>);
 
-impl<T: Trait + Send + Sync> OnlyMigrator<T> {
+impl<T: Config + Send + Sync> OnlyMigrator<T> {
     /// Create new `SignedExtension` to check runtime version.
     pub fn new() -> Self {
         Self(PhantomData)
     }
 }
 
-impl<T: Trait + Send + Sync> sp_std::fmt::Debug for OnlyMigrator<T> {
+impl<T: Config + Send + Sync> sp_std::fmt::Debug for OnlyMigrator<T> {
     fn fmt(&self, f: &mut sp_std::fmt::Formatter) -> sp_std::fmt::Result {
         write!(f, "OnlyMigrator")
     }
 }
 
-impl<T: Trait + Send + Sync> SignedExtension for OnlyMigrator<T>
+impl<T: Config + Send + Sync> SignedExtension for OnlyMigrator<T>
 where
     <T as system::Config>::Call: IsSubType<Call<T>>,
 {

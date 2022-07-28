@@ -1,6 +1,6 @@
 [package]
 name = "fiat_filter_rpc"
-version = "0.0.1"
+version = "0.0.2"
 authors = ["Dock.io"]
 edition = "2018"
 
