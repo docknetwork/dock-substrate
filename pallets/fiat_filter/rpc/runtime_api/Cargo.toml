@@ -6,8 +6,8 @@ edition = "2018"
 
 
 [dependencies]
-sp-api = {  version='3.0.0', git = "https://github.com/docknetwork/substrate.git", branch = "frontier", default-features=false }
-sp-runtime = { version='3.0.0', git = "https://github.com/docknetwork/substrate.git", branch = "frontier", default-features=false }
+sp-api = {  version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier", default-features=false }
+sp-runtime = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier", default-features=false }
 codec = { package = 'parity-scale-codec', version = '2.0.0', default-features=false, features=['derive'] }
 
 [features]

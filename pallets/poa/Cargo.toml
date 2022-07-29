@@ -17,31 +17,31 @@ version = '2.0.0'
 [dependencies.frame-support]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dev-dependencies.sp-core]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-io]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-std]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.serde]
@@ -52,26 +52,26 @@ version = '1.0.119'
 [dependencies.sp-arithmetic]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-api]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dev-dependencies.balances]
 default-features = false
 package = 'pallet-balances'
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [features]

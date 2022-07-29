@@ -9,10 +9,10 @@ edition = "2018"
 jsonrpc-core = "15.0.0"
 jsonrpc-core-client = "15.0.0"
 jsonrpc-derive = "15.0.0"
-sp-api = { version='3.0.0', git = "https://github.com/docknetwork/substrate.git", branch = "frontier" }
-sp-runtime = { version='3.0.0', git = "https://github.com/docknetwork/substrate.git", branch = "frontier"}
-sp-blockchain = { version='3.0.0', git = "https://github.com/docknetwork/substrate.git", branch = "frontier" }
-sp-core = { version='3.0.0', git = "https://github.com/docknetwork/substrate.git", branch = "frontier" }
-sp-rpc = { version='3.0.0', git = "https://github.com/docknetwork/substrate.git", branch = "frontier" }
+sp-api = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+sp-runtime = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
+sp-blockchain = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+sp-core = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+sp-rpc = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
 
 fiat_filter_rpc_runtime_api = { version = '0.0.1', path='./runtime_api'}

@@ -40,44 +40,44 @@ version = '2.0.0'
 [dependencies.sp-core]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 features = ["full_crypto"]
 
 [dependencies.sp-std]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-io]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.frame-support]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.sp-api]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.hex-literal]
@@ -87,7 +87,7 @@ optional = true
 [dependencies.sp-application-crypto]
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 features = ["full_crypto"]
 
@@ -95,7 +95,7 @@ features = ["full_crypto"]
 optional = true
 default-features = false
 version = '3.0.0'
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
 [dependencies.libsecp256k1]

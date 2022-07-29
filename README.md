@@ -1,7 +1,7 @@
 # Dock Blockchain Node
 
 [Rust Docs](https://docknetwork.github.io/dock-substrate/dock_runtime).
-[Javascript Client](https://github.com/docknetwork/sdk).
+[Javascript Client](https://github.com/paritytech/sdk).
 
 The dock blockchain serves as registry for [Decentralized Identifiers](https://www.w3.org/TR/did-core) and for revocations of [Verifiable Credentials](https://www.w3.org/TR/vc-data-model).
 
