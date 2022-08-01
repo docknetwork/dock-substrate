@@ -1325,7 +1325,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.18.0"
+version = "0.19.0"
 dependencies = [
  "core_mods_rpc",
  "dock-runtime",
@@ -1392,7 +1392,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "common",
  "core_mods",
@@ -4609,7 +4609,7 @@ dependencies = [
 [[package]]
 name = "pallet-collective"
 version = "3.0.0"
-source = "git+https://github.com/docknetwork/substrate.git?branch=frontier#9bc1dbc8eb11127b0a5029611478bbfe561aacfc"
+source = "git+https://github.com/docknetwork/substrate.git?branch=frontier#b939d736911229ae72a91cba704f100bc8af64d6"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -4660,7 +4660,7 @@ dependencies = [
 [[package]]
 name = "pallet-elections-phragmen"
 version = "3.0.0"
-source = "git+https://github.com/docknetwork/substrate.git?branch=frontier#9bc1dbc8eb11127b0a5029611478bbfe561aacfc"
+source = "git+https://github.com/docknetwork/substrate.git?branch=frontier#b939d736911229ae72a91cba704f100bc8af64d6"
 dependencies = [
  "frame-support",
  "frame-system",
