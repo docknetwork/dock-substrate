@@ -272,7 +272,7 @@ crate::bench_with_all_pairs! {
             crate::did::Module::<T>::add_service_endpoint_(
                 AddServiceEndpoint {
                     did,
-                    id: WrappedBytes(vec![1; i as usize]),
+                    id: WrappedBytes(vec![1; (i + 1) as usize]),
                     endpoint: ServiceEndpoint {
                         origins: (0..MAX_ORIGINS as usize).map(|i| vec![i as u8; MAX_ORIGIN_LENGTH as usize].into()).collect(),
                         types: crate::did::service_endpoints::ServiceEndpointType::LINKED_DOMAINS

@@ -12,6 +12,13 @@
       chdir: /home/ubuntu/dock-substrate
       cmd: cargo build --release --features testnet
 
+  # The following is important when the `spec_version` or related fields have changed or `chain_spec.rs` has changed for testnet
+  - name: Build chain spec
+    when: rebuild_node | default('true') | bool
+    shell:
+      chdir: /home/ubuntu/dock-substrate
+      cmd: ./target/release/dock-node build-spec --chain=testnet --raw > ./cspec/knox_test_raw.json
+
   - name: Stop node
     become: yes
     become_method: sudo
