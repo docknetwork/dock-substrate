@@ -892,6 +892,8 @@ parameter_types! {
     pub const DesiredMembers: u32 = 6;
     pub const DesiredRunnersUp: u32 = 3;
     pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
+    /// Require 3 days in blocks for each candidate to be allowed for the election.
+    pub const CandidacyDelay: u32 = 86400;
 }
 
 // Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
@@ -902,6 +904,7 @@ impl pallet_elections_phragmen::Config for Runtime {
     type ModuleId = ElectionsPhragmenModuleId;
     type Currency = Balances;
     type ChangeMembers = Council;
+    type CandidacyDelay = CandidacyDelay;
     // NOTE: this implies that council's genesis members cannot be set directly and must come from
     // this module.
     type InitializeMembers = Council;
@@ -921,6 +924,8 @@ parameter_types! {
     pub const CouncilMotionDuration: BlockNumber = COUNCIL_MOTION_DURATION;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 10;
+    /// Proposal with lifetime less than 2 hours (in blocks) requires to be approved by all members.
+    pub const ShortTimeProposal: u32 = 2400;
 }
 
 type CouncilCollective = pallet_collective::Instance1;
@@ -928,6 +933,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
     type Event = Event;
+    type ShortTimeProposal = ShortTimeProposal;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = CouncilMaxMembers;
@@ -959,6 +965,7 @@ type TechnicalCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<TechnicalCollective> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
+    type ShortTimeProposal = ShortTimeProposal;
     type Event = Event;
     type MotionDuration = TechnicalMotionDuration;
     type MaxProposals = TechnicalMaxProposals;
