@@ -307,8 +307,8 @@ pub fn pos_testnet_config() -> ChainSpec {
                 endowed_accounts: [
                     "39sz7eSJE2MfFT6345boRTKqdS6vh2Pq779TdpitMFRNi5Jr", // Dock V1
                     "36ioxyZDmuM51qAujXytqxgSQV7M7v82X2qAhf2jYmChV8oN", // Sudo
-                    "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF", // API
-                    "37yrw7s12i6VtGHAA6XkKL6onUTpk4KXoeCAx6eiW9Xc1KjC", // Faucet
+                    "3866t5dsM4LyVavJzmqySgBj6auiFGHFGZc7WjSsEjehVSpM",
+                    "38aKrxaL5ES46s6RHhB9ue6rwFbh6vVdzbY7KGcfYMAytWNS",
                     "3AJJBL4KQ49h32yQuu1HkSnSJUjSooZED9Z2De2zE2EPXxbN",
                     "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF", // Test issuer
                     "37yrw7s12i6VtGHAA6XkKL6onUTpk4KXoeCAx6eiW9Xc1KjC", // Faucet
