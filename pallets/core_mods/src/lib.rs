@@ -4,7 +4,6 @@ extern crate alloc;
 extern crate core;
 
 use codec::{Decode, Encode};
-use sp_std::borrow::Cow;
 
 def_state_change! {
     /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
