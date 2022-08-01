@@ -174,10 +174,10 @@ macro_rules! impl_wrapper {
 #[macro_export]
 macro_rules! def_state_change {
     ($(#[$meta:meta])* $name: ident: $($mod: ident::$type: ident),+) => {
-        #[derive(Encode, Decode, Debug, Clone)]
+        #[derive(codec::Encode, codec::Decode, Debug, Clone)]
         $(#[$meta])*
         pub enum $name<'a, T: frame_system::Config> {
-            $($type(Cow<'a, $mod::$type<T>>)),+
+            $($type(sp_std::borrow::Cow<'a, $mod::$type<T>>)),+
         }
     }
 }

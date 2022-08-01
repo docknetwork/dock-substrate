@@ -361,7 +361,6 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Ed25519(_) => Self::add_service_endpoint_ed25519,
             SigValue::Secp256k1(_) => Self::add_service_endpoint_secp256k1,
         })(
-            id.len() as u32,
             endpoint.origins.len() as u32,
             endpoint
                 .origins
@@ -370,6 +369,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
                 .sum::<u32>()
                 .checked_div_ceil(endpoint.origins.len() as u32)
                 .unwrap_or(0),
+            id.len() as u32,
         )
     }
 
