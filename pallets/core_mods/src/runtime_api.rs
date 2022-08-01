@@ -1,7 +1,9 @@
-//use crate::accumulator;
-// use crate::bbs_plus;
-use crate::did::{self, Config};
-use sp_std::vec::Vec;
+use crate::{
+    accumulator, bbs_plus,
+    did::{self, Config},
+    util::IncId,
+};
+use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 sp_api::decl_runtime_apis! {
     pub trait CoreModsApi<T: Config> {
@@ -9,14 +11,14 @@ sp_api::decl_runtime_apis! {
 
         fn did_list_details(dids: Vec<did::Did>, params: Option<did::AggregatedDidDetailsRequestParams>) -> Vec<Option<did::AggregatedDidDetailsResponse<T>>>;
 
-        /*fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams>;
+        fn bbs_plus_public_key_with_params(id: bbs_plus::BBSPlusPublicKeyStorageKey) -> Option<bbs_plus::BBSPlusPublicKeyWithParams>;
 
-        fn bbs_plus_params_by_did(did: crate::did::Did) -> BTreeMap<u32, bbs_plus::BbsPlusParameters>;
+        fn bbs_plus_params_by_did(owner: bbs_plus::BBSPlusParamsOwner) -> BTreeMap<IncId, bbs_plus::BBSPlusParameters>;
 
-        fn bbs_plus_public_keys_by_did(did: crate::did::Did) -> BTreeMap<u32, bbs_plus::PublicKeyWithParams>;
+        fn bbs_plus_public_keys_by_did(did: crate::did::Did) -> BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams>;
 
-        fn accumulator_public_key_with_params(id: accumulator::PublicKeyStorageKey) -> Option<accumulator::PublicKeyWithParams>;
+        fn accumulator_public_key_with_params(id: accumulator::AccumPublicKeyStorageKey) -> Option<accumulator::AccumPublicKeyWithParams>;
 
-        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::PublicKeyWithParams>)>;*/
+        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)>;
     }
 }

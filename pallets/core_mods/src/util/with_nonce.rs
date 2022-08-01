@@ -110,7 +110,7 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         res
     }
 
-    /// If supplied value is `Some(_)`, will update given entity.
+    /// If supplied value is `Some(_)`, will update given entity without increasing nonce.
     pub fn try_update_opt_without_increasing_nonce_with<S, F, E, R>(
         this_opt: &mut Option<S>,
         f: F,

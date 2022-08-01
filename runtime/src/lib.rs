@@ -94,6 +94,7 @@ use sp_runtime::{
     ApplyExtrinsicResult, FixedPointNumber, ModuleId, MultiSignature, Perbill, Percent, Permill,
     Perquintill, SaturatedConversion,
 };
+use sp_std::collections::btree_map::BTreeMap;
 use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
@@ -110,6 +111,7 @@ use sp_std::{convert::TryFrom, marker::PhantomData, prelude::*};
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
 
+use core_mods::util::IncId;
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use sp_runtime::curve::PiecewiseLinear;
@@ -190,7 +192,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 36,
+    spec_version: 37,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -890,6 +892,8 @@ parameter_types! {
     pub const DesiredMembers: u32 = 6;
     pub const DesiredRunnersUp: u32 = 3;
     pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
+    /// Require 3 days in blocks for each candidate to be allowed for the election.
+    pub const CandidacyDelay: u32 = 86400;
 }
 
 // Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
@@ -900,6 +904,7 @@ impl pallet_elections_phragmen::Config for Runtime {
     type ModuleId = ElectionsPhragmenModuleId;
     type Currency = Balances;
     type ChangeMembers = Council;
+    type CandidacyDelay = CandidacyDelay;
     // NOTE: this implies that council's genesis members cannot be set directly and must come from
     // this module.
     type InitializeMembers = Council;
@@ -919,6 +924,8 @@ parameter_types! {
     pub const CouncilMotionDuration: BlockNumber = COUNCIL_MOTION_DURATION;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 10;
+    /// Proposal with lifetime less than 2 hours (in blocks) requires to be approved by all members.
+    pub const ShortTimeProposal: u32 = 2400;
 }
 
 type CouncilCollective = pallet_collective::Instance1;
@@ -926,6 +933,7 @@ impl pallet_collective::Config<CouncilCollective> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
     type Event = Event;
+    type ShortTimeProposal = ShortTimeProposal;
     type MotionDuration = CouncilMotionDuration;
     type MaxProposals = CouncilMaxProposals;
     type MaxMembers = CouncilMaxMembers;
@@ -957,6 +965,7 @@ type TechnicalCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<TechnicalCollective> for Runtime {
     type Origin = Origin;
     type Proposal = Call;
+    type ShortTimeProposal = ShortTimeProposal;
     type Event = Event;
     type MotionDuration = TechnicalMotionDuration;
     type MaxProposals = TechnicalMaxProposals;
@@ -1794,25 +1803,25 @@ impl_runtime_apis! {
             dids.into_iter().map(|did| DIDModule::aggregate_did_details(&did, params)).collect()
         }
 
-        /*fn bbs_plus_public_key_with_params(id: bbs_plus::PublicKeyStorageKey) -> Option<bbs_plus::PublicKeyWithParams> {
+        fn bbs_plus_public_key_with_params(id: bbs_plus::BBSPlusPublicKeyStorageKey) -> Option<bbs_plus::BBSPlusPublicKeyWithParams> {
             BbsPlus::get_public_key_with_params(&id)
         }
 
-        fn bbs_plus_params_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::BbsPlusParameters> {
-            BbsPlus::get_params_by_did(&did)
+        fn bbs_plus_params_by_did(owner: bbs_plus::BBSPlusParamsOwner) -> BTreeMap<IncId, bbs_plus::BBSPlusParameters> {
+            BbsPlus::get_params_by_did(&owner)
         }
 
-        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<u32, bbs_plus::PublicKeyWithParams> {
+        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams> {
             BbsPlus::get_public_key_by_did(&did)
         }
 
-        fn accumulator_public_key_with_params(id: accumulator::PublicKeyStorageKey) -> Option<accumulator::PublicKeyWithParams> {
+        fn accumulator_public_key_with_params(id: accumulator::AccumPublicKeyStorageKey) -> Option<accumulator::AccumPublicKeyWithParams> {
             Accumulator::get_public_key_with_params(&id)
         }
 
-        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::PublicKeyWithParams>)> {
+        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)> {
             Accumulator::get_accumulator_with_public_key_and_params(&id)
-        }*/
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]

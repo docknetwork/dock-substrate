@@ -30,7 +30,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        let params = BbsPlusParameters {
+        let params = BBSPlusParameters {
             curve_type: CurveType::Bls12381,
             bytes: vec![0; b as usize],
             label: Some(vec![0; l as usize])
@@ -62,7 +62,7 @@ crate::bench_with_all_pairs! {
 
         Module::<T>::add_params_(
             AddBBSPlusParams {
-                params: BbsPlusParameters {
+                params: BBSPlusParameters {
                     curve_type: CurveType::Bls12381,
                     bytes: vec![0; MAX_PARAMS as usize],
                     label: Some(vec![1; MAX_LABEL as usize])
@@ -102,7 +102,7 @@ crate::bench_with_all_pairs! {
 
         Module::<T>::add_params_(
             AddBBSPlusParams {
-                params: BbsPlusParameters {
+                params: BBSPlusParameters {
                     curve_type: CurveType::Bls12381,
                     bytes: vec![0; MAX_PARAMS as usize],
                     label: Some(vec![1; MAX_LABEL as usize])
@@ -112,7 +112,7 @@ crate::bench_with_all_pairs! {
             BBSPlusParamsOwner(did)
         ).unwrap();
 
-        let key = BbsPlusPublicKey {
+        let key = BBSPlusPublicKey {
             curve_type: CurveType::Bls12381,
             bytes: vec![0; b as usize],
             /// The params used to generate the public key (`P_tilde` comes from params)
@@ -147,7 +147,7 @@ crate::bench_with_all_pairs! {
 
         Module::<T>::add_params_(
             AddBBSPlusParams {
-                params: BbsPlusParameters {
+                params: BBSPlusParameters {
                     curve_type: CurveType::Bls12381,
                     bytes: vec![0; MAX_PARAMS as usize],
                     label: Some(vec![1; MAX_LABEL as usize])
@@ -160,7 +160,7 @@ crate::bench_with_all_pairs! {
         Module::<T>::add_public_key_(
             AddBBSPlusPublicKey {
                 did: did,
-                key: BbsPlusPublicKey {
+                key: BBSPlusPublicKey {
                     curve_type: CurveType::Bls12381,
                     bytes: vec![0; MAX_KEY as usize],
                     /// The params used to generate the public key (`P_tilde` comes from params)

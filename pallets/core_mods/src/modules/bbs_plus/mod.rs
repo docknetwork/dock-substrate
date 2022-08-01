@@ -35,7 +35,7 @@ mod weights;
 
 pub type BBSPlusParametersStorageKey = (BBSPlusParamsOwner, IncId);
 pub type BBSPlusPublicKeyStorageKey = (Did, IncId);
-pub type BBSPlusPublicKeyWithParams = (BbsPlusPublicKey, Option<BbsPlusParameters>);
+pub type BBSPlusPublicKeyWithParams = (BBSPlusPublicKey, Option<BBSPlusParameters>);
 
 /// DID owner of the BBSPlus parameters.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
@@ -48,7 +48,7 @@ crate::impl_wrapper!(BBSPlusParamsOwner, Did, for rand use Did(rand::random()), 
 /// Signature params in G1 for BBS+ signatures
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct BbsPlusParameters {
+pub struct BBSPlusParameters {
     /// The label (generating string) used to generate the params
     pub label: Option<Vec<u8>>,
     pub curve_type: CurveType,
@@ -58,7 +58,7 @@ pub struct BbsPlusParameters {
 /// Public key in G2 for BBS+ signatures
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct BbsPlusPublicKey {
+pub struct BBSPlusPublicKey {
     /// The public key should be for the same curve as the parameters but a public key might not have
     /// parameters on chain
     pub curve_type: CurveType,
@@ -117,13 +117,13 @@ decl_storage! {
 
         /// Parameters are stored as key value (did, counter) -> params
         pub BbsPlusParams get(fn get_params):
-            double_map hasher(blake2_128_concat) BBSPlusParamsOwner, hasher(identity) IncId => Option<BbsPlusParameters>;
+            double_map hasher(blake2_128_concat) BBSPlusParamsOwner, hasher(identity) IncId => Option<BBSPlusParameters>;
 
         /// Public keys are stored as key value (did, counter) -> public key
         /// Its assumed that the public keys are always members of G2. It does impact any logic on the
         /// chain but makes up for one less storage value
         pub BbsPlusKeys get(fn get_key):
-            double_map hasher(blake2_128_concat) Did, hasher(identity) IncId => Option<BbsPlusPublicKey>;
+            double_map hasher(blake2_128_concat) Did, hasher(identity) IncId => Option<BBSPlusPublicKey>;
 
         pub Version get(fn version): StorageVersion;
     }

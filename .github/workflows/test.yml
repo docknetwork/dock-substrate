@@ -14,11 +14,11 @@ jobs:
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: nightly
           override: true
           components: rustfmt
       - name: Ensure Standard Formatting
-        run: cargo fmt -- --check
+        run: cargo +nightly fmt -- --check
 
   unit-tests:
     runs-on: ubuntu-latest

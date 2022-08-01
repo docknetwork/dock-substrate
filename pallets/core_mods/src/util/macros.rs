@@ -217,6 +217,7 @@ macro_rules! impl_encode_decode_wrapper_tests {
     };
 }
 
+#[cfg(feature = "runtime-benchmarks")]
 #[macro_export]
 macro_rules! with_pair {
     (let $pair: ident as Pair with idx $idx: expr; $($body: tt)+) => {

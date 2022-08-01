@@ -1,4 +1,4 @@
-use crate::{Action, ActionWithNonce, ToStateChange};
+use crate::{Action, ActionWithNonce};
 use codec::{Decode, Encode};
 use frame_system::Config;
 
@@ -36,17 +36,5 @@ impl<T: Config, A: Action<T>, Ta: Clone> Action<T> for WrappedActionWithNonce<T,
 impl<T: Config, A: Action<T>, Ta: Clone> ActionWithNonce<T> for WrappedActionWithNonce<T, A, Ta> {
     fn nonce(&self) -> T::BlockNumber {
         self.nonce
-    }
-}
-
-impl<T: frame_system::Config, A: ToStateChange<T>, Ta: Clone> ToStateChange<T>
-    for WrappedActionWithNonce<T, A, Ta>
-{
-    fn to_state_change(&self) -> crate::StateChange<'_, T> {
-        self.action.to_state_change()
-    }
-
-    fn into_state_change(self) -> crate::StateChange<'static, T> {
-        self.action.into_state_change()
     }
 }

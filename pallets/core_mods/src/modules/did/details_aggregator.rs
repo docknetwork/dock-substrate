@@ -1,4 +1,5 @@
 use super::*;
+use crate::attest::{self, Attestation, Attester};
 
 /// Aggregated details for the given DID.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
@@ -17,6 +18,8 @@ pub struct AggregatedDidDetailsResponse<T: Config> {
     controllers: Option<Vec<Controller>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     service_endpoints: Option<Vec<ServiceEndpointWithId>>,
+    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+    attestation: Option<Attestation>,
 }
 
 /// `DidKey` with its identifier.
@@ -45,6 +48,7 @@ impl<T: Config> AggregatedDidDetailsResponse<T> {
         keys: Option<KI>,
         controllers: Option<CI>,
         service_endpoints: Option<SI>,
+        attestation: Option<Attestation>,
     ) -> Self
     where
         KI: IntoIterator<Item = (IncId, DidKey)>,
@@ -66,13 +70,14 @@ impl<T: Config> AggregatedDidDetailsResponse<T> {
                     .map(|(id, endpoint)| ServiceEndpointWithId { id, endpoint })
                     .collect()
             }),
+            attestation,
         }
     }
 }
 
 bitflags::bitflags! {
-    /// Information requested for DID. The default option includes full DID information (keys, controllers and service endpoints).
-    #[derive(Encode, Decode)]
+    /// Information requested for DID. The default option includes only basic DID details.
+    #[derive(Encode, Decode, Default)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
     pub struct AggregatedDidDetailsRequestParams: u8 {
@@ -84,20 +89,16 @@ bitflags::bitflags! {
         const CONTROLLERS = 0b010;
         /// Include service endpoints for the DID.
         const SERVICE_ENDPOINTS = 0b100;
-        /// Include full DID information (keys, controllers and service endpoints).
-        const FULL = 0b111;
+        /// Include attestation for the DID.
+        const ATTESTATION = 0b1000;
+        /// Include full DID information (keys, controllers, service endpoints and attestation).
+        const FULL = 0b1111;
     }
 }
 
 impl_bits_conversion! { AggregatedDidDetailsRequestParams, u8 }
 
-impl Default for AggregatedDidDetailsRequestParams {
-    fn default() -> Self {
-        Self::FULL
-    }
-}
-
-impl<T: Config + Debug> Module<T> {
+impl<T: Config + attest::Config + Debug> Module<T> {
     /// Request aggregated DID details containing specified information.
     pub fn aggregate_did_details(
         did: &Did,
@@ -113,6 +114,9 @@ impl<T: Config + Debug> Module<T> {
         let service_endpoints = params
             .intersects(AggregatedDidDetailsRequestParams::SERVICE_ENDPOINTS)
             .then(|| DidServiceEndpoints::iter_prefix(did));
+        let attestation = params
+            .intersects(AggregatedDidDetailsRequestParams::ATTESTATION)
+            .then(|| <attest::Module<T>>::attestation(&Attester(*did)));
 
         Some(AggregatedDidDetailsResponse::new(
             *did,
@@ -120,6 +124,7 @@ impl<T: Config + Debug> Module<T> {
             keys,
             controllers,
             service_endpoints,
+            attestation,
         ))
     }
 }

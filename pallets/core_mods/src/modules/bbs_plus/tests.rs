@@ -77,7 +77,7 @@ fn add_remove_params() {
         run_to_block(10);
 
         let params_bytes = vec![1u8; 600];
-        let mut params = BbsPlusParameters {
+        let mut params = BBSPlusParameters {
             label: Some(vec![0, 1, 2, 3]),
             curve_type: CurveType::Bls12381,
             bytes: params_bytes,
@@ -180,7 +180,7 @@ fn add_remove_params() {
             BbsPlusParams::get(&BBSPlusParamsOwner(author), IncId::from(2u8)),
             None
         );
-        let params_1 = BbsPlusParameters {
+        let params_1 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![1u8; 100],
@@ -216,7 +216,7 @@ fn add_remove_params() {
 
         run_to_block(25);
 
-        let params_2 = BbsPlusParameters {
+        let params_2 = BBSPlusParameters {
             label: Some(vec![0, 9, 1]),
             curve_type: CurveType::Bls12381,
             bytes: vec![9u8; 100],
@@ -268,7 +268,7 @@ fn add_remove_params() {
             BbsPlusParams::get(&BBSPlusParamsOwner(author), IncId::from(3u8)),
             None
         );
-        let params_3 = BbsPlusParameters {
+        let params_3 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![8u8; 100],
@@ -496,7 +496,7 @@ fn add_remove_public_key() {
 
         run_to_block(15);
 
-        let mut key = BbsPlusPublicKey {
+        let mut key = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![1u8; 200],
@@ -563,7 +563,7 @@ fn add_remove_public_key() {
         assert!(bbs_plus_events().contains(&super::Event::KeyAdded(author, 2u8.into())));
 
         assert_eq!(BbsPlusKeys::get(&author, IncId::from(3u8)), None);
-        let key_1 = BbsPlusPublicKey {
+        let key_1 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![1u8; 100],
@@ -591,7 +591,7 @@ fn add_remove_public_key() {
 
         run_to_block(50);
 
-        let key_2 = BbsPlusPublicKey {
+        let key_2 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![9u8; 100],
@@ -631,7 +631,7 @@ fn add_remove_public_key() {
             BbsPlusParams::get(&BBSPlusParamsOwner(author), IncId::from(3u8)),
             None
         );
-        let key_3 = BbsPlusPublicKey {
+        let key_3 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![8u8; 100],
@@ -807,7 +807,7 @@ fn add_remove_public_key() {
 
         run_to_block(80);
 
-        let params = BbsPlusParameters {
+        let params = BBSPlusParameters {
             label: Some(vec![0, 1, 2, 3]),
             curve_type: CurveType::Bls12381,
             bytes: vec![19; 100],
@@ -838,7 +838,7 @@ fn add_remove_public_key() {
         );
 
         // Add key with reference to non-existent params
-        let key_4 = BbsPlusPublicKey {
+        let key_4 = BBSPlusPublicKey {
             params_ref: Some((BBSPlusParamsOwner(author.clone()), 4u8.into())),
             curve_type: CurveType::Bls12381,
             bytes: vec![92u8; 100],
@@ -860,7 +860,7 @@ fn add_remove_public_key() {
         );
 
         // Add key with reference to existent params
-        let key_4 = BbsPlusPublicKey {
+        let key_4 = BBSPlusPublicKey {
             params_ref: Some((BBSPlusParamsOwner(author.clone()), 1u8.into())),
             curve_type: CurveType::Bls12381,
             bytes: vec![92u8; 100],
@@ -929,7 +929,7 @@ fn add_remove_public_key_by_controller() {
         check_did_detail(&did, 1, 1, 1, next_nonce - 1);
         next_nonce_1 += 1;
 
-        let key = BbsPlusPublicKey {
+        let key = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![8u8; 100],
@@ -984,28 +984,28 @@ fn add_params_keys() {
         run_to_block(30);
         let (author_2, _) = newdid();
 
-        let params = BbsPlusParameters {
+        let params = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![5; 100],
         };
-        let params_1 = BbsPlusParameters {
+        let params_1 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![6; 100],
         };
 
-        let key = BbsPlusPublicKey {
+        let key = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![1; 80],
         };
-        let key_1 = BbsPlusPublicKey {
+        let key_1 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![2; 80],
         };
-        let key_2 = BbsPlusPublicKey {
+        let key_2 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![3; 80],
@@ -1234,33 +1234,33 @@ fn get_params_and_keys() {
 
         let (author_1, _) = newdid();
 
-        let params = BbsPlusParameters {
+        let params = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![5; 100],
         };
-        let params_1 = BbsPlusParameters {
+        let params_1 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![6; 100],
         };
-        let params_2 = BbsPlusParameters {
+        let params_2 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![7; 100],
         };
 
-        let key = BbsPlusPublicKey {
+        let key = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
             bytes: vec![1; 80],
         };
-        let key_1 = BbsPlusPublicKey {
+        let key_1 = BBSPlusPublicKey {
             params_ref: Some((BBSPlusParamsOwner(author.clone()), 1u8.into())),
             curve_type: CurveType::Bls12381,
             bytes: vec![2; 80],
         };
-        let key_2 = BbsPlusPublicKey {
+        let key_2 = BBSPlusPublicKey {
             params_ref: Some((BBSPlusParamsOwner(author_1.clone()), 1u8.into())),
             curve_type: CurveType::Bls12381,
             bytes: vec![3; 80],

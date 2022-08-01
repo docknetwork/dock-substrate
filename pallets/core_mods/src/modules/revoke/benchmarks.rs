@@ -103,23 +103,20 @@ crate::bench_with_all_pairs! {
     }
 
     remove_registry_sr25519 for sr25519, remove_registry_ed25519 for ed25519, remove_registry_secp256k1 for secp256k1 {
-        {
-            let c in 1 .. MAX_CONTROLLERS;
-        }
-
         let pair as Pair;
         let caller = whitelisted_caller();
         let public = pair.public();
         let did = Did([3 as u8; Did::BYTE_SIZE]);
         let reg_id = [4 as u8; 32];
         let reg = Registry {
-            policy: Policy::OneOf(once(did).chain((1..c).map(U256::from).map(Into::into).map(Did)).collect()),
+            policy: Policy::OneOf(once(did).chain((1..MAX_CONTROLLERS).map(U256::from).map(Into::into).map(Did)).collect()),
             add_only: false,
         };
         let add_reg = AddRegistry {
             registry: reg.clone(),
             id: reg_id
         };
+        let revoke_ids: BTreeSet<_> = (0..100).map(|i| U256::from(i).into()).collect();
         crate::did::Module::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
@@ -127,6 +124,18 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         super::Module::<T>::new_registry_(add_reg).unwrap();
+
+        crate::revoke::Module::<T>::revoke_(
+            RevokeRaw {
+                /// The registry on which to operate
+               registry_id: reg_id,
+               /// Credential ids which will be revoked
+               revoke_ids: revoke_ids.clone(),
+               _marker: PhantomData
+            },
+            &mut Default::default(),
+        ).unwrap();
+
         let rem_reg_raw = RemoveRegistryRaw {
             registry_id: reg_id,
             _marker: PhantomData
