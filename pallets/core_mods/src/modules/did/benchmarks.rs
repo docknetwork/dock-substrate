@@ -247,15 +247,15 @@ crate::bench_with_all_pairs! {
         let did = Did([3; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        let keys: Vec<_> = once(DidKey::new_with_all_relationships(public)).chain((0..10)
-        .map(|i| ed25519::Pair::from_seed(&U256::from(i).into()))
-        .map(|pair| DidKey::new_with_all_relationships(pair.public())))
-        .collect();
-        let controllers: BTreeSet<_> = (0..10)
-        .map(|i| U256::from(i).into())
-        .map(Did)
-        .map(Controller)
-        .collect();
+        let keys: Vec<_> = once(DidKey::new_with_all_relationships(public)).chain((0..MAX_ENTITY_AMOUNT)
+            .map(|i| ed25519::Pair::from_seed(&U256::from(i).into()))
+            .map(|pair| DidKey::new_with_all_relationships(pair.public())))
+            .collect();
+        let controllers: BTreeSet<_> = (0..MAX_ENTITY_AMOUNT)
+            .map(|i| U256::from(i).into())
+            .map(Did)
+            .map(Controller)
+            .collect();
 
         crate::did::Module::<T>::new_onchain_(
             did,
@@ -267,6 +267,21 @@ crate::bench_with_all_pairs! {
             did,
             nonce: 1u8.into()
         };
+
+        for i in 0..MAX_ENTITY_AMOUNT {
+            crate::did::Module::<T>::add_service_endpoint_(
+                AddServiceEndpoint {
+                    did,
+                    id: WrappedBytes(vec![1; i as usize]),
+                    endpoint: ServiceEndpoint {
+                        origins: (0..MAX_ORIGINS as usize).map(|i| vec![i as u8; MAX_ORIGIN_LENGTH as usize].into()).collect(),
+                        types: crate::did::service_endpoints::ServiceEndpointType::LINKED_DOMAINS
+                    },
+                    nonce: 1u8.into()
+                },
+                &mut Default::default()
+            ).unwrap();
+        }
 
         let sig = pair.sign(&remove_did.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig);

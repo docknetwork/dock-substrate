@@ -260,7 +260,7 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `removal.registry_id`.
-        #[weight = SubstrateWeight::<T>::remove_registry(&proof[0])(removal.len())]
+        #[weight = SubstrateWeight::<T>::remove_registry(&proof[0])]
         pub fn remove_registry(
             origin,
             removal: dock::revoke::RemoveRegistryRaw<T>,
@@ -302,11 +302,11 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
         }
     }
 
-    fn remove_registry(DidSigs { sig, .. }: &DidSigs<T>) -> fn(u32) -> Weight {
-        match sig.sig {
+    fn remove_registry(DidSigs { sig, .. }: &DidSigs<T>) -> Weight {
+        (match sig.sig {
             SigValue::Sr25519(_) => Self::remove_registry_sr25519,
             SigValue::Ed25519(_) => Self::remove_registry_ed25519,
             SigValue::Secp256k1(_) => Self::remove_registry_secp256k1,
-        }
+        })()
     }
 }
