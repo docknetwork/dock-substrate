@@ -883,14 +883,14 @@ const fn deposit(items: u32, bytes: u32) -> Balance {
 }
 
 parameter_types! {
-    pub const CandidacyBond: Balance = 10 * DOCK;
+    pub const CandidacyBond: Balance = 20_000 * DOCK;
     // 1 storage item created, key size is 32 bytes, value size is 16+16.
     pub const VotingBondBase: Balance = deposit(1, 64);
     // additional data per vote is 32 bytes (account id).
     pub const VotingBondFactor: Balance = deposit(0, 32);
     pub const TermDuration: BlockNumber = TERM_DURATION;
-    pub const DesiredMembers: u32 = 13;
-    pub const DesiredRunnersUp: u32 = 7;
+    pub const DesiredMembers: u32 = 6;
+    pub const DesiredRunnersUp: u32 = 3;
     pub const ElectionsPhragmenModuleId: LockIdentifier = *b"phrelect";
 }
 
@@ -920,7 +920,7 @@ impl pallet_elections_phragmen::Config for Runtime {
 parameter_types! {
     pub const CouncilMotionDuration: BlockNumber = COUNCIL_MOTION_DURATION;
     pub const CouncilMaxProposals: u32 = 100;
-    pub const CouncilMaxMembers: u32 = 30;
+    pub const CouncilMaxMembers: u32 = 10;
 }
 
 type CouncilCollective = pallet_collective::Instance1;
@@ -952,7 +952,7 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
 parameter_types! {
     pub const TechnicalMotionDuration: BlockNumber = TECHNICAL_MOTION_DURATION;
     pub const TechnicalMaxProposals: u32 = 100;
-    pub const TechnicalMaxMembers: u32 = 50;
+    pub const TechnicalMaxMembers: u32 = 10;
 }
 
 type TechnicalCollective = pallet_collective::Instance2;

@@ -5,7 +5,7 @@
 //! EXECUTION: Some(Native), WASM-EXECUTION: Compiled, CHAIN: Some("mainnet"), DB CACHE: 128
 
 // Executed Command:
-// ./target/release/dock-node
+// ./target/production/dock-node
 // benchmark
 // --execution
 // native
@@ -16,16 +16,11 @@
 // --pallet
 // revoke
 // --extra
-// --extrinsic
-// *
-// --repeat
-// 20
-// --steps
-// 50
-// --output
-// ./pallets/core_mods/src/modules/revoke/weights.rs
-// --template
-// node/module-weight-template.hbs
+// --extrinsic=*
+// --repeat=20
+// --steps=50
+// --template=node/module-weight-template.hbs
+// --output=./pallets/core_mods/src/modules/revoke/weights.rs
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]

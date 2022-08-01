@@ -310,8 +310,8 @@ pub fn pos_testnet_config() -> ChainSpec {
                     "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF", // API
                     "37yrw7s12i6VtGHAA6XkKL6onUTpk4KXoeCAx6eiW9Xc1KjC", // Faucet
                     "3AJJBL4KQ49h32yQuu1HkSnSJUjSooZED9Z2De2zE2EPXxbN",
-                    "3866t5dsM4LyVavJzmqySgBj6auiFGHFGZc7WjSsEjehVSpM",
-                    "38aKrxaL5ES46s6RHhB9ue6rwFbh6vVdzbY7KGcfYMAytWNS",
+                    "36iNsCXukfGTmSJBBvWaakvJTqEPWEWQ1CGXZpK1BP1ZxJbF", // Test issuer
+                    "37yrw7s12i6VtGHAA6XkKL6onUTpk4KXoeCAx6eiW9Xc1KjC", // Faucet
                     "39o6FM6ZKZ2Jcz7N3HJ276Y6bkp4CoYZLPmwUAUPKsFoCAM5", // Council 2
                 ]
                 .iter()
@@ -376,7 +376,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                     ),
                 ],
                 stash: 1_000 * DOCK,
-                validator_count: 3,
+                validator_count: 1,
                 poa_last_block: Hash::from_str(
                     "0d84a546e4fdde4bf7c56c764a42457ee05b45bdc0c20e765903ab96465b8b3e",
                 )

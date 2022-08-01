@@ -547,7 +547,7 @@ runtime-benchmarks = [
   'core_mods/runtime-benchmarks',
   'pallet-collective/runtime-benchmarks',
   # 'sp-application-crypto/full_crypto',
-  'sp-core/full_crypto', 
+  'sp-core/full_crypto',
   'hex-literal',
   #"schnorrkel/getrandom",
   #'schnorrkel/wasm-bindgen',

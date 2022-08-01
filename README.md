@@ -72,6 +72,8 @@ When building a node to run in the network, it's recommended to build with `prod
 cargo build --profile=production
 ```
 
+This will put the `dock-node` binary in `target/production`
+
 You can add the above features to it. For testnet
 
 ```bash
@@ -115,6 +117,14 @@ To build image for mainnet node, run the following from the repository's root
 
 ```bash
 docker build --build-arg features='--features mainnet' .
+```
+
+
+The above commands will build the `production` profile which tradeoffs build time for performance. For slightly better build time, 
+you can build the node in release mode as following
+
+```bash
+docker build --build-arg release=Y --build-arg features='--features testnet' .
 ```
 
 ### Building chain spec

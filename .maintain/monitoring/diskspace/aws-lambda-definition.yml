@@ -1,0 +1,26 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Description: An AWS Serverless Specification template describing the blockchain node CloudWatch->Slack notification lambda
+Resources:
+  blockchainCloudWatchAlarm:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: index.handler
+      Runtime: nodejs14.x
+      CodeUri: .
+      Description: ''
+      MemorySize: 128
+      Timeout: 3
+      Role:
+      Events:
+        SNS1:
+          Type: SNS
+          Properties:
+            Topic:
+              Ref: SNSTopic1
+      Environment:
+        Variables:
+          BLOCKCHAIN_ENVIRONMENT: Testnet
+          SLACK_NOTIFCATION_WEBHOOK_URL: >-
+  SNSTopic1:
+    Type: 'AWS::SNS::Topic'

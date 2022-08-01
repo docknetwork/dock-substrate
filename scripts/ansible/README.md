@@ -66,3 +66,13 @@ The following command will timeout in 45 seconds.
 ```
 ansible-playbook -i <hosts file> run-node.yml --extra-vars "... blah blah" -t 45
 ```
+
+## Ansible playbook for resetting testnet node
+
+This script assumes that the testnet node has been setup up in a certain way (as a background process with node data and source in certain places). Its not a general purpose script.
+
+```
+ansible-playbook -i <hosts file> reset-node.yml --extra-vars "host=<name in the hosts file> rebuild_node=false" -t 120
+```
+
+The above script will clear the node's data dorectories and restart the node. Passing `rebuild_node=true` will pull the latest source and rebuild the node as well.
