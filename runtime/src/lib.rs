@@ -1236,6 +1236,7 @@ impl pallet_ethereum::Config for Runtime {
 
 pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider! {
     for Runtime:
+        "System" => System,
         "Timestamp" => Timestamp,
         "Balances" => Balances,
         "Session" => Session,

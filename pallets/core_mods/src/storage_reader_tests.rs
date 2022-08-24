@@ -21,15 +21,7 @@ use pallet_evm_precompile_storage_reader::{
 
 pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider!(
     for Test:
-        "Balances" => Balances,
-        "DIDModule" => DIDModule,
-        "RevoMod" => RevoMod,
-        "BlobMod" => BlobMod,
-        "MasterMod" => MasterMod,
-        "AnchorMod" => AnchorMod,
-        "AttestMod" => AttestMod,
-        "BBSPlusMod" => BBSPlusMod,
-        "AccumMod" => AccumMod
+        "DIDModule" => DIDModule
 );
 
 #[derive(Eq, PartialEq, Debug)]
