@@ -17,13 +17,15 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system as system;
+use pallet_evm::EnsureAddressOrigin;
 pub use rand::random;
-use sp_core::{sr25519, Pair, H256};
+use sp_core::{sr25519, Pair, H160, H256};
 use sp_runtime::{
     testing::Header,
     traits::{BlakeTwo256, IdentityLookup},
 };
 pub use std::iter::once;
+use system::RawOrigin;
 
 // Configure a mock runtime to test the pallet.
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -35,6 +37,8 @@ frame_support::construct_runtime!(
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
         System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
         DIDModule: did::{Module, Call, Storage, Event, Config},
         RevoMod: revoke::{Module, Call, Storage, Event},
         BlobMod: blob::{Module, Call, Storage},
@@ -59,6 +63,18 @@ pub enum TestEvent {
 
 impl From<system::Event<Test>> for TestEvent {
     fn from(_: system::Event<Test>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl From<pallet_balances::Event<Test>> for TestEvent {
+    fn from(_: pallet_balances::Event<Test>) -> Self {
+        unimplemented!()
+    }
+}
+
+impl From<pallet_evm::Event<Test>> for TestEvent {
+    fn from(_: pallet_evm::Event<Test>) -> Self {
         unimplemented!()
     }
 }
@@ -108,6 +124,7 @@ impl From<accumulator::Event> for TestEvent {
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const MaxControllers: u32 = 15;
+    pub const ByteReadWeight: Weight = 10;
 }
 
 impl system::Config for Test {
@@ -128,11 +145,66 @@ impl system::Config for Test {
     type BlockLength = ();
     type Version = ();
     type PalletInfo = PalletInfo;
-    type AccountData = ();
+    type AccountData = pallet_balances::AccountData<u64>;
     type OnNewAccount = ();
     type OnKilledAccount = ();
     type SystemWeightInfo = ();
     type SS58Prefix = ();
+}
+
+impl pallet_timestamp::Config for Test {
+    type Moment = u64;
+    type OnTimestampSet = ();
+    type MinimumPeriod = ();
+    type WeightInfo = ();
+}
+
+pub struct DummyCallOrigin;
+impl<OuterOrigin> EnsureAddressOrigin<OuterOrigin> for DummyCallOrigin
+where
+    OuterOrigin: Into<Result<RawOrigin<u64>, OuterOrigin>> + From<RawOrigin<u64>>,
+{
+    type Success = u64;
+
+    fn try_address_origin(_: &H160, _: OuterOrigin) -> Result<u64, OuterOrigin> {
+        unimplemented!()
+    }
+}
+
+/// Identity address mapping.
+pub struct DummyAddressMapping;
+impl pallet_evm::AddressMapping<u64> for DummyAddressMapping {
+    fn into_account_id(_: H160) -> u64 {
+        unimplemented!()
+    }
+}
+
+impl pallet_evm::Config for Test {
+    type FeeCalculator = ();
+    type GasWeightMapping = ();
+    type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping;
+    type CallOrigin = DummyCallOrigin;
+    type WithdrawOrigin = DummyCallOrigin;
+    type AddressMapping = DummyAddressMapping;
+    type Currency = Balances;
+    type Event = TestEvent;
+    type Runner = pallet_evm::runner::stack::Runner<Self>;
+    type ByteReadWeight = ByteReadWeight;
+    type Precompiles = ();
+    type ChainId = ();
+    type BlockGasLimit = ();
+    type OnChargeTransaction = ();
+    type FindAuthor = ();
+}
+
+impl pallet_balances::Config for Test {
+    type MaxLocks = ();
+    type Balance = u64;
+    type Event = TestEvent;
+    type DustRemoval = ();
+    type ExistentialDeposit = ();
+    type AccountStore = System;
+    type WeightInfo = ();
 }
 
 impl crate::did::Config for Test {

@@ -2624,6 +2624,6 @@ fn batched_did_changes() {
                 ver_rels: VerRelType::ASSERTION.into()
             }
         );
-    })
+    });
 }
 // TODO: Add test for events DidAdded, KeyUpdated, DIDRemoval

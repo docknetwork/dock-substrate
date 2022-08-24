@@ -116,6 +116,8 @@ use core_mods::util::IncId;
 pub use pallet_staking::StakerStatus;
 use sp_runtime::curve::PiecewiseLinear;
 
+// mod access_storage;
+
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -192,7 +194,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 37,
+    spec_version: 38,
     impl_version: 1,
     transaction_version: 1,
     apis: RUNTIME_API_VERSIONS,
@@ -1232,6 +1234,49 @@ impl pallet_ethereum::Config for Runtime {
     type StateRoot = pallet_ethereum::IntermediateStateRoot;
 }
 
+pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider! {
+    for Runtime:
+        "Timestamp" => Timestamp,
+        "Balances" => Balances,
+        "Session" => Session,
+        "PoAModule" => PoAModule,
+        "Grandpa" => Grandpa,
+        "Authorship" => Authorship,
+        "TransactionPayment" => TransactionPayment,
+        "Utility" => Utility,
+        "BbsPlus" => BbsPlus,
+        "DIDModule" => DIDModule,
+        "Revoke" => Revoke,
+        "BlobStore" => BlobStore,
+        "Master" => Master,
+        "Sudo" => Sudo,
+        "MigrationModule" => MigrationModule,
+        "Anchor" => Anchor,
+        "Attest" => Attest,
+        "Democracy" => Democracy,
+        "Council" => Council,
+        "TechnicalCommittee" => TechnicalCommittee,
+        "TechnicalCommitteeMembership" => TechnicalCommitteeMembership,
+        "Scheduler" => Scheduler,
+        "Ethereum" => Ethereum,
+        "EVM" => EVM,
+        "PriceFeedModule" => PriceFeedModule,
+        "AuthorityDiscovery" => AuthorityDiscovery,
+        "Historical" => Historical,
+        "ImOnline" => ImOnline,
+        "Babe" => Babe,
+        "Staking" => Staking,
+        "ElectionProviderMultiPhase" => ElectionProviderMultiPhase,
+        "Offences" => Offences,
+        "Treasury" => Treasury,
+        "Bounties" => Bounties,
+        "StakingRewards" => StakingRewards,
+        "Elections" => Elections,
+        "Tips" => Tips,
+        "Identity" => Identity,
+        "Accumulator" => Accumulator
+}
+
 parameter_types! {
     // Keeping 22 as its the ss58 prefix of mainnet
     pub const DockChainId: u64 = 22;
@@ -1275,9 +1320,15 @@ impl pallet_evm::GasWeightMapping for GasWeightMap {
     }
 }
 
+parameter_types! {
+    /// Weight per byte read using `MetaStorageReader` or `RawStorageReader`.
+    pub const ByteReadWeight: Weight = 10;
+}
+
 impl pallet_evm::Config for Runtime {
     /// Minimum gas price is 50
     type FeeCalculator = GasPrice;
+    type ByteReadWeight = ByteReadWeight;
     /// 1:50 mapping of gas to weight
     type GasWeightMapping = GasWeightMap;
     type CallOrigin = EnsureAddressTruncated;
@@ -1300,6 +1351,8 @@ impl pallet_evm::Config for Runtime {
         pallet_evm_precompile_bn128::Bn128Mul,
         pallet_evm_precompile_bn128::Bn128Pairing,
         pallet_evm_precompile_dispatch::Dispatch<Self>,
+        pallet_evm_precompile_storage_reader::MetaStorageReader<Self>,
+        pallet_evm_precompile_storage_reader::RawStorageReader<Self>,
     );
     type ChainId = DockChainId;
     type OnChargeTransaction = EVMCurrencyAdapter<Balances, DealWithFees>;
@@ -1830,6 +1883,7 @@ impl_runtime_apis! {
             config: frame_benchmarking::BenchmarkConfig
         ) -> Result<Vec<frame_benchmarking::BenchmarkBatch>, sp_runtime::RuntimeString> {
             use frame_benchmarking::{Benchmarking, BenchmarkBatch, add_benchmark, TrackedStorageKey};
+            impl pallet_evm_precompile_storage_reader::meta_storage_reader::benchmarks::Config for Runtime {}
             // Following line copied from substrate node
             // Trying to add benchmarks directly to the Session Pallet caused cyclic dependency issues.
             // To get around that, we separated the Session benchmarks into its own crate, which is why
@@ -1865,6 +1919,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, anchor, Anchor);
             add_benchmark!(params, batches, blob, BlobStore);
             add_benchmark!(params, batches, accumulator, Accumulator);
+            add_benchmark!(params, batches, pallet_evm_precompile_storage_reader, pallet_evm_precompile_storage_reader::meta_storage_reader::benchmarks::Module::<Runtime>);
             // add_benchmark!(params, batches, balances, Balances);
             // add_benchmark!(params, batches, token_migration, MigrationModule);
             // add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);

@@ -135,6 +135,36 @@ optional = true
 
 [dev-dependencies]
 rand = "0.8.3"
+evm = { version = "0.27.0", default-features = false, features = ["with-codec"] }
+
+[dev-dependencies.pallet-evm-precompile-storage-reader]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+commit = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+# path = '../../../../frontier/frame/evm/precompile/storage-reader'
+
+[dev-dependencies.pallet-balances]
+default-features = false
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dev-dependencies.pallet-evm]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+commit = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+# path = '../../../../frontier/frame/evm'
+
+[dev-dependencies.pallet-ethereum]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+commit = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+# path = "../../../../frontier/frame/ethereum"
+
+[dev-dependencies.pallet-timestamp]
+default-features = false
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 
 [features]
 default = ['std']
@@ -157,7 +187,10 @@ std = [
     'sp-std/std',
     'frame-system/std',
     'sp-api/std',
-    'libsecp256k1/std'
+    'libsecp256k1/std',
+    'pallet-evm-precompile-storage-reader/std',
+    'pallet-evm/std',
+    'evm/std'
 ]
 
 runtime-benchmarks = [

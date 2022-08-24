@@ -192,7 +192,7 @@ impl<T: Config + Debug> Module<T> {
     crate::pub_for_test! {
         /// Executes action over target on-chain DID providing a mutable reference if the given
         /// nonce is correct, i.e. 1 more than the current nonce.
-        fn  try_exec_action_over_onchain_did<A, F, R, E>(f: F, action: A) -> Result<R, E>
+        fn try_exec_action_over_onchain_did<A, F, R, E>(f: F, action: A) -> Result<R, E>
         where
             F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
             A: ActionWithNonce<T>,
