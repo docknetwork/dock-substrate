@@ -12,11 +12,12 @@ use sp_core::{H160, U256};
 
 use pallet_evm_precompile_storage_reader::{
     meta_storage_reader::{
-        input::{InputParams, MetaStorageReaderInput as Input},
+        input::MetaStorageReaderInput as Input,
         key::{DoubleMapKey, MapKey, NoKey},
         Error, MetaStorageReader,
     },
     output::RawStorageValue,
+    params::Params,
 };
 
 pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider!(
@@ -75,19 +76,19 @@ macro_rules! assert_returned_value {
 #[test]
 fn invalid_input() {
     ext().execute_with(|| {
-        let input = Input::new("Pallet", "Version", NoKey, InputParams::None);
+        let input = Input::new("Pallet", "Version", NoKey, Params::None);
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<StoredDidDetails<Test>>, _>(ExitError::from(Error::MemberNotFound).into())
         );
 
-        let input = Input::new("DIDModule", "Field", NoKey, InputParams::None);
+        let input = Input::new("DIDModule", "Field", NoKey, Params::None);
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<StoredDidDetails<Test>>, _>(ExitError::from(Error::MemberNotFound).into())
         );
 
-        let input = Input::new("DIDModule", "DidControllers", NoKey, InputParams::None);
+        let input = Input::new("DIDModule", "DidControllers", NoKey, Params::None);
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<StoredDidDetails<Test>>, _>(ExitError::from(Error::InvalidKey).into())
@@ -98,7 +99,7 @@ fn invalid_input() {
             WithNonce::new_with_nonce(OnChainDidDetails::new(IncId::from(1u32), 2, 3), 5).into();
         Dids::insert(did, &details);
 
-        let input = Input::new("DIDModule", "Dids", MapKey::new(did), InputParams::None);
+        let input = Input::new("DIDModule", "Dids", MapKey::new(did), Params::None);
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<Did>, _>(
@@ -113,7 +114,7 @@ fn invalid_input() {
 #[test]
 fn entity_access() {
     ext().execute_with(|| {
-        let input = Input::new("DIDModule", "Version", NoKey, InputParams::None);
+        let input = Input::new("DIDModule", "Version", NoKey, Params::None);
 
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
@@ -131,7 +132,7 @@ fn map_access() {
 
         Dids::insert(did, &details);
 
-        let input = Input::new("DIDModule", "Dids", MapKey::new(did), InputParams::None);
+        let input = Input::new("DIDModule", "Dids", MapKey::new(did), Params::None);
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Ok(Some(details.clone()))
@@ -163,7 +164,7 @@ fn double_map_access() {
             "DIDModule",
             "DidControllers",
             DoubleMapKey::new(did, controller),
-            InputParams::None,
+            Params::None,
         );
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),

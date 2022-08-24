@@ -140,7 +140,7 @@ evm = { version = "0.27.0", default-features = false, features = ["with-codec"] 
 [dev-dependencies.pallet-evm-precompile-storage-reader]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-commit = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+rev = 'dd6bf64af3549ac91a636b3561846ccf24d66554'
 # path = '../../../../frontier/frame/evm/precompile/storage-reader'
 
 [dev-dependencies.pallet-balances]
@@ -151,13 +151,13 @@ branch = "frontier"
 [dev-dependencies.pallet-evm]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-commit = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+rev = 'dd6bf64af3549ac91a636b3561846ccf24d66554'
 # path = '../../../../frontier/frame/evm'
 
 [dev-dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-commit = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+rev = 'dd6bf64af3549ac91a636b3561846ccf24d66554'
 # path = "../../../../frontier/frame/ethereum"
 
 [dev-dependencies.pallet-timestamp]
