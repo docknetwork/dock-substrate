@@ -79,13 +79,17 @@ fn invalid_input() {
         let input = Input::new("Pallet", "Version", NoKey, Params::None);
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
-            Err::<Option<StoredDidDetails<Test>>, _>(ExitError::from(Error::MemberNotFound).into())
+            Err::<Option<StoredDidDetails<Test>>, _>(
+                ExitError::from(Error::PalletStorageEntryNotFound).into()
+            )
         );
 
         let input = Input::new("DIDModule", "Field", NoKey, Params::None);
         assert_returned_value!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
-            Err::<Option<StoredDidDetails<Test>>, _>(ExitError::from(Error::MemberNotFound).into())
+            Err::<Option<StoredDidDetails<Test>>, _>(
+                ExitError::from(Error::PalletStorageEntryNotFound).into()
+            )
         );
 
         let input = Input::new("DIDModule", "DidControllers", NoKey, Params::None);

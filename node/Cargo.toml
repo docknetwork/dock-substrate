@@ -243,33 +243,33 @@ branch = "frontier"
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-rpc]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/client/mapping-sync'
 
 [dependencies.poa_rpc]

@@ -105,7 +105,7 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
                     .map(|()| this)
                     .map_err(E::from)
             }) {
-            err @ Err(_) => return Some(err.map(|_| unreachable!()).map_err(Into::into)),
+            err @ Err(_) => return Some(err.map(|_| unreachable!())),
             Ok(this) => this,
         };
 
@@ -129,7 +129,7 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
         Self: Into<S>,
     {
         let this = match this_opt.take()?.try_into().map_err(E::from) {
-            err @ Err(_) => return Some(err.map(|_| unreachable!()).map_err(Into::into)),
+            err @ Err(_) => return Some(err.map(|_| unreachable!())),
             Ok(this) => this,
         };
 

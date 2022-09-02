@@ -360,61 +360,61 @@ optional = true
 [dependencies.pallet-evm]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/evm'
 
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/ethereum'
 
 [dependencies.pallet-evm-precompile-simple]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/evm/precompile/simple'
 
 [dependencies.pallet-evm-precompile-sha3fips]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/evm/precompile/sha3fips'
 
 [dependencies.pallet-evm-precompile-ed25519]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/evm/precompile/ed25519'
 
 [dependencies.pallet-evm-precompile-modexp]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/evm/precompile/modexp'
 
 [dependencies.pallet-evm-precompile-bn128]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/evm/precompile/bn128'
 
 [dependencies.pallet-evm-precompile-dispatch]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/evm/precompile/dispatch'
 
 [dependencies.pallet-evm-precompile-storage-reader]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/frame/evm/precompile/storage-reader'
 
 [dependencies.fp-rpc]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = '6832989d9a054754f37e3644a995fb82e47d414d'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
 # path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]
