@@ -49,7 +49,7 @@ static DUMMY_CTX: &'static evm::Context = &evm::Context {
     apparent_value: U256([32; 4]),
 };
 
-macro_rules! assert_returned_value {
+macro_rules! assert_decoded_eq {
     ($expr: expr, $val: expr) => {{
         assert_eq!(
             $expr.map_err(ErrorWrapper::Execution).and_then(
@@ -77,7 +77,7 @@ macro_rules! assert_returned_value {
 fn invalid_input() {
     ext().execute_with(|| {
         let input = Input::new("Pallet", "Version", NoKey, Params::None);
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<StoredDidDetails<Test>>, _>(
                 ExitError::from(Error::PalletStorageEntryNotFound).into()
@@ -85,7 +85,7 @@ fn invalid_input() {
         );
 
         let input = Input::new("DIDModule", "Field", NoKey, Params::None);
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<StoredDidDetails<Test>>, _>(
                 ExitError::from(Error::PalletStorageEntryNotFound).into()
@@ -93,7 +93,7 @@ fn invalid_input() {
         );
 
         let input = Input::new("DIDModule", "DidControllers", NoKey, Params::None);
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<StoredDidDetails<Test>>, _>(ExitError::from(Error::InvalidKey).into())
         );
@@ -104,7 +104,7 @@ fn invalid_input() {
         Dids::insert(did, &details);
 
         let input = Input::new("DIDModule", "Dids", MapKey::new(did), Params::None);
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<Did>, _>(
                 codec::Error::from("Not enough data to fill buffer")
@@ -120,7 +120,7 @@ fn entity_access() {
     ext().execute_with(|| {
         let input = Input::new("DIDModule", "Version", NoKey, Params::None);
 
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Ok(Some(StorageVersion::SingleKey))
         );
@@ -137,13 +137,13 @@ fn map_access() {
         Dids::insert(did, &details);
 
         let input = Input::new("DIDModule", "Dids", MapKey::new(did), Params::None);
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Ok(Some(details.clone()))
         );
 
         let non_existent_did = Did([3u8; 32]);
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(
                 &input
                     .with_replaced_key(MapKey::new(non_existent_did))
@@ -170,13 +170,13 @@ fn double_map_access() {
             DoubleMapKey::new(did, controller),
             Params::None,
         );
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Ok(Some(()))
         );
 
         let non_existent_did = Did([5u8; 32]);
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(
                 &input
                     .with_replaced_key(DoubleMapKey::new(non_existent_did, controller))
@@ -188,7 +188,7 @@ fn double_map_access() {
         );
 
         let non_existent_controller = Controller(Did([6u8; 32]));
-        assert_returned_value!(
+        assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(
                 &input
                     .with_replaced_key(DoubleMapKey::new(did, non_existent_controller))

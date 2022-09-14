@@ -116,8 +116,6 @@ use core_mods::util::IncId;
 pub use pallet_staking::StakerStatus;
 use sp_runtime::curve::PiecewiseLinear;
 
-// mod access_storage;
-
 /// An index to a block.
 pub type BlockNumber = u32;
 
@@ -1323,7 +1321,7 @@ impl pallet_evm::GasWeightMapping for GasWeightMap {
 
 parameter_types! {
     /// Weight per byte read using `MetaStorageReader` or `RawStorageReader`.
-    pub const ByteReadWeight: Weight = 10;
+    pub const ByteReadWeight: Weight = 100;
 }
 
 impl pallet_evm::Config for Runtime {
