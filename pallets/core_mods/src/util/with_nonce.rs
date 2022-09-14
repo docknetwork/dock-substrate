@@ -91,23 +91,30 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
     ) -> Option<Result<R, E>>
     where
         F: FnOnce(&mut Option<D>) -> Result<R, E>,
-        E: From<NonceError>,
+        E: From<NonceError> + From<S::Error>,
         S: TryInto<Self>,
         Self: Into<S>,
     {
-        let mut this = this_opt.take()?.try_into().ok()?;
-        if let err @ Err(_) = this.try_update(nonce) {
-            return Some(err.map(|_| unreachable!()).map_err(Into::into));
-        }
+        let this = match this_opt
+            .take()?
+            .try_into()
+            .map_err(E::from)
+            .and_then(|mut this| {
+                this.try_update(nonce)
+                    .map(drop)
+                    .map(|()| this)
+                    .map_err(E::from)
+            }) {
+            err @ Err(_) => return Some(err.map(|_| unreachable!())),
+            Ok(this) => this,
+        };
 
-        let mut this_data_opt = Some(this);
-        let res = WithNonce::try_update_opt_without_increasing_nonce_with::<Self, _, _, _>(
-            &mut this_data_opt,
-            f,
-        );
-        *this_opt = this_data_opt.map(Into::into);
+        let Self { data, nonce } = this;
+        let mut data_opt = Some(data);
+        let res = (f)(&mut data_opt).map_err(Into::into);
+        *this_opt = data_opt.map(|data| Self { data, nonce }.into());
 
-        res
+        Some(res)
     }
 
     /// If supplied value is `Some(_)`, will update given entity without increasing nonce.
@@ -117,11 +124,14 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
     ) -> Option<Result<R, E>>
     where
         F: FnOnce(&mut Option<D>) -> Result<R, E>,
-        E: From<NonceError>,
+        E: From<NonceError> + From<S::Error>,
         S: TryInto<Self>,
         Self: Into<S>,
     {
-        let this = this_opt.take()?.try_into().ok()?;
+        let this = match this_opt.take()?.try_into().map_err(E::from) {
+            err @ Err(_) => return Some(err.map(|_| unreachable!())),
+            Ok(this) => this,
+        };
 
         let Self { data, nonce } = this;
         let mut data_opt = Some(data);

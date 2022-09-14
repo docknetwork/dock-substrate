@@ -49,6 +49,12 @@ version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "frontier"
 
+[dependencies.frame-metadata]
+default-features = false
+version = '13.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
 [dependencies.grandpa]
 default-features = false
 package = 'pallet-grandpa'
@@ -353,51 +359,63 @@ optional = true
 
 [dependencies.pallet-evm]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/frame/evm'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm'
 
 [dependencies.pallet-ethereum]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/frame/ethereum'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/ethereum'
 
 [dependencies.pallet-evm-precompile-simple]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/simple'
 
 [dependencies.pallet-evm-precompile-sha3fips]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/sha3fips'
 
 [dependencies.pallet-evm-precompile-ed25519]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/ed25519'
 
 [dependencies.pallet-evm-precompile-modexp]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/modexp'
 
 [dependencies.pallet-evm-precompile-bn128]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/bn128'
 
 [dependencies.pallet-evm-precompile-dispatch]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/dispatch'
+
+[dependencies.pallet-evm-precompile-storage-reader]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/storage-reader'
 
 [dependencies.fp-rpc]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/primitives/rpc'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/primitives/rpc'
 
 [dependencies.poa]
 default-features = false
@@ -468,6 +486,7 @@ std = [
     'log/std',
     'frame-executive/std',
     'frame-support/std',
+    'frame-metadata/std',
     'grandpa/std',
     'serde',
     #'schnorrkel/std',
@@ -490,6 +509,7 @@ std = [
     'sp-transaction-pool/std',
     'sp-version/std',
     'sp-arithmetic/std',
+    'pallet-evm-precompile-storage-reader/std',
     'sp-staking/std',
     'frame-system/std',
     'sp-npos-elections/std',
@@ -542,7 +562,7 @@ runtime-benchmarks = [
   'frame-system/runtime-benchmarks',
   'sp-runtime/runtime-benchmarks',
   'balances/runtime-benchmarks',
-  # 'frame-system-benchmarking',
+  'pallet-evm-precompile-storage-reader/runtime-benchmarks',
   'token_migration/runtime-benchmarks',
   'core_mods/runtime-benchmarks',
   'pallet-collective/runtime-benchmarks',

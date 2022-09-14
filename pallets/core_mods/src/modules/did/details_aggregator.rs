@@ -84,11 +84,11 @@ bitflags::bitflags! {
         /// Just basic DID details.
         const BASIC = 0;
         /// Include keys for the DID.
-        const KEYS = 0b001;
+        const KEYS = 0b0001;
         /// Include controllers for the DID.
-        const CONTROLLERS = 0b010;
+        const CONTROLLERS = 0b0010;
         /// Include service endpoints for the DID.
-        const SERVICE_ENDPOINTS = 0b100;
+        const SERVICE_ENDPOINTS = 0b0100;
         /// Include attestation for the DID.
         const ATTESTATION = 0b1000;
         /// Include full DID information (keys, controllers, service endpoints and attestation).

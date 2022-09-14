@@ -19,14 +19,14 @@ macro_rules! impl_bits_conversion {
 
 #[macro_export]
 macro_rules! pub_for_test {
-    ($(#[$meta:meta])* fn $($val: tt)*) => {
+    ($(#[$meta:meta])* $vis: vis fn $($val: tt)*) => {
         #[cfg(test)]
         $(#[$meta])*
         pub fn $($val)*
 
         #[cfg(not(test))]
         $(#[$meta])*
-        fn $($val)*
+        $vis fn $($val)*
     }
 }
 

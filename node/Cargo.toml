@@ -242,34 +242,35 @@ branch = "frontier"
 
 [dependencies.pallet-ethereum]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/frame/ethereum'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/ethereum'
 
 [dependencies.fc-rpc]
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/client/rpc'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/client/rpc-core'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/primitives/rpc'
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/primitives/rpc'
 
 [dependencies.fc-db]
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/client/db'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
-git = 'https://github.com/paritytech/frontier.git'
-rev = '5ced70c1b295b440941fa8b6653d40b34f59c4d3'
-#path = '../../../frontier/client/db'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/client/mapping-sync'
 
 [dependencies.poa_rpc]
 path = '../pallets/poa/rpc'

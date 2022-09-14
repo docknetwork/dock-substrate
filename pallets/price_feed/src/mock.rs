@@ -90,6 +90,7 @@ impl<H: Hasher<Out = H256>> AddressMapping<u64> for TestAddressMapping<H> {
 impl pallet_evm::Config for Test {
     type FeeCalculator = ();
     type GasWeightMapping = ();
+    type ByteReadWeight = ();
     /// Don't care about these origins
     type CallOrigin = EnsureAddressNever<Self::AccountId>;
     type WithdrawOrigin = EnsureAddressNever<Self::AccountId>;
