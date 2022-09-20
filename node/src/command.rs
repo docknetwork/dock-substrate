@@ -17,7 +17,7 @@
 use crate::{
     chain_spec,
     cli::{Cli, Subcommand},
-    service,
+    service::{self, new_partial},
 };
 use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
 use sc_service::PartialComponents;
@@ -84,7 +84,7 @@ pub fn run() -> sc_cli::Result<()> {
                     task_manager,
                     import_queue,
                     ..
-                } = service::new_partial(&config)?;
+                } = new_partial(&config, &cli)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
@@ -95,7 +95,7 @@ pub fn run() -> sc_cli::Result<()> {
                     client,
                     task_manager,
                     ..
-                } = service::new_partial(&config)?;
+                } = service::new_partial(&config, &cli)?;
                 Ok((cmd.run(client, config.database), task_manager))
             })
         }
@@ -106,7 +106,7 @@ pub fn run() -> sc_cli::Result<()> {
                     client,
                     task_manager,
                     ..
-                } = service::new_partial(&config)?;
+                } = new_partial(&config, &cli)?;
                 Ok((cmd.run(client, config.chain_spec), task_manager))
             })
         }
@@ -118,15 +118,16 @@ pub fn run() -> sc_cli::Result<()> {
                     task_manager,
                     import_queue,
                     ..
-                } = service::new_partial(&config)?;
+                } = new_partial(&config, &cli)?;
                 Ok((cmd.run(client, import_queue), task_manager))
             })
         }
+        Some(Subcommand::Key(cmd)) => cmd.run(&cli),
         Some(Subcommand::PurgeChain(cmd)) => {
             let runner = cli.create_runner(cmd)?;
             runner.sync_run(|config| {
                 // Remove Frontier offchain db
-                let frontier_database_config = sc_service::DatabaseConfig::RocksDb {
+                let frontier_database_config = sc_service::DatabaseSource::RocksDb {
                     path: service::frontier_database_dir(&config),
                     cache_size: 0,
                 };
@@ -142,35 +143,31 @@ pub fn run() -> sc_cli::Result<()> {
                     task_manager,
                     backend,
                     ..
-                } = service::new_partial(&config)?;
-                Ok((cmd.run(client, backend), task_manager))
+                } = service::new_partial(&config, &cli)?;
+                let aux_revert = Box::new(move |client, _, blocks| {
+                    sc_finality_grandpa::revert(client, blocks)?;
+                    Ok(())
+                });
+                Ok((cmd.run(client, backend, Some(aux_revert)), task_manager))
             })
         }
-        Some(Subcommand::Benchmark(cmd)) => {
-            if cfg!(feature = "runtime-benchmarks") {
-                let runner = cli.create_runner(cmd)?;
-
-                runner.sync_run(|config| cmd.run::<dock_runtime::Block, service::Executor>(config))
-            } else {
-                println!(
-                    "Benchmarking wasn't enabled when building the node. \
-				You can enable it with `--features runtime-benchmarks`."
-                );
-                Ok(())
-            }
+        Some(Subcommand::Benchmark(_cmd)) => {
+            unimplemented!()
         }
         Some(Subcommand::Inspect(cmd)) => {
             let runner = cli.create_runner(cmd)?;
 
             runner.sync_run(|config| {
-                cmd.run::<dock_runtime::Block, dock_runtime::RuntimeApi, service::Executor>(config)
+                cmd.run::<dock_runtime::Block, dock_runtime::RuntimeApi, service::ExecutorDispatch>(
+                    config,
+                )
             })
         }
         None => {
             let runner = cli.create_runner(&cli.run.base)?;
             runner.run_node_until_exit(|config| async move {
                 match config.role {
-                    Role::Light => service::new_light(config),
+                    Role::Light => unimplemented!(),
                     _ => service::new_full(config, &cli),
                 }
                 .map_err(sc_cli::Error::Service)

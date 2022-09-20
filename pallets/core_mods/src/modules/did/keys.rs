@@ -11,6 +11,27 @@ pub struct DidKey {
     pub ver_rels: VerRelType,
 }
 
+impl scale_info::TypeInfo for DidKey {
+    type Identity = Self;
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::from_segments(Some("DidKey")).unwrap())
+            .composite(
+                scale_info::build::Fields::named()
+                    .field(|f| {
+                        f.name("public_key")
+                            .ty::<PublicKey>()
+                            .type_name("PublicKey")
+                    })
+                    .field(|f| {
+                        f.name("ver_rels")
+                            .ty::<VerRelType>()
+                            .type_name("VerRelType")
+                    }),
+            )
+    }
+}
+
 bitflags::bitflags! {
     /// Different verification relation types specified in the DID spec here https://www.w3.org/TR/did-core/#verification-relationships.
     #[derive(Encode, Decode)]
@@ -35,6 +56,7 @@ bitflags::bitflags! {
 }
 
 impl_bits_conversion! { VerRelType, u16 }
+crate::impl_wrapper_type_info! { VerRelType, u16 }
 
 #[derive(Clone, Debug, Default)]
 pub struct PublicKeyParams<T> {

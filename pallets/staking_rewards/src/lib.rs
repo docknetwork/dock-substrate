@@ -1,10 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{
-    decl_event, decl_module, decl_storage, dispatch,
-    traits::Get,
-    weights::{Pays, Weight},
-};
+use frame_support::{decl_event, decl_module, decl_storage, dispatch, traits::Get, weights::Pays};
 use frame_system::{self as system, ensure_root};
 use pallet_staking::EraPayout;
 pub use poa::BalanceOf;
@@ -61,7 +57,7 @@ decl_event!(
 );
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
         /// The percentage by which remaining emission supply decreases
         const RewardDecayPct: Percent = T::RewardDecayPct::get();
         /// The percentage of rewards going to treasury
@@ -70,18 +66,11 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
-        #[weight = T::DbWeight::get().writes(1)]
+        #[weight = <T as frame_system::Config>::DbWeight::get().writes(1)]
         pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StakingEmissionStatus::put(status);
             Ok(Pays::No.into())
-        }
-
-        /// Called to set emission supply from PoA module when the runtime is upgraded. Before upgrading
-        /// the runtime with PoS, PoA emissions will be disabled after short terminating the epoch.
-        /// Ensure to remove this runtime upgrade immediately after PoS upgrade.
-        fn on_runtime_upgrade() -> Weight {
-            Self::set_emission_supply_from_poa()
         }
     }
 }
@@ -201,20 +190,6 @@ impl<T: Config> Module<T> {
     /// Set emission supply. Used to set the reduced supply after emitting rewards
     fn set_new_emission_supply(supply: BalanceOf<T>) {
         <StakingEmissionSupply<T>>::put(supply)
-    }
-
-    /// If emission supply for staking is 0 (on starting PoS), set it to the remaining emission
-    /// supply from PoA and reset it to making this function idempotent unless emission supply in
-    ///PoA module is set again
-    fn set_emission_supply_from_poa() -> Weight {
-        if Self::staking_emission_supply().is_zero() {
-            let supply = <poa::EmissionSupply<T>>::take();
-            Self::set_new_emission_supply(supply);
-            Self::deposit_event(RawEvent::EmissionSupplyTakenFromPoA(supply));
-            T::DbWeight::get().reads_writes(2, 2)
-        } else {
-            T::DbWeight::get().reads(1)
-        }
     }
 }
 

@@ -7,7 +7,7 @@ pub mod single_key {
     use frame_support::{log, traits::Get, weights::Weight, *};
     use sp_std::prelude::*;
 
-    #[derive(Encode, Decode, Clone, PartialEq, Debug)]
+    #[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     pub struct KeyDetail {
         pub controller: Did,

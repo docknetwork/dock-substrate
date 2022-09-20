@@ -25,9 +25,9 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Balances: balances::{Module, Call, Storage},
-        MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Balances: balances::{Pallet, Call, Storage},
+        MigrationModule: token_migration::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -42,7 +42,9 @@ parameter_types! {
 }
 
 impl system::Config for TestRuntime {
-    type BaseCallFilter = ();
+    type OnSetCode = ();
+    type MaxConsumers = frame_support::traits::ConstU32<10>;
+    type BaseCallFilter = frame_support::traits::Everything;
     type Origin = Origin;
     type Call = Call;
     type Index = u64;
@@ -74,6 +76,8 @@ impl balances::Config for TestRuntime {
     type AccountStore = System;
     type WeightInfo = ();
     type MaxLocks = ();
+    type MaxReserves = ();
+    type ReserveIdentifier = ();
 }
 
 thread_local! {
@@ -106,7 +110,7 @@ impl Get<u32> for VestingDuration {
 
 impl Config for TestRuntime {
     type Event = ();
-    type Currency = balances::Module<Self>;
+    type Currency = balances::Pallet<Self>;
     type BlockNumberToBalance = ConvertInto;
     type VestingMilestones = VestingMilestones;
     type VestingDuration = VestingDuration;
@@ -306,10 +310,15 @@ fn signed_extension_test() {
 
         // The call made by migrator. The recipients being empty is irrelevant for this test.
         let call_1: <TestRuntime as system::Config>::Call =
-            Call::MigrationModule(MigrateCall::migrate(BTreeMap::new()));
+            Call::MigrationModule(MigrateCall::migrate {
+                recipients: BTreeMap::new(),
+            });
         // The call made by migrator. The bonus vectors being empty is irrelevant for this test.
         let call_2: <TestRuntime as system::Config>::Call =
-            Call::MigrationModule(MigrateCall::give_bonuses(Vec::new(), Vec::new()));
+            Call::MigrationModule(MigrateCall::give_bonuses {
+                swap_bonus_recips: Vec::new(),
+                vesting_bonus_recips: Vec::new(),
+            });
 
         let tx_info = DispatchInfo {
             weight: 3,

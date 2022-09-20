@@ -1,7 +1,10 @@
-pub use self::gen_client::Client as StakingRewardsClient;
 use codec::Codec;
-use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
-use jsonrpc_derive::rpc;
+use core::fmt::Debug;
+use jsonrpsee::{
+    core::{async_trait, Error as JsonRpseeError, RpcResult},
+    proc_macros::rpc,
+    types::{error::CallError, ErrorObject},
+};
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{
@@ -11,22 +14,37 @@ use sp_runtime::{
 pub use staking_rewards::runtime_api::StakingRewardsApi as StakingRewardsRuntimeApi;
 use std::sync::Arc;
 
-#[rpc]
+#[rpc(server, client)]
 pub trait StakingRewardsApi<BlockHash, Balance> {
     /// Emission reward 1 year from now given the currently staked funds and issuance.
     /// Depends on the reward curve, decay percentage and remaining emission supply.
-    #[rpc(name = "staking_rewards_yearlyEmission")]
-    fn yearly_emission(
+    #[method(name = "staking_rewards_yearlyEmission")]
+    async fn yearly_emission(
         &self,
         total_staked: Balance,
         total_issuance: Balance,
         at: Option<BlockHash>,
-    ) -> Result<Balance>;
+    ) -> RpcResult<Balance>;
 
     /// Maximum emission reward for 1 year from now.
     /// Depends on decay percentage and remaining emission supply.
-    #[rpc(name = "staking_rewards_maxYearlyEmission")]
-    fn max_yearly_emission(&self, at: Option<BlockHash>) -> Result<Balance>;
+    #[method(name = "staking_rewards_maxYearlyEmission")]
+    async fn max_yearly_emission(&self, at: Option<BlockHash>) -> RpcResult<Balance>;
+}
+
+#[derive(Debug, Clone)]
+struct RuntimeError<T>(T);
+
+impl<T: Debug> From<RuntimeError<T>> for JsonRpseeError {
+    fn from(error: RuntimeError<T>) -> Self {
+        let data = format!("{:?}", error);
+
+        JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
+            1,
+            "Runtime error",
+            Some(data),
+        )))
+    }
 }
 
 /// A struct that implements the [`StakingRewardsApi`].
@@ -45,37 +63,33 @@ impl<C, P> StakingRewards<C, P> {
     }
 }
 
-impl<C, Block, Balance> StakingRewardsApi<<Block as BlockT>::Hash, Balance>
+#[async_trait]
+impl<C, Block, Balance> StakingRewardsApiServer<<Block as BlockT>::Hash, Balance>
     for StakingRewards<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
     C::Api: StakingRewardsRuntimeApi<Block, Balance>,
-    Balance: Codec + MaybeDisplay + MaybeFromStr,
+    Balance: Codec + MaybeDisplay + MaybeFromStr + Send + 'static,
 {
-    fn yearly_emission(
+    async fn yearly_emission(
         &self,
         total_staked: Balance,
         total_issuance: Balance,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> Result<Balance> {
+    ) -> RpcResult<Balance> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
         api.yearly_emission(&at, total_staked, total_issuance)
-            .map_err(|e| RpcError {
-                code: ErrorCode::ServerError(1),
-                message: "Unable to get yearly inflation.".into(),
-                data: Some(format!("{:?}", e).into()),
-            })
+            .map_err(RuntimeError)
+            .map_err(Into::into)
     }
 
-    fn max_yearly_emission(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Balance> {
+    async fn max_yearly_emission(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Balance> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(|| self.client.info().best_hash));
-        api.max_yearly_emission(&at).map_err(|e| RpcError {
-            code: ErrorCode::ServerError(2),
-            message: "Unable to get max yearly inflation.".into(),
-            data: Some(format!("{:?}", e).into()),
-        })
+        api.max_yearly_emission(&at)
+            .map_err(RuntimeError)
+            .map_err(Into::into)
     }
 }

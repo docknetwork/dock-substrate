@@ -1,3 +1,6 @@
+use codec::{Decode, Encode};
+use core::fmt::Debug;
+use scale_info::build::Fields;
 use sp_std::ops::{Index, RangeFull};
 
 use super::*;
@@ -45,6 +48,27 @@ pub enum StoredDidDetails<T: Config> {
     OffChain(OffChainDidDetails<T>),
     /// For on-chain DID, all data is stored on the chain.
     OnChain(StoredOnChainDidDetails<T>),
+}
+
+impl<T: Config> scale_info::TypeInfo for StoredDidDetails<T> {
+    type Identity = Self;
+
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::from_segments(Some("StoredDidDetails")).unwrap())
+            .variant(
+                scale_info::build::Variants::new()
+                    .variant("OffChain", |v| {
+                        v.index(0)
+                            .fields(Fields::unnamed().field(|f| f.ty::<OffChainDidDetails<T>>()))
+                    })
+                    .variant("OnChain", |v| {
+                        v.index(1).fields(
+                            Fields::unnamed().field(|f| f.ty::<StoredOnChainDidDetails<T>>()),
+                        )
+                    }),
+            )
+    }
 }
 
 impl<T: Config> StoredDidDetails<T> {

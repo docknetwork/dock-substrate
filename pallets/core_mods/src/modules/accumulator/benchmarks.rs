@@ -21,7 +21,7 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
@@ -51,7 +51,7 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
@@ -92,7 +92,7 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
@@ -136,7 +136,7 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
@@ -195,7 +195,7 @@ crate::bench_with_all_pairs! {
             key_ref: (AccumulatorOwner(did), 1u8.into()),
         });
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
@@ -262,7 +262,7 @@ crate::bench_with_all_pairs! {
             key_ref: (AccumulatorOwner(did), 1u8.into()),
         });
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
@@ -335,7 +335,7 @@ crate::bench_with_all_pairs! {
             key_ref: (AccumulatorOwner(did), 1u8.into()),
         });
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),

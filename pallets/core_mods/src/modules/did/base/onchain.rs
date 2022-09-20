@@ -8,9 +8,10 @@ use crate::{util::WrappedActionWithNonce, ToStateChange};
 pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
 
 /// Stores details of an on-chain DID.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(skip_type_params(T))]
 pub struct OnChainDidDetails {
     /// Number of keys added for this DID so far.
     pub last_key_id: IncId,
@@ -94,9 +95,12 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<(), Error<T>> {
         // This will result in the removal of DID from storage map `Dids`
         details.take();
-        DidKeys::remove_prefix(did);
-        DidControllers::remove_prefix(did);
-        DidServiceEndpoints::remove_prefix(did);
+        // TODO: limit and cursor
+        DidKeys::clear_prefix(did, u32::MAX, None);
+        // TODO: limit and cursor
+        DidControllers::clear_prefix(did, u32::MAX, None);
+        // TODO: limit and cursor
+        DidServiceEndpoints::clear_prefix(did, u32::MAX, None);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())

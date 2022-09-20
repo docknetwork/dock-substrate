@@ -34,14 +34,14 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Balances: pallet_balances::{Module, Call, Storage},
-        DIDMod: did::{Module, Call, Storage, Event, Config},
-        RevokeMod: revoke::{Module, Call, Storage},
-        BlobMod: blob::{Module, Call, Storage},
-        AnchorMod: anchor::{Module, Call, Storage, Event<T>},
-        AttestMod: attest::{Module, Call, Storage},
-        FiatFilterModule: fiat_filter::{Module, Call},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Balances: pallet_balances::{Pallet, Call, Storage},
+        DIDMod: did::{Pallet, Call, Storage, Event, Config},
+        RevokeMod: revoke::{Pallet, Call, Storage},
+        BlobMod: blob::{Pallet, Call, Storage},
+        AnchorMod: anchor::{Pallet, Call, Storage, Event<T>},
+        AttestMod: attest::{Pallet, Call, Storage},
+        FiatFilterModule: fiat_filter::{Pallet, Call},
     }
 );
 
@@ -95,24 +95,24 @@ impl pallet_balances::Config for TestRt {
     type AccountStore = System;
     type WeightInfo = ();
 }
-impl anchor::Trait for TestRt {
+impl anchor::Config for TestRt {
     type Event = ();
 }
-impl did::Trait for TestRt {
+impl did::Config for TestRt {
     type Event = ();
 }
-impl revoke::Trait for TestRt {}
+impl revoke::Config for TestRt {}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
     pub const StorageWeight: Weight = 1100;
 }
-impl blob::Trait for TestRt {
+impl blob::Config for TestRt {
     type MaxBlobSize = MaxBlobSize;
     type StorageWeight = StorageWeight;
 }
 
-impl attest::Trait for TestRt {
+impl attest::Config for TestRt {
     type StorageWeight = StorageWeight;
 }
 
@@ -163,7 +163,7 @@ pub fn gen_kp() -> sr25519::Pair {
 }
 /// get the latest block number
 pub fn block_no() -> u64 {
-    system::Module::<TestRt>::block_number()
+    system::Pallet::<TestRt>::block_number()
 }
 // Create did for `did`. Return the randomly generated signing key.
 // The did public key is controlled by some non-existent account (normally a security
@@ -175,7 +175,7 @@ pub fn create_did(origin: u64, did: did::Did) -> sr25519::Pair {
     };
     let didpubkey = did::PublicKey::Sr25519(pubkey_bytes);
     let key_detail = did::KeyDetail::new(did, didpubkey);
-    did::Module::<TestRt>::new(Origin::signed(origin), did, key_detail).unwrap();
+    did::Pallet::<TestRt>::new(Origin::signed(origin), did, key_detail).unwrap();
     kp
 }
 /// create a did with a random id and random signing key

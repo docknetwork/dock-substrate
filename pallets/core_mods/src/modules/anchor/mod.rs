@@ -74,7 +74,7 @@ impl<T: Config> Module<T> {
         ensure!(Anchors::<T>::get(&hash).is_none(), Error::<T>::AnchorExists);
 
         // execute
-        let last_block = <system::Module<T>>::block_number();
+        let last_block = <system::Pallet<T>>::block_number();
         Anchors::<T>::insert(&hash, &last_block);
         Self::deposit_event(Event::<T>::AnchorDeployed(hash, account, last_block));
 

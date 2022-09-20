@@ -2,7 +2,7 @@ use super::*;
 use crate::attest::{self, Attestation, Attester};
 
 /// Aggregated details for the given DID.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
@@ -23,7 +23,7 @@ pub struct AggregatedDidDetailsResponse<T: Config> {
 }
 
 /// `DidKey` with its identifier.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct DidKeyWithId {
@@ -32,7 +32,7 @@ pub struct DidKeyWithId {
 }
 
 /// `ServiceEndpoint` with its identifier.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 pub struct ServiceEndpointWithId {
@@ -97,6 +97,7 @@ bitflags::bitflags! {
 }
 
 impl_bits_conversion! { AggregatedDidDetailsRequestParams, u8 }
+crate::impl_wrapper_type_info! { AggregatedDidDetailsRequestParams, u8 }
 
 impl<T: Config + attest::Config + Debug> Module<T> {
     /// Request aggregated DID details containing specified information.
@@ -116,7 +117,7 @@ impl<T: Config + attest::Config + Debug> Module<T> {
             .then(|| DidServiceEndpoints::iter_prefix(did));
         let attestation = params
             .intersects(AggregatedDidDetailsRequestParams::ATTESTATION)
-            .then(|| <attest::Module<T>>::attestation(&Attester(*did)));
+            .then(|| <attest::Pallet<T>>::attestation(&Attester(*did)));
 
         Some(AggregatedDidDetailsResponse::new(
             *did,

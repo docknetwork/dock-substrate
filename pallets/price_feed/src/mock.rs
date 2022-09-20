@@ -18,10 +18,10 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Balances: balances::{Module, Call, Storage},
-        EVM: pallet_evm::{Module, Config, Call, Storage, Event<T>},
-        PriceFeedModule: price_feed::{Module, Call, Storage, Event},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Balances: balances::{Pallet, Call, Storage},
+        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
+        PriceFeedModule: price_feed::{Pallet, Call, Storage, Event},
     }
 );
 
@@ -34,7 +34,9 @@ parameter_types! {
 }
 
 impl system::Config for Test {
-    type BaseCallFilter = ();
+    type OnSetCode = ();
+    type MaxConsumers = sp_runtime::traits::ConstU32<10>;
+    type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
@@ -66,6 +68,8 @@ impl balances::Config for Test {
     type AccountStore = System;
     type WeightInfo = ();
     type MaxLocks = ();
+    type MaxReserves = ();
+    type ReserveIdentifier = ();
 }
 
 impl timestamp::Config for Test {
@@ -90,7 +94,7 @@ impl<H: Hasher<Out = H256>> AddressMapping<u64> for TestAddressMapping<H> {
 impl pallet_evm::Config for Test {
     type FeeCalculator = ();
     type GasWeightMapping = ();
-    type ByteReadWeight = ();
+    // type ByteReadWeight = ();
     /// Don't care about these origins
     type CallOrigin = EnsureAddressNever<Self::AccountId>;
     type WithdrawOrigin = EnsureAddressNever<Self::AccountId>;
@@ -98,7 +102,8 @@ impl pallet_evm::Config for Test {
     type Currency = Balances;
     type Event = ();
     type Runner = pallet_evm::runner::stack::Runner<Self>;
-    type Precompiles = ();
+    type PrecompilesType = ();
+    type PrecompilesValue = ();
     type ChainId = DockChainId;
     type OnChargeTransaction = ();
     type BlockGasLimit = BlockGasLimit;
