@@ -52,7 +52,6 @@ branch = "polkadot-v0.9.25"
 [dependencies.frame-system-benchmarking]
 optional = true
 default-features = false
-# version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.25"
 
@@ -82,10 +81,11 @@ std = [
     'serde',
     'frame-support/std',
     'frame-system/std',
-    'sp-std/std',
+    'sp-std/std'
 ]
 test = ['std', 'balances/std']
 runtime-benchmarks = [
+    "frame-system-benchmarking",
 	"frame-benchmarking",
     "frame-system/runtime-benchmarks",
 	"frame-support/runtime-benchmarks",

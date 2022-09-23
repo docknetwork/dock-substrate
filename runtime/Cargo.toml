@@ -38,11 +38,6 @@ scale-info = { version = "2.1.2", default-features = false, features = ["derive"
 getrandom = { version = "0.2", features = ["js"] }
 hex = { version = "0.4", default-features = false }
 
-xcm = { package = "xcm", git = "https://github.com/paritytech/polkadot.git", branch = "release-v0.9.25", default-features = false }
-xcm-executor = { package = "xcm-executor",git = "https://github.com/paritytech/polkadot.git", branch = "release-v0.9.25", default-features = false }
-xcm-builder = { package = "xcm-builder", git = "https://github.com/paritytech/polkadot.git", branch = "release-v0.9.25", default-features = false }
-pallet-xcm = { package = "pallet-xcm", git = "https://github.com/paritytech/polkadot.git", branch = "release-v0.9.25", default-features = false }
-
 [dependencies.pallet-babe]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
@@ -595,26 +590,14 @@ std = [
     'transaction-payment/std',
     'scale-info/std',
 
-    "xcm/std",
-    "xcm-executor/std",
-    "xcm-builder/std",
     "hex/std",
-    "pallet-xcm/std",
 
-    # 'pallet-transaction-payment-rpc-runtime-api/std',
     'pallet-session/std',
     'pallet-scheduler/std',
     'sp-authorship/std',
     'pallet-sudo/std',
     'sp-consensus-slots/std',
     'pallet-authorship/std',
-    # 'fp-evm/std',
-
-  
-  
-  
-  
-  
   
     "pallet-randomness-collective-flip/std",
   
@@ -644,7 +627,6 @@ std = [
     'evm/with-serde',
     'pallet-evm/std',
     'pallet-ethereum/std',
-    'frame-system-benchmarking/std',
     'parity-bytes/std',
     'pallet-evm-precompile-simple/std',
     'pallet-evm-precompile-sha3fips/std',
@@ -666,8 +648,6 @@ std = [
 runtime-benchmarks = [
   'frame-benchmarking',
   'pallet-collective/runtime-benchmarks',
-  'pallet-xcm/runtime-benchmarks',
-  'xcm-builder/runtime-benchmarks',
   'pallet-evm/runtime-benchmarks',
   'pallet-ethereum/runtime-benchmarks',
 

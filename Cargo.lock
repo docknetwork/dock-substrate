@@ -988,12 +988,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "245097e9a4535ee1e3e3931fcfcd55a796a44c643e8596ff6566d68f09b87bbc"
 
 [[package]]
-name = "convert_case"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
-
-[[package]]
 name = "core-foundation"
 version = "0.9.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1394,26 +1388,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "derivative"
-version = "2.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fcc3dd5e9e9c0b295d6e1e4d811fb6f157d5ffd784b8d202fc62eac8035a770b"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "derive_more"
 version = "0.99.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4fb810d30a7c1953f91334de7244731fc3f3c10d7fe163338a35b9f640960321"
 dependencies = [
- "convert_case",
  "proc-macro2",
  "quote",
- "rustc_version 0.4.0",
  "syn",
 ]
 
@@ -1654,7 +1635,6 @@ dependencies = [
  "pallet-transaction-payment-rpc-runtime-api",
  "pallet-treasury",
  "pallet-utility",
- "pallet-xcm",
  "parity-bytes",
  "parity-scale-codec",
  "parity-util-mem",
@@ -1700,9 +1680,6 @@ dependencies = [
  "static_assertions",
  "substrate-wasm-builder",
  "token_migration",
- "xcm",
- "xcm-builder",
- "xcm-executor",
 ]
 
 [[package]]
@@ -5742,24 +5719,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-xcm"
-version = "0.9.25"
-source = "git+https://github.com/paritytech/polkadot.git?branch=release-v0.9.25#5174e9ae75b6843ecc460dfaa15f5851230638b8"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core",
- "sp-runtime",
- "sp-std",
- "xcm",
- "xcm-executor",
-]
-
-[[package]]
 name = "parity-bytes"
 version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6138,36 +6097,6 @@ dependencies = [
  "sp-rpc",
  "sp-runtime",
  "thiserror",
-]
-
-[[package]]
-name = "polkadot-core-primitives"
-version = "0.9.25"
-source = "git+https://github.com/paritytech/polkadot.git?branch=release-v0.9.25#5174e9ae75b6843ecc460dfaa15f5851230638b8"
-dependencies = [
- "parity-scale-codec",
- "parity-util-mem",
- "scale-info",
- "sp-core",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "polkadot-parachain"
-version = "0.9.25"
-source = "git+https://github.com/paritytech/polkadot.git?branch=release-v0.9.25#5174e9ae75b6843ecc460dfaa15f5851230638b8"
-dependencies = [
- "derive_more",
- "frame-support",
- "parity-scale-codec",
- "parity-util-mem",
- "polkadot-core-primitives",
- "scale-info",
- "serde",
- "sp-core",
- "sp-runtime",
- "sp-std",
 ]
 
 [[package]]
@@ -10605,67 +10534,6 @@ dependencies = [
  "curve25519-dalek 3.2.0",
  "rand_core 0.5.1",
  "zeroize",
-]
-
-[[package]]
-name = "xcm"
-version = "0.9.25"
-source = "git+https://github.com/paritytech/polkadot.git?branch=release-v0.9.25#5174e9ae75b6843ecc460dfaa15f5851230638b8"
-dependencies = [
- "derivative",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "scale-info",
- "xcm-procedural",
-]
-
-[[package]]
-name = "xcm-builder"
-version = "0.9.25"
-source = "git+https://github.com/paritytech/polkadot.git?branch=release-v0.9.25#5174e9ae75b6843ecc460dfaa15f5851230638b8"
-dependencies = [
- "frame-support",
- "frame-system",
- "log",
- "pallet-transaction-payment",
- "parity-scale-codec",
- "polkadot-parachain",
- "scale-info",
- "sp-arithmetic",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "xcm",
- "xcm-executor",
-]
-
-[[package]]
-name = "xcm-executor"
-version = "0.9.25"
-source = "git+https://github.com/paritytech/polkadot.git?branch=release-v0.9.25#5174e9ae75b6843ecc460dfaa15f5851230638b8"
-dependencies = [
- "frame-support",
- "impl-trait-for-tuples",
- "log",
- "parity-scale-codec",
- "sp-arithmetic",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
- "xcm",
-]
-
-[[package]]
-name = "xcm-procedural"
-version = "0.1.0"
-source = "git+https://github.com/paritytech/polkadot.git?branch=release-v0.9.25#5174e9ae75b6843ecc460dfaa15f5851230638b8"
-dependencies = [
- "Inflector",
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]
