@@ -60,9 +60,5 @@ pub enum Subcommand {
     Benchmark(frame_benchmarking_cli::BenchmarkCmd),
 
     /// The custom inspect subcommmand for decoding blocks and extrinsics.
-    /*#[clap(
-        name = "inspect",
-        about = "Decode given block or extrinsic using current native runtime."
-    )]*/
     Inspect(node_inspect::cli::InspectCmd),
 }
