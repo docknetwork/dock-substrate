@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
 jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
@@ -18,4 +18,4 @@ sp-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkad
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28"}
 sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28" }
-core_mods = { version = '0.5.0', path = '..' }
+core_mods = { version = "0.5.0", path = ".." }

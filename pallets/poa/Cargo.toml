@@ -3,19 +3,19 @@ name = "poa"
 version = "0.8.0"
 authors = ["Dock.io"]
 edition = "2021"
-license = 'Apache-2.0'
+license = "Apache-2.0"
 
 [dependencies]
 scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
 
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies.codec]
 default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '3.1.2'
+features = ["derive"]
+package = "parity-scale-codec"
+version = "3.1.2"
 
 [dependencies.frame-support]
 default-features = false
@@ -43,9 +43,9 @@ git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.28"
 
 [dependencies.serde]
-features = ['derive']
+features = ["derive"]
 optional = true
-version = '1.0.119'
+version = "1.0.119"
 
 [dependencies.sp-arithmetic]
 default-features = false
@@ -74,7 +74,7 @@ branch = "polkadot-v0.9.28"
 
 [dev-dependencies.balances]
 default-features = false
-package = 'pallet-balances'
+package = "pallet-balances"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.28"
 
@@ -84,21 +84,21 @@ git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.28"
 
 [features]
-default = ['std']
+default = ["std"]
 std = [
-    'codec/std',
-    'frame-support/std',
-    'frame-system/std',
-    'sp-std/std',
-    'sp-runtime/std',
+    "codec/std",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-std/std",
+    "sp-runtime/std",
     "sp-api/std",
-    'sp-io/std',
-    'serde',
-    'sp-arithmetic/std',
+    "sp-io/std",
+    "serde",
+    "sp-arithmetic/std",
     "scale-info/std",
     "sp-authority-discovery/std",
-    'sp-npos-elections/std',
-    'sp-application-crypto/std'
+    "sp-npos-elections/std",
+    "sp-application-crypto/std"
 ]
 
-test = ['std', 'balances/std']
+test = ["std", "balances/std"]
