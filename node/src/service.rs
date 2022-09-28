@@ -48,9 +48,6 @@ impl sc_executor::NativeExecutionDispatch for ExecutorDispatch {
     }
 }
 
-/// Provide a mock duration starting at 0 in millisecond for timestamp inherent.
-/// Each call will increment timestamp by dock_runtime::slot_duration making Aura think time has passed.
-
 type FullClient =
     sc_service::TFullClient<Block, RuntimeApi, NativeElseWasmExecutor<ExecutorDispatch>>;
 type FullBackend = sc_service::TFullBackend<Block>;
