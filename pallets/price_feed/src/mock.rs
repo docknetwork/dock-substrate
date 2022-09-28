@@ -92,6 +92,7 @@ impl<H: Hasher<Out = H256>> AddressMapping<u64> for TestAddressMapping<H> {
 }
 
 impl pallet_evm::Config for Test {
+    type ByteReadWeight = ();
     type FeeCalculator = ();
     type GasWeightMapping = ();
     // type ByteReadWeight = ();

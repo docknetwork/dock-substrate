@@ -10,24 +10,25 @@ targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
 clap = { version = "3.2.5", features = [ "derive" ] }
-zstd = { version = "0.10.2", default-features = false }
+zstd = { version = "^0.11.2", default-features = false }
 futures = '0.3.4'
 log = '0.4.8'
 async-trait = "0.1"
 parking_lot = '0.10.0'
 hex-literal = "0.3.0"
-jsonrpsee = { version = "0.14.0", features = ["server"] }
+jsonrpsee = { version = "0.15.1", features = ["server"] }
 serde = { features = ['derive'], version = "1.0" }
 serde_json = '1.0.41'
 libp2p-noise = { version = "0.33.0" }
-pallet-dynamic-fee = { git = 'https://github.com/paritytech/frontier.git', rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846' }
-sc-transaction-pool-api = {  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.25" }
-sp-timestamp = {  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.25" }
+pallet-dynamic-fee = { git = 'https://github.com/docknetwork/frontier.git', rev = 'bac045800dc0348709fd113e4662caf93fc3bb87' }
+sc-transaction-pool-api = {  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.28" }
+sp-timestamp = {  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.28" }
+sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.28" }
 
-[dependencies.sp-maybe-compressed-blob]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+#[dependencies.sp-maybe-compressed-blob]
+#default-features = false
+#git = "https://github.com/paritytech/substrate.git"
+#branch = "polkadot-v0.9.28"
 
 [dependencies.structopt]
 version = '0.3.8'
@@ -39,236 +40,236 @@ version = '0.21.0'
 
 [dependencies.sc-basic-authorship]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-cli]
 optional = true
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-client-api]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-client-db]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-authorship]
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-consensus]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-consensus-babe]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.beefy-primitives]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.beefy-gadget]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.beefy-gadget-rpc]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-consensus-babe-rpc]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-consensus-epochs]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-consensus-slots]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-executor]
 version = '0.10.0-dev'
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-finality-grandpa]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-finality-grandpa-rpc]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-network]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-authority-discovery]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-service]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-transaction-pool]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-telemetry]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-sync-state-rpc]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-authority-discovery]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-core]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-finality-grandpa]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-consensus]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-consensus-babe]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.fp-storage]
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../frontier/primitives/storage'
 
 [dependencies.sp-inherents]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-runtime]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-transaction-pool]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [build-dependencies.substrate-build-script-utils]
 optional = true
 
 [dependencies.sc-rpc]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-rpc-api]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-chain-spec]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-api]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-block-builder]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-blockchain]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-keystore]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.pallet-mmr-rpc]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.pallet-im-online]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.pallet-authority-discovery]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.node-inspect]
 optional = true
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.frame-benchmarking]
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sc-consensus-uncles]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-transaction-storage-proof]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.frame-benchmarking-cli]
 optional = true
 default-features = false
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.substrate-frame-rpc-system]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.pallet-transaction-payment-rpc]
 git = 'https://github.com/paritytech/substrate.git'
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.pallet-ethereum]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../frontier/frame/ethereum'
 
 [dependencies.fc-rpc]
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../frontier/primitives/rpc'
 
 [dependencies.fc-db]
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../frontier/client/mapping-sync'
 
 [dependencies.poa_rpc]

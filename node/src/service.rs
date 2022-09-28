@@ -20,6 +20,7 @@ pub use sc_executor::NativeElseWasmExecutor;
 use sc_finality_grandpa::{
     FinalityProofProvider as GrandpaFinalityProofProvider, SharedVoterState,
 };
+use sc_network_common::service::NetworkEventStream;
 use sc_rpc::SubscriptionTaskExecutor;
 use sc_service::{error::Error as ServiceError, BasePath, Configuration, TaskManager};
 use sc_telemetry::{Telemetry, TelemetryWorker};
@@ -288,11 +289,8 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
         .is_authority()
         .then(|| keystore_container.sync_keystore());
 
-    let (beefy_commitment_link, beefy_commitment_stream) =
-        beefy_gadget::notification::BeefySignedCommitmentStream::<Block>::channel();
-    let (beefy_best_block_link, beefy_best_block_stream) =
-        beefy_gadget::notification::BeefyBestBlockStream::<Block>::channel();
-    let beefy_links = (beefy_commitment_link, beefy_best_block_link);
+    let (block_import, beefy_voter_links, beefy_rpc_links) =
+        beefy_gadget::beefy_block_import_and_links(block_import, backend.clone(), client.clone());
 
     let justification_stream = grandpa_link.justification_stream();
     let shared_authority_set = grandpa_link.shared_authority_set().clone();
@@ -401,8 +399,12 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
                     max_past_logs,
                     target_gas_price,
                     beefy: crate::rpc::BeefyDeps {
-                        beefy_commitment_stream: beefy_commitment_stream.clone(),
-                        beefy_best_block_stream: beefy_best_block_stream.clone(),
+                        beefy_finality_proof_stream: beefy_rpc_links
+                            .from_voter_justif_stream
+                            .clone(),
+                        beefy_best_block_stream: beefy_rpc_links
+                            .from_voter_best_beefy_stream
+                            .clone(),
                         subscription_executor: subscription_task_executor.clone(),
                     },
                     overrides: overrides.clone(),
@@ -439,8 +441,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
             runtime: client.clone(),
             key_store: keystore.clone(),
             network: network.clone(),
-            signed_commitment_sender: beefy_links.0,
-            beefy_best_block_sender: beefy_links.1,
+            links: beefy_voter_links,
             min_block_delta: 6,
             prometheus_registry: prometheus_registry.clone(),
             protocol_name: beefy_protocol_name,

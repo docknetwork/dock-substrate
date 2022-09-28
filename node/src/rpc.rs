@@ -105,11 +105,11 @@ pub struct FullDeps<C, P, B, SC, A: ChainApi> {
     pub overrides: Arc<OverrideHandle<Block>>,
 }
 
-use beefy_gadget::notification::{BeefyBestBlockStream, BeefySignedCommitmentStream};
+use beefy_gadget::notification::{BeefyBestBlockStream, BeefyVersionedFinalityProofStream};
 /// Dependencies for BEEFY
 pub struct BeefyDeps {
     /// Receives notifications about signed commitment events from BEEFY.
-    pub beefy_commitment_stream: BeefySignedCommitmentStream<Block>,
+    pub beefy_finality_proof_stream: BeefyVersionedFinalityProofStream<Block>,
     /// Receives notifications about best block events from BEEFY.
     pub beefy_best_block_stream: BeefyBestBlockStream<Block>,
     /// Executor to drive the subscription manager in the BEEFY RPC handler.
@@ -266,6 +266,7 @@ where
             block_data_cache.clone(),
             fee_history_cache,
             fee_history_cache_limit,
+            10,
         )
         .into_rpc(),
     )?;
@@ -311,7 +312,7 @@ where
 
     io.merge(
         Beefy::<Block>::new(
-            beefy.beefy_commitment_stream,
+            beefy.beefy_finality_proof_stream,
             beefy.beefy_best_block_stream,
             beefy.subscription_executor,
         )?

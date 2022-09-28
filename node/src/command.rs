@@ -21,7 +21,7 @@ use crate::{
     cli::{Cli, Subcommand},
     service::{self, new_partial},
 };
-use sc_cli::{ChainSpec, Role, RuntimeVersion, SubstrateCli};
+use sc_cli::{ChainSpec, RuntimeVersion, SubstrateCli};
 use sc_service::{Configuration, PartialComponents};
 
 impl SubstrateCli for Cli {
@@ -195,11 +195,7 @@ pub fn run() -> sc_cli::Result<()> {
         None => {
             let runner = cli.create_runner(&cli.run.base)?;
             runner.run_node_until_exit(with_default_ss58(|config| async move {
-                match config.role {
-                    Role::Light => unimplemented!(),
-                    _ => service::new_full(config, &cli),
-                }
-                .map_err(sc_cli::Error::Service)
+                service::new_full(config, &cli).map_err(sc_cli::Error::Service)
             }))
         }
     }

@@ -28,51 +28,51 @@ version = '1.0.119'
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.frame-system]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-std]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.frame-system-benchmarking]
 optional = true
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dev-dependencies.sp-io]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dev-dependencies.sp-core]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dev-dependencies.balances]
 default-features = false
 package = 'pallet-balances'
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [features]
 default = ['std']

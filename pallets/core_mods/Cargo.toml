@@ -46,44 +46,44 @@ version = '3.1.5'
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 features = ["full_crypto"]
 
 [dependencies.sp-std]
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-runtime]
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-io]
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.frame-system]
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.frame-support]
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-api]
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.hex-literal]
 version = "0.3.1"
@@ -93,7 +93,7 @@ optional = true
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 features = ["full_crypto"]
 
 [dependencies.frame-benchmarking]
@@ -101,7 +101,7 @@ optional = true
 default-features = false
 #version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.libsecp256k1]
 version = '0.7'
@@ -140,35 +140,35 @@ optional = true
 
 [dev-dependencies]
 rand = "0.8.3"
-evm = { version = "0.35", default-features = false, features = ["with-codec"] }
+evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c", default-features = false, features = ["with-codec"] }
 
 #[dev-dependencies.pallet-evm-precompile-storage-reader]
 #default-features = false
-#git = 'https://github.com/paritytech/frontier.git'
-#rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+#git = 'https://github.com/docknetwork/frontier.git'
+#rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../../../../frontier/frame/evm/precompile/storage-reader'
 
 [dev-dependencies.pallet-balances]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dev-dependencies.pallet-evm]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../../../../frontier/frame/evm'
 
 [dev-dependencies.pallet-ethereum]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = "../../../../frontier/frame/ethereum"
 
 [dev-dependencies.pallet-timestamp]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [features]
 default = ['std']

@@ -194,7 +194,7 @@ macro_rules! impl_wrapper_type_info {
 macro_rules! def_state_change {
     ($(#[$meta:meta])* $name: ident: $($mod: ident::$type: ident),+) => {
         $(#[$meta])*
-        #[derive(codec::Encode, scale_info::TypeInfo, codec::Decode, Debug, Clone, PartialEq)]
+        #[derive(scale_info::TypeInfo, codec::Encode, codec::Decode, Debug, Clone, PartialEq)]
         #[scale_info(skip_type_params(T))]
         pub enum $name<'a, T: frame_system::Config> {
             $($type(sp_std::borrow::Cow<'a, $mod::$type<T>>)),+

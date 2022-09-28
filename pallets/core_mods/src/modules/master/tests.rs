@@ -230,7 +230,7 @@ fn valid_call() {
         let pauth = get_pauth(&sc, &signers);
 
         MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
-        assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+        assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec().into()));
         check_nonce_increase(old_nonces, &signers);
     });
 }
@@ -266,7 +266,7 @@ fn all_members_vote() {
         let pauth = get_pauth(&sc, &signers);
 
         MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
-        assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+        assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec().into()));
         check_nonce_increase(old_nonces, &signers);
     });
 }
@@ -301,7 +301,7 @@ fn two_successful_rounds_of_voting() {
             let pauth = get_pauth(&sc, &signers);
 
             MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
-            assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+            assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec().into()));
             check_nonce_increase(old_nonces, &signers);
         }
 
@@ -324,7 +324,7 @@ fn two_successful_rounds_of_voting() {
             let pauth = get_pauth(&sc, &signers);
 
             MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
-            assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec()));
+            assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec().into()));
             check_nonce_increase(old_nonces, &signers);
         }
     });

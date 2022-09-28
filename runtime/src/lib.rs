@@ -657,8 +657,8 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 }
 
 frame_support::parameter_types! {
-    pub IsActive: bool = true;
     pub MaxElectingVoters: u32 = 10_000;
+    pub DefaultElasticity: Permill = Permill::from_parts(125_000);
 }
 
 impl pallet_base_fee::Config for Runtime {
@@ -666,7 +666,7 @@ impl pallet_base_fee::Config for Runtime {
 
     type Event = Event;
     type Threshold = BaseFeeThreshold;
-    type IsActive = IsActive;
+    type DefaultElasticity = DefaultElasticity;
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -691,28 +691,6 @@ type EnsureRootOrHalfCouncil = EitherOfDiverse<
     EnsureRoot<AccountId>,
     pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
 >;
-
-const MINER_MAX_ITERATIONS: u32 = 10;
-
-/// A source of random balance for NposSolver, which is meant to be run by the OCW election miner.
-pub struct OffchainRandomBalancing;
-impl Get<Option<(usize, sp_npos_elections::ExtendedBalance)>> for OffchainRandomBalancing {
-    fn get() -> Option<(usize, sp_npos_elections::ExtendedBalance)> {
-        use sp_runtime::traits::TrailingZeroInput;
-        let iters = match MINER_MAX_ITERATIONS {
-            0 => 0,
-            max @ _ => {
-                let seed = sp_io::offchain::random_seed();
-                let random = <u32>::decode(&mut TrailingZeroInput::new(&seed))
-                    .expect("input is padded with zeroes; qed")
-                    % max.saturating_add(1);
-                random as usize
-            }
-        };
-
-        Some((iters, 0))
-    }
-}
 
 parameter_types! {
     pub const SignedMaxSubmissions: u32 = 10;
@@ -766,10 +744,10 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
     type SignedDepositWeight = ();
     type SlashHandler = ();
     type RewardHandler = ();
-    type Solver = frame_election_provider_support::SequentialPhragmen<
+    type Solver = SequentialPhragmen<
         AccountId,
         pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
-        OffchainRandomBalancing,
+        (),
     >;
     type ForceOrigin = EnsureRootOrHalfCouncil;
 
@@ -862,6 +840,7 @@ parameter_types! {
 }
 
 impl transaction_payment::Config for Runtime {
+    type Event = Event;
     type OperationalFeeMultiplier = ConstU8<5>;
     type LengthToFee = IdentityFee<Balance>;
 
@@ -1089,12 +1068,19 @@ parameter_types! {
     pub const DesiredMembers: u32 = 8;
     pub const DesiredRunnersUp: u32 = 3;
     pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
+    pub const MaxVoters: u32 = 4 * 250;
+    pub const MaxCandidates: u32 = 250;
+    /// Require 3 days in blocks for each candidate to be allowed for the election.
+    pub const CandidacyDelay: u32 = 86400;
 }
 
 // Make sure that there are no more than `MaxMembers` members elected via elections-phragmen.
 const_assert!(DesiredMembers::get() <= CouncilMaxMembers::get());
 
 impl pallet_elections_phragmen::Config for Runtime {
+    type MaxCandidates = MaxCandidates;
+    type MaxVoters = MaxVoters;
+    type CandidacyDelay = CandidacyDelay;
     type Event = Event;
     type PalletId = ElectionsPhragmenPalletId;
     type Currency = Balances;
@@ -1118,10 +1104,13 @@ parameter_types! {
     pub const CouncilMotionDuration: BlockNumber = COUNCIL_MOTION_DURATION;
     pub const CouncilMaxProposals: u32 = 100;
     pub const CouncilMaxMembers: u32 = 10;
+    /// Proposal with lifetime less than 2 hours (in blocks) requires to be approved by all members.
+    pub const ShortTimeProposal: u32 = 2400;
 }
 
 type CouncilCollective = pallet_collective::Instance1;
 impl pallet_collective::Config<CouncilCollective> for Runtime {
+    type ShortTimeProposal = ShortTimeProposal;
     type Origin = Origin;
     type Proposal = Call;
     type Event = Event;
@@ -1157,6 +1146,7 @@ parameter_types! {
 
 type TechnicalCollective = pallet_collective::Instance2;
 impl pallet_collective::Config<TechnicalCollective> for Runtime {
+    type ShortTimeProposal = ShortTimeProposal;
     type Origin = Origin;
     type Proposal = Call;
     type Event = Event;
@@ -1482,6 +1472,7 @@ parameter_types! {
     /// Keeping 22 as its the ss58 prefix of mainnet
     pub const DockChainId: u64 = 22;
     pub BlockGasLimit: U256 = U256::from(u32::max_value());
+    pub const ByteReadWeight: Weight = 100;
 }
 
 /*
@@ -1530,6 +1521,7 @@ impl pallet_evm::Config for Runtime {
     type WithdrawOrigin = EnsureAddressTruncated;
     type AddressMapping = HashedAddressMapping<BlakeTwo256>;
     type Currency = Balances;
+    type ByteReadWeight = ByteReadWeight;
     type Event = Event;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type PrecompilesType = FrontierPrecompiles<Self>;
@@ -1594,7 +1586,7 @@ construct_runtime!(
         PoAModule: poa::{Pallet, Call, Storage, Config<T>} = 4,
         Grandpa: grandpa::{Pallet, Call, Storage, Config, Event} = 5,
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 6,
-        TransactionPayment: transaction_payment::{Pallet, Storage} = 7,
+        TransactionPayment: transaction_payment::{Pallet, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Event} = 8,
         BbsPlus: bbs_plus::{Pallet, Call, Storage, Event} = 9,
         DIDModule: did::{Pallet, Call, Storage, Event, Config} = 10,

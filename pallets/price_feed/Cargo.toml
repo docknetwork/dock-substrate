@@ -30,42 +30,42 @@ version = '1.0.119'
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.frame-system]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-runtime]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-std]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-core]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.sp-api]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dependencies.pallet-evm]
 default-features = false
-git = 'https://github.com/paritytech/frontier.git'
-rev = 'ad35a1fe3c0f3d084dce23f8df68d57362a36846'
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
 # path = '../../../../frontier/frame/evm'
 
 [dependencies.common]
@@ -77,20 +77,20 @@ package = 'pallet-balances'
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dev-dependencies.timestamp]
 package = 'pallet-timestamp'
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [dev-dependencies.sp-io]
 default-features = false
 # version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.25"
+branch = "polkadot-v0.9.28"
 
 [features]
 default = ['std']
