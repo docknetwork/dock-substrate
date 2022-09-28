@@ -1025,6 +1025,7 @@ dependencies = [
  "bitflags",
  "common",
  "evm",
+ "fp-evm",
  "frame-benchmarking",
  "frame-support",
  "frame-system",
@@ -1036,6 +1037,8 @@ dependencies = [
  "pallet-balances",
  "pallet-ethereum",
  "pallet-evm",
+ "pallet-evm-precompile-storage-reader",
+ "pallet-evm-test-vector-support",
  "pallet-timestamp",
  "parity-scale-codec",
  "rand 0.8.5",
@@ -1588,11 +1591,11 @@ dependencies = [
  "ethereum",
  "ethereum-types",
  "evm",
- "evm-gasometer 0.35.0 (git+https://github.com/rust-blockchain/evm.git?rev=01bcbd2205a212c34451d3b4fabc962793b057d3)",
- "evm-runtime 0.35.0 (git+https://github.com/rust-blockchain/evm.git?rev=01bcbd2205a212c34451d3b4fabc962793b057d3)",
+ "evm-gasometer",
+ "evm-runtime",
  "fiat_filter",
  "fiat_filter_rpc_runtime_api",
- "fp-consensus 0.1.0",
+ "fp-consensus",
  "fp-evm",
  "fp-rpc",
  "fp-self-contained",
@@ -1653,7 +1656,7 @@ dependencies = [
  "parity-util-mem",
  "poa",
  "price_feed",
- "primitive-types 0.10.1",
+ "primitive-types",
  "rand 0.8.5",
  "rlp",
  "rustc-hex",
@@ -1930,7 +1933,7 @@ dependencies = [
  "impl-codec",
  "impl-rlp",
  "impl-serde",
- "primitive-types 0.11.1",
+ "primitive-types",
  "scale-info",
  "uint",
 ]
@@ -1949,12 +1952,12 @@ dependencies = [
  "auto_impl",
  "environmental",
  "ethereum",
- "evm-core 0.35.0 (git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c)",
- "evm-gasometer 0.35.0 (git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c)",
- "evm-runtime 0.35.0 (git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c)",
+ "evm-core",
+ "evm-gasometer",
+ "evm-runtime",
  "log",
  "parity-scale-codec",
- "primitive-types 0.11.1",
+ "primitive-types",
  "rlp",
  "scale-info",
  "serde",
@@ -1964,34 +1967,12 @@ dependencies = [
 [[package]]
 name = "evm-core"
 version = "0.35.0"
-source = "git+https://github.com/rust-blockchain/evm.git?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
-dependencies = [
- "parity-scale-codec",
- "primitive-types 0.11.1",
- "scale-info",
- "serde",
-]
-
-[[package]]
-name = "evm-core"
-version = "0.35.0"
 source = "git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
 dependencies = [
  "parity-scale-codec",
- "primitive-types 0.11.1",
+ "primitive-types",
  "scale-info",
  "serde",
-]
-
-[[package]]
-name = "evm-gasometer"
-version = "0.35.0"
-source = "git+https://github.com/rust-blockchain/evm.git?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
-dependencies = [
- "environmental",
- "evm-core 0.35.0 (git+https://github.com/rust-blockchain/evm.git?rev=01bcbd2205a212c34451d3b4fabc962793b057d3)",
- "evm-runtime 0.35.0 (git+https://github.com/rust-blockchain/evm.git?rev=01bcbd2205a212c34451d3b4fabc962793b057d3)",
- "primitive-types 0.11.1",
 ]
 
 [[package]]
@@ -2000,21 +1981,9 @@ version = "0.35.0"
 source = "git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c#51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c"
 dependencies = [
  "environmental",
- "evm-core 0.35.0 (git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c)",
- "evm-runtime 0.35.0 (git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c)",
- "primitive-types 0.11.1",
-]
-
-[[package]]
-name = "evm-runtime"
-version = "0.35.0"
-source = "git+https://github.com/rust-blockchain/evm.git?rev=01bcbd2205a212c34451d3b4fabc962793b057d3#01bcbd2205a212c34451d3b4fabc962793b057d3"
-dependencies = [
- "auto_impl",
- "environmental",
- "evm-core 0.35.0 (git+https://github.com/rust-blockchain/evm.git?rev=01bcbd2205a212c34451d3b4fabc962793b057d3)",
- "primitive-types 0.11.1",
- "sha3 0.10.5",
+ "evm-core",
+ "evm-runtime",
+ "primitive-types",
 ]
 
 [[package]]
@@ -2024,8 +1993,8 @@ source = "git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0
 dependencies = [
  "auto_impl",
  "environmental",
- "evm-core 0.35.0 (git+https://github.com/rust-blockchain/evm?rev=51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c)",
- "primitive-types 0.11.1",
+ "evm-core",
+ "primitive-types",
  "sha3 0.10.5",
 ]
 
@@ -2084,7 +2053,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "fp-storage",
  "kvdb-rocksdb",
@@ -2100,10 +2069,10 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "fc-db",
- "fp-consensus 2.0.0-dev",
+ "fp-consensus",
  "fp-rpc",
  "futures 0.3.24",
  "futures-timer",
@@ -2117,7 +2086,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2159,7 +2128,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2323,14 +2292,8 @@ dependencies = [
 
 [[package]]
 name = "fp-consensus"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b4204b9533dd1596996a97d64c3b17f1efd88200b8e41535eb06e5bfa22c0afb"
-
-[[package]]
-name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -2342,7 +2305,7 @@ dependencies = [
 [[package]]
 name = "fp-dynamic-fee"
 version = "1.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "async-trait",
  "sp-core",
@@ -2352,7 +2315,7 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2366,7 +2329,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "evm",
  "frame-support",
@@ -2379,7 +2342,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2396,7 +2359,7 @@ dependencies = [
 [[package]]
 name = "fp-self-contained"
 version = "1.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "ethereum",
  "frame-support",
@@ -2410,7 +2373,7 @@ dependencies = [
 [[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -5121,7 +5084,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -5225,7 +5188,7 @@ dependencies = [
 [[package]]
 name = "pallet-dynamic-fee"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "async-trait",
  "fp-dynamic-fee",
@@ -5284,12 +5247,12 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "ethereum",
  "ethereum-types",
  "evm",
- "fp-consensus 2.0.0-dev",
+ "fp-consensus",
  "fp-ethereum",
  "fp-evm",
  "fp-rpc",
@@ -5311,7 +5274,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "evm",
  "fp-evm",
@@ -5322,7 +5285,7 @@ dependencies = [
  "log",
  "pallet-timestamp",
  "parity-scale-codec",
- "primitive-types 0.11.1",
+ "primitive-types",
  "rlp",
  "scale-info",
  "serde",
@@ -5335,7 +5298,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-bn128"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "fp-evm",
  "sp-core",
@@ -5345,7 +5308,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-dispatch"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -5355,7 +5318,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-ed25519"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "ed25519-dalek",
  "fp-evm",
@@ -5364,7 +5327,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "fp-evm",
  "num",
@@ -5373,7 +5336,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "fp-evm",
  "tiny-keccak 2.0.2",
@@ -5382,11 +5345,48 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?rev=bac045800dc0348709fd113e4662caf93fc3bb87#bac045800dc0348709fd113e4662caf93fc3bb87"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
 dependencies = [
  "fp-evm",
  "ripemd",
  "sp-io",
+]
+
+[[package]]
+name = "pallet-evm-precompile-storage-reader"
+version = "0.2.0"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
+dependencies = [
+ "bytes",
+ "evm",
+ "fp-evm",
+ "frame-benchmarking",
+ "frame-metadata",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "pallet-ethereum",
+ "pallet-evm",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-evm-test-vector-support"
+version = "1.0.0-dev"
+source = "git+https://github.com/docknetwork/frontier.git?rev=d96b102e516140c89db4ace04319b339414899ec#d96b102e516140c89db4ace04319b339414899ec"
+dependencies = [
+ "evm",
+ "fp-evm",
+ "hex",
+ "serde",
+ "serde_json",
+ "sp-core",
 ]
 
 [[package]]
@@ -5791,7 +5791,7 @@ dependencies = [
  "lru 0.7.8",
  "parity-util-mem-derive",
  "parking_lot 0.12.1",
- "primitive-types 0.11.1",
+ "primitive-types",
  "smallvec",
  "winapi",
 ]
@@ -6179,17 +6179,6 @@ dependencies = [
  "sp-rpc",
  "sp-runtime",
  "thiserror",
-]
-
-[[package]]
-name = "primitive-types"
-version = "0.10.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05e4722c697a58a99d5d06a08c30821d7c082a4632198de1eaa5a6c22ef42373"
-dependencies = [
- "fixed-hash",
- "impl-rlp",
- "uint",
 ]
 
 [[package]]
@@ -8629,7 +8618,7 @@ dependencies = [
  "parity-scale-codec",
  "parity-util-mem",
  "parking_lot 0.12.1",
- "primitive-types 0.11.1",
+ "primitive-types",
  "rand 0.7.3",
  "regex",
  "scale-info",
@@ -8890,7 +8879,7 @@ dependencies = [
  "bytes",
  "impl-trait-for-tuples",
  "parity-scale-codec",
- "primitive-types 0.11.1",
+ "primitive-types",
  "sp-externalities",
  "sp-runtime-interface-proc-macro",
  "sp-std",
@@ -9733,7 +9722,7 @@ dependencies = [
  "chrono",
  "lazy_static",
  "matchers",
- "parking_lot 0.11.2",
+ "parking_lot 0.10.2",
  "regex",
  "serde",
  "serde_json",
@@ -9839,7 +9828,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.5",
  "rand 0.8.5",
  "static_assertions",

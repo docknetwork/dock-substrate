@@ -20,7 +20,7 @@ jsonrpsee = { version = "0.15.1", features = ["server"] }
 serde = { features = ['derive'], version = "1.0" }
 serde_json = '1.0.41'
 libp2p-noise = { version = "0.33.0" }
-pallet-dynamic-fee = { git = 'https://github.com/docknetwork/frontier.git', rev = 'bac045800dc0348709fd113e4662caf93fc3bb87' }
+pallet-dynamic-fee = { git = 'https://github.com/docknetwork/frontier.git', rev = 'd96b102e516140c89db4ace04319b339414899ec' }
 sc-transaction-pool-api = {  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.28" }
 sp-timestamp = {  git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.28" }
 sc-network-common = { git = "https://github.com/paritytech/substrate", branch = "polkadot-v0.9.28" }
@@ -150,7 +150,7 @@ branch = "polkadot-v0.9.28"
 
 [dependencies.fp-storage]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../frontier/primitives/storage'
 
 [dependencies.sp-inherents]
@@ -244,32 +244,32 @@ branch = "polkadot-v0.9.28"
 [dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../frontier/frame/ethereum'
 
 [dependencies.fc-rpc]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../frontier/client/rpc'
 
 [dependencies.fc-rpc-core]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../frontier/client/rpc-core'
 
 [dependencies.fp-rpc]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../frontier/primitives/rpc'
 
 [dependencies.fc-db]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../frontier/client/db'
 
 [dependencies.fc-mapping-sync]
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../frontier/client/mapping-sync'
 
 [dependencies.poa_rpc]

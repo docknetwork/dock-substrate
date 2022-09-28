@@ -65,7 +65,7 @@ branch = "polkadot-v0.9.28"
 [dependencies.pallet-evm]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../../../../frontier/frame/evm'
 
 [dependencies.common]

@@ -142,10 +142,10 @@ optional = true
 rand = "0.8.3"
 evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c", default-features = false, features = ["with-codec"] }
 
-#[dev-dependencies.pallet-evm-precompile-storage-reader]
-#default-features = false
-#git = 'https://github.com/docknetwork/frontier.git'
-#rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+[dev-dependencies.pallet-evm-precompile-storage-reader]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../../../../frontier/frame/evm/precompile/storage-reader'
 
 [dev-dependencies.pallet-balances]
@@ -156,14 +156,25 @@ branch = "polkadot-v0.9.28"
 [dev-dependencies.pallet-evm]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
+# path = '../../../../frontier/frame/evm'
+
+[dev-dependencies.fp-evm]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = '../../../../frontier/frame/evm'
 
 [dev-dependencies.pallet-ethereum]
 default-features = false
 git = 'https://github.com/docknetwork/frontier.git'
-rev = 'bac045800dc0348709fd113e4662caf93fc3bb87'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 # path = "../../../../frontier/frame/ethereum"
+
+[dev-dependencies.pallet-evm-test-vector-support]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = 'd96b102e516140c89db4ace04319b339414899ec'
 
 [dev-dependencies.pallet-timestamp]
 default-features = false
@@ -192,7 +203,8 @@ std = [
     'frame-system/std',
     'sp-api/std',
     'libsecp256k1/std',
-    #'pallet-evm-precompile-storage-reader/std',
+    'pallet-evm-precompile-storage-reader/std',
+    'fp-evm/std',
     'scale-info/std',
     'pallet-evm/std',
     'evm/std'

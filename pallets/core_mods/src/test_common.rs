@@ -46,7 +46,8 @@ frame_support::construct_runtime!(
         AnchorMod: anchor::{Pallet, Call, Storage, Event<T>},
         AttestMod: attest::{Pallet, Call, Storage},
         BBSPlusMod: bbs_plus::{Pallet, Call, Storage, Event},
-        AccumMod: accumulator::{Pallet, Call, Storage, Event}
+        AccumMod: accumulator::{Pallet, Call, Storage, Event},
+        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
     }
 );
 
@@ -73,11 +74,11 @@ impl From<pallet_balances::Event<Test>> for TestEvent {
     }
 }
 
-/*impl From<pallet_evm::Event<Test>> for TestEvent {
+impl From<pallet_evm::Event<Test>> for TestEvent {
     fn from(_: pallet_evm::Event<Test>) -> Self {
         unimplemented!()
     }
-}*/
+}
 
 impl From<()> for TestEvent {
     fn from((): ()) -> Self {
@@ -182,10 +183,10 @@ where
     }
 }
 
-/*/// Identity address mapping.
+/// Identity address mapping.
 pub struct DummyAddressMapping;
 impl pallet_evm::AddressMapping<u64> for DummyAddressMapping {
-    fn into_account_truncating_id(_: H160) -> u64 {
+    fn into_account_id(_: H160) -> u64 {
         unimplemented!()
     }
 }
@@ -193,20 +194,21 @@ impl pallet_evm::AddressMapping<u64> for DummyAddressMapping {
 impl pallet_evm::Config for Test {
     type FeeCalculator = ();
     type GasWeightMapping = ();
-    type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping<Self>;
+    type BlockHashMapping = pallet_evm::SubstrateBlockHashMapping<Self>;
     type CallOrigin = DummyCallOrigin;
     type WithdrawOrigin = DummyCallOrigin;
     type AddressMapping = DummyAddressMapping;
     type Currency = Balances;
     type Event = TestEvent;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
-    //type ByteReadWeight = ByteReadWeight;
-    type Precompiles = ();
+    type ByteReadWeight = ByteReadWeight;
+    type PrecompilesType = ();
+    type PrecompilesValue = ();
     type ChainId = ();
     type BlockGasLimit = ();
     type OnChargeTransaction = ();
     type FindAuthor = ();
-}*/
+}
 
 impl pallet_balances::Config for Test {
     type ReserveIdentifier = ();
