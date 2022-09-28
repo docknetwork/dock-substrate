@@ -7,9 +7,10 @@
 
 use frame_support::{
     decl_module, decl_storage,
-    sp_runtime::{traits::AccountIdConversion, ModuleId},
     traits::{Currency, ReservableCurrency},
+    PalletId,
 };
+use sp_runtime::traits::AccountIdConversion;
 
 use frame_system::{self as system};
 
@@ -23,7 +24,7 @@ mod tests;
 
 /// Hardcoded treasury id; used to create the special Treasury account
 /// Must be exactly 8 characters long
-const TREASURY_ID: ModuleId = ModuleId(*b"Treasury");
+const TREASURY_ID: PalletId = PalletId(*b"Treasury");
 
 /// The pallet's configuration trait.
 pub trait Config: system::Config {
@@ -43,10 +44,10 @@ decl_storage! {
 }
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin {
+    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
         /*/// Force a transfer using root to transfer balance of reserved as well as free kind.
         /// This call is dangerous and can be abused by a malicious Root
-        #[weight = T::DbWeight::get().reads_writes(1, 1)]
+        #[weight = <T as frame_system::Config>::DbWeight::get().reads_writes(1, 1)]
         pub fn force_transfer_both(
             origin, source: <T::Lookup as StaticLookup>::Source, dest: <T::Lookup as StaticLookup>::Source,
             #[compact] free: BalanceOf<T>, #[compact] reserved: BalanceOf<T>
@@ -63,7 +64,7 @@ decl_module! {
 impl<T: Config> Module<T> {
     /// The account ID that holds the Treasury's funds
     pub fn treasury_account() -> T::AccountId {
-        TREASURY_ID.into_account()
+        TREASURY_ID.into_account_truncating()
     }
 
     /// Treasury's free balance. Only free balance makes sense for treasury in context of PoA

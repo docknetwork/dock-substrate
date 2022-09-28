@@ -119,13 +119,13 @@ macro_rules! impl_action_with_nonce {
 #[macro_export]
 macro_rules! deposit_indexed_event {
     ($event: ident($($value: expr),+) over $($index: expr),+) => {
-        <system::Module<T>>::deposit_event_indexed(
+        <system::Pallet<T>>::deposit_event_indexed(
             &[$(<T as system::Config>::Hashing::hash(&$index[..])),+],
             <T as Config>::Event::from(Event::$event($($value),+)).into()
         );
     };
     ($event: ident($($value: expr),+)) => {
-        <system::Module<T>>::deposit_event_indexed(
+        <system::Pallet<T>>::deposit_event_indexed(
             &[$(<T as system::Config>::Hashing::hash(&$value[..])),+],
             <T as Config>::Event::from(Event::$event($($value),+)).into()
         );
@@ -168,14 +168,34 @@ macro_rules! impl_wrapper {
                 &mut self.0
             }
         }
+
+        $crate::impl_wrapper_type_info! { $wrapper, $type }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_wrapper_type_info {
+    ($wrapper: ident, $type: ty) => {
+        impl scale_info::TypeInfo for $wrapper {
+            type Identity = Self;
+
+            fn type_info() -> scale_info::Type {
+                scale_info::Type::builder()
+                    .path(
+                        scale_info::Path::from_segments(Some(core::stringify!($wrapper))).unwrap(),
+                    )
+                    .composite(scale_info::build::Fields::unnamed().field(|f| f.ty::<$type>()))
+            }
+        }
     };
 }
 
 #[macro_export]
 macro_rules! def_state_change {
     ($(#[$meta:meta])* $name: ident: $($mod: ident::$type: ident),+) => {
-        #[derive(codec::Encode, codec::Decode, Debug, Clone)]
         $(#[$meta])*
+        #[derive(scale_info::TypeInfo, codec::Encode, codec::Decode, Debug, Clone, PartialEq)]
+        #[scale_info(skip_type_params(T))]
         pub enum $name<'a, T: frame_system::Config> {
             $($type(sp_std::borrow::Cow<'a, $mod::$type<T>>)),+
         }

@@ -3,7 +3,7 @@ use codec::{Decode, Encode};
 use frame_system::Config;
 
 /// Wraps any value in an action with the supplied nonce and given target.
-#[derive(Clone, Debug, PartialEq, Encode, Decode)]
+#[derive(Clone, Debug, PartialEq, Encode, Decode, scale_info::TypeInfo)]
 pub struct WrappedActionWithNonce<T: Config, A, Ta> {
     pub nonce: T::BlockNumber,
     pub target: Ta,

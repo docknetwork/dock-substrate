@@ -38,7 +38,7 @@ pub trait Config: system::Config + did::Config {
     type StorageWeight: Get<Weight>;
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Attestation {
     #[codec(compact)]
@@ -46,8 +46,9 @@ pub struct Attestation {
     pub iri: Option<Iri>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(skip_type_params(T))]
 pub struct SetAttestationClaim<T: frame_system::Config> {
     pub attest: Attestation,
     pub nonce: T::BlockNumber,
@@ -106,7 +107,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::set_claim_, attests, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::set_claim_, attests, signature)
         }
     }
 }

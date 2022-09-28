@@ -27,9 +27,9 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Balances: balances::{Module, Call, Storage},
-        PoAModule: poa::{Module, Call, Storage, Config<T>},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Balances: balances::{Pallet, Call, Storage},
+        PoAModule: poa::{Pallet, Call, Storage, Config<T>},
     }
 );
 
@@ -45,7 +45,9 @@ parameter_types! {
 }
 
 impl system::Config for TestRuntime {
-    type BaseCallFilter = ();
+    type OnSetCode = ();
+    type MaxConsumers = sp_runtime::traits::ConstU32<10>;
+    type BaseCallFilter = frame_support::traits::Everything;
     type Origin = Origin;
     type Call = Call;
     type Index = u64;
@@ -70,6 +72,8 @@ impl system::Config for TestRuntime {
 }
 
 impl balances::Config for TestRuntime {
+    type MaxReserves = ();
+    type ReserveIdentifier = ();
     type Balance = u64;
     type DustRemoval = ();
     type Event = ();
@@ -87,7 +91,7 @@ impl Config for TestRuntime {
 fn expected_treasury_account_id() {
     use sp_runtime::traits::AccountIdConversion;
     assert_eq!(
-        AccountIdConversion::<[u8; 32]>::into_account(&TREASURY_ID),
+        AccountIdConversion::<[u8; 32]>::into_account_truncating(&TREASURY_ID),
         *b"modlTreasury\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"
     );
 }

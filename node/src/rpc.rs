@@ -5,36 +5,39 @@
 
 #![warn(missing_docs)]
 
-use std::{collections::BTreeMap, sync::Arc};
+use std::sync::Arc;
 
+use beefy_gadget_rpc::{Beefy, BeefyApiServer};
 use dock_runtime::{
     opaque::Block, AccountId, Balance, BlockNumber, Hash, Index, TransactionConverter,
 };
-use fc_rpc::{OverrideHandle, RuntimeApiStorageOverride, SchemaV1Override, StorageOverride};
-use fc_rpc_core::types::{FilterPool, PendingTransactions};
-use jsonrpc_pubsub::manager::SubscriptionManager;
-use pallet_ethereum::EthereumStorageSchema;
+use fc_rpc::{EthBlockDataCacheTask, EthDevSigner, EthSigner, OverrideHandle};
+use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
+use jsonrpsee::RpcModule;
+use pallet_mmr_rpc::{Mmr, MmrApiServer};
 use sc_client_api::{
     backend::{AuxStore, Backend, StateBackend, StorageProvider},
     client::BlockchainEvents,
 };
 use sc_consensus_babe::{Config, Epoch};
-use sc_consensus_babe_rpc::BabeRpcHandler;
+use sc_consensus_babe_rpc::{Babe, BabeApiServer};
 use sc_consensus_epochs::SharedEpochChanges;
 use sc_finality_grandpa::{
     FinalityProofProvider, GrandpaJustificationStream, SharedAuthoritySet, SharedVoterState,
 };
-use sc_finality_grandpa_rpc::GrandpaRpcHandler;
+use sc_finality_grandpa_rpc::{Grandpa, GrandpaApiServer};
 use sc_network::NetworkService;
 use sc_rpc::SubscriptionTaskExecutor;
 pub use sc_rpc_api::DenyUnsafe;
+use sc_sync_state_rpc::{SyncState, SyncStateApiServer};
+use sc_transaction_pool::{ChainApi, Pool};
+use sc_transaction_pool_api::TransactionPool;
 use sp_api::ProvideRuntimeApi;
 use sp_block_builder::BlockBuilder;
 use sp_blockchain::{Error as BlockChainError, HeaderBackend, HeaderMetadata};
 use sp_consensus::SelectChain;
 use sp_consensus_babe::BabeApi;
 use sp_keystore::SyncCryptoStorePtr;
-use sp_transaction_pool::TransactionPool;
 
 /// Extra dependencies for BABE.
 pub struct BabeDeps {
@@ -54,16 +57,20 @@ pub struct GrandpaDeps<B> {
     pub shared_authority_set: SharedAuthoritySet<Hash, BlockNumber>,
     /// Receives notifications about justification events from Grandpa.
     pub justification_stream: GrandpaJustificationStream<Block>,
+    /// Executor to drive the subscription manager in the Grandpa RPC handler.
+    pub subscription_executor: sc_rpc::SubscriptionTaskExecutor,
     /// Finality proof provider.
-    pub finality_proof_provider: Arc<FinalityProofProvider<B, Block>>,
+    pub finality_provider: Arc<FinalityProofProvider<B, Block>>,
 }
 
 /// Full client dependencies.
-pub struct FullDeps<C, P, B, SC> {
+pub struct FullDeps<C, P, B, SC, A: ChainApi> {
     /// The client instance to use.
     pub client: Arc<C>,
     /// Transaction pool instance.
     pub pool: Arc<P>,
+    /// Graph pool instance.
+    pub graph: Arc<Pool<A>>,
     /// The SelectChain Strategy
     pub select_chain: SC,
     /// A copy of the chain spec.
@@ -78,21 +85,42 @@ pub struct FullDeps<C, P, B, SC> {
     pub is_authority: bool,
     /// Network service
     pub network: Arc<NetworkService<Block, Hash>>,
-    /// Ethereum pending transactions.
-    pub pending_transactions: PendingTransactions,
+    /// Fee history cache.
+    pub fee_history_cache: FeeHistoryCache,
+    /// Fee history cache limit.
+    pub fee_history_cache_limit: FeeHistoryCacheLimit,
     /// EthFilterApi pool.
     pub filter_pool: Option<FilterPool>,
     /// Backend.
     pub backend: Arc<fc_db::Backend<Block>>,
     /// Maximum number of logs in a query.
     pub max_past_logs: u32,
+    /// Target gas price.
+    pub target_gas_price: u32,
+    /// BEEFY specific dependencies.
+    pub beefy: BeefyDeps,
+    /// Block data cache.
+    pub block_data_cache: Arc<EthBlockDataCacheTask<Block>>,
+    /// Ethereum data access overrides.
+    pub overrides: Arc<OverrideHandle<Block>>,
+}
+
+use beefy_gadget::notification::{BeefyBestBlockStream, BeefyVersionedFinalityProofStream};
+/// Dependencies for BEEFY
+pub struct BeefyDeps {
+    /// Receives notifications about signed commitment events from BEEFY.
+    pub beefy_finality_proof_stream: BeefyVersionedFinalityProofStream<Block>,
+    /// Receives notifications about best block events from BEEFY.
+    pub beefy_best_block_stream: BeefyBestBlockStream<Block>,
+    /// Executor to drive the subscription manager in the BEEFY RPC handler.
+    pub subscription_executor: sc_rpc::SubscriptionTaskExecutor,
 }
 
 /// Instantiate all full RPC extensions.
-pub fn create_full<C, P, B, SC>(
-    deps: FullDeps<C, P, B, SC>,
+pub fn create_full<C, P, B, SC, A>(
+    deps: FullDeps<C, P, B, SC, A>,
     subscription_executor: SubscriptionTaskExecutor,
-) -> jsonrpc_core::IoHandler<sc_rpc::Metadata>
+) -> Result<RpcModule<()>, Box<dyn std::error::Error + Send + Sync>>
 where
     B: Backend<Block> + Send + Sync + 'static,
     B::State: StateBackend<sp_runtime::traits::HashFor<Block>>,
@@ -104,31 +132,35 @@ where
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
+    C::Api: pallet_mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash>,
     C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
-    // C::Api: fiat_filter_rpc::FiatFeeRuntimeApi<Block, Balance>,
+    C::Api: fiat_filter_rpc::FiatFeeRuntimeApi<Block, Balance>,
     C::Api: staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
     C::Api: core_mods_rpc::CoreModsRuntimeApi<Block, dock_runtime::Runtime>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
+    C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
     P: TransactionPool<Block = Block> + 'static,
     SC: SelectChain<Block> + 'static,
+    A: ChainApi<Block = Block> + 'static,
 {
-    use core_mods_rpc::{CoreMods, CoreModsApi};
-    // use fiat_filter_rpc::{FiatFeeApi, FiatFeeServer};
-    use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApi};
-    use poa_rpc::{PoA, PoAApi};
-    use price_feed_rpc::{PriceFeed, PriceFeedApi};
-    use staking_rewards_rpc::{StakingRewards, StakingRewardsApi};
-    use substrate_frame_rpc_system::{FullSystem, SystemApi};
+    use core_mods_rpc::{CoreMods, CoreModsApiServer};
+    use fiat_filter_rpc::{FiatFee, FiatFeeApiServer};
+    use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
+    use poa_rpc::{PoA, PoAApiServer};
+    use price_feed_rpc::{PriceFeed, PriceFeedApiServer};
+    use staking_rewards_rpc::{StakingRewards, StakingRewardsApiServer};
+    use substrate_frame_rpc_system::{System, SystemApiServer};
 
     use fc_rpc::{
-        EthApi, EthApiServer, EthFilterApi, EthFilterApiServer, EthPubSubApi, EthPubSubApiServer,
-        HexEncodedIdProvider, NetApi, NetApiServer, Web3Api, Web3ApiServer,
+        Eth, EthApiServer, EthFilter, EthFilterApiServer, EthPubSub, EthPubSubApiServer, Net,
+        NetApiServer, Web3, Web3ApiServer,
     };
 
-    let mut io = jsonrpc_core::IoHandler::default();
+    let mut io = RpcModule::new(());
     let FullDeps {
         client,
+        graph,
         pool,
         select_chain,
         chain_spec,
@@ -137,10 +169,15 @@ where
         grandpa,
         is_authority,
         network,
-        pending_transactions,
         filter_pool,
         backend,
         max_past_logs,
+        fee_history_cache,
+        target_gas_price: _,
+        fee_history_cache_limit,
+        block_data_cache,
+        beefy,
+        overrides,
     } = deps;
 
     let BabeDeps {
@@ -153,122 +190,136 @@ where
         shared_voter_state,
         shared_authority_set,
         justification_stream,
-        finality_proof_provider,
+        finality_provider,
+        ..
     } = grandpa;
 
-    io.extend_with(SystemApi::to_delegate(FullSystem::new(
-        client.clone(),
-        pool.clone(),
-        deny_unsafe,
-    )));
+    io.merge(System::new(client.clone(), pool.clone(), deny_unsafe).into_rpc())?;
 
-    io.extend_with(TransactionPaymentApi::to_delegate(TransactionPayment::new(
-        client.clone(),
-    )));
+    io.merge(TransactionPayment::new(client.clone()).into_rpc())?;
 
     // RPC calls for PoA pallet
-    io.extend_with(PoAApi::to_delegate(PoA::new(client.clone())));
+    io.merge(PoA::new(client.clone()).into_rpc())?;
 
     // RPC calls for Price Feed pallet
-    io.extend_with(PriceFeedApi::to_delegate(PriceFeed::new(client.clone())));
+    io.merge(PriceFeed::new(client.clone()).into_rpc())?;
 
     // RPC calls for Staking rewards pallet
-    io.extend_with(StakingRewardsApi::to_delegate(StakingRewards::new(
-        client.clone(),
-    )));
+    io.merge(StakingRewards::new(client.clone()).into_rpc())?;
 
     // RPC calls for core mods pallet
-    io.extend_with(CoreModsApi::<
+    io.merge(<CoreMods<_, _> as CoreModsApiServer<
         _,
         core_mods_rpc::SerializableConfigWrapper<dock_runtime::Runtime>,
-    >::to_delegate(CoreMods::new(client.clone())));
+    >>::into_rpc(CoreMods::new(client.clone())))?;
 
-    io.extend_with(sc_consensus_babe_rpc::BabeApi::to_delegate(
-        BabeRpcHandler::new(
+    io.merge(
+        Babe::new(
             client.clone(),
             shared_epoch_changes.clone(),
             keystore,
             babe_config,
             select_chain,
             deny_unsafe,
-        ),
-    ));
+        )
+        .into_rpc(),
+    )?;
 
-    io.extend_with(sc_finality_grandpa_rpc::GrandpaApi::to_delegate(
-        GrandpaRpcHandler::new(
+    io.merge(
+        Grandpa::new(
+            subscription_executor.clone(),
             shared_authority_set.clone(),
             shared_voter_state,
             justification_stream,
-            subscription_executor.clone(),
-            finality_proof_provider,
-        ),
-    ));
+            finality_provider,
+        )
+        .into_rpc(),
+    )?;
 
-    io.extend_with(sc_sync_state_rpc::SyncStateRpcApi::to_delegate(
-        sc_sync_state_rpc::SyncStateRpcHandler::new(
+    io.merge(
+        SyncState::new(
             chain_spec,
             client.clone(),
             shared_authority_set,
             shared_epoch_changes,
-            deny_unsafe,
-        ),
-    ));
+        )?
+        .into_rpc(),
+    )?;
 
-    // Below code is taken from frontier template
-    let mut overrides_map = BTreeMap::new();
-    overrides_map.insert(
-        EthereumStorageSchema::V1,
-        Box::new(SchemaV1Override::new(client.clone()))
-            as Box<dyn StorageOverride<_> + Send + Sync>,
-    );
-    let overrides = Arc::new(OverrideHandle {
-        schemas: overrides_map,
-        fallback: Box::new(RuntimeApiStorageOverride::new(client.clone())),
-    });
-
-    io.extend_with(EthApiServer::to_delegate(EthApi::new(
-        client.clone(),
-        pool.clone(),
-        TransactionConverter,
-        network.clone(),
-        pending_transactions.clone(),
-        vec![],
-        overrides.clone(),
-        backend,
-        is_authority,
-        max_past_logs,
-    )));
-
-    if let Some(filter_pool) = filter_pool {
-        io.extend_with(EthFilterApiServer::to_delegate(EthFilterApi::new(
-            client.clone(),
-            filter_pool.clone(),
-            500 as usize, // max stored filters
-            overrides.clone(),
-            max_past_logs,
-        )));
+    let mut signers = Vec::new();
+    if true {
+        signers.push(Box::new(EthDevSigner::new()) as Box<dyn EthSigner>);
     }
 
-    io.extend_with(NetApiServer::to_delegate(NetApi::new(
-        client.clone(),
-        network.clone(),
-        true,
-    )));
+    io.merge(
+        Eth::new(
+            client.clone(),
+            pool.clone(),
+            graph,
+            Some(TransactionConverter),
+            network.clone(),
+            signers,
+            overrides.clone(),
+            backend.clone(),
+            // Is authority.
+            is_authority,
+            block_data_cache.clone(),
+            fee_history_cache,
+            fee_history_cache_limit,
+            10,
+        )
+        .into_rpc(),
+    )?;
 
-    io.extend_with(Web3ApiServer::to_delegate(Web3Api::new(client.clone())));
+    if let Some(filter_pool) = filter_pool {
+        io.merge(
+            EthFilter::new(
+                client.clone(),
+                backend,
+                filter_pool,
+                500_usize, // max stored filters
+                max_past_logs,
+                block_data_cache,
+            )
+            .into_rpc(),
+        )?;
+    }
 
-    io.extend_with(EthPubSubApiServer::to_delegate(EthPubSubApi::new(
-        pool.clone(),
-        client.clone(),
-        network.clone(),
-        SubscriptionManager::<HexEncodedIdProvider>::with_id_provider(
-            HexEncodedIdProvider::default(),
-            Arc::new(subscription_executor),
-        ),
-        overrides,
-    )));
+    io.merge(
+        Net::new(
+            client.clone(),
+            network.clone(),
+            // Whether to format the `peer_count` response as Hex (default) or not.
+            true,
+        )
+        .into_rpc(),
+    )?;
 
-    // io.extend_with(FiatFeeApi::to_delegate(FiatFeeServer::new(client.clone())));
+    io.merge(Mmr::new(client.clone()).into_rpc())?;
 
-    io
+    io.merge(Web3::new(client.clone()).into_rpc())?;
+
+    io.merge(
+        EthPubSub::new(
+            pool,
+            client.clone(),
+            network.clone(),
+            subscription_executor,
+            overrides,
+        )
+        .into_rpc(),
+    )?;
+
+    io.merge(
+        Beefy::<Block>::new(
+            beefy.beefy_finality_proof_stream,
+            beefy.beefy_best_block_stream,
+            beefy.subscription_executor,
+        )?
+        .into_rpc(),
+    )?;
+
+    io.merge(FiatFee::new(client.clone()).into_rpc())?;
+
+    Ok(io)
 }
