@@ -9,8 +9,6 @@ const PRICE_QUERY_ABI: [u8; 4] = [254, 175, 150, 140];
 
 /// Deploy aggregator and proxy contracts and set contract config in this pallet
 fn setup_contracts() -> (H160, H160) {
-    let evm_config = <Test as pallet_evm::Config>::config();
-
     let is_transactional = false;
     let validate = true;
 
@@ -164,7 +162,6 @@ fn get_price_from_contract() {
         // Price is not updated in this pallet's storage
         assert!(PriceFeedModule::price().is_none());
 
-        let evm_config = <Test as pallet_evm::Config>::config();
         let is_transactional = false;
         let validate = true;
 
@@ -260,7 +257,6 @@ fn storage_price_update() {
 
         System::set_block_number(14);
 
-        let evm_config = <Test as pallet_evm::Config>::config();
         let is_transactional = false;
         let validate = true;
 

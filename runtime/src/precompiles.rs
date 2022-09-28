@@ -1,6 +1,7 @@
 use codec::Decode;
 use frame_support::{dispatch::Dispatchable, weights::*};
 use pallet_evm::{Precompile, PrecompileHandle, PrecompileResult, PrecompileSet};
+use pallet_evm_precompile_storage_reader::meta_storage_reader::PalletStorageMetadataProvider;
 use sp_core::H160;
 use sp_std::marker::PhantomData;
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
@@ -14,13 +15,13 @@ where
     }
 
     pub fn used_addresses() -> sp_std::vec::Vec<H160> {
-        (1..=13).map(hash).collect()
+        (1..=15).map(hash).collect()
     }
 }
 
 impl<T> PrecompileSet for FrontierPrecompiles<T>
 where
-    T: pallet_evm::Config,
+    T: pallet_evm::Config + PalletStorageMetadataProvider,
     T::Call: Dispatchable<PostInfo = PostDispatchInfo> + GetDispatchInfo + Decode,
     <T::Call as Dispatchable>::Origin: From<Option<T::AccountId>>,
 {
@@ -45,6 +46,12 @@ where
             a if a == hash(13) => Some(pallet_evm_precompile_dispatch::Dispatch::<T>::execute(
                 handle,
             )),
+            a if a == hash(14) => {
+                Some(pallet_evm_precompile_storage_reader::MetaStorageReader::<T>::execute(handle))
+            }
+            a if a == hash(15) => {
+                Some(pallet_evm_precompile_storage_reader::RawStorageReader::<T>::execute(handle))
+            }
             _ => None,
         }
     }

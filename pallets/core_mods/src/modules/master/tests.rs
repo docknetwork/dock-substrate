@@ -498,13 +498,13 @@ fn err_vote_requirement_to_high() {
 }
 
 fn master_events() -> Vec<Event<Test>> {
-    system::Module::<Test>::events()
+    system::Pallet::<Test>::events()
         .iter()
         .filter_map(|event_record| {
             let system::EventRecord::<TestEvent, H256> {
                 phase,
                 event,
-                topics,
+                topics: _,
             } = event_record;
             assert_eq!(phase, &system::Phase::Initialization);
             match event {
@@ -515,6 +515,7 @@ fn master_events() -> Vec<Event<Test>> {
         .collect()
 }
 
+#[allow(unused)]
 fn map<K: Ord, V>(slice: &[(K, V)]) -> BTreeMap<K, V>
 where
     (K, V): Clone,

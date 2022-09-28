@@ -1512,6 +1512,51 @@ impl pallet_evm::GasWeightMapping for GasWeightMap {
     }
 }
 
+pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider! {
+    for Runtime:
+        "System" => System,
+        "Timestamp" => Timestamp,
+        "Balances" => Balances,
+        "Session" => Session,
+        "PoAModule" => PoAModule,
+        "Grandpa" => Grandpa,
+        "Authorship" => Authorship,
+        "TransactionPayment" => TransactionPayment,
+        "Utility" => Utility,
+        "BbsPlus" => BbsPlus,
+        "DIDModule" => DIDModule,
+        "Revoke" => Revoke,
+        "BlobStore" => BlobStore,
+        "Master" => Master,
+        "Sudo" => Sudo,
+        "MigrationModule" => MigrationModule,
+        "Anchor" => Anchor,
+        "Attest" => Attest,
+        "Democracy" => Democracy,
+        "Council" => Council,
+        "TechnicalCommittee" => TechnicalCommittee,
+        "TechnicalCommitteeMembership" => TechnicalCommitteeMembership,
+        "Scheduler" => Scheduler,
+        "Ethereum" => Ethereum,
+        "EVM" => EVM,
+        "PriceFeedModule" => PriceFeedModule,
+        "AuthorityDiscovery" => AuthorityDiscovery,
+        "Historical" => Historical,
+        "ImOnline" => ImOnline,
+        "Babe" => Babe,
+        "Staking" => Staking,
+        "ElectionProviderMultiPhase" => ElectionProviderMultiPhase,
+        "Offences" => Offences,
+        "Treasury" => Treasury,
+        "Bounties" => Bounties,
+        "StakingRewards" => StakingRewards,
+        "Elections" => Elections,
+        "Tips" => Tips,
+        "Identity" => Identity,
+        "Accumulator" => Accumulator,
+        "BaseFee" => BaseFee
+}
+
 impl pallet_evm::Config for Runtime {
     /// Minimum gas price is 50
     type FeeCalculator = GasPrice;
@@ -2413,8 +2458,6 @@ mod tests {
     fn evm_fees_are_received() {
         // Check that fees charged by EVM are received by treasury
         new_test_ext().execute_with(|| {
-            return;
-            /*
             let evm_addr = H160::from_str("0100000000000000000000000000000000000000").unwrap(); // Hex for value 1
             let addr = AccountId32::new([
                 180, 11, 49, 203, 236, 115, 188, 178, 72, 85, 227, 29, 52, 227, 100, 236, 220, 72,
@@ -2422,6 +2465,8 @@ mod tests {
             ]); // Corresponds to above `evm_addr` according to `TestAddressMapping`
 
             let evm_config = <Runtime as pallet_evm::Config>::config();
+            let is_transactional = false;
+            let validate = true;
 
             let initial_bal = 1000000000;
             let gas_price = GasPrice::min_gas_price();
@@ -2437,10 +2482,12 @@ mod tests {
                 hex::decode("608060405234801561001057600080fd").unwrap(),
                 U256::zero(),
                 1000,
-                Some(gas_price),
+                Some(gas_price.0),
                 None,
                 Some(U256::zero()),
                 Vec::new(),
+                is_transactional,
+                validate,
                 evm_config,
             )
             .unwrap();
@@ -2456,17 +2503,19 @@ mod tests {
                 hex::decode("608060405234801561001057600080fd1010ff25").unwrap(),
                 U256::zero(),
                 1000,
-                Some(gas_price),
+                Some(gas_price.0),
                 None,
                 Some(U256::zero()),
                 Vec::new(),
+                is_transactional,
+                validate,
                 evm_config,
             )
             .unwrap();
 
             let treasury_balance3 =
                 <Balances as Currency<AccountId>>::free_balance(&treasury_account);
-            assert!(treasury_balance3 > treasury_balance2);*/
+            assert!(treasury_balance3 > treasury_balance2);
         });
     }
 }

@@ -24,7 +24,11 @@ impl scale_info::TypeInfo for ServiceEndpoint {
                             .ty::<ServiceEndpointType>()
                             .type_name("ServiceEndpointType")
                     })
-                    .field(|f| f.name("origins").ty::<Vec<WrappedBytes>>()),
+                    .field(|f| {
+                        f.name("origins")
+                            .ty::<Vec<WrappedBytes>>()
+                            .type_name("Vec<WrappedBytes>")
+                    }),
             )
     }
 }
