@@ -13,7 +13,7 @@ use crate::{
 use codec::{Decode, Encode};
 use frame_support::{
     parameter_types,
-    traits::{Contains, OnFinalize, OnInitialize},
+    traits::{OnFinalize, OnInitialize},
     weights::Weight,
 };
 use frame_system as system;
@@ -22,7 +22,7 @@ pub use rand::random;
 use sp_core::{sr25519, Pair, H160, H256};
 use sp_runtime::{
     testing::Header,
-    traits::{BlakeTwo256, ConstU32, IdentityLookup},
+    traits::{BlakeTwo256, IdentityLookup},
 };
 pub use std::iter::once;
 use system::RawOrigin;
@@ -36,22 +36,21 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
-        Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        DIDModule: did::{Pallet, Call, Storage, Event, Config},
-        RevoMod: revoke::{Pallet, Call, Storage, Event},
-        BlobMod: blob::{Pallet, Call, Storage},
-        MasterMod: master::{Pallet, Call, Storage, Event<T>, Config},
-        AnchorMod: anchor::{Pallet, Call, Storage, Event<T>},
-        AttestMod: attest::{Pallet, Call, Storage},
-        BBSPlusMod: bbs_plus::{Pallet, Call, Storage, Event},
-        AccumMod: accumulator::{Pallet, Call, Storage, Event},
-        EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Balances: pallet_balances::{Module, Call, Storage, Config<T>, Event<T>},
+        Timestamp: pallet_timestamp::{Module, Call, Storage, Inherent},
+        DIDModule: did::{Module, Call, Storage, Event, Config},
+        RevoMod: revoke::{Module, Call, Storage, Event},
+        BlobMod: blob::{Module, Call, Storage},
+        MasterMod: master::{Module, Call, Storage, Event<T>, Config},
+        AnchorMod: anchor::{Module, Call, Storage, Event<T>},
+        AttestMod: attest::{Module, Call, Storage},
+        BBSPlusMod: bbs_plus::{Module, Call, Storage, Event},
+        AccumMod: accumulator::{Module, Call, Storage, Event}
     }
 );
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 pub enum TestEvent {
     Did(crate::did::Event),
     Revoke(crate::revoke::Event),
@@ -128,19 +127,8 @@ parameter_types! {
     pub const ByteReadWeight: Weight = 10;
 }
 
-pub struct BaseFilter;
-impl Contains<Call> for BaseFilter {
-    fn contains(call: &Call) -> bool {
-        match call {
-            _ => true,
-        }
-    }
-}
-
 impl system::Config for Test {
-    type OnSetCode = ();
-    type MaxConsumers = ConstU32<10>;
-    type BaseCallFilter = BaseFilter;
+    type BaseCallFilter = ();
     type Origin = Origin;
     type Call = Call;
     type Index = u64;
@@ -194,7 +182,7 @@ impl pallet_evm::AddressMapping<u64> for DummyAddressMapping {
 impl pallet_evm::Config for Test {
     type FeeCalculator = ();
     type GasWeightMapping = ();
-    type BlockHashMapping = pallet_evm::SubstrateBlockHashMapping<Self>;
+    type BlockHashMapping = pallet_ethereum::EthereumBlockHashMapping;
     type CallOrigin = DummyCallOrigin;
     type WithdrawOrigin = DummyCallOrigin;
     type AddressMapping = DummyAddressMapping;
@@ -202,8 +190,7 @@ impl pallet_evm::Config for Test {
     type Event = TestEvent;
     type Runner = pallet_evm::runner::stack::Runner<Self>;
     type ByteReadWeight = ByteReadWeight;
-    type PrecompilesType = ();
-    type PrecompilesValue = ();
+    type Precompiles = ();
     type ChainId = ();
     type BlockGasLimit = ();
     type OnChargeTransaction = ();
@@ -211,8 +198,6 @@ impl pallet_evm::Config for Test {
 }
 
 impl pallet_balances::Config for Test {
-    type ReserveIdentifier = ();
-    type MaxReserves = ();
     type MaxLocks = ();
     type Balance = u64;
     type Event = TestEvent;
@@ -324,10 +309,11 @@ pub fn ext() -> sp_io::TestExternalities {
         .unwrap()
         .into();
     ret.execute_with(|| {
-        system::Pallet::<Test>::initialize(
+        system::Module::<Test>::initialize(
             &1, // system module will not store events if block_number == 0
             &[0u8; 32].into(),
             &Default::default(),
+            system::InitKind::Full,
         );
     });
     ret
@@ -349,7 +335,7 @@ pub fn gen_kp() -> sr25519::Pair {
 pub fn create_did(did: did::Did) -> sr25519::Pair {
     let kp = gen_kp();
     println!("did pk: {:?}", kp.public().0);
-    did::Pallet::<Test>::new_onchain(
+    did::Module::<Test>::new_onchain(
         Origin::signed(ABBA),
         did,
         vec![DidKey::new_with_all_relationships(

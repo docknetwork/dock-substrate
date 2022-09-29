@@ -11,28 +11,6 @@ pub struct ServiceEndpoint {
     pub origins: Vec<WrappedBytes>,
 }
 
-impl scale_info::TypeInfo for ServiceEndpoint {
-    type Identity = Self;
-
-    fn type_info() -> scale_info::Type {
-        scale_info::Type::builder()
-            .path(scale_info::Path::from_segments(Some("ServiceEndpoint")).unwrap())
-            .composite(
-                scale_info::build::Fields::named()
-                    .field(|f| {
-                        f.name("types")
-                            .ty::<ServiceEndpointType>()
-                            .type_name("ServiceEndpointType")
-                    })
-                    .field(|f| {
-                        f.name("origins")
-                            .ty::<Vec<WrappedBytes>>()
-                            .type_name("Vec<WrappedBytes>")
-                    }),
-            )
-    }
-}
-
 bitflags::bitflags! {
     /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
     #[derive(Encode, Decode)]
@@ -46,7 +24,6 @@ bitflags::bitflags! {
 }
 
 impl_bits_conversion! { ServiceEndpointType, u16 }
-crate::impl_wrapper_type_info! { ServiceEndpointType, u16 }
 
 impl ServiceEndpoint {
     pub fn is_valid(&self, max_origins: usize, max_origin_length: usize) -> bool {

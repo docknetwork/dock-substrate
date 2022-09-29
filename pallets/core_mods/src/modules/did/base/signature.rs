@@ -1,10 +1,9 @@
 use super::super::*;
 use crate::{keys_and_sigs::SigValue, ToStateChange};
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[codec(mel_bound())]
 pub struct DidSignature<D: Into<Did>> {
     /// The DID that created this signature
     pub did: D,

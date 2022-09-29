@@ -2,15 +2,14 @@ use crate::{mock::*, ContractConfig, Error, ParamType, DUMMY_SOURCE, GAS_LIMIT, 
 use common::traits::PriceProvider;
 use frame_support::{assert_noop, StorageValue};
 use pallet_evm::Runner;
-use sp_core::H160;
+use sp_core::{H160, U256};
 
 const AGGREGATOR_QUERY_ABI: [u8; 4] = [36, 90, 123, 252];
 const PRICE_QUERY_ABI: [u8; 4] = [254, 175, 150, 140];
 
 /// Deploy aggregator and proxy contracts and set contract config in this pallet
 fn setup_contracts() -> (H160, H160) {
-    let is_transactional = false;
-    let validate = true;
+    let evm_config = <Test as pallet_evm::Config>::config();
 
     // Aggregator constructor call with arguments `10, 15, 1200, 1200, 10`
     let aggregator_deploy_code = hex::decode("608060405234801561001057600080fd5b506040516102e73803806102e7833981810160405260a081101561003357600080fd5b5080516020820151604083015160608401516080909401519293919290919061006885858585856001600160e01b0361007216565b50505050506100af565b600080546001600160501b039687166001600160501b03199182161790915560019490945560029290925560035560048054919093169116179055565b610229806100be6000396000f3fe608060405234801561001057600080fd5b506004361061007d5760003560e01c80638cd221c91161005b5780638cd221c9146100e8578063c22c24991461010c578063f21f537d14610114578063feaf968c1461011c5761007d565b80636444bd16146100825780637519ab50146100c657806385bb7d69146100e0575b600080fd5b6100c4600480360360a081101561009857600080fd5b506001600160501b03813581169160208101359160408201359160608101359160809091013516610160565b005b6100ce6101a0565b60408051918252519081900360200190f35b6100ce6101a6565b6100f06101ac565b604080516001600160501b039092168252519081900360200190f35b6100f06101bb565b6100ce6101ca565b6101246101d0565b604080516001600160501b0396871681526020810195909552848101939093526060840191909152909216608082015290519081900360a00190f35b600080546001600160501b0396871669ffffffffffffffffffff199182161790915560019490945560029290925560035560048054919093169116179055565b60035481565b60015481565b6000546001600160501b031681565b6004546001600160501b031681565b60025481565b6000546001546002546003546004546001600160501b039485169416909192939456fea2646970667358221220739aa4f0c3ea9e475a476da24e7b66931c23a245f6542d41d7b936cd62e75e1264736f6c63430006050033000000000000000000000000000000000000000000000000000000000000000a000000000000000000000000000000000000000000000000000000000000000f00000000000000000000000000000000000000000000000000000000000004b000000000000000000000000000000000000000000000000000000000000004b0000000000000000000000000000000000000000000000000000000000000000a").expect("Decoding failed");
@@ -20,12 +19,8 @@ fn setup_contracts() -> (H160, H160) {
         ZERO_VALUE,
         GAS_LIMIT,
         None,
-        None,
-        None,
-        Default::default(),
-        is_transactional,
-        validate,
-        <Test as pallet_evm::Config>::config(),
+        Some(U256::zero()),
+        evm_config,
     )
     .unwrap();
     let aggregator_address = info.value;
@@ -36,8 +31,6 @@ fn setup_contracts() -> (H160, H160) {
     proxy_deploy_code.extend_from_slice(&[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]); // 12 bytes of padding
     proxy_deploy_code.extend_from_slice(aggregator_address.as_bytes()); // 20 bytes of address
 
-    let is_transactional = false;
-    let validate = true;
     // Proxy contract deploy
     let info = <Test as pallet_evm::Config>::Runner::create(
         DUMMY_SOURCE,
@@ -45,12 +38,8 @@ fn setup_contracts() -> (H160, H160) {
         ZERO_VALUE,
         GAS_LIMIT,
         None,
-        None,
-        None,
-        Default::default(),
-        is_transactional,
-        validate,
-        <Test as pallet_evm::Config>::config(),
+        Some(U256::one()), // Nonce increases by 1
+        evm_config,
     )
     .unwrap();
     let proxy_address = info.value;
@@ -162,8 +151,7 @@ fn get_price_from_contract() {
         // Price is not updated in this pallet's storage
         assert!(PriceFeedModule::price().is_none());
 
-        let is_transactional = false;
-        let validate = true;
+        let evm_config = <Test as pallet_evm::Config>::config();
 
         // call `setData(11, 25, 1300, 1300, 10)`
         let set_call_1 = hex::decode("6444bd16000000000000000000000000000000000000000000000000000000000000000b000000000000000000000000000000000000000000000000000000000000001900000000000000000000000000000000000000000000000000000000000005140000000000000000000000000000000000000000000000000000000000000514000000000000000000000000000000000000000000000000000000000000000a").unwrap();
@@ -175,20 +163,13 @@ fn get_price_from_contract() {
             GAS_LIMIT,
             None,
             None,
-            None,
-            Default::default(),
-            is_transactional,
-            validate,
-            <Test as pallet_evm::Config>::config(),
+            evm_config,
         ).unwrap();
 
         let (price, _) = PriceFeedModule::get_price_from_contract().unwrap();
         assert_eq!(price, 25);
         assert!(PriceFeedModule::price().is_none());
 
-        let is_transactional = false;
-        let validate = true;
-        // let evm_config = config.as_ref().unwrap_or(<Runtime as pallet_evm::Config>::config());
         // call `setData(12, 30, 1400, 1400, 11)`
         let set_call_2 = hex::decode("6444bd16000000000000000000000000000000000000000000000000000000000000000c000000000000000000000000000000000000000000000000000000000000001e00000000000000000000000000000000000000000000000000000000000005780000000000000000000000000000000000000000000000000000000000000578000000000000000000000000000000000000000000000000000000000000000b").unwrap();
         <Test as pallet_evm::Config>::Runner::call(
@@ -199,11 +180,7 @@ fn get_price_from_contract() {
             GAS_LIMIT,
             None,
             None,
-            None,
-            Default::default(),
-            is_transactional,
-            validate,
-            <Test as pallet_evm::Config>::config(),
+            evm_config,
         ).unwrap();
 
         let (price, _) = PriceFeedModule::get_price_from_contract().unwrap();
@@ -220,11 +197,7 @@ fn get_price_from_contract() {
             GAS_LIMIT,
             None,
             None,
-            None,
-            Default::default(),
-            is_transactional,
-            validate,
-            <Test as pallet_evm::Config>::config(),
+            evm_config,
         ).unwrap();
 
         let (price, _) = PriceFeedModule::get_price_from_contract().unwrap();
@@ -257,8 +230,7 @@ fn storage_price_update() {
 
         System::set_block_number(14);
 
-        let is_transactional = false;
-        let validate = true;
+        let evm_config = <Test as pallet_evm::Config>::config();
 
         // call `setData(13, 40, 1410, 1400, 13)`
         let set_call = hex::decode("6444bd16000000000000000000000000000000000000000000000000000000000000000d000000000000000000000000000000000000000000000000000000000000002800000000000000000000000000000000000000000000000000000000000005820000000000000000000000000000000000000000000000000000000000000578000000000000000000000000000000000000000000000000000000000000000d").unwrap();
@@ -270,11 +242,7 @@ fn storage_price_update() {
             GAS_LIMIT,
             None,
             None,
-            None,
-            Default::default(),
-            is_transactional,
-            validate,
-            <Test as pallet_evm::Config>::config(),
+            evm_config,
         ).unwrap();
 
         // Price stored in this pallet unchanged when contract updated
@@ -357,8 +325,6 @@ fn price_provider_api() {
 
         // Update the price in contract
         let evm_config = <Test as pallet_evm::Config>::config();
-        let is_transactional = false;
-        let validate = true;
         // call `setData(13, 40, 1410, 1400, 13)`
         let set_call = hex::decode("6444bd16000000000000000000000000000000000000000000000000000000000000000d000000000000000000000000000000000000000000000000000000000000002800000000000000000000000000000000000000000000000000000000000005820000000000000000000000000000000000000000000000000000000000000578000000000000000000000000000000000000000000000000000000000000000d").unwrap();
         <Test as pallet_evm::Config>::Runner::call(
@@ -369,11 +335,7 @@ fn price_provider_api() {
             GAS_LIMIT,
             None,
             None,
-            None,
-            Default::default(),
-            is_transactional,
-            validate,
-            <Test as pallet_evm::Config>::config(),
+            evm_config,
         ).unwrap();
 
         let (price_optmz, _) = PriceFeedModule::optimized_get_dock_usd_price().unwrap();

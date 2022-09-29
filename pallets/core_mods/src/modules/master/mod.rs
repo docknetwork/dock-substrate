@@ -84,10 +84,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
-#[cfg(test)]
-mod tests;
-
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Membership {
     pub members: BTreeSet<Did>,
@@ -103,9 +100,8 @@ impl Default for Membership {
     }
 }
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
 pub struct MasterVoteRaw<T> {
     /// The serialized Call to be run as root.
     proposal: Vec<u8>,
@@ -297,12 +293,12 @@ impl<T: Config + Debug> Module<T> {
             let signer = a.sig.did;
             let nonce = a.nonce;
             // Check if nonce is valid and increase it
-            let mut did_detail = did::Pallet::<T>::onchain_did_details(&signer)?;
+            let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;
             did_detail
                 .try_update(nonce)
                 .map_err(|_| MasterError::<T>::IncorrectNonce)?;
             // Verify signature
-            let valid = did::Pallet::<T>::verify_sig_from_auth_or_control_key(
+            let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(
                 &WithNonce::new_with_nonce(new_payload.clone(), nonce),
                 &a.sig,
             )?;
@@ -335,7 +331,7 @@ impl<T: Config + Debug> Module<T> {
 
         // The nonce of each DID must be updated
         for (signer, did_details) in new_did_details {
-            did::Pallet::<T>::insert_did_details(signer, did_details);
+            did::Module::<T>::insert_did_details(signer, did_details);
         }
 
         // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,

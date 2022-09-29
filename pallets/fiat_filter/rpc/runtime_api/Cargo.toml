@@ -2,18 +2,18 @@
 name = "fiat_filter_rpc_runtime_api"
 version = "0.0.1"
 authors = ["Dock.io"]
-edition = "2021"
+edition = "2018"
 
 
 [dependencies]
-sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28", default-features=false }
-sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28", default-features=false }
-codec = { package = "parity-scale-codec", version = "3.1.5", default-features=false, features=["derive"] }
+sp-api = {  version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier", default-features=false }
+sp-runtime = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier", default-features=false }
+codec = { package = 'parity-scale-codec', version = '2.0.0', default-features=false, features=['derive'] }
 
 [features]
-default = ["std"]
+default = ['std']
 std = [
-    "codec/std",
-    "sp-runtime/std",
-    "sp-api/std",
+    'codec/std',
+    'sp-runtime/std',
+    'sp-api/std',
 ]

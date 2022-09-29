@@ -4,14 +4,13 @@ use super::super::*;
 /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
 /// the caller account and Substrate takes care of replay protection. Thus it stores the data
 /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
-#[scale_info(skip_type_params(T))]
 pub struct OffChainDidDetails<T: Config> {
     pub account_id: T::AccountId,
     pub doc_ref: OffChainDidDocRef,
@@ -52,7 +51,7 @@ impl<T: Config + Debug> OffChainDidDetails<T> {
 
 /// To describe the off chain DID Doc's reference. This is just to inform the client, this module
 /// does not check if the bytes are indeed valid as per the enum variant
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum OffChainDidDocRef {
     /// Content IDentifier as per https://github.com/multiformats/cid.

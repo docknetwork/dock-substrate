@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum CurveType {
     /// BLS12-381

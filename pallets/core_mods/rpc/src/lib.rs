@@ -1,14 +1,12 @@
-use core::{fmt::Debug, marker::PhantomData};
+pub use self::gen_client::Client as PriceFeedClient;
+use core::marker::PhantomData;
 use core_mods::{accumulator, bbs_plus, util::IncId};
 pub use core_mods::{
     did::{self, Config},
     runtime_api::CoreModsApi as CoreModsRuntimeApi,
 };
-use jsonrpsee::{
-    core::{async_trait, Error as JsonRpseeError, RpcResult},
-    proc_macros::rpc,
-    types::{error::CallError, ErrorObject},
-};
+use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
+use jsonrpc_derive::rpc;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
@@ -27,61 +25,61 @@ impl<T: Config> ConfigWrapper for SerializableConfigWrapper<T> {
     type T = T;
 }
 
-#[rpc(server, client)]
-pub trait CoreModsApi<BlockHash, Config>
+#[rpc]
+pub trait CoreModsApi<BlockHash, T>
 where
-    Config: ConfigWrapper,
+    T: ConfigWrapper,
 {
-    #[method(name = "core_mods_didDetails")]
-    async fn did_details(
+    #[rpc(name = "core_mods_didDetails")]
+    fn did_details(
         &self,
         did: did::Did,
         params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<did::AggregatedDidDetailsResponse<Config::T>>>;
+    ) -> Result<Option<did::AggregatedDidDetailsResponse<T::T>>>;
 
-    #[method(name = "core_mods_didListDetails")]
-    async fn did_list_details(
+    #[rpc(name = "core_mods_didListDetails")]
+    fn did_list_details(
         &self,
         dids: Vec<did::Did>,
         params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<BlockHash>,
-    ) -> RpcResult<Vec<Option<did::AggregatedDidDetailsResponse<Config::T>>>>;
+    ) -> Result<Vec<Option<did::AggregatedDidDetailsResponse<T::T>>>>;
 
-    #[method(name = "core_mods_bbsPlusPublicKeyWithParams")]
-    async fn bbs_plus_public_key_with_params(
+    #[rpc(name = "core_mods_bbsPlusPublicKeyWithParams")]
+    fn bbs_plus_public_key_with_params(
         &self,
         id: bbs_plus::BBSPlusPublicKeyStorageKey,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<bbs_plus::BBSPlusPublicKeyWithParams>>;
+    ) -> Result<Option<bbs_plus::BBSPlusPublicKeyWithParams>>;
 
-    #[method(name = "core_mods_bbsPlusParamsByDid")]
-    async fn bbs_plus_params_by_did(
+    #[rpc(name = "core_mods_bbsPlusParamsByDid")]
+    fn bbs_plus_params_by_did(
         &self,
         owner: bbs_plus::BBSPlusParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, bbs_plus::BBSPlusParameters>>;
+    ) -> Result<BTreeMap<IncId, bbs_plus::BBSPlusParameters>>;
 
-    #[method(name = "core_mods_bbsPlusPublicKeysByDid")]
-    async fn bbs_plus_public_keys_by_did(
+    #[rpc(name = "core_mods_bbsPlusPublicKeysByDid")]
+    fn bbs_plus_public_keys_by_did(
         &self,
         did: did::Did,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams>>;
+    ) -> Result<BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams>>;
 
-    #[method(name = "core_mods_accumulatorPublicKeyWithParams")]
-    async fn accumulator_public_key_with_params(
+    #[rpc(name = "core_mods_accumulatorPublicKeyWithParams")]
+    fn accumulator_public_key_with_params(
         &self,
         id: accumulator::AccumPublicKeyStorageKey,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<accumulator::AccumPublicKeyWithParams>>;
+    ) -> Result<Option<accumulator::AccumPublicKeyWithParams>>;
 
-    #[method(name = "core_mods_accumulatorWithPublicKeyAndParams")]
-    async fn accumulator_with_public_key_and_params(
+    #[rpc(name = "core_mods_accumulatorWithPublicKeyAndParams")]
+    fn accumulator_with_public_key_and_params(
         &self,
         id: accumulator::AccumulatorId,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)>>;
+    ) -> Result<Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)>>;
 }
 
 /// A struct that implements the [`CoreModsApi`].
@@ -100,127 +98,131 @@ impl<C, P> CoreMods<C, P> {
     }
 }
 
-#[derive(Debug, Clone)]
-struct Error<T>(T);
-
-impl<T: Debug> From<Error<T>> for JsonRpseeError {
-    fn from(error: Error<T>) -> Self {
-        let data = format!("{:?}", error);
-
-        JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-            1,
-            "Runtime error",
-            Some(data),
-        )))
-    }
-}
-
-#[async_trait]
-impl<C, Block, T> CoreModsApiServer<<Block as BlockT>::Hash, T> for CoreMods<C, Block>
+impl<C, Block, T> CoreModsApi<<Block as BlockT>::Hash, T> for CoreMods<C, Block>
 where
     Block: BlockT,
     T: ConfigWrapper,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
     C::Api: CoreModsRuntimeApi<Block, T::T>,
 {
-    async fn did_details(
+    fn did_details(
         &self,
         did: did::Did,
         params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<did::AggregatedDidDetailsResponse<T::T>>> {
+    ) -> Result<Option<did::AggregatedDidDetailsResponse<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
 
-        api.did_details(&at, did, params)
-            .map_err(Error)
-            .map_err(Into::into)
+        api.did_details(&at, did, params).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(2),
+            message: "Unable to query DID details with params".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 
-    async fn did_list_details(
+    fn did_list_details(
         &self,
         dids: Vec<did::Did>,
         params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Vec<Option<did::AggregatedDidDetailsResponse<T::T>>>> {
+    ) -> Result<Vec<Option<did::AggregatedDidDetailsResponse<T::T>>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
 
         api.did_list_details(&at, dids, params)
-            .map_err(Error)
-            .map_err(Into::into)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(2),
+                message: "Unable to query DID details with params".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
-    async fn bbs_plus_public_key_with_params(
+    fn bbs_plus_public_key_with_params(
         &self,
         id: bbs_plus::BBSPlusPublicKeyStorageKey,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<bbs_plus::BBSPlusPublicKeyWithParams>> {
+    ) -> Result<Option<bbs_plus::BBSPlusPublicKeyWithParams>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.bbs_plus_public_key_with_params(&at, id)
-            .map_err(Error)
-            .map_err(Into::into)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(2),
+                message: "Unable to query BBS+ public key with params".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
 
-    async fn bbs_plus_params_by_did(
+    fn bbs_plus_params_by_did(
         &self,
         owner: bbs_plus::BBSPlusParamsOwner,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, bbs_plus::BBSPlusParameters>> {
+    ) -> Result<BTreeMap<IncId, bbs_plus::BBSPlusParameters>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.bbs_plus_params_by_did(&at, owner)
-            .map_err(Error)
-            .map_err(Into::into)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(1),
+                message: "Unable to query BBS+ params of given DID.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
 
-    async fn bbs_plus_public_keys_by_did(
+    fn bbs_plus_public_keys_by_did(
         &self,
         did: did::Did,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams>> {
+    ) -> Result<BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.bbs_plus_public_keys_by_did(&at, did)
-            .map_err(Error)
-            .map_err(Into::into)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(1),
+                message: "Unable to query BBS+ keys of given DID..".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
 
-    async fn accumulator_public_key_with_params(
+    fn accumulator_public_key_with_params(
         &self,
         id: accumulator::AccumPublicKeyStorageKey,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<accumulator::AccumPublicKeyWithParams>> {
+    ) -> Result<Option<accumulator::AccumPublicKeyWithParams>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.accumulator_public_key_with_params(&at, id)
-            .map_err(Error)
-            .map_err(Into::into)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(1),
+                message: "Unable to query accumulator public key with params.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
 
-    async fn accumulator_with_public_key_and_params(
+    fn accumulator_with_public_key_and_params(
         &self,
         id: accumulator::AccumulatorId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)>> {
+    ) -> Result<Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.accumulator_with_public_key_and_params(&at, id)
-            .map_err(Error)
-            .map_err(Into::into)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(1),
+                message: "Unable to query accumulator with public key and params.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
 }

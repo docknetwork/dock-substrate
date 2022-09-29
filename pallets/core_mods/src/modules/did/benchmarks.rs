@@ -25,7 +25,7 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let did_key = DidKey::new_with_all_relationships(pair.public());
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             vec![did_key.clone()],
             Default::default(),
@@ -74,7 +74,7 @@ crate::bench_with_all_pairs! {
                 .map(|pair| DidKey::new_with_all_relationships(pair.public())))
                 .collect();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             keys.clone(),
             Default::default(),
@@ -102,7 +102,7 @@ crate::bench_with_all_pairs! {
         let did = Did([2; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
@@ -148,7 +148,7 @@ crate::bench_with_all_pairs! {
             .map(Controller)
             .collect();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             controllers.clone(),
@@ -178,7 +178,7 @@ crate::bench_with_all_pairs! {
         let did = Did([3; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
@@ -210,13 +210,13 @@ crate::bench_with_all_pairs! {
         let did = Did([3; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
-        crate::did::Pallet::<T>::add_service_endpoint_(
+        crate::did::Module::<T>::add_service_endpoint_(
             AddServiceEndpoint {
                 did,
                 id: WrappedBytes(vec![1; i as usize]),
@@ -257,7 +257,7 @@ crate::bench_with_all_pairs! {
             .map(Controller)
             .collect();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             keys,
             controllers,
@@ -269,7 +269,7 @@ crate::bench_with_all_pairs! {
         };
 
         for i in 0..MAX_ENTITY_AMOUNT {
-            crate::did::Pallet::<T>::add_service_endpoint_(
+            crate::did::Module::<T>::add_service_endpoint_(
                 AddServiceEndpoint {
                     did,
                     id: WrappedBytes(vec![1; (i + 1) as usize]),
@@ -349,7 +349,7 @@ crate::bench_with_all_pairs! {
         let did = Did([4; Did::BYTE_SIZE]);
 
         let did_doc_ref = OffChainDidDocRef::CID((0..k).map(|k| k as u8).collect::<Vec<_>>().into());
-        super::Pallet::<T>::new_offchain_(caller.clone(), did, OffChainDidDocRef::URL(Default::default())).unwrap();
+        super::Module::<T>::new_offchain_(caller.clone(), did, OffChainDidDocRef::URL(Default::default())).unwrap();
 
     }: set_offchain_did_doc_ref(RawOrigin::Signed(caller.clone()), did, did_doc_ref.clone())
     verify {
@@ -360,7 +360,7 @@ crate::bench_with_all_pairs! {
         let did = Did([4; Did::BYTE_SIZE]);
 
         let did_doc_ref = OffChainDidDocRef::CID((1..MAX_DID_DOC_REF_SIZE).map(|k| k as u8).collect::<Vec<_>>().into());
-        super::Pallet::<T>::new_offchain_(caller.clone(), did, OffChainDidDocRef::URL(Default::default())).unwrap();
+        super::Module::<T>::new_offchain_(caller.clone(), did, OffChainDidDocRef::URL(Default::default())).unwrap();
 
     }: remove_offchain_did(RawOrigin::Signed(caller.clone()), did)
     verify {

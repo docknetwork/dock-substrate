@@ -43,7 +43,7 @@ mod benchmarks;
 mod tests;
 
 /// Struct to encode all the bonuses of an account.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct Bonus<Balance, BlockNumber> {
     /// Each element of the vector is swap bonus and the block number at which it unlocks
     pub swap_bonuses: Vec<(Balance, BlockNumber)>,
@@ -378,7 +378,7 @@ impl<T: Config> Module<T> {
 
         Self::check_if_migrator_has_sufficient_balance(&migrator, total_transfer_balance)?;
 
-        let now = <frame_system::Pallet<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
 
         // Give swap bonuses
         for (acc_id, amount, offset) in swap_bonus_recips {
@@ -457,7 +457,7 @@ impl<T: Config> Module<T> {
         let mut bonus = Self::bonus(&who).ok_or_else(|| Error::<T>::NoBonus)?;
         let bonuses = &mut bonus.swap_bonuses;
         ensure!(!bonuses.is_empty(), Error::<T>::NoSwapBonus);
-        let now = <frame_system::Pallet<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let mut bonus_to_unlock = BalanceOf::<T>::zero();
 
         // Avoiding nightly `drain_filter`
@@ -510,7 +510,7 @@ impl<T: Config> Module<T> {
         let bonuses = &mut bonus.vesting_bonuses;
         ensure!(!bonuses.is_empty(), Error::<T>::NoVestingBonus);
 
-        let now = <frame_system::Pallet<T>>::block_number();
+        let now = <frame_system::Module<T>>::block_number();
         let now_plus_1 = now + T::BlockNumber::from(1u32);
 
         let vesting_duration = T::BlockNumber::from(T::VestingDuration::get());
@@ -634,8 +634,7 @@ impl<T: Config> Module<T> {
 
 /// Signed extension to ensure that only a Migrator can send the migrate extrinsic.
 /// This is necessary to prevent a `migrate` call done by non-Migrator to even enter a block.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, Eq, PartialEq)]
-#[scale_info(skip_type_params(T))]
+#[derive(Encode, Decode, Clone, Eq, PartialEq)]
 pub struct OnlyMigrator<T: Config + Send + Sync>(PhantomData<T>);
 
 impl<T: Config + Send + Sync> OnlyMigrator<T> {
@@ -675,7 +674,7 @@ where
         if let Some(local_call) = call.is_sub_type() {
             match local_call {
                 // Migrator can make only these 2 calls without paying fees
-                Call::migrate { .. } | Call::give_bonuses { .. } => {
+                Call::migrate(..) | Call::give_bonuses(..) => {
                     if !<Migrators<T>>::contains_key(who) {
                         // If migrator not registered, don't include transaction in block
                         return InvalidTransaction::Custom(1).into();
@@ -685,15 +684,5 @@ where
             }
         }
         Ok(ValidTransaction::default())
-    }
-
-    fn pre_dispatch(
-        self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
-    ) -> Result<Self::Pre, TransactionValidityError> {
-        self.validate(who, call, info, len).map(|_| ())
     }
 }

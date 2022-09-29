@@ -1,5 +1,4 @@
 use super::*;
-use crate::deposit_indexed_event;
 use sp_core::Hasher;
 
 impl<T: Config + Debug> Module<T> {
@@ -110,13 +109,13 @@ impl<T: Config + Debug> Module<T> {
 
         let accumulated = accumulator.accumulated().to_vec();
 
-        let current_block = <system::Pallet<T>>::block_number();
+        let current_block = <system::Module<T>>::block_number();
         Accumulators::<T>::insert(
             id,
             AccumulatorWithUpdateInfo::new(accumulator, current_block),
         );
 
-        deposit_indexed_event!(AccumulatorAdded(id, accumulated) over id);
+        crate::deposit_indexed_event!(AccumulatorAdded(id, accumulated) over id);
         Ok(())
     }
 
@@ -147,14 +146,14 @@ impl<T: Config + Debug> Module<T> {
             accumulator
                 .accumulator
                 .set_new_accumulated(new_accumulated.clone());
-            accumulator.last_updated_at = <system::Pallet<T>>::block_number();
+            accumulator.last_updated_at = <system::Module<T>>::block_number();
 
             Ok(())
         })?;
 
         // The event stores only the accumulated value which can be used by the verifier.
         // For witness update, that information is retrieved by looking at the block and parsing the extrinsic.
-        deposit_indexed_event!(AccumulatorUpdated(id, new_accumulated) over id);
+        crate::deposit_indexed_event!(AccumulatorUpdated(id, new_accumulated) over id);
         Ok(())
     }
 
@@ -171,7 +170,7 @@ impl<T: Config + Debug> Module<T> {
         );
         Accumulators::<T>::remove(&id);
 
-        deposit_indexed_event!(AccumulatorRemoved(id));
+        crate::deposit_indexed_event!(AccumulatorRemoved(id));
         Ok(())
     }
 

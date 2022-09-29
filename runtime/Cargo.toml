@@ -1,100 +1,71 @@
 [package]
-authors = ["Dock.io"]
-edition = "2021"
-name = "dock-runtime"
-version = "0.21.0"
-license = "Apache-2.0"
+authors = ['Dock.io']
+edition = '2018'
+name = 'dock-runtime'
+version = '0.20.0'
+license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
-targets = ["x86_64-unknown-linux-gnu"]
+targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
-rustc-hex = { version = "2.1.0", default-features = false }
-ethabi = { git = "https://github.com/snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
-parity-bytes = { version = "0.1.2", default-features = false }
-ethbloom = { version = "0.12.1", default-features = false }
-ethereum = { version = "0.12.0", default-features = false, features = ["with-codec"] }
-ethereum-types = { version = "0.13.1", default-features = false, features = ["codec", "rlp", "serialize"] }
-primitive-types = { version = "0.11.1", default-features = false, features = ["rlp", "byteorder"] }
-
-evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c", default-features = false, features = ["with-codec"] }
-evm-runtime = { version = "0.35", default-features = false, git = "https://github.com/rust-blockchain/evm.git", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c" }
-evm-gasometer = { version = "0.35", default-features = false, git = "https://github.com/rust-blockchain/evm.git", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c" }
-
-pallet-assets = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28", default-features = false }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.28", default-features = false, optional = true }
-
-parity-util-mem = { version = "0.11", optional = true }
-
-rlp = { version = "0.5", default-features = false }
-sha3 = { version = "0.8", default-features = false }
-log = { version = "0.4", default-features = false }
-
-ethash = { git = "https://github.com/snowfork/ethash.git", branch = "master", default-features = false }
 static_assertions = "1.1.0"
-pallet-base-fee = { git = "https://github.com/docknetwork/frontier.git", rev = "d96b102e516140c89db4ace04319b339414899ec", default_features = false }
 smallvec = "1.4.1"
-scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
-getrandom = { version = "0.2", features = ["js"] }
-hex = { version = "0.4", default-features = false }
+evm = { version = '0.27.0', default-features = false, features = ['with-codec'] }
+log = { version = "0.4.14", default-features = false }
 
 [dependencies.pallet-babe]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-beefy]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.beefy-primitives]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.beefy-merkle-tree]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.balances]
 default-features = false
-package = "pallet-balances"
+package = 'pallet-balances'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-beefy-mmr]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.codec]
 default-features = false
-features = ["derive"]
-package = "parity-scale-codec"
-version = "3.1.5"
+features = ['derive']
+package = 'parity-scale-codec'
+version = '2.0.0'
+
+[dependencies.rand]
+version = '0.8.3'
+optional = true
 
 [dependencies.frame-executive]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.frame-support]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
+
+[dependencies.frame-metadata]
+default-features = false
+version = '13.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
 
 [dependencies.grandpa]
 default-features = false
-package = "pallet-grandpa"
+package = 'pallet-grandpa'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.serde]
-features = ["derive"]
+features = ['derive']
 optional = true
-version = "1.0.119"
+version = '1.0.119'
 
 [dependencies.serde-big-array]
 optional = true
@@ -102,584 +73,515 @@ version = "0.3.0"
 
 [dependencies.sp-api]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-block-builder]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-consensus-babe]
 default-features = false
+version = '0.9.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-core]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.fp-consensus]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
+branch = "frontier"
+features = ["full_crypto"]
 
 [dependencies.sp-inherents]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.sp-trie]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-io]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-offchain]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-session]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-std]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.frame-election-provider-support]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-transaction-pool]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
-[dependencies.sp-transaction-storage-proof]
+[dependencies.sp-npos-elections]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-version]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-arithmetic]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.sp-consensus-slots]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.sp-consensus-vrf]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-authority-discovery]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.sp-authorship]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.sp-staking]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.sp-application-crypto]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.frame-system-rpc-runtime-api]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.timestamp]
 default-features = false
-package = "pallet-timestamp"
+package = 'pallet-timestamp'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
+
+[dependencies.sp-wasm-interface]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
 
 [dependencies.transaction-payment]
 default-features = false
-package = "pallet-transaction-payment"
+package = 'pallet-transaction-payment'
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
-#[dependencies.pallet-transaction-payment-rpc]
-#default-features = false
-#git = "https://github.com/paritytech/substrate.git"
-#branch = "polkadot-v0.9.28"
+[dependencies.pallet-transaction-payment-rpc-runtime-api]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
 
 [build-dependencies.substrate-wasm-builder]
-package = "substrate-wasm-builder"
+version = '4.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.pallet-session]
 default_features = false
-features = ["historical"]
+features = ['historical']
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.pallet-sudo]
 default_features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.pallet-authorship]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.pallet-utility]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.frame-system-benchmarking]
 optional = true
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.pallet-collective]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.pallet-membership]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.pallet-scheduler]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
 [dependencies.pallet-authority-discovery]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-im-online]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-identity]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.sp-tasks]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-offences]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-staking]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-staking-reward-curve]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-election-provider-multi-phase]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-treasury]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-bounties]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-#[dependencies.sc-executor]
-# default-features = false
-#git = "https://github.com/paritytech/substrate.git"
-#branch = "polkadot-v0.9.28"
-
-#[dependencies.sp-keyring]
-#default-features = false
-#git = "https://github.com/paritytech/substrate.git"
-#branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-tips]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-mmr]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-democracy]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.pallet-elections-phragmen]
-default-features = false
-git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.hex-literal]
-version = "0.3.4"
-default-features = false
-
-[dependencies.pallet-evm]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/frame/evm"
-
-[dependencies.pallet-ethereum]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/frame/ethereum"
-
-[dependencies.pallet-evm-precompile-storage-reader]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../../../../frontier/frame/evm/precompile/storage-reader"
-
-[dependencies.pallet-evm-precompile-simple]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/frame/evm/precompile/simple"
-
-[dependencies.pallet-evm-precompile-sha3fips]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/frame/evm/precompile/sha3fips"
-
-[dependencies.pallet-evm-precompile-ed25519]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/frame/evm/precompile/ed25519"
-
-[dependencies.pallet-evm-precompile-modexp]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/frame/evm/precompile/modexp"
-
-[dependencies.pallet-evm-precompile-bn128]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/frame/evm/precompile/bn128"
-
-[dependencies.pallet-evm-precompile-dispatch]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/frame/evm/precompile/dispatch"
-
-[dependencies.fp-rpc]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/primitives/rpc"
-
-[dependencies.fp-storage]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/primitives/storage"
-
-[dependencies.poa]
-default-features = false
-path = "../pallets/poa"
-
-[dependencies.token_migration]
-default-features = false
-path = "../pallets/token_migration"
-
-[dependencies.core_mods]
-default-features = false
-path = "../pallets/core_mods"
-
-[dependencies.price_feed]
-default-features = false
-path = "../pallets/price_feed"
-
-[dependencies.fiat_filter]
-default-features = false
-path = "../pallets/fiat_filter"
-
-[dependencies.fiat_filter_rpc_runtime_api]
-default-features = false
-path = "../pallets/fiat_filter/rpc/runtime_api"
-
-[dependencies.common]
-path = "../common"
-default-features = false
-
-[dependencies.libsecp256k1]
-version = "0.7"
-default-features = false
-features = []
-
-[dependencies.staking_rewards]
-default-features = false
-path = "../pallets/staking_rewards"
-
-[dependencies.sp-npos-elections]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.sp-state-machine]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.sp-finality-grandpa]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
-
-[dependencies.fp-self-contained]
-default-features = false
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
-# path = "../frontier/primitives/self-contained"
+branch = "frontier"
 
 [dependencies.sp-runtime-interface]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
-[dependencies.fp-evm]
-git = "https://github.com/docknetwork/frontier.git"
-rev = "d96b102e516140c89db4ace04319b339414899ec"
+[dependencies.pallet-im-online]
 default-features = false
-# path = "../frontier/primitives/evm"
-
-[dependencies.pallet-transaction-payment-rpc-runtime-api]
-default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
 
-[dependencies.sp-mmr-primitives]
+[dependencies.pallet-identity]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.28"
+branch = "frontier"
+
+[dependencies.pallet-offences]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-staking]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-staking-reward-curve]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.sp-application-crypto]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+features = ["full_crypto"]
+
+[dependencies.pallet-election-provider-multi-phase]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-treasury]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-bounties]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-tips]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-democracy]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
+
+[dependencies.pallet-elections-phragmen]
+default-features = false
+version = '3.0.0'
+git = "https://github.com/docknetwork/substrate.git"
+branch = "frontier"
+
+[dependencies.hex-literal]
+version = "0.3.1"
+optional = true
+
+[dependencies.pallet-evm]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm'
+
+[dependencies.pallet-ethereum]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/ethereum'
+
+[dependencies.pallet-evm-precompile-simple]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/simple'
+
+[dependencies.pallet-evm-precompile-sha3fips]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/sha3fips'
+
+[dependencies.pallet-evm-precompile-ed25519]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/ed25519'
+
+[dependencies.pallet-evm-precompile-modexp]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/modexp'
+
+[dependencies.pallet-evm-precompile-bn128]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/bn128'
+
+[dependencies.pallet-evm-precompile-dispatch]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/dispatch'
+
+[dependencies.pallet-evm-precompile-storage-reader]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/frame/evm/precompile/storage-reader'
+
+[dependencies.fp-rpc]
+default-features = false
+git = 'https://github.com/docknetwork/frontier.git'
+rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
+# path = '../../../frontier/primitives/rpc'
+
+[dependencies.poa]
+default-features = false
+path = '../pallets/poa'
+version = '0.8.0'
+
+[dependencies.token_migration]
+default-features = false
+path = '../pallets/token_migration'
+version = '0.1.2'
+
+[dependencies.core_mods]
+default-features = false
+path = '../pallets/core_mods'
+version = '0.5.0'
+
+[dependencies.price_feed]
+default-features = false
+path = '../pallets/price_feed'
+version = '0.0.1'
+
+[dependencies.fiat_filter]
+default-features = false
+path = '../pallets/fiat_filter'
+version = '0.1.0'
+
+[dependencies.fiat_filter_rpc_runtime_api]
+default-features = false
+path = '../pallets/fiat_filter/rpc/runtime_api'
+version = '0.0.1'
+
+[dependencies.common]
+path = '../common'
+version = '0.0.1'
+
+[dependencies.staking_rewards]
+default-features = false
+path = '../pallets/staking_rewards'
+version = '0.2.0'
+
+[dev-dependencies.getrandom]
+version = "0.2"
+features = ["js"]
+default-features = false
+
+#[dependencies.getrandom]
+#default-features = false
+#package = "getrandom"
+#version = "0.1.16"
+# features = ["js"]
+#optional = true
+
+#[dependencies.schnorrkel]
+#version = "0.9.1"
+#default-features = false
+
+#[dependencies.rand_core]
+#version = "0.5.1"
+#default-features = false
+#features = ["getrandom"]
 
 [features]
-default = ["std"]
+default = ['std']
 std = [
-    "pallet-babe/std",
-    "balances/std",
-    "sp-consensus-vrf/std",
-    "codec/std",
-    "log/std",
-    "pallet-mmr/std",
-    "pallet-beefy/std",
-    "pallet-beefy-mmr/std",
-    "sp-mmr-primitives/std",
-    "beefy-primitives/std",
-    "beefy-merkle-tree/std",
-    "frame-executive/std",
-    "frame-support/std",
-    "grandpa/std",
-    "serde",
-    "fp-self-contained/std",
-    "fp-rpc/std",
-    "serde-big-array",
-    "sp-api/std",
-    "libsecp256k1/std",
-    "sp-block-builder/std",
-    "sp-authority-discovery/std",
-    "sp-consensus-babe/std",
-    "sp-core/std",
-    "sp-inherents/std",
-
-  	"evm/std",
-    "evm/with-serde",
-    "evm-runtime/std",
-    "evm-gasometer/std",
-    "rlp/std",
-
-    "log/std",
-	  "hex/std",
-    "sha3/std",  
-  
-    "pallet-assets/std",
-    "sp-runtime-interface/std",
-    "sp-trie/std",
-    "sp-io/std",
-    "sp-offchain/std",
-    "sp-runtime/std",
-    # "sp-keyring/std",
-    "sp-session/std",
-    "sp-std/std",
-    "sp-tasks/std",
-    #"sc-executor/std",
-    "pallet-transaction-payment-rpc-runtime-api/std",
-    "frame-election-provider-support/std",
-    "sp-transaction-pool/std",
-    "sp-transaction-storage-proof/std",
-    "sp-version/std",
-    "fp-storage/std",
-    # "fp-consensus/std",
-    # "eth_bridge/std",
-    "sp-npos-elections/std",
-    "sp-finality-grandpa/std",
-    "sp-state-machine/std",
-    "sp-arithmetic/std",
-    "sp-staking/std",
-  
-  
-  
-    "frame-system/std",
-    "frame-system-rpc-runtime-api/std",
-    "timestamp/std",
-    "transaction-payment/std",
-    "scale-info/std",
-
-    "hex/std",
-
-    "pallet-session/std",
-    "pallet-scheduler/std",
-    "sp-authorship/std",
-    "pallet-sudo/std",
-    "sp-consensus-slots/std",
-    "pallet-authorship/std",
-  
-    "pallet-randomness-collective-flip/std",
-  
-    "ethereum/std",
-    "ethereum-types/std",
-    "ethash/std",
-    "serde/std",
-    "ethabi/std",
-    "ethbloom/std",
-    "pallet-utility/std",
-    "parity-util-mem",
-    "pallet-membership/std",
-    "pallet-collective/std",
-    "pallet-offences/std",
-    "pallet-authority-discovery/std",
-    "pallet-im-online/std",
-    "pallet-identity/std",
-    "sp-application-crypto/std",
-    "pallet-staking/std",
-    "pallet-election-provider-multi-phase/std",
-    "pallet-treasury/std",
-    "pallet-bounties/std",
-    "pallet-tips/std",
-    "pallet-democracy/std",
-    "pallet-elections-phragmen/std",
-    "evm/std",
-    "evm/with-serde",
-    "pallet-evm/std",
-    "pallet-ethereum/std",
-    "parity-bytes/std",
-    "pallet-evm-precompile-storage-reader/std",
-    "pallet-evm-precompile-simple/std",
-    "pallet-evm-precompile-sha3fips/std",
-    "pallet-evm-precompile-ed25519/std",
-    "pallet-evm-precompile-modexp/std",
-    "pallet-evm-precompile-bn128/std",
-    "pallet-evm-precompile-dispatch/std",
-    "poa/std",
-    "token_migration/std",
-    "core_mods/std",
-    "price_feed/std",
-    "fiat_filter/std",
-    "pallet-base-fee/std",
-    "fiat_filter_rpc_runtime_api/std",
-    "staking_rewards/std",
-    "frame-benchmarking/std",
-    "rustc-hex/std"
+    'pallet-babe/std',
+    'balances/std',
+    'codec/std',
+    'log/std',
+    'frame-executive/std',
+    'frame-support/std',
+    'frame-metadata/std',
+    'grandpa/std',
+    'serde',
+    #'schnorrkel/std',
+    #"schnorrkel/u64_backend",
+    #"schnorrkel/rand",
+    #"schnorrkel/getrandom",
+    'serde-big-array',
+    'sp-api/std',
+    'sp-block-builder/std',
+    'sp-authority-discovery/std',
+    'sp-consensus-babe/std',
+    'sp-core/std',
+    'sp-core/full_crypto',
+    'sp-inherents/std',
+    'sp-io/std',
+    'sp-offchain/std',
+    'sp-runtime/std',
+    'sp-session/std',
+    'sp-std/std',
+    'sp-transaction-pool/std',
+    'sp-version/std',
+    'sp-arithmetic/std',
+    'pallet-evm-precompile-storage-reader/std',
+    'sp-staking/std',
+    'frame-system/std',
+    'sp-npos-elections/std',
+    'sp-runtime-interface/std',
+    'frame-system-rpc-runtime-api/std',
+    'timestamp/std',
+    'sp-wasm-interface/std',
+    'transaction-payment/std',
+    'pallet-transaction-payment-rpc-runtime-api/std',
+    'pallet-session/std',
+    'pallet-scheduler/std',
+    'pallet-sudo/std',
+    'pallet-authorship/std',
+    'pallet-utility/std',
+    'pallet-membership/std',
+    'pallet-collective/std',
+    'pallet-offences/std',
+    'pallet-authority-discovery/std',
+    'pallet-im-online/std',
+    'pallet-identity/std',
+    'pallet-staking/std',
+    'pallet-election-provider-multi-phase/std',
+    'pallet-treasury/std',
+    'pallet-bounties/std',
+    'pallet-tips/std',
+    'pallet-democracy/std',
+    'pallet-elections-phragmen/std',
+    'evm/std',
+    'evm/with-serde',
+    'pallet-evm/std',
+    'pallet-ethereum/std',
+    'pallet-evm-precompile-simple/std',
+    'pallet-evm-precompile-sha3fips/std',
+    'pallet-evm-precompile-ed25519/std',
+    'pallet-evm-precompile-modexp/std',
+    'pallet-evm-precompile-bn128/std',
+    'pallet-evm-precompile-dispatch/std',
+    'poa/std',
+    'token_migration/std',
+    'core_mods/std',
+    'price_feed/std',
+    'fiat_filter/std',
+    #'fiat_filter_rpc_runtime_api/std',
+    'staking_rewards/std',
+    'getrandom/std',
 ]
 runtime-benchmarks = [
-  "frame-benchmarking",
-  "pallet-collective/runtime-benchmarks",
-  "pallet-evm/runtime-benchmarks",
-  "pallet-ethereum/runtime-benchmarks",
-
-  "frame-support/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
-  "balances/runtime-benchmarks",
-  "frame-system-benchmarking",
-  "token_migration/runtime-benchmarks",
-  "core_mods/runtime-benchmarks",
+  'frame-benchmarking',
+  'frame-support/runtime-benchmarks',
+  'frame-system/runtime-benchmarks',
+  'sp-runtime/runtime-benchmarks',
+  'balances/runtime-benchmarks',
+  'pallet-evm-precompile-storage-reader/runtime-benchmarks',
+  'token_migration/runtime-benchmarks',
+  'core_mods/runtime-benchmarks',
+  'pallet-collective/runtime-benchmarks',
+  # 'sp-application-crypto/full_crypto',
+  'sp-core/full_crypto',
+  'hex-literal',
+  #"schnorrkel/getrandom",
+  #'schnorrkel/wasm-bindgen',
 ]
 
 # For building testnet, affects spec name and ss58 prefix
 testnet = []
-# For building testnet, affects spec name and ss58 prefix
-devnet = []
 # For building mainnet, affects spec name and ss58 prefix
 mainnet = []
 # For building test nodes with small durations for staking, elections, voting, etc
 small_durations = []
 # Faster block production. Not recommended for production
 fastblock = []
-# Benchmarks-only
-benchmarks-only = []
 
 [dev-dependencies]
-rand = "0.8.3"
-hex = "0.4.2"
+rand = '0.8.3'
+hex = '0.4.2'
