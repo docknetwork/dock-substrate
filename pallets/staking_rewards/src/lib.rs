@@ -76,13 +76,6 @@ decl_module! {
             StakingEmissionStatus::put(status);
             Ok(Pays::No.into())
         }
-
-        /// Called to set emission supply from PoA module when the runtime is upgraded. Before upgrading
-        /// the runtime with PoS, PoA emissions will be disabled after short terminating the epoch.
-        /// Ensure to remove this runtime upgrade immediately after PoS upgrade.
-        fn on_runtime_upgrade() -> Weight {
-            Self::set_emission_supply_from_poa()
-        }
     }
 }
 
@@ -201,20 +194,6 @@ impl<T: Config> Module<T> {
     /// Set emission supply. Used to set the reduced supply after emitting rewards
     fn set_new_emission_supply(supply: BalanceOf<T>) {
         <StakingEmissionSupply<T>>::put(supply)
-    }
-
-    /// If emission supply for staking is 0 (on starting PoS), set it to the remaining emission
-    /// supply from PoA and reset it to making this function idempotent unless emission supply in
-    ///PoA module is set again
-    fn set_emission_supply_from_poa() -> Weight {
-        if Self::staking_emission_supply().is_zero() {
-            let supply = <poa::EmissionSupply<T>>::take();
-            Self::set_new_emission_supply(supply);
-            Self::deposit_event(RawEvent::EmissionSupplyTakenFromPoA(supply));
-            T::DbWeight::get().reads_writes(2, 2)
-        } else {
-            T::DbWeight::get().reads(1)
-        }
     }
 }
 

@@ -276,17 +276,6 @@ decl_module! {
             Self::try_exec_removable_action_over_registry(removal, proof, Self::remove_registry_)?;
             Ok(())
         }
-
-        fn on_runtime_upgrade() -> Weight {
-            T::DbWeight::get().reads(1) + if Self::version() == StorageVersion::SingleKey {
-                let weight = crate::migrations::revoke::single_key::migrate_to_multi_key::<T>();
-                Version::put(StorageVersion::MultiKey);
-
-                T::DbWeight::get().writes(1) + weight
-            } else {
-                0
-            }
-        }
     }
 }
 

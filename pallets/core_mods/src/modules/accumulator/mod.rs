@@ -221,17 +221,6 @@ decl_module! {
 
             did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_accumulator_, remove, signature)
         }
-
-        fn on_runtime_upgrade() -> Weight {
-            T::DbWeight::get().reads(1) + if Self::version() == StorageVersion::SingleKey {
-                let weight = crate::migrations::accumulator::single_key::migrate_to_multi_key::<T>();
-                Version::put(StorageVersion::MultiKey);
-
-                T::DbWeight::get().writes(1) + weight
-            } else {
-                0
-            }
-        }
     }
 }
 

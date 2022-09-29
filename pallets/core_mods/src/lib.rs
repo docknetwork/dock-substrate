@@ -87,7 +87,6 @@ impl Default for StorageVersion {
 }
 
 pub mod keys_and_sigs;
-mod migrations;
 mod modules;
 pub mod runtime_api;
 pub mod types;

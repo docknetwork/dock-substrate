@@ -1,5 +1,5 @@
-use crate::deposit_indexed_event;
 use super::*;
+use crate::deposit_indexed_event;
 
 impl<T: Config + Debug> Module<T> {
     pub(super) fn new_registry_(AddRegistry { registry, id }: AddRegistry) -> DispatchResult {

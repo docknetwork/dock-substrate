@@ -298,17 +298,6 @@ decl_module! {
             Self::try_exec_signed_removable_action_from_controller(Self::remove_onchain_did_, removal, sig)?;
             Ok(())
         }
-
-        fn on_runtime_upgrade() -> Weight {
-            if Version::get() == StorageVersion::SingleKey {
-                let weight = crate::migrations::did::single_key::migrate_to_multi_key::<T>();
-                Version::put(StorageVersion::MultiKey);
-
-                T::DbWeight::get().writes(1) + weight
-            } else {
-                0
-            }
-        }
     }
 }
 
