@@ -166,6 +166,8 @@ decl_storage! {
                 DidKeys::insert(did, key_id, key);
                 DidControllers::insert(did, Controller(*did), ());
             }
+
+            Version::put(StorageVersion::MultiKey);
         })
     }
 }

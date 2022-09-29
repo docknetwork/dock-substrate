@@ -177,6 +177,11 @@ decl_storage! {
 
         pub Version get(fn version): StorageVersion;
     }
+    add_extra_genesis {
+        build(|_| {
+            Version::put(StorageVersion::MultiKey);
+        })
+    }
 }
 
 decl_module! {
