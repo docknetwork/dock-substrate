@@ -1,3 +1,4 @@
+use crate::deposit_indexed_event;
 use super::*;
 
 impl<T: Config + Debug> Module<T> {
@@ -13,7 +14,7 @@ impl<T: Config + Debug> Module<T> {
         // execute
         Registries::insert(&id, registry);
 
-        crate::deposit_indexed_event!(RegistryAdded(id));
+        deposit_indexed_event!(RegistryAdded(id));
         Ok(())
     }
 
@@ -30,7 +31,7 @@ impl<T: Config + Debug> Module<T> {
             Revocations::insert(&registry_id, cred_id, ());
         }
 
-        crate::deposit_indexed_event!(RevokedInRegistry(registry_id));
+        deposit_indexed_event!(RevokedInRegistry(registry_id));
         Ok(())
     }
 
@@ -49,7 +50,7 @@ impl<T: Config + Debug> Module<T> {
             Revocations::remove(&registry_id, cred_id);
         }
 
-        crate::deposit_indexed_event!(UnrevokedInRegistry(registry_id));
+        deposit_indexed_event!(UnrevokedInRegistry(registry_id));
         Ok(())
     }
 
@@ -63,7 +64,7 @@ impl<T: Config + Debug> Module<T> {
         // execute
         Revocations::remove_prefix(&registry_id);
 
-        crate::deposit_indexed_event!(RegistryRemoved(registry_id));
+        deposit_indexed_event!(RegistryRemoved(registry_id));
         Ok(())
     }
 
