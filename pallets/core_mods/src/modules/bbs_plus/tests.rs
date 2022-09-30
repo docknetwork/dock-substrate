@@ -1053,7 +1053,7 @@ fn add_params_keys() {
             nonce: did_detail.next_nonce(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
-        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1073,7 +1073,7 @@ fn add_params_keys() {
             nonce: did_detail.next_nonce(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
-        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1096,7 +1096,7 @@ fn add_params_keys() {
             nonce: did_detail.next_nonce(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
-        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1168,7 +1168,7 @@ fn add_params_keys() {
             nonce: did_detail_1.next_nonce(),
         };
         assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1211,7 +1211,7 @@ fn add_params_keys() {
             nonce: did_detail_1.next_nonce(),
         };
         assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1333,7 +1333,7 @@ fn get_params_and_keys() {
             did: author.clone(),
             nonce: did_detail.next_nonce(),
         };
-        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1349,7 +1349,7 @@ fn get_params_and_keys() {
             did: author_1.clone(),
             nonce: did_detail_1.next_nonce(),
         };
-        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1365,7 +1365,7 @@ fn get_params_and_keys() {
             did: author.clone(),
             nonce: did_detail.next_nonce(),
         };
-        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )

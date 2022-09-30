@@ -17,6 +17,6 @@ benchmarks! {
     }: deploy(RawOrigin::Signed(caller), data.clone())
     verify {
         let hash = <T as system::Config>::Hashing::hash(&data);
-        assert_eq!(Anchors::<T>::get(&hash).unwrap(), <system::Pallet<T>>::block_number());
+        assert_eq!(Anchors::<T>::get(&hash).unwrap(), <system::Module<T>>::block_number());
     }
 }

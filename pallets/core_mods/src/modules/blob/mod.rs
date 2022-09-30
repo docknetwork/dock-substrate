@@ -38,16 +38,15 @@ pub const ID_BYTE_SIZE: usize = 32;
 pub type BlobId = [u8; ID_BYTE_SIZE];
 
 /// When a new blob is being registered, the following object is sent.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Eq)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Blob {
     pub id: BlobId,
     pub blob: Vec<u8>,
 }
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
 pub struct AddBlob<T: frame_system::Config> {
     pub blob: Blob,
     pub nonce: T::BlockNumber,
@@ -99,7 +98,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::new_, blob, signature)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::new_, blob, signature)
         }
     }
 }

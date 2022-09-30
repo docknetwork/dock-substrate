@@ -15,7 +15,7 @@ impl_wrapper! { WrappedBytes, Vec<u8>, for rand use rand::distributions::Standar
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Bytes32 {
     #[cfg_attr(feature = "serde", serde(with = "hex"))]
@@ -41,7 +41,7 @@ serde_big_array::big_array! {
 macro_rules! struct_over_byte_array {
     ( $name:ident, $size:tt ) => {
         /// A wrapper over a byte array
-        #[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialOrd, Ord)]
+        #[derive(Encode, Decode, Clone, PartialOrd, Ord)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         pub struct $name {
             #[cfg_attr(feature = "serde", serde(with = "hex::big_array"))]
@@ -96,5 +96,5 @@ struct_over_byte_array!(Bytes33, 33);
 struct_over_byte_array!(Bytes64, 64);
 struct_over_byte_array!(Bytes65, 65);
 
-/*#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+/*#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 pub struct Bytes32(pub [u8;32]);*/

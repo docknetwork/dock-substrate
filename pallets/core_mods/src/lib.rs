@@ -72,7 +72,7 @@ pub trait ActionWithNonce<T: frame_system::Config>: Action<T> {
 }
 
 /// Defines version of the storage being used.
-#[derive(Encode, Decode, scale_info::TypeInfo, Copy, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, Copy, Clone, Debug, Eq, PartialEq)]
 pub enum StorageVersion {
     /// The old version which supports only a single key for DID.
     SingleKey,
@@ -82,12 +82,11 @@ pub enum StorageVersion {
 
 impl Default for StorageVersion {
     fn default() -> Self {
-        Self::MultiKey
+        Self::SingleKey
     }
 }
 
 pub mod keys_and_sigs;
-mod migrations;
 mod modules;
 pub mod runtime_api;
 pub mod types;

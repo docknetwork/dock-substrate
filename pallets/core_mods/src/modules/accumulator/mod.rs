@@ -108,6 +108,11 @@ decl_storage! {
 
         pub Version get(fn version): StorageVersion;
     }
+    add_extra_genesis {
+        build(|_| {
+            Version::put(StorageVersion::MultiKey);
+        })
+    }
 }
 
 decl_module! {
@@ -138,7 +143,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
         }
 
         #[weight = SubstrateWeight::<T>::add_public(&public_key, &signature)]
@@ -149,7 +154,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_public_key_, public_key, signature)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_public_key_, public_key, signature)
         }
 
         #[weight = SubstrateWeight::<T>::remove_params(&remove, &signature)]
@@ -160,7 +165,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
         }
 
         #[weight = SubstrateWeight::<T>::remove_public(&remove, &signature)]
@@ -171,7 +176,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_public_key_, remove, signature)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_public_key_, remove, signature)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -187,7 +192,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_accumulator_, add_accumulator, signature)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_accumulator_, add_accumulator, signature)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -203,7 +208,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::update_accumulator_, update, signature)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::update_accumulator_, update, signature)
         }
 
         #[weight = SubstrateWeight::<T>::remove_accumulator(&remove, &signature)]
@@ -214,18 +219,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_accumulator_, remove, signature)
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            T::DbWeight::get().reads(1) + if Self::version() == StorageVersion::SingleKey {
-                let weight = crate::migrations::accumulator::single_key::migrate_to_multi_key::<T>();
-                Version::put(StorageVersion::MultiKey);
-
-                T::DbWeight::get().writes(1) + weight
-            } else {
-                0
-            }
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_accumulator_, remove, signature)
         }
     }
 }

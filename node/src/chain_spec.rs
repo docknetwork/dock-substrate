@@ -2,17 +2,15 @@ use dock_runtime::{
     did::{Did, DidKey},
     keys_and_sigs::PublicKey,
     master::Membership,
-    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, Block,
-    DIDModuleConfig, EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig,
-    Hash, ImOnlineConfig, MasterConfig, PoAModuleConfig, SessionConfig, SessionKeys, Signature,
-    StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
-    BABE_GENESIS_EPOCH_CONFIG, DOCK, WASM_BINARY,
+    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
+    EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
+    MasterConfig, PoAModuleConfig, SessionConfig, SessionKeys, Signature, StakerStatus,
+    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
+    DOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
-use sc_chain_spec::ChainSpecExtension;
 use sc_service::{ChainType, Properties};
-use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::{AuthorityId as BabeId, BabeEpochConfiguration};
 use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
@@ -23,21 +21,6 @@ use serde_json::map::Map;
 
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, str::FromStr};
-
-/// Node `ChainSpec` extensions.
-///
-/// Additional parameters for some Substrate core modules,
-/// customizable from the chain spec.
-#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
-#[serde(rename_all = "camelCase")]
-pub struct Extensions {
-    /// Block numbers with known hashes.
-    pub fork_blocks: sc_client_api::ForkBlocks<Block>,
-    /// Known bad block hashes.
-    pub bad_blocks: sc_client_api::BadBlocks<Block>,
-    /// The light sync state extension used by the sync-state rpc.
-    pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
-}
 
 fn session_keys(
     babe: BabeId,
@@ -54,7 +37,7 @@ fn session_keys(
 }
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
 
 /// Helper function to generate a crypto pair from seed
 fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -203,7 +186,7 @@ pub fn development_config() -> ChainSpec {
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
                 stash: 100 * DOCK,
-                validator_count: 1,
+                validator_count: 3,
                 // TODO: Fix
                 poa_last_block: Hash::repeat_byte(42),
                 babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,
@@ -213,9 +196,8 @@ pub fn development_config() -> ChainSpec {
         vec![],
         None,
         None,
-        None,
         Some(get_dev_properties()),
-        Default::default(),
+        None,
     )
 }
 
@@ -290,9 +272,8 @@ pub fn local_testnet_config() -> ChainSpec {
         vec![],
         None,
         None,
-        None,
         Some(get_dev_properties()),
-        Default::default(),
+        None,
     )
 }
 
@@ -410,9 +391,8 @@ pub fn pos_testnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        None,
         Some(get_testnet_properties()),
-        Default::default(),
+        None,
     )
 }
 
@@ -623,9 +603,8 @@ pub fn pos_mainnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        None,
         Some(get_mainnet_properties()),
-        Default::default(),
+        None,
     )
 }
 
@@ -665,12 +644,11 @@ impl GenesisBuilder {
         let stash = self.stash;
 
         GenesisConfig {
-            base_fee: Default::default(),
             system: SystemConfig {
                 code: WASM_BINARY.unwrap().to_vec(),
-                // changes_trie_config: Default::default(),
+                changes_trie_config: Default::default(),
             },
-            session: SessionConfig {
+            pallet_session: SessionConfig {
                 keys: self
                     .initial_authorities
                     .iter()
@@ -683,7 +661,7 @@ impl GenesisBuilder {
                     })
                     .collect::<Vec<_>>(),
             },
-            po_a_module: PoAModuleConfig {
+            poa: PoAModuleConfig {
                 emission_supply,
                 poa_last_block: self.poa_last_block,
             },
@@ -701,21 +679,19 @@ impl GenesisBuilder {
             master: MasterConfig {
                 members: self.master,
             },
-            did_module: DIDModuleConfig { dids: self.dids },
-            sudo: SudoConfig {
-                key: Some(self.sudo),
-            },
-            technical_committee: TechnicalCommitteeConfig {
+            did: DIDModuleConfig { dids: self.dids },
+            sudo: SudoConfig { key: self.sudo },
+            pallet_collective_Instance1: Default::default(),
+            pallet_collective_Instance2: TechnicalCommitteeConfig {
                 members: self.technical_committee_members,
                 phantom: Default::default(),
             },
-            council: Default::default(),
-            technical_committee_membership: Default::default(),
-            ethereum: EthereumConfig {},
-            evm: EVMConfig {
+            pallet_membership_Instance1: Default::default(),
+            pallet_ethereum: EthereumConfig {},
+            pallet_evm: EVMConfig {
                 accounts: BTreeMap::new(),
             },
-            staking: StakingConfig {
+            pallet_staking: StakingConfig {
                 validator_count: self.validator_count as u32,
                 minimum_validator_count: self.initial_authorities.len() as u32,
                 stakers: self
@@ -732,14 +708,14 @@ impl GenesisBuilder {
                 slash_reward_fraction: Perbill::from_percent(20),
                 ..Default::default()
             },
-            babe: BabeConfig {
+            pallet_babe: BabeConfig {
                 authorities: vec![],
                 epoch_config: Some(self.babe_epoch_config),
             },
-            im_online: ImOnlineConfig { keys: vec![] },
-            authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
-            treasury: Default::default(),
-            elections: ElectionsConfig {
+            pallet_im_online: ImOnlineConfig { keys: vec![] },
+            pallet_authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+            pallet_treasury: Default::default(),
+            pallet_elections_phragmen: ElectionsConfig {
                 members: self
                     .council_members
                     .iter()

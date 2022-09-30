@@ -25,7 +25,7 @@ RUN rustup default nightly
 RUN rustup target add wasm32-unknown-unknown --toolchain nightly
 
 #compiler ENV
-ENV CC clang
+ENV CC gcc
 ENV CXX g++
 
 # Copy code to build directory, instead of only using .dockerignore, we copy elements

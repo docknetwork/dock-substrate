@@ -1,6 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_event, decl_module, decl_storage, dispatch, traits::Get, weights::Pays};
+use frame_support::{
+    decl_event, decl_module, decl_storage, dispatch,
+    traits::Get,
+    weights::{Pays, Weight},
+};
 use frame_system::{self as system, ensure_root};
 use pallet_staking::EraPayout;
 pub use poa::BalanceOf;
@@ -57,7 +61,7 @@ decl_event!(
 );
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         /// The percentage by which remaining emission supply decreases
         const RewardDecayPct: Percent = T::RewardDecayPct::get();
         /// The percentage of rewards going to treasury
@@ -66,7 +70,7 @@ decl_module! {
         fn deposit_event() = default;
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
-        #[weight = <T as frame_system::Config>::DbWeight::get().writes(1)]
+        #[weight = T::DbWeight::get().writes(1)]
         pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StakingEmissionStatus::put(status);

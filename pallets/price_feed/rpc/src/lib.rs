@@ -1,24 +1,21 @@
-use core::fmt::Debug;
-use jsonrpsee::{
-    core::{async_trait, Error as JsonRpseeError, RpcResult},
-    proc_macros::rpc,
-    types::{error::CallError, ErrorObject},
-};
+pub use self::gen_client::Client as PriceFeedClient;
+use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
+use jsonrpc_derive::rpc;
 pub use price_feed::runtime_api::PriceFeedApi as PriceFeedRuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::sync::Arc;
 
-#[rpc(server, client)]
+#[rpc]
 pub trait PriceFeedApi<BlockHash> {
     /// Gets the price of Dock/USD from pallet's storage
-    #[method(name = "price_feed_tokenUsdPrice")]
-    async fn token_usd_price(&self, at: Option<BlockHash>) -> RpcResult<Option<u32>>;
+    #[rpc(name = "price_feed_tokenUsdPrice")]
+    fn token_usd_price(&self, at: Option<BlockHash>) -> Result<Option<u32>>;
 
     /// Gets the price of Dock/USD from EVM contract
-    #[method(name = "price_feed_tokenUsdPriceFromContract")]
-    async fn token_usd_price_from_contract(&self, at: Option<BlockHash>) -> RpcResult<Option<u32>>;
+    #[rpc(name = "price_feed_tokenUsdPriceFromContract")]
+    fn token_usd_price_from_contract(&self, at: Option<BlockHash>) -> Result<Option<u32>>;
 }
 
 /// A struct that implements the [`PriceFeedApi`].
@@ -37,48 +34,37 @@ impl<C, P> PriceFeed<C, P> {
     }
 }
 
-#[derive(Debug, Clone)]
-struct RuntimeError<T>(T);
-
-impl<T: Debug> From<RuntimeError<T>> for JsonRpseeError {
-    fn from(error: RuntimeError<T>) -> Self {
-        let data = format!("{:?}", error);
-
-        JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-            1,
-            "Runtime error",
-            Some(data),
-        )))
-    }
-}
-
-#[async_trait]
-impl<C, Block> PriceFeedApiServer<<Block as BlockT>::Hash> for PriceFeed<C, Block>
+impl<C, Block> PriceFeedApi<<Block as BlockT>::Hash> for PriceFeed<C, Block>
 where
     Block: BlockT,
     C: Send + Sync + 'static + ProvideRuntimeApi<Block> + HeaderBackend<Block>,
     C::Api: PriceFeedRuntimeApi<Block>,
 {
-    async fn token_usd_price(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Option<u32>> {
+    fn token_usd_price(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Option<u32>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
-        api.token_usd_price(&at)
-            .map_err(RuntimeError)
-            .map_err(Into::into)
+        api.token_usd_price(&at).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(1),
+            message: "Unable to query price.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 
-    async fn token_usd_price_from_contract(
+    fn token_usd_price_from_contract(
         &self,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<u32>> {
+    ) -> Result<Option<u32>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.token_usd_price_from_contract(&at)
-            .map_err(RuntimeError)
-            .map_err(Into::into)
+            .map_err(|e| RpcError {
+                code: ErrorCode::ServerError(2),
+                message: "Unable to query price from contract.".into(),
+                data: Some(format!("{:?}", e).into()),
+            })
     }
 }

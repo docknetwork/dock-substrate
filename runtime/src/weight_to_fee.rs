@@ -30,19 +30,18 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::TxnFee;
-    use frame_support::weights::WeightToFee;
+    use super::{TxnFee, WeightToFeePolynomial};
     type Balance = u64;
 
     #[test]
     fn fee_works() {
-        assert_eq!(TxnFee::<Balance>::weight_to_fee(&0), 0);
-        assert_eq!(TxnFee::<Balance>::weight_to_fee(&400), 2);
-        assert_eq!(TxnFee::<Balance>::weight_to_fee(&500), 2);
-        assert_eq!(TxnFee::<Balance>::weight_to_fee(&600), 3);
-        assert_eq!(TxnFee::<Balance>::weight_to_fee(&1000), 5);
-        assert_eq!(TxnFee::<Balance>::weight_to_fee(&2000), 10);
-        assert_eq!(TxnFee::<Balance>::weight_to_fee(&10000), 50);
-        assert_eq!(TxnFee::<Balance>::weight_to_fee(&20000), 100);
+        assert_eq!(TxnFee::<Balance>::calc(&0), 0);
+        assert_eq!(TxnFee::<Balance>::calc(&400), 2);
+        assert_eq!(TxnFee::<Balance>::calc(&500), 2);
+        assert_eq!(TxnFee::<Balance>::calc(&600), 3);
+        assert_eq!(TxnFee::<Balance>::calc(&1000), 5);
+        assert_eq!(TxnFee::<Balance>::calc(&2000), 10);
+        assert_eq!(TxnFee::<Balance>::calc(&10000), 50);
+        assert_eq!(TxnFee::<Balance>::calc(&20000), 100);
     }
 }

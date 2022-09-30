@@ -37,9 +37,8 @@ pub type RegistryId = [u8; 32];
 pub type RevokeId = [u8; 32];
 
 /// Collection of signatures sent by different DIDs.
-#[derive(PartialEq, Eq, Encode, Decode, scale_info::TypeInfo, Clone, Debug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
 pub struct DidSigs<T: frame_system::Config> {
     /// Signature by DID
     pub sig: DidSignature<Did>,
@@ -48,7 +47,7 @@ pub struct DidSigs<T: frame_system::Config> {
 }
 
 /// Authorization logic for a registry.
-#[derive(PartialEq, Eq, Encode, Decode, scale_info::TypeInfo, Clone, Debug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Policy {
     /// Set of dids allowed to modify a registry.
@@ -76,7 +75,7 @@ impl Policy {
 }
 
 /// Metadata about a revocation scope.
-#[derive(PartialEq, Eq, Encode, Decode, scale_info::TypeInfo, Clone, Debug, Default)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Registry {
     /// Who is allowed to update this registry.
@@ -178,6 +177,11 @@ decl_storage! {
 
         pub Version get(fn version): StorageVersion;
     }
+    add_extra_genesis {
+        build(|_| {
+            Version::put(StorageVersion::MultiKey);
+        })
+    }
 }
 
 decl_module! {
@@ -193,7 +197,7 @@ decl_module! {
         /// Returns an error if `id` is already in use as a registry id.
         ///
         /// Returns an error if `registry.policy` is invalid.
-        #[weight = SubstrateWeight::<T>::new_registry(add_registry.new_registry.policy.len())]
+        #[weight = SubstrateWeight::<T>::new_registry(add_registry.registry.policy.len())]
         pub fn new_registry(
             origin,
             add_registry: AddRegistry
@@ -271,17 +275,6 @@ decl_module! {
 
             Self::try_exec_removable_action_over_registry(removal, proof, Self::remove_registry_)?;
             Ok(())
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            T::DbWeight::get().reads(1) + if Self::version() == StorageVersion::SingleKey {
-                let weight = crate::migrations::revoke::single_key::migrate_to_multi_key::<T>();
-                Version::put(StorageVersion::MultiKey);
-
-                T::DbWeight::get().writes(1) + weight
-            } else {
-                0
-            }
         }
     }
 }

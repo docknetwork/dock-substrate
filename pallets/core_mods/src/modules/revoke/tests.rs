@@ -65,7 +65,7 @@ mod errors {
 
         let ar = AddRegistry {
             id: RGA,
-            new_registry: Registry {
+            registry: Registry {
                 policy: oneof(&[]),
                 add_only: false,
             },
@@ -86,7 +86,7 @@ mod errors {
             let regid: RegistryId = random();
             let ar = AddRegistry {
                 id: regid,
-                new_registry: Registry {
+                registry: Registry {
                     policy,
                     add_only: false,
                 },
@@ -149,7 +149,7 @@ mod errors {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: reg,
+            registry: reg,
         };
         RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
 
@@ -188,7 +188,7 @@ mod errors {
         };
         let ar = AddRegistry {
             id: RGA,
-            new_registry: reg,
+            registry: reg,
         };
         RevoMod::new_registry(Origin::signed(ABBA), ar.clone()).unwrap();
         let err = RevoMod::new_registry(Origin::signed(ABBA), ar.clone()).unwrap_err();
@@ -253,7 +253,7 @@ mod errors {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: Registry {
+            registry: Registry {
                 policy: Policy::OneOf((0u8..16).map(U256::from).map(Into::into).map(Did).collect()),
                 add_only: false,
             },
@@ -277,7 +277,7 @@ mod errors {
         };
         let ar = AddRegistry {
             id: RGA,
-            new_registry: reg,
+            registry: reg,
         };
         RevoMod::new_registry(Origin::signed(ABBA), ar.clone()).unwrap();
         let revoke_raw = RevokeRaw {
@@ -308,7 +308,7 @@ mod errors {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: Registry {
+            registry: Registry {
                 policy: oneof(&[DIDA]),
                 add_only: false,
             },
@@ -371,7 +371,7 @@ mod errors {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: Registry {
+            registry: Registry {
                 policy: oneof(&[DIDA]),
                 add_only: true,
             },
@@ -448,7 +448,7 @@ mod calls {
             let reg = Registry { policy, add_only };
             let ar = AddRegistry {
                 id: reg_id,
-                new_registry: reg.clone(),
+                registry: reg.clone(),
             };
             assert!(!Registries::contains_key(&reg_id));
             RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
@@ -473,7 +473,7 @@ mod calls {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: Registry { policy, add_only },
+            registry: Registry { policy, add_only },
         };
 
         RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
@@ -527,7 +527,7 @@ mod calls {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: Registry { policy, add_only },
+            registry: Registry { policy, add_only },
         };
 
         RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
@@ -604,7 +604,7 @@ mod calls {
         let reg = Registry { policy, add_only };
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: reg.clone(),
+            registry: reg.clone(),
         };
 
         RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
@@ -628,11 +628,11 @@ mod calls {
     // To fix the match error, write a test for the variant then update the test.
     fn _all_included(dummy: RevCall<Test>) {
         match dummy {
-            RevCall::new_registry { .. }
-            | RevCall::revoke { .. }
-            | RevCall::unrevoke { .. }
-            | RevCall::remove_registry { .. }
-            | RevCall::__PhantomItem { .. } => {}
+            RevCall::new_registry(_)
+            | RevCall::revoke(_, _)
+            | RevCall::unrevoke(_, _)
+            | RevCall::remove_registry(_, _)
+            | RevCall::__PhantomItem(_, _) => {}
         }
     }
 }
@@ -713,7 +713,7 @@ mod test {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: reg.clone(),
+            registry: reg.clone(),
         };
 
         assert_eq!(RevoMod::get_revocation_registry(registry_id), None);
@@ -737,7 +737,7 @@ mod test {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: reg.clone(),
+            registry: reg.clone(),
         };
 
         RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
