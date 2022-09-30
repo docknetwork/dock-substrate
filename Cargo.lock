@@ -1331,7 +1331,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.19.0"
+version = "0.20.0"
 dependencies = [
  "core_mods_rpc",
  "dock-runtime",
@@ -1398,7 +1398,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.20.0"
+version = "0.21.0"
 dependencies = [
  "common",
  "core_mods",
