@@ -32,7 +32,7 @@ crate::bench_with_all_pairs! {
             nonce: 1u8.into()
         };
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
             vec![DidKey::new_with_all_relationships(public)],
             Default::default(),

@@ -13,7 +13,6 @@ pub struct ServiceEndpoint {
 
 bitflags::bitflags! {
     /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
-    #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u16", into = "u16"))]
     pub struct ServiceEndpointType: u16 {
@@ -24,6 +23,7 @@ bitflags::bitflags! {
 }
 
 impl_bits_conversion! { ServiceEndpointType, u16 }
+crate::impl_wrapper_type_info! { ServiceEndpointType, u16 }
 
 impl ServiceEndpoint {
     pub fn is_valid(&self, max_origins: usize, max_origin_length: usize) -> bool {
@@ -82,5 +82,27 @@ where
 
         deposit_indexed_event!(DidServiceEndpointRemoved(did));
         Ok(())
+    }
+}
+
+impl scale_info::TypeInfo for ServiceEndpoint {
+    type Identity = Self;
+
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::new("ServiceEndpoint", "ServiceEndpoint"))
+            .composite(
+                scale_info::build::Fields::named()
+                    .field(|f| {
+                        f.name("types")
+                            .ty::<ServiceEndpointType>()
+                            .type_name("ServiceEndpointType")
+                    })
+                    .field(|f| {
+                        f.name("origins")
+                            .ty::<Vec<WrappedBytes>>()
+                            .type_name("Vec<WrappedBytes>")
+                    }),
+            )
     }
 }

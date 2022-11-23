@@ -14,19 +14,33 @@ macro_rules! impl_bits_conversion {
                 Self::from_bits(value).ok_or(value)
             }
         }
+
+        impl Encode for $ident {
+            fn encode(&self) -> Vec<u8> {
+                <$type>::encode(&self.clone().into())
+            }
+        }
+
+        impl Decode for $ident {
+            fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
+                let decoded = <$type>::decode(input)?;
+
+                Self::from_bits(decoded).ok_or("Invalid value".into())
+            }
+        }
     };
 }
 
 #[macro_export]
 macro_rules! pub_for_test {
-    ($(#[$meta:meta])* $vis: vis fn $($val: tt)*) => {
+    ($(#[$meta:meta])* $vis: vis $ident: ident $($val: tt)*) => {
         #[cfg(test)]
         $(#[$meta])*
-        pub fn $($val)*
+        pub $ident $($val)*
 
         #[cfg(not(test))]
         $(#[$meta])*
-        $vis fn $($val)*
+        $vis $ident $($val)*
     }
 }
 
@@ -119,13 +133,13 @@ macro_rules! impl_action_with_nonce {
 #[macro_export]
 macro_rules! deposit_indexed_event {
     ($event: ident($($value: expr),+) over $($index: expr),+) => {
-        <system::Module<T>>::deposit_event_indexed(
+        <system::Pallet<T>>::deposit_event_indexed(
             &[$(<T as system::Config>::Hashing::hash(&$index[..])),+],
             <T as Config>::Event::from(Event::$event($($value),+)).into()
         );
     };
     ($event: ident($($value: expr),+)) => {
-        <system::Module<T>>::deposit_event_indexed(
+        <system::Pallet<T>>::deposit_event_indexed(
             &[$(<T as system::Config>::Hashing::hash(&$value[..])),+],
             <T as Config>::Event::from(Event::$event($($value),+)).into()
         );
@@ -168,14 +182,35 @@ macro_rules! impl_wrapper {
                 &mut self.0
             }
         }
+
+        $crate::impl_wrapper_type_info! { $wrapper, $type }
+    };
+}
+
+#[macro_export]
+macro_rules! impl_wrapper_type_info {
+    ($wrapper: ident, $type: ty) => {
+        impl scale_info::TypeInfo for $wrapper {
+            type Identity = Self;
+
+            fn type_info() -> scale_info::Type {
+                scale_info::Type::builder()
+                    .path(scale_info::Path::new(
+                        core::stringify!($wrapper),
+                        core::stringify!($wrapper),
+                    ))
+                    .composite(scale_info::build::Fields::unnamed().field(|f| f.ty::<$type>()))
+            }
+        }
     };
 }
 
 #[macro_export]
 macro_rules! def_state_change {
     ($(#[$meta:meta])* $name: ident: $($mod: ident::$type: ident),+) => {
-        #[derive(codec::Encode, codec::Decode, Debug, Clone)]
         $(#[$meta])*
+        #[derive(scale_info::TypeInfo, codec::Encode, codec::Decode, Debug, Clone, PartialEq)]
+        #[scale_info(skip_type_params(T))]
         pub enum $name<'a, T: frame_system::Config> {
             $($type(sp_std::borrow::Cow<'a, $mod::$type<T>>)),+
         }

@@ -18,14 +18,14 @@ mod tests_did_calls {
     use core_mods::util::Bytes32;
     use did::{DidKey, DidRemoval, DID_BYTE_SIZE};
 
-    type DidMod = did::Module<TestRt>;
+    type DidMod = did::Pallet<TestRt>;
 
     #[test]
     fn call_did_new() {
         ext().execute_with(|| {
             let d: did::Did = rand::random();
             let kp = gen_kp();
-            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(kp.public().0));
+            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(kp.public().0)).unwrap();
 
             let call = Call::DIDMod(did::Call::<TestRt>::new_onchain(d.clone(), vec![key], BTreeSet::new()));
             let expected_fees = PRICE_ONCHAIN_DID_CREATE / TestPriceProvider::get().unwrap();
@@ -38,7 +38,7 @@ mod tests_did_calls {
             let did_alice = [1; DID_BYTE_SIZE];
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_1 = pair_1.public().0;
-            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(pk_1));
+            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(pk_1)).unwrap();
 
             // Add a DID
             let new_res = DidMod::new_onchain(Origin::signed(ALICE), did_alice.clone(), vec![key], BTreeSet::new());
@@ -320,7 +320,7 @@ mod tests_revoke_calls {
                 let reg_id = random();
                 let reg = Registry { policy, add_only };
 
-                let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
+                let got_reg = <revoke::Pallet<TestRt>>::get_revocation_registry(reg_id);
                 assert!(got_reg.is_none());
 
                 let call =
@@ -330,7 +330,7 @@ mod tests_revoke_calls {
                     PRICE_REVOKE_REGISTRY_CREATE / TestPriceProvider::get().unwrap();
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
-                let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
+                let got_reg = <revoke::Pallet<TestRt>>::get_revocation_registry(reg_id);
                 assert!(got_reg.is_some());
                 let (created_reg, created_bloc) = got_reg.unwrap();
                 assert_eq!(created_reg, reg);
@@ -385,7 +385,7 @@ mod tests_fail_modes {
                 measure_fees(Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat)));
             assert_noop!(
                 executed,
-                DispatchError::Module {
+                DispatchError::Pallet {
                     index: 1,
                     error: 3,
                     message: Some("InsufficientBalance")
@@ -406,7 +406,7 @@ mod tests_fail_modes {
                 measure_fees(Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat)));
             assert_noop!(
                 executed,
-                DispatchError::Module {
+                DispatchError::Pallet {
                     index: 1,
                     error: 3,
                     message: Some("InsufficientBalance")

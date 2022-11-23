@@ -110,7 +110,7 @@ impl<T: Config + Debug> Module<T> {
 
         let accumulated = accumulator.accumulated().to_vec();
 
-        let current_block = <system::Module<T>>::block_number();
+        let current_block = <system::Pallet<T>>::block_number();
         Accumulators::<T>::insert(
             id,
             AccumulatorWithUpdateInfo::new(accumulator, current_block),
@@ -147,7 +147,7 @@ impl<T: Config + Debug> Module<T> {
             accumulator
                 .accumulator
                 .set_new_accumulated(new_accumulated.clone());
-            accumulator.last_updated_at = <system::Module<T>>::block_number();
+            accumulator.last_updated_at = <system::Pallet<T>>::block_number();
 
             Ok(())
         })?;

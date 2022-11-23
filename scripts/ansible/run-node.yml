@@ -1,7 +1,7 @@
 - hosts: '{{ host }}'
   vars:
     node_nm: "--name={{ node_name | default('') }}"
-    image_tag: "{{ docker_image_tag | default('mainnet') }}"
+    image_tag: "{{ docker_image_tag | default('latest') }}"
     container_name: "{{ docker_container_name | default('dock-node') }}"
     mount_at: "{{ mount_container_at | default('/docknode') }}" # Mount docker volume at
     base_path: "--base-path={{ node_base_path if node_base_path is defined else mount_at}}" # Base path for Substrate node

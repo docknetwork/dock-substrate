@@ -8,7 +8,7 @@ use sp_std::convert::TryInto;
 
 /// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
 /// byte array
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PublicKey {
     /// Public key for Sr25519 is 32 bytes
@@ -42,7 +42,7 @@ impl From<libsecp256k1::PublicKey> for PublicKey {
 }
 
 /// An abstraction for a signature.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum SigValue {
     /// Signature for Sr25519 is 64 bytes
@@ -197,11 +197,11 @@ impl SigValue {
 }
 
 // Weight for Sr25519 sig verification
-pub const SR25519_WEIGHT: Weight = 140_000_000;
+pub const SR25519_WEIGHT: Weight = Weight::from_ref_time(140_000_000);
 // Weight for Ed25519 sig verification
-pub const ED25519_WEIGHT: Weight = 152_000_000;
+pub const ED25519_WEIGHT: Weight = Weight::from_ref_time(152_000_000);
 // Weight for ecdsa using secp256k1 sig verification
-pub const SECP256K1_WEIGHT: Weight = 456_000_000;
+pub const SECP256K1_WEIGHT: Weight = Weight::from_ref_time(456_000_000);
 
 // XXX: Substrate UI can't parse them. Maybe later versions will fix it.
 /*
@@ -210,13 +210,13 @@ pub const Sr25519_PK_BYTE_SIZE: usize = 32;
 /// Size of a Ed25519 public key in bytes.
 pub const Ed25519_PK_BYTE_SIZE: usize = 32;
 
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 pub enum PublicKey {
     Sr25519([u8; 32]),
     Ed25519([u8; 32])
 }*/
 
-/*#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+/*#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 pub enum PublicKey {
     Sr25519(Bytes32),
     Ed25519(Bytes32)

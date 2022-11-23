@@ -13,7 +13,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::vec::Vec;
+use sp_std::prelude::*;
 use weights::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -38,7 +38,7 @@ pub trait Config: system::Config + did::Config {
     type StorageWeight: Get<Weight>;
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Attestation {
     #[codec(compact)]
@@ -46,8 +46,9 @@ pub struct Attestation {
     pub iri: Option<Iri>,
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(skip_type_params(T))]
 pub struct SetAttestationClaim<T: frame_system::Config> {
     pub attest: Attestation,
     pub nonce: T::BlockNumber,
@@ -106,7 +107,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::set_claim_, attests, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::set_claim_, attests, signature)
         }
     }
 }
@@ -135,6 +136,6 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::set_claim_sr25519,
             SigValue::Ed25519(_) => Self::set_claim_ed25519,
             SigValue::Secp256k1(_) => Self::set_claim_secp256k1,
-        })(attest.iri.as_ref().map_or(0, |v| v.len()) as u32)
+        }(attest.iri.as_ref().map_or(0, |v| v.len()) as u32))
     }
 }

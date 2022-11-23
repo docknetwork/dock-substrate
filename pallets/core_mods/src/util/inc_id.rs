@@ -5,6 +5,8 @@ use codec::{Decode, Encode};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct IncId(u32);
 
+crate::impl_wrapper_type_info! { IncId, u32 }
+
 impl Iterator for &'_ mut IncId {
     type Item = IncId;
 

@@ -28,9 +28,9 @@ mod tests;
 
 const DUMMY_SOURCE: H160 = H160::zero();
 const ZERO_VALUE: U256 = U256::zero();
-const GAS_LIMIT: u64 = u64::MAX;
+const GAS_LIMIT: u64 = u32::MAX as u64;
 
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ContractConfig {
     /// Address of the proxy contract
@@ -155,7 +155,7 @@ impl<T: Config> Module<T> {
     fn update_price_from_contract() -> Result<Weight, dispatch::DispatchError> {
         let (price, weight) = Self::get_price_from_contract()?;
         Price::put(price);
-        LastPriceUpdateAt::<T>::put(<system::Module<T>>::block_number());
+        LastPriceUpdateAt::<T>::put(<system::Pallet<T>>::block_number());
         Self::deposit_event(Event::PriceSet(price));
         Ok(weight + T::DbWeight::get().writes(2))
     }
@@ -260,6 +260,9 @@ impl<T: Config> Module<T> {
     ) -> Result<CallInfo, dispatch::DispatchError> {
         let evm_config = <T as pallet_evm::Config>::config();
         // As its a read call, the source can be any address and no gas price or nonce needs to be set.
+        let is_transactional = false;
+        let validate = true;
+
         <T as pallet_evm::Config>::Runner::call(
             DUMMY_SOURCE,
             contract_address,
@@ -268,9 +271,13 @@ impl<T: Config> Module<T> {
             GAS_LIMIT,
             None,
             None,
+            None,
+            Default::default(),
+            is_transactional,
+            validate,
             evm_config,
         )
-        .map_err(|err| err.into())
+        .map_err(|err| err.error.into())
     }
 
     /// Decode return value of contract call to price.
@@ -300,11 +307,13 @@ impl<T: Config> Module<T> {
 impl<T: Config> PriceProvider for Module<T> {
     /// Gets the price of Dock/USD from pallet's storage
     fn get_dock_usd_price() -> Option<(u32, u64)> {
-        Self::get_price_from_contract().map_or(None, |v| Some(v))
+        Self::get_price_from_contract()
+            .ok()
+            .map(|(value, weight)| (value, weight.ref_time()))
     }
 
     /// Gets the price of Dock/USD from EVM contract
     fn optimized_get_dock_usd_price() -> Option<(u32, u64)> {
-        Self::price().map(|p| (p, T::DbWeight::get().reads(1)))
+        Self::price().map(|p| (p, T::DbWeight::get().reads(1).ref_time()))
     }
 }

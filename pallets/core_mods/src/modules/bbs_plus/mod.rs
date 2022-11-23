@@ -13,6 +13,7 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use core::fmt::Debug;
+use sp_std::prelude::*;
 
 pub use actions::*;
 use frame_support::{
@@ -46,7 +47,7 @@ pub struct BBSPlusParamsOwner(pub Did);
 crate::impl_wrapper!(BBSPlusParamsOwner, Did, for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
 
 /// Signature params in G1 for BBS+ signatures
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BBSPlusParameters {
     /// The label (generating string) used to generate the params
@@ -56,7 +57,7 @@ pub struct BBSPlusParameters {
 }
 
 /// Public key in G2 for BBS+ signatures
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BBSPlusPublicKey {
     /// The public key should be for the same curve as the parameters but a public key might not have
@@ -127,11 +128,6 @@ decl_storage! {
 
         pub Version get(fn version): StorageVersion;
     }
-    add_extra_genesis {
-        build(|_| {
-            Version::put(StorageVersion::MultiKey);
-        })
-    }
 }
 
 decl_module! {
@@ -160,7 +156,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
         }
 
         /// Add a BBS+ public key. Only the DID controller can add key and it should use the nonce from the DID module.
@@ -174,7 +170,7 @@ decl_module! {
             ensure_signed(origin)?;
             // Only controller can add a key
 
-            <did::Module<T>>::try_exec_signed_action_from_controller(Self::add_public_key_, public_key, signature)
+            <did::Pallet<T>>::try_exec_signed_action_from_controller(Self::add_public_key_, public_key, signature)
         }
 
         #[weight = SubstrateWeight::<T>::remove_params(&remove, signature)]
@@ -185,7 +181,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
         }
 
         /// Remove BBS+ public key. Only the DID controller can remove key and it should use the nonce from the DID module.
@@ -198,7 +194,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            <did::Module<T>>::try_exec_signed_action_from_controller(Self::remove_public_key_, remove, signature)
+            <did::Pallet<T>>::try_exec_signed_action_from_controller(Self::remove_public_key_, remove, signature)
         }
     }
 }
@@ -212,10 +208,10 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_params_sr25519,
             SigValue::Ed25519(_) => Self::add_params_ed25519,
             SigValue::Secp256k1(_) => Self::add_params_secp256k1,
-        })(
+        }(
             add_params.params.bytes.len() as u32,
             add_params.params.label.as_ref().map_or(0, |v| v.len()) as u32,
-        )
+        ))
     }
 
     fn add_public(
@@ -226,7 +222,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_public_sr25519,
             SigValue::Ed25519(_) => Self::add_public_ed25519,
             SigValue::Secp256k1(_) => Self::add_public_secp256k1,
-        })(public_key.key.bytes.len() as u32)
+        }(public_key.key.bytes.len() as u32))
     }
 
     fn remove_params(
@@ -237,7 +233,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_params_sr25519,
             SigValue::Ed25519(_) => Self::remove_params_ed25519,
             SigValue::Secp256k1(_) => Self::remove_params_secp256k1,
-        })()
+        }())
     }
 
     fn remove_public(
@@ -248,6 +244,6 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_public_sr25519,
             SigValue::Ed25519(_) => Self::remove_public_ed25519,
             SigValue::Secp256k1(_) => Self::remove_public_secp256k1,
-        })()
+        }())
     }
 }

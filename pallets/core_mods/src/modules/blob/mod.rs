@@ -15,6 +15,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
+use sp_std::prelude::*;
 use weights::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -38,15 +39,16 @@ pub const ID_BYTE_SIZE: usize = 32;
 pub type BlobId = [u8; ID_BYTE_SIZE];
 
 /// When a new blob is being registered, the following object is sent.
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Blob {
     pub id: BlobId,
     pub blob: Vec<u8>,
 }
 
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(skip_type_params(T))]
 pub struct AddBlob<T: frame_system::Config> {
     pub blob: Blob,
     pub nonce: T::BlockNumber,
@@ -98,7 +100,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::new_, blob, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::new_, blob, signature)
         }
     }
 }
@@ -131,6 +133,6 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::new_sr25519,
             SigValue::Ed25519(_) => Self::new_ed25519,
             SigValue::Secp256k1(_) => Self::new_secp256k1,
-        })(blob.blob.len() as u32)
+        }(blob.blob.len() as u32))
     }
 }

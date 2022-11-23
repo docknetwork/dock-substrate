@@ -2,17 +2,17 @@ use super::*;
 use crate::deposit_indexed_event;
 
 impl<T: Config + Debug> Module<T> {
-    pub(super) fn new_registry_(AddRegistry { registry, id }: AddRegistry) -> DispatchResult {
+    pub(super) fn new_registry_(AddRegistry { new_registry, id }: AddRegistry) -> DispatchResult {
         // check
-        ensure!(registry.policy.valid(), RevErr::<T>::InvalidPolicy);
+        ensure!(new_registry.policy.valid(), RevErr::<T>::InvalidPolicy);
         ensure!(!Registries::contains_key(&id), RevErr::<T>::RegExists);
         ensure!(
-            T::MaxControllers::get() >= registry.policy.len(),
+            T::MaxControllers::get() >= new_registry.policy.len(),
             RevErr::<T>::TooManyControllers
         );
 
         // execute
-        Registries::insert(&id, registry);
+        Registries::insert(&id, new_registry);
 
         deposit_indexed_event!(RegistryAdded(id));
         Ok(())
@@ -62,7 +62,8 @@ impl<T: Config + Debug> Module<T> {
         ensure!(!registry.add_only, RevErr::<T>::AddOnly);
 
         // execute
-        Revocations::remove_prefix(&registry_id);
+        // TODO: limit and cursor
+        Revocations::clear_prefix(&registry_id, u32::MAX, None);
 
         deposit_indexed_event!(RegistryRemoved(registry_id));
         Ok(())
@@ -135,14 +136,14 @@ impl<T: Config + Debug> Module<T> {
                 let signer = sig.did;
 
                 // Check if nonce is valid and increase it
-                let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;
+                let mut did_detail = did::Pallet::<T>::onchain_did_details(&signer)?;
                 did_detail
                     .try_update(nonce)
                     .map_err(|_| RevErr::<T>::IncorrectNonce)?;
 
                 let action_with_nonce = WithNonce::new_with_nonce(action, nonce);
                 // Verify signature
-                let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(
+                let valid = did::Pallet::<T>::verify_sig_from_auth_or_control_key(
                     &action_with_nonce,
                     &sig,
                 )?;
@@ -158,7 +159,7 @@ impl<T: Config + Debug> Module<T> {
 
             // The nonce of each DID must be updated
             for (signer, did_details) in new_did_details {
-                did::Module::<T>::insert_did_details(signer, did_details);
+                did::Pallet::<T>::insert_did_details(signer, did_details);
             }
 
             Ok(res)

@@ -3,6 +3,7 @@
 #![warn(missing_docs)]
 #![warn(unused_extern_crates)]
 
+mod bench;
 mod chain_spec;
 mod cli;
 mod command;
