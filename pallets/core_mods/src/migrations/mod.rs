@@ -3,34 +3,36 @@
 pub mod multi_key {
     use crate::{
         did::{keys::*, *},
-        keys_and_sigs::PublicKey, util::*,
+        keys_and_sigs::PublicKey,
+        util::*,
     };
     use core::{convert::identity, fmt::Debug};
-    use frame_support::{traits::Get, weights::Weight, *};
+    use frame_support::{log, traits::Get, weights::Weight, *};
     use sp_runtime::DispatchError;
     use sp_std::{convert::TryInto, prelude::*};
 
     pub fn migrate_unchecked_keys<T: Config + Debug>() -> Weight {
-        let mut keys_read = 0;
-        let mut keys_written = 0;
-        let mut dids_overriden = 0;
+        let mut keys_overridden = 0;
+        let mut dids_read = 0;
+        let mut dids_written = 0;
         let mut did_controllers_removed = 0;
 
         DidKeys::translate(|did, _: IncId, key: (PublicKey, u16)| {
-            keys_read += 1;
-            let key = UncheckedDidKey::new(key.0, VerRelType::try_from(key.1 & 0b1111).unwrap());
+            keys_overridden += 1;
+            let key = UncheckedDidKey::new(key.0, VerRelType::try_from(key.1 & 0b1111).ok()?);
+
             if let Ok(did_key) = key.clone().try_into() {
                 Some(did_key)
             } else {
-                keys_written += 1;
-
                 if key.ver_rels.intersects(VerRelType::CAPABILITY_INVOCATION) {
                     let _ = Dids::<T>::try_mutate(did, |details| {
+                        dids_read += 1;
+
                         WithNonce::try_update_opt_without_increasing_nonce_with(
                             details,
                             |did_details| {
                                 if let Some(mut did_details) = did_details.as_mut() {
-                                    dids_overriden += 1;
+                                    dids_written += 1;
 
                                     did_details.active_controller_keys -= 1;
                                     if did_details.active_controller_keys == 0 {
@@ -54,9 +56,9 @@ pub mod multi_key {
             }
         });
 
-        let mut service_endpoints_overriden = 0;
+        let mut service_endpoints_overridden = 0;
         DidServiceEndpoints::translate_values(|(types, origins): (u16, Vec<WrappedBytes>)| {
-            service_endpoints_overriden += 1;
+            service_endpoints_overridden += 1;
 
             Some(ServiceEndpoint {
                 types: TryFrom::try_from(types & 1).ok()?,
@@ -64,9 +66,11 @@ pub mod multi_key {
             })
         });
 
+        log::info!("Keys overridden: {}, dids read/written: {}/{}, service endpoints overridden: {}, did controllers removed: {}", keys_overridden, dids_read, dids_written, service_endpoints_overridden, did_controllers_removed);
+
         T::DbWeight::get().reads_writes(
-            keys_read + dids_overriden + service_endpoints_overriden,
-            keys_written + dids_overriden + service_endpoints_overriden + did_controllers_removed,
+            keys_overridden + dids_read + service_endpoints_overridden,
+            keys_overridden + dids_written + service_endpoints_overridden + did_controllers_removed,
         )
     }
 }

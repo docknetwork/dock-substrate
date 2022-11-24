@@ -236,11 +236,6 @@ package = "pallet-transaction-payment"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
-#[dependencies.pallet-transaction-payment-rpc]
-#default-features = false
-#git = "https://github.com/paritytech/substrate.git"
-#branch = "polkadot-v0.9.29"
-
 [build-dependencies.substrate-wasm-builder]
 package = "substrate-wasm-builder"
 git = "https://github.com/paritytech/substrate.git"
@@ -263,6 +258,11 @@ git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-utility]
+default-features = false
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.pallet-preimage]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
@@ -343,16 +343,6 @@ branch = "polkadot-v0.9.29"
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
-
-#[dependencies.sc-executor]
-# default-features = false
-#git = "https://github.com/paritytech/substrate.git"
-#branch = "polkadot-v0.9.29"
-
-#[dependencies.sp-keyring]
-#default-features = false
-#git = "https://github.com/paritytech/substrate.git"
-#branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-tips]
 default-features = false
@@ -551,61 +541,48 @@ std = [
     "sp-consensus-babe/std",
     "sp-core/std",
     "sp-inherents/std",
-
   	"evm/std",
     "evm/with-serde",
     "evm-runtime/std",
     "evm-gasometer/std",
     "rlp/std",
-
     "log/std",
 	  "hex/std",
     "sha3/std",  
-  
+    "pallet-preimage/std",
     "pallet-assets/std",
     "sp-runtime-interface/std",
     "sp-trie/std",
     "sp-io/std",
     "sp-offchain/std",
     "sp-runtime/std",
-    # "sp-keyring/std",
     "sp-session/std",
     "sp-std/std",
     "sp-tasks/std",
-    #"sc-executor/std",
     "pallet-transaction-payment-rpc-runtime-api/std",
     "frame-election-provider-support/std",
     "sp-transaction-pool/std",
     "sp-transaction-storage-proof/std",
     "sp-version/std",
     "fp-storage/std",
-    # "fp-consensus/std",
-    # "eth_bridge/std",
     "sp-npos-elections/std",
     "sp-finality-grandpa/std",
     "sp-state-machine/std",
     "sp-arithmetic/std",
     "sp-staking/std",
-  
-  
-  
     "frame-system/std",
     "frame-system-rpc-runtime-api/std",
     "timestamp/std",
     "transaction-payment/std",
     "scale-info/std",
-
     "hex/std",
-
     "pallet-session/std",
     "pallet-scheduler/std",
     "sp-authorship/std",
     "pallet-sudo/std",
     "sp-consensus-slots/std",
     "pallet-authorship/std",
-  
     "pallet-randomness-collective-flip/std",
-  
     "ethereum/std",
     "ethereum-types/std",
     "serde/std",

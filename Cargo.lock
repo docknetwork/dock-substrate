@@ -1716,6 +1716,7 @@ dependencies = [
  "pallet-membership",
  "pallet-mmr",
  "pallet-offences",
+ "pallet-preimage",
  "pallet-randomness-collective-flip",
  "pallet-scheduler",
  "pallet-session",
@@ -5406,6 +5407,22 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
+ "sp-std",
+]
+
+[[package]]
+name = "pallet-preimage"
+version = "4.0.0-dev"
+source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
  "sp-std",
 ]
 
@@ -9514,7 +9531,7 @@ dependencies = [
  "chrono",
  "lazy_static",
  "matchers",
- "parking_lot 0.11.1",
+ "parking_lot 0.10.2",
  "regex",
  "serde",
  "serde_json",

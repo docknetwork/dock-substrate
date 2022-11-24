@@ -172,13 +172,18 @@ decl_storage! {
         pub(crate) Registries get(fn get_revocation_registry):
             map hasher(blake2_128_concat) dock::revoke::RegistryId => Option<Registry>;
 
+        /// The single global revocation set
         // double_map requires and explicit hasher specification for the second key. blake2_256 is
         // the default.
-        /// The single global revocation set
         Revocations get(fn get_revocation_status):
             double_map hasher(blake2_128_concat) dock::revoke::RegistryId, hasher(opaque_blake2_256) dock::revoke::RevokeId => Option<()>;
 
         pub Version get(fn version): StorageVersion;
+    }
+    add_extra_genesis {
+        build(|_| {
+            Version::put(StorageVersion::MultiKey);
+        })
     }
 }
 

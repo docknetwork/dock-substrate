@@ -106,6 +106,8 @@ impl<T: Config + Debug> Module<T> {
         DidControllers::clear_prefix(did, u32::MAX, None);
         // TODO: limit and cursor
         DidServiceEndpoints::clear_prefix(did, u32::MAX, None);
+        // TODO: limit and cursor
+        crate::bbs_plus::BbsPlusKeys::clear_prefix(did, u32::MAX, None);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())

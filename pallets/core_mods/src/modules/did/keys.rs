@@ -97,16 +97,21 @@ impl DidKey {
         UncheckedDidKey::new(public_key, ver_rels).try_into()
     }
 
-    /// Returns underlying public key.
-    pub fn public_key(&self) -> &PublicKey {
-        &self.public_key
-    }
-
     /// Constructs new `DidKey` using given public key and all available verification relationships for this key.
     pub fn new_with_all_relationships(
         public_key: impl Into<PublicKey>,
     ) -> Result<Self, DidKeyError> {
         Self::new(public_key, VerRelType::NONE)
+    }
+
+    /// Returns underlying public key.
+    pub fn public_key(&self) -> &PublicKey {
+        &self.public_key
+    }
+
+    /// Returns underlying verification relationships.
+    pub fn ver_rels(&self) -> VerRelType {
+        self.ver_rels
     }
 
     /// Checks if this key is capable of signing.

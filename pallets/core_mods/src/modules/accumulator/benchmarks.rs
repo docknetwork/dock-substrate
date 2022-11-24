@@ -23,7 +23,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
             Default::default(),
         ).unwrap();
 
@@ -53,7 +53,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
             Default::default(),
         ).unwrap();
 
@@ -94,7 +94,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
             Default::default(),
         ).unwrap();
 
@@ -138,7 +138,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
             Default::default(),
         ).unwrap();
 
@@ -197,7 +197,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
             Default::default(),
         ).unwrap();
 
@@ -264,7 +264,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
             Default::default(),
         ).unwrap();
 
@@ -337,7 +337,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
             Default::default(),
         ).unwrap();
 

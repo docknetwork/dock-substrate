@@ -1003,14 +1003,12 @@ mod mmr {
     use super::Runtime;
     pub use pallet_mmr::primitives::*;
 
-    // pub type Leaf = <<Runtime as pallet_mmr::Config>::LeafData as LeafDataProvider>::LeafData;
     pub type Hash = <Runtime as pallet_mmr::Config>::Hash;
-    // pub type Hashing = <Runtime as pallet_mmr::Config>::Hashing;
 }
 
 type MmrHash = <Keccak256 as sp_runtime::traits::Hash>::Output;
 
-/// Configure Merkle Mountain Range pallet.
+/// Dummy Merkle Mountain Range pallet configuration.
 impl pallet_mmr::Config for Runtime {
     const INDEXING_PREFIX: &'static [u8] = b"mmr";
 
@@ -1166,8 +1164,7 @@ parameter_types! {
 
 impl pallet_scheduler::Config for Runtime {
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
-    // TODO
-    type PreimageProvider = ();
+    type PreimageProvider = Preimage;
     type NoPreimagePostponement = NoPreimagePostponement;
 
     type Event = Event;
@@ -1178,6 +1175,21 @@ impl pallet_scheduler::Config for Runtime {
     type ScheduleOrigin = EnsureRoot<AccountId>;
     type MaxScheduledPerBlock = MaxScheduledPerBlock;
     type WeightInfo = pallet_scheduler::weights::SubstrateWeight<Runtime>;
+}
+
+parameter_types! {
+    pub const PreimageMaxSize: u32 = 4096 * 1024;
+    pub const PreimageBaseDeposit: Balance = deposit(2, 64);
+}
+
+impl pallet_preimage::Config for Runtime {
+    type WeightInfo = ();
+    type Event = Event;
+    type Currency = Balances;
+    type ManagerOrigin = EnsureRoot<AccountId>;
+    type MaxSize = PreimageMaxSize;
+    type BaseDeposit = PreimageBaseDeposit;
+    type ByteDeposit = PreimageByteDeposit;
 }
 
 parameter_types! {
@@ -1665,6 +1677,7 @@ construct_runtime!(
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 39,
         Accumulator: accumulator::{Pallet, Call, Storage, Event} = 40,
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
+        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 42,
     }
 );
 
@@ -2253,7 +2266,7 @@ impl_runtime_apis! {
             use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
-            use frame_system_benchmarking::Pallet as SystemBench;
+            // use frame_system_benchmarking::Pallet as SystemBench;
 
             let mut list = Vec::<BenchmarkList>::new();
 
@@ -2335,7 +2348,7 @@ impl_runtime_apis! {
             // we need these two lines below.
             //use pallet_session_benchmarking::Module as SessionBench;
             //use pallet_offences_benchmarking::Module as OffencesBench;
-            use frame_system_benchmarking::Pallet as SystemBench;
+            // use frame_system_benchmarking::Pallet as SystemBench;
 
             //impl pallet_session_benchmarking::Config for Runtime {}
             //impl pallet_offences_benchmarking::Config for Runtime {}
