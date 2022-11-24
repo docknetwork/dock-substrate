@@ -3,13 +3,10 @@
 pub mod multi_key {
     use crate::{
         did::{keys::*, *},
-        keys_and_sigs::PublicKey,
-        util::*,
-        StorageVersion,
+        keys_and_sigs::PublicKey, util::*,
     };
-    use codec::{Decode, Encode};
     use core::{convert::identity, fmt::Debug};
-    use frame_support::{log, traits::Get, weights::Weight, *};
+    use frame_support::{traits::Get, weights::Weight, *};
     use sp_runtime::DispatchError;
     use sp_std::{convert::TryInto, prelude::*};
 
