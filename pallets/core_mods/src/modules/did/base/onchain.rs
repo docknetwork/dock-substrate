@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::{util::WrappedActionWithNonce, ToStateChange};
+use crate::{bbs_plus::BbsPlusKeys, util::WrappedActionWithNonce, ToStateChange};
 use scale_info::TypeInfo;
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
@@ -107,7 +107,7 @@ impl<T: Config + Debug> Module<T> {
         // TODO: limit and cursor
         DidServiceEndpoints::clear_prefix(did, u32::MAX, None);
         // TODO: limit and cursor
-        crate::bbs_plus::BbsPlusKeys::clear_prefix(did, u32::MAX, None);
+        BbsPlusKeys::clear_prefix(did, u32::MAX, None);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())

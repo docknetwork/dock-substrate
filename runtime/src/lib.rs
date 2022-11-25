@@ -657,8 +657,8 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
     }
 }
 
-frame_support::parameter_types! {
-    pub MaxElectingVoters: u32 = 10_000;
+parameter_types! {
+    pub MaxElectingVoters: u32 = 2_000;
     pub DefaultElasticity: Permill = Permill::from_parts(125_000);
 }
 
@@ -680,14 +680,6 @@ frame_election_provider_support::generate_solution_type!(
     >(16)
 );
 
-parameter_types! {
-    pub const AssetDeposit: u64 = 1;
-    pub const ApprovalDeposit: u64 = 1;
-    pub const StringLimit: u32 = 50;
-    pub const MetadataDepositBase: u64 = 1;
-    pub const MetadataDepositPerByte: u64 = 1;
-}
-
 type EnsureRootOrHalfCouncil = EitherOfDiverse<
     EnsureRoot<AccountId>,
     pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
@@ -696,17 +688,9 @@ type EnsureRootOrHalfCouncil = EitherOfDiverse<
 parameter_types! {
     pub const SignedMaxSubmissions: u32 = 10;
     pub const SignedRewardBase: Balance = 1 * DOCK;
-    pub const SignedDepositBase: Balance = 1 * DOCK;
-    pub const SignedDepositByte: Balance = DOCK / 100;
+    pub const SignedDepositBase: Balance = 500 * DOCK;
+    pub const SignedDepositByte: Balance = DOCK / 1000;
     pub OffchainRepeat: BlockNumber = 5;
-
-    // Solution can occupy 90% of normal block size
-    pub MinerMaxLength: u32 = Perbill::from_rational(9u32, 10) *
-        *RuntimeBlockLength::get()
-        .max
-        .get(DispatchClass::Normal);
-
-    pub const VoterSnapshotPerBlock: u32 = 10_000;
 
     pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(5u32, 10_000);
     pub const MaxElectableTargets: u16 = u16::MAX;
@@ -720,10 +704,10 @@ impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfi
     const VOTERS: [u32; 2] = [1000, 2000];
     const TARGETS: [u32; 2] = [500, 1000];
     const ACTIVE_VOTERS: [u32; 2] = [500, 800];
-    const DESIRED_TARGETS: [u32; 2] = [200, 400];
+    const DESIRED_TARGETS: [u32; 2] = [25, 100];
     const SNAPSHOT_MAXIMUM_VOTERS: u32 = 1000;
     const MINER_MAXIMUM_VOTERS: u32 = 1000;
-    const MAXIMUM_TARGETS: u32 = 300;
+    const MAXIMUM_TARGETS: u32 = 75;
 }
 
 impl pallet_election_provider_multi_phase::Config for Runtime {
@@ -1722,7 +1706,7 @@ type Executive = frame_executive::Executive<
     (),
 >;
 
-/// The address format for describing accounts. TODO!
+/// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
 type Header = generic::Header<BlockNumber, BlakeTwo256>;
