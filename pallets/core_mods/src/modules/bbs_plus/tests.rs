@@ -918,11 +918,11 @@ fn add_remove_public_key_by_controller() {
 
         // Make `did` controller of `did`
         let add_controllers = AddControllers {
-            did: did_1.clone(),
+            did: did_1,
             controllers: vec![did].into_iter().map(Controller).collect(),
             nonce: next_nonce_1,
         };
-        let sig = did_sig::<_, _, _>(&add_controllers, &did_1_kp, Controller(did_1.clone()), 1);
+        let sig = did_sig::<_, _, _>(&add_controllers, &did_1_kp, Controller(did_1), 1);
         DIDModule::add_controllers(Origin::signed(1), add_controllers, sig).unwrap();
         assert!(DIDModule::is_controller(&did_1, &Controller(did.clone())));
         check_did_detail(&did_1, 1, 1, 2, next_nonce_1);
@@ -936,7 +936,7 @@ fn add_remove_public_key_by_controller() {
         };
         let ak = AddBBSPlusPublicKey {
             key: key.clone(),
-            did: did_1.clone(),
+            did: did_1,
             nonce: next_nonce,
         };
         let sig = sign_add_key(&did_kp, &ak, did.clone(), 1);
@@ -954,10 +954,10 @@ fn add_remove_public_key_by_controller() {
         assert_eq!(BbsPlusKeys::get(&did, IncId::from(2u8)), None);
         assert!(bbs_plus_events().contains(&super::Event::KeyAdded(did_1, 2u8.into())));
 
-        let rf = (did_1.clone(), 2u8.into());
+        let rf = (did_1, 2u8.into());
         let rk = RemoveBBSPlusPublicKey {
             key_ref: rf,
-            did: did_1.clone(),
+            did: did_1,
             nonce: next_nonce,
         };
         let sig = sign_remove_key(&did_kp, &rk, did.clone(), 1);

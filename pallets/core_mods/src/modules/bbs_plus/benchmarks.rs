@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    did::{Did, DidKey, DidSignature},
+    did::{Did, DidKey, DidSignature, UncheckedDidKey},
     util::IncId,
     ToStateChange,
 };
@@ -26,7 +26,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -48,7 +48,6 @@ crate::bench_with_all_pairs! {
     }
 
     remove_params_sr25519 for sr25519, remove_params_ed25519 for ed25519, remove_params_secp256k1 for secp256k1 {
-
         let pair as Pair;
         let caller = whitelisted_caller();
         let did = Did([1; Did::BYTE_SIZE]);
@@ -56,7 +55,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -96,7 +95,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -133,7 +132,6 @@ crate::bench_with_all_pairs! {
     }
 
     remove_public_sr25519 for sr25519, remove_public_ed25519 for ed25519, remove_public_secp256k1 for secp256k1 {
-
         let pair as Pair;
         let caller = whitelisted_caller();
         let did = Did([1; Did::BYTE_SIZE]);
@@ -141,7 +139,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 

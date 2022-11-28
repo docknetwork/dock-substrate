@@ -1,5 +1,5 @@
 use super::*;
-use crate::did::{Did, DidKey};
+use crate::did::{Did, UncheckedDidKey};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_core::U256;
 use sp_std::{iter::once, prelude::*};
@@ -26,7 +26,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -63,7 +63,7 @@ crate::bench_with_all_pairs! {
 
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -119,7 +119,7 @@ crate::bench_with_all_pairs! {
         let revoke_ids: BTreeSet<_> = (0..100).map(|i| U256::from(i).into()).collect();
         crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public).unwrap().into()],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 

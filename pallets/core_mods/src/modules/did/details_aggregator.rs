@@ -1,5 +1,8 @@
 use super::*;
-use crate::attest::{self, Attestation, Attester};
+use crate::{
+    attest::{self, Attestation, Attester},
+    impl_wrapper_type_info,
+};
 
 /// Aggregated details for the given DID.
 #[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
@@ -97,7 +100,7 @@ bitflags::bitflags! {
 }
 
 impl_bits_conversion! { AggregatedDidDetailsRequestParams, u8 }
-crate::impl_wrapper_type_info! { AggregatedDidDetailsRequestParams, u8 }
+impl_wrapper_type_info! { AggregatedDidDetailsRequestParams, u8 }
 
 impl<T: Config + attest::Config + Debug> Module<T> {
     /// Request aggregated DID details containing specified information.

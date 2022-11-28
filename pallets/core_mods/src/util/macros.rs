@@ -157,11 +157,7 @@ macro_rules! impl_wrapper {
             }
         }
 
-        impl From<$type> for $wrapper {
-            fn from(value: $type) -> $wrapper {
-                $wrapper(value)
-            }
-        }
+        $crate::impl_wrapper_from_type_conversion! { $wrapper: $type }
 
         impl From<$wrapper> for $type {
             fn from(wrapper: $wrapper) -> $type {
@@ -185,6 +181,19 @@ macro_rules! impl_wrapper {
 
         $crate::impl_wrapper_type_info! { $wrapper, $type }
     };
+}
+
+#[macro_export]
+macro_rules! impl_wrapper_from_type_conversion {
+    ($wrapper: ident: $($type: ty),+) => {
+        $(
+            impl From<$type> for $wrapper {
+                fn from(value: $type) -> $wrapper {
+                    $wrapper(value.into())
+                }
+            }
+        )+
+    }
 }
 
 #[macro_export]
@@ -250,31 +259,6 @@ macro_rules! impl_encode_decode_wrapper_tests {
             }
         }
     };
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-#[macro_export]
-macro_rules! with_pair {
-    (let $pair: ident as Pair with idx $idx: expr; $($body: tt)+) => {
-        $crate::with_pair!(let $pair as Pair with idx $idx, seed &[1; 32]; $($body)+ )
-    };
-    (let $pair: ident as Pair with idx $idx: expr, seed $seed: expr; $($body: tt)+) => {
-        match $idx {
-            0 => {
-                let $pair = $crate::def_pair!(sr25519, $seed);
-                $($body)+
-            },
-            1 => {
-                let $pair = $crate::def_pair!(ed25519, $seed);
-                $($body)+
-            },
-            2 => {
-                let $pair = $crate::def_pair!(secp256k1, $seed);
-                $($body)+
-            }
-            _ => unimplemented!()
-        }
-    }
 }
 
 #[cfg(feature = "runtime-benchmarks")]

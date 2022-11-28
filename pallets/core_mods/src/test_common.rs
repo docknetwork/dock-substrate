@@ -356,7 +356,6 @@ pub fn create_did(did: did::Did) -> sr25519::Pair {
             DidKey::new_with_all_relationships(keys_and_sigs::PublicKey::Sr25519(util::Bytes32 {
                 value: kp.public().0,
             }))
-            .unwrap()
             .into(),
         ],
         vec![].into_iter().collect(),

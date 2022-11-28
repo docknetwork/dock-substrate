@@ -112,7 +112,7 @@ fn did_from_seed(did: &[u8; 32], seed: &[u8; 32]) -> (Did, DidKey) {
     let pk = sr25519::Pair::from_seed(seed).public().0;
     (
         Did(*did),
-        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)).unwrap(),
+        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
     )
 }
 
@@ -367,7 +367,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                 .map(|(did, pk)| {
                     (
                         Did(*did),
-                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)).unwrap(),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
                 .collect(),
@@ -529,7 +529,7 @@ pub fn pos_devnet_config() -> ChainSpec {
                 .map(|(did, pk)| {
                     (
                         Did(*did),
-                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)).unwrap(),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
                 .collect(),
@@ -731,7 +731,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                 .map(|(did, pk)| {
                     (
                         Did(*did),
-                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)).unwrap(),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
                     )
                 })
                 .collect(),
@@ -934,7 +934,7 @@ mod test {
             did_from_seed(&did, &sk),
             (
                 Did(did),
-                DidKey::new_with_all_relationships(PublicKey::sr25519(pk)).unwrap(),
+                DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
             )
         );
     }

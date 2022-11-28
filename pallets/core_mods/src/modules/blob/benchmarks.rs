@@ -1,5 +1,5 @@
 use super::*;
-use crate::{did::DidKey, ToStateChange};
+use crate::{did::UncheckedDidKey, ToStateChange};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_std::prelude::*;
 use system::RawOrigin;
@@ -18,7 +18,7 @@ crate::bench_with_all_pairs! {
         let public = pair.public();
         let did = Did([1; Did::BYTE_SIZE]);
 
-        did::Pallet::<T>::new_onchain_(did, vec![DidKey::new_with_all_relationships(public).unwrap().into()], Default::default()).unwrap();
+        did::Pallet::<T>::new_onchain_(did, vec![UncheckedDidKey::new_with_all_relationships(public)], Default::default()).unwrap();
         let id = Default::default();
 
         let blob = Blob {

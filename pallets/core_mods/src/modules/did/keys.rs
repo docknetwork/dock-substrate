@@ -94,14 +94,44 @@ impl DidKey {
         public_key: impl Into<PublicKey>,
         ver_rels: VerRelType,
     ) -> Result<Self, DidKeyError> {
-        UncheckedDidKey::new(public_key, ver_rels).try_into()
+        if ver_rels.is_empty() {
+            Ok(Self::new_with_all_relationships(public_key))
+        } else {
+            let public_key = public_key.into();
+            if public_key.can_sign() {
+                if ver_rels.intersects(VerRelType::KEY_AGREEMENT) {
+                    return Err(DidKeyError::SigningKeyCantBeUsedForKeyAgreement);
+                }
+            } else if ver_rels != VerRelType::KEY_AGREEMENT {
+                return Err(DidKeyError::KeyAgreementCantBeUsedForSigning);
+            }
+
+            Ok(Self {
+                public_key,
+                ver_rels,
+            })
+        }
     }
 
-    /// Constructs new `DidKey` using given public key and all available verification relationships for this key.
-    pub fn new_with_all_relationships(
-        public_key: impl Into<PublicKey>,
-    ) -> Result<Self, DidKeyError> {
-        Self::new(public_key, VerRelType::NONE)
+    /// Constructs new `DidKey` using given public key and all available verification relationships
+    /// for this key.
+    pub fn new_with_all_relationships(public_key: impl Into<PublicKey>) -> Self {
+        let public_key = public_key.into();
+        let ver_rels = public_key
+            .can_sign()
+            .then_some(
+                // If the key can be used for signing, mark it with all related relationships.
+                VerRelType::ALL_FOR_SIGNING,
+            )
+            .unwrap_or(
+                // The non-signing public key can be used only for key agreement currently.
+                VerRelType::KEY_AGREEMENT,
+            );
+
+        Self {
+            public_key,
+            ver_rels,
+        }
     }
 
     /// Returns underlying public key.
@@ -150,6 +180,12 @@ impl UncheckedDidKey {
             ver_rels,
         }
     }
+
+    /// Constructs new `UncheckedDidKey` using given public key and all available verification relationships
+    /// for this key.
+    pub fn new_with_all_relationships(public_key: impl Into<PublicKey>) -> Self {
+        DidKey::new_with_all_relationships(public_key).into()
+    }
 }
 
 impl TryFrom<UncheckedDidKey> for DidKey {
@@ -161,35 +197,7 @@ impl TryFrom<UncheckedDidKey> for DidKey {
             ver_rels,
         }: UncheckedDidKey,
     ) -> Result<Self, Self::Error> {
-        let ver_rels = ver_rels
-            .is_empty()
-            .then(|| {
-                public_key
-                    .can_sign()
-                    .then_some(
-                        // We might add more relationships in future but these 3 are all we care about now.
-                        VerRelType::ALL_FOR_SIGNING,
-                    )
-                    .unwrap_or(
-                        // This is true for the current key type, X25519, used for key agreement but might
-                        // change in future.
-                        VerRelType::KEY_AGREEMENT,
-                    )
-            })
-            .unwrap_or(ver_rels);
-
-        if public_key.can_sign() {
-            if ver_rels.intersects(VerRelType::KEY_AGREEMENT) {
-                return Err(DidKeyError::SigningKeyCantBeUsedForKeyAgreement);
-            }
-        } else if ver_rels != VerRelType::KEY_AGREEMENT {
-            return Err(DidKeyError::KeyAgreementCantBeUsedForSigning);
-        }
-
-        Ok(Self {
-            public_key,
-            ver_rels,
-        })
+        DidKey::new(public_key, ver_rels)
     }
 }
 

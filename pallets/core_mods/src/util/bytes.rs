@@ -95,6 +95,3 @@ macro_rules! struct_over_byte_array {
 struct_over_byte_array!(Bytes33, 33);
 struct_over_byte_array!(Bytes64, 64);
 struct_over_byte_array!(Bytes65, 65);
-
-/*#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
-pub struct Bytes32(pub [u8;32]);*/

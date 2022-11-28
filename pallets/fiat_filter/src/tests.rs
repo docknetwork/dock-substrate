@@ -25,7 +25,7 @@ mod tests_did_calls {
         ext().execute_with(|| {
             let d: did::Did = rand::random();
             let kp = gen_kp();
-            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(kp.public().0)).unwrap();
+            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(kp.public().0));
 
             let call = Call::DIDMod(did::Call::<TestRt>::new_onchain(d.clone(), vec![key], BTreeSet::new()));
             let expected_fees = PRICE_ONCHAIN_DID_CREATE / TestPriceProvider::get().unwrap();
@@ -38,7 +38,7 @@ mod tests_did_calls {
             let did_alice = [1; DID_BYTE_SIZE];
             let (pair_1, _, _) = sr25519::Pair::generate_with_phrase(None);
             let pk_1 = pair_1.public().0;
-            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(pk_1)).unwrap();
+            let key = DidKey::new_with_all_relationships(PublicKey::sr25519(pk_1));
 
             // Add a DID
             let new_res = DidMod::new_onchain(Origin::signed(ALICE), did_alice.clone(), vec![key], BTreeSet::new());
