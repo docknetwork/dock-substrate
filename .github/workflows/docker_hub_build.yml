@@ -24,5 +24,5 @@ jobs:
           context: .
           file: ./Dockerfile
           push: false
-          build-args: features='--features testnet'
+          build-args: features=--features=testnet
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:testnet
