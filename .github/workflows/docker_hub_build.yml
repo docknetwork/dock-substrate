@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - ci/DCKB_542_DockerHub
+    tags:
+      - mainnet
+      - testnet
+      - fastblock
+      - ci-test
 
 jobs:
  build-testnet-image:
@@ -18,11 +23,16 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          context: .
-          file: ./Dockerfile
-          push: true
-          build-args: features=--features=testnet
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:testnet
+      - name: GitHub Tag Name example
+        run: |
+         echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
+         echo "Tag name from github.ref_name: ${{  github.ref_name }}"
+
+#      - name: Build and push
+#        uses: docker/build-push-action@v3
+#        with:
+#          context: .
+#          file: ./Dockerfile
+#          push: true
+#          build-args: features=--features=testnet
+#          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:testnet
