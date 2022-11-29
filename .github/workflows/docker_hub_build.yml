@@ -26,7 +26,11 @@ jobs:
       - name: GitHub Tag Name example
         run: |
          echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
-         echo "Tag name from github.ref_name: ${{  github.ref_name }}"
+
+      - name: Build Production image
+        run: |
+         echo "Building production image: ${{  github.ref_name }}"
+        if: ${{ github.ref_name }} = "ci-test"
 
 #      - name: Build and push
 #        uses: docker/build-push-action@v3
