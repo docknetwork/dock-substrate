@@ -1,4 +1,4 @@
-name: Docker Build
+name: Docker Container Build
 
 on:
   push:
@@ -11,7 +11,7 @@ on:
       - ci-test
 
 jobs:
- build-testnet-image:
+ build-docker-image:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -23,25 +23,24 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: GitHub Tag Name example
-        run: |
-         echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
-
       - name: Build Production image
-        if: github.ref_name == 'ci-test'
-        run: |
-         echo "Building production image: ${{  github.ref_name }}"
+        if: github.ref_name == 'mainnet' || github.ref_name == 'testnet' || github.ref_name == 'ci-test'
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args: features=--features=${{ github.ref_name }}
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:${{ github.ref_name}}
 
       - name: Build Test image
-        if: github.ref_name != 'ci-test'
-        run: |
-         echo "Building test image: ${{  github.ref_name }}"
-
-#      - name: Build and push
-#        uses: docker/build-push-action@v3
-#        with:
-#          context: .
-#          file: ./Dockerfile
-#          push: true
-#          build-args: features=--features=testnet
-#          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:testnet
+        if: github.ref_name == 'fastblock' || github.ref_name != 'ci-test'
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          build-args:
+            - features=--features=fastblock
+            - release=--release
+          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:${{ github.ref_name}}
