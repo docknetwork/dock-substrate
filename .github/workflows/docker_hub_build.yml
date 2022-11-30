@@ -28,12 +28,12 @@ jobs:
          echo "Tag name from GITHUB_REF_NAME: $GITHUB_REF_NAME"
 
       - name: Build Production image
-        if: github.ref_name == "ci-test"
+        if: github.ref_name == 'ci-test'
         run: |
          echo "Building production image: ${{  github.ref_name }}"
 
       - name: Build Test image
-        if: github.ref_name != "ci-test"
+        if: github.ref_name != 'ci-test'
         run: |
          echo "Building test image: ${{  github.ref_name }}"
 
