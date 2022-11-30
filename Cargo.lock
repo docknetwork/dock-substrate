@@ -2125,7 +2125,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "fp-storage",
  "kvdb-rocksdb",
@@ -2141,7 +2141,7 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "fc-db",
  "fp-consensus",
@@ -2158,7 +2158,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2200,7 +2200,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2368,7 +2368,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -2380,7 +2380,7 @@ dependencies = [
 [[package]]
 name = "fp-dynamic-fee"
 version = "1.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "async-trait",
  "sp-core",
@@ -2390,7 +2390,7 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2404,7 +2404,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "evm",
  "frame-support",
@@ -2417,7 +2417,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2434,7 +2434,7 @@ dependencies = [
 [[package]]
 name = "fp-self-contained"
 version = "1.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "ethereum",
  "frame-support",
@@ -2448,7 +2448,7 @@ dependencies = [
 [[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -4980,7 +4980,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -5084,7 +5084,7 @@ dependencies = [
 [[package]]
 name = "pallet-dynamic-fee"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "async-trait",
  "fp-dynamic-fee",
@@ -5143,7 +5143,7 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -5170,7 +5170,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "evm",
  "fp-evm",
@@ -5194,7 +5194,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-bn128"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "fp-evm",
  "sp-core",
@@ -5204,7 +5204,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-dispatch"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -5214,7 +5214,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-ed25519"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "ed25519-dalek",
  "fp-evm",
@@ -5223,7 +5223,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "fp-evm",
  "num",
@@ -5232,7 +5232,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "fp-evm",
  "tiny-keccak 2.0.2",
@@ -5241,7 +5241,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "fp-evm",
  "ripemd",
@@ -5251,7 +5251,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-storage-reader"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "bytes",
  "evm",
@@ -5275,7 +5275,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-test-vector-support"
 version = "1.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=polkadot-v0.9.29#60e1894e859fd70c77505ba5798c6e4de8624fe9"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#37467fca12ddffad1c706855ad05b0089fe25c7b"
 dependencies = [
  "evm",
  "fp-evm",
@@ -9531,7 +9531,7 @@ dependencies = [
  "chrono",
  "lazy_static",
  "matchers",
- "parking_lot 0.10.2",
+ "parking_lot 0.11.1",
  "regex",
  "serde",
  "serde_json",

@@ -557,7 +557,7 @@ pub fn pos_devnet_config() -> ChainSpec {
                     ),
                 ],
                 stash: 1_000 * DOCK,
-                validator_count: 3,
+                validator_count: 1,
                 poa_last_block: Hash::repeat_byte(42),
                 babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,
             }

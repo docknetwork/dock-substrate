@@ -1142,8 +1142,8 @@ impl pallet_collective::Config<TechnicalCollective> for Runtime {
 
 parameter_types! {
     pub const MaxScheduledPerBlock: u32 = 50;
-    // Retry a scheduled item every 10 blocks (1 minute) until the preimage exists.
-    pub const NoPreimagePostponement: Option<u32> = Some(10);
+    // Retry a scheduled item every 20 blocks (1 minute) until the preimage exists.
+    pub const NoPreimagePostponement: Option<u32> = Some(20);
 }
 
 impl pallet_scheduler::Config for Runtime {

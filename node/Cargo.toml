@@ -20,7 +20,7 @@ hex-literal = "0.3.0"
 jsonrpsee = { version = "0.15.1", features = ["server"] }
 serde = { features = ["derive"], version = "1.0" }
 serde_json = "1.0.41"
-pallet-dynamic-fee = { git = "https://github.com/docknetwork/frontier.git", branch = "polkadot-v0.9.29" }
+pallet-dynamic-fee = { git = "https://github.com/docknetwork/frontier.git", branch = "master" }
 
 [dependencies.structopt]
 version = "0.3.8"
@@ -48,7 +48,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.fp-storage]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/primitives/storage"
 
 [build-dependencies.substrate-build-script-utils]
@@ -289,27 +289,27 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.fc-rpc]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/client/rpc"
 
 [dependencies.fc-rpc-core]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/client/rpc-core"
 
 [dependencies.fp-rpc]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/primitives/rpc"
 
 [dependencies.fc-db]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/client/db"
 
 [dependencies.fc-mapping-sync]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/client/mapping-sync"
 
 [dependencies.sc-allocator]
@@ -547,56 +547,56 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.fp-consensus]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 
 [dependencies.pallet-evm]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm"
 
 [dependencies.pallet-ethereum]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/ethereum"
 
 [dependencies.pallet-evm-precompile-simple]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/simple"
 
 [dependencies.pallet-evm-precompile-sha3fips]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/sha3fips"
 
 [dependencies.pallet-evm-precompile-ed25519]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/ed25519"
 
 [dependencies.pallet-evm-precompile-modexp]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/modexp"
 
 [dependencies.pallet-evm-precompile-bn128]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/bn128"
 
 [dependencies.pallet-evm-precompile-dispatch]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/dispatch"
 
 [dependencies.pallet-evm-precompile-storage-reader]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/storage-reader"
 
 [dependencies.fp-self-contained]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 
 [dependencies.pallet-election-provider-multi-phase]
 git = "https://github.com/paritytech/substrate.git"

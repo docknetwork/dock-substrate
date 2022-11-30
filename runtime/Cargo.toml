@@ -31,7 +31,7 @@ sha3 = { version = "0.8", default-features = false }
 log = { version = "0.4", default-features = false }
 
 static_assertions = "1.1.0"
-pallet-base-fee = { git = "https://github.com/docknetwork/frontier.git", branch = "polkadot-v0.9.29", default_features = false }
+pallet-base-fee = { git = "https://github.com/docknetwork/frontier.git", branch = "master", default_features = false }
 smallvec = "1.4.1"
 scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
 getrandom = { version = "0.2", features = ["js"] }
@@ -122,7 +122,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.fp-consensus]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 
 [dependencies.sp-inherents]
 default-features = false
@@ -371,67 +371,67 @@ default-features = false
 [dependencies.pallet-evm]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm"
 
 [dependencies.pallet-ethereum]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/ethereum"
 
 [dependencies.pallet-evm-precompile-storage-reader]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../../../../frontier/frame/evm/precompile/storage-reader"
 
 [dependencies.pallet-evm-precompile-simple]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/simple"
 
 [dependencies.pallet-evm-precompile-sha3fips]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/sha3fips"
 
 [dependencies.pallet-evm-precompile-ed25519]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/ed25519"
 
 [dependencies.pallet-evm-precompile-modexp]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/modexp"
 
 [dependencies.pallet-evm-precompile-bn128]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/bn128"
 
 [dependencies.pallet-evm-precompile-dispatch]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/frame/evm/precompile/dispatch"
 
 [dependencies.fp-rpc]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/primitives/rpc"
 
 [dependencies.fp-storage]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/primitives/storage"
 
 [dependencies.poa]
@@ -489,7 +489,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.fp-self-contained]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../frontier/primitives/self-contained"
 
 [dependencies.sp-runtime-interface]
@@ -499,7 +499,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.fp-evm]
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 default-features = false
 # path = "../frontier/primitives/evm"
 

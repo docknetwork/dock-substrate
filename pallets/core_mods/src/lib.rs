@@ -82,7 +82,7 @@ pub enum StorageVersion {
 
 impl Default for StorageVersion {
     fn default() -> Self {
-        Self::MultiKey
+        Self::SingleKey
     }
 }
 

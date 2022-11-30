@@ -145,7 +145,7 @@ evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1
 [dev-dependencies.pallet-evm-precompile-storage-reader]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../../../../frontier/frame/evm/precompile/storage-reader"
 
 [dev-dependencies.pallet-balances]
@@ -156,25 +156,25 @@ branch = "polkadot-v0.9.29"
 [dev-dependencies.pallet-evm]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../../../../frontier/frame/evm"
 
 [dev-dependencies.fp-evm]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../../../../frontier/frame/evm"
 
 [dev-dependencies.pallet-ethereum]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 # path = "../../../../frontier/frame/ethereum"
 
 [dev-dependencies.pallet-evm-test-vector-support]
 default-features = false
 git = "https://github.com/docknetwork/frontier.git"
-branch = "polkadot-v0.9.29"
+branch = "master"
 
 [dev-dependencies.pallet-timestamp]
 default-features = false
