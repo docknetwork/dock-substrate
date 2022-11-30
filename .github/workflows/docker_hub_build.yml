@@ -23,7 +23,7 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
-      - name: Build Production image
+      - name: 'Build production ${{ github.ref_name }} image'
         if: github.ref_name == 'mainnet' || github.ref_name == 'testnet' || github.ref_name == 'ci-test'
         uses: docker/build-push-action@v3
         with:
@@ -33,8 +33,8 @@ jobs:
           build-args: features=--features=${{ github.ref_name }}
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:${{ github.ref_name}}
 
-      - name: Build Fastblock image
-        if: github.ref_name == 'fastblock' || github.ref_name != 'ci-test'
+      - name: Build release fastblock image
+        if: github.ref_name == 'fastblock'
         uses: docker/build-push-action@v3
         with:
           context: .
