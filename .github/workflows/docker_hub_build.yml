@@ -33,7 +33,7 @@ jobs:
           build-args: features=--features=${{ github.ref_name }}
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:${{ github.ref_name}}
 
-      - name: Build Test image
+      - name: Build Fastblock image
         if: github.ref_name == 'fastblock' || github.ref_name != 'ci-test'
         uses: docker/build-push-action@v3
         with:
@@ -42,5 +42,5 @@ jobs:
           push: true
           build-args: |
             features=--features=fastblock
-            release=--release
+            release=Y
           tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:fastblock
