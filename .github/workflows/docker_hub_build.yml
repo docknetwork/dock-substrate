@@ -3,12 +3,11 @@ name: Docker Container Build
 on:
   push:
     branches:
-      - ci/DCKB_542_DockerHub
+      - master
     tags:
       - mainnet
       - testnet
       - fastblock
-      - ci-test
 
 jobs:
  build-docker-image:
@@ -24,14 +23,14 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
       - name: 'Build production ${{ github.ref_name }} image'
-        if: github.ref_name == 'mainnet' || github.ref_name == 'testnet' || github.ref_name == 'ci-test'
+        if: github.ref_name == 'mainnet' || github.ref_name == 'testnet'
         uses: docker/build-push-action@v3
         with:
           context: .
           file: ./Dockerfile
           push: true
           build-args: features=--features=${{ github.ref_name }}
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:${{ github.ref_name}}
+          tags: docknetwork/dock-substrate:${{ github.ref_name}}
 
       - name: Build release fastblock image
         if: github.ref_name == 'fastblock'
@@ -43,4 +42,4 @@ jobs:
           build-args: |
             features=--features=fastblock
             release=Y
-          tags: ${{ secrets.DOCKER_HUB_USERNAME }}/dock-substrate:fastblock
+          tags: docknetwork/dock-substrate:fastblock
