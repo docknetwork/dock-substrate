@@ -13,10 +13,10 @@ jobs:
       - name: Install nightly
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly
+          toolchain: nightly-2022-09-23
           override: true
       - name: Install WASM
-        run: rustup target add wasm32-unknown-unknown --toolchain nightly
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2022-09-23
       - name: Build Docs
         run: cargo doc --no-deps
       - name: Push To gh-pages
