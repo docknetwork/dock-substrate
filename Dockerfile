@@ -4,10 +4,10 @@ FROM ubuntu:jammy AS builder
 WORKDIR /dock-node
 
 RUN apt -y update && \
-	apt install -y --no-install-recommends \
-	software-properties-common llvm curl git file binutils binutils-dev \
-	make cmake ca-certificates clang g++ zip dpkg-dev openssl gettext\
-	build-essential pkg-config libssl-dev libudev-dev time clang
+  apt install -y --no-install-recommends \
+  software-properties-common llvm curl git file binutils binutils-dev \
+  make cmake ca-certificates clang g++ zip dpkg-dev openssl gettext \
+  build-essential pkg-config libssl-dev libudev-dev time clang
 
 # install rustup
 RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
@@ -43,14 +43,14 @@ ARG features
 ARG release
 
 RUN if [ "$release" = "Y" ] ; then \
-      echo 'Building in release mode.' ; \
-      WASM_BUILD_TOOLCHAIN=nightly-2022-09-23 cargo build --profile=release $features ; \
-      mv /dock-node/target/release/dock-node /dock-node/target/; \
-    else \
-      echo 'Building in production mode.' ; \
-      WASM_BUILD_TOOLCHAIN=nightly-2022-09-23 cargo build --profile=production $features ; \
-      mv /dock-node/target/production/dock-node /dock-node/target/; \
-    fi
+    echo 'Building in release mode.' ; \
+    WASM_BUILD_TOOLCHAIN=nightly-2022-09-23 cargo build --profile=release $features ; \
+    mv /dock-node/target/release/dock-node /dock-node/target/; \
+  else \
+    echo 'Building in production mode.' ; \
+    WASM_BUILD_TOOLCHAIN=nightly-2022-09-23 cargo build --profile=production $features ; \
+    mv /dock-node/target/production/dock-node /dock-node/target/; \
+  fi
 
 # Final stage. Copy the node executable and the script
 FROM ubuntu:jammy
@@ -62,8 +62,8 @@ COPY --from=builder /dock-node/target/dock-node .
 # curl is required for uploading to keystore
 # note: `subkey insert` is a potential alternarve to curl
 RUN apt -y update \
-	&& apt install -y --no-install-recommends curl \
-	&& rm -rf /var/lib/apt/lists/*
+  && apt install -y --no-install-recommends curl \
+  && rm -rf /var/lib/apt/lists/*
 
 # might need these for uploads to keystore
 COPY scripts scripts
