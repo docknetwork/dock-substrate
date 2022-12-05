@@ -644,6 +644,13 @@ parameter_types! {
         .saturating_sub(BlockExecutionWeight::get());
 }
 
+///  Denotes when the system should decrease/increase the base fee based on how much weight was used by the last block.
+/// `target` is the ideal congestion of the network where the base fee should remain unchanged.
+/// Under normal circumstances the `target` should be 50%.
+/// If we go below the `target`, the base fee is linearly decreased by the Elasticity delta of lower~target.
+/// If we go above the `target`, the base fee is linearly increased by the Elasticity delta of upper~target.
+/// The base fee is fully increased (default 12.5%) if the block is upper full (default 100%).
+/// The base fee is fully decreased (default 12.5%) if the block is lower empty (default 0%).
 pub struct BaseFeeThreshold;
 impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
     fn lower() -> Permill {

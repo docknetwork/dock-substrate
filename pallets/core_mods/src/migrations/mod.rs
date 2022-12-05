@@ -21,11 +21,13 @@ pub mod multi_key {
 
         DidKeys::translate(|did, _: IncId, key: (PublicKey, u16)| {
             did_keys_overridden += 1;
+            // Migrate verification relationships to use only significant bits
             let key = UncheckedDidKey::new(key.0, VerRelType::try_from(key.1 & 0b1111).ok()?);
 
             if let Ok(did_key) = key.clone().try_into() {
                 Some(did_key)
             } else {
+                // Remove inappropriate controller keys and controllers which use them
                 if key.ver_rels.intersects(VerRelType::CAPABILITY_INVOCATION) {
                     let _ = Dids::<T>::try_mutate(did, |details| {
                         dids_read += 1;
@@ -59,6 +61,7 @@ pub mod multi_key {
         });
 
         let mut service_endpoints_overridden = 0;
+        // Migrate service endpoint types to use only significant bits
         DidServiceEndpoints::translate_values(|(types, origins): (u16, Vec<WrappedBytes>)| {
             service_endpoints_overridden += 1;
 
@@ -68,6 +71,7 @@ pub mod multi_key {
             })
         });
 
+        // Remove outdated BBS+ keys
         let mut bbs_keys_read = 0;
         let mut removed_dids = BTreeSet::new();
         for (did, _) in BbsPlusKeys::iter_keys() {
@@ -76,7 +80,6 @@ pub mod multi_key {
                 removed_dids.insert(did);
             }
         }
-
         let mut bbs_keys_removed = 0;
         for did in removed_dids.into_iter() {
             bbs_keys_removed += BbsPlusKeys::clear_prefix(did, u32::MAX, None).unique as u64;
