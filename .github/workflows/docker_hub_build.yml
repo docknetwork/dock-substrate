@@ -7,7 +7,7 @@ on:
     tags:
       - mainnet
       - testnet
-      - fastblock
+      - fastblock*
 
 jobs:
  build-docker-image:
@@ -33,7 +33,7 @@ jobs:
           tags: docknetwork/dock-substrate:${{ github.ref_name}}
 
       - name: Build release fastblock image
-        if: github.ref_name == 'fastblock'
+        if: startsWith(github.ref_name, 'fastblock')
         uses: docker/build-push-action@v3
         with:
           context: .
@@ -42,4 +42,4 @@ jobs:
           build-args: |
             features=--features=fastblock
             release=Y
-          tags: docknetwork/dock-substrate:fastblock
+          tags: docknetwork/dock-substrate:${{ github.ref_name }}
