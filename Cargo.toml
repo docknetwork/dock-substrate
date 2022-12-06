@@ -10,8 +10,6 @@ members = [
     "pallets/core_mods",
     "pallets/core_mods/rpc",
     "pallets/price_feed",
-    "pallets/bridge/merkle-proof",
-    "pallets/bridge/rpc",
     "pallets/price_feed/rpc",
     "pallets/fiat_filter",
     "pallets/fiat_filter/rpc",

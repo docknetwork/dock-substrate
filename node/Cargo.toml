@@ -527,7 +527,8 @@ path = "../pallets/staking_rewards"
 path = "../pallets/poa/rpc"
 
 [dependencies.snowbridge-basic-channel-rpc]
-path = "../pallets/bridge/rpc"
+git = "https://github.com/Snowfork/snowbridge.git"
+rev = "dc50c3d973d1f53434c7a03e426faa9c20062f60"
 
 [dependencies.price_feed_rpc]
 path = "../pallets/price_feed/rpc"
