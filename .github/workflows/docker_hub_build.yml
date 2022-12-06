@@ -4,12 +4,9 @@ on:
   push:
     branches:
       - master
-      - ci/DCKB-542_startsWith_fastblock
     tags:
       - mainnet
       - testnet
-      - fastblock*
-      - ci_test
 
 jobs:
  build-docker-image:
@@ -29,7 +26,7 @@ jobs:
         shell: bash
         run: |
           export TAG_NAME=master
-          if [[ '${{github.ref_name}}' == 'mainnet' || '${{github.ref_name}}' == 'testnet' || '${{github.ref_name}}' == 'ci_test' ]];
+          if [[ '${{github.ref_name}}' == 'mainnet' || '${{github.ref_name}}' == 'testnet' ]];
           then
             export TAG_NAME=${{github.ref_name}}
           fi
@@ -41,7 +38,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          push: false
+          push: true
           build-args: features=--features=${{ steps.image_tag.outputs.TAG_NAME }}
           tags: docknetwork/dock-substrate:${{ steps.image_tag.outputs.TAG_NAME }}
 
@@ -50,7 +47,7 @@ jobs:
         with:
           context: .
           file: ./Dockerfile
-          push: false
+          push: true
           build-args: |
             features=--features=fastblock
             release=Y
