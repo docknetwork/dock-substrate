@@ -25,6 +25,7 @@ jobs:
           password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
 
       - name: Set tag name
+        id: image_tag
         shell: bash
         run: |
           export TAG_NAME=master
@@ -32,25 +33,25 @@ jobs:
           then
             export TAG_NAME=${{github.ref_name}}
           fi
-          echo "::set-env name=TAG_NAME::$TAG_NAME"
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
 
-      - name: 'Build production ${{ github.ref_name }} image'
-        if: github.ref_name == 'mainnet' || github.ref_name == 'testnet'
+      - name: 'Build production ${{ steps.image_tag.outputs.TAG_NAME }} image'
+        if: ${{ steps.image_tag.outputs.TAG_NAME }} != 'master'
         uses: docker/build-push-action@v3
         with:
           context: .
           file: ./Dockerfile
-          push: true
-          build-args: features=--features=${{ env.TAG_NAME }}
-          tags: docknetwork/dock-substrate:${{ env.TAG_NAME }}
+          push: false
+          build-args: features=--features=${{ steps.image_tag.outputs.TAG_NAME }}
+          tags: docknetwork/dock-substrate:${{ steps.image_tag.outputs.TAG_NAME }}
 
       - name: Build release fastblock image
         uses: docker/build-push-action@v3
         with:
           context: .
           file: ./Dockerfile
-          push: true
+          push: false
           build-args: |
             features=--features=fastblock
             release=Y
-          tags: docknetwork/dock-substrate:fastblock_${{ env.TAG_NAME }}
+          tags: docknetwork/dock-substrate:fastblock_${{ steps.image_tag.outputs.TAG_NAME }}
