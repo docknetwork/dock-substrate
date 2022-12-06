@@ -29,7 +29,7 @@ jobs:
         shell: bash
         run: |
           export TAG_NAME=master
-          if [['${{github.ref_name}}' == 'mainnet' || '${{github.ref_name}}' == 'testnet' || '${{github.ref_name}}' == 'ci_test']];
+          if [[ '${{github.ref_name}}' == 'mainnet' || '${{github.ref_name}}' == 'testnet' || '${{github.ref_name}}' == 'ci_test' ]];
           then
             export TAG_NAME=${{github.ref_name}}
           fi
