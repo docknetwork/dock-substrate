@@ -1,7 +1,6 @@
 use crate as dock;
 use crate::{
     did::{self, Did, DidSignature},
-    impl_type_info,
     keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT},
     util::{NonceError, WithNonce},
     Action, StorageVersion, ToStateChange,
@@ -37,26 +36,31 @@ pub type RegistryId = [u8; 32];
 
 /// Points to a revocation which may or may not exist in a registry.
 pub type RevokeId = [u8; 32];
-impl_type_info! {
-    /// Collection of signatures sent by different DIDs.
-    #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub struct DidSigs<T> where T: frame_system::Config {
-        /// Signature by DID
-        pub sig: DidSignature<Did>,
-        /// Nonce used to make the above signature
-        pub nonce: T::BlockNumber,
-    }
+
+/// Collection of signatures sent by different DIDs.
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct DidSigs<T>
+where
+    T: frame_system::Config,
+{
+    /// Signature by DID
+    pub sig: DidSignature<Did>,
+    /// Nonce used to make the above signature
+    pub nonce: T::BlockNumber,
 }
 
-impl_type_info! {
-    /// Authorization logic for a registry.
-    #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub enum Policy {
-        /// Set of dids allowed to modify a registry.
-        OneOf(BTreeSet<Did>),
-    }
+/// Authorization logic for a registry.
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub enum Policy {
+    /// Set of dids allowed to modify a registry.
+    OneOf(BTreeSet<Did>),
 }
 
 impl Default for Policy {
@@ -79,17 +83,17 @@ impl Policy {
     }
 }
 
-impl_type_info! {
-    /// Metadata about a revocation scope.
-    #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub struct Registry {
-        /// Who is allowed to update this registry.
-        pub policy: Policy,
-        /// true: credentials can be revoked, but not un-revoked and the registry can't be removed either
-        /// false: credentials can be revoked and un-revoked
-        pub add_only: bool,
-    }
+/// Metadata about a revocation scope.
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct Registry {
+    /// Who is allowed to update this registry.
+    pub policy: Policy,
+    /// true: credentials can be revoked, but not un-revoked and the registry can't be removed either
+    /// false: credentials can be revoked and un-revoked
+    pub add_only: bool,
 }
 
 /// Return counts of different signature types in given `DidSigs` as 3-Tuple as (no. of Sr22519 sigs,

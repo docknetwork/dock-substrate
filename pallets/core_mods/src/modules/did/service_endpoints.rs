@@ -1,16 +1,16 @@
 use super::*;
-use crate::{impl_type_info, impl_wrapper_type_info, util::WrappedBytes};
+use crate::{impl_wrapper_type_info, util::WrappedBytes};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 
-impl_type_info! {
-    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    pub struct ServiceEndpoint {
-        pub types: ServiceEndpointType,
-        pub origins: Vec<WrappedBytes>,
-    }
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct ServiceEndpoint {
+    pub types: ServiceEndpointType,
+    pub origins: Vec<WrappedBytes>,
 }
 
 bitflags::bitflags! {

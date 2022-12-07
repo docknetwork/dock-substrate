@@ -60,7 +60,6 @@
 use crate::{
     did,
     did::Did,
-    impl_type_info,
     revoke::{get_weight_for_did_sigs, DidSigs},
     util::WithNonce,
 };
@@ -89,13 +88,13 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 #[cfg(test)]
 mod tests;
 
-impl_type_info! {
-    #[derive(Encode, Decode, Clone, PartialEq, Debug)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub struct Membership {
-        pub members: BTreeSet<Did>,
-        pub vote_requirement: u64,
-    }
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct Membership {
+    pub members: BTreeSet<Did>,
+    pub vote_requirement: u64,
 }
 
 impl Default for Membership {
@@ -107,9 +106,10 @@ impl Default for Membership {
     }
 }
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
 pub struct MasterVoteRaw<T> {
     /// The serialized Call to be run as root.
     proposal: Vec<u8>,

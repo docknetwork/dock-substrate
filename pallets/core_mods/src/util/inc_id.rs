@@ -1,12 +1,24 @@
-use crate::{impl_wrapper_from_type_conversion, impl_wrapper_type_info};
+use crate::impl_wrapper_from_type_conversion;
 use codec::{Decode, Encode};
 
 /// An incremental identifier.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Copy, Default, Ord, PartialOrd, Hash)]
+#[derive(
+    Encode,
+    Decode,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    Copy,
+    Default,
+    Ord,
+    PartialOrd,
+    Hash,
+    scale_info_derive::TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(omit_prefix)]
 pub struct IncId(u32);
-
-impl_wrapper_type_info! { IncId, u32 }
 
 impl Iterator for &'_ mut IncId {
     type Item = IncId;

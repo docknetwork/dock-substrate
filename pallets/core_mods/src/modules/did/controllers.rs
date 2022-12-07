@@ -1,9 +1,12 @@
 use super::*;
 
 /// DID controller.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[derive(
+    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(omit_prefix)]
 pub struct Controller(pub Did);
 
 impl_wrapper!(Controller, Did, for rand use Did(rand::random()), with tests as controller_tests);

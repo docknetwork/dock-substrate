@@ -11,7 +11,7 @@ use beefy_gadget_rpc::{Beefy, BeefyApiServer};
 use dock_runtime::{
     opaque::Block, AccountId, Balance, BlockNumber, Hash, Index, TransactionConverter,
 };
-use fc_rpc::{EthBlockDataCacheTask, EthDevSigner, EthSigner, OverrideHandle};
+use fc_rpc::{EthBlockDataCacheTask, OverrideHandle};
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use jsonrpsee::RpcModule;
 use pallet_mmr_rpc::{Mmr, MmrApiServer};
@@ -250,11 +250,6 @@ where
         .into_rpc(),
     )?;
 
-    let mut signers = Vec::new();
-    if true {
-        signers.push(Box::new(EthDevSigner::new()) as Box<dyn EthSigner>);
-    }
-
     io.merge(
         Eth::new(
             client.clone(),
@@ -262,7 +257,7 @@ where
             graph,
             Some(TransactionConverter),
             network.clone(),
-            signers,
+            Default::default(),
             overrides.clone(),
             frontier_backend.clone(),
             // Is authority.

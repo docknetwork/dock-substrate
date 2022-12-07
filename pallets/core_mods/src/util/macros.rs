@@ -178,8 +178,6 @@ macro_rules! impl_wrapper {
                 &mut self.0
             }
         }
-
-        $crate::impl_wrapper_type_info! { $wrapper, $type }
     };
 }
 
@@ -215,86 +213,12 @@ macro_rules! impl_wrapper_type_info {
 }
 
 #[macro_export]
-macro_rules! impl_type_info {
-    (
-        $(#[$meta:meta])*
-        $vis: vis enum $name: ident $(<$($gen: ident),+>)? $(where $($where_type: ident: $req: path),+)? {
-            $($(#[$field_meta: meta])* $field_name: ident($field_type: ty)),+
-            $(,)?
-        }
-    ) => {
-        $(#[$meta])*
-        $vis enum $name$(<$($gen)+>)* $(where $($where_type: $req),+)* {
-            $($(#[$field_meta])* $field_name($field_type)),+
-        }
-
-        impl$(<$($gen)+>)* scale_info::TypeInfo for $name$(<$($gen)+>)* $(where $($where_type: $req),+)* $(,$($gen: 'static)+)* {
-            type Identity = Self;
-
-            #[allow(unused_assignments)]
-            fn type_info() -> scale_info::Type {
-                let mut index = 0;
-
-                scale_info::Type::builder()
-                    .path(scale_info::Path::new(
-                        core::stringify!($name),
-                        core::stringify!($name),
-                    ))
-                    .variant(
-                        scale_info::build::Variants::new()
-                        $(
-                            .variant(core::stringify!($field_name), {
-                                let field_index = index;
-                                index += 1;
-
-                                move |v| v.index(field_index).fields(scale_info::build::Fields::unnamed().field(|f| f.ty::<$field_type>()))
-                            })
-                        )+
-                    )
-            }
-        }
-    };
-    (
-        $(#[$meta:meta])*
-        $vis: vis struct $name: ident $(<$($gen: ident),+>)? $(where $($where_type: ident: $req: path),+)? {
-            $($(#[$field_meta: meta])* $field_vis: vis $field_name: ident: $field_type: ty),+ $(,)?
-        }
-    ) => {
-        $(#[$meta])*
-        $vis struct $name$(<$($gen)+>)* $(where $($where_type: $req),+)* {
-            $($(#[$field_meta])* $field_vis $field_name: $field_type),+
-        }
-
-        impl$(<$($gen)+>)* scale_info::TypeInfo for $name$(<$($gen)+>)* $(where $($where_type: $req),+)* $(,$($gen: 'static)+)* {
-            type Identity = Self;
-
-            fn type_info() -> scale_info::Type {
-                scale_info::Type::builder()
-                    .path(scale_info::Path::new(
-                        core::stringify!($name),
-                        core::stringify!($name),
-                    ))
-                    .composite(
-                        scale_info::build::Fields::named()
-                        $(
-                            .field(|f| {
-                                f.name(core::stringify!($field_name))
-                                    .ty::<$field_type>()
-                                    .type_name(core::stringify!($field_type))
-                            })
-                        )+
-                    )
-            }
-        }
-    };
-}
-
-#[macro_export]
 macro_rules! def_state_change {
     ($(#[$meta:meta])* $name: ident: $($mod: ident::$type: ident),+) => {
         $(#[$meta])*
-        #[derive(scale_info::TypeInfo, codec::Encode, codec::Decode, Debug, Clone, PartialEq)]
+        #[derive(scale_info_derive::TypeInfo, codec::Encode, codec::Decode, Debug, Clone, PartialEq)]
         #[scale_info(skip_type_params(T))]
+        #[scale_info(omit_prefix)]
         pub enum $name<'a, T: frame_system::Config> {
             $($type(sp_std::borrow::Cow<'a, $mod::$type<T>>)),+
         }

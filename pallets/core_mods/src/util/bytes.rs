@@ -5,8 +5,20 @@ use codec::{Decode, Encode};
 use sp_std::{fmt, vec::Vec};
 
 /// Raw bytes wrapper providing ability to encode/decode in `hex` format.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
+#[derive(
+    Encode,
+    Decode,
+    Debug,
+    Clone,
+    PartialEq,
+    Eq,
+    PartialOrd,
+    Ord,
+    Default,
+    scale_info_derive::TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(omit_prefix)]
 pub struct WrappedBytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
 
 #[cfg(test)]
@@ -15,8 +27,11 @@ impl_wrapper! { WrappedBytes, Vec<u8>, for rand use rand::distributions::Standar
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(
+    Encode, Decode, Debug, Clone, PartialEq, Eq, Ord, PartialOrd, scale_info_derive::TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(omit_prefix)]
 pub struct Bytes32 {
     #[cfg_attr(feature = "serde", serde(with = "hex"))]
     pub value: [u8; 32],
@@ -41,8 +56,9 @@ serde_big_array::big_array! {
 macro_rules! struct_over_byte_array {
     ( $name:ident, $size:tt ) => {
         /// A wrapper over a byte array
-        #[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialOrd, Ord)]
+        #[derive(Encode, Decode, Clone, PartialOrd, Ord, scale_info_derive::TypeInfo)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[scale_info(omit_prefix)]
         pub struct $name {
             #[cfg_attr(feature = "serde", serde(with = "hex::big_array"))]
             pub value: [u8; $size],

@@ -1048,6 +1048,7 @@ dependencies = [
  "rand 0.8.4",
  "rand_chacha 0.2.2",
  "scale-info",
+ "scale-info-derive 2.3.0 (git+https://github.com/docknetwork/scale-info.git?branch=master)",
  "schnorrkel",
  "serde",
  "serde-big-array",
@@ -7755,7 +7756,7 @@ dependencies = [
  "cfg-if 1.0.0",
  "derive_more",
  "parity-scale-codec",
- "scale-info-derive",
+ "scale-info-derive 2.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "serde",
 ]
 
@@ -7764,6 +7765,17 @@ name = "scale-info-derive"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cdcd47b380d8c4541044e341dcd9475f55ba37ddc50c908d945fc036a8642496"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "scale-info-derive"
+version = "2.3.0"
+source = "git+https://github.com/docknetwork/scale-info.git?branch=master#dabc4569256239243aabf60f967d1f1e88d35173"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",

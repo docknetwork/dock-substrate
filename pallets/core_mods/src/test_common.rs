@@ -51,7 +51,7 @@ frame_support::construct_runtime!(
     }
 );
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug, Eq)]
 pub enum TestEvent {
     Did(crate::did::Event),
     Revoke(crate::revoke::Event),

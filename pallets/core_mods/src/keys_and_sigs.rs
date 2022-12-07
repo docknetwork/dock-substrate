@@ -8,7 +8,9 @@ use sp_std::convert::TryInto;
 
 /// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
 /// byte array
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(
+    Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq, PartialOrd, Ord,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PublicKey {
     /// Public key for Sr25519 is 32 bytes
@@ -42,8 +44,9 @@ impl From<libsecp256k1::PublicKey> for PublicKey {
 }
 
 /// An abstraction for a signature.
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(omit_prefix)]
 pub enum SigValue {
     /// Signature for Sr25519 is 64 bytes
     Sr25519(Bytes64),
@@ -210,13 +213,13 @@ pub const Sr25519_PK_BYTE_SIZE: usize = 32;
 /// Size of a Ed25519 public key in bytes.
 pub const Ed25519_PK_BYTE_SIZE: usize = 32;
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 pub enum PublicKey {
     Sr25519([u8; 32]),
     Ed25519([u8; 32])
 }*/
 
-/*#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+/*#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 pub enum PublicKey {
     Sr25519(Bytes32),
     Ed25519(Bytes32)

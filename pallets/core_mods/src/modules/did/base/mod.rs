@@ -1,7 +1,5 @@
-use crate::impl_type_info;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use scale_info::build::Fields;
 use sp_std::ops::{Index, RangeFull};
 
 use super::*;
@@ -15,8 +13,11 @@ pub use onchain::*;
 pub use signature::DidSignature;
 
 /// The type of the Dock DID.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[derive(
+    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(omit_prefix)]
 pub struct Did(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub RawDid);
 
 impl Did {
@@ -24,7 +25,7 @@ impl Did {
     pub const BYTE_SIZE: usize = 32;
 }
 
-impl_wrapper! { Did, RawDid, with tests as did_tests  }
+impl_wrapper! { Did, RawDid, with tests as did_tests }
 
 /// Raw DID representation.
 pub type RawDid = [u8; Did::BYTE_SIZE];
@@ -37,20 +38,21 @@ impl Index<RangeFull> for Did {
     }
 }
 
-impl_type_info! {
-    /// Contains underlying DID describing its storage type.
-    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(
-        feature = "serde",
-        serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-    )]
-    pub enum StoredDidDetails<T> where T: Config {
-        /// For off-chain DID, most data is stored off-chain.
-        OffChain(OffChainDidDetails<T>),
-        /// For on-chain DID, all data is stored on the chain.
-        OnChain(StoredOnChainDidDetails<T>),
-    }
+/// Contains underlying DID describing its storage type.
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub enum StoredDidDetails<T: Config> {
+    /// For off-chain DID, most data is stored off-chain.
+    OffChain(OffChainDidDetails<T>),
+    /// For on-chain DID, all data is stored on the chain.
+    OnChain(StoredOnChainDidDetails<T>),
 }
 
 impl<T: Config> StoredDidDetails<T> {

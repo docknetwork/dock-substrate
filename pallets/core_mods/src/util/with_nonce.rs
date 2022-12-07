@@ -6,7 +6,7 @@ use sp_std::convert::TryInto;
 /// Wrapper for any kind of entity with a nonce.
 /// Nonces are mostly used for replay protection.
 /// Initial nonce will be equal to the current block number provided by the system.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -16,6 +16,7 @@ use sp_std::convert::TryInto;
     ))
 )]
 #[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
 pub struct WithNonce<T: frame_system::Config, D> {
     pub nonce: T::BlockNumber,
     #[cfg(test)]

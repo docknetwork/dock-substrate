@@ -1,22 +1,22 @@
 use super::super::*;
-use crate::impl_type_info;
 
-impl_type_info! {
-    /// Stores details of an off-chain DID.
-    /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
-    /// the caller account and Substrate takes care of replay protection. Thus it stores the data
-    /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
-    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    #[cfg_attr(
-        feature = "serde",
-        serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-    )]
-    pub struct OffChainDidDetails<T> where T: Config {
-        pub account_id: T::AccountId,
-        pub doc_ref: OffChainDidDocRef,
-    }
+/// Stores details of an off-chain DID.
+/// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
+/// the caller account and Substrate takes care of replay protection. Thus it stores the data
+/// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct OffChainDidDetails<T: Config> {
+    pub account_id: T::AccountId,
+    pub doc_ref: OffChainDidDocRef,
 }
 
 impl<T: Config> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
@@ -54,8 +54,9 @@ impl<T: Config + Debug> OffChainDidDetails<T> {
 
 /// To describe the off chain DID Doc's reference. This is just to inform the client, this module
 /// does not check if the bytes are indeed valid as per the enum variant
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(omit_prefix)]
 pub enum OffChainDidDocRef {
     /// Content IDentifier as per https://github.com/multiformats/cid.
     CID(WrappedBytes),

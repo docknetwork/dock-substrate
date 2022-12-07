@@ -426,7 +426,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
         Some("frontier"),
         MappingSyncWorker::new(
             client.import_notification_stream(),
-            Duration::new(3, 0),
+            Duration::from_millis(dock_runtime::SLOT_DURATION),
             client.clone(),
             backend.clone(),
             frontier_backend.clone(),

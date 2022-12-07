@@ -20,6 +20,10 @@ version = "2.1.2"
 default-features = false
 features = ["derive", "serde"]
 
+[dependencies.scale-info-derive]
+git = "https://github.com/docknetwork/scale-info.git"
+branch = "master"
+
 [dependencies.serde-hex]
 package = "hex"
 default-features = false

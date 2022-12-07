@@ -4,7 +4,6 @@
 
 use crate::{
     did::{self, Did, DidSignature},
-    impl_type_info,
     keys_and_sigs::SigValue,
 };
 use codec::{Decode, Encode};
@@ -26,9 +25,12 @@ mod weights;
 pub type Iri = Vec<u8>;
 
 /// Attester is a DID giving an attestation to arbitrary (and arbitrarily large) RDF claimgraphs.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[derive(
+    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(omit_prefix)]
 pub struct Attester(pub Did);
 
 crate::impl_wrapper!(Attester, Did, for rand use Did(rand::random()), with tests as attester_tests);
@@ -39,19 +41,20 @@ pub trait Config: system::Config + did::Config {
     type StorageWeight: Get<Weight>;
 }
 
-impl_type_info! {
-    #[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Eq)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub struct Attestation {
-        #[codec(compact)]
-        pub priority: u64,
-        pub iri: Option<Iri>,
-    }
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct Attestation {
+    #[codec(compact)]
+    pub priority: u64,
+    pub iri: Option<Iri>,
 }
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
 pub struct SetAttestationClaim<T: frame_system::Config> {
     pub attest: Attestation,
     pub nonce: T::BlockNumber,

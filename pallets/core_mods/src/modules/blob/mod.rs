@@ -4,7 +4,6 @@ use crate as dock;
 use crate::{
     did,
     did::{Did, DidSignature},
-    impl_type_info,
     keys_and_sigs::SigValue,
     util::WrappedBytes,
 };
@@ -26,9 +25,12 @@ mod tests;
 mod weights;
 
 /// Owner of a Blob.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[derive(
+    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(omit_prefix)]
 pub struct BlobOwner(pub Did);
 
 crate::impl_wrapper!(BlobOwner, Did, for rand use Did(rand::random()), with tests as blob_owner_tests);
@@ -39,19 +41,20 @@ pub const ID_BYTE_SIZE: usize = 32;
 /// The unique name for a blob.
 pub type BlobId = [u8; ID_BYTE_SIZE];
 
-impl_type_info! {
-    /// When a new blob is being registered, the following object is sent.
-    #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    pub struct Blob {
-        pub id: BlobId,
-        pub blob: WrappedBytes,
-    }
+/// When a new blob is being registered, the following object is sent.
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct Blob {
+    pub id: BlobId,
+    pub blob: WrappedBytes,
 }
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
 pub struct AddBlob<T: frame_system::Config> {
     pub blob: Blob,
     pub nonce: T::BlockNumber,
