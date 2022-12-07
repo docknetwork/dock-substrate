@@ -12,7 +12,7 @@ fn create_blob(
 ) -> DispatchResult {
     let bl = Blob {
         id,
-        blob: content.clone(),
+        blob: content.clone().into(),
     };
     println!("did: {:?}", author);
     println!("pk: {:?}", author_kp.public().0);
@@ -51,7 +51,7 @@ fn add_blob() {
         )
         .unwrap();
         // Can retrieve a valid blob and the blob contents and author match the given ones.
-        assert_eq!(Blobs::get(id), Some((BlobOwner(author), noise)));
+        assert_eq!(Blobs::get(id), Some((BlobOwner(author), noise.into())));
         check_nonce(&author, block_no + 1);
     }
 
@@ -136,7 +136,7 @@ fn err_invalid_sig() {
             let (author, author_kp) = newdid();
             let bl = Blob {
                 id: rand::random(),
-                blob: random_bytes(10),
+                blob: random_bytes(10).into(),
             };
             let att = crate::attest::SetAttestationClaim::<Test> {
                 attest: crate::attest::Attestation {
@@ -167,7 +167,7 @@ fn err_invalid_sig() {
             let (_, author_kp) = newdid();
             let bl = Blob {
                 id: rand::random(),
-                blob: random_bytes(10),
+                blob: random_bytes(10).into(),
             };
             check_nonce(&author, 20);
             let err = BlobMod::new(

@@ -137,9 +137,9 @@ fn accumulator_errors() {
         run_to_block(40);
 
         let params = AccumulatorParameters {
-            label: Some(vec![0, 1, 2, 3]),
+            label: Some(vec![0, 1, 2, 3].into()),
             curve_type: CurveType::Bls12381,
-            bytes: vec![1; 100],
+            bytes: vec![1; 100].into(),
         };
         let ap = AddAccumulatorParams {
             params: params.clone(),
@@ -155,7 +155,7 @@ fn accumulator_errors() {
         let key = AccumulatorPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![2; 100],
+            bytes: vec![2; 100].into(),
         };
         let ak = AddAccumulatorPublicKey {
             public_key: key.clone(),
@@ -368,9 +368,9 @@ fn add_remove_accumulator() {
         run_to_block(20);
 
         let params = AccumulatorParameters {
-            label: Some(vec![0, 1, 2, 3]),
+            label: Some(vec![0, 1, 2, 3].into()),
             curve_type: CurveType::Bls12381,
-            bytes: vec![1; 100],
+            bytes: vec![1; 100].into(),
         };
         let ap = AddAccumulatorParams {
             params: params.clone(),
@@ -401,7 +401,7 @@ fn add_remove_accumulator() {
         let key = AccumulatorPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![2; 100],
+            bytes: vec![2; 100].into(),
         };
         let ak = AddAccumulatorPublicKey {
             public_key: key.clone(),

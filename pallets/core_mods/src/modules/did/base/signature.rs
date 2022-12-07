@@ -1,20 +1,22 @@
 use super::super::*;
-use crate::{keys_and_sigs::SigValue, ToStateChange};
+use crate::{impl_type_info, keys_and_sigs::SigValue, ToStateChange};
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[codec(mel_bound())]
-pub struct DidSignature<D: Into<Did>> {
-    /// The DID that created this signature
-    pub did: D,
-    /// The key-id of above DID used to verify the signature
-    pub key_id: IncId,
-    /// The actual signature
-    pub sig: SigValue,
+impl_type_info! {
+    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[codec(mel_bound())]
+    pub struct DidSignature<D> where D: Into<Did>, D: scale_info::TypeInfo {
+        /// The DID that created this signature
+        pub did: D,
+        /// The key-id of above DID used to verify the signature
+        pub key_id: IncId,
+        /// The actual signature
+        pub sig: SigValue,
+    }
 }
 
-impl<D: Into<Did>> DidSignature<D> {
+impl<D: Into<Did> + scale_info::TypeInfo> DidSignature<D> {
     pub fn new(did: impl Into<D>, key_id: impl Into<IncId>, sig: impl Into<SigValue>) -> Self {
         Self {
             did: did.into(),
@@ -65,7 +67,7 @@ impl<T: Config + Debug> Module<T> {
         sig: &DidSignature<D>,
     ) -> Result<bool, Error<T>>
     where
-        D: Into<Did> + Copy,
+        D: Into<Did> + Copy + scale_info::TypeInfo,
         Sc: ToStateChange<T>,
     {
         let signer_pubkey = Self::auth_or_control_key(&sig.did.into(), sig.key_id)?;

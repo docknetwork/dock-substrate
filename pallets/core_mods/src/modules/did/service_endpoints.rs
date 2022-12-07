@@ -1,14 +1,16 @@
 use super::*;
-use crate::{impl_wrapper_type_info, util::WrappedBytes};
+use crate::{impl_type_info, impl_wrapper_type_info, util::WrappedBytes};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct ServiceEndpoint {
-    pub types: ServiceEndpointType,
-    pub origins: Vec<WrappedBytes>,
+impl_type_info! {
+    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct ServiceEndpoint {
+        pub types: ServiceEndpointType,
+        pub origins: Vec<WrappedBytes>,
+    }
 }
 
 bitflags::bitflags! {
@@ -82,27 +84,5 @@ where
 
         deposit_indexed_event!(DidServiceEndpointRemoved(did));
         Ok(())
-    }
-}
-
-impl scale_info::TypeInfo for ServiceEndpoint {
-    type Identity = Self;
-
-    fn type_info() -> scale_info::Type {
-        scale_info::Type::builder()
-            .path(scale_info::Path::new("ServiceEndpoint", "ServiceEndpoint"))
-            .composite(
-                scale_info::build::Fields::named()
-                    .field(|f| {
-                        f.name("types")
-                            .ty::<ServiceEndpointType>()
-                            .type_name("ServiceEndpointType")
-                    })
-                    .field(|f| {
-                        f.name("origins")
-                            .ty::<Vec<WrappedBytes>>()
-                            .type_name("Vec<WrappedBytes>")
-                    }),
-            )
     }
 }

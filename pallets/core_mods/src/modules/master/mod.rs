@@ -60,6 +60,7 @@
 use crate::{
     did,
     did::Did,
+    impl_type_info,
     revoke::{get_weight_for_did_sigs, DidSigs},
     util::WithNonce,
 };
@@ -88,11 +89,13 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 #[cfg(test)]
 mod tests;
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Membership {
-    pub members: BTreeSet<Did>,
-    pub vote_requirement: u64,
+impl_type_info! {
+    #[derive(Encode, Decode, Clone, PartialEq, Debug)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub struct Membership {
+        pub members: BTreeSet<Did>,
+        pub vote_requirement: u64,
+    }
 }
 
 impl Default for Membership {

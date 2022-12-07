@@ -4,9 +4,10 @@ use crate as dock;
 use crate::{
     did,
     did::{Did, DidSignature},
+    impl_type_info,
     keys_and_sigs::SigValue,
+    util::WrappedBytes,
 };
-use alloc::vec::Vec;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 
@@ -38,12 +39,14 @@ pub const ID_BYTE_SIZE: usize = 32;
 /// The unique name for a blob.
 pub type BlobId = [u8; ID_BYTE_SIZE];
 
-/// When a new blob is being registered, the following object is sent.
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Blob {
-    pub id: BlobId,
-    pub blob: Vec<u8>,
+impl_type_info! {
+    /// When a new blob is being registered, the following object is sent.
+    #[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub struct Blob {
+        pub id: BlobId,
+        pub blob: WrappedBytes,
+    }
 }
 
 #[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
@@ -81,7 +84,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Config> as Blob where T: Debug {
         Blobs get(fn get_blob): map hasher(blake2_128_concat)
-            dock::blob::BlobId => Option<(BlobOwner, Vec<u8>)>;
+            dock::blob::BlobId => Option<(BlobOwner, WrappedBytes)>;
     }
 }
 

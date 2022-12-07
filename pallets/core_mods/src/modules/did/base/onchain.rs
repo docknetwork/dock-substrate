@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::{bbs_plus::BbsPlusKeys, util::WrappedActionWithNonce, ToStateChange};
+use crate::{bbs_plus::BbsPlusKeys, impl_type_info, util::WrappedActionWithNonce, ToStateChange};
 use scale_info::TypeInfo;
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
@@ -8,18 +8,19 @@ use scale_info::TypeInfo;
 /// is replayed by someone else.
 pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
 
-/// Stores details of an on-chain DID.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Default, TypeInfo)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[scale_info(skip_type_params(T))]
-pub struct OnChainDidDetails {
-    /// Number of keys added for this DID so far.
-    pub last_key_id: IncId,
-    /// Number of currently active controller keys.
-    pub active_controller_keys: u32,
-    /// Number of currently active controllers.
-    pub active_controllers: u32,
+impl_type_info! {
+    /// Stores details of an on-chain DID.
+    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Default)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct OnChainDidDetails {
+        /// Number of keys added for this DID so far.
+        pub last_key_id: IncId,
+        /// Number of currently active controller keys.
+        pub active_controller_keys: u32,
+        /// Number of currently active controllers.
+        pub active_controllers: u32,
+    }
 }
 
 impl<T: Config> From<StoredOnChainDidDetails<T>> for StoredDidDetails<T> {
@@ -125,7 +126,7 @@ impl<T: Config + Debug> Module<T> {
     where
         F: FnOnce(A, S) -> Result<R, E>,
         A: ActionWithNonce<T> + ToStateChange<T>,
-        S: Into<Did> + Copy,
+        S: Into<Did> + Copy + scale_info::TypeInfo,
         E: From<Error<T>> + From<NonceError>,
     {
         ensure!(

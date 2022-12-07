@@ -1,30 +1,31 @@
 use super::*;
 use crate::{
     attest::{self, Attestation, Attester},
-    impl_wrapper_type_info,
+    impl_type_info, impl_wrapper_type_info,
 };
 
-/// Aggregated details for the given DID.
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-pub struct AggregatedDidDetailsResponse<T: Config> {
-    did: Did,
-    details: StoredDidDetails<T>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    keys: Option<Vec<DidKeyWithId>>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    controllers: Option<Vec<Controller>>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    service_endpoints: Option<Vec<ServiceEndpointWithId>>,
-    #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    attestation: Option<Attestation>,
+impl_type_info! {
+    /// Aggregated details for the given DID.
+    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+    )]
+    pub struct AggregatedDidDetailsResponse<T> where T: Config {
+        did: Did,
+        details: StoredDidDetails<T>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        keys: Option<Vec<DidKeyWithId>>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        controllers: Option<Vec<Controller>>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        service_endpoints: Option<Vec<ServiceEndpointWithId>>,
+        #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
+        attestation: Option<Attestation>,
+    }
 }
-
 /// `DidKey` with its identifier.
 #[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

@@ -1,3 +1,4 @@
+use crate::impl_type_info;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use scale_info::build::Fields;
@@ -36,18 +37,20 @@ impl Index<RangeFull> for Did {
     }
 }
 
-/// Contains underlying DID describing its storage type.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-pub enum StoredDidDetails<T: Config> {
-    /// For off-chain DID, most data is stored off-chain.
-    OffChain(OffChainDidDetails<T>),
-    /// For on-chain DID, all data is stored on the chain.
-    OnChain(StoredOnChainDidDetails<T>),
+impl_type_info! {
+    /// Contains underlying DID describing its storage type.
+    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+    )]
+    pub enum StoredDidDetails<T> where T: Config {
+        /// For off-chain DID, most data is stored off-chain.
+        OffChain(OffChainDidDetails<T>),
+        /// For on-chain DID, all data is stored on the chain.
+        OnChain(StoredOnChainDidDetails<T>),
+    }
 }
 
 impl<T: Config> StoredDidDetails<T> {
@@ -92,29 +95,5 @@ impl<T: Config + Debug> Module<T> {
     /// Inserts details for the given DID.
     pub(crate) fn insert_did_details<D: Into<StoredDidDetails<T>>>(did: Did, did_details: D) {
         Dids::<T>::insert(did, did_details.into())
-    }
-}
-
-impl<T: Config> scale_info::TypeInfo for StoredDidDetails<T> {
-    type Identity = Self;
-
-    fn type_info() -> scale_info::Type {
-        scale_info::Type::builder()
-            .path(scale_info::Path::new(
-                "StoredDidDetails",
-                "StoredDidDetails",
-            ))
-            .variant(
-                scale_info::build::Variants::new()
-                    .variant("OffChain", |v| {
-                        v.index(0)
-                            .fields(Fields::unnamed().field(|f| f.ty::<OffChainDidDetails<T>>()))
-                    })
-                    .variant("OnChain", |v| {
-                        v.index(1).fields(
-                            Fields::unnamed().field(|f| f.ty::<StoredOnChainDidDetails<T>>()),
-                        )
-                    }),
-            )
     }
 }

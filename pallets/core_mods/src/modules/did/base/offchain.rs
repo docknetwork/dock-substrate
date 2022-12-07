@@ -1,20 +1,22 @@
 use super::super::*;
+use crate::impl_type_info;
 
-/// Stores details of an off-chain DID.
-/// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
-/// the caller account and Substrate takes care of replay protection. Thus it stores the data
-/// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
-#[derive(Encode, Decode, scale_info::TypeInfo, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-#[scale_info(skip_type_params(T))]
-pub struct OffChainDidDetails<T: Config> {
-    pub account_id: T::AccountId,
-    pub doc_ref: OffChainDidDocRef,
+impl_type_info! {
+    /// Stores details of an off-chain DID.
+    /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
+    /// the caller account and Substrate takes care of replay protection. Thus it stores the data
+    /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
+    #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    #[cfg_attr(
+        feature = "serde",
+        serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+    )]
+    pub struct OffChainDidDetails<T> where T: Config {
+        pub account_id: T::AccountId,
+        pub doc_ref: OffChainDidDocRef,
+    }
 }
 
 impl<T: Config> From<OffChainDidDetails<T>> for StoredDidDetails<T> {

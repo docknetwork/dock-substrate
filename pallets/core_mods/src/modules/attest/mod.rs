@@ -4,6 +4,7 @@
 
 use crate::{
     did::{self, Did, DidSignature},
+    impl_type_info,
     keys_and_sigs::SigValue,
 };
 use codec::{Decode, Encode};
@@ -38,12 +39,14 @@ pub trait Config: system::Config + did::Config {
     type StorageWeight: Get<Weight>;
 }
 
-#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Attestation {
-    #[codec(compact)]
-    pub priority: u64,
-    pub iri: Option<Iri>,
+impl_type_info! {
+    #[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Eq)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    pub struct Attestation {
+        #[codec(compact)]
+        pub priority: u64,
+        pub iri: Option<Iri>,
+    }
 }
 
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Debug, Default)]

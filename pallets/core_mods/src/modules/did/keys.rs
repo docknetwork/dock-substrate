@@ -1,26 +1,30 @@
 use super::*;
-use crate::impl_wrapper_type_info;
+use crate::{impl_type_info, impl_wrapper_type_info};
 
-/// Valid did key with correct verification relationships.
-#[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct DidKey {
-    /// The public key
-    public_key: PublicKey,
-    /// The different verification relationships the above key has with the DID.
-    ver_rels: VerRelType,
+impl_type_info! {
+    /// Valid did key with correct verification relationships.
+    #[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct DidKey {
+        /// The public key
+        public_key: PublicKey,
+        /// The different verification relationships the above key has with the DID.
+        ver_rels: VerRelType,
+    }
 }
 
-/// `DidKey` without validity constraint requirement.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub struct UncheckedDidKey {
-    /// The public key
-    pub public_key: PublicKey,
-    /// The different verification relationships the above key has with the DID.
-    pub ver_rels: VerRelType,
+impl_type_info! {
+    /// `DidKey` without validity constraint requirement.
+    #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd)]
+    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+    pub struct UncheckedDidKey {
+        /// The public key
+        pub public_key: PublicKey,
+        /// The different verification relationships the above key has with the DID.
+        pub ver_rels: VerRelType,
+    }
 }
 
 impl Decode for DidKey {
@@ -296,50 +300,6 @@ impl<T: Config + Debug> Module<T> {
         } else {
             Err(Error::<T>::InsufficientVerificationRelationship)
         }
-    }
-}
-
-impl scale_info::TypeInfo for DidKey {
-    type Identity = Self;
-
-    fn type_info() -> scale_info::Type {
-        scale_info::Type::builder()
-            .path(scale_info::Path::new("DidKey", "DidKey"))
-            .composite(
-                scale_info::build::Fields::named()
-                    .field(|f| {
-                        f.name("public_key")
-                            .ty::<PublicKey>()
-                            .type_name("PublicKey")
-                    })
-                    .field(|f| {
-                        f.name("ver_rels")
-                            .ty::<VerRelType>()
-                            .type_name("VerRelType")
-                    }),
-            )
-    }
-}
-
-impl scale_info::TypeInfo for UncheckedDidKey {
-    type Identity = Self;
-
-    fn type_info() -> scale_info::Type {
-        scale_info::Type::builder()
-            .path(scale_info::Path::new("UncheckedDidKey", "UncheckedDidKey"))
-            .composite(
-                scale_info::build::Fields::named()
-                    .field(|f| {
-                        f.name("public_key")
-                            .ty::<PublicKey>()
-                            .type_name("PublicKey")
-                    })
-                    .field(|f| {
-                        f.name("ver_rels")
-                            .ty::<VerRelType>()
-                            .type_name("VerRelType")
-                    }),
-            )
     }
 }
 
