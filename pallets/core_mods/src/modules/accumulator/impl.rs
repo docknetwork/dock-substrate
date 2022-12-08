@@ -108,7 +108,7 @@ impl<T: Config + Debug> Module<T> {
         );
         ensure!(acc_owner == owner, Error::<T>::NotPublicKeyOwner);
 
-        let accumulated = accumulator.accumulated().to_vec();
+        let accumulated = accumulator.accumulated().to_vec().into();
 
         let current_block = <system::Pallet<T>>::block_number();
         Accumulators::<T>::insert(

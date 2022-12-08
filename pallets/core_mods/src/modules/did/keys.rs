@@ -1,5 +1,5 @@
 use super::*;
-use crate::impl_wrapper_type_info;
+use crate::{deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info};
 
 /// Valid did key with correct verification relationships.
 #[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd)]
@@ -59,8 +59,8 @@ bitflags::bitflags! {
     }
 }
 
-impl_bits_conversion! { VerRelType, u16 }
-impl_wrapper_type_info! { VerRelType, u16 }
+impl_bits_conversion! { VerRelType from u16 }
+impl_wrapper_type_info! { VerRelType(u16) }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum DidKeyError {

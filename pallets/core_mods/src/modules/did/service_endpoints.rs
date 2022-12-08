@@ -1,5 +1,7 @@
 use super::*;
-use crate::{impl_wrapper_type_info, util::WrappedBytes};
+use crate::{
+    deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info, util::WrappedBytes,
+};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 
@@ -24,8 +26,8 @@ bitflags::bitflags! {
     }
 }
 
-impl_bits_conversion! { ServiceEndpointType, u16 }
-impl_wrapper_type_info! { ServiceEndpointType, u16 }
+impl_bits_conversion! { ServiceEndpointType from u16 }
+impl_wrapper_type_info! { ServiceEndpointType(u16) }
 
 impl ServiceEndpoint {
     pub fn is_valid(&self, max_origins: usize, max_origin_length: usize) -> bool {

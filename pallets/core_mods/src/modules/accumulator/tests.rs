@@ -104,7 +104,7 @@ fn accumulator_errors() {
 
         let id = AccumulatorId(rand::random());
         let mut accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; 300],
+            accumulated: vec![3; 300].into(),
             key_ref: (author.clone(), 1u8.into()),
         });
         let add_accum = AddAccumulator {
@@ -170,7 +170,7 @@ fn accumulator_errors() {
 
         let id = AccumulatorId(rand::random());
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; 32],
+            accumulated: vec![3; 32].into(),
             key_ref: (author.clone(), 1u8.into()),
         });
         let add_accum = AddAccumulator {
@@ -200,10 +200,10 @@ fn accumulator_errors() {
 
         let mut update_accum = UpdateAccumulator {
             id: AccumulatorId(rand::random()),
-            new_accumulated: vec![4; 32],
-            additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
-            removals: Some(vec![vec![9, 4]]),
-            witness_update_info: Some(vec![1, 1, 2, 3]),
+            new_accumulated: vec![4; 32].into(),
+            additions: Some(vec![vec![0, 1, 2].into(), vec![3, 5, 4].into()]),
+            removals: Some(vec![vec![9, 4].into()]),
+            witness_update_info: Some(vec![1, 1, 2, 3].into()),
             nonce: next_nonce,
         };
         let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
@@ -222,10 +222,10 @@ fn accumulator_errors() {
 
         let mut update_accum = UpdateAccumulator {
             id: id.clone(),
-            new_accumulated: vec![5; 300],
-            additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
-            removals: Some(vec![vec![9, 4]]),
-            witness_update_info: Some(vec![1, 1, 2, 3]),
+            new_accumulated: vec![5; 300].into(),
+            additions: Some(vec![vec![0, 1, 2].into(), vec![3, 5, 4].into()]),
+            removals: Some(vec![vec![9, 4].into()]),
+            witness_update_info: Some(vec![1, 1, 2, 3].into()),
             nonce: next_nonce,
         };
         let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
@@ -235,22 +235,22 @@ fn accumulator_errors() {
         );
         check_nonce(&author, next_nonce - 1);
 
-        update_accum.new_accumulated = vec![5; 100];
+        update_accum.new_accumulated = vec![5; 100].into();
         update_accum.additions = Some(vec![
-            vec![89; 2],
-            vec![45; 6],
-            vec![55; 8],
-            vec![56; 4],
-            vec![57; 5],
-            vec![10; 5],
-            vec![5; 8],
-            vec![35; 2],
-            vec![11; 4],
-            vec![15; 4],
-            vec![25; 5],
+            vec![89; 2].into(),
+            vec![45; 6].into(),
+            vec![55; 8].into(),
+            vec![56; 4].into(),
+            vec![57; 5].into(),
+            vec![10; 5].into(),
+            vec![5; 8].into(),
+            vec![35; 2].into(),
+            vec![11; 4].into(),
+            vec![15; 4].into(),
+            vec![25; 5].into(),
         ]);
         update_accum.removals = None;
-        update_accum.witness_update_info = Some(vec![11, 12, 21, 23, 35, 50]);
+        update_accum.witness_update_info = Some(vec![11, 12, 21, 23, 35, 50].into());
         let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
         AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig).unwrap();
         check_nonce(&author, next_nonce);
@@ -431,7 +431,7 @@ fn add_remove_accumulator() {
 
         let id = AccumulatorId(rand::random());
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; 32],
+            accumulated: vec![3; 32].into(),
             key_ref: (author.clone(), 1u8.into()),
         });
         let add_accum = AddAccumulator {
@@ -448,7 +448,7 @@ fn add_remove_accumulator() {
             Some(AccumulatorWithUpdateInfo::new(accumulator.clone(), 40))
         );
         assert!(accumulator_events().contains(&(
-            super::Event::AccumulatorAdded(id.clone(), accumulator.accumulated().to_vec()),
+            super::Event::AccumulatorAdded(id.clone(), accumulator.accumulated().to_vec().into()),
             vec![<Test as system::Config>::Hashing::hash(&id[..])]
         )));
 
@@ -456,10 +456,10 @@ fn add_remove_accumulator() {
 
         let mut update_accum = UpdateAccumulator {
             id: id.clone(),
-            new_accumulated: vec![4; 32],
-            additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
-            removals: Some(vec![vec![9, 4]]),
-            witness_update_info: Some(vec![1, 2, 3, 4]),
+            new_accumulated: vec![4; 32].into(),
+            additions: Some(vec![vec![0, 1, 2].into(), vec![3, 5, 4].into()]),
+            removals: Some(vec![vec![9, 4].into()]),
+            witness_update_info: Some(vec![1, 2, 3, 4].into()),
             nonce: next_nonce + 1,
         };
         let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
@@ -484,7 +484,7 @@ fn add_remove_accumulator() {
         next_nonce += 1;
 
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![4; 32],
+            accumulated: vec![4; 32].into(),
             key_ref: (author.clone(), 1u8.into()),
         });
         assert_eq!(
@@ -496,7 +496,7 @@ fn add_remove_accumulator() {
             })
         );
         assert!(accumulator_events().contains(&(
-            super::Event::AccumulatorUpdated(id.clone(), accumulator.accumulated().to_vec()),
+            super::Event::AccumulatorUpdated(id.clone(), accumulator.accumulated().to_vec().into()),
             vec![<Test as system::Config>::Hashing::hash(&id[..])]
         )));
 
@@ -504,10 +504,10 @@ fn add_remove_accumulator() {
 
         let update_accum = UpdateAccumulator {
             id: id.clone(),
-            new_accumulated: vec![5; 32],
-            additions: Some(vec![vec![0, 1, 2], vec![3, 5, 4]]),
+            new_accumulated: vec![5; 32].into(),
+            additions: Some(vec![vec![0, 1, 2].into(), vec![3, 5, 4].into()]),
             removals: None,
-            witness_update_info: Some(vec![1, 1, 0, 11, 8, 19]),
+            witness_update_info: Some(vec![1, 1, 0, 11, 8, 19].into()),
             nonce: next_nonce,
         };
         let sig = sign_update_accum(&author_kp, &update_accum, author.clone(), 1);
@@ -516,7 +516,7 @@ fn add_remove_accumulator() {
         next_nonce += 1;
 
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![5; 32],
+            accumulated: vec![5; 32].into(),
             key_ref: (author.clone(), 1u8.into()),
         });
         assert_eq!(
@@ -528,7 +528,7 @@ fn add_remove_accumulator() {
             })
         );
         assert!(accumulator_events().contains(&(
-            super::Event::AccumulatorUpdated(id.clone(), accumulator.accumulated().to_vec()),
+            super::Event::AccumulatorUpdated(id.clone(), accumulator.accumulated().to_vec().into()),
             vec![<Test as system::Config>::Hashing::hash(&id[..])]
         )));
 

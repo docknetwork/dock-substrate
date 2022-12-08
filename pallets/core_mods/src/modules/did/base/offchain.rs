@@ -1,4 +1,5 @@
 use super::super::*;
+use crate::deposit_indexed_event;
 
 /// Stores details of an off-chain DID.
 /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by

@@ -25,15 +25,14 @@ mod tests;
 mod weights;
 
 /// Owner of a Blob.
-#[derive(
-    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
-)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct BlobOwner(pub Did);
 
-crate::impl_wrapper!(BlobOwner, Did, for rand use Did(rand::random()), with tests as blob_owner_tests);
+crate::impl_wrapper!(BlobOwner(Did), for rand use Did(rand::random()), with tests as blob_owner_tests);
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;

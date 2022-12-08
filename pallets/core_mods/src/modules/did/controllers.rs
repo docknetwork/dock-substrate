@@ -1,4 +1,5 @@
 use super::*;
+use crate::{deposit_indexed_event, impl_wrapper};
 
 /// DID controller.
 #[derive(
@@ -9,7 +10,7 @@ use super::*;
 #[scale_info(omit_prefix)]
 pub struct Controller(pub Did);
 
-impl_wrapper!(Controller, Did, for rand use Did(rand::random()), with tests as controller_tests);
+impl_wrapper!(Controller(Did), for rand use Did(rand::random()), with tests as controller_tests);
 
 impl<T: Config + Debug> Module<T> {
     pub(crate) fn add_controllers_(

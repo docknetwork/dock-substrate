@@ -6,26 +6,24 @@ pub type AccumPublicKeyStorageKey = (AccumulatorOwner, IncId);
 pub type AccumPublicKeyWithParams = (AccumulatorPublicKey, Option<AccumulatorParameters>);
 
 /// Accumulator identifier.
-#[derive(
-    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
-)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorId(pub [u8; 32]);
 
-crate::impl_wrapper!(AccumulatorId, [u8; 32], with tests as acc_tests);
+crate::impl_wrapper!(AccumulatorId([u8; 32]), with tests as acc_tests);
 
 /// Accumulator owner - DID with the ability to control given accumulator keys, params, etc.
-#[derive(
-    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
-)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorOwner(pub Did);
 
-crate::impl_wrapper!(AccumulatorOwner, Did, for rand use Did(rand::random()), with tests as acc_owner_tests);
+crate::impl_wrapper!(AccumulatorOwner(Did), for rand use Did(rand::random()), with tests as acc_owner_tests);
 
 #[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -59,7 +57,7 @@ pub enum Accumulator {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorCommon {
-    pub accumulated: Vec<u8>,
+    pub accumulated: WrappedBytes,
     pub key_ref: AccumPublicKeyStorageKey,
 }
 
@@ -96,10 +94,10 @@ impl Accumulator {
         }
     }
 
-    pub fn set_new_accumulated(&mut self, new_accumulated: Vec<u8>) {
+    pub fn set_new_accumulated(&mut self, new_accumulated: impl Into<WrappedBytes>) {
         match self {
-            Accumulator::Positive(a) => a.accumulated = new_accumulated,
-            Accumulator::Universal(a) => a.common.accumulated = new_accumulated,
+            Accumulator::Positive(a) => a.accumulated = new_accumulated.into(),
+            Accumulator::Universal(a) => a.common.accumulated = new_accumulated.into(),
         }
     }
 }

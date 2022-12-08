@@ -1,6 +1,5 @@
 use crate as dock;
 use crate::{
-    deposit_indexed_event, impl_action_with_nonce, impl_bits_conversion, impl_wrapper,
     keys_and_sigs::{PublicKey, SigValue},
     util::{with_nonce::NonceError, *},
     Action, ActionWithNonce, StorageVersion,

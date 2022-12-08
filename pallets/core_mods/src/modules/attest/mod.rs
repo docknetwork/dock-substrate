@@ -25,15 +25,14 @@ mod weights;
 pub type Iri = Vec<u8>;
 
 /// Attester is a DID giving an attestation to arbitrary (and arbitrarily large) RDF claimgraphs.
-#[derive(
-    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
-)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(omit_prefix)]
 pub struct Attester(pub Did);
 
-crate::impl_wrapper!(Attester, Did, for rand use Did(rand::random()), with tests as attester_tests);
+crate::impl_wrapper!(Attester(Did), for rand use Did(rand::random()), with tests as attester_tests);
 
 pub trait Config: system::Config + did::Config {
     /// The cost charged by the network to store a single byte in chain-state for the life of the

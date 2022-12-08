@@ -1,6 +1,7 @@
+/// Implements bits conversion from/to the given type for the supplied bitflags identifier.
 #[macro_export]
 macro_rules! impl_bits_conversion {
-    ($ident: ident, $type: ty) => {
+    ($ident: ident from $type: ty) => {
         impl From<$ident> for $type {
             fn from(value: $ident) -> Self {
                 value.bits()
@@ -31,6 +32,7 @@ macro_rules! impl_bits_conversion {
     };
 }
 
+/// Makes given ident `pub` only for test and uses supplied visibility if compiled otherwise.
 #[macro_export]
 macro_rules! pub_for_test {
     ($(#[$meta:meta])* $vis: vis $ident: ident $($val: tt)*) => {
@@ -44,6 +46,7 @@ macro_rules! pub_for_test {
     }
 }
 
+/// Implements field accessor based on input using supplied `self`.
 #[macro_export]
 macro_rules! field_accessor {
     ($self: ident, () $($add: tt)*) => {
@@ -60,6 +63,7 @@ macro_rules! field_accessor {
     };
 }
 
+/// Implements `ToStateChange` trait with supplied params for the given ident(s).
 #[macro_export]
 macro_rules! impl_to_state_change {
     ($type: ident) => {
@@ -75,6 +79,7 @@ macro_rules! impl_to_state_change {
     };
 }
 
+/// Implements `Action` trait with supplied params for the given ident(s).
 #[macro_export]
 macro_rules! impl_action {
     ($type: ident for $target: ty: with $($len: tt $(($($call: tt),*))?).+ as len, $($target_field: tt $(($($target_call: tt),*))?).+ as target) => {
@@ -112,6 +117,7 @@ macro_rules! impl_action {
     };
 }
 
+/// Implements `Action` and `ActionWithNonce` traits with supplied params for the given ident(s).
 #[macro_export]
 macro_rules! impl_action_with_nonce {
     ($type: ident for $($token: tt)*) => {
@@ -130,6 +136,7 @@ macro_rules! impl_action_with_nonce {
     };
 }
 
+/// Deposits an event indexed over the supplied fields.
 #[macro_export]
 macro_rules! deposit_indexed_event {
     ($event: ident($($value: expr),+) over $($index: expr),+) => {
@@ -146,10 +153,11 @@ macro_rules! deposit_indexed_event {
     }
 }
 
+/// Implements from/to, deref, and borrow traits for the supplied wrapper and type.
 #[macro_export]
 macro_rules! impl_wrapper {
-    ($wrapper: ident, $type: ty $(,$($tt: tt)*)?) => {
-        $($crate::impl_encode_decode_wrapper_tests! { $wrapper, $type, $($tt)* })?
+    ($wrapper: ident($type: ty) $(,$($tt: tt)*)?) => {
+        $($crate::impl_encode_decode_wrapper_tests! { $wrapper($type), $($tt)* })?
 
         impl sp_std::borrow::Borrow<$type> for $wrapper {
             fn borrow(&self) -> &$type {
@@ -181,6 +189,7 @@ macro_rules! impl_wrapper {
     };
 }
 
+/// Implements `From<type>` for the wrapper.
 #[macro_export]
 macro_rules! impl_wrapper_from_type_conversion {
     ($wrapper: ident: $($type: ty),+) => {
@@ -194,9 +203,10 @@ macro_rules! impl_wrapper_from_type_conversion {
     }
 }
 
+/// Implements type's type info for the wrapper.
 #[macro_export]
 macro_rules! impl_wrapper_type_info {
-    ($wrapper: ident, $type: ty) => {
+    ($wrapper: ident($type: ty)) => {
         impl scale_info::TypeInfo for $wrapper {
             type Identity = Self;
 
@@ -212,6 +222,7 @@ macro_rules! impl_wrapper_type_info {
     };
 }
 
+/// Defines `StateChange` using supplied actions.
 #[macro_export]
 macro_rules! def_state_change {
     ($(#[$meta:meta])* $name: ident: $($mod: ident::$type: ident),+) => {
@@ -225,12 +236,13 @@ macro_rules! def_state_change {
     }
 }
 
+/// Implements `Encode`/`Decode` wrapper tests for the supplied wrapper and type.
 #[macro_export]
 macro_rules! impl_encode_decode_wrapper_tests {
-    ($wrapper: ident, $type: ty, with tests as $mod: ident) => {
-        $crate::impl_encode_decode_wrapper_tests!($wrapper, $type, for rand use rand::random(), with tests as $mod);
+    ($wrapper: ident($type: ty), with tests as $mod: ident) => {
+        $crate::impl_encode_decode_wrapper_tests!($wrapper($type), for rand use rand::random(), with tests as $mod);
     };
-    ($wrapper: ident, $type: ty, for rand use $rand: expr, with tests as $mod: ident) => {
+    ($wrapper: ident($type: ty), for rand use $rand: expr, with tests as $mod: ident) => {
         #[cfg(test)]
         pub mod $mod {
             use super::*;
@@ -260,6 +272,7 @@ macro_rules! impl_encode_decode_wrapper_tests {
     };
 }
 
+/// Creates pair of given type using supplied seed.
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_export]
 macro_rules! def_pair {
@@ -307,6 +320,7 @@ macro_rules! def_pair {
     };
 }
 
+/// Repeats the benchmark for every pair.
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_export]
 macro_rules! bench_with_all_pairs {

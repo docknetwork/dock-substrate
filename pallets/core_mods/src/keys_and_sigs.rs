@@ -8,10 +8,10 @@ use sp_std::convert::TryInto;
 
 /// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
 /// byte array
-#[derive(
-    Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq, PartialOrd, Ord,
-)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
 pub enum PublicKey {
     /// Public key for Sr25519 is 32 bytes
     Sr25519(Bytes32),

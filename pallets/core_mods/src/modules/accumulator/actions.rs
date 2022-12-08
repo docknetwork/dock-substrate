@@ -1,4 +1,5 @@
 use super::*;
+use crate::util::WrappedBytes;
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -62,10 +63,10 @@ pub struct RemoveAccumulator<T: frame_system::Config> {
 #[scale_info(omit_prefix)]
 pub struct UpdateAccumulator<T: frame_system::Config> {
     pub id: AccumulatorId,
-    pub new_accumulated: Vec<u8>,
-    pub additions: Option<Vec<Vec<u8>>>,
-    pub removals: Option<Vec<Vec<u8>>>,
-    pub witness_update_info: Option<Vec<u8>>,
+    pub new_accumulated: WrappedBytes,
+    pub additions: Option<Vec<WrappedBytes>>,
+    pub removals: Option<Vec<WrappedBytes>>,
+    pub witness_update_info: Option<WrappedBytes>,
     /// Next valid nonce, i.e. 1 greater than currently stored
     pub nonce: T::BlockNumber,
 }

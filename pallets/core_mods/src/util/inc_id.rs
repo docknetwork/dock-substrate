@@ -2,21 +2,9 @@ use crate::impl_wrapper_from_type_conversion;
 use codec::{Decode, Encode};
 
 /// An incremental identifier.
-#[derive(
-    Encode,
-    Decode,
-    Debug,
-    Clone,
-    PartialEq,
-    Eq,
-    Copy,
-    Default,
-    Ord,
-    PartialOrd,
-    Hash,
-    scale_info_derive::TypeInfo,
-)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Copy, Default, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct IncId(u32);
 

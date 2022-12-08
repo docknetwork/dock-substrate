@@ -6,15 +6,14 @@ use crate::{
 use codec::{Decode, Encode};
 
 /// DID owner of the BBSPlus parameters.
-#[derive(
-    Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, scale_info_derive::TypeInfo,
-)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(omit_prefix)]
 pub struct BBSPlusParamsOwner(pub Did);
 
-crate::impl_wrapper!(BBSPlusParamsOwner, Did, for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
+crate::impl_wrapper!(BBSPlusParamsOwner(Did), for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
 
 pub type BBSPlusParametersStorageKey = (BBSPlusParamsOwner, IncId);
 pub type BBSPlusPublicKeyStorageKey = (Did, IncId);

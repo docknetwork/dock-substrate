@@ -1,5 +1,7 @@
 use super::super::*;
-use crate::{bbs_plus::BbsPlusKeys, util::WrappedActionWithNonce, ToStateChange};
+use crate::{
+    bbs_plus::BbsPlusKeys, deposit_indexed_event, util::WrappedActionWithNonce, ToStateChange,
+};
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
 /// write (through an extrinsic). The nonce starts from the block number when the DID was created to avoid
