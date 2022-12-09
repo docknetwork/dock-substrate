@@ -10,6 +10,7 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
+use sp_std::prelude::*;
 use weights::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -74,7 +75,7 @@ impl<T: Config> Module<T> {
         ensure!(Anchors::<T>::get(&hash).is_none(), Error::<T>::AnchorExists);
 
         // execute
-        let last_block = <system::Module<T>>::block_number();
+        let last_block = <system::Pallet<T>>::block_number();
         Anchors::<T>::insert(&hash, &last_block);
         Self::deposit_event(Event::<T>::AnchorDeployed(hash, account, last_block));
 

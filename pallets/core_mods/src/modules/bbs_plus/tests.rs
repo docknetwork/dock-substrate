@@ -2,6 +2,7 @@ use super::*;
 use crate::{
     did::{tests::check_did_detail, AddControllers},
     test_common::*,
+    types::CurveType,
 };
 use frame_support::assert_err;
 use sp_core::{sr25519, H256};
@@ -78,9 +79,9 @@ fn add_remove_params() {
 
         let params_bytes = vec![1u8; 600];
         let mut params = BBSPlusParameters {
-            label: Some(vec![0, 1, 2, 3]),
+            label: Some(vec![0, 1, 2, 3].into()),
             curve_type: CurveType::Bls12381,
-            bytes: params_bytes,
+            bytes: params_bytes.into(),
         };
         let ap = AddBBSPlusParams {
             params: params.clone(),
@@ -115,7 +116,7 @@ fn add_remove_params() {
 
         run_to_block(15);
 
-        params.bytes = vec![1u8; 500];
+        params.bytes = vec![1u8; 500].into();
 
         assert_err!(
             BBSPlusMod::add_params(
@@ -183,7 +184,7 @@ fn add_remove_params() {
         let params_1 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![1u8; 100],
+            bytes: vec![1u8; 100].into(),
         };
         let ap = AddBBSPlusParams {
             params: params_1.clone(),
@@ -217,9 +218,9 @@ fn add_remove_params() {
         run_to_block(25);
 
         let params_2 = BBSPlusParameters {
-            label: Some(vec![0, 9, 1]),
+            label: Some(vec![0, 9, 1].into()),
             curve_type: CurveType::Bls12381,
-            bytes: vec![9u8; 100],
+            bytes: vec![9u8; 100].into(),
         };
         let ap = AddBBSPlusParams {
             params: params_2.clone(),
@@ -271,7 +272,7 @@ fn add_remove_params() {
         let params_3 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![8u8; 100],
+            bytes: vec![8u8; 100].into(),
         };
         let ap = AddBBSPlusParams {
             params: params_3.clone(),
@@ -499,7 +500,7 @@ fn add_remove_public_key() {
         let mut key = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![1u8; 200],
+            bytes: vec![1u8; 200].into(),
         };
         let ak = AddBBSPlusPublicKey {
             key: key.clone(),
@@ -525,7 +526,7 @@ fn add_remove_public_key() {
 
         run_to_block(30);
 
-        key.bytes = vec![1u8; 100];
+        key.bytes = vec![1u8; 100].into();
         let ak = AddBBSPlusPublicKey {
             key: key.clone(),
             did: author.clone(),
@@ -566,7 +567,7 @@ fn add_remove_public_key() {
         let key_1 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![1u8; 100],
+            bytes: vec![1u8; 100].into(),
         };
         let ak = AddBBSPlusPublicKey {
             key: key.clone(),
@@ -594,7 +595,7 @@ fn add_remove_public_key() {
         let key_2 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![9u8; 100],
+            bytes: vec![9u8; 100].into(),
         };
         let ak = AddBBSPlusPublicKey {
             key: key_2.clone(),
@@ -634,7 +635,7 @@ fn add_remove_public_key() {
         let key_3 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![8u8; 100],
+            bytes: vec![8u8; 100].into(),
         };
         let ak = AddBBSPlusPublicKey {
             key: key_3.clone(),
@@ -808,9 +809,9 @@ fn add_remove_public_key() {
         run_to_block(80);
 
         let params = BBSPlusParameters {
-            label: Some(vec![0, 1, 2, 3]),
+            label: Some(vec![0, 1, 2, 3].into()),
             curve_type: CurveType::Bls12381,
-            bytes: vec![19; 100],
+            bytes: vec![19; 100].into(),
         };
         let ap = AddBBSPlusParams {
             params: params.clone(),
@@ -841,7 +842,7 @@ fn add_remove_public_key() {
         let key_4 = BBSPlusPublicKey {
             params_ref: Some((BBSPlusParamsOwner(author.clone()), 4u8.into())),
             curve_type: CurveType::Bls12381,
-            bytes: vec![92u8; 100],
+            bytes: vec![92u8; 100].into(),
         };
         let ak = AddBBSPlusPublicKey {
             key: key_4.clone(),
@@ -863,7 +864,7 @@ fn add_remove_public_key() {
         let key_4 = BBSPlusPublicKey {
             params_ref: Some((BBSPlusParamsOwner(author.clone()), 1u8.into())),
             curve_type: CurveType::Bls12381,
-            bytes: vec![92u8; 100],
+            bytes: vec![92u8; 100].into(),
         };
         let ak = AddBBSPlusPublicKey {
             key: key_4.clone(),
@@ -918,11 +919,11 @@ fn add_remove_public_key_by_controller() {
 
         // Make `did` controller of `did`
         let add_controllers = AddControllers {
-            did: did_1.clone(),
+            did: did_1,
             controllers: vec![did].into_iter().map(Controller).collect(),
             nonce: next_nonce_1,
         };
-        let sig = did_sig::<_, _, _>(&add_controllers, &did_1_kp, Controller(did_1.clone()), 1);
+        let sig = did_sig::<_, _, _>(&add_controllers, &did_1_kp, Controller(did_1), 1);
         DIDModule::add_controllers(Origin::signed(1), add_controllers, sig).unwrap();
         assert!(DIDModule::is_controller(&did_1, &Controller(did.clone())));
         check_did_detail(&did_1, 1, 1, 2, next_nonce_1);
@@ -932,11 +933,11 @@ fn add_remove_public_key_by_controller() {
         let key = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![8u8; 100],
+            bytes: vec![8u8; 100].into(),
         };
         let ak = AddBBSPlusPublicKey {
             key: key.clone(),
-            did: did_1.clone(),
+            did: did_1,
             nonce: next_nonce,
         };
         let sig = sign_add_key(&did_kp, &ak, did.clone(), 1);
@@ -954,10 +955,10 @@ fn add_remove_public_key_by_controller() {
         assert_eq!(BbsPlusKeys::get(&did, IncId::from(2u8)), None);
         assert!(bbs_plus_events().contains(&super::Event::KeyAdded(did_1, 2u8.into())));
 
-        let rf = (did_1.clone(), 2u8.into());
+        let rf = (did_1, 2u8.into());
         let rk = RemoveBBSPlusPublicKey {
             key_ref: rf,
-            did: did_1.clone(),
+            did: did_1,
             nonce: next_nonce,
         };
         let sig = sign_remove_key(&did_kp, &rk, did.clone(), 1);
@@ -987,28 +988,28 @@ fn add_params_keys() {
         let params = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![5; 100],
+            bytes: vec![5; 100].into(),
         };
         let params_1 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![6; 100],
+            bytes: vec![6; 100].into(),
         };
 
         let key = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![1; 80],
+            bytes: vec![1; 80].into(),
         };
         let key_1 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![2; 80],
+            bytes: vec![2; 80].into(),
         };
         let key_2 = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![3; 80],
+            bytes: vec![3; 80].into(),
         };
 
         assert_eq!(
@@ -1053,7 +1054,7 @@ fn add_params_keys() {
             nonce: did_detail.next_nonce(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
-        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1073,7 +1074,7 @@ fn add_params_keys() {
             nonce: did_detail.next_nonce(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
-        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1096,7 +1097,7 @@ fn add_params_keys() {
             nonce: did_detail.next_nonce(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
-        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1168,7 +1169,7 @@ fn add_params_keys() {
             nonce: did_detail_1.next_nonce(),
         };
         assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1211,7 +1212,7 @@ fn add_params_keys() {
             nonce: did_detail_1.next_nonce(),
         };
         assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1237,33 +1238,33 @@ fn get_params_and_keys() {
         let params = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![5; 100],
+            bytes: vec![5; 100].into(),
         };
         let params_1 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![6; 100],
+            bytes: vec![6; 100].into(),
         };
         let params_2 = BBSPlusParameters {
             label: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![7; 100],
+            bytes: vec![7; 100].into(),
         };
 
         let key = BBSPlusPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![1; 80],
+            bytes: vec![1; 80].into(),
         };
         let key_1 = BBSPlusPublicKey {
             params_ref: Some((BBSPlusParamsOwner(author.clone()), 1u8.into())),
             curve_type: CurveType::Bls12381,
-            bytes: vec![2; 80],
+            bytes: vec![2; 80].into(),
         };
         let key_2 = BBSPlusPublicKey {
             params_ref: Some((BBSPlusParamsOwner(author_1.clone()), 1u8.into())),
             curve_type: CurveType::Bls12381,
-            bytes: vec![3; 80],
+            bytes: vec![3; 80].into(),
         };
 
         assert_eq!(
@@ -1333,7 +1334,7 @@ fn get_params_and_keys() {
             did: author.clone(),
             nonce: did_detail.next_nonce(),
         };
-        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1349,7 +1350,7 @@ fn get_params_and_keys() {
             did: author_1.clone(),
             nonce: did_detail_1.next_nonce(),
         };
-        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )
@@ -1365,7 +1366,7 @@ fn get_params_and_keys() {
             did: author.clone(),
             nonce: did_detail.next_nonce(),
         };
-        assert!(<did::Module<Test>>::try_exec_action_over_onchain_did(
+        assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
             ak,
         )

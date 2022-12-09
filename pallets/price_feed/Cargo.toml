@@ -2,101 +2,107 @@
 name = "price_feed"
 version = "0.0.1"
 authors = ["Dock.io"]
-edition = "2018"
-license = 'Apache-2.0'
+edition = "2021"
+license = "Apache-2.0"
 [package.metadata.docs.rs]
-targets = ['x86_64-unknown-linux-gnu']
+targets = ["x86_64-unknown-linux-gnu"]
 
 [dev-dependencies]
-hex = '0.4.2'
+hex = "0.4.2"
+
+[dependencies.scale-info]
+version = "2.1.2"
+default-features = false
+features = ["derive"]
 
 [dependencies.codec]
 default-features = false
-features = ['derive']
-package = 'parity-scale-codec'
-version = '2.0.0'
+features = ["derive"]
+package = "parity-scale-codec"
+version = "3.1.5"
 
 [dependencies.serde]
-features = ['derive']
+features = ["derive"]
 optional = true
-version = '1.0.119'
+version = "1.0.119"
 
 [dependencies.frame-support]
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [dependencies.frame-system]
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [dependencies.sp-runtime]
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [dependencies.sp-std]
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [dependencies.sp-core]
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [dependencies.sp-api]
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-evm]
 default-features = false
-git = 'https://github.com/docknetwork/frontier.git'
-rev = '24d379e2092e172b8fcc11456aadcc13eff4ad6a'
-# path = '../../../../frontier/frame/evm'
+git = "https://github.com/docknetwork/frontier.git"
+branch = "master"
+# path = "../../../../frontier/frame/evm"
 
 [dependencies.common]
-path = '../../common'
-version = '0.0.1'
+path = "../../common"
+version = "0.0.1"
 
 [dev-dependencies.balances]
-package = 'pallet-balances'
+package = "pallet-balances"
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [dev-dependencies.timestamp]
-package = 'pallet-timestamp'
+package = "pallet-timestamp"
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [dev-dependencies.sp-io]
 default-features = false
-version = '3.0.0'
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
-branch = "frontier"
+branch = "polkadot-v0.9.29"
 
 [features]
-default = ['std']
+default = ["std"]
 std = [
-    'codec/std',
-    'serde',
-    'frame-support/std',
-    'frame-system/std',
-    'sp-core/std',
-    'sp-std/std',
-    'sp-runtime/std',
-    'sp-api/std',
-    'pallet-evm/std',
+    "scale-info/std",
+    "codec/std",
+    "serde",
+    "frame-support/std",
+    "frame-system/std",
+    "sp-core/std",
+    "sp-std/std",
+    "sp-runtime/std",
+    "sp-api/std",
+    "pallet-evm/std",
 ]

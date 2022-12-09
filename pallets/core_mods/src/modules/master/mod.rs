@@ -70,6 +70,7 @@ use alloc::{
 };
 use codec::{Decode, Encode};
 use core::{default::Default, fmt::Debug, marker::PhantomData};
+use sp_std::prelude::*;
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
@@ -84,8 +85,13 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root, ensure_signed};
 
+#[cfg(test)]
+mod tests;
+
 #[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
 pub struct Membership {
     pub members: BTreeSet<Did>,
     pub vote_requirement: u64,
@@ -100,8 +106,10 @@ impl Default for Membership {
     }
 }
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
 pub struct MasterVoteRaw<T> {
     /// The serialized Call to be run as root.
     proposal: Vec<u8>,
@@ -124,7 +132,7 @@ crate::impl_action_with_nonce! {
 
 // Minimum weight of Master's extrinsics. This is not based on any computation but only there to account for
 // some in-memory operations
-const MIN_WEIGHT: Weight = 10_000;
+const MIN_WEIGHT: Weight = Weight::from_ref_time(10_000);
 
 /// Minimum weight for master's extrinsics. Considers cost of signature verification and update to round no
 fn get_min_weight_for_execute<T: frame_system::Config>(
@@ -225,7 +233,7 @@ decl_module! {
         /// `Call` its wrapping but expects the caller to provide it
         #[
             weight = (
-             get_min_weight_for_execute(&auth, T::DbWeight::get()) + _weight,
+             get_min_weight_for_execute(&auth, T::DbWeight::get()) + *_weight,
              proposal.get_dispatch_info().class,
              proposal.get_dispatch_info().pays_fee,
             )
@@ -293,12 +301,12 @@ impl<T: Config + Debug> Module<T> {
             let signer = a.sig.did;
             let nonce = a.nonce;
             // Check if nonce is valid and increase it
-            let mut did_detail = did::Module::<T>::onchain_did_details(&signer)?;
+            let mut did_detail = did::Pallet::<T>::onchain_did_details(&signer)?;
             did_detail
                 .try_update(nonce)
                 .map_err(|_| MasterError::<T>::IncorrectNonce)?;
             // Verify signature
-            let valid = did::Module::<T>::verify_sig_from_auth_or_control_key(
+            let valid = did::Pallet::<T>::verify_sig_from_auth_or_control_key(
                 &WithNonce::new_with_nonce(new_payload.clone(), nonce),
                 &a.sig,
             )?;
@@ -331,7 +339,7 @@ impl<T: Config + Debug> Module<T> {
 
         // The nonce of each DID must be updated
         for (signer, did_details) in new_did_details {
-            did::Module::<T>::insert_did_details(signer, did_details);
+            did::Pallet::<T>::insert_did_details(signer, did_details);
         }
 
         // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,

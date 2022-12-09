@@ -21,10 +21,10 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Module, Call, Config, Storage, Event<T>},
-        Balances: balances::{Module, Call, Storage},
-        PoAModule: poa::{Module, Call, Storage, Config<T>},
-        StakingRewards: staking_rewards::{Module, Call, Storage, Event<T>},
+        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
+        Balances: balances::{Pallet, Call, Storage},
+        PoAModule: poa::{Pallet, Call, Storage, Config<T>},
+        StakingRewards: staking_rewards::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -63,7 +63,9 @@ impl Get<Percent> for RewardDecayPct {
 }
 
 impl system::Config for Test {
-    type BaseCallFilter = ();
+    type OnSetCode = ();
+    type MaxConsumers = sp_runtime::traits::ConstU32<10>;
+    type BaseCallFilter = frame_support::traits::Everything;
     type BlockWeights = ();
     type BlockLength = ();
     type DbWeight = ();
@@ -88,6 +90,8 @@ impl system::Config for Test {
 }
 
 impl balances::Config for Test {
+    type MaxReserves = ();
+    type ReserveIdentifier = ();
     type Balance = u64;
     type DustRemoval = ();
     type Event = ();

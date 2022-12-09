@@ -3,7 +3,7 @@ use crate::{
     did::{Did, DidSignature},
     keys_and_sigs::SigValue,
     types::CurveType,
-    util::IncId,
+    util::{IncId, WrappedBytes},
     StorageVersion,
 };
 pub use actions::*;
@@ -17,7 +17,7 @@ use frame_support::{
     traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::vec::Vec;
+use sp_std::prelude::*;
 pub use types::*;
 use weights::*;
 
@@ -57,8 +57,8 @@ decl_event!(
         ParamsRemoved(AccumulatorOwner, IncId),
         KeyAdded(AccumulatorOwner, IncId),
         KeyRemoved(AccumulatorOwner, IncId),
-        AccumulatorAdded(AccumulatorId, Vec<u8>),
-        AccumulatorUpdated(AccumulatorId, Vec<u8>),
+        AccumulatorAdded(AccumulatorId, WrappedBytes),
+        AccumulatorUpdated(AccumulatorId, WrappedBytes),
         AccumulatorRemoved(AccumulatorId),
     }
 );
@@ -143,7 +143,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
         }
 
         #[weight = SubstrateWeight::<T>::add_public(&public_key, &signature)]
@@ -154,7 +154,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_public_key_, public_key, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_public_key_, public_key, signature)
         }
 
         #[weight = SubstrateWeight::<T>::remove_params(&remove, &signature)]
@@ -165,7 +165,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
         }
 
         #[weight = SubstrateWeight::<T>::remove_public(&remove, &signature)]
@@ -176,7 +176,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_public_key_, remove, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_public_key_, remove, signature)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -192,7 +192,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::add_accumulator_, add_accumulator, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_accumulator_, add_accumulator, signature)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -208,7 +208,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::update_accumulator_, update, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::update_accumulator_, update, signature)
         }
 
         #[weight = SubstrateWeight::<T>::remove_accumulator(&remove, &signature)]
@@ -219,7 +219,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::remove_accumulator_, remove, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_accumulator_, remove, signature)
         }
     }
 }
@@ -233,10 +233,10 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_params_sr25519,
             SigValue::Ed25519(_) => Self::add_params_ed25519,
             SigValue::Secp256k1(_) => Self::add_params_secp256k1,
-        })(
+        }(
             add_params.params.bytes.len() as u32,
             add_params.params.label.as_ref().map_or(0, |v| v.len()) as u32,
-        )
+        ))
     }
 
     fn add_public(
@@ -247,7 +247,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_public_sr25519,
             SigValue::Ed25519(_) => Self::add_public_ed25519,
             SigValue::Secp256k1(_) => Self::add_public_secp256k1,
-        })(public_key.public_key.bytes.len() as u32)
+        }(public_key.public_key.bytes.len() as u32))
     }
 
     fn remove_params(
@@ -258,7 +258,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_params_sr25519,
             SigValue::Ed25519(_) => Self::remove_params_ed25519,
             SigValue::Secp256k1(_) => Self::remove_params_secp256k1,
-        })()
+        }())
     }
 
     fn remove_public(
@@ -269,7 +269,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_public_sr25519,
             SigValue::Ed25519(_) => Self::remove_public_ed25519,
             SigValue::Secp256k1(_) => Self::remove_public_secp256k1,
-        })()
+        }())
     }
 
     fn add_accumulator(
@@ -280,7 +280,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_accumulator_sr25519,
             SigValue::Ed25519(_) => Self::add_accumulator_ed25519,
             SigValue::Secp256k1(_) => Self::add_accumulator_secp256k1,
-        })(acc.accumulator.accumulated().len() as u32)
+        }(acc.accumulator.accumulated().len() as u32))
     }
 
     fn remove_accumulator(
@@ -291,7 +291,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_accumulator_sr25519,
             SigValue::Ed25519(_) => Self::remove_accumulator_ed25519,
             SigValue::Secp256k1(_) => Self::remove_accumulator_secp256k1,
-        })()
+        }())
     }
 
     fn update_accumulator(

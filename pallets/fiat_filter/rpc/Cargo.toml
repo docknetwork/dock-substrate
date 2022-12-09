@@ -2,17 +2,16 @@
 name = "fiat_filter_rpc"
 version = "0.0.2"
 authors = ["Dock.io"]
-edition = "2018"
-
+edition = "2021"
 
 [dependencies]
-jsonrpc-core = "15.0.0"
-jsonrpc-core-client = "15.0.0"
-jsonrpc-derive = "15.0.0"
-sp-api = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
-sp-runtime = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier"}
-sp-blockchain = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
-sp-core = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
-sp-rpc = { version='3.0.0', git = "https://github.com/paritytech/substrate.git", branch = "frontier" }
+jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+thiserror = "1.0"
 
-fiat_filter_rpc_runtime_api = { version = '0.0.1', path='./runtime_api'}
+sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29"}
+sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+sp-core = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+sp-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+
+fiat_filter_rpc_runtime_api = { version = "0.0.1", path="./runtime_api"}

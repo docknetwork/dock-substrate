@@ -1,5 +1,8 @@
 use super::*;
-use crate::attest::{self, Attestation, Attester};
+use crate::{
+    attest::{self, Attestation, Attester},
+    impl_bits_conversion, impl_wrapper_type_info,
+};
 
 /// Aggregated details for the given DID.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
@@ -9,6 +12,8 @@ use crate::attest::{self, Attestation, Attester};
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
 pub struct AggregatedDidDetailsResponse<T: Config> {
     did: Did,
     details: StoredDidDetails<T>,
@@ -23,18 +28,20 @@ pub struct AggregatedDidDetailsResponse<T: Config> {
 }
 
 /// `DidKey` with its identifier.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(omit_prefix)]
 pub struct DidKeyWithId {
     id: IncId,
     key: DidKey,
 }
 
 /// `ServiceEndpoint` with its identifier.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(omit_prefix)]
 pub struct ServiceEndpointWithId {
     id: WrappedBytes,
     endpoint: ServiceEndpoint,
@@ -77,7 +84,7 @@ impl<T: Config> AggregatedDidDetailsResponse<T> {
 
 bitflags::bitflags! {
     /// Information requested for DID. The default option includes only basic DID details.
-    #[derive(Encode, Decode, Default)]
+    #[derive(Default)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u8", into = "u8"))]
     pub struct AggregatedDidDetailsRequestParams: u8 {
@@ -96,7 +103,8 @@ bitflags::bitflags! {
     }
 }
 
-impl_bits_conversion! { AggregatedDidDetailsRequestParams, u8 }
+impl_bits_conversion! { AggregatedDidDetailsRequestParams from u8 }
+impl_wrapper_type_info! { AggregatedDidDetailsRequestParams(u8) }
 
 impl<T: Config + attest::Config + Debug> Module<T> {
     /// Request aggregated DID details containing specified information.
@@ -116,7 +124,7 @@ impl<T: Config + attest::Config + Debug> Module<T> {
             .then(|| DidServiceEndpoints::iter_prefix(did));
         let attestation = params
             .intersects(AggregatedDidDetailsRequestParams::ATTESTATION)
-            .then(|| <attest::Module<T>>::attestation(&Attester(*did)));
+            .then(|| <attest::Pallet<T>>::attestation(&Attester(*did)));
 
         Some(AggregatedDidDetailsResponse::new(
             *did,

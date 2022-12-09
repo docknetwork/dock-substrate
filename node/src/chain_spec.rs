@@ -2,15 +2,17 @@ use dock_runtime::{
     did::{Did, DidKey},
     keys_and_sigs::PublicKey,
     master::Membership,
-    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, DIDModuleConfig,
-    EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig, Hash, ImOnlineConfig,
-    MasterConfig, PoAModuleConfig, SessionConfig, SessionKeys, Signature, StakerStatus,
-    StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig, BABE_GENESIS_EPOCH_CONFIG,
-    DOCK, WASM_BINARY,
+    AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, Block,
+    DIDModuleConfig, EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig,
+    Hash, ImOnlineConfig, MasterConfig, PoAModuleConfig, SessionConfig, SessionKeys, Signature,
+    StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
+    BABE_GENESIS_EPOCH_CONFIG, DOCK, WASM_BINARY,
 };
 use hex_literal::hex;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
+use sc_chain_spec::ChainSpecExtension;
 use sc_service::{ChainType, Properties};
+use serde::{Deserialize, Serialize};
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_consensus_babe::{AuthorityId as BabeId, BabeEpochConfiguration};
 use sp_core::{crypto::Ss58Codec, sr25519, Pair, Public};
@@ -21,6 +23,21 @@ use serde_json::map::Map;
 
 use sp_runtime::Perbill;
 use std::{collections::BTreeMap, str::FromStr};
+
+/// Node `ChainSpec` extensions.
+///
+/// Additional parameters for some Substrate core modules,
+/// customizable from the chain spec.
+#[derive(Default, Clone, Serialize, Deserialize, ChainSpecExtension)]
+#[serde(rename_all = "camelCase")]
+pub struct Extensions {
+    /// Block numbers with known hashes.
+    pub fork_blocks: sc_client_api::ForkBlocks<Block>,
+    /// Known bad block hashes.
+    pub bad_blocks: sc_client_api::BadBlocks<Block>,
+    /// The light sync state extension used by the sync-state rpc.
+    pub light_sync_state: sc_sync_state_rpc::LightSyncStateExtension,
+}
 
 fn session_keys(
     babe: BabeId,
@@ -37,7 +54,7 @@ fn session_keys(
 }
 
 /// Specialized `ChainSpec`. This is a specialization of the general Substrate ChainSpec type.
-pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig>;
+pub type ChainSpec = sc_service::GenericChainSpec<GenesisConfig, Extensions>;
 
 /// Helper function to generate a crypto pair from seed
 fn get_from_seed<TPublic: Public>(seed: &str) -> <TPublic::Pair as Pair>::Public {
@@ -186,7 +203,7 @@ pub fn development_config() -> ChainSpec {
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
                 stash: 100 * DOCK,
-                validator_count: 3,
+                validator_count: 1,
                 // TODO: Fix
                 poa_last_block: Hash::repeat_byte(42),
                 babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,
@@ -196,8 +213,9 @@ pub fn development_config() -> ChainSpec {
         vec![],
         None,
         None,
-        Some(get_dev_properties()),
         None,
+        Some(get_dev_properties()),
+        Default::default(),
     )
 }
 
@@ -272,8 +290,9 @@ pub fn local_testnet_config() -> ChainSpec {
         vec![],
         None,
         None,
-        Some(get_dev_properties()),
         None,
+        Some(get_dev_properties()),
+        Default::default(),
     )
 }
 
@@ -391,8 +410,165 @@ pub fn pos_testnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        Some(get_testnet_properties()),
         None,
+        Some(get_testnet_properties()),
+        Default::default(),
+    )
+}
+
+/// Configuration for the PoS testnet
+pub fn pos_devnet_config() -> ChainSpec {
+    ChainSpec::from_genesis(
+        "Dock PoS Devnet",
+        "dock_pos_devnet",
+        ChainType::Live,
+        || {
+            GenesisBuilder {
+                initial_authorities: vec![
+                    (
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3BXhN8jdLpgkHRju8tevg92gnk3qG1YqNQ2zVWQt2TyiEDUq",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                        ),
+                    ),
+                    (
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3BUtge3oi9PUPT2F8C419sTfK5ApiyiFCiz6JivoZNmnmJ9E",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3BUtge3oi9PUPT2F8C419sTfK5ApiyiFCiz6JivoZNmnmJ9E",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3BUtge3oi9PUPT2F8C419sTfK5ApiyiFCiz6JivoZNmnmJ9E",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "38ty5VuuQzzyRVYbqZSWiK6ek531H8qJJiF5RPnEgmHZE5z1",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3BUtge3oi9PUPT2F8C419sTfK5ApiyiFCiz6JivoZNmnmJ9E",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3BUtge3oi9PUPT2F8C419sTfK5ApiyiFCiz6JivoZNmnmJ9E",
+                        ),
+                    ),
+                    (
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3BWu6h4Cge1AQTjqvBHnbqBhMShUtXhZgHaDkYs43hMhdgyR",
+                        ),
+                        account_id_from_ss58::<sr25519::Public>(
+                            "3BWu6h4Cge1AQTjqvBHnbqBhMShUtXhZgHaDkYs43hMhdgyR",
+                        ),
+                        pubkey_from_ss58::<BabeId>(
+                            "3BWu6h4Cge1AQTjqvBHnbqBhMShUtXhZgHaDkYs43hMhdgyR",
+                        ),
+                        pubkey_from_ss58::<GrandpaId>(
+                            "3AFuSQTueBLr7y7yg5jNXEaWUJNYDiTVf16QXznA3r78UM7N",
+                        ),
+                        pubkey_from_ss58::<ImOnlineId>(
+                            "3BWu6h4Cge1AQTjqvBHnbqBhMShUtXhZgHaDkYs43hMhdgyR",
+                        ),
+                        pubkey_from_ss58::<AuthorityDiscoveryId>(
+                            "3BWu6h4Cge1AQTjqvBHnbqBhMShUtXhZgHaDkYs43hMhdgyR",
+                        ),
+                    ),
+                ],
+                endowed_accounts: [
+                    "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                    "37AcAUVB2aai9MMQrdeiPV5MQbDpZMKsFDqdMkfkA1xPUzLw",
+                    "3BUtge3oi9PUPT2F8C419sTfK5ApiyiFCiz6JivoZNmnmJ9E",
+                    "38ty5VuuQzzyRVYbqZSWiK6ek531H8qJJiF5RPnEgmHZE5z1",
+                    "3BWu6h4Cge1AQTjqvBHnbqBhMShUtXhZgHaDkYs43hMhdgyR",
+                    "3AFuSQTueBLr7y7yg5jNXEaWUJNYDiTVf16QXznA3r78UM7N",
+                    "391LjoiCr1JjsrqHJW6EirNFUSjixdNGfkVDi68Uibgax8Zt", // Beefy system treasury
+                ]
+                .iter()
+                .cloned()
+                .map(account_id_from_ss58::<sr25519::Public>)
+                .collect(),
+                master: Membership {
+                    members: [
+                        b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                    ]
+                    .iter()
+                    .map(|d| Did(**d))
+                    .collect(),
+                    vote_requirement: 2,
+                },
+                dids: [
+                    (
+                        b"nm\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("2a6f70c3dc8cd003075bbf14567c4251b512c5514dff069c293c14679f91913d"),
+                    ),
+                    (
+                        b"nl\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("848001ef27f057719a31e0e457d4edd946c5792d03a8cb203bc025bdda825301"),
+                    ),
+                    (
+                        b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
+                        hex!("c85c62af598cb718ce4bd1b0b739605fa7a4252db508ceb23dbd3eb4ca523062"),
+                    ),
+                ]
+                .iter()
+                .cloned()
+                .map(|(did, pk)| {
+                    (
+                        Did(*did),
+                        DidKey::new_with_all_relationships(PublicKey::sr25519(pk)),
+                    )
+                })
+                .collect(),
+                // In mainnet, this will be a public key (0s) that no one knows private key for
+                sudo: account_id_from_ss58::<sr25519::Public>(
+                    "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                ),
+                council_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3BUtge3oi9PUPT2F8C419sTfK5ApiyiFCiz6JivoZNmnmJ9E",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3BWu6h4Cge1AQTjqvBHnbqBhMShUtXhZgHaDkYs43hMhdgyR",
+                    ),
+                ],
+                technical_committee_members: vec![
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3At9HRmfpkJmkpzznNoy3o1zC7BUfskgfkKTRqPC2W8vnmaD",
+                    ),
+                    account_id_from_ss58::<sr25519::Public>(
+                        "3BUtge3oi9PUPT2F8C419sTfK5ApiyiFCiz6JivoZNmnmJ9E",
+                    ),
+                ],
+                stash: 1_000 * DOCK,
+                validator_count: 1,
+                poa_last_block: Hash::repeat_byte(42),
+                babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,
+            }
+            .build()
+        },
+        vec![],
+        None,
+        None,
+        None,
+        Some(get_testnet_properties()),
+        Default::default(),
     )
 }
 
@@ -603,8 +779,9 @@ pub fn pos_mainnet_config() -> ChainSpec {
             .unwrap()],
         None,
         None,
-        Some(get_mainnet_properties()),
         None,
+        Some(get_mainnet_properties()),
+        Default::default(),
     )
 }
 
@@ -644,11 +821,12 @@ impl GenesisBuilder {
         let stash = self.stash;
 
         GenesisConfig {
+            base_fee: Default::default(),
             system: SystemConfig {
                 code: WASM_BINARY.unwrap().to_vec(),
-                changes_trie_config: Default::default(),
+                // changes_trie_config: Default::default(),
             },
-            pallet_session: SessionConfig {
+            session: SessionConfig {
                 keys: self
                     .initial_authorities
                     .iter()
@@ -661,7 +839,7 @@ impl GenesisBuilder {
                     })
                     .collect::<Vec<_>>(),
             },
-            poa: PoAModuleConfig {
+            po_a_module: PoAModuleConfig {
                 emission_supply,
                 poa_last_block: self.poa_last_block,
             },
@@ -679,19 +857,21 @@ impl GenesisBuilder {
             master: MasterConfig {
                 members: self.master,
             },
-            did: DIDModuleConfig { dids: self.dids },
-            sudo: SudoConfig { key: self.sudo },
-            pallet_collective_Instance1: Default::default(),
-            pallet_collective_Instance2: TechnicalCommitteeConfig {
+            did_module: DIDModuleConfig { dids: self.dids },
+            sudo: SudoConfig {
+                key: Some(self.sudo),
+            },
+            technical_committee: TechnicalCommitteeConfig {
                 members: self.technical_committee_members,
                 phantom: Default::default(),
             },
-            pallet_membership_Instance1: Default::default(),
-            pallet_ethereum: EthereumConfig {},
-            pallet_evm: EVMConfig {
+            council: Default::default(),
+            technical_committee_membership: Default::default(),
+            ethereum: EthereumConfig {},
+            evm: EVMConfig {
                 accounts: BTreeMap::new(),
             },
-            pallet_staking: StakingConfig {
+            staking: StakingConfig {
                 validator_count: self.validator_count as u32,
                 minimum_validator_count: self.initial_authorities.len() as u32,
                 stakers: self
@@ -708,14 +888,14 @@ impl GenesisBuilder {
                 slash_reward_fraction: Perbill::from_percent(20),
                 ..Default::default()
             },
-            pallet_babe: BabeConfig {
+            babe: BabeConfig {
                 authorities: vec![],
                 epoch_config: Some(self.babe_epoch_config),
             },
-            pallet_im_online: ImOnlineConfig { keys: vec![] },
-            pallet_authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
-            pallet_treasury: Default::default(),
-            pallet_elections_phragmen: ElectionsConfig {
+            im_online: ImOnlineConfig { keys: vec![] },
+            authority_discovery: AuthorityDiscoveryConfig { keys: vec![] },
+            treasury: Default::default(),
+            elections: ElectionsConfig {
                 members: self
                     .council_members
                     .iter()

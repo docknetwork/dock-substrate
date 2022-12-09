@@ -6,7 +6,7 @@ WORKDIR /dock-node
 RUN apt -y update && \
   apt install -y --no-install-recommends \
   software-properties-common llvm curl git file binutils binutils-dev \
-  make cmake ca-certificates clang g++ zip dpkg-dev openssl gettext\
+  make cmake ca-certificates clang g++ zip dpkg-dev openssl gettext \
   build-essential pkg-config libssl-dev libudev-dev time clang
 
 # install rustup
@@ -15,13 +15,15 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 # rustup directory
 ENV PATH /root/.cargo/bin:$PATH
 
+ARG nightly='nightly-2022-09-23'
+
 # setup rust nightly channel, pinning specific version as newer versions have a regression
-RUN rustup install nightly-2022-09-23
+RUN rustup install $nightly
 
 RUN rustup install stable
 
 # install wasm toolchain for substrate
-RUN rustup target add wasm32-unknown-unknown --toolchain nightly-2022-09-23
+RUN rustup target add wasm32-unknown-unknown --toolchain $nightly
 
 #compiler ENV
 ENV CC clang
@@ -43,14 +45,14 @@ ARG features
 ARG release
 
 RUN if [ "$release" = "Y" ] ; then \
-  echo 'Building in release mode.' ; \
-  WASM_BUILD_TOOLCHAIN=nightly-2022-09-23 cargo build --profile=release $features ; \
-  mv /dock-node/target/release/dock-node /dock-node/target/; \
-  else \
-  echo 'Building in production mode.' ; \
-  WASM_BUILD_TOOLCHAIN=nightly-2022-09-23 cargo build --profile=production $features ; \
-  mv /dock-node/target/production/dock-node /dock-node/target/; \
-  fi
+      echo 'Building in release mode.' ; \
+      WASM_BUILD_TOOLCHAIN=$nightly cargo build --profile=release $features ; \
+      mv /dock-node/target/release/dock-node /dock-node/target/; \
+    else \
+      echo 'Building in production mode.' ; \
+      WASM_BUILD_TOOLCHAIN=$nightly cargo build --profile=production $features ; \
+      mv /dock-node/target/production/dock-node /dock-node/target/; \
+    fi
 
 # Final stage. Copy the node executable and the script
 FROM ubuntu:jammy

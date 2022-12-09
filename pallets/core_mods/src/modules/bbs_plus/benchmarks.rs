@@ -1,6 +1,7 @@
 use super::*;
 use crate::{
-    did::{Did, DidKey, DidSignature},
+    did::{Did, DidSignature, UncheckedDidKey},
+    types::CurveType,
     util::IncId,
     ToStateChange,
 };
@@ -24,16 +25,16 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
         let params = BBSPlusParameters {
             curve_type: CurveType::Bls12381,
-            bytes: vec![0; b as usize],
-            label: Some(vec![0; l as usize])
+            bytes: vec![0; b as usize].into(),
+            label: Some(vec![0; l as usize].into())
         };
         let new_params = AddBBSPlusParams {
             params: params.clone(),
@@ -48,15 +49,14 @@ crate::bench_with_all_pairs! {
     }
 
     remove_params_sr25519 for sr25519, remove_params_ed25519 for ed25519, remove_params_secp256k1 for secp256k1 {
-
         let pair as Pair;
         let caller = whitelisted_caller();
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -64,8 +64,8 @@ crate::bench_with_all_pairs! {
             AddBBSPlusParams {
                 params: BBSPlusParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![0; MAX_PARAMS as usize],
-                    label: Some(vec![1; MAX_LABEL as usize])
+                    bytes: vec![0; MAX_PARAMS as usize].into(),
+                    label: Some(vec![1; MAX_LABEL as usize].into())
                 },
                 nonce: 1u8.into()
             },
@@ -94,9 +94,9 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -104,8 +104,8 @@ crate::bench_with_all_pairs! {
             AddBBSPlusParams {
                 params: BBSPlusParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![0; MAX_PARAMS as usize],
-                    label: Some(vec![1; MAX_LABEL as usize])
+                    bytes: vec![0; MAX_PARAMS as usize].into(),
+                    label: Some(vec![1; MAX_LABEL as usize].into())
                 },
                 nonce: 1u8.into()
             },
@@ -114,7 +114,7 @@ crate::bench_with_all_pairs! {
 
         let key = BBSPlusPublicKey {
             curve_type: CurveType::Bls12381,
-            bytes: vec![0; b as usize],
+            bytes: vec![0; b as usize].into(),
             /// The params used to generate the public key (`P_tilde` comes from params)
             params_ref: Some((BBSPlusParamsOwner(did), IncId::from(1u8)))
         };
@@ -133,15 +133,14 @@ crate::bench_with_all_pairs! {
     }
 
     remove_public_sr25519 for sr25519, remove_public_ed25519 for ed25519, remove_public_secp256k1 for secp256k1 {
-
         let pair as Pair;
         let caller = whitelisted_caller();
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -149,8 +148,8 @@ crate::bench_with_all_pairs! {
             AddBBSPlusParams {
                 params: BBSPlusParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![0; MAX_PARAMS as usize],
-                    label: Some(vec![1; MAX_LABEL as usize])
+                    bytes: vec![0; MAX_PARAMS as usize].into(),
+                    label: Some(vec![1; MAX_LABEL as usize].into())
                 },
                 nonce: 1u8.into()
             },
@@ -162,7 +161,7 @@ crate::bench_with_all_pairs! {
                 did: did,
                 key: BBSPlusPublicKey {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![0; MAX_KEY as usize],
+                    bytes: vec![0; MAX_KEY as usize].into(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
                     params_ref: Some((BBSPlusParamsOwner(did), IncId::from(1u8)))
                 },

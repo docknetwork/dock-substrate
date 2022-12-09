@@ -1,5 +1,5 @@
 use super::*;
-use crate::did::{Did, DidKey};
+use crate::did::{Did, UncheckedDidKey};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_core::U256;
 use sp_std::{iter::once, prelude::*};
@@ -24,9 +24,9 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -44,7 +44,7 @@ crate::bench_with_all_pairs! {
         let sig = pair.sign(&revoke.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig);
 
-        super::Module::<T>::new_registry_(AddRegistry { id: reg_id, registry: Registry {policy: oneof(&[did]), add_only: false}}).unwrap();
+        super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: Registry {policy: oneof(&[did]), add_only: false}}).unwrap();
     }: revoke(RawOrigin::Signed(caller), revoke_raw, vec![DidSigs { sig: signature, nonce: 1u32.into() }])
     verify {
         assert!(revoke_ids
@@ -61,18 +61,18 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
         let reg_id = [2u8; 32];
         let revoke_ids: BTreeSet<_> = (0..r).map(|i| U256::from(i).into()).collect();
 
-        super::Module::<T>::new_registry_(AddRegistry { id: reg_id, registry: Registry {policy: oneof(&[did]), add_only: false}}).unwrap();
+        super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: Registry {policy: oneof(&[did]), add_only: false}}).unwrap();
 
-        crate::revoke::Module::<T>::revoke_(
+        crate::revoke::Pallet::<T>::revoke_(
             RevokeRaw {
                 /// The registry on which to operate
                registry_id: reg_id,
@@ -113,19 +113,19 @@ crate::bench_with_all_pairs! {
             add_only: false,
         };
         let add_reg = AddRegistry {
-            registry: reg.clone(),
+            new_registry: reg.clone(),
             id: reg_id
         };
         let revoke_ids: BTreeSet<_> = (0..100).map(|i| U256::from(i).into()).collect();
-        crate::did::Module::<T>::new_onchain_(
+        crate::did::Pallet::<T>::new_onchain_(
             did,
-            vec![DidKey::new_with_all_relationships(public)],
+            vec![UncheckedDidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
-        super::Module::<T>::new_registry_(add_reg).unwrap();
+        super::Pallet::<T>::new_registry_(add_reg).unwrap();
 
-        crate::revoke::Module::<T>::revoke_(
+        crate::revoke::Pallet::<T>::revoke_(
             RevokeRaw {
                 /// The registry on which to operate
                registry_id: reg_id,
@@ -160,7 +160,7 @@ crate::bench_with_all_pairs! {
             add_only: false,
         };
         let add_reg = AddRegistry {
-            registry: reg.clone(),
+            new_registry: reg.clone(),
             id: reg_id
         };
 

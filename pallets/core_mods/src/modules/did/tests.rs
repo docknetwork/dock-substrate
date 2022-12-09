@@ -2,12 +2,15 @@ use super::*;
 use crate::ToStateChange;
 
 use crate::{
-    did::service_endpoints::ServiceEndpointType,
+    did::{
+        keys::{DidKeyError, UncheckedDidKey},
+        service_endpoints::ServiceEndpointType,
+    },
     keys_and_sigs::{get_secp256k1_keypair, SigValue},
     test_common::*,
     util::{Bytes64, Bytes65},
 };
-use frame_support::{assert_noop, assert_ok};
+use frame_support::{assert_err, assert_noop, assert_ok};
 use sp_core::{ed25519, sr25519, Pair};
 
 fn not_key_agreement(key: &DidKey) {
@@ -163,7 +166,7 @@ fn onchain_keyless_did_creation() {
         assert_noop!(
             DIDModule::new_onchain(
                 Origin::signed(alice),
-                did_1.clone(),
+                did_1,
                 vec![],
                 vec![].into_iter().collect()
             ),
@@ -173,7 +176,7 @@ fn onchain_keyless_did_creation() {
         run_to_block(20);
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
+            did_1,
             vec![].into_iter().collect(),
             vec![controller_1].into_iter().collect()
         ));
@@ -190,7 +193,7 @@ fn onchain_keyless_did_creation() {
         assert_noop!(
             DIDModule::new_onchain(
                 Origin::signed(alice),
-                did_1.clone(),
+                did_1,
                 vec![].into_iter().collect(),
                 vec![controller_1].into_iter().collect()
             ),
@@ -200,7 +203,7 @@ fn onchain_keyless_did_creation() {
         run_to_block(55);
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
+            did_2,
             vec![].into_iter().collect(),
             vec![Controller(did_1), controller_1, controller_2]
                 .into_iter()
@@ -247,11 +250,11 @@ fn onchain_keyed_did_creation_with_self_control() {
         // DID controls itself when adding keys capable of signing without specifying any verificatiion relationship
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::NONE.into()
-            }],
+            did_1,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::NONE
+            )],
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
@@ -265,11 +268,11 @@ fn onchain_keyed_did_creation_with_self_control() {
         // DID controls itself and specifies another controller as well
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: VerRelType::NONE.into()
-            }],
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed),
+                VerRelType::NONE
+            )],
             vec![did_1].into_iter().map(Controller).collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_2));
@@ -283,11 +286,8 @@ fn onchain_keyed_did_creation_with_self_control() {
         // DID controls itself and specifies multiple another controllers as well
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_3.clone(),
-            vec![DidKey {
-                public_key: pk_secp.clone(),
-                ver_rels: VerRelType::NONE.into()
-            }],
+            did_3,
+            vec![UncheckedDidKey::new(pk_secp.clone(), VerRelType::NONE)],
             vec![did_1, did_2].into_iter().map(Controller).collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_3));
@@ -301,37 +301,39 @@ fn onchain_keyed_did_creation_with_self_control() {
         // Adding x25519 key does not make the DID self controlled
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_4.clone(),
-            vec![DidKey {
-                public_key: PublicKey::x25519(pk_ed),
-                ver_rels: VerRelType::NONE.into()
-            }],
-            vec![Controller(did_3.clone())].into_iter().collect()
+            did_4,
+            vec![UncheckedDidKey::new(
+                PublicKey::x25519(pk_ed),
+                VerRelType::NONE
+            )],
+            vec![Controller(did_3)].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_4));
         check_did_detail(&did_4, 1, 0, 1, 8);
 
-        let key_4 = DidKeys::get(&did_4, IncId::from(1u32)).unwrap();
-        only_key_agreement(&key_4);
-
         // x25519 key cannot be added for incompatible relationship types
-        for vr in vec![
-            VerRelType::AUTHENTICATION,
-            VerRelType::ASSERTION,
-            VerRelType::CAPABILITY_INVOCATION,
-        ] {
-            assert_noop!(
-                DIDModule::new_onchain(
-                    Origin::signed(alice),
-                    did_5.clone(),
-                    vec![DidKey {
-                        public_key: PublicKey::x25519(pk_ed),
-                        ver_rels: vr.into()
-                    }],
-                    vec![].into_iter().collect()
-                ),
-                Error::<Test>::IncompatibleVerificationRelation
-            );
+        for add in vec![VerRelType::NONE, VerRelType::KEY_AGREEMENT] {
+            for vr in vec![
+                VerRelType::AUTHENTICATION,
+                VerRelType::ASSERTION,
+                VerRelType::CAPABILITY_INVOCATION,
+                VerRelType::ALL_FOR_SIGNING,
+            ]
+            .into_iter()
+            .map(|val| val | add)
+            {
+                let key = UncheckedDidKey::new(PublicKey::x25519(pk_ed), vr.into());
+
+                assert_noop!(
+                    DIDModule::new_onchain(
+                        Origin::signed(alice),
+                        did_10.clone(),
+                        vec![key],
+                        vec![Controller(did_3)].into_iter().collect()
+                    ),
+                    Error::<Test>::KeyAgreementCantBeUsedForSigning
+                );
+            }
         }
 
         for pk in vec![
@@ -339,19 +341,31 @@ fn onchain_keyed_did_creation_with_self_control() {
             PublicKey::ed25519(pk_ed),
             pk_secp.clone(),
         ] {
-            assert_noop!(
-                DIDModule::new_onchain(
-                    Origin::signed(alice),
-                    did_5.clone(),
-                    vec![DidKey {
-                        public_key: pk,
-                        ver_rels: VerRelType::KEY_AGREEMENT.into()
-                    }],
-                    vec![].into_iter().collect()
-                ),
-                Error::<Test>::IncompatibleVerificationRelation
-            );
+            for vr in vec![
+                VerRelType::AUTHENTICATION,
+                VerRelType::ASSERTION,
+                VerRelType::CAPABILITY_INVOCATION,
+                VerRelType::NONE,
+                VerRelType::ALL_FOR_SIGNING,
+            ]
+            .into_iter()
+            {
+                let key = UncheckedDidKey::new(pk.clone(), VerRelType::KEY_AGREEMENT | vr.into());
+
+                assert_noop!(
+                    DIDModule::new_onchain(
+                        Origin::signed(alice),
+                        did_10.clone(),
+                        vec![key],
+                        vec![Controller(did_3)].into_iter().collect()
+                    ),
+                    Error::<Test>::SigningKeyCantBeUsedForKeyAgreement
+                );
+            }
         }
+
+        let key_4 = DidKeys::get(&did_4, IncId::from(1u32)).unwrap();
+        only_key_agreement(&key_4);
 
         run_to_block(10);
 
@@ -364,10 +378,7 @@ fn onchain_keyed_did_creation_with_self_control() {
             assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
                 did.clone(),
-                vec![DidKey {
-                    public_key: pk,
-                    ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
-                }],
+                vec![UncheckedDidKey::new(pk, VerRelType::CAPABILITY_INVOCATION)],
                 vec![].into_iter().collect()
             ));
             assert!(DIDModule::is_self_controlled(&did));
@@ -415,11 +426,8 @@ fn onchain_keyed_did_creation_with_self_control() {
             assert_ok!(DIDModule::new_onchain(
                 Origin::signed(alice),
                 did.clone(),
-                vec![DidKey {
-                    public_key: pk,
-                    ver_rels: vr.into()
-                }],
-                vec![Controller(did_1.clone())].into_iter().collect()
+                vec![UncheckedDidKey::new(pk, vr.into())],
+                vec![Controller(did_1)].into_iter().collect()
             ));
             assert!(!DIDModule::is_self_controlled(&did));
             let key = DidKeys::get(&did, IncId::from(1u32)).unwrap();
@@ -439,10 +447,10 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
             did_8.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
-            }],
+            vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed),
+                VerRelType::AUTHENTICATION | VerRelType::ASSERTION
+            )],
             vec![Controller(did_9)].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_8));
@@ -459,18 +467,12 @@ fn onchain_keyed_did_creation_with_self_control() {
             Origin::signed(alice),
             did_9.clone(),
             vec![
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed),
-                    ver_rels: VerRelType::AUTHENTICATION.into()
-                },
-                DidKey {
-                    public_key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::ASSERTION.into()
-                },
-                DidKey {
-                    public_key: pk_secp.clone(),
-                    ver_rels: (VerRelType::ASSERTION | VerRelType::AUTHENTICATION).into()
-                },
+                UncheckedDidKey::new(PublicKey::ed25519(pk_ed), VerRelType::AUTHENTICATION),
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr), VerRelType::ASSERTION),
+                UncheckedDidKey::new(
+                    pk_secp.clone(),
+                    VerRelType::ASSERTION | VerRelType::AUTHENTICATION
+                )
             ],
             vec![Controller(did_8.clone())].into_iter().collect()
         ));
@@ -496,18 +498,12 @@ fn onchain_keyed_did_creation_with_self_control() {
             Origin::signed(alice),
             did_10.clone(),
             vec![
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed),
-                    ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
-                },
-                DidKey {
-                    public_key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::ASSERTION.into()
-                },
-                DidKey {
-                    public_key: pk_secp,
-                    ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
-                },
+                UncheckedDidKey::new(
+                    PublicKey::ed25519(pk_ed),
+                    VerRelType::AUTHENTICATION | VerRelType::ASSERTION
+                ),
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr), VerRelType::ASSERTION),
+                UncheckedDidKey::new(pk_secp, VerRelType::CAPABILITY_INVOCATION),
             ],
             vec![].into_iter().collect()
         ));
@@ -533,14 +529,11 @@ fn onchain_keyed_did_creation_with_self_control() {
             Origin::signed(alice),
             did_11.clone(),
             vec![
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed),
-                    ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
-                },
-                DidKey {
-                    public_key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::CAPABILITY_INVOCATION.into()
-                },
+                UncheckedDidKey::new(
+                    PublicKey::ed25519(pk_ed),
+                    VerRelType::AUTHENTICATION | VerRelType::ASSERTION
+                ),
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr), VerRelType::CAPABILITY_INVOCATION),
             ],
             vec![did_1, did_2].into_iter().map(Controller).collect()
         ));
@@ -585,11 +578,11 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         // DID does not control itself, some other DID does
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::AUTHENTICATION.into()
-            }],
+            did_1,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::AUTHENTICATION
+            )],
             vec![controller_1].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_1));
@@ -601,11 +594,11 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         // DID does not control itself, some other DID does
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: VerRelType::ASSERTION.into()
-            }],
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed),
+                VerRelType::ASSERTION
+            )],
             vec![controller_2].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
@@ -617,11 +610,11 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         // DID does not control itself, some other DID does
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_3.clone(),
-            vec![DidKey {
-                public_key: PublicKey::x25519(pk_ed),
-                ver_rels: VerRelType::KEY_AGREEMENT.into()
-            }],
+            did_3,
+            vec![UncheckedDidKey::new(
+                PublicKey::x25519(pk_ed),
+                VerRelType::KEY_AGREEMENT
+            )],
             vec![controller_3].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_3));
@@ -633,16 +626,10 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         // DID does not control itself, some other DID does
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_4.clone(),
+            did_4,
             vec![
-                DidKey {
-                    public_key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::AUTHENTICATION.into()
-                },
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed),
-                    ver_rels: VerRelType::ASSERTION.into()
-                }
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr), VerRelType::AUTHENTICATION),
+                UncheckedDidKey::new(PublicKey::ed25519(pk_ed), VerRelType::ASSERTION)
             ],
             vec![controller_4].into_iter().collect()
         ));
@@ -655,17 +642,13 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         // DID is controlled by itself and another DID as well
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_5.clone(),
+            did_5,
             vec![
-                DidKey {
-                    public_key: pk_secp.clone(),
-                    ver_rels: (VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION)
-                        .into()
-                },
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed),
-                    ver_rels: VerRelType::ASSERTION.into()
-                }
+                UncheckedDidKey::new(
+                    pk_secp.clone(),
+                    VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION
+                ),
+                UncheckedDidKey::new(PublicKey::ed25519(pk_ed), VerRelType::ASSERTION)
             ],
             vec![controller_1].into_iter().collect()
         ));
@@ -678,17 +661,16 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         // DID has 2 keys to control itself and another DID
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_6.clone(),
+            did_6,
             vec![
-                DidKey {
-                    public_key: pk_secp,
-                    ver_rels: (VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION)
-                        .into()
-                },
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed),
-                    ver_rels: (VerRelType::ASSERTION | VerRelType::CAPABILITY_INVOCATION).into()
-                }
+                UncheckedDidKey::new(
+                    pk_secp,
+                    VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION
+                ),
+                UncheckedDidKey::new(
+                    PublicKey::ed25519(pk_ed),
+                    VerRelType::ASSERTION | VerRelType::CAPABILITY_INVOCATION
+                )
             ],
             vec![controller_1].into_iter().collect()
         ));
@@ -720,11 +702,8 @@ fn add_keys_to_did() {
 
         // Add keys to a DID that has not been registered yet should fail
         let add_keys = AddKeys {
-            did: did_1.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr_1),
-                ver_rels: VerRelType::NONE.into(),
-            }],
+            did: did_1,
+            keys: vec![UncheckedDidKey::new(PublicKey::sr25519(pk_sr_1), VerRelType::NONE)],
             nonce: 4,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
@@ -733,7 +712,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -745,7 +724,7 @@ fn add_keys_to_did() {
 
         // At least one key must be provided
         let add_keys = AddKeys {
-            did: did_1.clone(),
+            did: did_1,
             keys: vec![],
             nonce: 5,
         };
@@ -755,7 +734,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -763,12 +742,15 @@ fn add_keys_to_did() {
             Error::<Test>::OnlyControllerCanUpdate
         );
 
+        let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+        let pk_sr = pair_sr.public().0;
+        let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+        let pk_ed = pair_ed.public().0;
+        let (_, pk_secp) = get_secp256k1_keypair(&[21; 32]);
+
         let add_keys = AddKeys {
-            did: did_1.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr_1),
-                ver_rels: VerRelType::NONE.into(),
-            }],
+            did: did_1,
+            keys: vec![UncheckedDidKey::new(PublicKey::sr25519(pk_sr_1), VerRelType::NONE)],
             nonce: 5,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
@@ -777,7 +759,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -787,20 +769,11 @@ fn add_keys_to_did() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
+            did_1,
             vec![
-                DidKey {
-                    public_key: PublicKey::sr25519(pk_sr_1),
-                    ver_rels: VerRelType::NONE.into()
-                },
-                DidKey {
-                    public_key: PublicKey::sr25519(pk_sr_2),
-                    ver_rels: VerRelType::NONE.into()
-                },
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed_2),
-                    ver_rels: VerRelType::AUTHENTICATION.into()
-                },
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr_1), VerRelType::NONE),
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::NONE),
+                UncheckedDidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::AUTHENTICATION),
             ],
             vec![].into_iter().collect()
         ));
@@ -812,11 +785,8 @@ fn add_keys_to_did() {
         // This DID does not control itself
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed_1),
-                ver_rels: VerRelType::AUTHENTICATION.into()
-            }],
+            did_2,
+            vec![UncheckedDidKey::new(PublicKey::ed25519(pk_ed_1), VerRelType::AUTHENTICATION)],
             vec![did_1].into_iter().map(Controller).collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
@@ -826,11 +796,8 @@ fn add_keys_to_did() {
 
         // Since did_2 does not control itself, it cannot add keys to itself
         let add_keys = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: pk_secp_1.clone(),
-                ver_rels: VerRelType::NONE.into(),
-            }],
+            did: did_2,
+            keys: vec![UncheckedDidKey::new(pk_secp_1.clone(), VerRelType::NONE)],
             nonce: 5 + 1,
         };
         let sig = SigValue::ed25519(&add_keys.to_state_change().encode(), &pair_ed_1);
@@ -839,7 +806,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: Controller(did_2),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -850,11 +817,8 @@ fn add_keys_to_did() {
         // Nonce should be 1 greater than existing 5, i.e. 6
         for nonce in vec![5, 7, 9, 10, 100, 10245] {
             let add_keys = AddKeys {
-                did: did_2.clone(),
-                keys: vec![DidKey {
-                    public_key: pk_secp_1.clone(),
-                    ver_rels: VerRelType::NONE.into(),
-                }],
+                did: did_2,
+                keys: vec![UncheckedDidKey::new(pk_secp_1.clone(), VerRelType::NONE)],
                 nonce,
             };
             let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
@@ -863,7 +827,7 @@ fn add_keys_to_did() {
                     Origin::signed(alice),
                     add_keys,
                     DidSignature {
-                        did: Controller(did_1.clone()),
+                        did: Controller(did_1),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -874,11 +838,8 @@ fn add_keys_to_did() {
 
         // Invalid signature should fail
         let add_keys = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: pk_secp_1.clone(),
-                ver_rels: VerRelType::NONE.into(),
-            }],
+            did: did_2,
+            keys: vec![UncheckedDidKey::new(pk_secp_1.clone(), VerRelType::NONE)],
             nonce: 5 + 1,
         };
         // Using some arbitrary bytes as signature
@@ -888,7 +849,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -898,11 +859,8 @@ fn add_keys_to_did() {
 
         // Using wrong key_id should fail
         let add_keys = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: pk_secp_1.clone(),
-                ver_rels: VerRelType::NONE.into(),
-            }],
+            did: did_2,
+            keys: vec![UncheckedDidKey::new(pk_secp_1.clone(), VerRelType::NONE)],
             nonce: 5 + 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
@@ -911,7 +869,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -920,35 +878,93 @@ fn add_keys_to_did() {
         );
 
         // Using wrong key type should fail
-        let add_keys = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: pk_secp_1.clone(),
-                ver_rels: VerRelType::KEY_AGREEMENT.into(),
-            }],
-            nonce: 5 + 1,
-        };
-        let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
-        assert_noop!(
-            DIDModule::add_keys(
-                Origin::signed(alice),
-                add_keys,
-                DidSignature {
-                    did: Controller(did_1.clone()),
-                    key_id: 1u32.into(),
-                    sig
-                }
-            ),
-            Error::<Test>::IncompatibleVerificationRelation
+        assert_err!(
+            DidKey::new(pk_secp_1.clone(), VerRelType::KEY_AGREEMENT),
+            DidKeyError::SigningKeyCantBeUsedForKeyAgreement
         );
+        assert_err!(
+            DidKey::decode(
+                &mut &UncheckedDidKey::new(pk_secp_1.clone(), VerRelType::KEY_AGREEMENT).encode()[..]
+            ),
+            codec::Error::from("SigningKeyCantBeUsedForKeyAgreement")
+        );
+
+        // x25519 key cannot be added for incompatible relationship types
+        for add in vec![VerRelType::NONE, VerRelType::KEY_AGREEMENT] {
+            for vr in vec![
+                VerRelType::AUTHENTICATION,
+                VerRelType::ASSERTION,
+                VerRelType::CAPABILITY_INVOCATION,
+                VerRelType::ALL_FOR_SIGNING,
+            ]
+            .into_iter()
+            .map(|val| val | add)
+            {
+                let key = UncheckedDidKey::new(PublicKey::x25519(pk_ed), vr.into());
+
+                let add_keys = AddKeys {
+                    did: did_2,
+                    keys: vec![key],
+                    nonce: 5 + 1,
+                };
+                let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
+                assert_noop!(
+                    DIDModule::add_keys(
+                        Origin::signed(alice),
+                        add_keys,
+                        DidSignature {
+                            did: Controller(did_1),
+                            key_id: 1u32.into(),
+                            sig
+                        }
+                    ),
+                    Error::<Test>::KeyAgreementCantBeUsedForSigning
+                );
+            }
+        }
+
+        for pk in vec![
+            PublicKey::sr25519(pk_sr),
+            PublicKey::ed25519(pk_ed),
+            pk_secp.clone(),
+        ] {
+            for vr in vec![
+                VerRelType::AUTHENTICATION,
+                VerRelType::ASSERTION,
+                VerRelType::CAPABILITY_INVOCATION,
+                VerRelType::NONE,
+                VerRelType::ALL_FOR_SIGNING,
+            ]
+            .into_iter()
+            {
+                let key = UncheckedDidKey::new(pk.clone(), VerRelType::KEY_AGREEMENT | vr.into());
+
+                let add_keys = AddKeys {
+                    did: did_2,
+                    keys: vec![key],
+                    nonce: 5 + 1,
+                };
+                let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
+                assert_noop!(
+                    DIDModule::add_keys(
+                        Origin::signed(alice),
+                        add_keys,
+                        DidSignature {
+                            did: Controller(did_1),
+                            key_id: 1u32.into(),
+                            sig
+                        }
+                    ),
+                    Error::<Test>::SigningKeyCantBeUsedForKeyAgreement
+                );
+            }
+        }
+
 
         // Add x25519 key
         let add_keys = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::x25519(pk_ed_1),
-                ver_rels: VerRelType::KEY_AGREEMENT.into(),
-            }],
+            did: did_2,
+            keys: vec![UncheckedDidKey::new(PublicKey::x25519(pk_ed_1), VerRelType::KEY_AGREEMENT)],
             nonce: 5 + 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
@@ -956,7 +972,7 @@ fn add_keys_to_did() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -969,20 +985,15 @@ fn add_keys_to_did() {
 
         // Add many keys
         let add_keys = AddKeys {
-            did: did_2.clone(),
+            did: did_2,
             keys: vec![
-                DidKey {
-                    public_key: PublicKey::x25519(pk_sr_2),
-                    ver_rels: VerRelType::KEY_AGREEMENT.into(),
-                },
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed_1),
-                    ver_rels: VerRelType::ASSERTION.into(),
-                },
-                DidKey {
-                    public_key: pk_secp_2,
-                    ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into(),
-                },
+                UncheckedDidKey::new(PublicKey::x25519(pk_sr_2), VerRelType::KEY_AGREEMENT),
+                UncheckedDidKey::new(PublicKey::ed25519(pk_ed_1), VerRelType::ASSERTION),
+                UncheckedDidKey::new(
+                    pk_secp_2,
+                    VerRelType::AUTHENTICATION | VerRelType::ASSERTION,
+                )
+                ,
             ],
             nonce: 6 + 1,
         };
@@ -994,7 +1005,7 @@ fn add_keys_to_did() {
                 Origin::signed(alice),
                 add_keys.clone(),
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 3u32.into(),
                     sig
                 }
@@ -1008,7 +1019,7 @@ fn add_keys_to_did() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1021,11 +1032,8 @@ fn add_keys_to_did() {
         DidKeys::get(&did_2, IncId::from(5u32)).unwrap();
 
         let add_keys = AddKeys {
-            did: did_1.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed_1),
-                ver_rels: VerRelType::NONE.into(),
-            }],
+            did: did_1,
+            keys: vec![UncheckedDidKey::new(PublicKey::ed25519(pk_ed_1), VerRelType::NONE)],
             nonce: 7 + 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
@@ -1033,7 +1041,7 @@ fn add_keys_to_did() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1063,12 +1071,12 @@ fn remove_keys_from_did() {
         run_to_block(2);
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
+            did_1,
             vec![
-                DidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1)),
-                DidKey::new_with_all_relationships(PublicKey::ed25519(pk_ed_1)),
-                DidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::ASSERTION),
-                DidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::AUTHENTICATION),
+                UncheckedDidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1)),
+                UncheckedDidKey::new_with_all_relationships(PublicKey::ed25519(pk_ed_1)),
+                UncheckedDidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::ASSERTION),
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::AUTHENTICATION),
             ],
             vec![].into_iter().collect()
         ));
@@ -1080,11 +1088,11 @@ fn remove_keys_from_did() {
         // This DID does not control itself
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed_1),
-                ver_rels: VerRelType::AUTHENTICATION.into()
-            },],
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed_1),
+                VerRelType::AUTHENTICATION
+            )],
             vec![did_1].into_iter().map(Controller).collect()
         ));
         check_did_detail(&did_2, 1, 0, 1, 5);
@@ -1094,7 +1102,7 @@ fn remove_keys_from_did() {
         // Nonce should be 1 greater than existing 2, i.e. 3
         for nonce in vec![1, 2, 4, 5, 6, 7, 8, 10, 10000] {
             let remove_keys = RemoveKeys {
-                did: did_2.clone(),
+                did: did_2,
                 keys: vec![1u32.into()].into_iter().collect(),
                 nonce,
             };
@@ -1104,7 +1112,7 @@ fn remove_keys_from_did() {
                     Origin::signed(alice),
                     remove_keys,
                     DidSignature {
-                        did: Controller(did_1.clone()),
+                        did: Controller(did_1),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1115,7 +1123,7 @@ fn remove_keys_from_did() {
 
         // Since did_2 does not control itself, it cannot remove keys from itself
         let remove_keys = RemoveKeys {
-            did: did_2.clone(),
+            did: did_2,
             keys: vec![1u32.into()].into_iter().collect(),
             nonce: 5 + 1,
         };
@@ -1125,7 +1133,7 @@ fn remove_keys_from_did() {
                 Origin::signed(alice),
                 remove_keys,
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: Controller(did_2),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1134,7 +1142,7 @@ fn remove_keys_from_did() {
         );
 
         let remove_keys = RemoveKeys {
-            did: did_1.clone(),
+            did: did_1,
             keys: vec![1u32.into()].into_iter().collect(),
             nonce: 2 + 1,
         };
@@ -1143,7 +1151,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1151,7 +1159,7 @@ fn remove_keys_from_did() {
         check_did_detail(&did_1, 4, 1, 1, 3);
 
         let remove_keys = RemoveKeys {
-            did: did_1.clone(),
+            did: did_1,
             keys: vec![3u32.into()].into_iter().collect(),
             nonce: 3 + 1,
         };
@@ -1160,7 +1168,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1168,7 +1176,7 @@ fn remove_keys_from_did() {
         check_did_detail(&did_1, 4, 1, 1, 4);
 
         let remove_keys = RemoveKeys {
-            did: did_2.clone(),
+            did: did_2,
             keys: vec![1u32.into()].into_iter().collect(),
             nonce: 4 + 1,
         };
@@ -1177,7 +1185,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1191,10 +1199,10 @@ fn remove_keys_from_did() {
         let did_5: Did = [54; Did::BYTE_SIZE].into();
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_5.clone(),
-            vec![DidKey::new_with_all_relationships(PublicKey::sr25519(
-                pk_sr_1
-            ))]
+            did_5,
+            vec![UncheckedDidKey::new_with_all_relationships(
+                PublicKey::sr25519(pk_sr_1)
+            )]
             .into_iter()
             .collect(),
             vec![did_1].into_iter().map(Controller).collect()
@@ -1202,7 +1210,7 @@ fn remove_keys_from_did() {
         check_did_detail(&did_5, 1, 1, 2, 30);
 
         let remove_keys = RemoveKeys {
-            did: did_5.clone(),
+            did: did_5,
             keys: vec![1u32.into()].into_iter().collect(),
             nonce: 5 + 1,
         };
@@ -1211,7 +1219,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1220,7 +1228,7 @@ fn remove_keys_from_did() {
         check_did_detail(&did_1, 4, 1, 1, 6);
 
         let remove_controllers = RemoveControllers {
-            did: did_5.clone(),
+            did: did_5,
             controllers: vec![did_1].into_iter().map(Controller).collect(),
             nonce: 6 + 1,
         };
@@ -1229,7 +1237,7 @@ fn remove_keys_from_did() {
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1260,12 +1268,12 @@ fn remove_controllers_from_did() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
+            did_1,
             vec![
-                DidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1)),
-                DidKey::new_with_all_relationships(PublicKey::ed25519(pk_ed_1)),
-                DidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::ASSERTION),
-                DidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::AUTHENTICATION),
+                UncheckedDidKey::new_with_all_relationships(PublicKey::sr25519(pk_sr_1)),
+                UncheckedDidKey::new_with_all_relationships(PublicKey::ed25519(pk_ed_1)),
+                UncheckedDidKey::new(PublicKey::ed25519(pk_ed_2), VerRelType::ASSERTION),
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr_2), VerRelType::AUTHENTICATION),
             ],
             vec![].into_iter().map(Controller).collect()
         ));
@@ -1277,11 +1285,11 @@ fn remove_controllers_from_did() {
         // This DID does not control itself
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed_1),
-                ver_rels: VerRelType::AUTHENTICATION.into()
-            }],
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed_1),
+                VerRelType::AUTHENTICATION
+            )],
             vec![did_1].into_iter().map(Controller).collect()
         ));
         check_did_detail(&did_2, 1, 0, 1, 5);
@@ -1289,7 +1297,7 @@ fn remove_controllers_from_did() {
         // This DID has no keys but controlled by other DIDs
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_3.clone(),
+            did_3,
             vec![].into_iter().collect(),
             vec![did_1, did_2].into_iter().map(Controller).collect()
         ));
@@ -1300,7 +1308,7 @@ fn remove_controllers_from_did() {
         // Nonce should be 1 greater than existing 2, i.e. 3
         for nonce in vec![1, 2, 4, 5, 10, 10000] {
             let remove_controllers = RemoveControllers {
-                did: did_2.clone(),
+                did: did_2,
                 controllers: vec![did_1].into_iter().map(Controller).collect(),
                 nonce,
             };
@@ -1310,7 +1318,7 @@ fn remove_controllers_from_did() {
                     Origin::signed(alice),
                     remove_controllers,
                     DidSignature {
-                        did: Controller(did_1.clone()),
+                        did: Controller(did_1),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1321,7 +1329,7 @@ fn remove_controllers_from_did() {
 
         // Trying to remove a non-existent controller should fail
         let remove_controllers = RemoveControllers {
-            did: did_1.clone(),
+            did: did_1,
             controllers: vec![did_1, did_2].into_iter().map(Controller).collect(),
             nonce: 3,
         };
@@ -1331,7 +1339,7 @@ fn remove_controllers_from_did() {
                 Origin::signed(alice),
                 remove_controllers,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 2u32.into(),
                     sig
                 }
@@ -1341,7 +1349,7 @@ fn remove_controllers_from_did() {
 
         // Since did_2 does not control itself, it cannot remove controllers from itself
         let remove_controllers = RemoveControllers {
-            did: did_1.clone(),
+            did: did_1,
             controllers: vec![did_1].into_iter().map(Controller).collect(),
             nonce: 5 + 1,
         };
@@ -1351,7 +1359,7 @@ fn remove_controllers_from_did() {
                 Origin::signed(alice),
                 remove_controllers,
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: Controller(did_2),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1360,7 +1368,7 @@ fn remove_controllers_from_did() {
         );
 
         let remove_controllers = RemoveControllers {
-            did: did_1.clone(),
+            did: did_1,
             controllers: vec![did_1].into_iter().map(Controller).collect(),
             nonce: 3,
         };
@@ -1369,7 +1377,7 @@ fn remove_controllers_from_did() {
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 2u32.into(),
                 sig
             }
@@ -1379,7 +1387,7 @@ fn remove_controllers_from_did() {
 
         assert!(DIDModule::is_controller(&did_3, &Controller(did_2)));
         let remove_controllers = RemoveControllers {
-            did: did_3.clone(),
+            did: did_3,
             controllers: vec![did_2].into_iter().map(Controller).collect(),
             nonce: 3 + 1,
         };
@@ -1388,7 +1396,7 @@ fn remove_controllers_from_did() {
             Origin::signed(alice),
             remove_controllers,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1421,7 +1429,7 @@ fn add_controllers_to_did() {
 
         // At least one controller must be provided
         let add_controllers = AddControllers {
-            did: did_1.clone(),
+            did: did_1,
             controllers: vec![].into_iter().collect(),
             nonce: 5,
         };
@@ -1431,7 +1439,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1440,7 +1448,7 @@ fn add_controllers_to_did() {
         );
 
         let add_controllers = AddControllers {
-            did: did_1.clone(),
+            did: did_1,
             controllers: vec![did_2].into_iter().map(Controller).collect(),
             nonce: 5,
         };
@@ -1450,7 +1458,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1461,16 +1469,10 @@ fn add_controllers_to_did() {
         // This DID controls itself
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
+            did_1,
             vec![
-                DidKey {
-                    public_key: pk_secp_1.clone(),
-                    ver_rels: VerRelType::NONE.into()
-                },
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed),
-                    ver_rels: VerRelType::AUTHENTICATION.into()
-                },
+                UncheckedDidKey::new(pk_secp_1.clone(), VerRelType::NONE),
+                UncheckedDidKey::new(PublicKey::ed25519(pk_ed), VerRelType::AUTHENTICATION),
             ],
             vec![].into_iter().collect()
         ));
@@ -1482,11 +1484,8 @@ fn add_controllers_to_did() {
         // This DID is controlled by itself and another DID as well
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_3.clone(),
-            vec![DidKey {
-                public_key: pk_secp_2.clone(),
-                ver_rels: VerRelType::NONE.into()
-            },],
+            did_3,
+            vec![UncheckedDidKey::new(pk_secp_2.clone(), VerRelType::NONE)],
             vec![did_1].into_iter().map(Controller).collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
@@ -1497,11 +1496,11 @@ fn add_controllers_to_did() {
         // This DID does not control itself
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::AUTHENTICATION.into()
-            }],
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::AUTHENTICATION
+            )],
             vec![did_1].into_iter().map(Controller).collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
@@ -1512,7 +1511,7 @@ fn add_controllers_to_did() {
 
         // Since did_2 does not control itself, it cannot controller to itself
         let add_controllers = AddControllers {
-            did: did_2.clone(),
+            did: did_2,
             controllers: vec![did_3].into_iter().map(Controller).collect(),
             nonce: 10 + 1,
         };
@@ -1522,7 +1521,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers,
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: Controller(did_2),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1533,7 +1532,7 @@ fn add_controllers_to_did() {
         // Nonce should be 1 greater than existing 5, i.e. 6
         for nonce in vec![5, 7, 8, 9, 10, 11, 12, 25000] {
             let add_controllers = AddControllers {
-                did: did_2.clone(),
+                did: did_2,
                 controllers: vec![did_3].into_iter().map(Controller).collect(),
                 nonce,
             };
@@ -1543,7 +1542,7 @@ fn add_controllers_to_did() {
                     Origin::signed(alice),
                     add_controllers,
                     DidSignature {
-                        did: Controller(did_1.clone()),
+                        did: Controller(did_1),
                         key_id: 1u32.into(),
                         sig
                     }
@@ -1554,7 +1553,7 @@ fn add_controllers_to_did() {
 
         // Invalid signature should fail
         let add_controllers = AddControllers {
-            did: did_2.clone(),
+            did: did_2,
             controllers: vec![did_3].into_iter().map(Controller).collect(),
             nonce: 5 + 1,
         };
@@ -1564,7 +1563,7 @@ fn add_controllers_to_did() {
                 Origin::signed(alice),
                 add_controllers.clone(),
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -1578,7 +1577,7 @@ fn add_controllers_to_did() {
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1592,7 +1591,7 @@ fn add_controllers_to_did() {
 
         // Add many controllers
         let add_controllers = AddControllers {
-            did: did_2.clone(),
+            did: did_2,
             controllers: vec![did_4, did_5].into_iter().map(Controller).collect(),
             nonce: 6 + 1,
         };
@@ -1601,7 +1600,7 @@ fn add_controllers_to_did() {
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: Controller(did_3.clone()),
+                did: Controller(did_3),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1614,7 +1613,7 @@ fn add_controllers_to_did() {
 
         // Add controllers to self
         let add_controllers = AddControllers {
-            did: did_3.clone(),
+            did: did_3,
             controllers: vec![did_4, did_5].into_iter().map(Controller).collect(),
             nonce: 7 + 1,
         };
@@ -1623,7 +1622,7 @@ fn add_controllers_to_did() {
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: Controller(did_3.clone()),
+                did: Controller(did_3),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1653,11 +1652,11 @@ fn becoming_controller() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::NONE.into()
-            },],
+            did_1,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::NONE
+            )],
             vec![].into_iter().collect()
         ));
         check_did_detail(&did_1, 1, 1, 1, 5);
@@ -1666,11 +1665,11 @@ fn becoming_controller() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::x25519(pk_ed),
-                ver_rels: VerRelType::KEY_AGREEMENT.into()
-            },],
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::x25519(pk_ed),
+                VerRelType::KEY_AGREEMENT
+            )],
             vec![did_1].into_iter().map(Controller).collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
@@ -1679,11 +1678,11 @@ fn becoming_controller() {
         run_to_block(15);
 
         let add_keys = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: VerRelType::ASSERTION.into(),
-            }],
+            did: did_2,
+            keys: vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed),
+                VerRelType::ASSERTION,
+            )],
             nonce: 5 + 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
@@ -1691,7 +1690,7 @@ fn becoming_controller() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1703,11 +1702,11 @@ fn becoming_controller() {
         run_to_block(20);
 
         let add_keys = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: pk_secp.clone(),
-                ver_rels: VerRelType::CAPABILITY_INVOCATION.into(),
-            }],
+            did: did_2,
+            keys: vec![UncheckedDidKey::new(
+                pk_secp.clone(),
+                VerRelType::CAPABILITY_INVOCATION,
+            )],
             nonce: 6 + 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
@@ -1715,7 +1714,7 @@ fn becoming_controller() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1746,11 +1745,11 @@ fn any_controller_can_update() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: VerRelType::NONE.into()
-            },],
+            did_1,
+            vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed),
+                VerRelType::NONE
+            )],
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
@@ -1760,11 +1759,11 @@ fn any_controller_can_update() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::NONE.into()
-            },],
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::NONE
+            )],
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_2));
@@ -1772,11 +1771,8 @@ fn any_controller_can_update() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_3.clone(),
-            vec![DidKey {
-                public_key: pk_secp.clone(),
-                ver_rels: VerRelType::NONE.into()
-            },],
+            did_3,
+            vec![UncheckedDidKey::new(pk_secp.clone(), VerRelType::NONE)],
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_3));
@@ -1786,11 +1782,8 @@ fn any_controller_can_update() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_4.clone(),
-            vec![DidKey {
-                public_key: pk_secp.clone(),
-                ver_rels: VerRelType::NONE.into()
-            },],
+            did_4,
+            vec![UncheckedDidKey::new(pk_secp.clone(), VerRelType::NONE)],
             vec![did_2].into_iter().map(Controller).collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_4));
@@ -1799,7 +1792,7 @@ fn any_controller_can_update() {
         run_to_block(14);
 
         let add_controllers = AddControllers {
-            did: did_4.clone(),
+            did: did_4,
             controllers: vec![did_1].into_iter().map(Controller).collect(),
             nonce: 5 + 1,
         };
@@ -1808,7 +1801,7 @@ fn any_controller_can_update() {
             Origin::signed(alice),
             add_controllers,
             DidSignature {
-                did: Controller(did_2.clone()),
+                did: Controller(did_2),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1819,11 +1812,11 @@ fn any_controller_can_update() {
         run_to_block(15);
 
         let add_keys = AddKeys {
-            did: did_4.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::NONE.into(),
-            }],
+            did: did_4,
+            keys: vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::NONE,
+            )],
             nonce: 3 + 1,
         };
         let sig = SigValue::ed25519(&add_keys.to_state_change().encode(), &pair_ed);
@@ -1831,7 +1824,7 @@ fn any_controller_can_update() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -1889,14 +1882,11 @@ fn service_endpoints() {
             Origin::signed(alice),
             did.clone(),
             vec![
-                DidKey {
-                    public_key: PublicKey::sr25519(pk_sr),
-                    ver_rels: VerRelType::NONE.into()
-                },
-                DidKey {
-                    public_key: PublicKey::ed25519(pk_ed),
-                    ver_rels: (VerRelType::AUTHENTICATION | VerRelType::ASSERTION).into()
-                },
+                UncheckedDidKey::new(PublicKey::sr25519(pk_sr), VerRelType::NONE),
+                UncheckedDidKey::new(
+                    PublicKey::ed25519(pk_ed),
+                    VerRelType::AUTHENTICATION | VerRelType::ASSERTION
+                )
             ],
             vec![].into_iter().collect()
         ));
@@ -2262,11 +2252,11 @@ fn did_removal() {
         // did_1 controls itself
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::NONE.into()
-            }],
+            did_1,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::NONE
+            )],
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
@@ -2277,12 +2267,12 @@ fn did_removal() {
         // did_2 does not control itself but controlled by did_1
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: VerRelType::AUTHENTICATION.into()
-            }],
-            vec![did_1.clone()].into_iter().map(Controller).collect()
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed),
+                VerRelType::AUTHENTICATION
+            )],
+            vec![did_1].into_iter().map(Controller).collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
         check_did_detail(&did_2, 1, 0, 1, 10);
@@ -2292,12 +2282,12 @@ fn did_removal() {
         // did_3 controls itself and also controlled by did_1
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_3.clone(),
-            vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: VerRelType::NONE.into()
-            }],
-            vec![did_1.clone()].into_iter().map(Controller).collect()
+            did_3,
+            vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed),
+                VerRelType::NONE
+            )],
+            vec![did_1].into_iter().map(Controller).collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_3));
         check_did_detail(&did_3, 1, 1, 2, 15);
@@ -2307,19 +2297,19 @@ fn did_removal() {
         // did_4 controls itself and also controlled by did_3
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_4.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::NONE.into()
-            }],
-            vec![did_3.clone()].into_iter().map(Controller).collect()
+            did_4,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::NONE
+            )],
+            vec![did_3].into_iter().map(Controller).collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_4));
         check_did_detail(&did_4, 1, 1, 2, 20);
 
         // did_2 does not control itself so it cannot remove itself
         let rem_did = DidRemoval {
-            did: did_2.clone(),
+            did: did_2,
             nonce: 10 + 1,
         };
         let sig = SigValue::ed25519(&rem_did.to_state_change().encode(), &pair_ed);
@@ -2328,7 +2318,7 @@ fn did_removal() {
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: Controller(did_2.clone()),
+                    did: Controller(did_2),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2339,7 +2329,7 @@ fn did_removal() {
 
         // did_2 is controlled by did_1 so it can be removed by did_1
         let rem_did = DidRemoval {
-            did: did_2.clone(),
+            did: did_2,
             nonce: 5 + 1,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
@@ -2347,7 +2337,7 @@ fn did_removal() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2357,7 +2347,7 @@ fn did_removal() {
 
         // Nonce should be correct when its deleted
         let rem_did = DidRemoval {
-            did: did_3.clone(),
+            did: did_3,
             nonce: 5,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
@@ -2366,7 +2356,7 @@ fn did_removal() {
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: Controller(did_1.clone()),
+                    did: Controller(did_1),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2378,7 +2368,7 @@ fn did_removal() {
 
         // did_3 is controlled by itself and did_1 and thus did_1 can remove it
         let rem_did = DidRemoval {
-            did: did_3.clone(),
+            did: did_3,
             nonce: 6 + 1,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
@@ -2386,7 +2376,7 @@ fn did_removal() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2397,7 +2387,7 @@ fn did_removal() {
         // did_4 is controlled by itself and did_3 but did_3 has been removed so it can no
         // longer remove did_4
         let rem_did = DidRemoval {
-            did: did_4.clone(),
+            did: did_4,
             nonce: 15 + 1,
         };
         let sig = SigValue::ed25519(&rem_did.to_state_change().encode(), &pair_ed);
@@ -2406,7 +2396,7 @@ fn did_removal() {
                 Origin::signed(alice),
                 rem_did.clone(),
                 DidSignature {
-                    did: Controller(did_3.clone()),
+                    did: Controller(did_3),
                     key_id: 1u32.into(),
                     sig
                 }
@@ -2417,7 +2407,7 @@ fn did_removal() {
 
         // did_4 removes itself
         let rem_did = DidRemoval {
-            did: did_4.clone(),
+            did: did_4,
             nonce: 20 + 1,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
@@ -2425,7 +2415,7 @@ fn did_removal() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did_4.clone()),
+                did: Controller(did_4),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2434,7 +2424,7 @@ fn did_removal() {
 
         // did_1 removes itself
         let rem_did = DidRemoval {
-            did: did_1.clone(),
+            did: did_1,
             nonce: 7 + 1,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
@@ -2442,7 +2432,7 @@ fn did_removal() {
             Origin::signed(alice),
             rem_did.clone(),
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2473,11 +2463,11 @@ fn batched_did_changes() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_1.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::NONE.into()
-            }],
+            did_1,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::NONE
+            )],
             vec![].into_iter().collect()
         ));
         check_did_detail(&did_1, 1, 1, 1, 10);
@@ -2486,17 +2476,17 @@ fn batched_did_changes() {
 
         // did_1 adds a key and service endpoint to itself in the same block. Checks that nonce is correct.
         let add_keys = AddKeys {
-            did: did_1.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::x25519(pk_ed),
-                ver_rels: VerRelType::KEY_AGREEMENT.into(),
-            }],
+            did: did_1,
+            keys: vec![UncheckedDidKey::new(
+                PublicKey::x25519(pk_ed),
+                VerRelType::KEY_AGREEMENT,
+            )],
             nonce: 10 + 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
 
         let add_service_endpoint = AddServiceEndpoint {
-            did: did_1.clone(),
+            did: did_1,
             id: endpoint_1_id.clone(),
             endpoint: ServiceEndpoint {
                 types: ServiceEndpointType::LINKED_DOMAINS,
@@ -2510,7 +2500,7 @@ fn batched_did_changes() {
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2519,7 +2509,7 @@ fn batched_did_changes() {
             Origin::signed(alice),
             add_service_endpoint.clone(),
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig: sig_1
             }
@@ -2540,27 +2530,27 @@ fn batched_did_changes() {
         // did_1 adds 2 keys and 1 service endpoint to did_1 in the same block. Checks that nonce of
         // both DIDs is correct.
         let add_keys = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::x25519(pk_ed),
-                ver_rels: VerRelType::KEY_AGREEMENT.into(),
-            }],
+            did: did_2,
+            keys: vec![UncheckedDidKey::new(
+                PublicKey::x25519(pk_ed),
+                VerRelType::KEY_AGREEMENT,
+            )],
             nonce: 12 + 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
 
         let add_keys_2 = AddKeys {
-            did: did_2.clone(),
-            keys: vec![DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: VerRelType::ASSERTION.into(),
-            }],
+            did: did_2,
+            keys: vec![UncheckedDidKey::new(
+                PublicKey::ed25519(pk_ed),
+                VerRelType::ASSERTION,
+            )],
             nonce: 12 + 2,
         };
         let sig_2 = SigValue::sr25519(&add_keys_2.to_state_change().encode(), &pair_sr);
 
         let add_service_endpoint = AddServiceEndpoint {
-            did: did_2.clone(),
+            did: did_2,
             id: endpoint_2_id.clone(),
             endpoint: ServiceEndpoint {
                 types: ServiceEndpointType::LINKED_DOMAINS,
@@ -2572,18 +2562,18 @@ fn batched_did_changes() {
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
-            did_2.clone(),
-            vec![DidKey {
-                public_key: PublicKey::sr25519(pk_sr),
-                ver_rels: VerRelType::AUTHENTICATION.into()
-            }],
+            did_2,
+            vec![UncheckedDidKey::new(
+                PublicKey::sr25519(pk_sr),
+                VerRelType::AUTHENTICATION
+            )],
             vec![did_1].into_iter().map(Controller).collect()
         ));
         assert_ok!(DIDModule::add_keys(
             Origin::signed(alice),
             add_keys,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig
             }
@@ -2592,7 +2582,7 @@ fn batched_did_changes() {
             Origin::signed(alice),
             add_keys_2,
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig: sig_2
             }
@@ -2601,7 +2591,7 @@ fn batched_did_changes() {
             Origin::signed(alice),
             add_service_endpoint.clone(),
             DidSignature {
-                did: Controller(did_1.clone()),
+                did: Controller(did_1),
                 key_id: 1u32.into(),
                 sig: sig_3
             }
@@ -2619,11 +2609,103 @@ fn batched_did_changes() {
         only_key_agreement(&DidKeys::get(&did_2, IncId::from(2u32)).unwrap());
         assert_eq!(
             DidKeys::get(&did_2, IncId::from(3u32)).unwrap(),
-            DidKey {
-                public_key: PublicKey::ed25519(pk_ed),
-                ver_rels: VerRelType::ASSERTION.into()
-            }
+            DidKey::new(PublicKey::ed25519(pk_ed), VerRelType::ASSERTION).unwrap()
         );
     });
 }
 // TODO: Add test for events DidAdded, KeyUpdated, DIDRemoval
+
+#[test]
+fn valid_key() {
+    let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
+    let pk_sr = pair_sr.public().0;
+    let (pair_ed, _, _) = ed25519::Pair::generate_with_phrase(None);
+    let pk_ed = pair_ed.public().0;
+    let (_, pk_secp) = get_secp256k1_keypair(&[21; 32]);
+
+    // x25519 key cannot be added for incompatible relationship types
+    for add in vec![VerRelType::NONE, VerRelType::KEY_AGREEMENT] {
+        for vr in vec![
+            VerRelType::AUTHENTICATION,
+            VerRelType::ASSERTION,
+            VerRelType::CAPABILITY_INVOCATION,
+            VerRelType::ALL_FOR_SIGNING,
+        ]
+        .into_iter()
+        .map(|val| val | add)
+        {
+            let key = UncheckedDidKey::new(PublicKey::x25519(pk_ed), vr.into());
+            assert_err!(
+                DidKey::decode(&mut &key.encode()[..]),
+                codec::Error::from("KeyAgreementCantBeUsedForSigning")
+            );
+            assert_err!(
+                DidKey::new(PublicKey::x25519(pk_ed), vr.into()),
+                DidKeyError::KeyAgreementCantBeUsedForSigning
+            );
+        }
+    }
+
+    // signing keys can't be used for key agreement
+    for pk in vec![
+        PublicKey::sr25519(pk_sr),
+        PublicKey::ed25519(pk_ed),
+        pk_secp.clone(),
+    ] {
+        for vr in vec![
+            VerRelType::AUTHENTICATION,
+            VerRelType::ASSERTION,
+            VerRelType::CAPABILITY_INVOCATION,
+            VerRelType::NONE,
+            VerRelType::ALL_FOR_SIGNING,
+        ]
+        .into_iter()
+        {
+            let key = UncheckedDidKey::new(pk.clone(), VerRelType::KEY_AGREEMENT | vr.into());
+            assert_err!(
+                DidKey::decode(&mut &key.encode()[..]),
+                codec::Error::from("SigningKeyCantBeUsedForKeyAgreement")
+            );
+            assert_err!(
+                DidKey::new(pk.clone(), VerRelType::KEY_AGREEMENT | vr.into()),
+                DidKeyError::SigningKeyCantBeUsedForKeyAgreement
+            );
+        }
+    }
+}
+
+#[test]
+fn valid_ver_rels_encoding_decoding() {
+    assert_err!(
+        VerRelType::decode(&mut &999u32.encode()[..]),
+        codec::Error::from("Invalid value")
+    );
+    assert_ok!(
+        VerRelType::decode(&mut &7u32.encode()[..]),
+        VerRelType::ALL_FOR_SIGNING
+    );
+}
+
+#[test]
+fn aggregated_did_details_request_params_encoding_decoding() {
+    assert_err!(
+        AggregatedDidDetailsRequestParams::decode(&mut &999u32.encode()[..]),
+        codec::Error::from("Invalid value")
+    );
+    assert_ok!(
+        AggregatedDidDetailsRequestParams::decode(&mut &15u32.encode()[..]),
+        AggregatedDidDetailsRequestParams::FULL
+    );
+}
+
+#[test]
+fn service_endpoints_type_encoding_decoding() {
+    assert_err!(
+        ServiceEndpointType::decode(&mut &999u32.encode()[..]),
+        codec::Error::from("Invalid value")
+    );
+    assert_ok!(
+        ServiceEndpointType::decode(&mut &1u32.encode()[..]),
+        ServiceEndpointType::LINKED_DOMAINS
+    );
+}

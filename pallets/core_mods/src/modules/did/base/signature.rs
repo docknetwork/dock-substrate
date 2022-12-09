@@ -4,6 +4,10 @@ use crate::{keys_and_sigs::SigValue, ToStateChange};
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+#[scale_info(skip_type_params(D))]
+#[codec(mel_bound())]
 pub struct DidSignature<D: Into<Did>> {
     /// The DID that created this signature
     pub did: D,

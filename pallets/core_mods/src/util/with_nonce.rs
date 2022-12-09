@@ -6,7 +6,7 @@ use sp_std::convert::TryInto;
 /// Wrapper for any kind of entity with a nonce.
 /// Nonces are mostly used for replay protection.
 /// Initial nonce will be equal to the current block number provided by the system.
-#[derive(Encode, Decode, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -15,12 +15,12 @@ use sp_std::convert::TryInto;
         deserialize = "T: Sized, D: serde::Deserialize<'de>"
     ))
 )]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
 pub struct WithNonce<T: frame_system::Config, D> {
     pub nonce: T::BlockNumber,
-    #[cfg_attr(feature = "serde", serde(flatten))]
     #[cfg(test)]
     pub data: D,
-    #[cfg_attr(feature = "serde", serde(flatten))]
     #[cfg(not(test))]
     data: D,
 }
@@ -42,7 +42,7 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
     /// Adds a nonce to the given `data`.
     /// Nonce will be equal to the current block number provided by the system.
     pub fn new(data: D) -> Self {
-        Self::new_with_nonce(data, <frame_system::Module<T>>::block_number())
+        Self::new_with_nonce(data, <frame_system::Pallet<T>>::block_number())
     }
 
     /// Adds supplied nonce to the given `data`.

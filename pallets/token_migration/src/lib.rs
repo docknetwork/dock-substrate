@@ -27,7 +27,10 @@ use frame_support::{
     },
     weights::{Pays, Weight},
 };
-use sp_std::{marker::PhantomData, prelude::Vec};
+use sp_std::{
+    marker::PhantomData,
+    prelude::{Vec, *},
+};
 
 use frame_system::{self as system, ensure_root, ensure_signed};
 extern crate alloc;
@@ -43,7 +46,7 @@ mod benchmarks;
 mod tests;
 
 /// Struct to encode all the bonuses of an account.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, RuntimeDebug)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, PartialEq, Eq, RuntimeDebug)]
 pub struct Bonus<Balance, BlockNumber> {
     /// Each element of the vector is swap bonus and the block number at which it unlocks
     pub swap_bonuses: Vec<(Balance, BlockNumber)>,
@@ -172,7 +175,7 @@ decl_module! {
         /// in their benefit and try to send more fee txns then allowed which is guarded against.
         /// A bad migrator can flood the network with properly signed but invalid txns like trying to pay more
         /// than he has, make the network reject his txn but still spend network resources for free.
-        #[weight = (T::DbWeight::get().reads_writes(3 + recipients.len() as u64, 1 + recipients.len() as u64) + (22_100 * recipients.len() as Weight), Pays::No)]
+        #[weight = (T::DbWeight::get().reads_writes(3 + recipients.len() as u64, 1 + recipients.len() as u64) + Weight::from_ref_time(22_100 * recipients.len() as u64), Pays::No)]
         pub fn migrate(origin, recipients: BTreeMap<T::AccountId, BalanceOf<T>>) -> dispatch::DispatchResult {
             let migrator = ensure_signed(origin)?;
             Self::migrate_(migrator, recipients)
@@ -378,7 +381,7 @@ impl<T: Config> Module<T> {
 
         Self::check_if_migrator_has_sufficient_balance(&migrator, total_transfer_balance)?;
 
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
 
         // Give swap bonuses
         for (acc_id, amount, offset) in swap_bonus_recips {
@@ -457,7 +460,7 @@ impl<T: Config> Module<T> {
         let mut bonus = Self::bonus(&who).ok_or_else(|| Error::<T>::NoBonus)?;
         let bonuses = &mut bonus.swap_bonuses;
         ensure!(!bonuses.is_empty(), Error::<T>::NoSwapBonus);
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let mut bonus_to_unlock = BalanceOf::<T>::zero();
 
         // Avoiding nightly `drain_filter`
@@ -510,7 +513,7 @@ impl<T: Config> Module<T> {
         let bonuses = &mut bonus.vesting_bonuses;
         ensure!(!bonuses.is_empty(), Error::<T>::NoVestingBonus);
 
-        let now = <frame_system::Module<T>>::block_number();
+        let now = <frame_system::Pallet<T>>::block_number();
         let now_plus_1 = now + T::BlockNumber::from(1u32);
 
         let vesting_duration = T::BlockNumber::from(T::VestingDuration::get());
@@ -634,7 +637,8 @@ impl<T: Config> Module<T> {
 
 /// Signed extension to ensure that only a Migrator can send the migrate extrinsic.
 /// This is necessary to prevent a `migrate` call done by non-Migrator to even enter a block.
-#[derive(Encode, Decode, Clone, Eq, PartialEq)]
+#[derive(Encode, Decode, scale_info::TypeInfo, Clone, Eq, PartialEq)]
+#[scale_info(skip_type_params(T))]
 pub struct OnlyMigrator<T: Config + Send + Sync>(PhantomData<T>);
 
 impl<T: Config + Send + Sync> OnlyMigrator<T> {
@@ -674,7 +678,7 @@ where
         if let Some(local_call) = call.is_sub_type() {
             match local_call {
                 // Migrator can make only these 2 calls without paying fees
-                Call::migrate(..) | Call::give_bonuses(..) => {
+                Call::migrate { .. } | Call::give_bonuses { .. } => {
                     if !<Migrators<T>>::contains_key(who) {
                         // If migrator not registered, don't include transaction in block
                         return InvalidTransaction::Custom(1).into();
@@ -684,5 +688,15 @@ where
             }
         }
         Ok(ValidTransaction::default())
+    }
+
+    fn pre_dispatch(
+        self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        self.validate(who, call, info, len).map(|_| ())
     }
 }
