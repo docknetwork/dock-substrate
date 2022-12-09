@@ -87,7 +87,7 @@ fn invalid_input() {
             MetaStorageReader::<Test>::execute(&mut MockHandle::new(
                 input.encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Err::<Option<StoredDidDetails<Test>>, _>(
                 PrecompileFailure::from(Error::PalletStorageEntryNotFound).into()
@@ -99,7 +99,7 @@ fn invalid_input() {
             MetaStorageReader::<Test>::execute(&mut MockHandle::new(
                 input.encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Err::<Option<StoredDidDetails<Test>>, _>(
                 PrecompileFailure::from(Error::PalletStorageEntryNotFound).into()
@@ -111,7 +111,7 @@ fn invalid_input() {
             MetaStorageReader::<Test>::execute(&mut MockHandle::new(
                 input.encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Err::<Option<StoredDidDetails<Test>>, _>(
                 PrecompileFailure::from(Error::InvalidKey).into()
@@ -128,7 +128,7 @@ fn invalid_input() {
             MetaStorageReader::<Test>::execute(&mut MockHandle::new(
                 input.encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Err::<Option<Did>, _>(
                 codec::Error::from("Not enough data to fill buffer")
@@ -148,7 +148,7 @@ fn entity_access() {
             MetaStorageReader::<Test>::execute(&mut MockHandle::new(
                 input.encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Ok(Some(StorageVersion::default()))
         );
@@ -169,7 +169,7 @@ fn map_access() {
             MetaStorageReader::<Test>::execute(&mut MockHandle::new(
                 input.encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Ok(Some(details.clone()))
         );
@@ -181,7 +181,7 @@ fn map_access() {
                     .with_replaced_key(MapKey::new_single(non_existent_did))
                     .encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Ok(None::<()>)
         );
@@ -206,7 +206,7 @@ fn double_map_access() {
             MetaStorageReader::<Test>::execute(&mut MockHandle::new(
                 input.encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Ok(Some(()))
         );
@@ -218,7 +218,7 @@ fn double_map_access() {
                     .with_replaced_key(MapKey::new_double(non_existent_did, controller))
                     .encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Ok(None::<()>)
         );
@@ -230,7 +230,7 @@ fn double_map_access() {
                     .with_replaced_key(MapKey::new_double(did, non_existent_controller))
                     .encode(),
                 Some(10_000_000),
-                DUMMY_CTX.clone()
+                DUMMY_CTX
             )),
             Ok(None::<()>)
         );
