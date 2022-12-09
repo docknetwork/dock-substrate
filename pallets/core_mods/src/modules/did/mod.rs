@@ -229,11 +229,8 @@ decl_module! {
         }
 
         /// Create new DID.
-        /// If no `keys` are provided, then its a keyless DID and at least 1 `controllers` must be provided.
-        /// If any `keys` are provided, but they have an empty `ver_rel`, then its set to a vector with variants
-        /// `AUTHENTICATION`, `ASSERTION` and `CAPABILITY_INVOCATION`. This is because keys without any verification
-        /// relation won't be usable and these 3 keep the logic most similar to before. Avoiding more
-        /// explicit argument to keep the caller's experience simple.
+        /// At least 1 control key or 1 controller must be provided.
+        /// If any supplied key has an empty `ver_rel`, then it will use all verification relationships available for its key type.
         #[weight = SubstrateWeight::<T>::new_onchain(keys.len() as u32, controllers.len() as u32)]
         pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<UncheckedDidKey>, controllers: BTreeSet<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -242,8 +239,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Add more keys from DID doc. Does not check if the key is already added or it has duplicate
-        /// verification relationships
+        /// Add more keys from DID doc.
+        /// **Does not** check if the key was already added.
         #[weight = SubstrateWeight::<T>::add_keys(&keys, &sig)]
         pub fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -254,7 +251,7 @@ decl_module! {
         }
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
-        /// # **Note that removing all might make DID unusable**.
+        /// **Note that removing all might make DID unusable**.
         #[weight = SubstrateWeight::<T>::remove_keys(&keys, &sig)]
         pub fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -264,8 +261,10 @@ decl_module! {
             Ok(())
         }
 
-        /// Add new controllers. Does not check if the controller being added has any key or is even
-        /// a DID that exists on or off chain. Does not check if the controller is already added.
+        /// Add new controllers.
+        /// **Does not** require provided controllers to
+        /// - have any key
+        /// - exist on- or off-chain
         #[weight = SubstrateWeight::<T>::add_controllers(&controllers, &sig)]
         pub fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -275,8 +274,9 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove controllers. This is an atomic operation meaning that it will either remove all keys or do nothing.
-        /// # **Note that removing all might make DID unusable**.
+        /// Remove controllers.
+        /// This is an atomic operation meaning that it will either remove all keys or do nothing.
+        /// **Note that removing all might make DID unusable**.
         #[weight = SubstrateWeight::<T>::remove_controllers(&controllers, &sig)]
         pub fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -304,9 +304,9 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove the on-chain DID. This will remove this DID's keys, controllers and service endpoints. But it won't remove storage
-        /// entries for DIDs that it controls. However, the authorization logic ensures that once a DID is removed, it
-        /// loses its ability to control any DID.
+        /// Remove the on-chain DID along with its keys, controllers, service endpoints and BBS+ keys.
+        /// Other DID-controlled entities won't be removed.
+        /// However, the authorization logic ensures that once a DID is removed, it loses its ability to control any DID.
         #[weight = SubstrateWeight::<T>::remove_onchain_did(&removal, &sig)]
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;

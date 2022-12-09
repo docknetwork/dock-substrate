@@ -76,7 +76,12 @@ pub mod multi_key {
         let mut removed_dids = BTreeSet::new();
         for (did, _) in BbsPlusKeys::iter_keys() {
             bbs_keys_read += 1;
-            if !removed_dids.contains(&did) && !Dids::<T>::contains_key(did) {
+            if !removed_dids.contains(&did)
+                && !{
+                    dids_read += 1;
+                    Dids::<T>::contains_key(did)
+                }
+            {
                 removed_dids.insert(did);
             }
         }
@@ -85,7 +90,16 @@ pub mod multi_key {
             bbs_keys_removed += BbsPlusKeys::clear_prefix(did, u32::MAX, None).unique as u64;
         }
 
-        log::info!("Keys overridden: {}, dids read/written: {}/{}, service endpoints overridden: {}, did controllers removed: {}, bbs+ keys removed: {}", did_keys_overridden, dids_read, dids_written, service_endpoints_overridden, did_controllers_removed, bbs_keys_removed);
+        log::info!(
+            "Did keys overridden: {}, dids read/written: {}/{}, service endpoints overridden: {}, did controllers removed: {}, bbs+ keys read/removed: {}/{}", 
+            did_keys_overridden,
+            dids_read,
+            dids_written,
+            service_endpoints_overridden,
+            did_controllers_removed,
+            bbs_keys_read,
+            bbs_keys_removed
+        );
 
         T::DbWeight::get().reads_writes(
             did_keys_overridden
