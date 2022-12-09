@@ -29,7 +29,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          build-args: features=--features=${{ github.ref_name }}
+          build-args: features=--features=${{ github.ref_name }},wasmtime
           tags: docknetwork/dock-substrate:${{ github.ref_name}}
 
       - name: Build release fastblock image
@@ -40,6 +40,6 @@ jobs:
           file: ./Dockerfile
           push: true
           build-args: |
-            features=--features=fastblock
+            features=--features=fastblock,wasmtime
             release=Y
           tags: docknetwork/dock-substrate:fastblock

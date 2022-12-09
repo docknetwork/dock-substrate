@@ -65,7 +65,7 @@ use frame_support::{
     traits::*,
     weights::{
         constants::{BlockExecutionWeight, ExtrinsicBaseWeight, RocksDbWeight, WEIGHT_PER_SECOND},
-        DispatchClass, DispatchInfo, IdentityFee, Weight,
+        ConstantMultiplier, DispatchClass, DispatchInfo, Weight,
     },
     ConsensusEngineId, PalletId,
 };
@@ -543,25 +543,6 @@ impl pallet_babe::Config for Runtime {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
-    /// Bonding duration is in number of era
-    pub const BondingDuration: u32 = BONDING_DURATION;
-    pub const SlashDeferDuration: u32 = SLASH_DEFER_DURATION;
-    /// A validator will only have 256 nominators, so max (rewarded) nominators is 256*50 = 12800.
-    /// This number is smaller than current token holders (20K) but not all holder participate. Keeping
-    /// it small to batch payout extrinsics
-    pub const MaxNominatorRewardedPerValidator: u32 = 256;
-    pub const ElectionLookahead: BlockNumber = ELECTION_LOOKAHEAD;
-    pub const MaxIterations: u32 = 10;
-    // 0.05%. The higher the value, the more strict solution acceptance becomes.
-    pub MinSolutionScoreBump: Perbill = Perbill::from_rational(5u32, 10_000);
-    pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
-        .get(DispatchClass::Normal)
-        .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
-        .saturating_sub(BlockExecutionWeight::get());
-}
-
 pub struct U64CurrencyToVote;
 
 impl CurrencyToVote<u64> for U64CurrencyToVote {
@@ -587,8 +568,20 @@ parameter_types! {
 }
 pub struct StakingBenchmarkingConfig;
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
-    type MaxValidators = ConstU32<1000>;
-    type MaxNominators = ConstU32<1000>;
+    type MaxValidators = ConstU32<200>;
+    type MaxNominators = ConstU32<200>;
+}
+
+parameter_types! {
+    pub const SessionsPerEra: sp_staking::SessionIndex = SESSIONS_PER_ERA;
+    /// Bonding duration is in number of era
+    pub const BondingDuration: u32 = BONDING_DURATION;
+    pub const SlashDeferDuration: u32 = SLASH_DEFER_DURATION;
+    /// A validator will only have 256 nominators, so max (rewarded) nominators is 256*50 = 12800.
+    /// This number is smaller than current token holders (20K) but not all holder participate. Keeping
+    /// it small to batch payout extrinsics
+    pub const MaxNominatorRewardedPerValidator: u32 = 256;
+    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
 }
 
 impl pallet_staking::Config for Runtime {
@@ -627,24 +620,15 @@ impl pallet_staking::Config for Runtime {
 }
 
 parameter_types! {
-    // phase durations. 1/4 of the last session for each.
-    pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
-    pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
-
-    pub const OffendingValidatorsThreshold: Perbill = Perbill::from_percent(17);
-
-    pub SolutionImprovementThreshold: Perbill = Perbill::from_rational(1u32, 10_000);
-
     // miner configs
     pub const MultiPhaseUnsignedPriority: TransactionPriority = StakingUnsignedPriority::get() - 1u64;
-    pub const MinerMaxIterations: u32 = 10;
     pub MinerMaxWeight: Weight = RuntimeBlockWeights::get()
         .get(DispatchClass::Normal)
         .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
         .saturating_sub(BlockExecutionWeight::get());
 }
 
-///  Denotes when the system should decrease/increase the base fee based on how much weight was used by the last block.
+/// Denotes when the system should decrease/increase the base fee based on how much weight was used by the last block.
 /// `target` is the ideal congestion of the network where the base fee should remain unchanged.
 /// Under normal circumstances the `target` should be 50%.
 /// If we go below the `target`, the base fee is linearly decreased by the Elasticity delta of lower~target.
@@ -665,7 +649,6 @@ impl pallet_base_fee::BaseFeeThreshold for BaseFeeThreshold {
 }
 
 parameter_types! {
-    pub MaxElectingVoters: u32 = 2_000;
     pub DefaultElasticity: Permill = Permill::from_parts(125_000);
 }
 
@@ -675,6 +658,10 @@ impl pallet_base_fee::Config for Runtime {
     type Event = Event;
     type Threshold = BaseFeeThreshold;
     type DefaultElasticity = DefaultElasticity;
+}
+
+parameter_types! {
+    pub MaxElectingVoters: u32 = 4_000;
 }
 
 frame_election_provider_support::generate_solution_type!(
@@ -692,17 +679,6 @@ type EnsureRootOrHalfCouncil = EitherOfDiverse<
     pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
 >;
 
-parameter_types! {
-    pub const SignedMaxSubmissions: u32 = 10;
-    pub const SignedRewardBase: Balance = 1 * DOCK;
-    pub const SignedDepositBase: Balance = 500 * DOCK;
-    pub const SignedDepositByte: Balance = DOCK / 1000;
-    pub OffchainRepeat: BlockNumber = 5;
-
-    pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(5u32, 10_000);
-    pub const MaxElectableTargets: u16 = u16::MAX;
-}
-
 /// The numbers configured here could always be more than the the maximum limits of staking pallet
 /// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
 /// since the staking is bounded and the weight pipeline takes hours for this single pallet.
@@ -715,6 +691,21 @@ impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfi
     const SNAPSHOT_MAXIMUM_VOTERS: u32 = 1000;
     const MINER_MAXIMUM_VOTERS: u32 = 1000;
     const MAXIMUM_TARGETS: u32 = 75;
+}
+
+parameter_types! {
+    pub const SignedMaxSubmissions: u32 = 10;
+    pub const SignedRewardBase: Balance = 1 * DOCK;
+    pub const SignedDepositBase: Balance = 500 * DOCK;
+    pub const SignedDepositByte: Balance = DOCK / 100;
+    pub const OffchainRepeat: BlockNumber = 5;
+
+    pub BetterUnsignedThreshold: Perbill = Perbill::from_rational(5u32, 10_000);
+
+    // phase durations. 1/4 of the last session for each.
+    pub const SignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+    pub const UnsignedPhase: u32 = EPOCH_DURATION_IN_BLOCKS / 4;
+    pub const MaxElectableTargets: u16 = u16::MAX;
 }
 
 impl pallet_election_provider_multi_phase::Config for Runtime {
@@ -739,7 +730,6 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
     type Solver = SequentialPhragmen<
         AccountId,
         pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
-        (),
     >;
     type ForceOrigin = EnsureRootOrHalfCouncil;
 
@@ -747,12 +737,8 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
     type Currency = Balances;
     type SignedPhase = SignedPhase;
     type UnsignedPhase = UnsignedPhase;
-    // type SolutionImprovementThreshold = MinSolutionScoreBump;
-    // type MinerMaxIterations = MinerMaxIterations;
     type MinerTxPriority = MultiPhaseUnsignedPriority;
     type DataProvider = Staking;
-    // type OnChainAccuracy = Perbill;
-    // type CompactSolution = pallet_staking::CompactAssignments;
     type Fallback = pallet_election_provider_multi_phase::NoFallback<Self>;
     type WeightInfo = pallet_election_provider_multi_phase::weights::SubstrateWeight<Self>;
     type BenchmarkingConfig = BenchmarkConfig;
@@ -834,10 +820,8 @@ parameter_types! {
 impl transaction_payment::Config for Runtime {
     type Event = Event;
     type OperationalFeeMultiplier = ConstU8<5>;
-    type LengthToFee = IdentityFee<Balance>;
-
+    type LengthToFee = ConstantMultiplier<u64, TransactionByteFee>;
     type OnChargeTransaction = CurrencyAdapter<Balances, DealWithFees>;
-    // type TransactionByteFee = TransactionByteFee;
     type WeightToFee = TxnFee<Balance>;
     /// This would be useless after enabling fiat filter
     type FeeMultiplierUpdate =
@@ -943,7 +927,6 @@ impl pallet_offences::Config for Runtime {
     type Event = Event;
     type IdentificationTuple = pallet_session::historical::IdentificationTuple<Self>;
     type OnOffenceHandler = Staking;
-    // type WeightSoftLimit = OffencesWeightSoftLimit;
 }
 
 impl poa::Config for Runtime {
@@ -1055,11 +1038,11 @@ parameter_types! {
     // additional data per vote is 32 bytes (account id).
     pub const VotingBondFactor: Balance = deposit(0, 32);
     pub const TermDuration: BlockNumber = TERM_DURATION;
-    pub const DesiredMembers: u32 = 8;
+    pub const DesiredMembers: u32 = 6;
     pub const DesiredRunnersUp: u32 = 3;
     pub const ElectionsPhragmenPalletId: LockIdentifier = *b"phrelect";
-    pub const MaxVoters: u32 = 4 * 250;
-    pub const MaxCandidates: u32 = 250;
+    pub const MaxVoters: u32 = 4 * 200;
+    pub const MaxCandidates: u32 = 200;
     /// Require 3 days in blocks for each candidate to be allowed for the election.
     pub const CandidacyDelay: u32 = 86400;
 }
@@ -1206,6 +1189,13 @@ parameter_types! {
         *RuntimeBlockLength::get()
         .max
         .get(DispatchClass::Normal);
+    /// A limit for off-chain phragmen unsigned solution weight.
+    ///
+    /// We allow up to max extrinisic weight be consumed by the solution.
+    pub OffchainSolutionWeightLimit: Weight = RuntimeBlockWeights::get()
+        .get(DispatchClass::Normal)
+        .max_extrinsic.expect("Normal extrinsics have a weight limit configured; qed")
+        .saturating_sub(BlockExecutionWeight::get());
 }
 
 impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
@@ -1293,11 +1283,10 @@ parameter_types! {
     pub const Burn: Permill = Permill::from_percent(0);
     pub const DataDepositPerByte: Balance = DOCK / 100;
     pub const BountyDepositBase: Balance = 1 * DOCK;
-    pub const CuratorDepositMultiplier: Permill = Permill::from_percent(50);
-    pub const CuratorDepositMin: Balance = 1 * DOCK;
-    pub const CuratorDepositMax: Balance = 1000 * DOCK;
+    pub const BountyCuratorDepositMin: Balance = DOCK / 2;
+    pub const BountyCuratorDepositMax: Balance = 250 * DOCK;
     pub const BountyDepositPayoutDelay: BlockNumber = BOUNTY_DEPOSIT_PAYOUT_DELAY;
-    pub const BountyCuratorDeposit: Permill = Permill::from_percent(50);
+    pub const BountyCuratorDepositMultiplier: Permill = Permill::from_percent(50);
     pub const BountyValueMinimum: Balance = 5 * DOCK;
     pub const TipCountdown: BlockNumber = TIP_COUNTDOWN;
     pub const TipFindersFee: Percent = Percent::from_percent(20);
@@ -1383,16 +1372,15 @@ impl pallet_tips::Config for Runtime {
 }
 
 impl pallet_bounties::Config for Runtime {
-    type CuratorDepositMultiplier = CuratorDepositMultiplier;
-    type CuratorDepositMax = CuratorDepositMax;
-    type CuratorDepositMin = CuratorDepositMin;
+    type CuratorDepositMultiplier = BountyCuratorDepositMultiplier;
+    type CuratorDepositMax = BountyCuratorDepositMax;
+    type CuratorDepositMin = BountyCuratorDepositMin;
     type ChildBountyManager = ();
 
     type Event = Event;
     type BountyDepositBase = BountyDepositBase;
     type BountyDepositPayoutDelay = BountyDepositPayoutDelay;
     type BountyUpdatePeriod = BountyUpdatePeriod;
-    // type BountyCuratorDeposit = BountyCuratorDeposit;
     type BountyValueMinimum = BountyValueMinimum;
     type DataDepositPerByte = DataDepositPerByte;
     type MaximumReasonLength = MaximumReasonLength;
@@ -1710,7 +1698,6 @@ type Executive = frame_executive::Executive<
     system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (),
 >;
 
 /// The address format for describing accounts.
