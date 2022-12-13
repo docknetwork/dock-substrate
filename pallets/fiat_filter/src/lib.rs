@@ -15,14 +15,13 @@ use frame_support::{
     Parameter,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::{boxed::Box, prelude::*};
+use sp_std::boxed::Box;
 
-// TODO: recover
-/*#[cfg(test)]
-mod test_mock;
-#[cfg(test)]
-#[allow(non_snake_case)]
-mod tests;*/
+// #[cfg(test)]
+// mod test_mock;
+// #[cfg(test)]
+// #[allow(non_snake_case)]
+// mod tests;
 
 /// The pallet's configuration trait
 /// Configure the pallet by specifying the parameters and types on which it depends.
@@ -52,13 +51,13 @@ pub trait Config:
         + IsSubType<revoke::Call<Self>>
         + IsSubType<attest::Call<Self>>;
 
-    /// Minimum price, in case the price fetched from get_dock_usd_price is zero or an error
-    /// expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the actual result from get_dock_usd_price
+    /// Minimum price, in case the price fetched from optimized_get_dock_usd_price is zero or an error
+    /// expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK) just like the actual result from optimized_get_dock_usd_price
     type MinDockFiatRate: Get<u32>;
 }
 
 decl_error! {
-    pub enum Error for Module<T: Config> {
+    pub enum Error for Module<T: Config> where T: Debug {
         /// Call is not among the core_mods ones that should go through fiat_filter
         UnexpectedCall,
     }
@@ -69,7 +68,7 @@ decl_error! {
 decl_module! {
     pub struct Module<T: Config> for enum Call
     where
-        origin: <T as frame_system::Config>::Origin
+        origin: T::Origin, T: Debug
     {
         const MinDockFiatRate: u32 = T::MinDockFiatRate::get();
 
@@ -109,31 +108,31 @@ pub mod fiat_rate {
 }
 
 // private helper functions
-impl<T: Config> Module<T> {
+impl<T: Config + Debug> Module<T> {
     /// Get fee in fiat unit for a given Call
     /// Result expressed in nUSD (billionth USD)
     fn get_call_fee_fiat_(call: &<T as Config>::Call) -> Result<AmountUsd, DispatchError> {
         use fiat_rate::*;
         match call.is_sub_type() {
-            Some(did::Call::new_offchain { .. }) => return Ok(PRICE_OFFCHAIN_DID_CREATE),
+            Some(did::Call::new_offchain(_, _)) => return Ok(PRICE_OFFCHAIN_DID_CREATE),
             // TODO: This needs to be revisited as it should depend on the number of keys and controllers
-            Some(did::Call::new_onchain { .. }) => return Ok(PRICE_ONCHAIN_DID_CREATE),
+            Some(did::Call::new_onchain(_, _, __)) => return Ok(PRICE_ONCHAIN_DID_CREATE),
             // TODO: This needs to be revisited as it should depend on the number of keys
-            Some(did::Call::add_keys { .. }) => return Ok(PRICE_DID_KEY_UPDATE),
+            Some(did::Call::add_keys(_, _)) => return Ok(PRICE_DID_KEY_UPDATE),
             // TODO: This needs to be revisited as it should depend on the number of keys
-            Some(did::Call::add_controllers { .. }) => return Ok(PRICE_DID_KEY_UPDATE),
-            Some(did::Call::remove_offchain_did { .. }) => return Ok(PRICE_OFFCHAIN_DID_REMOVE),
-            Some(did::Call::remove_onchain_did { .. }) => return Ok(PRICE_ONCHAIN_DID_REMOVE),
+            Some(did::Call::add_controllers(_, _)) => return Ok(PRICE_DID_KEY_UPDATE),
+            Some(did::Call::remove_offchain_did(_)) => return Ok(PRICE_OFFCHAIN_DID_REMOVE),
+            Some(did::Call::remove_onchain_did(_, _)) => return Ok(PRICE_ONCHAIN_DID_REMOVE),
             _ => {}
         };
         match call.is_sub_type() {
-            Some(anchor::Call::deploy { data }) => {
-                return Ok(PRICE_ANCHOR_OP_PER_BYTE.saturating_mul(data.len() as u32))
+            Some(anchor::Call::deploy(bytes)) => {
+                return Ok(PRICE_ANCHOR_OP_PER_BYTE.saturating_mul(bytes.len() as u32))
             }
             _ => {}
         };
         match call.is_sub_type() {
-            Some(blob::Call::new { blob, .. }) => {
+            Some(blob::Call::new(blob, _sig)) => {
                 let size: u32 = blob.blob.blob.len() as u32;
                 let price = PRICE_BLOB_OP_BASE.saturating_add(
                     (size.div_ceil(100)).saturating_mul(PRICE_ATTEST_OP_PER_100_BYTES),
@@ -143,15 +142,19 @@ impl<T: Config> Module<T> {
             _ => {}
         };
         match call.is_sub_type() {
-            Some(revoke::Call::new_registry { .. }) => return Ok(PRICE_REVOKE_REGISTRY_CREATE),
-            Some(revoke::Call::remove_registry { .. }) => return Ok(PRICE_REVOKE_REGISTRY_REMOVE),
+            Some(revoke::Call::new_registry(_add_registry)) => {
+                return Ok(PRICE_REVOKE_REGISTRY_CREATE)
+            }
+            Some(revoke::Call::remove_registry(_rm, _proof)) => {
+                return Ok(PRICE_REVOKE_REGISTRY_REMOVE)
+            }
 
-            Some(revoke::Call::revoke { revoke, .. }) => {
+            Some(revoke::Call::revoke(revocation, _proof)) => {
                 return Ok(PRICE_REVOKE_PER_REVOCATION
-                    .saturating_mul(revoke.revoke_ids.len() as u32)
+                    .saturating_mul(revocation.revoke_ids.len() as u32)
                     .saturating_add(PRICE_REVOKE_OP_CONST_FACTOR));
             }
-            Some(revoke::Call::unrevoke { unrevoke, .. }) => {
+            Some(revoke::Call::unrevoke(unrevoke, _proof)) => {
                 return Ok(PRICE_REVOKE_PER_REVOCATION
                     .saturating_mul(unrevoke.revoke_ids.len() as u32)
                     .saturating_add(PRICE_REVOKE_OP_CONST_FACTOR));
@@ -159,12 +162,12 @@ impl<T: Config> Module<T> {
             _ => {}
         };
         match call.is_sub_type() {
-            Some(attest::Call::set_claim { attests, .. }) => {
-                let iri_size_100bytes: u32 = attests
+            Some(attest::Call::set_claim(attestation, _sig)) => {
+                let iri_size_100bytes: u32 = attestation
                     .attest
                     .iri
                     .as_ref()
-                    .map_or(1, |i| (i.len() as u32).div_ceil(100));
+                    .map_or_else(|| 1, |i| (i.len() as u32).div_ceil(100));
                 let price = PRICE_ATTEST_OP_BASE.saturating_add(
                     iri_size_100bytes.saturating_mul(PRICE_ATTEST_OP_PER_100_BYTES),
                 );
@@ -187,11 +190,8 @@ impl<T: Config> Module<T> {
         // expressed in USD_1000th/DOCK (as u32) (== USD/1000DOCK)
         let (dock_usd1000th_rate, weight): (u32, Weight) =
             match <T as Config>::PriceProvider::optimized_get_dock_usd_price() {
-                Some((rate, weight)) => (
-                    sp_std::cmp::max(rate, T::MinDockFiatRate::get()),
-                    Weight::from_ref_time(weight),
-                ),
-                None => (T::MinDockFiatRate::get(), Weight::from_ref_time(10_000)),
+                Some((rate, weight)) => (sp_std::cmp::max(rate, T::MinDockFiatRate::get()), weight),
+                None => (T::MinDockFiatRate::get(), 10_000),
             };
 
         // we want the result fee, expressed in µDOCK (1 millionth DOCK)
@@ -214,10 +214,7 @@ impl<T: Config> Module<T> {
         Ok(())
     }
 
-    fn execute_call_(
-        origin: <T as frame_system::Config>::Origin,
-        call: &<T as Config>::Call,
-    ) -> DispatchResultWithPostInfo {
+    fn execute_call_(origin: T::Origin, call: &<T as Config>::Call) -> DispatchResultWithPostInfo {
         // check signature before charging any fees
         let sender = ensure_signed(origin.clone())?;
         let weight_call = call.get_dispatch_info().weight;

@@ -1,20 +1,17 @@
 use super::*;
 
-#[derive(PartialEq, Eq, Encode, Decode, scale_info_derive::TypeInfo, Clone, Debug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
 pub struct AddRegistry {
     pub id: RegistryId,
-    pub new_registry: Registry,
+    pub registry: Registry,
 }
 
 /// Command to create a set of revocations withing a registry.
 /// Creation of revocations is idempotent; creating a revocation that already exists is allowed,
 /// but has no effect.
-#[derive(PartialEq, Eq, Encode, Decode, scale_info_derive::TypeInfo, Clone, Debug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
 pub struct RevokeRaw<T> {
     /// The registry on which to operate
     pub registry_id: RegistryId,
@@ -28,10 +25,8 @@ pub struct RevokeRaw<T> {
 /// Command to remove a set of revocations within a registry.
 /// Removal of revocations is idempotent; removing a revocation that doesn't exists is allowed,
 /// but has no effect.
-#[derive(PartialEq, Eq, Encode, Decode, scale_info_derive::TypeInfo, Clone, Debug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
 pub struct UnRevokeRaw<T> {
     /// The registry on which to operate
     pub registry_id: RegistryId,
@@ -44,10 +39,8 @@ pub struct UnRevokeRaw<T> {
 
 /// Command to remove an entire registry. Removes all revocations in the registry as well as
 /// registry metadata.
-#[derive(PartialEq, Eq, Encode, Decode, scale_info_derive::TypeInfo, Clone, Debug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
 pub struct RemoveRegistryRaw<T> {
     /// The registry on which to operate
     pub registry_id: RegistryId,

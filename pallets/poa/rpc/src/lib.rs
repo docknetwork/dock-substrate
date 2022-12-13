@@ -1,10 +1,7 @@
+pub use self::gen_client::Client as PoAClient;
 use codec::Codec;
-use core::fmt::Debug;
-use jsonrpsee::{
-    core::{async_trait, Error as JsonRpseeError, RpcResult},
-    proc_macros::rpc,
-    types::{error::CallError, ErrorObject},
-};
+use jsonrpc_core::{Error as RpcError, ErrorCode, Result};
+use jsonrpc_derive::rpc;
 pub use poa::runtime_api::PoAApi as PoARuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
@@ -14,18 +11,18 @@ use sp_runtime::{
 };
 use std::sync::Arc;
 
-#[rpc(server, client)]
+#[rpc]
 pub trait PoAApi<BlockHash, AccountId, Balance> {
     /// Return account address of treasury. The account address can then be used to query the
     /// chain for balance
-    #[method(name = "poa_treasuryAccount")]
-    async fn treasury_account(&self, at: Option<BlockHash>) -> RpcResult<AccountId>;
+    #[rpc(name = "poa_treasuryAccount")]
+    fn treasury_account(&self, at: Option<BlockHash>) -> Result<AccountId>;
 
     /// Return free balance of treasury account. In the context of PoA, only free balance makes
     /// sense for treasury. But just in case, to check all kinds of balance (locked, reserved, etc),
     /// get the account address with above call and query the chain.
-    #[method(name = "poa_treasuryBalance")]
-    async fn treasury_balance(&self, at: Option<BlockHash>) -> RpcResult<Balance>;
+    #[rpc(name = "poa_treasuryBalance")]
+    fn treasury_balance(&self, at: Option<BlockHash>) -> Result<Balance>;
 }
 
 /// A struct that implements the [`PoAApi`].
@@ -44,23 +41,7 @@ impl<C, P> PoA<C, P> {
     }
 }
 
-#[derive(Debug, Clone)]
-struct RuntimeError<T>(T);
-
-impl<T: Debug> From<RuntimeError<T>> for JsonRpseeError {
-    fn from(error: RuntimeError<T>) -> Self {
-        let data = format!("{:?}", error);
-
-        JsonRpseeError::Call(CallError::Custom(ErrorObject::owned(
-            1,
-            "Runtime error",
-            Some(data),
-        )))
-    }
-}
-
-#[async_trait]
-impl<C, Block, AccountId, Balance> PoAApiServer<<Block as BlockT>::Hash, AccountId, Balance>
+impl<C, Block, AccountId, Balance> PoAApi<<Block as BlockT>::Hash, AccountId, Balance>
     for PoA<C, Block>
 where
     Block: BlockT,
@@ -69,23 +50,27 @@ where
     AccountId: Codec + MaybeDisplay + MaybeFromStr,
     Balance: Codec + MaybeDisplay + MaybeFromStr,
 {
-    async fn treasury_account(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<AccountId> {
+    fn treasury_account(&self, at: Option<<Block as BlockT>::Hash>) -> Result<AccountId> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
-        api.get_treasury_account(&at)
-            .map_err(RuntimeError)
-            .map_err(Into::into)
+        api.get_treasury_account(&at).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(1),
+            message: "Unable to query treasury account address.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 
-    async fn treasury_balance(&self, at: Option<<Block as BlockT>::Hash>) -> RpcResult<Balance> {
+    fn treasury_balance(&self, at: Option<<Block as BlockT>::Hash>) -> Result<Balance> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
-        api.get_treasury_balance(&at)
-            .map_err(RuntimeError)
-            .map_err(Into::into)
+        api.get_treasury_balance(&at).map_err(|e| RpcError {
+            code: ErrorCode::ServerError(2),
+            message: "Unable to query treasury account balance.".into(),
+            data: Some(format!("{:?}", e).into()),
+        })
     }
 }

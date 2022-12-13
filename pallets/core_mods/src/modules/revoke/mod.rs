@@ -20,7 +20,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_signed};
 use sp_runtime::traits::Hash;
-use sp_std::prelude::*;
 use weights::*;
 
 mod actions;
@@ -40,13 +39,7 @@ pub type RevokeId = [u8; 32];
 /// Collection of signatures sent by different DIDs.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
-pub struct DidSigs<T>
-where
-    T: frame_system::Config,
-{
+pub struct DidSigs<T: frame_system::Config> {
     /// Signature by DID
     pub sig: DidSignature<Did>,
     /// Nonce used to make the above signature
@@ -56,8 +49,6 @@ where
 /// Authorization logic for a registry.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub enum Policy {
     /// Set of dids allowed to modify a registry.
     OneOf(BTreeSet<Did>),
@@ -86,8 +77,6 @@ impl Policy {
 /// Metadata about a revocation scope.
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub struct Registry {
     /// Who is allowed to update this registry.
     pub policy: Policy,
@@ -99,7 +88,7 @@ pub struct Registry {
 /// Return counts of different signature types in given `DidSigs` as 3-Tuple as (no. of Sr22519 sigs,
 /// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
 /// type is in `Weight` but realistically, it should fit in a u8
-fn count_sig_types<T: frame_system::Config>(auth: &[DidSigs<T>]) -> (u64, u64, u64) {
+fn count_sig_types<T: frame_system::Config>(auth: &[DidSigs<T>]) -> (Weight, Weight, Weight) {
     let mut sr = 0;
     let mut ed = 0;
     let mut secp = 0;
@@ -121,11 +110,10 @@ pub fn get_weight_for_did_sigs<T: frame_system::Config>(
     db_weights: RuntimeDbWeight,
 ) -> Weight {
     let (sr, ed, secp) = count_sig_types(auth);
-    db_weights
-        .reads(auth.len() as u64)
-        .saturating_add(SR25519_WEIGHT.saturating_mul(sr))
-        .saturating_add(ED25519_WEIGHT.saturating_mul(ed))
-        .saturating_add(SECP256K1_WEIGHT.saturating_mul(secp))
+    (db_weights.reads(auth.len() as u64)
+        + (sr * SR25519_WEIGHT)
+        + (ed * ED25519_WEIGHT)
+        + (secp * SECP256K1_WEIGHT)) as Weight
 }
 
 pub trait Config: system::Config + did::Config {
@@ -181,9 +169,9 @@ decl_storage! {
         pub(crate) Registries get(fn get_revocation_registry):
             map hasher(blake2_128_concat) dock::revoke::RegistryId => Option<Registry>;
 
-        /// The single global revocation set
         // double_map requires and explicit hasher specification for the second key. blake2_256 is
         // the default.
+        /// The single global revocation set
         Revocations get(fn get_revocation_status):
             double_map hasher(blake2_128_concat) dock::revoke::RegistryId, hasher(opaque_blake2_256) dock::revoke::RevokeId => Option<()>;
 
@@ -209,7 +197,7 @@ decl_module! {
         /// Returns an error if `id` is already in use as a registry id.
         ///
         /// Returns an error if `registry.policy` is invalid.
-        #[weight = SubstrateWeight::<T>::new_registry(add_registry.new_registry.policy.len())]
+        #[weight = SubstrateWeight::<T>::new_registry(add_registry.registry.policy.len())]
         pub fn new_registry(
             origin,
             add_registry: AddRegistry
@@ -313,6 +301,6 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_registry_sr25519,
             SigValue::Ed25519(_) => Self::remove_registry_ed25519,
             SigValue::Secp256k1(_) => Self::remove_registry_secp256k1,
-        }())
+        })()
     }
 }

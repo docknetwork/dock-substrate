@@ -7,20 +7,16 @@ use sp_std::{fmt, vec::Vec};
 /// Raw bytes wrapper providing ability to encode/decode in `hex` format.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub struct WrappedBytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
 
 #[cfg(test)]
 use rand::distributions::Distribution;
-impl_wrapper! { WrappedBytes(Vec<u8>), for rand use rand::distributions::Standard.sample_iter(&mut rand::thread_rng()).take(32).collect(), with tests as wrapped_bytes_tests }
+impl_wrapper! { WrappedBytes, Vec<u8>, for rand use rand::distributions::Standard.sample_iter(&mut rand::thread_rng()).take(32).collect(), with tests as wrapped_bytes_tests }
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub struct Bytes32 {
     #[cfg_attr(feature = "serde", serde(with = "hex"))]
     pub value: [u8; 32],
@@ -45,9 +41,8 @@ serde_big_array::big_array! {
 macro_rules! struct_over_byte_array {
     ( $name:ident, $size:tt ) => {
         /// A wrapper over a byte array
-        #[derive(Encode, Decode, Clone, PartialOrd, Ord, scale_info_derive::TypeInfo)]
+        #[derive(Encode, Decode, Clone, PartialOrd, Ord)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[scale_info(omit_prefix)]
         pub struct $name {
             #[cfg_attr(feature = "serde", serde(with = "hex::big_array"))]
             pub value: [u8; $size],
@@ -100,3 +95,6 @@ macro_rules! struct_over_byte_array {
 struct_over_byte_array!(Bytes33, 33);
 struct_over_byte_array!(Bytes64, 64);
 struct_over_byte_array!(Bytes65, 65);
+
+/*#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+pub struct Bytes32(pub [u8;32]);*/

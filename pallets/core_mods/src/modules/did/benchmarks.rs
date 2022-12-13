@@ -23,9 +23,9 @@ crate::bench_with_all_pairs! {
         let pair as Pair;
         let caller = whitelisted_caller();
         let did = Did([1; Did::BYTE_SIZE]);
-        let did_key: UncheckedDidKey = UncheckedDidKey::new_with_all_relationships(pair.public());
+        let did_key = DidKey::new_with_all_relationships(pair.public());
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             vec![did_key.clone()],
             Default::default(),
@@ -34,7 +34,7 @@ crate::bench_with_all_pairs! {
         let keys: Vec<_> =
             (0..k)
                 .map(|idx| crate::def_pair!(secp256k1, &[10 + idx as u8; 32]).public())
-                .map(UncheckedDidKey::new_with_all_relationships)
+                .map(DidKey::new_with_all_relationships)
                 .collect();
 
         let key_update = AddKeys {
@@ -43,18 +43,20 @@ crate::bench_with_all_pairs! {
             nonce: 1u8.into()
         };
 
+        // frame_support::log::error!("A {:?} {}", PublicKey::from(public), s);
         let sig = pair.sign(&key_update.to_state_change().encode());
+        // frame_support::log::error!("B");
         let signature = DidSignature::new(did, 1u32, sig);
     }: add_keys(RawOrigin::Signed(caller), key_update, signature)
     verify {
         let mut stored_keys = DidKeys::iter_prefix_values(did).collect::<Vec<_>>();
-        stored_keys.sort_by_key(|key| key.public_key().as_slice().to_vec());
+        stored_keys.sort_by_key(|key| key.public_key.as_slice().to_vec());
 
-        let mut keys = keys.clone();
+        let mut keys = keys.into_iter().collect::<Vec<_>>();
         keys.push(did_key);
         keys.sort_by_key(|key| key.public_key.as_slice().to_vec());
 
-        assert_eq!(stored_keys, keys.into_iter().map(DidKey::try_from).map(Result::unwrap).collect::<Vec<_>>());
+        assert_eq!(stored_keys, keys);
     }
 
     remove_keys_sr25519 for sr25519, remove_keys_ed25519 for ed25519, remove_keys_secp256k1 for secp256k1 {
@@ -67,15 +69,12 @@ crate::bench_with_all_pairs! {
         let public = pair.public();
 
         let keys: Vec<_> =
-            once(UncheckedDidKey::new_with_all_relationships(public)).chain(
-                (0..k)
-                    .map(|i| ed25519::Pair::from_seed(&U256::from(i).into()))
-                    .map(|pair| UncheckedDidKey::new_with_all_relationships(pair.public()))
-            )
-                .map(Into::into)
+        once(DidKey::new_with_all_relationships(public)).chain((0..k)
+                .map(|i| ed25519::Pair::from_seed(&U256::from(i).into()))
+                .map(|pair| DidKey::new_with_all_relationships(pair.public())))
                 .collect();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             keys.clone(),
             Default::default(),
@@ -103,9 +102,9 @@ crate::bench_with_all_pairs! {
         let did = Did([2; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
-            vec![UncheckedDidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -149,9 +148,9 @@ crate::bench_with_all_pairs! {
             .map(Controller)
             .collect();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
-            vec![UncheckedDidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public)],
             controllers.clone(),
         ).unwrap();
 
@@ -179,9 +178,9 @@ crate::bench_with_all_pairs! {
         let did = Did([3; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
-            vec![UncheckedDidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
@@ -211,13 +210,13 @@ crate::bench_with_all_pairs! {
         let did = Did([3; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
-            vec![UncheckedDidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 
-        crate::did::Pallet::<T>::add_service_endpoint_(
+        crate::did::Module::<T>::add_service_endpoint_(
             AddServiceEndpoint {
                 did,
                 id: WrappedBytes(vec![1; i as usize]),
@@ -248,9 +247,9 @@ crate::bench_with_all_pairs! {
         let did = Did([3; Did::BYTE_SIZE]);
         let public = pair.public();
 
-        let keys: Vec<_> = once(UncheckedDidKey::new_with_all_relationships(public)).chain((0..MAX_ENTITY_AMOUNT)
+        let keys: Vec<_> = once(DidKey::new_with_all_relationships(public)).chain((0..MAX_ENTITY_AMOUNT)
             .map(|i| ed25519::Pair::from_seed(&U256::from(i).into()))
-            .map(|pair| UncheckedDidKey::new_with_all_relationships(pair.public())))
+            .map(|pair| DidKey::new_with_all_relationships(pair.public())))
             .collect();
         let controllers: BTreeSet<_> = (0..MAX_ENTITY_AMOUNT)
             .map(|i| U256::from(i).into())
@@ -258,7 +257,7 @@ crate::bench_with_all_pairs! {
             .map(Controller)
             .collect();
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
             keys,
             controllers,
@@ -270,7 +269,7 @@ crate::bench_with_all_pairs! {
         };
 
         for i in 0..MAX_ENTITY_AMOUNT {
-            crate::did::Pallet::<T>::add_service_endpoint_(
+            crate::did::Module::<T>::add_service_endpoint_(
                 AddServiceEndpoint {
                     did,
                     id: WrappedBytes(vec![1; (i + 1) as usize]),
@@ -301,7 +300,7 @@ crate::bench_with_all_pairs! {
 
         let keys: Vec<_> = (0..k)
             .map(|i| ed25519::Pair::from_seed(&U256::from(i).into()))
-            .map(|pair| UncheckedDidKey::new_with_all_relationships(pair.public()))
+            .map(|pair| DidKey::new_with_all_relationships(pair.public()))
             .collect();
         let controllers: BTreeSet<_> = (0..c)
             .map(|i| U256::from(i).into())
@@ -309,16 +308,15 @@ crate::bench_with_all_pairs! {
             .map(Controller)
             .collect();
 
-    }: new_onchain(RawOrigin::Signed(caller), did, keys.clone().into_iter().map(Into::into).collect(), controllers.clone())
+    }: new_onchain(RawOrigin::Signed(caller), did, keys.clone(), controllers.clone())
     verify {
-        let keys: Vec<_> = keys.into_iter().map(DidKey::try_from).map(Result::unwrap).collect();
-        assert_eq!(Dids::<T>::get(did).unwrap().into_onchain().unwrap(), WithNonce::new(OnChainDidDetails::new((keys.len() as u32).into(), keys.iter().filter(|key| key.can_control() || key.ver_rels().is_empty()).count() as u32, controllers.len() as u32 + 1)));
+        assert_eq!(Dids::<T>::get(did).unwrap().into_onchain().unwrap(), WithNonce::new(OnChainDidDetails::new((keys.len() as u32).into(), keys.iter().filter(|key| key.can_control() || key.ver_rels.is_empty()).count() as u32, controllers.len() as u32 + 1)));
 
         let mut stored_keys = DidKeys::iter_prefix_values(did).collect::<Vec<_>>();
-        stored_keys.sort_by_key(|key| key.public_key().as_slice().to_vec());
+        stored_keys.sort_by_key(|key| key.public_key.as_slice().to_vec());
 
         let mut keys = keys.into_iter().collect::<Vec<_>>();
-        keys.sort_by_key(|key| key.public_key().as_slice().to_vec());
+        keys.sort_by_key(|key| key.public_key.as_slice().to_vec());
 
         assert_eq!(stored_keys, keys);
 
@@ -351,7 +349,7 @@ crate::bench_with_all_pairs! {
         let did = Did([4; Did::BYTE_SIZE]);
 
         let did_doc_ref = OffChainDidDocRef::CID((0..k).map(|k| k as u8).collect::<Vec<_>>().into());
-        super::Pallet::<T>::new_offchain_(caller.clone(), did, OffChainDidDocRef::URL(Default::default())).unwrap();
+        super::Module::<T>::new_offchain_(caller.clone(), did, OffChainDidDocRef::URL(Default::default())).unwrap();
 
     }: set_offchain_did_doc_ref(RawOrigin::Signed(caller.clone()), did, did_doc_ref.clone())
     verify {
@@ -362,7 +360,7 @@ crate::bench_with_all_pairs! {
         let did = Did([4; Did::BYTE_SIZE]);
 
         let did_doc_ref = OffChainDidDocRef::CID((1..MAX_DID_DOC_REF_SIZE).map(|k| k as u8).collect::<Vec<_>>().into());
-        super::Pallet::<T>::new_offchain_(caller.clone(), did, OffChainDidDocRef::URL(Default::default())).unwrap();
+        super::Module::<T>::new_offchain_(caller.clone(), did, OffChainDidDocRef::URL(Default::default())).unwrap();
 
     }: remove_offchain_did(RawOrigin::Signed(caller.clone()), did)
     verify {

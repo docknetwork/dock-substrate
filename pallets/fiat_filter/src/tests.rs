@@ -18,7 +18,7 @@ mod tests_did_calls {
     use core_mods::util::Bytes32;
     use did::{DidKey, DidRemoval, DID_BYTE_SIZE};
 
-    type DidMod = did::Pallet<TestRt>;
+    type DidMod = did::Module<TestRt>;
 
     #[test]
     fn call_did_new() {
@@ -320,7 +320,7 @@ mod tests_revoke_calls {
                 let reg_id = random();
                 let reg = Registry { policy, add_only };
 
-                let got_reg = <revoke::Pallet<TestRt>>::get_revocation_registry(reg_id);
+                let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
                 assert!(got_reg.is_none());
 
                 let call =
@@ -330,7 +330,7 @@ mod tests_revoke_calls {
                     PRICE_REVOKE_REGISTRY_CREATE / TestPriceProvider::get().unwrap();
                 let (_fee_microdock, _executed) = exec_assert_fees(call, expected_fees);
 
-                let got_reg = <revoke::Pallet<TestRt>>::get_revocation_registry(reg_id);
+                let got_reg = <revoke::Module<TestRt>>::get_revocation_registry(reg_id);
                 assert!(got_reg.is_some());
                 let (created_reg, created_bloc) = got_reg.unwrap();
                 assert_eq!(created_reg, reg);
@@ -385,7 +385,7 @@ mod tests_fail_modes {
                 measure_fees(Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat)));
             assert_noop!(
                 executed,
-                DispatchError::Pallet {
+                DispatchError::Module {
                     index: 1,
                     error: 3,
                     message: Some("InsufficientBalance")
@@ -406,7 +406,7 @@ mod tests_fail_modes {
                 measure_fees(Call::AnchorMod(anchor::Call::<TestRt>::deploy(dat)));
             assert_noop!(
                 executed,
-                DispatchError::Pallet {
+                DispatchError::Module {
                     index: 1,
                     error: 3,
                     message: Some("InsufficientBalance")

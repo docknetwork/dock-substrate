@@ -13,7 +13,7 @@ use frame_support::{
     weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::prelude::*;
+use sp_std::vec::Vec;
 use weights::*;
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -27,12 +27,10 @@ pub type Iri = Vec<u8>;
 /// Attester is a DID giving an attestation to arbitrary (and arbitrarily large) RDF claimgraphs.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[scale_info(omit_prefix)]
 pub struct Attester(pub Did);
 
-crate::impl_wrapper!(Attester(Did), for rand use Did(rand::random()), with tests as attester_tests);
+crate::impl_wrapper!(Attester, Did, for rand use Did(rand::random()), with tests as attester_tests);
 
 pub trait Config: system::Config + did::Config {
     /// The cost charged by the network to store a single byte in chain-state for the life of the
@@ -42,18 +40,14 @@ pub trait Config: system::Config + did::Config {
 
 #[derive(Encode, Decode, Clone, PartialEq, Debug, Default, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub struct Attestation {
     #[codec(compact)]
     pub priority: u64,
     pub iri: Option<Iri>,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
 pub struct SetAttestationClaim<T: frame_system::Config> {
     pub attest: Attestation,
     pub nonce: T::BlockNumber,
@@ -112,7 +106,7 @@ decl_module! {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::set_claim_, attests, signature)
+            did::Module::<T>::try_exec_signed_action_from_onchain_did(Self::set_claim_, attests, signature)
         }
     }
 }
@@ -141,6 +135,6 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::set_claim_sr25519,
             SigValue::Ed25519(_) => Self::set_claim_ed25519,
             SigValue::Secp256k1(_) => Self::set_claim_secp256k1,
-        }(attest.iri.as_ref().map_or(0, |v| v.len()) as u32))
+        })(attest.iri.as_ref().map_or(0, |v| v.len()) as u32)
     }
 }

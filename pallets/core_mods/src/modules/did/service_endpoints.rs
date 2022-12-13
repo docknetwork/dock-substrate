@@ -1,15 +1,11 @@
 use super::*;
-use crate::{
-    deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info, util::WrappedBytes,
-};
+use crate::util::WrappedBytes;
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub struct ServiceEndpoint {
     pub types: ServiceEndpointType,
     pub origins: Vec<WrappedBytes>,
@@ -17,6 +13,7 @@ pub struct ServiceEndpoint {
 
 bitflags::bitflags! {
     /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
+    #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u16", into = "u16"))]
     pub struct ServiceEndpointType: u16 {
@@ -26,8 +23,7 @@ bitflags::bitflags! {
     }
 }
 
-impl_bits_conversion! { ServiceEndpointType from u16 }
-impl_wrapper_type_info! { ServiceEndpointType(u16) }
+impl_bits_conversion! { ServiceEndpointType, u16 }
 
 impl ServiceEndpoint {
     pub fn is_valid(&self, max_origins: usize, max_origin_length: usize) -> bool {

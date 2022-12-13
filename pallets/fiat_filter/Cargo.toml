@@ -2,41 +2,41 @@
 name = "fiat_filter"
 version = "0.1.0"
 authors = ["Dock.io"]
-edition = "2021"
-license = "Apache-2.0"
+edition = "2018"
+license = 'Apache-2.0'
 
 [package.metadata.docs.rs]
-targets = ["x86_64-unknown-linux-gnu"]
+targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies]
-scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
-frame-system = { git="https://github.com/paritytech/substrate.git", branch="polkadot-v0.9.29", default-features=false }
-frame-support = { git="https://github.com/paritytech/substrate.git", branch="polkadot-v0.9.29", default-features=false }
-sp-core = { git="https://github.com/paritytech/substrate.git", branch="polkadot-v0.9.29", default-features=false }
-sp-std = { git="https://github.com/paritytech/substrate.git", branch="polkadot-v0.9.29", default-features=false }
-sp-runtime = { git="https://github.com/paritytech/substrate.git", branch="polkadot-v0.9.29", default-features=false }
-sp-io = { git="https://github.com/paritytech/substrate.git", branch="polkadot-v0.9.29", default-features=false }
-serde = {version ="1.0.119", features = ["derive"], optional = true }
-codec = { package = "parity-scale-codec", version ="3.1.2", default-features=false, features=["derive"] }
+frame-system = { version = '3.0.0', git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
+frame-support = { version = '3.0.0', git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
+sp-core = { version = '3.0.0', git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
+sp-std = { version = '3.0.0', git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
+sp-runtime = { version = '3.0.0', git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
+sp-io = { version = '3.0.0', git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
+serde = { version = '1.0.119', features = ['derive'] }
+codec = { package = 'parity-scale-codec', version = '2.0.0', default-features=false, features=['derive'] }
 # pallets
 core_mods = { path = "../core_mods", default_features=false, version="0.5.0" }
-pallet-balances = { git="https://github.com/paritytech/substrate.git", branch="polkadot-v0.9.29", default-features=false }
-common = { path = "../../common", version ="0.0.1", default_features=false }
+pallet-balances = { version = "3.0.0", git="https://github.com/paritytech/substrate.git", branch="frontier", default-features=false }
+common = { path = '../../common', version = '0.0.1' }
+
+[dev-dependencies.getrandom]
+version = "0.2"
+features = ["js"]
 
 [dev-dependencies]
-rand = "0.7.3"
+rand = "0.8.3"
 
 [features]
-default = ["std"]
+default = ['std']
 std = [
-    "serde",
-    "frame-system/std",
-    "frame-support/std",
-    "sp-core/std",
-    "sp-io/std",
-    "sp-runtime/std",
-    "sp-std/std",
-    "core_mods/std",
-    "scale-info/std",
-    "codec/std"
+    'frame-system/std',
+    'frame-support/std',
+    'sp-core/std',
+    'sp-io/std',
+    'sp-runtime/std',
+    'sp-std/std',
+    'core_mods/std',
 ]

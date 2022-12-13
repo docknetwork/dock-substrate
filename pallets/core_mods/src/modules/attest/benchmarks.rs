@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    did::{Did, DidSignature, UncheckedDidKey},
+    did::{Did, DidKey, DidSignature},
     ToStateChange,
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
@@ -15,6 +15,7 @@ crate::bench_with_all_pairs! {
         {
             let l in 0 .. MAX_LEN => ();
         }
+
         let pair as Pair;
         let caller = whitelisted_caller();
         let data = vec![0; l as usize];
@@ -31,9 +32,9 @@ crate::bench_with_all_pairs! {
             nonce: 1u8.into()
         };
 
-        crate::did::Pallet::<T>::new_onchain_(
+        crate::did::Module::<T>::new_onchain_(
             did,
-            vec![UncheckedDidKey::new_with_all_relationships(public)],
+            vec![DidKey::new_with_all_relationships(public)],
             Default::default(),
         ).unwrap();
 

@@ -2,102 +2,103 @@
 name = "staking_rewards"
 version = "0.2.0"
 authors = ["Dock.io"]
-edition = "2021"
-license = "Apache-2.0"
+edition = "2018"
+license = 'Apache-2.0'
 [package.metadata.docs.rs]
-targets = ["x86_64-unknown-linux-gnu"]
-
-[dependencies]
-scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
+targets = ['x86_64-unknown-linux-gnu']
 
 [dependencies.codec]
 default-features = false
-features = ["derive"]
-package = "parity-scale-codec"
-version = "3.1.2"
+features = ['derive']
+package = 'parity-scale-codec'
+version = '2.0.0'
 
 [dependencies.serde]
-features = ["derive"]
+features = ['derive']
 optional = true
-version = "1.0.119"
+version = '1.0.119'
 
 [dependencies.frame-support]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
-
-[dependencies.sp-std]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dependencies.frame-system]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dependencies.sp-runtime]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dependencies.sp-api]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dependencies.pallet-staking]
 default-features = false
-git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.29"
+version = '3.0.0'
+git = "https://github.com/paritytech/substrate.git"
+branch = "frontier"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dependencies.poa]
 default-features = false
-path = "../poa"
+path = '../poa'
+version = '0.8.0'
 
-[dependencies.sp-io]
+[dev-dependencies.sp-io]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dev-dependencies.sp-core]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dev-dependencies.balances]
-package = "pallet-balances"
+package = 'pallet-balances'
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dev-dependencies.pallet-session]
 default_features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [dev-dependencies.pallet-authorship]
 default-features = false
+version = '3.0.0'
 git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+branch = "frontier"
 
 [features]
-default = ["std"]
+default = ['std']
 std = [
-    "codec/std",
-    "serde",
-    "sp-std/std",
-    "frame-support/std",
-    "frame-system/std",
-    "sp-runtime/std",
-    "sp-api/std",
-    "pallet-staking/std",
-    "poa/std",
-    "sp-io/std",
-    "scale-info/std",
+    'codec/std',
+    'serde',
+    'frame-support/std',
+    'frame-system/std',
+    'sp-runtime/std',
+    'sp-api/std',
+    'pallet-staking/std',
+    'poa/std',
 ]

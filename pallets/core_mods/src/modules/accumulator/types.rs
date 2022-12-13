@@ -1,5 +1,4 @@
 use super::*;
-use crate::util::WrappedBytes;
 
 pub type AccumParametersStorageKey = (AccumulatorOwner, IncId);
 pub type AccumPublicKeyStorageKey = (AccumulatorOwner, IncId);
@@ -8,62 +7,53 @@ pub type AccumPublicKeyWithParams = (AccumulatorPublicKey, Option<AccumulatorPar
 /// Accumulator identifier.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[scale_info(omit_prefix)]
 pub struct AccumulatorId(pub [u8; 32]);
 
-crate::impl_wrapper!(AccumulatorId([u8; 32]), with tests as acc_tests);
+crate::impl_wrapper!(AccumulatorId, [u8; 32], with tests as acc_tests);
 
 /// Accumulator owner - DID with the ability to control given accumulator keys, params, etc.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[scale_info(omit_prefix)]
 pub struct AccumulatorOwner(pub Did);
 
-crate::impl_wrapper!(AccumulatorOwner(Did), for rand use Did(rand::random()), with tests as acc_owner_tests);
+crate::impl_wrapper!(AccumulatorOwner, Did, for rand use Did(rand::random()), with tests as acc_owner_tests);
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
 pub struct AccumulatorParameters {
     /// The label (generating string) used to generate the params
-    pub label: Option<WrappedBytes>,
+    pub label: Option<Vec<u8>>,
     pub curve_type: CurveType,
-    pub bytes: WrappedBytes,
+    pub bytes: Vec<u8>,
 }
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
 pub struct AccumulatorPublicKey {
     pub curve_type: CurveType,
-    pub bytes: WrappedBytes,
+    pub bytes: Vec<u8>,
     /// The params used to generate the public key (`P_tilde` comes from params)
     pub params_ref: Option<AccumParametersStorageKey>,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
 pub enum Accumulator {
     Positive(AccumulatorCommon),
     Universal(UniversalAccumulator),
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
 pub struct AccumulatorCommon {
-    pub accumulated: WrappedBytes,
+    pub accumulated: Vec<u8>,
     pub key_ref: AccumPublicKeyStorageKey,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
 pub struct UniversalAccumulator {
     pub common: AccumulatorCommon,
     /// This is not enforced on chain and serves as metadata only
@@ -94,30 +84,24 @@ impl Accumulator {
         }
     }
 
-    pub fn set_new_accumulated(&mut self, new_accumulated: impl Into<WrappedBytes>) {
+    pub fn set_new_accumulated(&mut self, new_accumulated: Vec<u8>) {
         match self {
-            Accumulator::Positive(a) => a.accumulated = new_accumulated.into(),
-            Accumulator::Universal(a) => a.common.accumulated = new_accumulated.into(),
+            Accumulator::Positive(a) => a.accumulated = new_accumulated,
+            Accumulator::Universal(a) => a.common.accumulated = new_accumulated,
         }
     }
 }
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
 pub struct StoredAccumulatorOwnerCounters {
     pub params_counter: IncId,
     pub key_counter: IncId,
 }
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
-pub struct AccumulatorWithUpdateInfo<T>
-where
-    T: frame_system::Config,
-{
+pub struct AccumulatorWithUpdateInfo<T: frame_system::Config> {
     pub created_at: T::BlockNumber,
     pub last_updated_at: T::BlockNumber,
     pub accumulator: Accumulator,

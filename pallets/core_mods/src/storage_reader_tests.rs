@@ -5,15 +5,15 @@ use crate::{
     StorageVersion,
 };
 use codec::{Decode, Encode};
-use fp_evm::{ExitError, ExitSucceed, Precompile, PrecompileFailure, PrecompileOutput};
+use evm::executor::PrecompileOutput;
 use frame_support::{StorageDoubleMap, StorageMap};
-use pallet_evm_test_vector_support::MockHandle;
+use pallet_evm::{ExitError, ExitSucceed, Precompile};
 use sp_core::{H160, U256};
 
 use pallet_evm_precompile_storage_reader::{
     meta_storage_reader::{
         input::MetaStorageReaderInput as Input,
-        key::{MapKey, NoKey},
+        key::{DoubleMapKey, MapKey, NoKey},
         Error, MetaStorageReader,
     },
     output::RawStorageValue,
@@ -27,18 +27,12 @@ pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider!(
 
 #[derive(Eq, PartialEq, Debug)]
 enum ErrorWrapper {
-    Execution(PrecompileFailure),
+    Execution(ExitError),
     Decoding(codec::Error),
 }
 
 impl From<ExitError> for ErrorWrapper {
-    fn from(exit_status: ExitError) -> Self {
-        PrecompileFailure::Error { exit_status }.into()
-    }
-}
-
-impl From<PrecompileFailure> for ErrorWrapper {
-    fn from(err: PrecompileFailure) -> Self {
+    fn from(err: ExitError) -> Self {
         Self::Execution(err)
     }
 }
@@ -49,7 +43,7 @@ impl From<codec::Error> for ErrorWrapper {
     }
 }
 
-const DUMMY_CTX: evm::Context = evm::Context {
+static DUMMY_CTX: &'static evm::Context = &evm::Context {
     address: H160([0; 20]),
     caller: H160([0; 20]),
     apparent_value: U256([32; 4]),
@@ -84,38 +78,24 @@ fn invalid_input() {
     ext().execute_with(|| {
         let input = Input::new("Pallet", "Version", NoKey, Params::None);
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input.encode(),
-                Some(10_000_000),
-                DUMMY_CTX
-            )),
+            MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<StoredDidDetails<Test>>, _>(
-                PrecompileFailure::from(Error::PalletStorageEntryNotFound).into()
+                ExitError::from(Error::PalletStorageEntryNotFound).into()
             )
         );
 
         let input = Input::new("DIDModule", "Field", NoKey, Params::None);
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input.encode(),
-                Some(10_000_000),
-                DUMMY_CTX
-            )),
+            MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<StoredDidDetails<Test>>, _>(
-                PrecompileFailure::from(Error::PalletStorageEntryNotFound).into()
+                ExitError::from(Error::PalletStorageEntryNotFound).into()
             )
         );
 
         let input = Input::new("DIDModule", "DidControllers", NoKey, Params::None);
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input.encode(),
-                Some(10_000_000),
-                DUMMY_CTX
-            )),
-            Err::<Option<StoredDidDetails<Test>>, _>(
-                PrecompileFailure::from(Error::InvalidKey).into()
-            )
+            MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
+            Err::<Option<StoredDidDetails<Test>>, _>(ExitError::from(Error::InvalidKey).into())
         );
 
         let did = Did([2u8; 32]);
@@ -123,13 +103,9 @@ fn invalid_input() {
             WithNonce::new_with_nonce(OnChainDidDetails::new(IncId::from(1u32), 2, 3), 5).into();
         Dids::insert(did, &details);
 
-        let input = Input::new("DIDModule", "Dids", MapKey::new_single(did), Params::None);
+        let input = Input::new("DIDModule", "Dids", MapKey::new(did), Params::None);
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input.encode(),
-                Some(10_000_000),
-                DUMMY_CTX
-            )),
+            MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Err::<Option<Did>, _>(
                 codec::Error::from("Not enough data to fill buffer")
                     .chain("Could not decode `Did.0`")
@@ -145,12 +121,8 @@ fn entity_access() {
         let input = Input::new("DIDModule", "Version", NoKey, Params::None);
 
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input.encode(),
-                Some(10_000_000),
-                DUMMY_CTX
-            )),
-            Ok(Some(StorageVersion::default()))
+            MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
+            Ok(Some(StorageVersion::SingleKey))
         );
     })
 }
@@ -164,25 +136,21 @@ fn map_access() {
 
         Dids::insert(did, &details);
 
-        let input = Input::new("DIDModule", "Dids", MapKey::new_single(did), Params::None);
+        let input = Input::new("DIDModule", "Dids", MapKey::new(did), Params::None);
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input.encode(),
-                Some(10_000_000),
-                DUMMY_CTX
-            )),
+            MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Ok(Some(details.clone()))
         );
 
         let non_existent_did = Did([3u8; 32]);
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input
-                    .with_replaced_key(MapKey::new_single(non_existent_did))
+            MetaStorageReader::<Test>::execute(
+                &input
+                    .with_replaced_key(MapKey::new(non_existent_did))
                     .encode(),
                 Some(10_000_000),
                 DUMMY_CTX
-            )),
+            ),
             Ok(None::<()>)
         );
     })
@@ -199,39 +167,35 @@ fn double_map_access() {
         let input = Input::new(
             "DIDModule",
             "DidControllers",
-            MapKey::new_double(did, controller),
+            DoubleMapKey::new(did, controller),
             Params::None,
         );
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input.encode(),
-                Some(10_000_000),
-                DUMMY_CTX
-            )),
+            MetaStorageReader::<Test>::execute(&input.encode(), Some(10_000_000), DUMMY_CTX),
             Ok(Some(()))
         );
 
         let non_existent_did = Did([5u8; 32]);
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input
-                    .with_replaced_key(MapKey::new_double(non_existent_did, controller))
+            MetaStorageReader::<Test>::execute(
+                &input
+                    .with_replaced_key(DoubleMapKey::new(non_existent_did, controller))
                     .encode(),
                 Some(10_000_000),
                 DUMMY_CTX
-            )),
+            ),
             Ok(None::<()>)
         );
 
         let non_existent_controller = Controller(Did([6u8; 32]));
         assert_decoded_eq!(
-            MetaStorageReader::<Test>::execute(&mut MockHandle::new(
-                input
-                    .with_replaced_key(MapKey::new_double(did, non_existent_controller))
+            MetaStorageReader::<Test>::execute(
+                &input
+                    .with_replaced_key(DoubleMapKey::new(did, non_existent_controller))
                     .encode(),
                 Some(10_000_000),
                 DUMMY_CTX
-            )),
+            ),
             Ok(None::<()>)
         );
     })

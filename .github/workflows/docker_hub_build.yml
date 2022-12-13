@@ -38,7 +38,7 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          build-args: features=--features=${{ steps.image_tag.outputs.TAG_NAME }},wasmtime
+          build-args: features=--features=${{ steps.image_tag.outputs.TAG_NAME }}
           tags: docknetwork/dock-substrate:${{ steps.image_tag.outputs.TAG_NAME }}
 
       - name: 'Build release fastblock_${{ steps.image_tag.outputs.TAG_NAME }} image'
@@ -48,6 +48,6 @@ jobs:
           file: ./Dockerfile
           push: true
           build-args: |
-            features=--features=fastblock,wasmtime
+            features=--features=fastblock
             release=Y
           tags: docknetwork/dock-substrate:fastblock_${{ steps.image_tag.outputs.TAG_NAME }}

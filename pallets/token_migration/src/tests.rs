@@ -25,9 +25,9 @@ frame_support::construct_runtime!(
         NodeBlock = Block,
         UncheckedExtrinsic = UncheckedExtrinsic,
     {
-        System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
-        Balances: balances::{Pallet, Call, Storage},
-        MigrationModule: token_migration::{Pallet, Call, Storage, Event<T>},
+        System: frame_system::{Module, Call, Config, Storage, Event<T>},
+        Balances: balances::{Module, Call, Storage},
+        MigrationModule: token_migration::{Module, Call, Storage, Event<T>},
     }
 );
 
@@ -35,16 +35,14 @@ type Balance = u64;
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaximumBlockWeight: Weight = WEIGHT_PER_SECOND.saturating_mul(2);
+    pub const MaximumBlockWeight: Weight = 2 * WEIGHT_PER_SECOND;
     pub const MaximumBlockLength: u32 = 2 * 1024;
     pub const AvailableBlockRatio: Perbill = Perbill::one();
     pub const TransactionByteFee: Balance = 1;
 }
 
 impl system::Config for TestRuntime {
-    type OnSetCode = ();
-    type MaxConsumers = frame_support::traits::ConstU32<10>;
-    type BaseCallFilter = frame_support::traits::Everything;
+    type BaseCallFilter = ();
     type Origin = Origin;
     type Call = Call;
     type Index = u64;
@@ -76,8 +74,6 @@ impl balances::Config for TestRuntime {
     type AccountStore = System;
     type WeightInfo = ();
     type MaxLocks = ();
-    type MaxReserves = ();
-    type ReserveIdentifier = ();
 }
 
 thread_local! {
@@ -110,7 +106,7 @@ impl Get<u32> for VestingDuration {
 
 impl Config for TestRuntime {
     type Event = ();
-    type Currency = balances::Pallet<Self>;
+    type Currency = balances::Module<Self>;
     type BlockNumberToBalance = ConvertInto;
     type VestingMilestones = VestingMilestones;
     type VestingDuration = VestingDuration;
@@ -310,18 +306,13 @@ fn signed_extension_test() {
 
         // The call made by migrator. The recipients being empty is irrelevant for this test.
         let call_1: <TestRuntime as system::Config>::Call =
-            Call::MigrationModule(MigrateCall::migrate {
-                recipients: BTreeMap::new(),
-            });
+            Call::MigrationModule(MigrateCall::migrate(BTreeMap::new()));
         // The call made by migrator. The bonus vectors being empty is irrelevant for this test.
         let call_2: <TestRuntime as system::Config>::Call =
-            Call::MigrationModule(MigrateCall::give_bonuses {
-                swap_bonus_recips: Vec::new(),
-                vesting_bonus_recips: Vec::new(),
-            });
+            Call::MigrationModule(MigrateCall::give_bonuses(Vec::new(), Vec::new()));
 
         let tx_info = DispatchInfo {
-            weight: Weight::from_ref_time(3),
+            weight: 3,
             class: DispatchClass::Normal,
             pays_fee: Pays::No,
         };

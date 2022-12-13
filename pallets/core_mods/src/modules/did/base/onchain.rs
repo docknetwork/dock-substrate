@@ -1,7 +1,5 @@
 use super::super::*;
-use crate::{
-    bbs_plus::BbsPlusKeys, deposit_indexed_event, util::WrappedActionWithNonce, ToStateChange,
-};
+use crate::{util::WrappedActionWithNonce, ToStateChange};
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
 /// write (through an extrinsic). The nonce starts from the block number when the DID was created to avoid
@@ -13,8 +11,6 @@ pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub struct OnChainDidDetails {
     /// Number of keys added for this DID so far.
     pub last_key_id: IncId,
@@ -49,8 +45,8 @@ impl OnChainDidDetails {
     pub fn new(last_key_id: IncId, active_controller_keys: u32, active_controllers: u32) -> Self {
         Self {
             last_key_id,
-            active_controller_keys,
-            active_controllers,
+            active_controller_keys: active_controller_keys.into(),
+            active_controllers: active_controllers.into(),
         }
     }
 }
@@ -58,17 +54,13 @@ impl OnChainDidDetails {
 impl<T: Config + Debug> Module<T> {
     pub(crate) fn new_onchain_(
         did: Did,
-        keys: Vec<UncheckedDidKey>,
+        keys: Vec<DidKey>,
         mut controllers: BTreeSet<Controller>,
     ) -> Result<(), Error<T>> {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
-        let keys: Vec<DidKey> = keys
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<_, _>>()?;
 
-        let controller_keys_count = keys.iter().filter(|key| key.can_control()).count() as u32;
+        let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
         // Make self controlled if needed
         if controller_keys_count > 0 {
             controllers.insert(Controller(did));
@@ -76,7 +68,7 @@ impl<T: Config + Debug> Module<T> {
         ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
 
         let mut last_key_id = IncId::new();
-        for (key, key_id) in keys.into_iter().zip(&mut last_key_id) {
+        for (key, key_id) in keys_to_insert.into_iter().zip(&mut last_key_id) {
             DidKeys::insert(&did, key_id, key);
         }
 
@@ -102,14 +94,9 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<(), Error<T>> {
         // This will result in the removal of DID from storage map `Dids`
         details.take();
-        // TODO: limit and cursor
-        DidKeys::clear_prefix(did, u32::MAX, None);
-        // TODO: limit and cursor
-        DidControllers::clear_prefix(did, u32::MAX, None);
-        // TODO: limit and cursor
-        DidServiceEndpoints::clear_prefix(did, u32::MAX, None);
-        // TODO: limit and cursor
-        BbsPlusKeys::clear_prefix(did, u32::MAX, None);
+        DidKeys::remove_prefix(did);
+        DidControllers::remove_prefix(did);
+        DidServiceEndpoints::remove_prefix(did);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())

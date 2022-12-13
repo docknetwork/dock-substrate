@@ -1,44 +1,19 @@
 use super::*;
-use crate::{deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info};
+use sp_std::borrow::Borrow;
 
-/// Valid did key with correct verification relationships.
-#[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub struct DidKey {
-    /// The public key
-    public_key: PublicKey,
-    /// The different verification relationships the above key has with the DID.
-    ver_rels: VerRelType,
-}
-
-/// `DidKey` without validity constraint requirement.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub struct UncheckedDidKey {
+pub struct DidKey {
     /// The public key
     pub public_key: PublicKey,
     /// The different verification relationships the above key has with the DID.
     pub ver_rels: VerRelType,
 }
 
-impl Decode for DidKey {
-    fn decode<I: codec::Input>(input: &mut I) -> Result<Self, codec::Error> {
-        let decoded = UncheckedDidKey::decode(input)?;
-
-        Self::try_from(decoded)
-            .map_err(|err| -> &'static str { err.into() })
-            .map_err(Into::into)
-    }
-}
-
 bitflags::bitflags! {
     /// Different verification relation types specified in the DID spec here https://www.w3.org/TR/did-core/#verification-relationships.
+    #[derive(Encode, Decode)]
     #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
     #[cfg_attr(feature = "serde", serde(try_from = "u16", into = "u16"))]
     pub struct VerRelType: u16 {
@@ -59,160 +34,80 @@ bitflags::bitflags! {
     }
 }
 
-impl_bits_conversion! { VerRelType from u16 }
-impl_wrapper_type_info! { VerRelType(u16) }
+impl_bits_conversion! { VerRelType, u16 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum DidKeyError {
-    KeyAgreementCantBeUsedForSigning,
-    SigningKeyCantBeUsedForKeyAgreement,
+#[derive(Clone, Debug, Default)]
+pub struct PublicKeyParams<T> {
+    pub sr25519: T,
+    pub ed25519: T,
+    pub secp256k1: T,
+    pub x25519: T,
 }
 
-impl From<DidKeyError> for &'static str {
-    fn from(err: DidKeyError) -> &'static str {
-        match err {
-            DidKeyError::KeyAgreementCantBeUsedForSigning => "KeyAgreementCantBeUsedForSigning",
-            DidKeyError::SigningKeyCantBeUsedForKeyAgreement => {
-                "SigningKeyCantBeUsedForKeyAgreement"
-            }
-        }
-    }
-}
+impl<T> PublicKeyParams<T> {
+    pub fn over_key<F: FnOnce(T) -> T>(mut self, public_key: &PublicKey, f: F) -> Self {
+        match public_key {
+            PublicKey::Sr25519(_) => self.sr25519 = f(self.sr25519),
+            PublicKey::Ed25519(_) => self.ed25519 = f(self.ed25519),
+            PublicKey::Secp256k1(_) => self.secp256k1 = f(self.secp256k1),
+            PublicKey::X25519(_) => self.x25519 = f(self.x25519),
+        };
 
-impl<T: Config + Debug> From<DidKeyError> for Error<T> {
-    fn from(err: DidKeyError) -> Error<T> {
-        match err {
-            DidKeyError::KeyAgreementCantBeUsedForSigning => {
-                Error::<T>::KeyAgreementCantBeUsedForSigning
-            }
-            DidKeyError::SigningKeyCantBeUsedForKeyAgreement => {
-                Error::<T>::SigningKeyCantBeUsedForKeyAgreement
-            }
-        }
+        self
     }
 }
 
 impl DidKey {
     /// Constructs new `DidKey` using given public key and verification relationships.
-    pub fn new(
-        public_key: impl Into<PublicKey>,
-        ver_rels: VerRelType,
-    ) -> Result<Self, DidKeyError> {
-        if ver_rels.is_empty() {
-            Ok(Self::new_with_all_relationships(public_key))
-        } else {
-            let public_key = public_key.into();
-            if public_key.can_sign() {
-                if ver_rels.intersects(VerRelType::KEY_AGREEMENT) {
-                    return Err(DidKeyError::SigningKeyCantBeUsedForKeyAgreement);
-                }
-            } else if ver_rels != VerRelType::KEY_AGREEMENT {
-                return Err(DidKeyError::KeyAgreementCantBeUsedForSigning);
-            }
-
-            Ok(Self {
-                public_key,
-                ver_rels,
-            })
-        }
-    }
-
-    /// Constructs new `DidKey` using given public key and all available verification relationships
-    /// for this key.
-    pub fn new_with_all_relationships(public_key: impl Into<PublicKey>) -> Self {
-        let public_key = public_key.into();
-        let ver_rels = public_key
-            .can_sign()
-            .then_some(
-                // If the key can be used for signing, mark it with all related relationships.
-                VerRelType::ALL_FOR_SIGNING,
-            )
-            .unwrap_or(
-                // The non-signing public key can be used only for key agreement currently.
-                VerRelType::KEY_AGREEMENT,
-            );
-
-        Self {
-            public_key,
-            ver_rels,
-        }
-    }
-
-    /// Returns underlying public key.
-    pub fn public_key(&self) -> &PublicKey {
-        &self.public_key
-    }
-
-    /// Returns underlying verification relationships.
-    pub fn ver_rels(&self) -> VerRelType {
-        self.ver_rels
-    }
-
-    /// Checks if this key is capable of signing.
-    pub fn can_sign(&self) -> bool {
-        self.public_key.can_sign()
-    }
-
-    /// Checks if this key can has `CAPABILITY_INVOCATION` relation set.
-    pub fn can_control(&self) -> bool {
-        self.ver_rels.intersects(VerRelType::CAPABILITY_INVOCATION)
-    }
-
-    /// Checks if this key can has `AUTHENTICATION` relation set.
-    pub fn can_authenticate(&self) -> bool {
-        self.ver_rels.intersects(VerRelType::AUTHENTICATION)
-    }
-
-    /// Checks if this key can has `KEY_AGREEMENT` relation set.
-    pub fn for_key_agreement(&self) -> bool {
-        self.ver_rels.intersects(VerRelType::KEY_AGREEMENT)
-    }
-
-    /// Checks if this key can has either `AUTHENTICATION` or `CAPABILITY_INVOCATION` relation set.
-    pub fn can_authenticate_or_control(&self) -> bool {
-        self.ver_rels
-            .intersects(VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION)
-    }
-}
-
-impl UncheckedDidKey {
-    /// Constructs new `UncheckedDidKey` using given public key and verification relationships.
-    /// This function doesn't require key to have valid verification relationships.
     pub fn new(public_key: impl Into<PublicKey>, ver_rels: VerRelType) -> Self {
-        UncheckedDidKey {
+        DidKey {
             public_key: public_key.into(),
             ver_rels,
         }
     }
 
-    /// Constructs new `UncheckedDidKey` using given public key and all available verification relationships
-    /// for this key.
+    /// Add all possible verification relationships for a given key
     pub fn new_with_all_relationships(public_key: impl Into<PublicKey>) -> Self {
-        DidKey::new_with_all_relationships(public_key).into()
-    }
-}
+        let public_key = public_key.into();
+        let ver_rels = if public_key.can_sign() {
+            // We might add more relationships in future but these 3 are all we care about now.
+            VerRelType::ALL_FOR_SIGNING
+        } else {
+            // This is true for the current key type, X25519, used for key agreement but might
+            // change in future.
+            VerRelType::KEY_AGREEMENT
+        };
 
-impl TryFrom<UncheckedDidKey> for DidKey {
-    type Error = DidKeyError;
-
-    fn try_from(
-        UncheckedDidKey {
-            public_key,
-            ver_rels,
-        }: UncheckedDidKey,
-    ) -> Result<Self, Self::Error> {
         DidKey::new(public_key, ver_rels)
     }
-}
 
-impl From<DidKey> for UncheckedDidKey {
-    fn from(
-        DidKey {
-            public_key,
-            ver_rels,
-        }: DidKey,
-    ) -> Self {
-        UncheckedDidKey::new(public_key, ver_rels)
+    pub fn can_sign(&self) -> bool {
+        self.public_key.can_sign()
+    }
+
+    /// Checks if the public key has valid verification relationships. Currently, the keys used for
+    /// key-agreement cannot (without converting) be used for signing and vice versa
+    pub fn is_valid(&self) -> bool {
+        !self.can_sign() ^ (self.ver_rels & VerRelType::ALL_FOR_SIGNING == self.ver_rels)
+    }
+
+    pub fn can_control(&self) -> bool {
+        self.is_valid() && self.ver_rels.intersects(VerRelType::CAPABILITY_INVOCATION)
+    }
+
+    pub fn can_authenticate(&self) -> bool {
+        self.is_valid() && self.ver_rels.intersects(VerRelType::AUTHENTICATION)
+    }
+
+    pub fn for_key_agreement(&self) -> bool {
+        self.is_valid() && self.ver_rels.intersects(VerRelType::KEY_AGREEMENT)
+    }
+
+    pub fn can_authenticate_or_control(&self) -> bool {
+        self.is_valid()
+            && self
+                .ver_rels
+                .intersects(VerRelType::AUTHENTICATION | VerRelType::CAPABILITY_INVOCATION)
     }
 }
 
@@ -226,12 +121,8 @@ impl<T: Config + Debug> Module<T> {
             ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
-        let keys: Vec<DidKey> = keys
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<_, _>>()?;
         // If DID was not self controlled first, check if it can become by looking
-        let controller_keys_count = keys.iter().filter(|key| key.can_control()).count() as u32;
+        let (keys_to_insert, controller_keys_count) = Self::prepare_keys_to_insert(keys)?;
         *active_controller_keys += controller_keys_count;
 
         // Make self controlled if needed
@@ -241,7 +132,7 @@ impl<T: Config + Debug> Module<T> {
             *active_controllers += 1;
         }
 
-        for (key, key_id) in keys.into_iter().zip(last_key_id) {
+        for (key, key_id) in keys_to_insert.iter().zip(last_key_id) {
             DidKeys::insert(did, key_id, key);
         }
 
@@ -301,41 +192,43 @@ impl<T: Config + Debug> Module<T> {
             Err(Error::<T>::InsufficientVerificationRelationship)
         }
     }
-}
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use codec::{Decode, Encode};
-    use sp_core::Pair;
+    /// Prepare `DidKey`s to insert. The DID is assumed to be self controlled as well if there is any key
+    /// that is capable of invoking a capability. Returns the keys along with the
+    /// amount of controller keys being met. The following logic is contentious.
+    pub(crate) fn prepare_keys_to_insert(
+        keys: Vec<DidKey>,
+    ) -> Result<(Vec<DidKey>, u32), Error<T>> {
+        let mut controller_keys_count = 0;
+        let mut keys_to_insert = Vec::with_capacity(keys.len());
+        for key in keys {
+            let key = if key.ver_rels.is_empty() {
+                DidKey::new_with_all_relationships(key.public_key)
+            } else {
+                if !key.is_valid() {
+                    fail!(Error::<T>::IncompatibleVerificationRelation)
+                }
 
-    #[test]
-    fn encode() {
-        assert_eq!(2u16.encode(), VerRelType::ASSERTION.encode());
-        assert_eq!(
-            VerRelType::decode(&mut &2u16.encode()[..]).unwrap(),
-            VerRelType::ASSERTION
-        );
-        let (pair_sr, _, _) = sp_application_crypto::sr25519::Pair::generate_with_phrase(None);
-        let pk_sr = pair_sr.public().0;
+                key
+            };
+            if key.can_control() {
+                controller_keys_count += 1;
+            }
 
-        assert_eq!(
-            DidKey::new(PublicKey::sr25519(pk_sr), VerRelType::CAPABILITY_INVOCATION)
-                .unwrap()
-                .encode(),
-            UncheckedDidKey::new(PublicKey::sr25519(pk_sr), VerRelType::CAPABILITY_INVOCATION)
-                .encode()
-        );
-        assert_eq!(
-            DidKey::decode(
-                &mut &UncheckedDidKey::new(
-                    PublicKey::sr25519(pk_sr),
-                    VerRelType::CAPABILITY_INVOCATION
-                )
-                .encode()[..]
-            )
-            .unwrap(),
-            DidKey::new(PublicKey::sr25519(pk_sr), VerRelType::CAPABILITY_INVOCATION).unwrap()
-        );
+            keys_to_insert.push(key);
+        }
+
+        Ok((keys_to_insert, controller_keys_count))
+    }
+
+    #[allow(unused)]
+    pub(super) fn key_counts<I>(keys: I) -> PublicKeyParams<u32>
+    where
+        I: IntoIterator,
+        I::Item: Borrow<DidKey>,
+    {
+        keys.into_iter().fold(Default::default(), |params, key| {
+            params.over_key(&key.borrow().public_key, |val| val + 1)
+        })
     }
 }

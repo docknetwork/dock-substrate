@@ -1,4 +1,3 @@
-pub mod bench;
 pub mod chain_spec;
 mod cli;
 #[allow(dead_code)]

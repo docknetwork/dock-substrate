@@ -1,56 +1,41 @@
 use crate as dock;
 use crate::{
+    deposit_indexed_event, impl_action_with_nonce, impl_bits_conversion, impl_wrapper,
     keys_and_sigs::{PublicKey, SigValue},
     util::{with_nonce::NonceError, *},
     Action, ActionWithNonce, StorageVersion,
 };
-
+pub use actions::*;
+pub use base::{offchain, onchain, signature};
 use codec::{Decode, Encode};
 use common::arith_utils::DivCeil;
 use core::fmt::Debug;
+pub use details_aggregator::*;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
     traits::Get, weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::{traits::Hash, DispatchError};
+use sp_runtime::traits::Hash;
 use sp_std::{
     collections::btree_set::BTreeSet,
     convert::{TryFrom, TryInto},
-    prelude::*,
     vec::Vec,
 };
-
-pub use actions::*;
-pub use base::{offchain, onchain, signature};
-pub use details_aggregator::*;
 use weights::*;
 
 pub use base::*;
 pub use controllers::Controller;
-pub use keys::{DidKey, UncheckedDidKey, VerRelType};
+pub use keys::{DidKey, VerRelType};
 pub use service_endpoints::ServiceEndpoint;
 
-pub(crate) mod actions;
-pub(crate) mod base;
-pub(crate) mod controllers;
-pub(crate) mod details_aggregator;
-pub(crate) mod keys;
-pub(crate) mod service_endpoints;
-pub(crate) mod weights;
-
-pub mod types {
-    use super::{base, controllers, keys, service_endpoints};
-
-    pub type Did = base::Did;
-    pub type DidKey = keys::DidKey;
-    pub type ServiceEndpoint = service_endpoints::ServiceEndpoint;
-    pub type StoredDidDetails<T> = base::StoredDidDetails<T>;
-    pub type Controller = controllers::Controller;
-    pub type StoredOnChainDidDetails<T> = base::StoredOnChainDidDetails<T>;
-    pub type OffChainDidDocRef = base::offchain::OffChainDidDocRef;
-    pub type WrappedBytes = crate::util::WrappedBytes;
-}
+mod actions;
+mod base;
+mod controllers;
+mod details_aggregator;
+mod keys;
+mod service_endpoints;
+mod weights;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
@@ -111,9 +96,7 @@ decl_error! {
         ControllerIsAlreadyAdded,
         InvalidServiceEndpoint,
         ServiceEndpointAlreadyExists,
-        ServiceEndpointDoesNotExist,
-        KeyAgreementCantBeUsedForSigning,
-        SigningKeyCantBeUsedForKeyAgreement
+        ServiceEndpointDoesNotExist
     }
 }
 
@@ -151,13 +134,13 @@ decl_event!(
 decl_storage! {
     trait Store for Module<T: Config> as DIDModule where T: Debug {
         /// Stores details of off-chain and on-chain DIDs
-        pub Dids get(fn did): map hasher(blake2_128_concat) types::Did => Option<types::StoredDidDetails<T>>;
+        pub Dids get(fn did): map hasher(blake2_128_concat) Did => Option<StoredDidDetails<T>>;
         /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
-        pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) types::Did, hasher(identity) IncId => Option<types::DidKey>;
+        pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) Did, hasher(identity) IncId => Option<DidKey>;
         /// Stores controlled - controller pairs of a DID as (DID, DID) -> zero-sized record. If a record exists, then the controller is bound.
-        pub DidControllers get(fn bound_controller): double_map hasher(blake2_128_concat) types::Did, hasher(blake2_128_concat) types::Controller => Option<()>;
+        pub DidControllers get(fn bound_controller): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) Controller => Option<()>;
         /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
-        pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) types::Did, hasher(blake2_128_concat) types::WrappedBytes => Option<types::ServiceEndpoint>;
+        pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) WrappedBytes => Option<ServiceEndpoint>;
 
         pub Version get(fn storage_version): StorageVersion;
     }
@@ -229,18 +212,21 @@ decl_module! {
         }
 
         /// Create new DID.
-        /// At least 1 control key or 1 controller must be provided.
-        /// If any supplied key has an empty `ver_rel`, then it will use all verification relationships available for its key type.
+        /// If no `keys` are provided, then its a keyless DID and at least 1 `controllers` must be provided.
+        /// If any `keys` are provided, but they have an empty `ver_rel`, then its set to a vector with variants
+        /// `AUTHENTICATION`, `ASSERTION` and `CAPABILITY_INVOCATION`. This is because keys without any verification
+        /// relation won't be usable and these 3 keep the logic most similar to before. Avoiding more
+        /// explicit argument to keep the caller's experience simple.
         #[weight = SubstrateWeight::<T>::new_onchain(keys.len() as u32, controllers.len() as u32)]
-        pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<UncheckedDidKey>, controllers: BTreeSet<Controller>) -> DispatchResult {
+        pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<DidKey>, controllers: BTreeSet<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
             Self::new_onchain_(did, keys, controllers)?;
             Ok(())
         }
 
-        /// Add more keys from DID doc.
-        /// **Does not** check if the key was already added.
+        /// Add more keys from DID doc. Does not check if the key is already added or it has duplicate
+        /// verification relationships
         #[weight = SubstrateWeight::<T>::add_keys(&keys, &sig)]
         pub fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -251,7 +237,8 @@ decl_module! {
         }
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
-        /// **Note that removing all might make DID unusable**.
+        /// # **Note that removing all might make DID unusable**.
+        // TODO: Weights are not accurate as each DidKey can have different cost depending on type and no of relationships
         #[weight = SubstrateWeight::<T>::remove_keys(&keys, &sig)]
         pub fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -261,10 +248,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Add new controllers.
-        /// **Does not** require provided controllers to
-        /// - have any key
-        /// - exist on- or off-chain
+        /// Add new controllers. Does not check if the controller being added has any key or is even
+        /// a DID that exists on or off chain. Does not check if the controller is already added.
         #[weight = SubstrateWeight::<T>::add_controllers(&controllers, &sig)]
         pub fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -274,9 +259,8 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove controllers.
-        /// This is an atomic operation meaning that it will either remove all keys or do nothing.
-        /// **Note that removing all might make DID unusable**.
+        /// Remove controllers. This is an atomic operation meaning that it will either remove all keys or do nothing.
+        /// # **Note that removing all might make DID unusable**.
         #[weight = SubstrateWeight::<T>::remove_controllers(&controllers, &sig)]
         pub fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
@@ -304,26 +288,15 @@ decl_module! {
             Ok(())
         }
 
-        /// Remove the on-chain DID along with its keys, controllers, service endpoints and BBS+ keys.
-        /// Other DID-controlled entities won't be removed.
-        /// However, the authorization logic ensures that once a DID is removed, it loses its ability to control any DID.
+        /// Remove the on-chain DID. This will remove this DID's keys, controllers and service endpoints. But it won't remove storage
+        /// entries for DIDs that it controls. However, the authorization logic ensures that once a DID is removed, it
+        /// loses its ability to control any DID.
         #[weight = SubstrateWeight::<T>::remove_onchain_did(&removal, &sig)]
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
             Self::try_exec_signed_removable_action_from_controller(Self::remove_onchain_did_, removal, sig)?;
             Ok(())
-        }
-
-        /// Adds `StateChange` to the metadata.
-        #[weight = <T as frame_system::Config>::DbWeight::get().reads(1)]
-        #[doc(hidden)]
-        fn _dummy(_o, _s: crate::StateChange<'static, T>) -> DispatchResult {
-            Err(DispatchError::BadOrigin)
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            crate::migrations::multi_key::migrate_unchecked_keys::<T>()
         }
     }
 }
@@ -334,7 +307,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_keys_sr25519,
             SigValue::Ed25519(_) => Self::add_keys_ed25519,
             SigValue::Secp256k1(_) => Self::add_keys_secp256k1,
-        }(keys.len() as u32))
+        })(keys.len() as u32)
     }
 
     fn remove_keys(
@@ -345,7 +318,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_keys_sr25519,
             SigValue::Ed25519(_) => Self::remove_keys_ed25519,
             SigValue::Secp256k1(_) => Self::remove_keys_secp256k1,
-        }(keys.len() as u32))
+        })(keys.len() as u32)
     }
 
     fn add_controllers(
@@ -356,7 +329,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_controllers_sr25519,
             SigValue::Ed25519(_) => Self::add_controllers_ed25519,
             SigValue::Secp256k1(_) => Self::add_controllers_secp256k1,
-        }(controllers.len() as u32))
+        })(controllers.len() as u32)
     }
 
     fn remove_controllers(
@@ -367,7 +340,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_controllers_sr25519,
             SigValue::Ed25519(_) => Self::remove_controllers_ed25519,
             SigValue::Secp256k1(_) => Self::remove_controllers_secp256k1,
-        }(controllers.len() as u32))
+        })(controllers.len() as u32)
     }
 
     fn add_service_endpoint(
@@ -399,7 +372,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_service_endpoint_sr25519,
             SigValue::Ed25519(_) => Self::remove_service_endpoint_ed25519,
             SigValue::Secp256k1(_) => Self::remove_service_endpoint_secp256k1,
-        }(id.len() as u32))
+        })(id.len() as u32)
     }
 
     fn remove_onchain_did(
@@ -410,6 +383,6 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_onchain_did_sr25519,
             SigValue::Ed25519(_) => Self::remove_onchain_did_ed25519,
             SigValue::Secp256k1(_) => Self::remove_onchain_did_secp256k1,
-        }())
+        })()
     }
 }

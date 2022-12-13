@@ -1,15 +1,12 @@
 use super::*;
-use crate::{deposit_indexed_event, impl_wrapper};
 
 /// DID controller.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[scale_info(omit_prefix)]
 pub struct Controller(pub Did);
 
-impl_wrapper!(Controller(Did), for rand use Did(rand::random()), with tests as controller_tests);
+impl_wrapper!(Controller, Did, for rand use Did(rand::random()), with tests as controller_tests);
 
 impl<T: Config + Debug> Module<T> {
     pub(crate) fn add_controllers_(

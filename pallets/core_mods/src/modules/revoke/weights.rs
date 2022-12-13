@@ -44,147 +44,147 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     fn revoke_sr25519(r: u32) -> Weight {
-        Weight::from_ref_time(51_886_000 as u64)
+        (51_886_000 as Weight)
             // Standard Error: 0
-            .saturating_add(Weight::from_ref_time(744_000 as u64).saturating_mul(r as u64))
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(3 as u64))
-            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((744_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn revoke_ed25519(r: u32) -> Weight {
-        Weight::from_ref_time(55_942_000 as u64)
+        (55_942_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(718_000 as u64).saturating_mul(r as u64))
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(3 as u64))
-            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((718_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn revoke_secp256k1(r: u32) -> Weight {
-        Weight::from_ref_time(148_000_000 as u64)
+        (148_000_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(707_000 as u64).saturating_mul(r as u64))
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(3 as u64))
-            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((707_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn unrevoke_sr25519(r: u32) -> Weight {
-        Weight::from_ref_time(67_695_000 as u64)
+        (67_695_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(741_000 as u64).saturating_mul(r as u64))
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(3 as u64))
-            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((741_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn unrevoke_ed25519(r: u32) -> Weight {
-        Weight::from_ref_time(65_882_000 as u64)
+        (65_882_000 as Weight)
             // Standard Error: 3_000
-            .saturating_add(Weight::from_ref_time(747_000 as u64).saturating_mul(r as u64))
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(3 as u64))
-            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((747_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn unrevoke_secp256k1(r: u32) -> Weight {
-        Weight::from_ref_time(166_568_000 as u64)
+        (166_568_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(704_000 as u64).saturating_mul(r as u64))
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(3 as u64))
-            .saturating_add(T::DbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((704_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn remove_registry_sr25519() -> Weight {
-        Weight::from_ref_time(128_526_000 as u64)
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(103 as u64))
+        (128_526_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(103 as Weight))
     }
     fn remove_registry_ed25519() -> Weight {
-        Weight::from_ref_time(122_116_000 as u64)
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(103 as u64))
+        (122_116_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(103 as Weight))
     }
     fn remove_registry_secp256k1() -> Weight {
-        Weight::from_ref_time(230_576_000 as u64)
-            .saturating_add(T::DbWeight::get().reads(4 as u64))
-            .saturating_add(T::DbWeight::get().writes(103 as u64))
+        (230_576_000 as Weight)
+            .saturating_add(T::DbWeight::get().reads(4 as Weight))
+            .saturating_add(T::DbWeight::get().writes(103 as Weight))
     }
     fn new_registry(c: u32) -> Weight {
-        Weight::from_ref_time(9_069_000 as u64)
+        (9_069_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(35_000 as u64).saturating_mul(c as u64))
-            .saturating_add(T::DbWeight::get().reads(2 as u64))
-            .saturating_add(T::DbWeight::get().writes(2 as u64))
+            .saturating_add((35_000 as Weight).saturating_mul(c as Weight))
+            .saturating_add(T::DbWeight::get().reads(2 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
     }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
     fn revoke_sr25519(r: u32) -> Weight {
-        Weight::from_ref_time(51_886_000 as u64)
+        (51_886_000 as Weight)
             // Standard Error: 0
-            .saturating_add(Weight::from_ref_time(744_000 as u64).saturating_mul(r as u64))
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((744_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn revoke_ed25519(r: u32) -> Weight {
-        Weight::from_ref_time(55_942_000 as u64)
+        (55_942_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(718_000 as u64).saturating_mul(r as u64))
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((718_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn revoke_secp256k1(r: u32) -> Weight {
-        Weight::from_ref_time(148_000_000 as u64)
+        (148_000_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(707_000 as u64).saturating_mul(r as u64))
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((707_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn unrevoke_sr25519(r: u32) -> Weight {
-        Weight::from_ref_time(67_695_000 as u64)
+        (67_695_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(741_000 as u64).saturating_mul(r as u64))
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((741_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn unrevoke_ed25519(r: u32) -> Weight {
-        Weight::from_ref_time(65_882_000 as u64)
+        (65_882_000 as Weight)
             // Standard Error: 3_000
-            .saturating_add(Weight::from_ref_time(747_000 as u64).saturating_mul(r as u64))
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((747_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn unrevoke_secp256k1(r: u32) -> Weight {
-        Weight::from_ref_time(166_568_000 as u64)
+        (166_568_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(704_000 as u64).saturating_mul(r as u64))
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes((1 as u64).saturating_mul(r as u64)))
+            .saturating_add((704_000 as Weight).saturating_mul(r as Weight))
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes((1 as Weight).saturating_mul(r as Weight)))
     }
     fn remove_registry_sr25519() -> Weight {
-        Weight::from_ref_time(128_526_000 as u64)
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(103 as u64))
+        (128_526_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(103 as Weight))
     }
     fn remove_registry_ed25519() -> Weight {
-        Weight::from_ref_time(122_116_000 as u64)
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(103 as u64))
+        (122_116_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(103 as Weight))
     }
     fn remove_registry_secp256k1() -> Weight {
-        Weight::from_ref_time(230_576_000 as u64)
-            .saturating_add(RocksDbWeight::get().reads(4 as u64))
-            .saturating_add(RocksDbWeight::get().writes(103 as u64))
+        (230_576_000 as Weight)
+            .saturating_add(RocksDbWeight::get().reads(4 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(103 as Weight))
     }
     fn new_registry(c: u32) -> Weight {
-        Weight::from_ref_time(9_069_000 as u64)
+        (9_069_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(35_000 as u64).saturating_mul(c as u64))
-            .saturating_add(RocksDbWeight::get().reads(2 as u64))
-            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+            .saturating_add((35_000 as Weight).saturating_mul(c as Weight))
+            .saturating_add(RocksDbWeight::get().reads(2 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
     }
 }

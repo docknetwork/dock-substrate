@@ -37,49 +37,49 @@ pub trait WeightInfo {
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
     fn new_sr25519(s: u32) -> Weight {
-        Weight::from_ref_time(48_757_000 as u64)
+        (48_757_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(31_000 as u64).saturating_mul(s as u64))
-            .saturating_add(T::DbWeight::get().reads(3 as u64))
-            .saturating_add(T::DbWeight::get().writes(2 as u64))
+            .saturating_add((31_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
     }
     fn new_ed25519(s: u32) -> Weight {
-        Weight::from_ref_time(48_672_000 as u64)
+        (48_672_000 as Weight)
             // Standard Error: 0
-            .saturating_add(Weight::from_ref_time(9_000 as u64).saturating_mul(s as u64))
-            .saturating_add(T::DbWeight::get().reads(3 as u64))
-            .saturating_add(T::DbWeight::get().writes(2 as u64))
+            .saturating_add((9_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
     }
     fn new_secp256k1(s: u32) -> Weight {
-        Weight::from_ref_time(152_477_000 as u64)
+        (152_477_000 as Weight)
             // Standard Error: 2_000
-            .saturating_add(Weight::from_ref_time(2_000 as u64).saturating_mul(s as u64))
-            .saturating_add(T::DbWeight::get().reads(3 as u64))
-            .saturating_add(T::DbWeight::get().writes(2 as u64))
+            .saturating_add((2_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(T::DbWeight::get().reads(3 as Weight))
+            .saturating_add(T::DbWeight::get().writes(2 as Weight))
     }
 }
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
     fn new_sr25519(s: u32) -> Weight {
-        Weight::from_ref_time(48_757_000 as u64)
+        (48_757_000 as Weight)
             // Standard Error: 1_000
-            .saturating_add(Weight::from_ref_time(31_000 as u64).saturating_mul(s as u64))
-            .saturating_add(RocksDbWeight::get().reads(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+            .saturating_add((31_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
     }
     fn new_ed25519(s: u32) -> Weight {
-        Weight::from_ref_time(48_672_000 as u64)
+        (48_672_000 as Weight)
             // Standard Error: 0
-            .saturating_add(Weight::from_ref_time(9_000 as u64).saturating_mul(s as u64))
-            .saturating_add(RocksDbWeight::get().reads(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+            .saturating_add((9_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
     }
     fn new_secp256k1(s: u32) -> Weight {
-        Weight::from_ref_time(152_477_000 as u64)
+        (152_477_000 as Weight)
             // Standard Error: 2_000
-            .saturating_add(Weight::from_ref_time(2_000 as u64).saturating_mul(s as u64))
-            .saturating_add(RocksDbWeight::get().reads(3 as u64))
-            .saturating_add(RocksDbWeight::get().writes(2 as u64))
+            .saturating_add((2_000 as Weight).saturating_mul(s as Weight))
+            .saturating_add(RocksDbWeight::get().reads(3 as Weight))
+            .saturating_add(RocksDbWeight::get().writes(2 as Weight))
     }
 }

@@ -1,6 +1,3 @@
-use crate::impl_wrapper;
-use codec::{Decode, Encode};
-use core::fmt::Debug;
 use sp_std::ops::{Index, RangeFull};
 
 use super::*;
@@ -16,8 +13,6 @@ pub use signature::DidSignature;
 /// The type of the Dock DID.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub struct Did(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub RawDid);
 
 impl Did {
@@ -25,7 +20,7 @@ impl Did {
     pub const BYTE_SIZE: usize = 32;
 }
 
-impl_wrapper! { Did(RawDid), with tests as did_tests }
+impl_wrapper! { Did, RawDid, with tests as did_tests  }
 
 /// Raw DID representation.
 pub type RawDid = [u8; Did::BYTE_SIZE];
@@ -45,9 +40,6 @@ impl Index<RangeFull> for Did {
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
 pub enum StoredDidDetails<T: Config> {
     /// For off-chain DID, most data is stored off-chain.
     OffChain(OffChainDidDetails<T>),
@@ -94,7 +86,7 @@ impl<T: Config> StoredDidDetails<T> {
 }
 
 impl<T: Config + Debug> Module<T> {
-    /// Inserts details for the given `DID`.
+    /// Inserts details for the given DID.
     pub(crate) fn insert_did_details<D: Into<StoredDidDetails<T>>>(did: Did, did_details: D) {
         Dids::<T>::insert(did, did_details.into())
     }

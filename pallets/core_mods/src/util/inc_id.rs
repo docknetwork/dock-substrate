@@ -1,11 +1,8 @@
-use crate::impl_wrapper_from_type_conversion;
 use codec::{Decode, Encode};
 
 /// An incremental identifier.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Copy, Default, Ord, PartialOrd, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 pub struct IncId(u32);
 
 impl Iterator for &'_ mut IncId {
@@ -29,4 +26,20 @@ impl IncId {
     }
 }
 
-impl_wrapper_from_type_conversion! { IncId: u8, u16, u32 }
+impl From<u32> for IncId {
+    fn from(val: u32) -> IncId {
+        IncId(val)
+    }
+}
+
+impl From<u16> for IncId {
+    fn from(val: u16) -> IncId {
+        IncId(val.into())
+    }
+}
+
+impl From<u8> for IncId {
+    fn from(val: u8) -> IncId {
+        IncId(val.into())
+    }
+}
