@@ -1,6 +1,6 @@
 use crate as staking_rewards;
 
-use frame_support::{assert_noop, assert_ok, parameter_types};
+use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnRuntimeUpgrade};
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
 use sp_runtime::{
@@ -43,22 +43,35 @@ parameter_types! {
     pub const BlockHashCount: u64 = 250;
     pub const SS58Prefix: u8 = 21;
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(60);
+    pub const PostUpgradeHighRateDuration: Option<u64> = Some(10);
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
 }
 
-// For testing, setting `RewardDecayPct` this way so it can be changed during tests
+// For testing, setting `LowRateRewardDecayPct` this way so it can be changed during tests
 thread_local! {
-    static REWARD_DECAY_PCT: RefCell<Percent> = RefCell::new(Percent::from_percent(10));
+    static LOW_RATE_REWARD_DECAY_PCT: RefCell<Percent> = RefCell::new(Percent::from_percent(10));
+    static HIGH_RATE_REWARD_DECAY_PCT: RefCell<Percent> = RefCell::new(Percent::from_percent(20));
 }
-pub struct RewardDecayPct;
-impl RewardDecayPct {
+pub struct LowRateRewardDecayPct;
+impl LowRateRewardDecayPct {
     fn set(value: Percent) {
-        REWARD_DECAY_PCT.with(|v| v.replace(value));
+        LOW_RATE_REWARD_DECAY_PCT.with(|v| v.replace(value));
     }
 }
-impl Get<Percent> for RewardDecayPct {
+impl Get<Percent> for LowRateRewardDecayPct {
     fn get() -> Percent {
-        REWARD_DECAY_PCT.with(|v| *v.borrow())
+        LOW_RATE_REWARD_DECAY_PCT.with(|v| *v.borrow())
+    }
+}
+pub struct HighRateRewardDecayPct;
+impl HighRateRewardDecayPct {
+    fn set(value: Percent) {
+        HIGH_RATE_REWARD_DECAY_PCT.with(|v| v.replace(value));
+    }
+}
+impl Get<Percent> for HighRateRewardDecayPct {
+    fn get() -> Percent {
+        HIGH_RATE_REWARD_DECAY_PCT.with(|v| *v.borrow())
     }
 }
 
@@ -99,7 +112,9 @@ impl balances::Config for Test {
 
 impl staking_rewards::Config for Test {
     type Event = ();
-    type RewardDecayPct = RewardDecayPct;
+    type PostUpgradeHighRateDuration = PostUpgradeHighRateDuration;
+    type LowRateRewardDecayPct = LowRateRewardDecayPct;
+    type HighRateRewardDecayPct = HighRateRewardDecayPct;
     type TreasuryRewardsPct = TreasuryRewardsPct;
     type RewardCurve = RewardCurve;
 }
@@ -122,6 +137,35 @@ fn test_supply_set_get() {
         assert_eq!(StakingRewards::staking_emission_supply(), 0);
         StakingRewards::set_new_emission_supply(10_000);
         assert_eq!(StakingRewards::staking_emission_supply(), 10_000);
+    })
+}
+
+#[test]
+fn test_high_rate_emission_rate() {
+    new_test_ext().execute_with(|| {
+        assert_eq!(
+            StakingRewards::reward_decay_pct(),
+            LowRateRewardDecayPct::get()
+        );
+        StakingRewards::on_runtime_upgrade();
+        for i in 1..=10 {
+            System::set_block_number(i);
+            assert_eq!(StakingRewards::high_rate_rewards_end_at(), Some(10));
+            assert_eq!(
+                StakingRewards::reward_decay_pct(),
+                HighRateRewardDecayPct::get()
+            );
+            StakingRewards::era_payout(Default::default(), Default::default(), Default::default());
+            assert_eq!(StakingRewards::high_rate_rewards_end_at(), Some(10));
+        }
+        System::set_block_number(11);
+        assert_eq!(StakingRewards::high_rate_rewards_end_at(), Some(10));
+        StakingRewards::era_payout(Default::default(), Default::default(), Default::default());
+        assert_eq!(StakingRewards::high_rate_rewards_end_at(), None);
+        assert_eq!(
+            StakingRewards::reward_decay_pct(),
+            LowRateRewardDecayPct::get()
+        );
     })
 }
 
@@ -273,16 +317,148 @@ fn test_yearly_rewards() {
         t(10_000, 10_000 / 10);
 
         // Decay is set to 20%
-        <Test as Config>::RewardDecayPct::set(Percent::from_percent(20));
+        <Test as Config>::LowRateRewardDecayPct::set(Percent::from_percent(20));
         t(10_000, 10_000 / 5);
 
         // Decay is set to 25%
-        <Test as Config>::RewardDecayPct::set(Percent::from_percent(25));
+        <Test as Config>::LowRateRewardDecayPct::set(Percent::from_percent(25));
         t(10_000, 10_000 / 4);
 
         // Decay is set to 50%
-        <Test as Config>::RewardDecayPct::set(Percent::from_percent(50));
+        <Test as Config>::LowRateRewardDecayPct::set(Percent::from_percent(50));
         t(10_000, 10_000 / 2);
+    })
+}
+
+#[test]
+fn test_yearly_rewards_high_rate() {
+    // Test yearly rewards at different staking rates
+    new_test_ext().execute_with(|| {
+        fn t(emission_supply: u64, max_yearly_decay: u64) {
+            let total_issuance = 100_000u64;
+            StakingRewards::on_runtime_upgrade();
+            let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
+
+            // No tokens staked
+            let total_staked_zilch = 0;
+            let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
+                &reward_curve,
+                total_staked_zilch,
+                total_issuance,
+            );
+            let npos_reward_prop = StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
+                &reward_curve,
+                total_staked_zilch,
+                total_issuance,
+            );
+            let yearly_rewards_at_no_staking = StakingRewards::get_yearly_emission_reward(
+                &reward_curve,
+                total_staked_zilch,
+                total_issuance,
+                emission_supply,
+            );
+            let max_yearly = StakingRewards::get_max_yearly_emission(emission_supply);
+            assert_eq!(Perbill::from_percent(25), npos_reward_prop);
+            assert_eq!(Percent::from_percent(25) * emission_supply, npos_reward);
+            assert_eq!(max_yearly_decay, max_yearly);
+            assert_eq!(
+                Percent::from_percent(25) * max_yearly_decay,
+                yearly_rewards_at_no_staking
+            );
+
+            // 50% tokens staked
+            let total_staked = 50_000;
+            let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
+                &reward_curve,
+                total_staked,
+                total_issuance,
+            );
+            let npos_reward_prop = StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
+                &reward_curve,
+                total_staked,
+                total_issuance,
+            );
+            let yearly_rewards = StakingRewards::get_yearly_emission_reward(
+                &reward_curve,
+                total_staked,
+                total_issuance,
+                emission_supply,
+            );
+            let max_yearly = StakingRewards::get_max_yearly_emission(emission_supply);
+            assert_eq!(Perbill::from_percent(75u32), npos_reward_prop);
+            assert_eq!(Percent::from_percent(75) * emission_supply, npos_reward);
+            assert_eq!(max_yearly_decay, max_yearly);
+            assert_eq!(Percent::from_percent(75) * max_yearly_decay, yearly_rewards);
+
+            // Yearly rewards when some tokens are staked are greater than when no tokens staked.
+            assert!(yearly_rewards > yearly_rewards_at_no_staking);
+
+            // 75% tokens staked which yield the maximum reward as per the reward curve
+            let total_staked_ideal = 75_000;
+            let npos_reward_ideal = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
+                &reward_curve,
+                total_staked_ideal,
+                total_issuance,
+            );
+            let npos_reward_prop_ideal =
+                StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
+                    &reward_curve,
+                    total_staked_ideal,
+                    total_issuance,
+                );
+            let yearly_rewards_idea_staking = StakingRewards::get_yearly_emission_reward(
+                &reward_curve,
+                total_staked_ideal,
+                total_issuance,
+                emission_supply,
+            );
+            let max_yearly = StakingRewards::get_max_yearly_emission(emission_supply);
+            // 75% is ideal stake as per reward curve
+            assert_eq!(Perbill::from_percent(100u32), npos_reward_prop_ideal);
+            assert_eq!(emission_supply, npos_reward_ideal);
+            assert_eq!(max_yearly_decay, max_yearly);
+            assert_eq!(max_yearly_decay, yearly_rewards_idea_staking);
+            assert!(yearly_rewards_idea_staking > yearly_rewards);
+
+            // 80% tokens staked which yield less than the maximum reward as rewards decrease if more
+            // tokens than ideal staked
+            let total_staked_sub_ideal = 80_000;
+            let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
+                &reward_curve,
+                total_staked_sub_ideal,
+                total_issuance,
+            );
+            let npos_reward_prop = StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
+                &reward_curve,
+                total_staked_sub_ideal,
+                total_issuance,
+            );
+            let yearly_rewards_sub_ideal = StakingRewards::get_yearly_emission_reward(
+                &reward_curve,
+                total_staked_sub_ideal,
+                total_issuance,
+                emission_supply,
+            );
+            let max_yearly = StakingRewards::get_max_yearly_emission(emission_supply);
+            assert!(npos_reward_prop_ideal > npos_reward_prop);
+            assert!(npos_reward_ideal > npos_reward);
+            assert_eq!(max_yearly_decay, max_yearly);
+            assert!(yearly_rewards_idea_staking > yearly_rewards_sub_ideal);
+
+            // Yearly rewards when some tokens are staked are greater than when no tokens staked.
+            assert!(yearly_rewards_sub_ideal > yearly_rewards_at_no_staking);
+        }
+
+        // Decay is set to 20%
+        t(10_000, 10_000 / 5);
+
+        // Decay is set to 50%
+        <Test as Config>::HighRateRewardDecayPct::set(Percent::from_percent(50));
+        t(10_000, 10_000 / 2);
+
+        // Decay is set to 50%
+        <Test as Config>::HighRateRewardDecayPct::set(Percent::from_percent(100));
+        t(10_000, 10_000);
     })
 }
 
@@ -293,7 +469,7 @@ fn test_yearly_rewards_with_increasing_staking() {
         let mut total_issuance = 100_000u64;
         let mut emission_supply = 10_000u64;
         let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
-        let decay_pct = <Test as staking_rewards::Config>::RewardDecayPct::get();
+        let decay_pct = <Test as staking_rewards::Config>::LowRateRewardDecayPct::get();
 
         for total_staked in (1000u64..=(total_issuance + emission_supply)).step_by(1000) {
             let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
@@ -336,7 +512,7 @@ fn test_yearly_rewards_with_constant_staking() {
     // Test emission rewards with amount of staked tokens remaining constant
     new_test_ext().execute_with(|| {
         let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
-        let decay_pct = <Test as staking_rewards::Config>::RewardDecayPct::get();
+        let decay_pct = <Test as staking_rewards::Config>::LowRateRewardDecayPct::get();
 
         for total_staked in vec![10_000, 50_000, 75_000, 100_000] {
             let mut total_issuance = 100_000u64;
