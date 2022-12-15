@@ -1,5 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
+use core::{fmt::Debug, num::NonZeroU32};
+
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch,
     traits::Get,
@@ -22,11 +24,29 @@ mod tests;
 // Milliseconds per year for the Julian year (365.25 days).
 const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
+/// Non-zero amount of eras used to express duration.
+#[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug)]
+pub struct DurationInEras(pub NonZeroU32);
+
+impl DurationInEras {
+    /// Attempts to instantiate `DurationInEras` using supplied non-zero count.
+    /// # Panics
+    /// If the count is equal to zero.
+    pub const fn new(count: u32) -> Self {
+        if count == 0 {
+            panic!("`DurationInEras` can't be equal to zero")
+        }
+
+        Self(unsafe { NonZeroU32::new_unchecked(count) })
+    }
+}
+
 pub trait Config: system::Config + poa::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
-    /// Optional duration (in blocks) for high-rate rewards to be paid after the upgrade.
-    type PostUpgradeHighRateDuration: Get<Option<<Self as system::Config>::BlockNumber>>;
+    /// Optional duration in eras for high-rate rewards to be paid after the upgrade.
+    /// High-rate rewards will become active at the beginning of the next sequential era.
+    type PostUpgradeHighRateDuration: Get<Option<DurationInEras>>;
     /// The percentage by which remaining emission supply decreases
     type LowRateRewardDecayPct: Get<Percent>;
     /// High rate percentage by which remaining emission supply decreases. Only used during `PostUpgradeHighRateDuration`.
@@ -49,8 +69,88 @@ decl_storage! {
         /// kept different from `EmissionStatus` from poa module.
         StakingEmissionStatus get(fn staking_emission_status): bool;
 
-        /// Optional block number which denotes ending of the high rate rewards.
-        HighRateRewardsEndAt get(fn high_rate_rewards_end_at): Option<T::BlockNumber>;
+        /// Current state of the high-rate rewards.
+        HighRateRewards get(fn high_rate_rewards): HighRateRewardsState;
+    }
+}
+
+/// Denotes the current state of the high-rate rewards.
+#[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug)]
+pub enum HighRateRewardsState {
+    /// High-rate rewards are disabled.
+    None,
+    /// High-rate rewards will start in the next era and last for `duration`.
+    WaitingForNextEra { duration: DurationInEras },
+    /// High-rate rewards are currently active and will end after `ends_after` eras.
+    Active { ends_after: DurationInEras },
+}
+
+impl HighRateRewardsState {
+    /// Attempts to switch `Self` to the next state returning next `Ok(Self)` on update and `Err(Self)` if nothing was changed.
+    ///
+    /// This function defines the following transitions:
+    /// - High-rate rewards were activated.
+    /// ```rust
+    /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
+    /// # const TWO_ERAS: DurationInEras = DurationInEras::new(2);
+    /// # assert_eq!(
+    /// HighRateRewardsState::WaitingForNextEra { duration: TWO_ERAS }.try_next(), /* => */ Ok(HighRateRewardsState::Active { ends_after: TWO_ERAS })
+    /// # );
+    /// ```
+    /// - High-rate rewards passed one more era, so the remaining amount is decreased by 1.
+    /// ```
+    /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
+    /// # const TWO_ERAS: DurationInEras = DurationInEras::new(2);
+    /// # const ONE_ERA: DurationInEras = DurationInEras::new(1);
+    /// # assert_eq!(
+    /// HighRateRewardsState::Active { ends_after: TWO_ERAS }.try_next(), /* => */ Ok(HighRateRewardsState::Active { ends_after: ONE_ERA })
+    /// # );
+    /// ```
+    /// - High-rate rewards ended, switching back to the default state.
+    /// ```
+    /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
+    /// # const ONE_ERA: DurationInEras = DurationInEras::new(1);
+    /// # assert_eq!(
+    /// HighRateRewardsState::Active { ends_after: ONE_ERA }.try_next(), /* => */ Ok(HighRateRewardsState::None)
+    /// # );
+    /// ```
+    /// - No state transition for the default state.
+    /// ```
+    /// # use staking_rewards::{HighRateRewardsState};
+    /// # assert_eq!(
+    /// HighRateRewardsState::None.try_next(), /* => */ Err(HighRateRewardsState::None)
+    /// # );
+    /// ```
+    pub fn try_next(&mut self) -> Result<Self, Self> {
+        *self = match *self {
+            HighRateRewardsState::WaitingForNextEra { duration } => HighRateRewardsState::Active {
+                ends_after: duration,
+            },
+            HighRateRewardsState::Active {
+                ends_after: DurationInEras(ends_after),
+            } => ends_after
+                .get()
+                .checked_sub(1)
+                .and_then(NonZeroU32::new)
+                .map(DurationInEras)
+                .map_or(HighRateRewardsState::None, |ends_after| {
+                    HighRateRewardsState::Active { ends_after }
+                }),
+            _ => return Err(*self),
+        };
+
+        Ok(*self)
+    }
+
+    /// Checks if the given `HighRateRewardsState` is in the `Active` phase.
+    pub fn is_active(&self) -> bool {
+        matches!(self, Self::Active { .. })
+    }
+}
+
+impl Default for HighRateRewardsState {
+    fn default() -> Self {
+        Self::None
     }
 }
 
@@ -83,8 +183,10 @@ decl_module! {
         }
 
         fn on_runtime_upgrade() -> Weight {
-            if let Some(high_rate_duration) = T::PostUpgradeHighRateDuration::get() {
-                HighRateRewardsEndAt::<T>::put(<system::Pallet<T>>::block_number().saturating_add(high_rate_duration));
+            if let Some(duration) = T::PostUpgradeHighRateDuration::get() {
+                HighRateRewards::put(
+                    HighRateRewardsState::WaitingForNextEra { duration }
+                );
 
                 T::DbWeight::get().writes(1)
             } else {
@@ -193,14 +295,10 @@ impl<T: Config> Module<T> {
     /// The percentage by which remaining emission supply decreases.
     pub fn reward_decay_pct() -> Percent {
         // We need to check if high-rate rewards are enabled.
-        if Self::high_rate_rewards_end_at()
-            .filter(|&end| end >= <system::Pallet<T>>::block_number())
-            .is_some()
-        {
-            T::HighRateRewardDecayPct::get()
-        } else {
-            T::LowRateRewardDecayPct::get()
-        }
+        Self::high_rate_rewards()
+            .is_active()
+            .then(T::HighRateRewardDecayPct::get)
+            .unwrap_or_else(T::LowRateRewardDecayPct::get)
     }
 
     /// Get maximum emission per year according to the decay percentage and given emission supply
@@ -228,7 +326,8 @@ impl<T: Config> Module<T> {
 impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
     /// Compute era payout for validators and treasury and reduce the remaining emission supply.
     /// It is assumed and expected that this is called only when a payout of an era has to computed
-    /// and isn't called twice for the same era as it has a side-effect (reducing remaining supply).
+    /// and isn't called twice for the same era as it has a side-effect (reducing remaining supply
+    /// and transitioning the high-rate rewards state).
     /// Currently, it doesn't seem possible to avoid this side effect as there is no way for this pallet
     /// to be notified if an era payout was successfully done.
     fn era_payout(
@@ -236,14 +335,6 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
         total_issuance: BalanceOf<T>,
         era_duration_millis: u64,
     ) -> (BalanceOf<T>, BalanceOf<T>) {
-        if Self::high_rate_rewards_end_at()
-            .filter(|&end| end < <system::Pallet<T>>::block_number())
-            .is_some()
-        {
-            // Remove the high-rate rewards ending block because it's not relevant anymore.
-            HighRateRewardsEndAt::<T>::take();
-        }
-
         let reward_curve = T::RewardCurve::get();
         let (emission_reward, remaining) = Self::emission_reward_for_era(
             reward_curve,
@@ -253,7 +344,7 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
         );
         Self::deposit_event(RawEvent::EmissionRewards(emission_reward, remaining));
 
-        if emission_reward.is_zero() {
+        let result = if emission_reward.is_zero() {
             (BalanceOf::<T>::zero(), BalanceOf::<T>::zero())
         } else {
             Self::set_new_emission_supply(remaining);
@@ -262,6 +353,10 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
                 emission_reward.saturating_sub(treasury_reward),
                 treasury_reward,
             )
-        }
+        };
+
+        let _ = HighRateRewards::try_mutate(HighRateRewardsState::try_next);
+
+        result
     }
 }

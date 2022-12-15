@@ -95,6 +95,7 @@ use sp_runtime::{
     Perquintill, SaturatedConversion,
 };
 use sp_std::collections::btree_map::BTreeMap;
+use staking_rewards::DurationInEras;
 use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
@@ -1198,13 +1199,20 @@ pallet_staking_reward_curve::build! {
     );
 }
 
+/// Pay high-rate rewards for 3 months (in eras) after the upgrade.
+const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
+    DurationInEras::new(90 * DAYS / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA);
+
+#[cfg(not(feature = "small_durations"))]
+// 1 era lasts for 12h.
+const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 90 * 2);
+
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const HighRateRewardDecayPct: Percent = Percent::from_percent(50);
     pub const LowRateRewardDecayPct: Percent = Percent::from_percent(25);
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
-    /// Pay high-rate rewards for 3 months (in blocks) after the upgrade.
-    pub const PostUpgradeHighRateDuration: Option<u32> = Some(90 * DAYS);
+    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = Some(POST_UPGRADE_HIGH_RATE_DURATION);
 }
 
 impl staking_rewards::Config for Runtime {
