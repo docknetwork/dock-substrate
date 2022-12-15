@@ -1201,7 +1201,7 @@ pallet_staking_reward_curve::build! {
 
 /// Pay high-rate rewards for 3 months (in eras) after the upgrade.
 const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
-    DurationInEras::new(90 * DAYS / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA);
+    DurationInEras::new((90 * DAYS / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
 
 #[cfg(not(feature = "small_durations"))]
 // 1 era lasts for 12h.

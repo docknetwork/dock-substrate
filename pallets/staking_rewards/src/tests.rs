@@ -150,7 +150,7 @@ fn test_high_rate_emission_rate() {
         StakingRewards::on_runtime_upgrade();
         assert_eq!(
             StakingRewards::high_rate_rewards(),
-            HighRateRewardsState::WaitingForNextEra {
+            HighRateRewardsState::StartingInNextEra {
                 duration: DurationInEras::new(10)
             }
         );

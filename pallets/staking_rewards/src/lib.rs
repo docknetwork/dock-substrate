@@ -1,6 +1,6 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use core::{fmt::Debug, num::NonZeroU32};
+use core::{fmt::Debug, num::NonZeroU16};
 
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch,
@@ -26,18 +26,18 @@ const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
 /// Non-zero amount of eras used to express duration.
 #[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug)]
-pub struct DurationInEras(pub NonZeroU32);
+pub struct DurationInEras(pub NonZeroU16);
 
 impl DurationInEras {
     /// Instantiates `DurationInEras` using supplied *non-zero* count.
     /// # Panics
     /// If the count is equal to zero.
-    pub const fn new(count: u32) -> Self {
+    pub const fn new(count: u16) -> Self {
         if count == 0 {
             panic!("`DurationInEras` can't be equal to zero")
         }
 
-        Self(unsafe { NonZeroU32::new_unchecked(count) })
+        Self(unsafe { NonZeroU16::new_unchecked(count) })
     }
 }
 
@@ -80,21 +80,22 @@ pub enum HighRateRewardsState {
     /// High-rate rewards are disabled.
     None,
     /// High-rate rewards will start in the next era and last for `duration` eras.
-    WaitingForNextEra { duration: DurationInEras },
+    StartingInNextEra { duration: DurationInEras },
     /// High-rate rewards are currently active and will end after `ends_after` eras.
     Active { ends_after: DurationInEras },
 }
 
 impl HighRateRewardsState {
     /// Attempts to switch `Self` to the next state returning next `Ok(Self)` on update and `Err(Self)` if nothing was changed.
+    /// Returned `Self` is the copy of the final value.
     ///
     /// This function defines the following transitions:
     /// - High-rate rewards were activated.
-    /// ```rust
+    /// ```
     /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
     /// # const TWO_ERAS: DurationInEras = DurationInEras::new(2);
     /// # assert_eq!(
-    /// HighRateRewardsState::WaitingForNextEra { duration: TWO_ERAS }.try_next(), /* => */ Ok(HighRateRewardsState::Active { ends_after: TWO_ERAS })
+    /// HighRateRewardsState::StartingInNextEra { duration: TWO_ERAS }.try_next(), /* => */ Ok(HighRateRewardsState::Active { ends_after: TWO_ERAS })
     /// # );
     /// ```
     /// - High-rate rewards passed one more era, so the remaining amount is decreased by 1.
@@ -123,7 +124,7 @@ impl HighRateRewardsState {
     /// ```
     pub fn try_next(&mut self) -> Result<Self, Self> {
         *self = match *self {
-            HighRateRewardsState::WaitingForNextEra { duration } => HighRateRewardsState::Active {
+            HighRateRewardsState::StartingInNextEra { duration } => HighRateRewardsState::Active {
                 ends_after: duration,
             },
             HighRateRewardsState::Active {
@@ -131,7 +132,7 @@ impl HighRateRewardsState {
             } => ends_after
                 .get()
                 .checked_sub(1)
-                .and_then(NonZeroU32::new)
+                .and_then(NonZeroU16::new)
                 .map(DurationInEras)
                 .map_or(HighRateRewardsState::None, |ends_after| {
                     HighRateRewardsState::Active { ends_after }
@@ -140,6 +141,49 @@ impl HighRateRewardsState {
         };
 
         Ok(*self)
+    }
+
+    /// Increments duration of `Self` using supplied amount, handles overflow.
+    /// If `Self` is `None`, it will be replaced by `StartingInNextEra` with the given duration.
+    /// Returns copied `Self`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
+    /// # const THREE_ERAS: DurationInEras = DurationInEras::new(3);
+    /// # const TWO_ERAS: DurationInEras = DurationInEras::new(2);
+    /// # const ONE_ERA: DurationInEras = DurationInEras::new(1);
+    /// # assert_eq!(
+    /// HighRateRewardsState::StartingInNextEra { duration: ONE_ERA }.inc_duration_or_init(TWO_ERAS), /* => */ HighRateRewardsState::StartingInNextEra { duration: THREE_ERAS }
+    /// # );
+    ///
+    /// # assert_eq!(
+    /// HighRateRewardsState::Active { ends_after: ONE_ERA }.inc_duration_or_init(TWO_ERAS), /* => */ HighRateRewardsState::Active { ends_after: THREE_ERAS }
+    /// # );
+    ///
+    /// # assert_eq!(
+    /// HighRateRewardsState::None.inc_duration_or_init(TWO_ERAS), /* => */ HighRateRewardsState::StartingInNextEra { duration: TWO_ERAS }
+    /// # );
+    /// ```
+    pub fn inc_duration_or_init(&mut self, inc_duration: DurationInEras) -> Self {
+        match self {
+            HighRateRewardsState::StartingInNextEra {
+                duration: DurationInEras(duration),
+            }
+            | HighRateRewardsState::Active {
+                ends_after: DurationInEras(duration),
+            } => {
+                let DurationInEras(increment) = inc_duration;
+                *duration = duration.saturating_add(increment.get());
+            }
+            HighRateRewardsState::None => {
+                *self = HighRateRewardsState::StartingInNextEra {
+                    duration: inc_duration,
+                }
+            }
+        }
+        *self
     }
 
     /// Checks if the given `HighRateRewardsState` is in the `Active` phase.
@@ -184,11 +228,9 @@ decl_module! {
 
         fn on_runtime_upgrade() -> Weight {
             if let Some(duration) = T::PostUpgradeHighRateDuration::get() {
-                HighRateRewards::put(
-                    HighRateRewardsState::WaitingForNextEra { duration }
-                );
+                HighRateRewards::mutate(|rewards_state| rewards_state.inc_duration_or_init(duration));
 
-                T::DbWeight::get().writes(1)
+                T::DbWeight::get().reads_writes(1, 1)
             } else {
                 Weight::zero()
             }
