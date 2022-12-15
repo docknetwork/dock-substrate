@@ -29,7 +29,7 @@ const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 pub struct DurationInEras(pub NonZeroU32);
 
 impl DurationInEras {
-    /// Attempts to instantiate `DurationInEras` using supplied non-zero count.
+    /// Instantiates `DurationInEras` using supplied *non-zero* count.
     /// # Panics
     /// If the count is equal to zero.
     pub const fn new(count: u32) -> Self {
@@ -79,7 +79,7 @@ decl_storage! {
 pub enum HighRateRewardsState {
     /// High-rate rewards are disabled.
     None,
-    /// High-rate rewards will start in the next era and last for `duration`.
+    /// High-rate rewards will start in the next era and last for `duration` eras.
     WaitingForNextEra { duration: DurationInEras },
     /// High-rate rewards are currently active and will end after `ends_after` eras.
     Active { ends_after: DurationInEras },
