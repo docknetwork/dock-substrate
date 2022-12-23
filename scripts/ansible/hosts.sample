@@ -52,3 +52,4 @@ bootnodes=['/ip4/<some bootstrap node's ip>/tcp/30333/p2p/<boot node p2p public 
 pruning=archive
 chain_spec_file = <Name of chain spec file present in cspec directory of this repo's root>
 docker_image_tag = <Tag of the Docker image to pull>
+ws-max-connections = 16384
