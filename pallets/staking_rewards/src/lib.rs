@@ -1,6 +1,10 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-use frame_support::{decl_event, decl_module, decl_storage, dispatch, traits::Get, weights::Pays};
+use frame_support::{
+    decl_event, decl_module, decl_storage, dispatch,
+    traits::Get,
+    weights::{Pays, Weight},
+};
 use frame_system::{self as system, ensure_root};
 use pallet_staking::EraPayout;
 pub use poa::BalanceOf;
@@ -10,20 +14,27 @@ use sp_runtime::{
     Perbill, Percent,
 };
 use sp_std::prelude::*;
+pub use types::*;
 
 pub mod runtime_api;
+pub mod types;
 
 #[cfg(test)]
 mod tests;
 
 // Milliseconds per year for the Julian year (365.25 days).
-const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+pub const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
 pub trait Config: system::Config + poa::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
+    /// Optional duration in eras for high-rate rewards to be paid after the upgrade.
+    /// High-rate rewards will become active at the beginning of the next sequential era.
+    type PostUpgradeHighRateDuration: Get<Option<DurationInEras>>;
     /// The percentage by which remaining emission supply decreases
-    type RewardDecayPct: Get<Percent>;
+    type LowRateRewardDecayPct: Get<Percent>;
+    /// High rate percentage by which remaining emission supply decreases. Only used during `PostUpgradeHighRateDuration`.
+    type HighRateRewardDecayPct: Get<Percent>;
     /// The percentage of rewards going to treasury
     type TreasuryRewardsPct: Get<Percent>;
     /// The NPoS reward curve where the first 2 points (of `points` field) correspond to the lowest
@@ -41,6 +52,9 @@ decl_storage! {
         /// Boolean flag determining whether to generate emission rewards or not. Name is intentionally
         /// kept different from `EmissionStatus` from poa module.
         StakingEmissionStatus get(fn staking_emission_status): bool;
+
+        /// Current state of the high-rate rewards.
+        HighRateRewards get(fn high_rate_rewards): HighRateRewardsState;
     }
 }
 
@@ -58,20 +72,28 @@ decl_event!(
 );
 
 decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: <T as frame_system::Config>::Origin {
-        /// The percentage by which remaining emission supply decreases
-        const RewardDecayPct: Percent = T::RewardDecayPct::get();
+    pub struct Module<T: Config> for enum Call where origin: T::Origin {
         /// The percentage of rewards going to treasury
         const TreasuryRewardsPct: Percent = T::TreasuryRewardsPct::get();
 
         fn deposit_event() = default;
 
         /// Enable/disable emission rewards by calling this function with true or false respectively.
-        #[weight = <T as frame_system::Config>::DbWeight::get().writes(1)]
+        #[weight = T::DbWeight::get().writes(1)]
         pub fn set_emission_status(origin, status: bool) -> dispatch::DispatchResultWithPostInfo {
             ensure_root(origin)?;
             StakingEmissionStatus::put(status);
             Ok(Pays::No.into())
+        }
+
+        fn on_runtime_upgrade() -> Weight {
+            if let Some(duration) = T::PostUpgradeHighRateDuration::get() {
+                HighRateRewards::mutate(|rewards_state| rewards_state.inc_duration_or_init(duration));
+
+                T::DbWeight::get().reads_writes(1, 1)
+            } else {
+                Weight::zero()
+            }
         }
     }
 }
@@ -172,10 +194,19 @@ impl<T: Config> Module<T> {
         reward_curve.calculate_for_fraction_times_denominator(total_staked, total_issuance)
     }
 
+    /// The percentage by which remaining emission supply decreases.
+    pub fn reward_decay_pct() -> Percent {
+        // We need to check if high-rate rewards are enabled.
+        Self::high_rate_rewards()
+            .is_active()
+            .then(T::HighRateRewardDecayPct::get)
+            .unwrap_or_else(T::LowRateRewardDecayPct::get)
+    }
+
     /// Get maximum emission per year according to the decay percentage and given emission supply
     fn get_max_yearly_emission(emission_supply: BalanceOf<T>) -> BalanceOf<T> {
         // Emission supply decreases by "decay percentage" of the remaining emission supply per year
-        T::RewardDecayPct::get() * emission_supply
+        Self::reward_decay_pct() * emission_supply
     }
 
     /// Given yearly emission rewards, calculate for an era.
@@ -197,7 +228,8 @@ impl<T: Config> Module<T> {
 impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
     /// Compute era payout for validators and treasury and reduce the remaining emission supply.
     /// It is assumed and expected that this is called only when a payout of an era has to computed
-    /// and isn't called twice for the same era as it has a side-effect (reducing remaining supply).
+    /// and isn't called twice for the same era as it has a side-effect (reducing remaining supply
+    /// and transitioning the high-rate rewards state).
     /// Currently, it doesn't seem possible to avoid this side effect as there is no way for this pallet
     /// to be notified if an era payout was successfully done.
     fn era_payout(
@@ -214,7 +246,7 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
         );
         Self::deposit_event(RawEvent::EmissionRewards(emission_reward, remaining));
 
-        if emission_reward.is_zero() {
+        let result = if emission_reward.is_zero() {
             (BalanceOf::<T>::zero(), BalanceOf::<T>::zero())
         } else {
             Self::set_new_emission_supply(remaining);
@@ -223,6 +255,10 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Module<T> {
                 emission_reward.saturating_sub(treasury_reward),
                 treasury_reward,
             )
-        }
+        };
+
+        let _ = HighRateRewards::try_mutate(HighRateRewardsState::try_next);
+
+        result
     }
 }

@@ -8,8 +8,8 @@ pub type AccumPublicKeyWithParams = (AccumulatorPublicKey, Option<AccumulatorPar
 /// Accumulator identifier.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorId(pub [u8; 32]);
 
@@ -18,8 +18,8 @@ crate::impl_wrapper!(AccumulatorId([u8; 32]), with tests as acc_tests);
 /// Accumulator owner - DID with the ability to control given accumulator keys, params, etc.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorOwner(pub Did);
 

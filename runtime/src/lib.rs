@@ -97,6 +97,7 @@ use sp_runtime::{
     SaturatedConversion,
 };
 use sp_std::collections::btree_map::BTreeMap;
+use staking_rewards::DurationInEras;
 use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
@@ -200,7 +201,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 39,
+    spec_version: 44,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -221,12 +222,13 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
+pub const WEEKS: BlockNumber = DAYS * 7;
 
 // The modules `small_durations` is used to generate runtimes with small duration events like epochs, eras,
 // bonding durations, etc for testing purposes. They should NOT be used in production.
 #[allow(dead_code)]
 mod small_durations {
-    use super::{BlockNumber, DAYS, MINUTES};
+    use super::{BlockNumber, MINUTES, WEEKS};
 
     pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
@@ -241,7 +243,7 @@ mod small_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = 7 * DAYS;
+    pub const TERM_DURATION: BlockNumber = 1 * WEEKS;
     /// The time-out for council motions.
     pub const COUNCIL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
     /// The time-out for technical committee motions.
@@ -266,7 +268,7 @@ mod small_durations {
 
 #[allow(dead_code)]
 mod prod_durations {
-    use super::{BlockNumber, DAYS, HOURS, MINUTES};
+    use super::{BlockNumber, DAYS, HOURS, MINUTES, WEEKS};
 
     pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 3 * HOURS;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
@@ -282,11 +284,11 @@ mod prod_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = 7 * DAYS;
+    pub const TERM_DURATION: BlockNumber = 1 * WEEKS;
     /// The time-out for council motions.
-    pub const COUNCIL_MOTION_DURATION: BlockNumber = 7 * DAYS;
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = 1 * WEEKS;
     /// The time-out for technical committee motions.
-    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 7 * DAYS;
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 1 * WEEKS;
     /// Delay after which an accepted proposal executes
     pub const ENACTMENT_PERIOD: BlockNumber = 2 * DAYS;
     /// How often new public referrenda are launched
@@ -313,7 +315,7 @@ use small_durations::*;
 /// Era duration should be less than or equal year
 // Milliseconds per year for the Julian year (365.25 days).
 #[allow(unused)]
-const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+pub const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 const_assert!(
     (SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_BLOCKS as u64 * MILLISECS_PER_BLOCK)
         <= MILLISECONDS_PER_YEAR
@@ -1425,16 +1427,29 @@ pallet_staking_reward_curve::build! {
     );
 }
 
+/// Pay high-rate rewards for 3 months (in eras) after the upgrade.
+const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
+    DurationInEras::new((90 * DAYS / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
+
+#[cfg(not(feature = "small_durations"))]
+// 1 era lasts for 12h.
+const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 90 * 2);
+
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const RewardDecayPct: Percent = Percent::from_percent(25);
+    pub const HighRateRewardDecayPct: Percent = Percent::from_percent(50);
+    pub const LowRateRewardDecayPct: Percent = Percent::from_percent(25);
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
+    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = Some(POST_UPGRADE_HIGH_RATE_DURATION);
 }
 
 impl staking_rewards::Config for Runtime {
     type Event = Event;
-    /// Emission rewards decay by this % each year
-    type RewardDecayPct = RewardDecayPct;
+    type PostUpgradeHighRateDuration = PostUpgradeHighRateDuration;
+    /// High-rate emission rewards decay by this % each year
+    type HighRateRewardDecayPct = HighRateRewardDecayPct;
+    /// Low-rae emission rewards decay by this % each year
+    type LowRateRewardDecayPct = LowRateRewardDecayPct;
     /// Treasury gets this much % out of emission rewards for each era
     type TreasuryRewardsPct = TreasuryRewardsPct;
     /// NPoS reward curve

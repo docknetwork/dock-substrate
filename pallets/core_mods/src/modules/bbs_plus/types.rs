@@ -8,8 +8,8 @@ use codec::{Decode, Encode};
 /// DID owner of the BBSPlus parameters.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct BBSPlusParamsOwner(pub Did);
 
