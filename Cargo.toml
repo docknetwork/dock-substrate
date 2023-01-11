@@ -2,18 +2,12 @@
 resolver = "2"
 
 members = [
-    "common",
     "node",
     "pallets/poa",
     "pallets/poa/rpc",
     "pallets/token_migration",
     "pallets/core_mods",
     "pallets/core_mods/rpc",
-    "pallets/price_feed",
-    "pallets/price_feed/rpc",
-    "pallets/fiat_filter",
-    "pallets/fiat_filter/rpc",
-    "pallets/fiat_filter/rpc/runtime_api",
     "pallets/staking_rewards",
     "pallets/staking_rewards/rpc",
     "runtime",

@@ -10,7 +10,7 @@ impl DurationInEras {
     /// Instantiates `DurationInEras` using supplied *non-zero* count.
     /// # Panics
     /// If the count is equal to zero.
-    pub const fn new(count: u16) -> Self {
+    pub const fn new_non_zero(count: u16) -> Self {
         if count == 0 {
             panic!("`DurationInEras` can't be equal to zero")
         }
@@ -38,7 +38,7 @@ impl HighRateRewardsState {
     /// - High-rate rewards were activated.
     /// ```
     /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
-    /// # const TWO_ERAS: DurationInEras = DurationInEras::new(2);
+    /// # const TWO_ERAS: DurationInEras = DurationInEras::new_non_zero(2);
     /// # assert_eq!(
     /// HighRateRewardsState::StartingInNextEra { duration: TWO_ERAS }.try_next(), /* => */ Ok(HighRateRewardsState::Active { ends_after: TWO_ERAS })
     /// # );
@@ -46,8 +46,8 @@ impl HighRateRewardsState {
     /// - High-rate rewards passed one more era, so the remaining amount is decreased by 1.
     /// ```
     /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
-    /// # const TWO_ERAS: DurationInEras = DurationInEras::new(2);
-    /// # const ONE_ERA: DurationInEras = DurationInEras::new(1);
+    /// # const TWO_ERAS: DurationInEras = DurationInEras::new_non_zero(2);
+    /// # const ONE_ERA: DurationInEras = DurationInEras::new_non_zero(1);
     /// # assert_eq!(
     /// HighRateRewardsState::Active { ends_after: TWO_ERAS }.try_next(), /* => */ Ok(HighRateRewardsState::Active { ends_after: ONE_ERA })
     /// # );
@@ -55,7 +55,7 @@ impl HighRateRewardsState {
     /// - High-rate rewards ended, switching back to the default state.
     /// ```
     /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
-    /// # const ONE_ERA: DurationInEras = DurationInEras::new(1);
+    /// # const ONE_ERA: DurationInEras = DurationInEras::new_non_zero(1);
     /// # assert_eq!(
     /// HighRateRewardsState::Active { ends_after: ONE_ERA }.try_next(), /* => */ Ok(HighRateRewardsState::None)
     /// # );
@@ -96,9 +96,9 @@ impl HighRateRewardsState {
     ///
     /// ```
     /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
-    /// # const THREE_ERAS: DurationInEras = DurationInEras::new(3);
-    /// # const TWO_ERAS: DurationInEras = DurationInEras::new(2);
-    /// # const ONE_ERA: DurationInEras = DurationInEras::new(1);
+    /// # const THREE_ERAS: DurationInEras = DurationInEras::new_non_zero(3);
+    /// # const TWO_ERAS: DurationInEras = DurationInEras::new_non_zero(2);
+    /// # const ONE_ERA: DurationInEras = DurationInEras::new_non_zero(1);
     /// # assert_eq!(
     /// HighRateRewardsState::StartingInNextEra { duration: ONE_ERA }.inc_duration_or_init(TWO_ERAS), /* => */ HighRateRewardsState::StartingInNextEra { duration: THREE_ERAS }
     /// # );

@@ -48,6 +48,7 @@ extern crate static_assertions;
 pub use core_mods::{
     accumulator, anchor, attest, bbs_plus, blob, did, keys_and_sigs, master, revoke,
 };
+use price_feed::{CurrencyPair, PriceRecord};
 pub mod precompiles;
 pub mod weight_to_fee;
 
@@ -1427,20 +1428,12 @@ pallet_staking_reward_curve::build! {
     );
 }
 
-/// Pay high-rate rewards for 3 months (in eras) after the upgrade.
-const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
-    DurationInEras::new((90 * DAYS / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
-
-#[cfg(not(feature = "small_durations"))]
-// 1 era lasts for 12h.
-const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 90 * 2);
-
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const HighRateRewardDecayPct: Percent = Percent::from_percent(50);
     pub const LowRateRewardDecayPct: Percent = Percent::from_percent(25);
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
-    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = Some(POST_UPGRADE_HIGH_RATE_DURATION);
+    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = None;
 }
 
 impl staking_rewards::Config for Runtime {
@@ -1599,24 +1592,13 @@ impl price_feed::Config for Runtime {
 }
 
 parameter_types! {
-    /// Price of Dock/USD pair as 10th of cent. Value of 10 means 1 cent
-    pub const MinDockFiatRate: u32 = 10;
-
     pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
 }
 
-impl fiat_filter::Config for Runtime {
-    type Call = Call;
-    type PriceProvider = price_feed::Pallet<Runtime>;
-    type Currency = balances::Pallet<Runtime>;
-    type MinDockFiatRate = MinDockFiatRate;
-}
 pub struct BaseFilter;
 impl Contains<Call> for BaseFilter {
     fn contains(call: &Call) -> bool {
         match call {
-            // Disable fiat_filter for now
-            Call::FiatFilterModule(_) => false,
             _ => true,
         }
     }
@@ -1654,8 +1636,8 @@ construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 22,
         Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 23,
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 24,
-        PriceFeedModule: price_feed::{Pallet, Call, Storage, Event} = 25,
-        FiatFilterModule: fiat_filter::{Pallet, Call} = 26,
+        PriceFeedModule: price_feed::{Pallet, Call, Storage, Event<T>} = 25,
+        // `fiat_filter` = 26 was here
         AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 27,
         Historical: pallet_session_historical::{Pallet} = 28,
         ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 29,
@@ -2189,22 +2171,9 @@ impl_runtime_apis! {
         }
     }
 
-    impl price_feed::runtime_api::PriceFeedApi<Block> for Runtime {
-        fn token_usd_price() -> Option<u32> {
-            PriceFeedModule::price()
-        }
-
-        fn token_usd_price_from_contract() -> Option<u32> {
-            PriceFeedModule::get_price_from_contract().map_or(None, |(v, _)| Some(v))
-        }
-    }
-
-    impl fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi<Block, Balance> for Runtime {
-        fn get_call_fee_dock(uxt: <Block as BlockT>::Extrinsic) -> Result<Balance, fiat_filter_rpc_runtime_api::Error> {
-            match FiatFilterModule::get_call_fee_dock_(&uxt.0.function) {
-                Ok((fee_microdock,_weight)) => Ok(fee_microdock),
-                Err(e) => Err(fiat_filter_rpc_runtime_api::Error::new_getcallfeedock(e))
-            }
+    impl price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber> for Runtime {
+        fn price(currency_pair: CurrencyPair<String>) -> Option<PriceRecord<<Runtime as frame_system::Config>::BlockNumber>> {
+            PriceFeedModule::price(currency_pair)
         }
     }
 

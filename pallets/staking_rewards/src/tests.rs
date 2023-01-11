@@ -1,9 +1,6 @@
 use crate as staking_rewards;
 
-use frame_support::{
-    assert_noop, assert_ok, parameter_types,
-    traits::{ConstU32, OnRuntimeUpgrade},
-};
+use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnRuntimeUpgrade};
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
 use sp_runtime::{
@@ -47,7 +44,7 @@ parameter_types! {
     pub const SS58Prefix: u8 = 21;
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(60);
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub PostUpgradeHighRateDuration: Option<DurationInEras> = Some(DurationInEras::new(10));
+    pub PostUpgradeHighRateDuration: Option<DurationInEras> = Some(DurationInEras::new_non_zero(10));
 }
 
 // For testing, setting `LowRateRewardDecayPct` this way so it can be changed during tests
@@ -158,7 +155,7 @@ fn test_high_rate_emission_rate() {
         assert_eq!(
             StakingRewards::high_rate_rewards(),
             HighRateRewardsState::StartingInNextEra {
-                duration: DurationInEras::new(10)
+                duration: DurationInEras::new_non_zero(10)
             }
         );
         assert_eq!(
@@ -170,7 +167,7 @@ fn test_high_rate_emission_rate() {
             assert_eq!(
                 StakingRewards::high_rate_rewards(),
                 HighRateRewardsState::Active {
-                    ends_after: DurationInEras::new(10 - i)
+                    ends_after: DurationInEras::new_non_zero(10 - i)
                 }
             );
             assert_eq!(
@@ -181,7 +178,7 @@ fn test_high_rate_emission_rate() {
         assert_eq!(
             StakingRewards::high_rate_rewards(),
             HighRateRewardsState::Active {
-                ends_after: DurationInEras::new(1)
+                ends_after: DurationInEras::new_non_zero(1)
             }
         );
         StakingRewards::era_payout(Default::default(), Default::default(), Default::default());

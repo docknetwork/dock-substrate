@@ -136,8 +136,7 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
     C::Api: pallet_mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash>,
-    C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block>,
-    C::Api: fiat_filter_rpc::FiatFeeRuntimeApi<Block, Balance>,
+    C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block, BlockNumber>,
     C::Api: staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
     C::Api: core_mods_rpc::CoreModsRuntimeApi<Block, dock_runtime::Runtime>,
     C::Api: BlockBuilder<Block>,
@@ -148,7 +147,6 @@ where
     A: ChainApi<Block = Block> + 'static,
 {
     use core_mods_rpc::{CoreMods, CoreModsApiServer};
-    use fiat_filter_rpc::{FiatFee, FiatFeeApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use poa_rpc::{PoA, PoAApiServer};
     use price_feed_rpc::{PriceFeed, PriceFeedApiServer};
@@ -317,8 +315,6 @@ where
         )?
         .into_rpc(),
     )?;
-
-    io.merge(FiatFee::new(client.clone()).into_rpc())?;
 
     if let Some(basic_channel_rpc) = backend
         .offchain_storage()

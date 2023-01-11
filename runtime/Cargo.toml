@@ -446,21 +446,10 @@ path = "../pallets/token_migration"
 default-features = false
 path = "../pallets/core_mods"
 
-[dependencies.price_feed]
+[dependencies.price-feed]
 default-features = false
-path = "../pallets/price_feed"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
-[dependencies.fiat_filter]
-default-features = false
-path = "../pallets/fiat_filter"
-
-[dependencies.fiat_filter_rpc_runtime_api]
-default-features = false
-path = "../pallets/fiat_filter/rpc/runtime_api"
-
-[dependencies.common]
-path = "../common"
-default-features = false
 
 [dependencies.libsecp256k1]
 version = "0.7"
@@ -619,10 +608,8 @@ std = [
     "poa/std",
     "token_migration/std",
     "core_mods/std",
-    "price_feed/std",
-    "fiat_filter/std",
+    "price-feed/std",
     "pallet-base-fee/std",
-    "fiat_filter_rpc_runtime_api/std",
     "staking_rewards/std",
     "frame-benchmarking/std",
     "rustc-hex/std"

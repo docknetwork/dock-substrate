@@ -530,11 +530,8 @@ path = "../pallets/poa/rpc"
 git = "https://github.com/Snowfork/snowbridge.git"
 rev = "dc50c3d973d1f53434c7a03e426faa9c20062f60"
 
-[dependencies.price_feed_rpc]
-path = "../pallets/price_feed/rpc"
-
-[dependencies.fiat_filter_rpc]
-path = "../pallets/fiat_filter/rpc"
+[dependencies.price-feed-rpc]
+git = "https://github.com/docknetwork/dock-substrate-common"
 
 [dependencies.staking_rewards_rpc]
 path = "../pallets/staking_rewards/rpc"

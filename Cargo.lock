@@ -116,6 +116,11 @@ dependencies = [
 ]
 
 [[package]]
+name = "arith-utils"
+version = "0.1.0"
+source = "git+https://github.com/docknetwork/dock-substrate-common#c67797375ee320a126e80c2bf63c9fd93691fff9"
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -967,10 +972,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "common"
-version = "0.0.1"
-
-[[package]]
 name = "concurrent-queue"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1026,8 +1027,8 @@ dependencies = [
 name = "core_mods"
 version = "0.5.0"
 dependencies = [
+ "arith-utils",
  "bitflags",
- "common",
  "evm",
  "fp-evm",
  "frame-benchmarking",
@@ -1511,7 +1512,6 @@ dependencies = [
  "fc-mapping-sync",
  "fc-rpc",
  "fc-rpc-core",
- "fiat_filter_rpc",
  "fp-consensus",
  "fp-rpc",
  "fp-self-contained",
@@ -1551,7 +1551,7 @@ dependencies = [
  "parking_lot 0.10.2",
  "poa",
  "poa_rpc",
- "price_feed_rpc",
+ "price-feed-rpc",
  "sc-allocator",
  "sc-authority-discovery",
  "sc-basic-authorship",
@@ -1661,7 +1661,6 @@ version = "0.21.0"
 dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
- "common",
  "core_mods",
  "ethabi-decode",
  "ethbloom",
@@ -1670,8 +1669,6 @@ dependencies = [
  "evm",
  "evm-gasometer",
  "evm-runtime",
- "fiat_filter",
- "fiat_filter_rpc_runtime_api",
  "fp-consensus",
  "fp-evm",
  "fp-rpc",
@@ -1734,7 +1731,7 @@ dependencies = [
  "parity-scale-codec",
  "parity-util-mem",
  "poa",
- "price_feed",
+ "price-feed",
  "primitive-types",
  "rand 0.8.4",
  "rlp",
@@ -2216,48 +2213,6 @@ checksum = "131655483be284720a17d74ff97592b8e76576dc25563148601df2d7c9080924"
 dependencies = [
  "rand_core 0.6.3",
  "subtle",
-]
-
-[[package]]
-name = "fiat_filter"
-version = "0.1.0"
-dependencies = [
- "common",
- "core_mods",
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "rand 0.7.3",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "fiat_filter_rpc"
-version = "0.0.2"
-dependencies = [
- "fiat_filter_rpc_runtime_api",
- "jsonrpsee",
- "sp-api",
- "sp-blockchain",
- "sp-core",
- "sp-rpc",
- "sp-runtime",
- "thiserror",
-]
-
-[[package]]
-name = "fiat_filter_rpc_runtime_api"
-version = "0.0.1"
-dependencies = [
- "parity-scale-codec",
- "sp-api",
- "sp-runtime",
 ]
 
 [[package]]
@@ -6013,17 +5968,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
-name = "price_feed"
-version = "0.0.1"
+name = "price-feed"
+version = "0.1.0"
+source = "git+https://github.com/docknetwork/dock-substrate-common#c67797375ee320a126e80c2bf63c9fd93691fff9"
 dependencies = [
- "common",
  "frame-support",
  "frame-system",
- "hex",
- "pallet-balances",
- "pallet-evm",
- "pallet-timestamp",
  "parity-scale-codec",
+ "price-provider",
  "scale-info",
  "serde",
  "sp-api",
@@ -6034,18 +5986,33 @@ dependencies = [
 ]
 
 [[package]]
-name = "price_feed_rpc"
-version = "0.0.1"
+name = "price-feed-rpc"
+version = "0.1.0"
+source = "git+https://github.com/docknetwork/dock-substrate-common#c67797375ee320a126e80c2bf63c9fd93691fff9"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
- "price_feed",
- "serde",
+ "price-feed",
  "sp-api",
  "sp-blockchain",
  "sp-rpc",
  "sp-runtime",
- "thiserror",
+]
+
+[[package]]
+name = "price-provider"
+version = "0.1.0"
+source = "git+https://github.com/docknetwork/dock-substrate-common#c67797375ee320a126e80c2bf63c9fd93691fff9"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

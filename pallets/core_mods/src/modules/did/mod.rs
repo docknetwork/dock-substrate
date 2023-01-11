@@ -5,8 +5,8 @@ use crate::{
     Action, ActionWithNonce, StorageVersion,
 };
 
+use arith_utils::DivCeil;
 use codec::{Decode, Encode};
-use common::arith_utils::DivCeil;
 use core::fmt::Debug;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,

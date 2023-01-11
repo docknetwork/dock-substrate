@@ -16,7 +16,7 @@ where
         .iter()
         .map(|(did, kp)| {
             let did_detail = DIDModule::onchain_did_details(&did).unwrap();
-            let next_nonce = did_detail.next_nonce();
+            let next_nonce = did_detail.next_nonce().unwrap();
             let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
             let sig =
                 did_sig_on_bytes::<Test, _>(&sp.to_state_change().encode(), &kp, did.clone(), 1);
