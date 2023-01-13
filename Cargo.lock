@@ -1498,7 +1498,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "async-trait",
  "beefy-gadget",
@@ -1657,7 +1657,7 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.21.0"
+version = "0.22.0"
 dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
