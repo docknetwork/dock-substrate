@@ -48,7 +48,7 @@ extern crate static_assertions;
 pub use core_mods::{
     accumulator, anchor, attest, bbs_plus, blob, did, keys_and_sigs, master, revoke,
 };
-use price_feed::{CurrencyPair, PriceRecord};
+use price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
 pub mod precompiles;
 pub mod weight_to_fee;
 
@@ -1587,7 +1587,12 @@ impl pallet_evm::Config for Runtime {
     }
 }
 
+parameter_types! {
+    pub const MaxSymbolBytesLen: u32 = 10;
+}
+
 impl price_feed::Config for Runtime {
+    type MaxSymbolBytesLen = MaxSymbolBytesLen;
     type Event = Event;
 }
 
@@ -2171,9 +2176,9 @@ impl_runtime_apis! {
         }
     }
 
-    impl price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber> for Runtime {
-        fn price(currency_pair: CurrencyPair<String>) -> Option<PriceRecord<<Runtime as frame_system::Config>::BlockNumber>> {
-            PriceFeedModule::price(currency_pair)
+    impl price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber, <Runtime as price_feed::Config>::MaxSymbolBytesLen> for Runtime {
+        fn price(currency_pair: CurrencySymbolPair<String, String>) -> Option<PriceRecord<<Runtime as frame_system::Config>::BlockNumber>> {
+           PriceFeedModule::pair_price(currency_pair).ok().flatten()
         }
     }
 

@@ -281,8 +281,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-collective]
 default-features = false
-git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.pallet-membership]
 default-features = false
@@ -321,8 +320,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-staking]
 default-features = false
-git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
@@ -361,8 +359,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-elections-phragmen]
 default-features = false
-git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.hex-literal]
 version = "0.3.4"
