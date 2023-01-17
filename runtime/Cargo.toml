@@ -262,11 +262,6 @@ default-features = false
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
-[dependencies.pallet-preimage]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
-
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
@@ -282,6 +277,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-collective]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "democracy_locked_deposits"
 
 [dependencies.pallet-membership]
 default-features = false
@@ -321,6 +317,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-staking]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "democracy_locked_deposits"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
@@ -354,12 +351,13 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-democracy]
 default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "democracy_locked_deposits"
 
 [dependencies.pallet-elections-phragmen]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "democracy_locked_deposits"
 
 [dependencies.hex-literal]
 version = "0.3.4"
@@ -446,6 +444,7 @@ path = "../pallets/core_mods"
 [dependencies.price-feed]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "democracy_locked_deposits"
 
 
 [dependencies.libsecp256k1]
@@ -535,7 +534,6 @@ std = [
     "log/std",
 	  "hex/std",
     "sha3/std",  
-    "pallet-preimage/std",
     "pallet-assets/std",
     "sp-runtime-interface/std",
     "sp-trie/std",

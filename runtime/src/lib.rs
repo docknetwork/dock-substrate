@@ -76,6 +76,7 @@ use frame_system::{
     EnsureRoot,
 };
 use grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_democracy::DepositLockConfig;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
 use pallet_sudo as sudo;
@@ -99,7 +100,9 @@ use sp_runtime::{
 };
 use sp_std::collections::btree_map::BTreeMap;
 use staking_rewards::DurationInEras;
-use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
+use transaction_payment::{
+    CurrencyAdapter, Multiplier, OnChargeTransaction, TargetedFeeAdjustment,
+};
 
 use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
@@ -471,7 +474,9 @@ where
             frame_system::CheckEra::<Runtime>::from(era),
             frame_system::CheckNonce::<Runtime>::from(nonce),
             frame_system::CheckWeight::<Runtime>::new(),
-            transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+            CustomChargeTransactionPayment(transaction_payment::ChargeTransactionPayment::from(
+                tip,
+            )),
             token_migration::OnlyMigrator::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
@@ -820,6 +825,188 @@ parameter_types! {
     pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
 }
 
+/// Custom transaction fee payments handler.
+/// Doesn't take length fee from successful `note_preimage`, `note_preimage_operational` (optionally wrapped in `council.execute`) transactions.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+pub struct CustomChargeTransactionPayment(
+    pub transaction_payment::ChargeTransactionPayment<Runtime>,
+);
+
+/// Denotes if the caller should pay length fee or not.
+/// Can be converted to the `bool` by calling `post_dispatch_check` which
+/// should be called after the extrinsic was dispatched (during `post_dispatch` phase).
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum PaysLengthFee {
+    /// The caller *should pay* a length fee.
+    Yes,
+    /// The caller *shouldn't pay* a length fee for successful extrinsic.
+    No,
+    /// The caller *shouldn't pay* a length fee for a successful extrinsic if given `F`
+    /// called during `post_dispatch` phase returns `true`.
+    NoIf(fn() -> bool),
+}
+
+impl PaysLengthFee {
+    /// Checks whether the caller should pay fee for the successful call or not.
+    pub fn new(call: &<Runtime as frame_system::Config>::Call) -> PaysLengthFee {
+        Self::is_preimage_with_deposit(call)
+            .then_some(Self::No)
+            .or_else(|| match call {
+                Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
+                    Self::is_preimage_with_deposit(proposal)
+                        .then_some(Self::last_council_execute_was_successful as _)
+                        .map(Self::NoIf)
+                }
+                _ => None,
+            })
+            .unwrap_or(Self::Yes)
+    }
+
+    /// Returns `true` if the caller should pay a length fee for a successful extrinsic.
+    /// **Should be called right after the extrinsic was dispatched (during `post_dispatch` phase).**
+    pub fn post_dispatch_check(self) -> bool {
+        match self {
+            Self::Yes => true,
+            Self::No => false,
+            Self::NoIf(f) => !(f)(),
+        }
+    }
+
+    /// Returns `true` if the supplied call is a democracy note preimage call with a deposit:
+    /// either `note_preimage` or `note_preimage_operational`.
+    fn is_preimage_with_deposit(call: &<Runtime as frame_system::Config>::Call) -> bool {
+        matches!(
+            call,
+            Call::Democracy(
+                pallet_democracy::Call::note_preimage { .. }
+                    | pallet_democracy::Call::note_preimage_operational { .. }
+            )
+        )
+    }
+
+    /// Returns `true` if the last `council.execute` call was successful.
+    fn last_council_execute_was_successful() -> bool {
+        frame_system::Pallet::<Runtime>::read_events_no_consensus()
+            .into_iter()
+            .rev()
+            .find_map(|record| match record.event {
+                Event::Council(event) => Some(event),
+                _ => None,
+            })
+            .filter(|event| {
+                matches!(
+                    event,
+                    pallet_collective::Event::MemberExecuted { result: Ok(_), .. }
+                )
+            })
+            .is_some()
+    }
+}
+
+impl CustomChargeTransactionPayment {
+    fn withdraw_fee(
+		&self,
+		who: &<Runtime as frame_system::Config>::AccountId,
+		call: &<Runtime as frame_system::Config>::Call,
+		info: &sp_runtime::traits::DispatchInfoOf<<Runtime as frame_system::Config>::Call>,
+		len: usize,
+	) -> Result<
+		(
+			u64,
+			<<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::LiquidityInfo,
+		),
+		TransactionValidityError,
+    >{
+        let tip = self.0.tip();
+        let fee = transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, info, tip);
+
+        <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<
+            Runtime,
+        >>::withdraw_fee(who, call, info, fee, tip)
+        .map(|i| (fee, i))
+    }
+}
+
+impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
+    const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+    type AccountId = <Runtime as frame_system::Config>::AccountId;
+    type Call = <Runtime as frame_system::Config>::Call;
+    type AdditionalSigned = ();
+    type Pre = (
+		// tip
+		u64,
+		// who paid the fee - this is an option to allow for a Default impl.
+		Self::AccountId,
+		// imbalance resulting from withdrawing the fee
+		<<Runtime as transaction_payment::Config>::OnChargeTransaction as transaction_payment::OnChargeTransaction<Runtime>>::LiquidityInfo,
+        // whether the caller should pay fee for the successful call or not
+        PaysLengthFee
+	);
+
+    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+        Ok(())
+    }
+
+    fn validate(
+        &self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+        len: usize,
+    ) -> TransactionValidity {
+        let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
+
+        let tip = self.0.tip();
+        Ok(frame_support::pallet_prelude::ValidTransaction {
+            priority: transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
+                info, len, tip, final_fee,
+            ),
+            ..Default::default()
+        })
+    }
+
+    fn pre_dispatch(
+        self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+        len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        let pays_len_fee = PaysLengthFee::new(call);
+        let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
+
+        Ok((self.0.tip(), who.clone(), imbalance, pays_len_fee))
+    }
+
+    fn post_dispatch(
+        maybe_pre: Option<Self::Pre>,
+        info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+        post_info: &sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
+        len: usize,
+        result: &sp_runtime::DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        if let Some((tip, who, imbalance, pays_len_fee)) = maybe_pre {
+            let final_len = (result.is_err() || pays_len_fee.post_dispatch_check())
+                .then_some(len)
+                .unwrap_or_default();
+
+            let actual_fee =
+                TransactionPayment::compute_actual_fee(final_len as u32, info, post_info, tip);
+            <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::correct_and_deposit_fee(
+				&who, info, post_info, actual_fee, tip, imbalance,
+			)?;
+            frame_system::Pallet::<Runtime>::deposit_event(
+                transaction_payment::Event::<Runtime>::TransactionFeePaid {
+                    who,
+                    actual_fee,
+                    tip,
+                },
+            );
+        }
+        Ok(())
+    }
+}
+
 impl transaction_payment::Config for Runtime {
     type Event = Event;
     type OperationalFeeMultiplier = ConstU8<5>;
@@ -1141,7 +1328,7 @@ parameter_types! {
 
 impl pallet_scheduler::Config for Runtime {
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
-    type PreimageProvider = Preimage;
+    type PreimageProvider = ();
     type NoPreimagePostponement = NoPreimagePostponement;
 
     type Event = Event;
@@ -1155,29 +1342,14 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-    pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-}
-
-impl pallet_preimage::Config for Runtime {
-    type WeightInfo = ();
-    type Event = Event;
-    type Currency = Balances;
-    type ManagerOrigin = EnsureRoot<AccountId>;
-    type MaxSize = PreimageMaxSize;
-    type BaseDeposit = PreimageBaseDeposit;
-    type ByteDeposit = PreimageByteDeposit;
-}
-
-parameter_types! {
     pub const EnactmentPeriod: BlockNumber = ENACTMENT_PERIOD;
     pub const LaunchPeriod: BlockNumber = LAUNCH_PERIOD;
     pub const VotingPeriod: BlockNumber = VOTING_PERIOD;
     pub const FastTrackVotingPeriod: BlockNumber = FAST_TRACK_VOTING_PERIOD;
     /// 1000 tokens
     pub const MinimumDeposit: Balance = 1_000 * DOCK;
-    /// 0.1 token
-    pub const PreimageByteDeposit: Balance = DOCK / 10;
+    /// 0.1 token / 5
+    pub const PreimageByteDeposit: Balance = DOCK / 10 / 5;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
     pub const InstantAllowed: bool = true;
@@ -1223,12 +1395,22 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
     }
 }
 
+/// Require 10K DOCK tokens to participate in the voting to immediately pay back provider's deposit.
+/// Otherwise, lock the deposit for 90 days.
+const PREIMAGE_DEPOSIT_LOCK_STRATEGY: DepositLockConfig<Runtime> =
+    DepositLockConfig::new(DAYS, 90, 10_000 * DOCK);
+
+parameter_types! {
+    pub const DepositLockStrategy: DepositLockConfig<Runtime> = PREIMAGE_DEPOSIT_LOCK_STRATEGY;
+}
+
 impl pallet_democracy::Config for Runtime {
     type VoteLockingPeriod = EnactmentPeriod; // Same as EnactmentPeriod
     type Proposal = Call;
     type Event = Event;
     type Currency = Balances;
     type EnactmentPeriod = EnactmentPeriod;
+    type DepositLockStrategy = DepositLockStrategy;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
     type CooloffPeriod = CooloffPeriod;
@@ -1657,8 +1839,7 @@ construct_runtime!(
         Tips: pallet_tips::{Pallet, Call, Storage, Event<T>} = 38,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 39,
         Accumulator: accumulator::{Pallet, Call, Storage, Event} = 40,
-        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 42,
+        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41
     }
 );
 
@@ -1720,7 +1901,7 @@ type SignedExtra = (
     system::CheckEra<Runtime>,
     system::CheckNonce<Runtime>,
     system::CheckWeight<Runtime>,
-    transaction_payment::ChargeTransactionPayment<Runtime>,
+    CustomChargeTransactionPayment,
     token_migration::OnlyMigrator<Runtime>,
 );
 

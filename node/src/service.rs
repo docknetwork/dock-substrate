@@ -672,7 +672,9 @@ pub fn create_extrinsic(
         frame_system::CheckEra::<dock_runtime::Runtime>::from(generic::Era::Immortal),
         frame_system::CheckNonce::<dock_runtime::Runtime>::from(nonce),
         frame_system::CheckWeight::<dock_runtime::Runtime>::new(),
-        pallet_transaction_payment::ChargeTransactionPayment::<dock_runtime::Runtime>::from(tip),
+        dock_runtime::CustomChargeTransactionPayment(
+            pallet_transaction_payment::ChargeTransactionPayment::from(tip),
+        ),
         token_migration::OnlyMigrator::<dock_runtime::Runtime>::new(),
     );
 

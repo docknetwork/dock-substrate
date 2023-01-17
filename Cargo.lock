@@ -118,7 +118,7 @@ dependencies = [
 [[package]]
 name = "arith-utils"
 version = "0.1.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#c6b89fafa32863dcd66d3790e128d982f419960f"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
 
 [[package]]
 name = "arrayref"
@@ -1714,7 +1714,6 @@ dependencies = [
  "pallet-membership",
  "pallet-mmr",
  "pallet-offences",
- "pallet-preimage",
  "pallet-randomness-collective-flip",
  "pallet-scheduler",
  "pallet-session",
@@ -4988,7 +4987,7 @@ dependencies = [
 [[package]]
 name = "pallet-collective"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#c6b89fafa32863dcd66d3790e128d982f419960f"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5005,7 +5004,7 @@ dependencies = [
 [[package]]
 name = "pallet-democracy"
 version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5063,7 +5062,7 @@ dependencies = [
 [[package]]
 name = "pallet-elections-phragmen"
 version = "5.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#c6b89fafa32863dcd66d3790e128d982f419960f"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5348,22 +5347,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-preimage"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-randomness-collective-flip"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
@@ -5417,7 +5400,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#c6b89fafa32863dcd66d3790e128d982f419960f"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -5970,7 +5953,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "price-feed"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#c6b89fafa32863dcd66d3790e128d982f419960f"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5988,7 +5971,7 @@ dependencies = [
 [[package]]
 name = "price-feed-rpc"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#c6b89fafa32863dcd66d3790e128d982f419960f"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -6002,7 +5985,7 @@ dependencies = [
 [[package]]
 name = "price-provider"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#c6b89fafa32863dcd66d3790e128d982f419960f"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -9487,7 +9470,7 @@ dependencies = [
  "chrono",
  "lazy_static",
  "matchers",
- "parking_lot 0.11.1",
+ "parking_lot 0.10.2",
  "regex",
  "serde",
  "serde_json",
@@ -9593,7 +9576,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.6",
  "rand 0.8.4",
  "static_assertions",

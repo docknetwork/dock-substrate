@@ -49,6 +49,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-staking]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "democracy_locked_deposits"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
