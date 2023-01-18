@@ -118,7 +118,7 @@ dependencies = [
 [[package]]
 name = "arith-utils"
 version = "0.1.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#8ca0f8de251558c7a8276604afb635ed98554aaf"
 
 [[package]]
 name = "arrayref"
@@ -4987,7 +4987,7 @@ dependencies = [
 [[package]]
 name = "pallet-collective"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#8ca0f8de251558c7a8276604afb635ed98554aaf"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5004,7 +5004,7 @@ dependencies = [
 [[package]]
 name = "pallet-democracy"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#8ca0f8de251558c7a8276604afb635ed98554aaf"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5062,7 +5062,7 @@ dependencies = [
 [[package]]
 name = "pallet-elections-phragmen"
 version = "5.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#8ca0f8de251558c7a8276604afb635ed98554aaf"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5400,7 +5400,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#8ca0f8de251558c7a8276604afb635ed98554aaf"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -5953,7 +5953,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "price-feed"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#8ca0f8de251558c7a8276604afb635ed98554aaf"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5971,7 +5971,7 @@ dependencies = [
 [[package]]
 name = "price-feed-rpc"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#8ca0f8de251558c7a8276604afb635ed98554aaf"
 dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
@@ -5985,7 +5985,7 @@ dependencies = [
 [[package]]
 name = "price-provider"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#35a919808d44bfeb720fe863acea9b55a98c0a3c"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=democracy_locked_deposits#8ca0f8de251558c7a8276604afb635ed98554aaf"
 dependencies = [
  "frame-support",
  "frame-system",

@@ -832,43 +832,50 @@ pub struct CustomChargeTransactionPayment(
     pub transaction_payment::ChargeTransactionPayment<Runtime>,
 );
 
-/// Denotes if the caller should pay length fee or not.
-/// Can be converted to the `bool` by calling `post_dispatch_check` which
-/// should be called after the extrinsic was dispatched (during `post_dispatch` phase).
+/// Denotes customizable length fee for a successful extrinsic to be paid by the caller.
+/// The final length to be used in the calculation is produced by `post_dispatch_overridden_length`.
+/// This method should be called after the extrinsic was dispatched (during `post_dispatch` phase).
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum PaysLengthFee {
-    /// The caller *should pay* a length fee.
-    Yes,
-    /// The caller *shouldn't pay* a length fee for successful extrinsic.
-    No,
-    /// The caller *shouldn't pay* a length fee for a successful extrinsic if given `F`
+pub enum OverriddenLengthFee {
+    /// The caller *should pay* a full length fee.
+    Full,
+    /// The caller *shouldn't pay* a partial length fee for successful extrinsic.
+    Partial(u32),
+    /// The caller *shouldn't pay* a partial length fee for a successful extrinsic if the given predicate
     /// called during `post_dispatch` phase returns `true`.
-    NoIf(fn() -> bool),
+    PartialIf { len: u32, check: fn() -> bool },
 }
 
-impl PaysLengthFee {
-    /// Checks whether the caller should pay fee for the successful call or not.
-    pub fn new(call: &<Runtime as frame_system::Config>::Call) -> PaysLengthFee {
+impl OverriddenLengthFee {
+    /// Allow paying only for 25% of the extrinsic length for whitelist calls.
+    const BASE_LENGTH_DIVIDER: u32 = 4;
+
+    /// Checks whether the given call has a customized length fee or not.
+    pub fn new(call: &<Runtime as frame_system::Config>::Call, len: u32) -> OverriddenLengthFee {
         Self::is_preimage_with_deposit(call)
-            .then_some(Self::No)
+            .then_some(Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
             .or_else(|| match call {
                 Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
                     Self::is_preimage_with_deposit(proposal)
                         .then_some(Self::last_council_execute_was_successful as _)
-                        .map(Self::NoIf)
+                        .map(|check| Self::PartialIf {
+                            len: len / Self::BASE_LENGTH_DIVIDER,
+                            check,
+                        })
                 }
                 _ => None,
             })
-            .unwrap_or(Self::Yes)
+            .unwrap_or(Self::Full)
     }
 
-    /// Returns `true` if the caller should pay a length fee for a successful extrinsic.
+    /// Returns optional overriden length for a successful extrinsic to be paid by the caller.
     /// **Should be called right after the extrinsic was dispatched (during `post_dispatch` phase).**
-    pub fn post_dispatch_check(self) -> bool {
+    /// In case `None` is returned, the full extrinsic length must be paid.
+    pub fn post_dispatch_overridden_length(self) -> Option<u32> {
         match self {
-            Self::Yes => true,
-            Self::No => false,
-            Self::NoIf(f) => !(f)(),
+            Self::Full => None,
+            Self::Partial(len) => Some(len),
+            Self::PartialIf { len, check } => (check)().then_some(len),
         }
     }
 
@@ -940,7 +947,7 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
 		// imbalance resulting from withdrawing the fee
 		<<Runtime as transaction_payment::Config>::OnChargeTransaction as transaction_payment::OnChargeTransaction<Runtime>>::LiquidityInfo,
         // whether the caller should pay fee for the successful call or not
-        PaysLengthFee
+        OverriddenLengthFee
 	);
 
     fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
@@ -972,7 +979,7 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
         info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        let pays_len_fee = PaysLengthFee::new(call);
+        let pays_len_fee = OverriddenLengthFee::new(call, len as u32);
         let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
 
         Ok((self.0.tip(), who.clone(), imbalance, pays_len_fee))
@@ -986,15 +993,17 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
         result: &sp_runtime::DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         if let Some((tip, who, imbalance, pays_len_fee)) = maybe_pre {
-            let final_len = (result.is_err() || pays_len_fee.post_dispatch_check())
-                .then_some(len)
-                .unwrap_or_default();
+            let final_len = result
+                .is_ok()
+                .then(|| pays_len_fee.post_dispatch_overridden_length())
+                .flatten()
+                .unwrap_or(len as u32);
 
             let actual_fee =
-                TransactionPayment::compute_actual_fee(final_len as u32, info, post_info, tip);
+                TransactionPayment::compute_actual_fee(final_len, info, post_info, tip);
             <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::correct_and_deposit_fee(
 				&who, info, post_info, actual_fee, tip, imbalance,
-			)?;
+            )?;
             frame_system::Pallet::<Runtime>::deposit_event(
                 transaction_payment::Event::<Runtime>::TransactionFeePaid {
                     who,
