@@ -84,19 +84,19 @@ use scale_info::prelude::string::String;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
-pub use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Dispatchable, Extrinsic,
-        IdentifyAccount, Keccak256, NumberFor, OpaqueKeys, PostDispatchInfoOf, StaticLookup,
-        UniqueSaturatedInto, Verify,
+        AccountIdConversion, AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto,
+        DispatchInfoOf, Dispatchable, Extrinsic, IdentifyAccount, Keccak256, NumberFor, OpaqueKeys,
+        PostDispatchInfoOf, StaticLookup, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
+        ValidTransaction,
     },
-    ApplyExtrinsicResult, FixedPointNumber, MultiSignature, Perbill, Percent, Permill, Perquintill,
-    SaturatedConversion,
+    ApplyExtrinsicResult, DispatchResult, FixedPointNumber, MultiSignature, Perbill, Percent,
+    Permill, Perquintill, SaturatedConversion,
 };
 use sp_std::collections::btree_map::BTreeMap;
 use staking_rewards::DurationInEras;
@@ -826,7 +826,8 @@ parameter_types! {
 }
 
 /// Custom transaction fee payments handler.
-/// Doesn't take length fee from successful `note_preimage`, `note_preimage_operational` (optionally wrapped in `council.execute`) transactions.
+/// Doesn't take a full length fee from successful `note_preimage`, `note_preimage_operational`
+/// (optionally wrapped in `council.execute`) transactions.
 #[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, scale_info::TypeInfo)]
 pub struct CustomChargeTransactionPayment(
     pub transaction_payment::ChargeTransactionPayment<Runtime>,
@@ -837,11 +838,11 @@ pub struct CustomChargeTransactionPayment(
 /// This method should be called after the extrinsic was dispatched (during `post_dispatch` phase).
 #[derive(Clone, Copy, Eq, PartialEq, Debug)]
 pub enum OverriddenLengthFee {
-    /// The caller *should pay* a full length fee.
+    /// The caller should pay a *full* length fee.
     Full,
-    /// The caller *shouldn't pay* a partial length fee for successful extrinsic.
+    /// The caller should pay a *partial* length fee for a successful extrinsic.
     Partial(u32),
-    /// The caller *shouldn't pay* a partial length fee for a successful extrinsic if the given predicate
+    /// The caller should pay a *partial* length fee for a successful extrinsic if the given predicate
     /// called during `post_dispatch` phase returns `true`.
     PartialIf { len: u32, check: fn() -> bool },
 }
@@ -853,7 +854,7 @@ impl OverriddenLengthFee {
     /// Checks whether the given call has a customized length fee or not.
     pub fn new(call: &<Runtime as frame_system::Config>::Call, len: u32) -> OverriddenLengthFee {
         Self::is_preimage_with_deposit(call)
-            .then_some(Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
+            .then(|| Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
             .or_else(|| match call {
                 Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
                     Self::is_preimage_with_deposit(proposal)
@@ -915,7 +916,7 @@ impl CustomChargeTransactionPayment {
 		&self,
 		who: &<Runtime as frame_system::Config>::AccountId,
 		call: &<Runtime as frame_system::Config>::Call,
-		info: &sp_runtime::traits::DispatchInfoOf<<Runtime as frame_system::Config>::Call>,
+		info: &DispatchInfoOf<<Runtime as frame_system::Config>::Call>,
 		len: usize,
 	) -> Result<
 		(
@@ -945,7 +946,7 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
 		// who paid the fee - this is an option to allow for a Default impl.
 		Self::AccountId,
 		// imbalance resulting from withdrawing the fee
-		<<Runtime as transaction_payment::Config>::OnChargeTransaction as transaction_payment::OnChargeTransaction<Runtime>>::LiquidityInfo,
+        <<Runtime as transaction_payment::Config>::OnChargeTransaction as transaction_payment::OnChargeTransaction<Runtime>>::LiquidityInfo,
         // whether the caller should pay fee for the successful call or not
         OverriddenLengthFee
 	);
@@ -958,13 +959,13 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
         &self,
         who: &Self::AccountId,
         call: &Self::Call,
-        info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+        info: &DispatchInfoOf<Self::Call>,
         len: usize,
     ) -> TransactionValidity {
         let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
 
         let tip = self.0.tip();
-        Ok(frame_support::pallet_prelude::ValidTransaction {
+        Ok(ValidTransaction {
             priority: transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
                 info, len, tip, final_fee,
             ),
@@ -976,7 +977,7 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
         self,
         who: &Self::AccountId,
         call: &Self::Call,
-        info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
+        info: &DispatchInfoOf<Self::Call>,
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
         let pays_len_fee = OverriddenLengthFee::new(call, len as u32);
@@ -987,10 +988,10 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
 
     fn post_dispatch(
         maybe_pre: Option<Self::Pre>,
-        info: &sp_runtime::traits::DispatchInfoOf<Self::Call>,
-        post_info: &sp_runtime::traits::PostDispatchInfoOf<Self::Call>,
+        info: &DispatchInfoOf<Self::Call>,
+        post_info: &PostDispatchInfoOf<Self::Call>,
         len: usize,
-        result: &sp_runtime::DispatchResult,
+        result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
         if let Some((tip, who, imbalance, pays_len_fee)) = maybe_pre {
             let final_len = result
@@ -1632,7 +1633,7 @@ impl staking_rewards::Config for Runtime {
     type PostUpgradeHighRateDuration = PostUpgradeHighRateDuration;
     /// High-rate emission rewards decay by this % each year
     type HighRateRewardDecayPct = HighRateRewardDecayPct;
-    /// Low-rae emission rewards decay by this % each year
+    /// Low-rate emission rewards decay by this % each year
     type LowRateRewardDecayPct = LowRateRewardDecayPct;
     /// Treasury gets this much % out of emission rewards for each era
     type TreasuryRewardsPct = TreasuryRewardsPct;
