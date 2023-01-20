@@ -1864,6 +1864,154 @@ impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
     }
 }
 
+struct GrandpaMigration;
+
+impl OnRuntimeUpgrade for GrandpaMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        use frame_support::traits::PalletInfo;
+        frame_support::log::info!("Performing `Grandpa` migration");
+
+        let name = <Runtime as frame_system::Config>::PalletInfo::name::<Grandpa>()
+            .expect("grandpa is part of pallets in construct_runtime, so it has a name; qed");
+        grandpa::migrations::v4::migrate::<Runtime, _>(name)
+    }
+}
+
+struct CouncilCollectiveMigration;
+
+impl OnRuntimeUpgrade for CouncilCollectiveMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        frame_support::log::info!("Performing `Council` migration");
+
+        pallet_collective::migrations::v4::migrate::<Runtime, Council, _>("Instance1Collective")
+    }
+}
+
+/// Migrate from 'Treasury' to the new prefix 'Bounties'
+struct BountiesPrefixMigration;
+
+impl OnRuntimeUpgrade for BountiesPrefixMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        const BOUNTIES_OLD_PREFIX: &str = "Treasury";
+        use frame_support::traits::PalletInfo;
+        frame_support::log::info!("Performing `Bounties` migration");
+
+        let name = <Runtime as frame_system::Config>::PalletInfo::name::<Bounties>()
+            .expect("Bounties is part of runtime, so it has a name; qed");
+        pallet_bounties::migrations::v4::migrate::<Runtime, Bounties, _>(BOUNTIES_OLD_PREFIX, name)
+    }
+}
+
+struct SchedulerMigration;
+
+impl OnRuntimeUpgrade for SchedulerMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        frame_support::log::info!("Performing `Scheduler` migration");
+
+        Scheduler::migrate_v1_to_v3()
+    }
+}
+
+/// Migrate pallet-tips from `Treasury` to the new pallet prefix `Tips`
+struct MigrateTipsPalletPrefix;
+
+impl OnRuntimeUpgrade for MigrateTipsPalletPrefix {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        const TIPS_OLD_PREFIX: &str = "Treasury";
+
+        pallet_tips::migrations::v4::migrate::<Runtime, Tips, _>(TIPS_OLD_PREFIX)
+    }
+}
+
+struct TechnicalCommitteeCollectiveMigration;
+
+impl OnRuntimeUpgrade for TechnicalCommitteeCollectiveMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        frame_support::log::info!("Performing `TechnicalCommittee` migration");
+
+        pallet_collective::migrations::v4::migrate::<Runtime, TechnicalCommittee, _>(
+            "Instance2Collective",
+        )
+    }
+}
+
+struct TechnicalCommitteeMembershipMigration;
+
+impl OnRuntimeUpgrade for TechnicalCommitteeMembershipMigration {
+    fn on_runtime_upgrade() -> Weight {
+        use frame_support::traits::PalletInfo;
+        frame_support::log::info!("Performing `TechnicalCommitteeMembership` migration");
+
+        let name =
+            <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalCommitteeMembership>()
+                .expect("TechnicalCommitteeMembership is part of runtime, so it has a name; qed");
+        pallet_membership::migrations::v4::migrate::<Runtime, TechnicalCommitteeMembership, _>(
+            "Instance1Membership",
+            name,
+        )
+    }
+}
+
+struct ElectionsMigration;
+
+impl OnRuntimeUpgrade for ElectionsMigration {
+    fn on_runtime_upgrade() -> Weight {
+        use frame_support::traits::PalletInfo;
+        frame_support::log::info!("Performing `Elections` migration");
+
+        let new_pallet_name =
+            <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalCommitteeMembership>()
+                .expect("TechnicalCommitteeMembership is part of runtime, so it has a name; qed");
+
+        pallet_elections_phragmen::migrations::v4::migrate::<Runtime, _>(new_pallet_name)
+    }
+}
+
+struct StakingMigration;
+
+impl OnRuntimeUpgrade for StakingMigration {
+    fn on_runtime_upgrade() -> Weight {
+        let mut total_weight = Weight::zero();
+
+        log::info!("Migrating to V6");
+        total_weight += pallet_staking::migrations::v6::migrate::<Runtime>();
+
+        log::info!("Migrating to V7");
+        total_weight += pallet_staking::migrations::v7::migrate::<Runtime>();
+
+        log::info!("Migrating to V8");
+        total_weight += pallet_staking::migrations::v8::migrate::<Runtime>();
+
+        log::info!("Migrating to V9");
+        total_weight += pallet_staking::migrations::v9::InjectValidatorsIntoVoterList::<Runtime>::on_runtime_upgrade();
+
+        log::info!("Migrating to V10");
+        total_weight +=
+            pallet_staking::migrations::v10::MigrateToV10::<Runtime>::on_runtime_upgrade();
+
+        total_weight
+    }
+}
+
+struct HistoricalMigration;
+
+impl OnRuntimeUpgrade for HistoricalMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        pallet_session::migrations::v1::migrate::<Runtime, Historical>()
+    }
+}
+
+/// Migrates pallet version to storage version for all pallets.
+struct AllPalletsMigration;
+
+impl OnRuntimeUpgrade for AllPalletsMigration {
+    fn on_runtime_upgrade() -> Weight {
+        frame_support::migrations::migrate_from_pallet_version_to_storage_version::<
+            AllPalletsWithSystem,
+        >(&RocksDbWeight::get())
+    }
+}
+
 impl fp_rpc::ConvertTransaction<opaque::UncheckedExtrinsic> for TransactionConverter {
     fn convert_transaction(
         &self,
@@ -1892,6 +2040,19 @@ type Executive = frame_executive::Executive<
     system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
+    (
+        GrandpaMigration,
+        CouncilCollectiveMigration,
+        TechnicalCommitteeCollectiveMigration,
+        TechnicalCommitteeMembershipMigration,
+        SchedulerMigration,
+        BountiesPrefixMigration,
+        ElectionsMigration,
+        HistoricalMigration,
+        StakingMigration,
+        MigrateTipsPalletPrefix,
+        AllPalletsMigration,
+    ),
 >;
 
 /// The address format for describing accounts.
