@@ -3,7 +3,7 @@ use dock_runtime::{
     keys_and_sigs::PublicKey,
     master::Membership,
     AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, Block,
-    DIDModuleConfig, EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaConfig,
+    DIDModuleConfig, EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig, GrandpaFinalityConfig,
     Hash, ImOnlineConfig, MasterConfig, PoAModuleConfig, SessionConfig, SessionKeys, Signature,
     StakerStatus, StakingConfig, SudoConfig, SystemConfig, TechnicalCommitteeConfig,
     BABE_GENESIS_EPOCH_CONFIG, DOCK, WASM_BINARY,
@@ -851,7 +851,7 @@ impl GenesisBuilder {
                     .map(|k| (k, per_member_endowment))
                     .collect(),
             },
-            grandpa: GrandpaConfig {
+            grandpa_finality: GrandpaFinalityConfig {
                 authorities: vec![],
             },
             master: MasterConfig {

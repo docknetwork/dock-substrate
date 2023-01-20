@@ -176,7 +176,7 @@ pub mod opaque {
 impl_opaque_keys! {
     pub struct SessionKeys {
         pub babe: Babe,
-        pub grandpa: Grandpa,
+        pub grandpa: GrandpaFinality,
         pub im_online: ImOnline,
         pub authority_discovery: AuthorityDiscovery,
     }
@@ -1711,7 +1711,7 @@ pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider! {
         "Balances" => Balances,
         "Session" => Session,
         "PoAModule" => PoAModule,
-        "Grandpa" => Grandpa,
+        "GrandpaFinality" => GrandpaFinality,
         "Authorship" => Authorship,
         "TransactionPayment" => TransactionPayment,
         "Utility" => Utility,
@@ -1814,7 +1814,7 @@ construct_runtime!(
         Balances: balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 3,
         PoAModule: poa::{Pallet, Call, Storage, Config<T>} = 4,
-        Grandpa: grandpa::{Pallet, Call, Storage, Config, Event} = 5,
+        GrandpaFinality: grandpa::{Pallet, Call, Storage, Config, Event} = 5,
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 6,
         TransactionPayment: transaction_payment::{Pallet, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Event} = 8,
@@ -1861,19 +1861,6 @@ impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
         UncheckedExtrinsic::new_unsigned(
             pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
         )
-    }
-}
-
-struct GrandpaMigration;
-
-impl OnRuntimeUpgrade for GrandpaMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        use frame_support::traits::PalletInfo;
-        frame_support::log::info!("Performing `Grandpa` migration");
-
-        let name = <Runtime as frame_system::Config>::PalletInfo::name::<Grandpa>()
-            .expect("grandpa is part of pallets in construct_runtime, so it has a name; qed");
-        grandpa::migrations::v4::migrate::<Runtime, _>(name)
     }
 }
 
@@ -2041,7 +2028,6 @@ type Executive = frame_executive::Executive<
     Runtime,
     AllPalletsWithSystem,
     (
-        GrandpaMigration,
         CouncilCollectiveMigration,
         TechnicalCommitteeCollectiveMigration,
         TechnicalCommitteeMembershipMigration,
@@ -2262,11 +2248,11 @@ impl_runtime_apis! {
 
     impl fg_primitives::GrandpaApi<Block> for Runtime {
         fn current_set_id() -> fg_primitives::SetId {
-            Grandpa::current_set_id()
+            GrandpaFinality::current_set_id()
         }
 
         fn grandpa_authorities() -> GrandpaAuthorityList {
-            Grandpa::grandpa_authorities()
+            GrandpaFinality::grandpa_authorities()
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
@@ -2278,7 +2264,7 @@ impl_runtime_apis! {
         ) -> Option<()> {
             let key_owner_proof = key_owner_proof.decode()?;
 
-            Grandpa::submit_unsigned_equivocation_report(
+            GrandpaFinality::submit_unsigned_equivocation_report(
                 equivocation_proof,
                 key_owner_proof,
             )
