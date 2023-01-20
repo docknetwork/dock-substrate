@@ -63,7 +63,7 @@ impl<T: Config + Debug> Module<T> {
 
         // execute
         // TODO: limit and cursor
-        Revocations::clear_prefix(&registry_id, u32::MAX, None);
+        let _ = Revocations::clear_prefix(&registry_id, u32::MAX, None);
 
         deposit_indexed_event!(RegistryRemoved(registry_id));
         Ok(())

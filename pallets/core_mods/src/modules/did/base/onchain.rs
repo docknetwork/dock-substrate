@@ -63,9 +63,10 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<(), Error<T>> {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
-        let keys: Vec<DidKey> = keys
+
+        let keys: Vec<_> = keys
             .into_iter()
-            .map(TryInto::try_into)
+            .map(DidKey::try_from)
             .collect::<Result<_, _>>()?;
 
         let controller_keys_count = keys.iter().filter(|key| key.can_control()).count() as u32;
@@ -102,14 +103,15 @@ impl<T: Config + Debug> Module<T> {
     ) -> Result<(), Error<T>> {
         // This will result in the removal of DID from storage map `Dids`
         details.take();
+
         // TODO: limit and cursor
-        DidKeys::clear_prefix(did, u32::MAX, None);
+        let _ = DidKeys::clear_prefix(did, u32::MAX, None);
         // TODO: limit and cursor
-        DidControllers::clear_prefix(did, u32::MAX, None);
+        let _ = DidControllers::clear_prefix(did, u32::MAX, None);
         // TODO: limit and cursor
-        DidServiceEndpoints::clear_prefix(did, u32::MAX, None);
+        let _ = DidServiceEndpoints::clear_prefix(did, u32::MAX, None);
         // TODO: limit and cursor
-        BbsPlusKeys::clear_prefix(did, u32::MAX, None);
+        let _ = BbsPlusKeys::clear_prefix(did, u32::MAX, None);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())
@@ -172,7 +174,6 @@ impl<T: Config + Debug> Module<T> {
     where
         F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
         A: ActionWithNonce<T, Target = Did> + ToStateChange<T>,
-        A::Target: Into<Did>,
         E: From<Error<T>> + From<NonceError>,
     {
         ensure!(

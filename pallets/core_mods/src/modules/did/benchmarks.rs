@@ -33,7 +33,7 @@ crate::bench_with_all_pairs! {
 
         let keys: Vec<_> =
             (0..k)
-                .map(|idx| crate::def_pair!(secp256k1, &[10 + idx as u8; 32]).public())
+                .map(|idx| crate::def_test_pair!(secp256k1, &[10 + idx as u8; 32]).public())
                 .map(UncheckedDidKey::new_with_all_relationships)
                 .collect();
 
