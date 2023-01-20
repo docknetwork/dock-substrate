@@ -10,11 +10,11 @@ The dock blockchain serves as registry for [Decentralized Identifiers](https://w
 Docker can be used to quickly spin up a node (may require sudo):
 
 ```
-docker run -p 9944:9944 -p 30333:30333 docknetwork/dock-substrate:mainnet --chain ./cspec/knox_raw.json --ws-external
-             |            |                       |                         |                              |
-             |     Expose p2p port                |                 Join the mainnet                       |
-             |                                    |                                                        |
-    Expose websocket port          Use the node image from dockerhub                     Listen for rpc over websocket
+docker run -p 9944:9944 -p 30333:30333 docknetwork/dock-substrate:mainnet --chain ./cspec/knox_raw.json --ws-external --enable-offchain-indexing=true
+             |            |                       |                         |                              |                        |
+             |     Expose p2p port                |                 Join the mainnet                       |                        |
+             |                                    |                                                        |                        |
+    Expose websocket port          Use the node image from dockerhub                     Listen for rpc over websocket   Enables off-chain indexing
 ```
 
 The above command will run a mainnet node. To run a testnet node, use the chainspec `knox_test_raw.json` in place of `knox_raw.json`
