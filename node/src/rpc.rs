@@ -136,8 +136,7 @@ where
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
     C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
     C::Api: pallet_mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash>,
-    C::Api:
-        price_feed_rpc::PriceFeedRuntimeApi<Block, BlockNumber, dock_runtime::MaxSymbolBytesLen>,
+    C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block, BlockNumber>,
     C::Api: staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
     C::Api: core_mods_rpc::CoreModsRuntimeApi<Block, dock_runtime::Runtime>,
     C::Api: BlockBuilder<Block>,

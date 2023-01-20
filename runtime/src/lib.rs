@@ -2367,7 +2367,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber, <Runtime as price_feed::Config>::MaxSymbolBytesLen> for Runtime {
+    impl price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber> for Runtime {
         fn price(currency_pair: CurrencySymbolPair<String, String>) -> Option<PriceRecord<<Runtime as frame_system::Config>::BlockNumber>> {
            PriceFeedModule::pair_price(currency_pair).ok().flatten()
         }
