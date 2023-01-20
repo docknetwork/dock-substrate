@@ -117,6 +117,7 @@ use crate::weight_to_fee::TxnFee;
 pub use balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
+pub use pallet_election_provider_multi_phase::Call as EPMCall;
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use precompiles::FrontierPrecompiles;
@@ -1358,8 +1359,8 @@ parameter_types! {
     pub const FastTrackVotingPeriod: BlockNumber = FAST_TRACK_VOTING_PERIOD;
     /// 1000 tokens
     pub const MinimumDeposit: Balance = 1_000 * DOCK;
-    /// 0.1 token / 5
-    pub const PreimageByteDeposit: Balance = DOCK / 10 / 5;
+    /// 0.02 token
+    pub const PreimageByteDeposit: Balance = DOCK / 50;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
     pub const InstantAllowed: bool = true;
@@ -1896,7 +1897,7 @@ type Executive = frame_executive::Executive<
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
-type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// A Block signed with a Justification
@@ -1904,7 +1905,7 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
-type SignedExtra = (
+pub type SignedExtra = (
     system::CheckSpecVersion<Runtime>,
     system::CheckTxVersion<Runtime>,
     system::CheckGenesis<Runtime>,
