@@ -1946,9 +1946,8 @@ impl OnRuntimeUpgrade for ElectionsMigration {
         use frame_support::traits::PalletInfo;
         frame_support::log::info!("Performing `Elections` migration");
 
-        let new_pallet_name =
-            <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalCommitteeMembership>()
-                .expect("TechnicalCommitteeMembership is part of runtime, so it has a name; qed");
+        let new_pallet_name = <Runtime as frame_system::Config>::PalletInfo::name::<Elections>()
+            .expect("TechnicalCommitteeMembership is part of runtime, so it has a name; qed");
 
         pallet_elections_phragmen::migrations::v4::migrate::<Runtime, _>(new_pallet_name)
     }
