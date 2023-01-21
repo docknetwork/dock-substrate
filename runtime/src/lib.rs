@@ -1905,6 +1905,7 @@ struct MigrateTipsPalletPrefix;
 impl OnRuntimeUpgrade for MigrateTipsPalletPrefix {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
         const TIPS_OLD_PREFIX: &str = "Treasury";
+        frame_support::log::info!("Performing `Tips` migration");
 
         pallet_tips::migrations::v4::migrate::<Runtime, Tips, _>(TIPS_OLD_PREFIX)
     }
