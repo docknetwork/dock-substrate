@@ -1,6 +1,6 @@
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::CheckedAdd, DispatchError};
 use sp_std::convert::TryInto;
 
 /// Wrapper for any kind of entity with a nonce.
@@ -61,13 +61,13 @@ impl<T: frame_system::Config, D> WithNonce<T, D> {
     }
 
     /// Returns next nonce for the given entity.
-    pub fn next_nonce(&self) -> T::BlockNumber {
-        self.nonce + 1u8.into()
+    pub fn next_nonce(&self) -> Option<T::BlockNumber> {
+        self.nonce.checked_add(&1u8.into())
     }
 
     /// Returns `true` if given nonce is the next nonce for the given entity, i.e. is equal to current nonce plus 1.
     pub fn is_next_nonce(&self, nonce: T::BlockNumber) -> bool {
-        nonce == self.next_nonce()
+        Some(nonce) == self.next_nonce()
     }
 
     /// Returns mutable reference to the underlying data if provided nonce is equal to current nonce plus 1,

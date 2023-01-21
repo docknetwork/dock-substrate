@@ -34,7 +34,6 @@ ENV CXX g++
 COPY runtime runtime
 COPY node node
 COPY pallets pallets
-COPY common common
 COPY Cargo.toml .
 COPY Cargo.lock .
 

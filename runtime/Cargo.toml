@@ -2,7 +2,7 @@
 authors = ["Dock.io"]
 edition = "2021"
 name = "dock-runtime"
-version = "0.21.0"
+version = "0.22.0"
 license = "Apache-2.0"
 
 [package.metadata.docs.rs]
@@ -262,11 +262,6 @@ default-features = false
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
-[dependencies.pallet-preimage]
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
-
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
@@ -281,8 +276,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-collective]
 default-features = false
-git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.pallet-membership]
 default-features = false
@@ -321,7 +315,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-staking]
 default-features = false
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-staking-reward-curve]
@@ -356,13 +350,11 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-democracy]
 default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.pallet-elections-phragmen]
 default-features = false
-git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.hex-literal]
 version = "0.3.4"
@@ -446,21 +438,11 @@ path = "../pallets/token_migration"
 default-features = false
 path = "../pallets/core_mods"
 
-[dependencies.price_feed]
+[dependencies.price-feed]
 default-features = false
-path = "../pallets/price_feed"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
-[dependencies.fiat_filter]
-default-features = false
-path = "../pallets/fiat_filter"
 
-[dependencies.fiat_filter_rpc_runtime_api]
-default-features = false
-path = "../pallets/fiat_filter/rpc/runtime_api"
-
-[dependencies.common]
-path = "../common"
-default-features = false
 
 [dependencies.libsecp256k1]
 version = "0.7"
@@ -549,7 +531,6 @@ std = [
     "log/std",
 	  "hex/std",
     "sha3/std",  
-    "pallet-preimage/std",
     "pallet-assets/std",
     "sp-runtime-interface/std",
     "sp-trie/std",
@@ -619,10 +600,8 @@ std = [
     "poa/std",
     "token_migration/std",
     "core_mods/std",
-    "price_feed/std",
-    "fiat_filter/std",
+    "price-feed/std",
     "pallet-base-fee/std",
-    "fiat_filter_rpc_runtime_api/std",
     "staking_rewards/std",
     "frame-benchmarking/std",
     "rustc-hex/std"

@@ -5,8 +5,8 @@ use crate::{
     Action, ActionWithNonce, StorageVersion,
 };
 
+use arith_utils::DivCeil;
 use codec::{Decode, Encode};
-use common::arith_utils::DivCeil;
 use core::fmt::Debug;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
@@ -318,7 +318,7 @@ decl_module! {
         /// Adds `StateChange` to the metadata.
         #[weight = <T as frame_system::Config>::DbWeight::get().reads(1)]
         #[doc(hidden)]
-        fn _dummy(_o, _s: crate::StateChange<'static, T>) -> DispatchResult {
+        fn _noop(_o, _s: crate::StateChange<'static, T>) -> DispatchResult {
             Err(DispatchError::BadOrigin)
         }
 

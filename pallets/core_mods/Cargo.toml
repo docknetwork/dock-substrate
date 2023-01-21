@@ -11,9 +11,10 @@ targets = ["x86_64-unknown-linux-gnu"]
 [dependencies.bitflags]
 version = "1.3.2"
 
-[dependencies.common]
-path = "../../common"
-version = "0.0.1"
+[dependencies.arith-utils]
+git = "https://github.com/docknetwork/dock-substrate-common.git"
+
+default-features = false
 
 [dependencies.scale-info]
 version = "2.1.2"
@@ -198,6 +199,7 @@ std = [
     "serde-big-array",
     "getrandom/std",
     "serde-hex",
+    "arith-utils/std",
     "serde-big-array",
     "sp-core/std",
     "sp-core/full_crypto",

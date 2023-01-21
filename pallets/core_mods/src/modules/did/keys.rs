@@ -226,11 +226,12 @@ impl<T: Config + Debug> Module<T> {
             ..
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
-        let keys: Vec<DidKey> = keys
+        let keys: Vec<_> = keys
             .into_iter()
-            .map(TryInto::try_into)
+            .map(DidKey::try_from)
             .collect::<Result<_, _>>()?;
-        // If DID was not self controlled first, check if it can become by looking
+
+        // If DID was not self controlled first, check if it can become by looking over new keys
         let controller_keys_count = keys.iter().filter(|key| key.can_control()).count() as u32;
         *active_controller_keys += controller_keys_count;
 

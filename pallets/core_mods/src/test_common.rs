@@ -433,6 +433,6 @@ pub fn check_nonce(d: &Did, nonce: u64) {
 
 pub fn inc_nonce(d: &Did) {
     let mut did_detail = DIDModule::onchain_did_details(&d).unwrap();
-    did_detail.nonce = did_detail.next_nonce();
+    did_detail.nonce = did_detail.next_nonce().unwrap();
     DIDModule::insert_did_details(*d, did_detail);
 }

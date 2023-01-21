@@ -48,6 +48,7 @@ extern crate static_assertions;
 pub use core_mods::{
     accumulator, anchor, attest, bbs_plus, blob, did, keys_and_sigs, master, revoke,
 };
+use price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
 pub mod precompiles;
 pub mod weight_to_fee;
 
@@ -75,6 +76,7 @@ use frame_system::{
     EnsureRoot,
 };
 use grandpa::{fg_primitives, AuthorityId as GrandpaId, AuthorityList as GrandpaAuthorityList};
+use pallet_democracy::DepositLockConfig;
 use pallet_im_online::sr25519::AuthorityId as ImOnlineId;
 use pallet_session::historical as pallet_session_historical;
 use pallet_sudo as sudo;
@@ -82,22 +84,25 @@ use scale_info::prelude::string::String;
 use sp_api::impl_runtime_apis;
 use sp_authority_discovery::AuthorityId as AuthorityDiscoveryId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
-pub use sp_runtime::traits::AccountIdConversion;
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, Dispatchable, Extrinsic,
-        IdentifyAccount, Keccak256, NumberFor, OpaqueKeys, PostDispatchInfoOf, StaticLookup,
-        UniqueSaturatedInto, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, DispatchInfoOf, Dispatchable,
+        Extrinsic, IdentifyAccount, Keccak256, NumberFor, OpaqueKeys, PostDispatchInfoOf,
+        StaticLookup, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
+        ValidTransaction,
     },
-    ApplyExtrinsicResult, FixedPointNumber, MultiSignature, Perbill, Percent, Permill, Perquintill,
-    SaturatedConversion,
+    ApplyExtrinsicResult, DispatchResult, FixedPointNumber, MultiSignature, Perbill, Percent,
+    Permill, Perquintill, SaturatedConversion,
 };
 use sp_std::collections::btree_map::BTreeMap;
-use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
+use staking_rewards::DurationInEras;
+use transaction_payment::{
+    CurrencyAdapter, Multiplier, OnChargeTransaction, TargetedFeeAdjustment,
+};
 
 use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
@@ -112,6 +117,7 @@ use crate::weight_to_fee::TxnFee;
 pub use balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
+pub use pallet_election_provider_multi_phase::Call as EPMCall;
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use precompiles::FrontierPrecompiles;
@@ -170,7 +176,7 @@ pub mod opaque {
 impl_opaque_keys! {
     pub struct SessionKeys {
         pub babe: Babe,
-        pub grandpa: Grandpa,
+        pub grandpa: GrandpaFinality,
         pub im_online: ImOnline,
         pub authority_discovery: AuthorityDiscovery,
     }
@@ -200,7 +206,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 39,
+    spec_version: 44,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -221,12 +227,13 @@ pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
 pub const HOURS: BlockNumber = MINUTES * 60;
 pub const DAYS: BlockNumber = HOURS * 24;
+pub const WEEKS: BlockNumber = DAYS * 7;
 
 // The modules `small_durations` is used to generate runtimes with small duration events like epochs, eras,
 // bonding durations, etc for testing purposes. They should NOT be used in production.
 #[allow(dead_code)]
 mod small_durations {
-    use super::{BlockNumber, DAYS, MINUTES};
+    use super::{BlockNumber, MINUTES, WEEKS};
 
     pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
@@ -241,7 +248,7 @@ mod small_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = 7 * DAYS;
+    pub const TERM_DURATION: BlockNumber = 1 * WEEKS;
     /// The time-out for council motions.
     pub const COUNCIL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
     /// The time-out for technical committee motions.
@@ -266,7 +273,7 @@ mod small_durations {
 
 #[allow(dead_code)]
 mod prod_durations {
-    use super::{BlockNumber, DAYS, HOURS, MINUTES};
+    use super::{BlockNumber, DAYS, HOURS, MINUTES, WEEKS};
 
     pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 3 * HOURS;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
@@ -282,11 +289,11 @@ mod prod_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = 7 * DAYS;
+    pub const TERM_DURATION: BlockNumber = 1 * WEEKS;
     /// The time-out for council motions.
-    pub const COUNCIL_MOTION_DURATION: BlockNumber = 7 * DAYS;
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = 1 * WEEKS;
     /// The time-out for technical committee motions.
-    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 7 * DAYS;
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 1 * WEEKS;
     /// Delay after which an accepted proposal executes
     pub const ENACTMENT_PERIOD: BlockNumber = 2 * DAYS;
     /// How often new public referrenda are launched
@@ -313,7 +320,7 @@ use small_durations::*;
 /// Era duration should be less than or equal year
 // Milliseconds per year for the Julian year (365.25 days).
 #[allow(unused)]
-const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
+pub const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 const_assert!(
     (SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_BLOCKS as u64 * MILLISECS_PER_BLOCK)
         <= MILLISECONDS_PER_YEAR
@@ -468,7 +475,9 @@ where
             frame_system::CheckEra::<Runtime>::from(era),
             frame_system::CheckNonce::<Runtime>::from(nonce),
             frame_system::CheckWeight::<Runtime>::new(),
-            transaction_payment::ChargeTransactionPayment::<Runtime>::from(tip),
+            CustomChargeTransactionPayment(transaction_payment::ChargeTransactionPayment::from(
+                tip,
+            )),
             token_migration::OnlyMigrator::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
@@ -817,6 +826,198 @@ parameter_types! {
     pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
 }
 
+/// Custom transaction fee payments handler.
+/// Doesn't take a full length fee from successful `note_preimage`, `note_preimage_operational`
+/// (optionally wrapped in `council.execute`) transactions.
+#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, scale_info::TypeInfo)]
+pub struct CustomChargeTransactionPayment(
+    pub transaction_payment::ChargeTransactionPayment<Runtime>,
+);
+
+/// Denotes customizable length fee for a successful extrinsic to be paid by the caller.
+/// The final length to be used in the calculation is produced by `post_dispatch_overridden_length`.
+/// This method should be called after the extrinsic was dispatched (during `post_dispatch` phase).
+#[derive(Clone, Copy, Eq, PartialEq, Debug)]
+pub enum OverriddenLengthFee {
+    /// The caller should pay a *full* length fee.
+    Full,
+    /// The caller should pay a *partial* length fee for a successful extrinsic.
+    Partial(u32),
+    /// The caller should pay a *partial* length fee for a successful extrinsic if the given predicate
+    /// called during `post_dispatch` phase returns `true`.
+    PartialIf { len: u32, check: fn() -> bool },
+}
+
+impl OverriddenLengthFee {
+    /// Allow paying only for 25% of the extrinsic length for whitelist calls.
+    const BASE_LENGTH_DIVIDER: u32 = 4;
+
+    /// Checks whether the given call has a customized length fee or not.
+    pub fn new(call: &<Runtime as frame_system::Config>::Call, len: u32) -> OverriddenLengthFee {
+        Self::is_preimage_with_deposit(call)
+            .then(|| Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
+            .or_else(|| match call {
+                Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
+                    Self::is_preimage_with_deposit(proposal)
+                        .then_some(Self::last_council_execute_was_successful as _)
+                        .map(|check| Self::PartialIf {
+                            len: len / Self::BASE_LENGTH_DIVIDER,
+                            check,
+                        })
+                }
+                _ => None,
+            })
+            .unwrap_or(Self::Full)
+    }
+
+    /// Returns optional overriden length for a successful extrinsic to be paid by the caller.
+    /// **Should be called right after the extrinsic was dispatched (during `post_dispatch` phase).**
+    /// In case `None` is returned, the full extrinsic length must be paid.
+    pub fn post_dispatch_overridden_length(self) -> Option<u32> {
+        match self {
+            Self::Full => None,
+            Self::Partial(len) => Some(len),
+            Self::PartialIf { len, check } => (check)().then_some(len),
+        }
+    }
+
+    /// Returns `true` if the supplied call is a democracy note preimage call with a deposit:
+    /// either `note_preimage` or `note_preimage_operational`.
+    fn is_preimage_with_deposit(call: &<Runtime as frame_system::Config>::Call) -> bool {
+        matches!(
+            call,
+            Call::Democracy(
+                pallet_democracy::Call::note_preimage { .. }
+                    | pallet_democracy::Call::note_preimage_operational { .. }
+            )
+        )
+    }
+
+    /// Returns `true` if the last `council.execute` call was successful.
+    fn last_council_execute_was_successful() -> bool {
+        frame_system::Pallet::<Runtime>::read_events_no_consensus()
+            .into_iter()
+            .rev()
+            .find_map(|record| match record.event {
+                Event::Council(event) => Some(event),
+                _ => None,
+            })
+            .filter(|event| {
+                matches!(
+                    event,
+                    pallet_collective::Event::MemberExecuted { result: Ok(_), .. }
+                )
+            })
+            .is_some()
+    }
+}
+
+impl CustomChargeTransactionPayment {
+    fn withdraw_fee(
+		&self,
+		who: &<Runtime as frame_system::Config>::AccountId,
+		call: &<Runtime as frame_system::Config>::Call,
+		info: &DispatchInfoOf<<Runtime as frame_system::Config>::Call>,
+		len: usize,
+	) -> Result<
+		(
+			u64,
+			<<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::LiquidityInfo,
+		),
+		TransactionValidityError,
+    >{
+        let tip = self.0.tip();
+        let fee = transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, info, tip);
+
+        <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<
+            Runtime,
+        >>::withdraw_fee(who, call, info, fee, tip)
+        .map(|i| (fee, i))
+    }
+}
+
+impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
+    const IDENTIFIER: &'static str = "ChargeTransactionPayment";
+    type AccountId = <Runtime as frame_system::Config>::AccountId;
+    type Call = <Runtime as frame_system::Config>::Call;
+    type AdditionalSigned = ();
+    type Pre = (
+		// tip
+		u64,
+		// who paid the fee - this is an option to allow for a Default impl.
+		Self::AccountId,
+		// imbalance resulting from withdrawing the fee
+        <<Runtime as transaction_payment::Config>::OnChargeTransaction as transaction_payment::OnChargeTransaction<Runtime>>::LiquidityInfo,
+        // whether the caller should pay fee for the successful call or not
+        OverriddenLengthFee
+	);
+
+    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
+        Ok(())
+    }
+
+    fn validate(
+        &self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
+    ) -> TransactionValidity {
+        let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
+
+        let tip = self.0.tip();
+        Ok(ValidTransaction {
+            priority: transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
+                info, len, tip, final_fee,
+            ),
+            ..Default::default()
+        })
+    }
+
+    fn pre_dispatch(
+        self,
+        who: &Self::AccountId,
+        call: &Self::Call,
+        info: &DispatchInfoOf<Self::Call>,
+        len: usize,
+    ) -> Result<Self::Pre, TransactionValidityError> {
+        let pays_len_fee = OverriddenLengthFee::new(call, len as u32);
+        let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
+
+        Ok((self.0.tip(), who.clone(), imbalance, pays_len_fee))
+    }
+
+    fn post_dispatch(
+        maybe_pre: Option<Self::Pre>,
+        info: &DispatchInfoOf<Self::Call>,
+        post_info: &PostDispatchInfoOf<Self::Call>,
+        len: usize,
+        result: &DispatchResult,
+    ) -> Result<(), TransactionValidityError> {
+        if let Some((tip, who, imbalance, pays_len_fee)) = maybe_pre {
+            let final_len = result
+                .is_ok()
+                .then(|| pays_len_fee.post_dispatch_overridden_length())
+                .flatten()
+                .unwrap_or(len as u32);
+
+            let actual_fee =
+                TransactionPayment::compute_actual_fee(final_len, info, post_info, tip);
+            <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::correct_and_deposit_fee(
+				&who, info, post_info, actual_fee, tip, imbalance,
+            )?;
+            frame_system::Pallet::<Runtime>::deposit_event(
+                transaction_payment::Event::<Runtime>::TransactionFeePaid {
+                    who,
+                    actual_fee,
+                    tip,
+                },
+            );
+        }
+        Ok(())
+    }
+}
+
 impl transaction_payment::Config for Runtime {
     type Event = Event;
     type OperationalFeeMultiplier = ConstU8<5>;
@@ -1138,7 +1339,7 @@ parameter_types! {
 
 impl pallet_scheduler::Config for Runtime {
     type OriginPrivilegeCmp = EqualPrivilegeOnly;
-    type PreimageProvider = Preimage;
+    type PreimageProvider = ();
     type NoPreimagePostponement = NoPreimagePostponement;
 
     type Event = Event;
@@ -1152,29 +1353,14 @@ impl pallet_scheduler::Config for Runtime {
 }
 
 parameter_types! {
-    pub const PreimageMaxSize: u32 = 4096 * 1024;
-    pub const PreimageBaseDeposit: Balance = deposit(2, 64);
-}
-
-impl pallet_preimage::Config for Runtime {
-    type WeightInfo = ();
-    type Event = Event;
-    type Currency = Balances;
-    type ManagerOrigin = EnsureRoot<AccountId>;
-    type MaxSize = PreimageMaxSize;
-    type BaseDeposit = PreimageBaseDeposit;
-    type ByteDeposit = PreimageByteDeposit;
-}
-
-parameter_types! {
     pub const EnactmentPeriod: BlockNumber = ENACTMENT_PERIOD;
     pub const LaunchPeriod: BlockNumber = LAUNCH_PERIOD;
     pub const VotingPeriod: BlockNumber = VOTING_PERIOD;
     pub const FastTrackVotingPeriod: BlockNumber = FAST_TRACK_VOTING_PERIOD;
     /// 1000 tokens
     pub const MinimumDeposit: Balance = 1_000 * DOCK;
-    /// 0.1 token
-    pub const PreimageByteDeposit: Balance = DOCK / 10;
+    /// 0.02 token
+    pub const PreimageByteDeposit: Balance = DOCK / 50;
     pub const MaxVotes: u32 = 100;
     pub const MaxProposals: u32 = 100;
     pub const InstantAllowed: bool = true;
@@ -1220,12 +1406,22 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
     }
 }
 
+/// Require 10K DOCK tokens to participate in the voting to immediately pay back provider's deposit.
+/// Otherwise, lock the deposit for 90 days.
+const PREIMAGE_DEPOSIT_LOCK_STRATEGY: DepositLockConfig<Runtime> =
+    DepositLockConfig::new(DAYS, 90, 10_000 * DOCK);
+
+parameter_types! {
+    pub const DepositLockStrategy: DepositLockConfig<Runtime> = PREIMAGE_DEPOSIT_LOCK_STRATEGY;
+}
+
 impl pallet_democracy::Config for Runtime {
     type VoteLockingPeriod = EnactmentPeriod; // Same as EnactmentPeriod
     type Proposal = Call;
     type Event = Event;
     type Currency = Balances;
     type EnactmentPeriod = EnactmentPeriod;
+    type DepositLockStrategy = DepositLockStrategy;
     type LaunchPeriod = LaunchPeriod;
     type VotingPeriod = VotingPeriod;
     type CooloffPeriod = CooloffPeriod;
@@ -1427,14 +1623,19 @@ pallet_staking_reward_curve::build! {
 
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub const RewardDecayPct: Percent = Percent::from_percent(25);
+    pub const HighRateRewardDecayPct: Percent = Percent::from_percent(50);
+    pub const LowRateRewardDecayPct: Percent = Percent::from_percent(25);
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
+    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = None;
 }
 
 impl staking_rewards::Config for Runtime {
     type Event = Event;
-    /// Emission rewards decay by this % each year
-    type RewardDecayPct = RewardDecayPct;
+    type PostUpgradeHighRateDuration = PostUpgradeHighRateDuration;
+    /// High-rate emission rewards decay by this % each year
+    type HighRateRewardDecayPct = HighRateRewardDecayPct;
+    /// Low-rate emission rewards decay by this % each year
+    type LowRateRewardDecayPct = LowRateRewardDecayPct;
     /// Treasury gets this much % out of emission rewards for each era
     type TreasuryRewardsPct = TreasuryRewardsPct;
     /// NPoS reward curve
@@ -1510,7 +1711,7 @@ pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider! {
         "Balances" => Balances,
         "Session" => Session,
         "PoAModule" => PoAModule,
-        "Grandpa" => Grandpa,
+        "GrandpaFinality" => GrandpaFinality,
         "Authorship" => Authorship,
         "TransactionPayment" => TransactionPayment,
         "Utility" => Utility,
@@ -1579,29 +1780,23 @@ impl pallet_evm::Config for Runtime {
     }
 }
 
+parameter_types! {
+    pub const MaxSymbolBytesLen: u32 = 10;
+}
+
 impl price_feed::Config for Runtime {
+    type MaxSymbolBytesLen = MaxSymbolBytesLen;
     type Event = Event;
 }
 
 parameter_types! {
-    /// Price of Dock/USD pair as 10th of cent. Value of 10 means 1 cent
-    pub const MinDockFiatRate: u32 = 10;
-
     pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
 }
 
-impl fiat_filter::Config for Runtime {
-    type Call = Call;
-    type PriceProvider = price_feed::Pallet<Runtime>;
-    type Currency = balances::Pallet<Runtime>;
-    type MinDockFiatRate = MinDockFiatRate;
-}
 pub struct BaseFilter;
 impl Contains<Call> for BaseFilter {
     fn contains(call: &Call) -> bool {
         match call {
-            // Disable fiat_filter for now
-            Call::FiatFilterModule(_) => false,
             _ => true,
         }
     }
@@ -1619,7 +1814,7 @@ construct_runtime!(
         Balances: balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 3,
         PoAModule: poa::{Pallet, Call, Storage, Config<T>} = 4,
-        Grandpa: grandpa::{Pallet, Call, Storage, Config, Event} = 5,
+        GrandpaFinality: grandpa::{Pallet, Call, Storage, Config, Event} = 5,
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 6,
         TransactionPayment: transaction_payment::{Pallet, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Event} = 8,
@@ -1639,8 +1834,8 @@ construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 22,
         Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 23,
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 24,
-        PriceFeedModule: price_feed::{Pallet, Call, Storage, Event} = 25,
-        FiatFilterModule: fiat_filter::{Pallet, Call} = 26,
+        PriceFeedModule: price_feed::{Pallet, Call, Storage, Event<T>} = 25,
+        // `fiat_filter` = 26 was here
         AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 27,
         Historical: pallet_session_historical::{Pallet} = 28,
         ImOnline: pallet_im_online::{Pallet, Call, Storage, Event<T>, ValidateUnsigned, Config<T>} = 29,
@@ -1655,8 +1850,7 @@ construct_runtime!(
         Tips: pallet_tips::{Pallet, Call, Storage, Event<T>} = 38,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 39,
         Accumulator: accumulator::{Pallet, Call, Storage, Event} = 40,
-        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
-        Preimage: pallet_preimage::{Pallet, Call, Storage, Event<T>} = 42,
+        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41
     }
 );
 
@@ -1667,6 +1861,141 @@ impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
         UncheckedExtrinsic::new_unsigned(
             pallet_ethereum::Call::<Runtime>::transact { transaction }.into(),
         )
+    }
+}
+
+struct CouncilCollectiveMigration;
+
+impl OnRuntimeUpgrade for CouncilCollectiveMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        frame_support::log::info!("Performing `Council` migration");
+
+        pallet_collective::migrations::v4::migrate::<Runtime, Council, _>("Instance1Collective")
+    }
+}
+
+/// Migrate from 'Treasury' to the new prefix 'Bounties'
+struct BountiesPrefixMigration;
+
+impl OnRuntimeUpgrade for BountiesPrefixMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        const BOUNTIES_OLD_PREFIX: &str = "Treasury";
+        use frame_support::traits::PalletInfo;
+        frame_support::log::info!("Performing `Bounties` migration");
+
+        let name = <Runtime as frame_system::Config>::PalletInfo::name::<Bounties>()
+            .expect("Bounties is part of runtime, so it has a name; qed");
+        pallet_bounties::migrations::v4::migrate::<Runtime, Bounties, _>(BOUNTIES_OLD_PREFIX, name)
+    }
+}
+
+struct SchedulerMigration;
+
+impl OnRuntimeUpgrade for SchedulerMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        frame_support::log::info!("Performing `Scheduler` migration");
+
+        Scheduler::migrate_v1_to_v3()
+    }
+}
+
+/// Migrate pallet-tips from `Treasury` to the new pallet prefix `Tips`
+struct MigrateTipsPalletPrefix;
+
+impl OnRuntimeUpgrade for MigrateTipsPalletPrefix {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        const TIPS_OLD_PREFIX: &str = "Treasury";
+        frame_support::log::info!("Performing `Tips` migration");
+
+        pallet_tips::migrations::v4::migrate::<Runtime, Tips, _>(TIPS_OLD_PREFIX)
+    }
+}
+
+struct TechnicalCommitteeCollectiveMigration;
+
+impl OnRuntimeUpgrade for TechnicalCommitteeCollectiveMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        frame_support::log::info!("Performing `TechnicalCommittee` migration");
+
+        pallet_collective::migrations::v4::migrate::<Runtime, TechnicalCommittee, _>(
+            "Instance2Collective",
+        )
+    }
+}
+
+struct TechnicalCommitteeMembershipMigration;
+
+impl OnRuntimeUpgrade for TechnicalCommitteeMembershipMigration {
+    fn on_runtime_upgrade() -> Weight {
+        use frame_support::traits::PalletInfo;
+        frame_support::log::info!("Performing `TechnicalCommitteeMembership` migration");
+
+        let name =
+            <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalCommitteeMembership>()
+                .expect("TechnicalCommitteeMembership is part of runtime, so it has a name; qed");
+        pallet_membership::migrations::v4::migrate::<Runtime, TechnicalCommitteeMembership, _>(
+            "Instance1Membership",
+            name,
+        )
+    }
+}
+
+struct ElectionsMigration;
+
+impl OnRuntimeUpgrade for ElectionsMigration {
+    fn on_runtime_upgrade() -> Weight {
+        use frame_support::traits::PalletInfo;
+        frame_support::log::info!("Performing `Elections` migration");
+
+        let new_pallet_name = <Runtime as frame_system::Config>::PalletInfo::name::<Elections>()
+            .expect("TechnicalCommitteeMembership is part of runtime, so it has a name; qed");
+
+        pallet_elections_phragmen::migrations::v4::migrate::<Runtime, _>(new_pallet_name)
+    }
+}
+
+struct StakingMigration;
+
+impl OnRuntimeUpgrade for StakingMigration {
+    fn on_runtime_upgrade() -> Weight {
+        let mut total_weight = Weight::zero();
+
+        log::info!("Migrating to V6");
+        total_weight += pallet_staking::migrations::v6::migrate::<Runtime>();
+
+        log::info!("Migrating to V7");
+        total_weight += pallet_staking::migrations::v7::migrate::<Runtime>();
+
+        log::info!("Migrating to V8");
+        total_weight += pallet_staking::migrations::v8::migrate::<Runtime>();
+
+        log::info!("Migrating to V9");
+        total_weight += pallet_staking::migrations::v9::InjectValidatorsIntoVoterList::<Runtime>::on_runtime_upgrade();
+
+        log::info!("Migrating to V10");
+        total_weight +=
+            pallet_staking::migrations::v10::MigrateToV10::<Runtime>::on_runtime_upgrade();
+
+        total_weight
+    }
+}
+
+struct HistoricalMigration;
+
+impl OnRuntimeUpgrade for HistoricalMigration {
+    fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        pallet_session::migrations::v1::migrate::<Runtime, Historical>()
+    }
+}
+
+/// Migrates pallet version to storage version for all pallets.
+struct AllPalletsMigration;
+
+impl OnRuntimeUpgrade for AllPalletsMigration {
+    fn on_runtime_upgrade() -> Weight {
+        frame_support::migrations::migrate_from_pallet_version_to_storage_version::<
+            AllPalletsWithSystem,
+        >(&RocksDbWeight::get())
     }
 }
 
@@ -1698,12 +2027,24 @@ type Executive = frame_executive::Executive<
     system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
+    (
+        CouncilCollectiveMigration,
+        TechnicalCommitteeCollectiveMigration,
+        TechnicalCommitteeMembershipMigration,
+        SchedulerMigration,
+        BountiesPrefixMigration,
+        ElectionsMigration,
+        HistoricalMigration,
+        StakingMigration,
+        MigrateTipsPalletPrefix,
+        AllPalletsMigration,
+    ),
 >;
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
 /// Block header type as expected by this runtime.
-type Header = generic::Header<BlockNumber, BlakeTwo256>;
+pub type Header = generic::Header<BlockNumber, BlakeTwo256>;
 /// Block type as expected by this runtime.
 pub type Block = generic::Block<Header, UncheckedExtrinsic>;
 /// A Block signed with a Justification
@@ -1711,14 +2052,14 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 /// BlockId type as expected by this runtime.
 pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
-type SignedExtra = (
+pub type SignedExtra = (
     system::CheckSpecVersion<Runtime>,
     system::CheckTxVersion<Runtime>,
     system::CheckGenesis<Runtime>,
     system::CheckEra<Runtime>,
     system::CheckNonce<Runtime>,
     system::CheckWeight<Runtime>,
-    transaction_payment::ChargeTransactionPayment<Runtime>,
+    CustomChargeTransactionPayment,
     token_migration::OnlyMigrator<Runtime>,
 );
 
@@ -1907,11 +2248,11 @@ impl_runtime_apis! {
 
     impl fg_primitives::GrandpaApi<Block> for Runtime {
         fn current_set_id() -> fg_primitives::SetId {
-            Grandpa::current_set_id()
+            GrandpaFinality::current_set_id()
         }
 
         fn grandpa_authorities() -> GrandpaAuthorityList {
-            Grandpa::grandpa_authorities()
+            GrandpaFinality::grandpa_authorities()
         }
 
         fn submit_report_equivocation_unsigned_extrinsic(
@@ -1923,7 +2264,7 @@ impl_runtime_apis! {
         ) -> Option<()> {
             let key_owner_proof = key_owner_proof.decode()?;
 
-            Grandpa::submit_unsigned_equivocation_report(
+            GrandpaFinality::submit_unsigned_equivocation_report(
                 equivocation_proof,
                 key_owner_proof,
             )
@@ -2174,22 +2515,9 @@ impl_runtime_apis! {
         }
     }
 
-    impl price_feed::runtime_api::PriceFeedApi<Block> for Runtime {
-        fn token_usd_price() -> Option<u32> {
-            PriceFeedModule::price()
-        }
-
-        fn token_usd_price_from_contract() -> Option<u32> {
-            PriceFeedModule::get_price_from_contract().map_or(None, |(v, _)| Some(v))
-        }
-    }
-
-    impl fiat_filter_rpc_runtime_api::FiatFeeRuntimeApi<Block, Balance> for Runtime {
-        fn get_call_fee_dock(uxt: <Block as BlockT>::Extrinsic) -> Result<Balance, fiat_filter_rpc_runtime_api::Error> {
-            match FiatFilterModule::get_call_fee_dock_(&uxt.0.function) {
-                Ok((fee_microdock,_weight)) => Ok(fee_microdock),
-                Err(e) => Err(fiat_filter_rpc_runtime_api::Error::new_getcallfeedock(e))
-            }
+    impl price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber> for Runtime {
+        fn price(currency_pair: CurrencySymbolPair<String, String>) -> Option<PriceRecord<<Runtime as frame_system::Config>::BlockNumber>> {
+           PriceFeedModule::pair_price(currency_pair).ok().flatten()
         }
     }
 

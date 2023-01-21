@@ -1051,7 +1051,7 @@ fn add_params_keys() {
         let ak = AddBBSPlusPublicKey {
             key: key.clone(),
             did: author.clone(),
-            nonce: did_detail.next_nonce(),
+            nonce: did_detail.next_nonce().unwrap(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
         assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
@@ -1071,7 +1071,7 @@ fn add_params_keys() {
         let ak = AddBBSPlusPublicKey {
             key: key_1.clone(),
             did: author.clone(),
-            nonce: did_detail.next_nonce(),
+            nonce: did_detail.next_nonce().unwrap(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
         assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
@@ -1094,7 +1094,7 @@ fn add_params_keys() {
         let ak = AddBBSPlusPublicKey {
             key: key_2.clone(),
             did: author.clone(),
-            nonce: did_detail.next_nonce(),
+            nonce: did_detail.next_nonce().unwrap(),
         };
         assert_eq!(did_detail.nonce + 1, ak.nonce);
         assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
@@ -1121,7 +1121,7 @@ fn add_params_keys() {
         assert!(BBSPlusMod::add_params_(
             AddBBSPlusParams {
                 params: params_1.clone(),
-                nonce: did_detail.next_nonce()
+                nonce: did_detail.next_nonce().unwrap()
             },
             BBSPlusParamsOwner(author)
         )
@@ -1166,7 +1166,7 @@ fn add_params_keys() {
         let ak = AddBBSPlusPublicKey {
             key: key.clone(),
             did: author_1.clone(),
-            nonce: did_detail_1.next_nonce(),
+            nonce: did_detail_1.next_nonce().unwrap(),
         };
         assert_eq!(did_detail_1.nonce + 1, ak.nonce);
         assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
@@ -1185,7 +1185,7 @@ fn add_params_keys() {
         assert!(BBSPlusMod::add_params_(
             AddBBSPlusParams {
                 params: params.clone(),
-                nonce: did_detail_1.next_nonce()
+                nonce: did_detail_1.next_nonce().unwrap()
             },
             BBSPlusParamsOwner(author_1)
         )
@@ -1209,7 +1209,7 @@ fn add_params_keys() {
         let ak = AddBBSPlusPublicKey {
             key: key_1.clone(),
             did: author_1.clone(),
-            nonce: did_detail_1.next_nonce(),
+            nonce: did_detail_1.next_nonce().unwrap(),
         };
         assert_eq!(did_detail_1.nonce + 1, ak.nonce);
         assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
@@ -1332,7 +1332,7 @@ fn get_params_and_keys() {
         let ak = AddBBSPlusPublicKey {
             key: key.clone(),
             did: author.clone(),
-            nonce: did_detail.next_nonce(),
+            nonce: did_detail.next_nonce().unwrap(),
         };
         assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
@@ -1348,7 +1348,7 @@ fn get_params_and_keys() {
         let ak = AddBBSPlusPublicKey {
             key: key_1.clone(),
             did: author_1.clone(),
-            nonce: did_detail_1.next_nonce(),
+            nonce: did_detail_1.next_nonce().unwrap(),
         };
         assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,
@@ -1364,7 +1364,7 @@ fn get_params_and_keys() {
         let ak = AddBBSPlusPublicKey {
             key: key_2.clone(),
             did: author.clone(),
-            nonce: did_detail.next_nonce(),
+            nonce: did_detail.next_nonce().unwrap(),
         };
         assert!(<did::Pallet<Test>>::try_exec_action_over_onchain_did(
             BBSPlusMod::add_public_key_,

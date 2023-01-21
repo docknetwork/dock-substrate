@@ -82,7 +82,11 @@ macro_rules! impl_to_state_change {
 /// Implements `Action` trait with supplied params for the given ident(s).
 #[macro_export]
 macro_rules! impl_action {
-    ($type: ident for $target: ty: with $($len: tt $(($($call: tt),*))?).+ as len, $($target_field: tt $(($($target_call: tt),*))?).+ as target) => {
+    (
+        $type: ident for $target: ty: with
+        $($len: tt $(($($call: tt),*))?).+ as len,
+        $($target_field: tt $(($($target_call: tt),*))?).+ as target
+    ) => {
         $crate::impl_to_state_change! { $type }
 
         impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
@@ -97,7 +101,12 @@ macro_rules! impl_action {
             }
         }
     };
-    ($type: ident for $target: ty: with $($len: tt $(($($call: tt),*))?).+ as len, $($target_field: tt $(($($target_call: tt),*))?).+ as target no_state_change) => {
+    (
+        $type: ident for $target: ty: with
+        $($len: tt $(($($call: tt),*))?).+ as len,
+        $($target_field: tt $(($($target_call: tt),*))?).+ as target
+        no_state_change
+    ) => {
         impl<T: frame_system::Config> $crate::Action<T> for $type<T> {
             type Target = $target;
 
@@ -110,7 +119,14 @@ macro_rules! impl_action {
             }
         }
     };
-    (for $target: ty: $($type: ident with $($len: tt $(($($call: tt),*))?).+ as len, $($target_field: tt $(($($target_call: tt),*))?).+ as target $($addition: tt)?),+) => {
+    (
+        for $target: ty:
+        $(
+            $type: ident with $($len: tt $(($($call: tt),*))?).+ as len,
+            $($target_field: tt $(($($target_call: tt),*))?).+ as target
+            $($addition: tt)?
+        ),+
+    ) => {
         $(
             $crate::impl_action! { $type for $target: with $($len $(($($call),*))*).+ as len, $($target_field $(($($target_call)*))*).+ as target $($addition)? }
         )+
@@ -153,17 +169,11 @@ macro_rules! deposit_indexed_event {
     }
 }
 
-/// Implements from/to, deref, and borrow traits for the supplied wrapper and type.
+/// Implements two-direction `From`/`Into` and one-direction `Deref`/`DeferMut` traits for the supplied wrapper and type.
 #[macro_export]
 macro_rules! impl_wrapper {
     ($wrapper: ident($type: ty) $(,$($tt: tt)*)?) => {
         $($crate::impl_encode_decode_wrapper_tests! { $wrapper($type), $($tt)* })?
-
-        impl sp_std::borrow::Borrow<$type> for $wrapper {
-            fn borrow(&self) -> &$type {
-                &self.0
-            }
-        }
 
         $crate::impl_wrapper_from_type_conversion! { $wrapper: $type }
 
@@ -240,7 +250,9 @@ macro_rules! def_state_change {
 #[macro_export]
 macro_rules! impl_encode_decode_wrapper_tests {
     ($wrapper: ident($type: ty), with tests as $mod: ident) => {
-        $crate::impl_encode_decode_wrapper_tests!($wrapper($type), for rand use rand::random(), with tests as $mod);
+        $crate::impl_encode_decode_wrapper_tests!(
+            $wrapper($type), for rand use rand::random(), with tests as $mod
+        );
     };
     ($wrapper: ident($type: ty), for rand use $rand: expr, with tests as $mod: ident) => {
         #[cfg(test)]
@@ -249,7 +261,7 @@ macro_rules! impl_encode_decode_wrapper_tests {
             use codec::{Decode, Encode};
 
             #[test]
-            pub fn encode_decode() {
+            fn encode_decode() {
                 let type_value: $type = $rand;
                 let wrapper_value = $wrapper(type_value.clone());
 
@@ -268,6 +280,32 @@ macro_rules! impl_encode_decode_wrapper_tests {
                 let decoded_type: $type = Decode::decode(&mut &encoded_wrapper[..]).unwrap();
                 assert_eq!(decoded_type, type_value);
             }
+
+            #[test]
+            fn deref() {
+                let type_value: $type = $rand;
+                let wrapper_value = $wrapper(type_value.clone());
+
+                assert_eq!(*wrapper_value, type_value);
+            }
+
+            #[test]
+            fn deref_mut() {
+                let type_value: $type = $rand;
+                let mut wrapper_value = $wrapper($rand);
+
+                *wrapper_value = type_value.clone();
+                assert_eq!(wrapper_value.0, type_value);
+            }
+
+            #[test]
+            fn from_into() {
+                let type_value: $type = $rand;
+                let wrapper_value = $wrapper(type_value.clone());
+
+                assert_eq!(<$wrapper>::from(type_value.clone()), wrapper_value);
+                assert_eq!(<$type>::from(wrapper_value), type_value);
+            }
         }
     };
 }
@@ -275,7 +313,7 @@ macro_rules! impl_encode_decode_wrapper_tests {
 /// Creates pair of given type using supplied seed.
 #[cfg(feature = "runtime-benchmarks")]
 #[macro_export]
-macro_rules! def_pair {
+macro_rules! def_test_pair {
     (sr25519, $seed: expr) => {{
         use sp_core::Pair;
 
@@ -350,7 +388,7 @@ macro_rules! bench_with_all_pairs {
                     $($($init)*)*
                     #[allow(unused_imports)]
                     use sp_core::Pair;
-                    let $pair = $crate::def_pair!(sr25519, &[4; 32]);
+                    let $pair = $crate::def_test_pair!(sr25519, &[4; 32]);
                     $($body)+
                 }: $call_tt($($call_e),+) verify { $($verification)* }
 
@@ -358,7 +396,7 @@ macro_rules! bench_with_all_pairs {
                     $($($init)*)*
                     #[allow(unused_imports)]
                     use sp_core::Pair;
-                    let $pair = $crate::def_pair!(ed25519, &[3; 32]);
+                    let $pair = $crate::def_test_pair!(ed25519, &[3; 32]);
                     $($body)+
                 }: $call_tt($($call_e),+) verify { $($verification)* }
 
@@ -366,7 +404,7 @@ macro_rules! bench_with_all_pairs {
                     $($($init)*)*
                     #[allow(unused_imports)]
                     use sp_core::Pair;
-                    let $pair = $crate::def_pair!(secp256k1, &[2; 32]);
+                    let $pair = $crate::def_test_pair!(secp256k1, &[2; 32]);
                     $($body)+
                 }: $call_tt($($call_e),+) verify { $($verification)* }
             )+

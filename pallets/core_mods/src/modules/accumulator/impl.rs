@@ -8,7 +8,7 @@ impl<T: Config + Debug> Module<T> {
         owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
-            T::LabelMaxSize::get() as usize >= params.label.as_ref().map_or_else(|| 0, |l| l.len()),
+            T::LabelMaxSize::get() as usize >= params.label.as_ref().map_or(0, |l| l.len()),
             Error::<T>::LabelTooBig
         );
         ensure!(

@@ -3,7 +3,7 @@ authors = ["Dock.io"]
 build = "build.rs"
 edition = "2021"
 name = "dock-node"
-version = "0.21.0"
+version = "0.22.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -14,7 +14,7 @@ zstd = { version = "^0.11.2" }
 futures = "0.3.4"
 log = "0.4.8"
 async-trait = "0.1"
-parking_lot = "0.10.0"
+parking_lot = "0.12.1"
 libp2p = { version = "0.46.0" }
 hex-literal = "0.3.0"
 jsonrpsee = { version = "0.15.1", features = ["server"] }
@@ -28,7 +28,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = "../runtime"
-version = "0.21.0"
+version = "0.22.0"
 
 [dependencies.beefy-primitives]
 git = "https://github.com/paritytech/substrate.git"
@@ -517,8 +517,7 @@ git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-elections-phragmen]
-git = "https://github.com/docknetwork/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.staking_rewards]
 path = "../pallets/staking_rewards"
@@ -530,11 +529,8 @@ path = "../pallets/poa/rpc"
 git = "https://github.com/Snowfork/snowbridge.git"
 rev = "dc50c3d973d1f53434c7a03e426faa9c20062f60"
 
-[dependencies.price_feed_rpc]
-path = "../pallets/price_feed/rpc"
-
-[dependencies.fiat_filter_rpc]
-path = "../pallets/fiat_filter/rpc"
+[dependencies.price-feed-rpc]
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.staking_rewards_rpc]
 path = "../pallets/staking_rewards/rpc"
@@ -543,7 +539,7 @@ path = "../pallets/staking_rewards/rpc"
 path = "../pallets/core_mods/rpc"
 
 [dependencies.pallet-staking]
-git = "https://github.com/docknetwork/substrate.git"
+git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.fp-consensus]
