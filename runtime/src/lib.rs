@@ -1948,7 +1948,7 @@ impl OnRuntimeUpgrade for ElectionsMigration {
         frame_support::log::info!("Performing `Elections` migration");
 
         let new_pallet_name = <Runtime as frame_system::Config>::PalletInfo::name::<Elections>()
-            .expect("TechnicalCommitteeMembership is part of runtime, so it has a name; qed");
+            .expect("Elections is part of runtime, so it has a name; qed");
 
         pallet_elections_phragmen::migrations::v4::migrate::<Runtime, _>(new_pallet_name)
     }
@@ -1984,6 +1984,8 @@ struct HistoricalMigration;
 
 impl OnRuntimeUpgrade for HistoricalMigration {
     fn on_runtime_upgrade() -> frame_support::weights::Weight {
+        frame_support::log::info!("Performing `Historical` migration");
+
         pallet_session::migrations::v1::migrate::<Runtime, Historical>()
     }
 }
@@ -1993,6 +1995,8 @@ struct AllPalletsMigration;
 
 impl OnRuntimeUpgrade for AllPalletsMigration {
     fn on_runtime_upgrade() -> Weight {
+        frame_support::log::info!("Migrating pallet version to storage version for all pallets");
+
         frame_support::migrations::migrate_from_pallet_version_to_storage_version::<
             AllPalletsWithSystem,
         >(&RocksDbWeight::get())
