@@ -454,10 +454,6 @@ branch = "polkadot-v0.9.29"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
-[dependencies.pallet-assets]
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
-
 [dependencies.sc-service]
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"

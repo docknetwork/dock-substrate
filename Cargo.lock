@@ -1517,7 +1517,6 @@ dependencies = [
  "libp2p",
  "log",
  "node-inspect",
- "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -1677,7 +1676,6 @@ dependencies = [
  "hex-literal",
  "libsecp256k1",
  "log",
- "pallet-assets",
  "pallet-authority-discovery",
  "pallet-authorship",
  "pallet-babe",
@@ -1705,7 +1703,6 @@ dependencies = [
  "pallet-membership",
  "pallet-mmr",
  "pallet-offences",
- "pallet-randomness-collective-flip",
  "pallet-scheduler",
  "pallet-session",
  "pallet-staking",
@@ -2100,7 +2097,7 @@ dependencies = [
 [[package]]
 name = "fc-db"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "fp-storage",
  "kvdb-rocksdb",
@@ -2116,7 +2113,7 @@ dependencies = [
 [[package]]
 name = "fc-mapping-sync"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "fc-db",
  "fp-consensus",
@@ -2133,7 +2130,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2175,7 +2172,7 @@ dependencies = [
 [[package]]
 name = "fc-rpc-core"
 version = "1.1.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2301,7 +2298,7 @@ dependencies = [
 [[package]]
 name = "fp-consensus"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "ethereum",
  "parity-scale-codec",
@@ -2313,7 +2310,7 @@ dependencies = [
 [[package]]
 name = "fp-dynamic-fee"
 version = "1.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "async-trait",
  "sp-core",
@@ -2323,7 +2320,7 @@ dependencies = [
 [[package]]
 name = "fp-ethereum"
 version = "1.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2337,7 +2334,7 @@ dependencies = [
 [[package]]
 name = "fp-evm"
 version = "3.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "evm",
  "frame-support",
@@ -2350,7 +2347,7 @@ dependencies = [
 [[package]]
 name = "fp-rpc"
 version = "3.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -2367,7 +2364,7 @@ dependencies = [
 [[package]]
 name = "fp-self-contained"
 version = "1.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "ethereum",
  "frame-support",
@@ -2381,7 +2378,7 @@ dependencies = [
 [[package]]
 name = "fp-storage"
 version = "2.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "parity-scale-codec",
  "serde",
@@ -4812,20 +4809,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "pallet-assets"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "scale-info",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
 name = "pallet-authority-discovery"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
@@ -4898,7 +4881,7 @@ dependencies = [
 [[package]]
 name = "pallet-base-fee"
 version = "1.0.0"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -5002,7 +4985,7 @@ dependencies = [
 [[package]]
 name = "pallet-dynamic-fee"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "async-trait",
  "fp-dynamic-fee",
@@ -5061,7 +5044,7 @@ dependencies = [
 [[package]]
 name = "pallet-ethereum"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "ethereum",
  "ethereum-types",
@@ -5088,7 +5071,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm"
 version = "6.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "evm",
  "fp-evm",
@@ -5112,7 +5095,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-bn128"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "fp-evm",
  "sp-core",
@@ -5122,7 +5105,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-dispatch"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "fp-evm",
  "frame-support",
@@ -5132,7 +5115,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-ed25519"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "ed25519-dalek",
  "fp-evm",
@@ -5141,7 +5124,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-modexp"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "fp-evm",
  "num",
@@ -5150,7 +5133,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-sha3fips"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "fp-evm",
  "tiny-keccak 2.0.2",
@@ -5159,7 +5142,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-simple"
 version = "2.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "fp-evm",
  "ripemd",
@@ -5169,7 +5152,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-precompile-storage-reader"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "bytes",
  "evm",
@@ -5193,7 +5176,7 @@ dependencies = [
 [[package]]
 name = "pallet-evm-test-vector-support"
 version = "1.0.0-dev"
-source = "git+https://github.com/docknetwork/frontier.git?branch=master#30e05045fcb267501aeb0c0c9ef78e4e47535a55"
+source = "git+https://github.com/docknetwork/frontier.git?branch=master#6c109a829042c26259761d789ef71248798319f5"
 dependencies = [
  "evm",
  "fp-evm",
@@ -5325,20 +5308,6 @@ dependencies = [
  "serde",
  "sp-runtime",
  "sp-staking",
- "sp-std",
-]
-
-[[package]]
-name = "pallet-randomness-collective-flip"
-version = "4.0.0-dev"
-source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "safe-mix",
- "scale-info",
- "sp-runtime",
  "sp-std",
 ]
 
@@ -6525,15 +6494,6 @@ checksum = "3e75f6a532d0fd9f7f13144f392b6ad56a32696bfcd9c78f797f16bbb6f072d6"
 
 [[package]]
 name = "rustc_version"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "138e3e0acb6c9fb258b19b67cb8abd63c00679d2851805ea151465464fe9030a"
-dependencies = [
- "semver 0.9.0",
-]
-
-[[package]]
-name = "rustc_version"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bfa0f585226d2e68097d4f95d113b15b83a82e819ab25717ec0590d9584ef366"
@@ -6624,15 +6584,6 @@ name = "ryu"
 version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "71d301d4193d031abdd79ff7e3dd721168a9572ef3fe51a1517aba235bd8f86e"
-
-[[package]]
-name = "safe-mix"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d3d055a2582e6b00ed7a31c1524040aa391092bf636328350813f3a0605215c"
-dependencies = [
- "rustc_version 0.2.3",
-]
 
 [[package]]
 name = "salsa20"
@@ -7802,15 +7753,6 @@ dependencies = [
 
 [[package]]
 name = "semver"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1d7eb9ef2c18661902cc47e535f9bc51b78acd254da71d375c2f6720d9a40403"
-dependencies = [
- "semver-parser",
-]
-
-[[package]]
-name = "semver"
 version = "1.0.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e25dfac463d778e353db5be2449d1cce89bd6fd23c9f1ea21310ce6e5a1b29c4"
@@ -8050,7 +7992,7 @@ dependencies = [
  "curve25519-dalek 4.0.0-pre.1",
  "rand_core 0.6.3",
  "ring",
- "rustc_version 0.4.0",
+ "rustc_version",
  "sha2 0.10.6",
  "subtle",
 ]
@@ -9527,7 +9469,7 @@ version = "1.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "97fee6b57c6a41524a810daee9286c02d7752c4253064d0b05472833a438f675"
 dependencies = [
- "cfg-if 1.0.0",
+ "cfg-if 0.1.10",
  "digest 0.10.6",
  "rand 0.8.4",
  "static_assertions",

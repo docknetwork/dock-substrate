@@ -1945,12 +1945,32 @@ struct ElectionsMigration;
 impl OnRuntimeUpgrade for ElectionsMigration {
     fn on_runtime_upgrade() -> Weight {
         use frame_support::traits::PalletInfo;
+        use parity_bytes::ToPretty;
+
         frame_support::log::info!("Performing `Elections` migration");
 
         let new_pallet_name = <Runtime as frame_system::Config>::PalletInfo::name::<Elections>()
             .expect("Elections is part of runtime, so it has a name; qed");
 
-        pallet_elections_phragmen::migrations::v4::migrate::<Runtime, _>(new_pallet_name)
+        let mut weight = Weight::zero();
+
+        weight += pallet_elections_phragmen::migrations::v4::migrate::<Runtime, _>(new_pallet_name);
+
+        let to_migrate: Vec<_> =
+            pallet_elections_phragmen::Voting::<Runtime>::iter_keys().collect();
+        weight += RocksDbWeight::get().reads(to_migrate.len() as u64);
+
+        frame_support::log::info!(
+            "Migrating possibly invalid voters: {:?}",
+            to_migrate
+                .iter()
+                .map(ByteArray::to_raw_vec)
+                .map(|raw_acc_id| raw_acc_id.to_hex())
+                .collect::<Vec<_>>()
+        );
+        weight += pallet_elections_phragmen::migrations::v5::migrate::<Runtime>(to_migrate);
+
+        weight
     }
 }
 
@@ -1958,6 +1978,7 @@ struct StakingMigration;
 
 impl OnRuntimeUpgrade for StakingMigration {
     fn on_runtime_upgrade() -> Weight {
+        frame_support::log::info!("Performing `Staking` migration");
         let mut total_weight = Weight::zero();
 
         log::info!("Migrating to V6");
