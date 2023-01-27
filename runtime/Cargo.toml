@@ -21,9 +21,6 @@ evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1
 evm-runtime = { version = "0.35", default-features = false, git = "https://github.com/rust-blockchain/evm.git", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c" }
 evm-gasometer = { version = "0.35", default-features = false, git = "https://github.com/rust-blockchain/evm.git", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c" }
 
-pallet-assets = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29", default-features = false }
-pallet-randomness-collective-flip = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29", default-features = false, optional = true }
-
 parity-util-mem = { version = "0.11", optional = true }
 
 rlp = { version = "0.5", default-features = false }
@@ -531,7 +528,6 @@ std = [
     "log/std",
 	  "hex/std",
     "sha3/std",  
-    "pallet-assets/std",
     "sp-runtime-interface/std",
     "sp-trie/std",
     "sp-io/std",
@@ -563,7 +559,6 @@ std = [
     "pallet-sudo/std",
     "sp-consensus-slots/std",
     "pallet-authorship/std",
-    "pallet-randomness-collective-flip/std",
     "ethereum/std",
     "ethereum-types/std",
     "serde/std",

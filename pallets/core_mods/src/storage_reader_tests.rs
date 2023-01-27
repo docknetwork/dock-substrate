@@ -16,7 +16,7 @@ use pallet_evm_precompile_storage_reader::{
         key::{MapKey, NoKey},
         Error, MetaStorageReader,
     },
-    output::RawStorageValue,
+    output::OutputStorageValue,
     params::Params,
 };
 
@@ -66,8 +66,9 @@ macro_rules! assert_decoded_eq {
                  }| {
                     assert_eq!(exit_status, ExitSucceed::Returned);
 
-                    let raw = RawStorageValue::decode_from_bytes(&output[..]);
-                    raw.into_item()
+                    let output = OutputStorageValue::decode_from_bytes(&output[..]);
+                    output
+                        .into_item()
                         .map(|bytes| {
                             Decode::decode(&mut &bytes[..]).map_err(ErrorWrapper::Decoding)
                         })
