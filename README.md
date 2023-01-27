@@ -46,20 +46,20 @@ The project is known to build with cargo 1.62.1 and rust 1.62.1. Upgrade to thes
 Now you can build the node binary.
 
 ```bash
-cargo build --release
+cargo build --release --features wasmtime
 ```
 
 Above command will build a node with ss58 prefix 42 which is for dev nodes. To build node for testnet or mainnet, use the 
 features `testnet` and `mainnet` respectively as below
 
 ```bash
-cargo build --release --features testnet
+cargo build --release --features testnet,wasmtime
 ```
 
 The `spec_name` with the above command will be `dock-pos-test-runtime` and ss58 prefix will be 21. 
 
 ```bash
-cargo build --release --features mainnet
+cargo build --release --features mainnet,wasmtime
 ```
 
 The `spec_name` with the above command will be `dock-pos-main-runtime` and ss58 prefix will be 22.
@@ -77,13 +77,13 @@ This will put the `dock-node` binary in `target/production`
 You can add the above features to it. For testnet
 
 ```bash
-cargo build --profile=production --features testnet
+cargo build --profile=production --features testnet,wasmtime
 ```
 
 For mainnet
 
 ```bash
-cargo build --profile=production --features mainnet
+cargo build --profile=production --features mainnet,wasmtime
 ```
 
 ### Building a node for testing staking, governance
@@ -110,13 +110,13 @@ cargo build --release --features fastblock
 To build image for testnet node, run the following from the repository's root
 
 ```bash
-docker build --build-arg features='--features testnet' .
+docker build --build-arg features='--features testnet,wasmtime' .
 ```
 
 To build image for mainnet node, run the following from the repository's root
 
 ```bash
-docker build --build-arg features='--features mainnet' .
+docker build --build-arg features='--features mainnet,wasmtime' .
 ```
 
 
@@ -124,7 +124,7 @@ The above commands will build the `production` profile which tradeoffs build tim
 you can build the node in release mode as following
 
 ```bash
-docker build --build-arg release=Y --build-arg features='--features testnet' .
+docker build --build-arg release=Y --build-arg features='--features testnet,wasmtime' .
 ```
 
 ### Building chain spec
