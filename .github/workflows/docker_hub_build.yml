@@ -6,6 +6,7 @@ on:
     tags:
       - mainnet
       - testnet
+      - mainnet_next
 
 jobs:
  build-docker-image:
@@ -25,7 +26,7 @@ jobs:
         shell: bash
         run: |
           export TAG_NAME=master
-          if [[ '${{github.ref_name}}' == 'mainnet' || '${{github.ref_name}}' == 'testnet' ]];
+          if [[ '${{github.ref_name}}' == 'mainnet' || '${{github.ref_name}}' == 'testnet' || '${{github.ref_name}}' == 'mainnet_next' ]];
           then
             export TAG_NAME=${{github.ref_name}}
           fi
