@@ -39,6 +39,7 @@ jobs:
             fi
           fi
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "SPEC_NAME=$SPEC_NAME" >> $GITHUB_OUTPUT
 
       - name: 'Build production ${{ steps.image_tag.outputs.TAG_NAME }} image'
         if: steps.image_tag.outputs.TAG_NAME != 'master'
