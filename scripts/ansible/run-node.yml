@@ -21,6 +21,7 @@
     external_prom: "{{ '--prometheus-external' if (ext_prometheus_flag) else '' }}"
 
     new_session_key: "{{ rotate_session_key | default('false') | bool }}"
+    offchain_indexing: "{{ '' if (disable_offchain_indexing | default(false)) else '--enable-offchain-indexing=true' }}"
     
     is_val_flag: "{{ is_validator | default('false') | bool }}"  # Is validator node or not
     validator: "{{ '--validator' if (is_val_flag) else '' }}"
@@ -184,7 +185,7 @@
       mounts:
       - source: 'dock-chain-data'
         target: '{{ mount_at }}'
-      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }}'
+      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }} {{ offchain_indexing }}'
 
   # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
   - name: Rotate session key
