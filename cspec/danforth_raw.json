@@ -3,7 +3,7 @@
   "id": "dock_testnet",
   "chainType": "Live",
   "bootNodes": [
-    "/dns4/testnet-1.dock.io/tcp/30333/p2p/12D3KooWSbaqC655sjBSk7bNMghWsKdy1deCKRL6aRf6xcmm9dwW"
+    "/dns4/testnet-1.dock.io/tcp/30333/ws/p2p/12D3KooWSbaqC655sjBSk7bNMghWsKdy1deCKRL6aRf6xcmm9dwW"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
