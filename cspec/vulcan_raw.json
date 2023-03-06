@@ -3,7 +3,7 @@
   "id": "dock_mainnet",
   "chainType": "Live",
   "bootNodes": [
-    "/dns4/mainnet-node.dock.io/tcp/30333/p2p/12D3KooWGTXSDietKtxC41fM5M8YmLVaQfnBnohkwaak3y5iqXMy"
+    "/dns4/mainnet-node.dock.io/tcp/30333/ws/p2p/12D3KooWGTXSDietKtxC41fM5M8YmLVaQfnBnohkwaak3y5iqXMy"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,
