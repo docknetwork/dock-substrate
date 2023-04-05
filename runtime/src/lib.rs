@@ -1,4 +1,4 @@
-//! Dock testnet runtime. This can be compiled with `#[no_std]`, ready for Wasm.
+//! Dock blockchain runtime. This can be compiled with `#[no_std]`, ready for Wasm.
 
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(not(feature = "std"), feature(alloc_error_handler))]
@@ -10,20 +10,15 @@ mod wasm_handlers {
     #[panic_handler]
     #[no_mangle]
     pub fn panic(info: &core::panic::PanicInfo) -> ! {
-        unsafe {
-            let message = sp_std::alloc::format!("{}", info);
-            log::error!("{}", message);
-            // logging::log(LogLevel::Error, "runtime", message.as_bytes());
-            core::arch::wasm32::unreachable();
-        }
+        let message = sp_std::alloc::format!("{}", info);
+        log::error!("{}", message);
+        core::arch::wasm32::unreachable();
     }
 
     #[alloc_error_handler]
     pub fn oom(_: core::alloc::Layout) -> ! {
         log::error!("Runtime memory exhausted. Aborting");
-        unsafe {
-            core::arch::wasm32::unreachable();
-        }
+        core::arch::wasm32::unreachable();
     }
 }
 
@@ -46,7 +41,9 @@ extern crate alloc;
 extern crate static_assertions;
 
 pub use core_mods::{
-    accumulator, anchor, attest, bbs_plus, blob, did, keys_and_sigs, master, revoke,
+    accumulator, anchor, attest, blob, did, keys_and_sigs, master, offchain_signatures,
+    offchain_signatures::{BBSPlusPublicKey, OffchainPublicKey, PSPublicKey},
+    revoke,
 };
 use price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
 pub mod precompiles;
@@ -206,7 +203,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 44,
+    spec_version: 45,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -981,10 +978,10 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
         info: &DispatchInfoOf<Self::Call>,
         len: usize,
     ) -> Result<Self::Pre, TransactionValidityError> {
-        let pays_len_fee = OverriddenLengthFee::new(call, len as u32);
+        let len_fee = OverriddenLengthFee::new(call, len as u32);
         let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
 
-        Ok((self.0.tip(), who.clone(), imbalance, pays_len_fee))
+        Ok((self.0.tip(), who.clone(), imbalance, len_fee))
     }
 
     fn post_dispatch(
@@ -994,10 +991,10 @@ impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
         len: usize,
         result: &DispatchResult,
     ) -> Result<(), TransactionValidityError> {
-        if let Some((tip, who, imbalance, pays_len_fee)) = maybe_pre {
+        if let Some((tip, who, imbalance, len_fee)) = maybe_pre {
             let final_len = result
                 .is_ok()
-                .then(|| pays_len_fee.post_dispatch_overridden_length())
+                .then(|| len_fee.post_dispatch_overridden_length())
                 .flatten()
                 .unwrap_or(len as u32);
 
@@ -1071,7 +1068,7 @@ impl revoke::Config for Runtime {
     type MaxControllers = MaxControllers;
 }
 
-impl bbs_plus::Config for Runtime {
+impl offchain_signatures::Config for Runtime {
     type Event = Event;
     type LabelMaxSize = LabelMaxSize;
     type LabelPerByteWeight = LabelPerByteWeight;
@@ -1715,7 +1712,7 @@ pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider! {
         "Authorship" => Authorship,
         "TransactionPayment" => TransactionPayment,
         "Utility" => Utility,
-        "BbsPlus" => BbsPlus,
+        "OffchainSignatures" => OffchainSignatures,
         "DIDModule" => DIDModule,
         "Revoke" => Revoke,
         "BlobStore" => BlobStore,
@@ -1818,7 +1815,7 @@ construct_runtime!(
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 6,
         TransactionPayment: transaction_payment::{Pallet, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Event} = 8,
-        BbsPlus: bbs_plus::{Pallet, Call, Storage, Event} = 9,
+        OffchainSignatures: offchain_signatures::{Pallet, Call, Storage, Event} = 9,
         DIDModule: did::{Pallet, Call, Storage, Event, Config} = 10,
         Revoke: revoke::{Pallet, Call, Storage, Event} = 11,
         BlobStore: blob::{Pallet, Call, Storage} = 12,
@@ -1864,166 +1861,6 @@ impl fp_rpc::ConvertTransaction<UncheckedExtrinsic> for TransactionConverter {
     }
 }
 
-struct CouncilCollectiveMigration;
-
-impl OnRuntimeUpgrade for CouncilCollectiveMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        frame_support::log::info!("Performing `Council` migration");
-
-        pallet_collective::migrations::v4::migrate::<Runtime, Council, _>("Instance1Collective")
-    }
-}
-
-/// Migrate from 'Treasury' to the new prefix 'Bounties'
-struct BountiesPrefixMigration;
-
-impl OnRuntimeUpgrade for BountiesPrefixMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        const BOUNTIES_OLD_PREFIX: &str = "Treasury";
-        use frame_support::traits::PalletInfo;
-        frame_support::log::info!("Performing `Bounties` migration");
-
-        let name = <Runtime as frame_system::Config>::PalletInfo::name::<Bounties>()
-            .expect("Bounties is part of runtime, so it has a name; qed");
-        pallet_bounties::migrations::v4::migrate::<Runtime, Bounties, _>(BOUNTIES_OLD_PREFIX, name)
-    }
-}
-
-struct SchedulerMigration;
-
-impl OnRuntimeUpgrade for SchedulerMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        frame_support::log::info!("Performing `Scheduler` migration");
-
-        Scheduler::migrate_v1_to_v3()
-    }
-}
-
-/// Migrate pallet-tips from `Treasury` to the new pallet prefix `Tips`
-struct MigrateTipsPalletPrefix;
-
-impl OnRuntimeUpgrade for MigrateTipsPalletPrefix {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        const TIPS_OLD_PREFIX: &str = "Treasury";
-        frame_support::log::info!("Performing `Tips` migration");
-
-        pallet_tips::migrations::v4::migrate::<Runtime, Tips, _>(TIPS_OLD_PREFIX)
-    }
-}
-
-struct TechnicalCommitteeCollectiveMigration;
-
-impl OnRuntimeUpgrade for TechnicalCommitteeCollectiveMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        frame_support::log::info!("Performing `TechnicalCommittee` migration");
-
-        pallet_collective::migrations::v4::migrate::<Runtime, TechnicalCommittee, _>(
-            "Instance2Collective",
-        )
-    }
-}
-
-struct TechnicalCommitteeMembershipMigration;
-
-impl OnRuntimeUpgrade for TechnicalCommitteeMembershipMigration {
-    fn on_runtime_upgrade() -> Weight {
-        use frame_support::traits::PalletInfo;
-        frame_support::log::info!("Performing `TechnicalCommitteeMembership` migration");
-
-        let name =
-            <Runtime as frame_system::Config>::PalletInfo::name::<TechnicalCommitteeMembership>()
-                .expect("TechnicalCommitteeMembership is part of runtime, so it has a name; qed");
-        pallet_membership::migrations::v4::migrate::<Runtime, TechnicalCommitteeMembership, _>(
-            "Instance1Membership",
-            name,
-        )
-    }
-}
-
-struct ElectionsMigration;
-
-impl OnRuntimeUpgrade for ElectionsMigration {
-    fn on_runtime_upgrade() -> Weight {
-        use frame_support::traits::PalletInfo;
-        use parity_bytes::ToPretty;
-
-        frame_support::log::info!("Performing `Elections` migration");
-
-        let new_pallet_name = <Runtime as frame_system::Config>::PalletInfo::name::<Elections>()
-            .expect("Elections is part of runtime, so it has a name; qed");
-
-        let mut weight = Weight::zero();
-
-        weight += pallet_elections_phragmen::migrations::v4::migrate::<Runtime, _>(new_pallet_name);
-
-        let to_migrate: Vec<_> =
-            pallet_elections_phragmen::Voting::<Runtime>::iter_keys().collect();
-        weight += RocksDbWeight::get().reads(to_migrate.len() as u64);
-
-        frame_support::log::info!(
-            "Migrating possibly invalid voters: {:?}",
-            to_migrate
-                .iter()
-                .map(ByteArray::to_raw_vec)
-                .map(|raw_acc_id| raw_acc_id.to_hex())
-                .collect::<Vec<_>>()
-        );
-        weight += pallet_elections_phragmen::migrations::v5::migrate::<Runtime>(to_migrate);
-
-        weight
-    }
-}
-
-struct StakingMigration;
-
-impl OnRuntimeUpgrade for StakingMigration {
-    fn on_runtime_upgrade() -> Weight {
-        frame_support::log::info!("Performing `Staking` migration");
-        let mut total_weight = Weight::zero();
-
-        log::info!("Migrating to V6");
-        total_weight += pallet_staking::migrations::v6::migrate::<Runtime>();
-
-        log::info!("Migrating to V7");
-        total_weight += pallet_staking::migrations::v7::migrate::<Runtime>();
-
-        log::info!("Migrating to V8");
-        total_weight += pallet_staking::migrations::v8::migrate::<Runtime>();
-
-        log::info!("Migrating to V9");
-        total_weight += pallet_staking::migrations::v9::InjectValidatorsIntoVoterList::<Runtime>::on_runtime_upgrade();
-
-        log::info!("Migrating to V10");
-        total_weight +=
-            pallet_staking::migrations::v10::MigrateToV10::<Runtime>::on_runtime_upgrade();
-
-        total_weight
-    }
-}
-
-struct HistoricalMigration;
-
-impl OnRuntimeUpgrade for HistoricalMigration {
-    fn on_runtime_upgrade() -> frame_support::weights::Weight {
-        frame_support::log::info!("Performing `Historical` migration");
-
-        pallet_session::migrations::v1::migrate::<Runtime, Historical>()
-    }
-}
-
-/// Migrates pallet version to storage version for all pallets.
-struct AllPalletsMigration;
-
-impl OnRuntimeUpgrade for AllPalletsMigration {
-    fn on_runtime_upgrade() -> Weight {
-        frame_support::log::info!("Migrating pallet version to storage version for all pallets");
-
-        frame_support::migrations::migrate_from_pallet_version_to_storage_version::<
-            AllPalletsWithSystem,
-        >(&RocksDbWeight::get())
-    }
-}
-
 impl fp_rpc::ConvertTransaction<opaque::UncheckedExtrinsic> for TransactionConverter {
     fn convert_transaction(
         &self,
@@ -2052,18 +1889,6 @@ type Executive = frame_executive::Executive<
     system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    (
-        CouncilCollectiveMigration,
-        TechnicalCommitteeCollectiveMigration,
-        TechnicalCommitteeMembershipMigration,
-        SchedulerMigration,
-        BountiesPrefixMigration,
-        ElectionsMigration,
-        HistoricalMigration,
-        StakingMigration,
-        MigrateTipsPalletPrefix,
-        AllPalletsMigration,
-    ),
 >;
 
 /// The address format for describing accounts.
@@ -2567,20 +2392,32 @@ impl_runtime_apis! {
             dids.into_iter().map(|did| DIDModule::aggregate_did_details(&did, params)).collect()
         }
 
-        fn bbs_plus_public_key_with_params(id: bbs_plus::BBSPlusPublicKeyStorageKey) -> Option<bbs_plus::BBSPlusPublicKeyWithParams> {
-            BbsPlus::get_public_key_with_params(&id)
+        fn bbs_plus_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPlusPublicKeyWithParams> {
+            OffchainSignatures::did_public_key(did, key_id).and_then(OffchainPublicKey::into_bbs_plus).map(BBSPlusPublicKey::with_params)
         }
 
-        fn bbs_plus_params_by_did(owner: bbs_plus::BBSPlusParamsOwner) -> BTreeMap<IncId, bbs_plus::BBSPlusParameters> {
-            BbsPlus::get_params_by_did(&owner)
+        fn bbs_plus_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSPlusParams> {
+            OffchainSignatures::did_params(&owner).filter_map(|(id, params)| params.into_bbs_plus().map(|bbs_plus_params| (id, bbs_plus_params))).collect()
         }
 
-        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams> {
-            BbsPlus::get_public_key_by_did(&did)
+        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams> {
+            OffchainSignatures::did_public_keys(&did).filter_map(|(id, key)| key.into_bbs_plus().map(BBSPlusPublicKey::with_params).map(|key_with_params| (id, key_with_params))).collect()
+        }
+
+        fn ps_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::PSPublicKeyWithParams> {
+            OffchainSignatures::did_public_key(did, key_id).and_then(OffchainPublicKey::into_ps).map(PSPublicKey::with_params)
+        }
+
+        fn ps_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::PSParams> {
+            OffchainSignatures::did_params(&owner).filter_map(|(id, params)| params.into_ps().map(|ps_params| (id, ps_params))).collect()
+        }
+
+        fn ps_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::PSPublicKeyWithParams> {
+            OffchainSignatures::did_public_keys(&did).filter_map(|(id, key)| key.into_ps().map(PSPublicKey::with_params).map(|key_with_params| (id, key_with_params))).collect()
         }
 
         fn accumulator_public_key_with_params(id: accumulator::AccumPublicKeyStorageKey) -> Option<accumulator::AccumPublicKeyWithParams> {
-            Accumulator::get_public_key_with_params(&id)
+            Accumulator::public_key_with_params(&id)
         }
 
         fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)> {
@@ -2621,7 +2458,7 @@ impl_runtime_apis! {
                 Balances,
                 Session,
                 PoAModule,
-                Grandpa,
+                GrandpaFinality,
                 Authorship,
                 TransactionPayment,
                 Utility,
@@ -2654,7 +2491,7 @@ impl_runtime_apis! {
                 Elections,
                 Tips,
                 Identity,
-                BbsPlus,
+                OffchainSignatures,
                 Accumulator,
                 BaseFee
             );

@@ -321,10 +321,6 @@ decl_module! {
         fn _noop(_o, _s: crate::StateChange<'static, T>) -> DispatchResult {
             Err(DispatchError::BadOrigin)
         }
-
-        fn on_runtime_upgrade() -> Weight {
-            crate::migrations::multi_key::migrate_unchecked_keys::<T>()
-        }
     }
 }
 

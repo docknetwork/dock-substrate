@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     did::{Did, DidSignature, UncheckedDidKey},
     types::CurveType,
-    util::IncId,
+    util::{IncId, WrappedBytes},
     ToStateChange,
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
@@ -31,13 +31,13 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        let params = BBSPlusParameters {
-            curve_type: CurveType::Bls12381,
-            bytes: vec![0; b as usize].into(),
-            label: Some(vec![0; l as usize].into())
-        };
-        let new_params = AddBBSPlusParams {
-            params: params.clone(),
+        let params = BBSPlusParams::new(
+            WrappedBytes(vec![0; l as usize]),
+            vec![0; b as usize],
+            CurveType::Bls12381,
+        );
+        let new_params = AddOffchainSignatureParams {
+            params: params.clone().into(),
             nonce: 1u8.into()
         };
 
@@ -45,7 +45,7 @@ crate::bench_with_all_pairs! {
         let signature = DidSignature::new(did, 1u32, sig);
     }: add_params(RawOrigin::Signed(caller), new_params, signature)
     verify {
-        assert_eq!(BbsPlusParams::get(BBSPlusParamsOwner(did), IncId::from(1u8)).unwrap(), params.clone());
+        assert_eq!(SignatureParams::get(SignatureParamsOwner(did), IncId::from(1u8)).unwrap(), params.clone().into());
     }
 
     remove_params_sr25519 for sr25519, remove_params_ed25519 for ed25519, remove_params_secp256k1 for secp256k1 {
@@ -61,19 +61,19 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         Module::<T>::add_params_(
-            AddBBSPlusParams {
-                params: BBSPlusParameters {
-                    curve_type: CurveType::Bls12381,
-                    bytes: vec![0; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into())
-                },
+            AddOffchainSignatureParams {
+                params: BBSPlusParams::new(
+                    WrappedBytes(vec![1; MAX_LABEL as usize]),
+                    vec![0; MAX_PARAMS as usize],
+                    CurveType::Bls12381,
+                ).into(),
                 nonce: 1u8.into()
             },
-            BBSPlusParamsOwner(did)
+            SignatureParamsOwner(did)
         ).unwrap();
 
-        let rem_params = RemoveBBSPlusParams {
-            params_ref: (BBSPlusParamsOwner(did), 1u8.into()),
+        let rem_params = RemoveOffchainSignatureParams {
+            params_ref: (SignatureParamsOwner(did), 1u8.into()),
             nonce: 1u8.into()
         };
 
@@ -82,7 +82,7 @@ crate::bench_with_all_pairs! {
 
     }: remove_params(RawOrigin::Signed(caller), rem_params, signature)
     verify {
-        assert!(BbsPlusParams::get(BBSPlusParamsOwner(did), IncId::from(1u8)).is_none());
+        assert!(SignatureParams::get(SignatureParamsOwner(did), IncId::from(1u8)).is_none());
     }
 
     add_public_sr25519 for sr25519, add_public_ed25519 for ed25519, add_public_secp256k1 for secp256k1 {
@@ -101,24 +101,23 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         Module::<T>::add_params_(
-            AddBBSPlusParams {
-                params: BBSPlusParameters {
-                    curve_type: CurveType::Bls12381,
-                    bytes: vec![0; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into())
-                },
+            AddOffchainSignatureParams {
+                params: BBSPlusParams::new(
+                    WrappedBytes(vec![1; MAX_LABEL as usize]),
+                    vec![0; MAX_PARAMS as usize],
+                    CurveType::Bls12381,
+                ).into(),
                 nonce: 1u8.into()
             },
-            BBSPlusParamsOwner(did)
+            SignatureParamsOwner(did)
         ).unwrap();
 
-        let key = BBSPlusPublicKey {
-            curve_type: CurveType::Bls12381,
-            bytes: vec![0; b as usize].into(),
-            /// The params used to generate the public key (`P_tilde` comes from params)
-            params_ref: Some((BBSPlusParamsOwner(did), IncId::from(1u8)))
-        };
-        let add_key = AddBBSPlusPublicKey {
+        let key: OffchainPublicKey = BBSPlusPublicKey::new(
+            vec![0; b as usize],
+            (SignatureParamsOwner(did), IncId::from(1u8)),
+            CurveType::Bls12381,
+        ).into();
+        let add_key = AddOffchainSignaturePublicKey {
             did: did,
             key: key.clone(),
             nonce: 1u8.into()
@@ -129,7 +128,7 @@ crate::bench_with_all_pairs! {
 
     }: add_public_key(RawOrigin::Signed(caller), add_key, signature)
     verify {
-        assert_eq!(BbsPlusKeys::get(did, IncId::from(2u8)).unwrap(), key);
+        assert_eq!(PublicKeys::get(did, IncId::from(2u8)).unwrap(), key);
     }
 
     remove_public_sr25519 for sr25519, remove_public_ed25519 for ed25519, remove_public_secp256k1 for secp256k1 {
@@ -145,32 +144,31 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         Module::<T>::add_params_(
-            AddBBSPlusParams {
-                params: BBSPlusParameters {
-                    curve_type: CurveType::Bls12381,
-                    bytes: vec![0; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into())
-                },
+            AddOffchainSignatureParams {
+                params: BBSPlusParams::new(
+                    WrappedBytes(vec![1; MAX_LABEL as usize]),
+                    vec![0; MAX_PARAMS as usize],
+                    CurveType::Bls12381,
+                ).into(),
                 nonce: 1u8.into()
             },
-            BBSPlusParamsOwner(did)
+            SignatureParamsOwner(did)
         ).unwrap();
 
         Module::<T>::add_public_key_(
-            AddBBSPlusPublicKey {
+            AddOffchainSignaturePublicKey {
                 did: did,
-                key: BBSPlusPublicKey {
-                    curve_type: CurveType::Bls12381,
-                    bytes: vec![0; MAX_KEY as usize].into(),
-                    /// The params used to generate the public key (`P_tilde` comes from params)
-                    params_ref: Some((BBSPlusParamsOwner(did), IncId::from(1u8)))
-                },
+                key: BBSPlusPublicKey::new(
+                    WrappedBytes(vec![0; MAX_KEY as usize].into()),
+                    (SignatureParamsOwner(did), IncId::from(1u8)),
+                    CurveType::Bls12381,
+                ).into(),
                 nonce: 2u8.into()
             },
             &mut Default::default()
         ).unwrap();
 
-        let rem_key = RemoveBBSPlusPublicKey {
+        let rem_key = RemoveOffchainSignaturePublicKey {
             did: did,
             key_ref: (did, 1u8.into()),
             nonce: 1u8.into()
@@ -180,6 +178,6 @@ crate::bench_with_all_pairs! {
         let signature = DidSignature::new(did, 1u32, sig);
     }: remove_public_key(RawOrigin::Signed(caller), rem_key, signature)
     verify {
-        assert!(BbsPlusKeys::get(did, IncId::from(2u8)).is_none());
+        assert!(PublicKeys::get(did, IncId::from(2u8)).is_none());
     }
 }

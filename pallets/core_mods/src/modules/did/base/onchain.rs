@@ -1,6 +1,7 @@
 use super::super::*;
 use crate::{
-    bbs_plus::BbsPlusKeys, deposit_indexed_event, util::WrappedActionWithNonce, ToStateChange,
+    deposit_indexed_event, offchain_signatures::PublicKeys, util::WrappedActionWithNonce,
+    ToStateChange,
 };
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
@@ -111,7 +112,7 @@ impl<T: Config + Debug> Module<T> {
         // TODO: limit and cursor
         let _ = DidServiceEndpoints::clear_prefix(did, u32::MAX, None);
         // TODO: limit and cursor
-        let _ = BbsPlusKeys::clear_prefix(did, u32::MAX, None);
+        let _ = PublicKeys::clear_prefix(did, u32::MAX, None);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())
@@ -143,9 +144,9 @@ impl<T: Config + Debug> Module<T> {
         )
     }
 
-    /// Try to execute an action signed by a DID that controls (possibly) another DID. This means nonce of signing DID
-    /// must be checked and increased if the action is successful. Also the DID Doc of the controlled
-    /// DID will change
+    /// Attempts to execute an action signed by a DID that controls (possibly) another DID.
+    /// This means nonce of signing DID must be checked and increased if the action is successful.
+    /// The DID details of the controlled DID can be changed.
     pub(crate) fn try_exec_signed_action_from_controller<A, F, R, E>(
         f: F,
         action: A,
@@ -164,8 +165,11 @@ impl<T: Config + Debug> Module<T> {
         )
     }
 
-    /// Same as `Self::try_exec_signed_action_from_controller` except that the DID
-    /// Doc of controlled DID might be removed on completion.
+    /// Attempts to execute an action signed by a DID that controls (possibly) another DID.
+    /// This means nonce of signing DID must be checked and increased if the action is successful.
+    /// The DID details of the controlled DID can be changed.
+    /// Unlike `try_exec_action_over_onchain_did`, this action may result in a removal of a DID,
+    /// if the value under option will be taken.
     pub(crate) fn try_exec_signed_removable_action_from_controller<A, F, R, E>(
         f: F,
         action: A,

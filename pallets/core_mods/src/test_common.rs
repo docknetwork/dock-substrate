@@ -1,9 +1,9 @@
 //! Boilerplate for runtime module unit tests
 
 use crate::{
-    accumulator, anchor, attest, bbs_plus, blob,
+    accumulator, anchor, attest, blob,
     did::{self, Did, DidKey, DidSignature},
-    keys_and_sigs, master, revoke, util, StateChange, ToStateChange,
+    keys_and_sigs, master, offchain_signatures, revoke, util, StateChange, ToStateChange,
 };
 
 use crate::{
@@ -45,7 +45,7 @@ frame_support::construct_runtime!(
         MasterMod: master::{Pallet, Call, Storage, Event<T>, Config},
         AnchorMod: anchor::{Pallet, Call, Storage, Event<T>},
         AttestMod: attest::{Pallet, Call, Storage},
-        BBSPlusMod: bbs_plus::{Pallet, Call, Storage, Event},
+        SignatureMod: offchain_signatures::{Pallet, Call, Storage, Event},
         AccumMod: accumulator::{Pallet, Call, Storage, Event},
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
     }
@@ -58,7 +58,7 @@ pub enum TestEvent {
     Master(crate::master::Event<Test>),
     Anchor(crate::anchor::Event<Test>),
     Unknown,
-    BBSPlus(bbs_plus::Event),
+    Signature(offchain_signatures::Event),
     Accum(accumulator::Event),
 }
 
@@ -110,9 +110,9 @@ impl From<crate::master::Event<Test>> for TestEvent {
     }
 }
 
-impl From<bbs_plus::Event> for TestEvent {
-    fn from(other: bbs_plus::Event) -> Self {
-        Self::BBSPlus(other)
+impl From<offchain_signatures::Event> for TestEvent {
+    fn from(other: offchain_signatures::Event) -> Self {
+        Self::Signature(other)
     }
 }
 
@@ -276,7 +276,7 @@ impl crate::attest::Config for Test {
     type StorageWeight = StorageWeight;
 }
 
-impl bbs_plus::Config for Test {
+impl offchain_signatures::Config for Test {
     type Event = TestEvent;
     type LabelMaxSize = LabelMaxSize;
     type LabelPerByteWeight = LabelPerByteWeight;

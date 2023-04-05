@@ -4,8 +4,8 @@ use super::*;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddBBSPlusParams<T: frame_system::Config> {
-    pub params: BBSPlusParameters,
+pub struct AddOffchainSignatureParams<T: frame_system::Config> {
+    pub params: OffchainSignatureParams,
     pub nonce: T::BlockNumber,
 }
 
@@ -13,8 +13,8 @@ pub struct AddBBSPlusParams<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddBBSPlusPublicKey<T: frame_system::Config> {
-    pub key: BBSPlusPublicKey,
+pub struct AddOffchainSignaturePublicKey<T: frame_system::Config> {
+    pub key: OffchainPublicKey,
     pub did: Did,
     pub nonce: T::BlockNumber,
 }
@@ -23,8 +23,8 @@ pub struct AddBBSPlusPublicKey<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveBBSPlusParams<T: frame_system::Config> {
-    pub params_ref: BBSPlusParametersStorageKey,
+pub struct RemoveOffchainSignatureParams<T: frame_system::Config> {
+    pub params_ref: OffchainSignatureParamsStorageKey,
     pub nonce: T::BlockNumber,
 }
 
@@ -32,20 +32,20 @@ pub struct RemoveBBSPlusParams<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveBBSPlusPublicKey<T: frame_system::Config> {
-    pub key_ref: BBSPlusPublicKeyStorageKey,
+pub struct RemoveOffchainSignaturePublicKey<T: frame_system::Config> {
+    pub key_ref: SignaturePublicKeyStorageKey,
     pub did: Did,
     pub nonce: T::BlockNumber,
 }
 
 crate::impl_action_with_nonce! {
     for Did:
-        AddBBSPlusPublicKey with 1 as len, did as target,
-        RemoveBBSPlusPublicKey with 1 as len, did as target
+        AddOffchainSignaturePublicKey with 1 as len, did as target,
+        RemoveOffchainSignaturePublicKey with 1 as len, did as target
 }
 
 crate::impl_action_with_nonce! {
     for ():
-        AddBBSPlusParams with 1 as len, () as target,
-        RemoveBBSPlusParams with 1 as len, () as target
+        AddOffchainSignatureParams with 1 as len, () as target,
+        RemoveOffchainSignatureParams with 1 as len, () as target
 }

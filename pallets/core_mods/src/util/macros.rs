@@ -84,7 +84,7 @@ macro_rules! impl_to_state_change {
 macro_rules! impl_action {
     (
         $type: ident for $target: ty: with
-        $($len: tt $(($($call: tt),*))?).+ as len,
+        $($len_field: tt $(($($len_call: tt),*))?).+ as len,
         $($target_field: tt $(($($target_call: tt),*))?).+ as target
     ) => {
         $crate::impl_to_state_change! { $type }
@@ -97,13 +97,13 @@ macro_rules! impl_action {
             }
 
             fn len(&self) -> u32 {
-                $crate::field_accessor!(self, $($len $(($($call)*))*).+ with as u32)
+                $crate::field_accessor!(self, $($len_field $(($($len_call)*))*).+ with as u32)
             }
         }
     };
     (
         $type: ident for $target: ty: with
-        $($len: tt $(($($call: tt),*))?).+ as len,
+        $($len_field: tt $(($($len_call: tt),*))?).+ as len,
         $($target_field: tt $(($($target_call: tt),*))?).+ as target
         no_state_change
     ) => {
@@ -115,7 +115,7 @@ macro_rules! impl_action {
             }
 
             fn len(&self) -> u32 {
-                $crate::field_accessor!(self, $($len $(($($call)*))*).+ with as u32)
+                $crate::field_accessor!(self, $($len_field $(($($len_call)*))*).+ with as u32)
             }
         }
     };
@@ -172,10 +172,8 @@ macro_rules! deposit_indexed_event {
 /// Implements two-direction `From`/`Into` and one-direction `Deref`/`DeferMut` traits for the supplied wrapper and type.
 #[macro_export]
 macro_rules! impl_wrapper {
-    ($wrapper: ident($type: ty) $(,$($tt: tt)*)?) => {
+    (no_wrapper_from_type $wrapper: ident($type: ty) $(,$($tt: tt)*)?) => {
         $($crate::impl_encode_decode_wrapper_tests! { $wrapper($type), $($tt)* })?
-
-        $crate::impl_wrapper_from_type_conversion! { $wrapper: $type }
 
         impl From<$wrapper> for $type {
             fn from(wrapper: $wrapper) -> $type {
@@ -196,6 +194,11 @@ macro_rules! impl_wrapper {
                 &mut self.0
             }
         }
+    };
+    ($wrapper: ident($type: ty) $(,$($tt: tt)*)?) => {
+        $crate::impl_wrapper! { no_wrapper_from_type $wrapper($type) $(,$($tt)*)? }
+
+        $crate::impl_wrapper_from_type_conversion! { $wrapper: $type }
     };
 }
 

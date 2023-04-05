@@ -1,5 +1,5 @@
 use core::{fmt::Debug, marker::PhantomData};
-use core_mods::{accumulator, bbs_plus, util::IncId};
+use core_mods::{accumulator, offchain_signatures, util::IncId};
 pub use core_mods::{
     did::{self, Config},
     runtime_api::CoreModsApi as CoreModsRuntimeApi,
@@ -51,23 +51,44 @@ where
     #[method(name = "core_mods_bbsPlusPublicKeyWithParams")]
     async fn bbs_plus_public_key_with_params(
         &self,
-        id: bbs_plus::BBSPlusPublicKeyStorageKey,
+        id: offchain_signatures::SignaturePublicKeyStorageKey,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<bbs_plus::BBSPlusPublicKeyWithParams>>;
+    ) -> RpcResult<Option<offchain_signatures::BBSPlusPublicKeyWithParams>>;
 
     #[method(name = "core_mods_bbsPlusParamsByDid")]
     async fn bbs_plus_params_by_did(
         &self,
-        owner: bbs_plus::BBSPlusParamsOwner,
+        owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, bbs_plus::BBSPlusParameters>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusParams>>;
 
     #[method(name = "core_mods_bbsPlusPublicKeysByDid")]
     async fn bbs_plus_public_keys_by_did(
         &self,
         did: did::Did,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams>>;
+
+    #[method(name = "core_mods_PSPublicKeyWithParams")]
+    async fn ps_public_key_with_params(
+        &self,
+        id: offchain_signatures::SignaturePublicKeyStorageKey,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Option<offchain_signatures::PSPublicKeyWithParams>>;
+
+    #[method(name = "core_mods_PSParamsByDid")]
+    async fn ps_params_by_did(
+        &self,
+        owner: offchain_signatures::SignatureParamsOwner,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParams>>;
+
+    #[method(name = "core_mods_PSPublicKeysByDid")]
+    async fn ps_public_keys_by_did(
+        &self,
+        did: did::Did,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSPublicKeyWithParams>>;
 
     #[method(name = "core_mods_accumulatorPublicKeyWithParams")]
     async fn accumulator_public_key_with_params(
@@ -156,9 +177,9 @@ where
     }
     async fn bbs_plus_public_key_with_params(
         &self,
-        id: bbs_plus::BBSPlusPublicKeyStorageKey,
+        id: offchain_signatures::SignaturePublicKeyStorageKey,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<bbs_plus::BBSPlusPublicKeyWithParams>> {
+    ) -> RpcResult<Option<offchain_signatures::BBSPlusPublicKeyWithParams>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -170,9 +191,9 @@ where
 
     async fn bbs_plus_params_by_did(
         &self,
-        owner: bbs_plus::BBSPlusParamsOwner,
+        owner: offchain_signatures::SignatureParamsOwner,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, bbs_plus::BBSPlusParameters>> {
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusParams>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -186,12 +207,54 @@ where
         &self,
         did: did::Did,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, bbs_plus::BBSPlusPublicKeyWithParams>> {
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.bbs_plus_public_keys_by_did(&at, did)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn ps_public_key_with_params(
+        &self,
+        id: offchain_signatures::SignaturePublicKeyStorageKey,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Option<offchain_signatures::PSPublicKeyWithParams>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.ps_public_key_with_params(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn ps_params_by_did(
+        &self,
+        owner: offchain_signatures::SignatureParamsOwner,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParams>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.ps_params_by_did(&at, owner)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn ps_public_keys_by_did(
+        &self,
+        did: did::Did,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSPublicKeyWithParams>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.ps_public_keys_by_did(&at, did)
             .map_err(Error)
             .map_err(Into::into)
     }

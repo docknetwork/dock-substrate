@@ -175,14 +175,15 @@ impl<T: Config + Debug> Module<T> {
         Ok(())
     }
 
-    pub fn get_public_key_with_params(
-        key_ref: &AccumPublicKeyStorageKey,
+    pub fn public_key_with_params(
+        (key_did, key_id): &AccumPublicKeyStorageKey,
     ) -> Option<AccumPublicKeyWithParams> {
-        AccumulatorKeys::get(&key_ref.0, &key_ref.1).map(|pk| {
+        AccumulatorKeys::get(&key_did, &key_id).map(|pk| {
             let params = match &pk.params_ref {
-                Some(r) => AccumulatorParams::get(r.0, r.1).map(|p| p),
+                Some((params_did, params_id)) => AccumulatorParams::get(params_did, params_id),
                 _ => None,
             };
+
             (pk, params)
         })
     }
@@ -192,7 +193,7 @@ impl<T: Config + Debug> Module<T> {
         id: &AccumulatorId,
     ) -> Option<(Vec<u8>, Option<AccumPublicKeyWithParams>)> {
         Accumulators::<T>::get(&id).map(|stored_acc| {
-            let pk_p = Self::get_public_key_with_params(&stored_acc.accumulator.key_ref());
+            let pk_p = Self::public_key_with_params(&stored_acc.accumulator.key_ref());
             (stored_acc.accumulator.accumulated().to_vec(), pk_p)
         })
     }
