@@ -102,7 +102,7 @@ impl Accumulator {
     }
 }
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug, Default)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct StoredAccumulatorOwnerCounters {

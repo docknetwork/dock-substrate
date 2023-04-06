@@ -135,7 +135,7 @@ decl_module! {
         // Weights are not yet determined by benchmarks and thus ignore processing time and also event storage
         // cost
 
-        #[weight = SubstrateWeight::<T>::add_params(&params, &signature)]
+        #[weight = SubstrateWeight::<T>::add_params(params, signature)]
         pub fn add_params(
             origin,
             params: AddAccumulatorParams<T>,
@@ -146,7 +146,7 @@ decl_module! {
             did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
         }
 
-        #[weight = SubstrateWeight::<T>::add_public(&public_key, &signature)]
+        #[weight = SubstrateWeight::<T>::add_public(public_key, signature)]
         pub fn add_public_key(
             origin,
             public_key: AddAccumulatorPublicKey<T>,
@@ -157,7 +157,7 @@ decl_module! {
             did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_public_key_, public_key, signature)
         }
 
-        #[weight = SubstrateWeight::<T>::remove_params(&remove, &signature)]
+        #[weight = SubstrateWeight::<T>::remove_params(remove, signature)]
         pub fn remove_params(
             origin,
             remove: RemoveAccumulatorParams<T>,
@@ -168,7 +168,7 @@ decl_module! {
             did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
         }
 
-        #[weight = SubstrateWeight::<T>::remove_public(&remove, &signature)]
+        #[weight = SubstrateWeight::<T>::remove_public(remove, signature)]
         pub fn remove_public_key(
             origin,
             remove: RemoveAccumulatorPublicKey<T>,
@@ -184,7 +184,7 @@ decl_module! {
         /// It logs an event with the accumulator id and accumulated value. For each new accumulator, its creation block
         /// is recorded in state to indicate from which block, the chain should be scanned for the accumulator's updates.
         /// Note: Weight is same for both kinds of accumulator even when universal takes a bit more space
-        #[weight = SubstrateWeight::<T>::add_accumulator(&add_accumulator, &signature)]
+        #[weight = SubstrateWeight::<T>::add_accumulator(add_accumulator, signature)]
         pub fn add_accumulator(
             origin,
             add_accumulator: AddAccumulator<T>,
@@ -200,7 +200,7 @@ decl_module! {
         /// privately communicating the updated witnesses. It logs an event with the accumulator id and the new
         /// accumulated value which is sufficient for a verifier. But the prover (who has a witness to update) needs
         /// the updates and the witness update info and is expected to look into the corresponding extrinsic arguments.
-        #[weight = SubstrateWeight::<T>::update_accumulator(&update, &signature)]
+        #[weight = SubstrateWeight::<T>::update_accumulator(update, signature)]
         pub fn update_accumulator(
             origin,
             update: UpdateAccumulator<T>,
@@ -211,7 +211,7 @@ decl_module! {
             did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::update_accumulator_, update, signature)
         }
 
-        #[weight = SubstrateWeight::<T>::remove_accumulator(&remove, &signature)]
+        #[weight = SubstrateWeight::<T>::remove_accumulator(remove, signature)]
         pub fn remove_accumulator(
             origin,
             remove: RemoveAccumulator<T>,

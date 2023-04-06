@@ -206,7 +206,7 @@ decl_module! {
         #[weight = SubstrateWeight::<T>::new_offchain(did_doc_ref.len() as u32)]
         pub fn new_offchain(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
             // Only `did_owner` can update or remove this DID
-            let did_owner = ensure_signed(origin)?.into();
+            let did_owner = ensure_signed(origin)?;
 
             Self::new_offchain_(did_owner, did, did_doc_ref)?;
             Ok(())
@@ -241,7 +241,7 @@ decl_module! {
 
         /// Add more keys from DID doc.
         /// **Does not** check if the key was already added.
-        #[weight = SubstrateWeight::<T>::add_keys(&keys, &sig)]
+        #[weight = SubstrateWeight::<T>::add_keys(keys, sig)]
         pub fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -252,7 +252,7 @@ decl_module! {
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
         /// **Note that removing all might make DID unusable**.
-        #[weight = SubstrateWeight::<T>::remove_keys(&keys, &sig)]
+        #[weight = SubstrateWeight::<T>::remove_keys(keys, sig)]
         pub fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -265,7 +265,7 @@ decl_module! {
         /// **Does not** require provided controllers to
         /// - have any key
         /// - exist on- or off-chain
-        #[weight = SubstrateWeight::<T>::add_controllers(&controllers, &sig)]
+        #[weight = SubstrateWeight::<T>::add_controllers(controllers, sig)]
         pub fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -277,7 +277,7 @@ decl_module! {
         /// Remove controllers.
         /// This is an atomic operation meaning that it will either remove all keys or do nothing.
         /// **Note that removing all might make DID unusable**.
-        #[weight = SubstrateWeight::<T>::remove_controllers(&controllers, &sig)]
+        #[weight = SubstrateWeight::<T>::remove_controllers(controllers, sig)]
         pub fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -287,7 +287,7 @@ decl_module! {
         }
 
         /// Add a single service endpoint.
-        #[weight = SubstrateWeight::<T>::add_service_endpoint(&service_endpoint, &sig)]
+        #[weight = SubstrateWeight::<T>::add_service_endpoint(service_endpoint, sig)]
         pub fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -296,7 +296,7 @@ decl_module! {
         }
 
         /// Remove a single service endpoint.
-        #[weight = SubstrateWeight::<T>::remove_service_endpoint(&service_endpoint, &sig)]
+        #[weight = SubstrateWeight::<T>::remove_service_endpoint(service_endpoint, sig)]
         pub fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -307,7 +307,7 @@ decl_module! {
         /// Remove the on-chain DID along with its keys, controllers, service endpoints and BBS+ keys.
         /// Other DID-controlled entities won't be removed.
         /// However, the authorization logic ensures that once a DID is removed, it loses its ability to control any DID.
-        #[weight = SubstrateWeight::<T>::remove_onchain_did(&removal, &sig)]
+        #[weight = SubstrateWeight::<T>::remove_onchain_did(removal, sig)]
         pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature<Controller>) -> DispatchResult {
             ensure_signed(origin)?;
 

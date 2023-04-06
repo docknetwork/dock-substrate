@@ -50,7 +50,7 @@ pub struct Attestation {
     pub iri: Option<Iri>,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -104,7 +104,7 @@ decl_storage! {
 
 decl_module! {
     pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
-        #[weight = SubstrateWeight::<T>::set_claim(&attests, &signature)]
+        #[weight = SubstrateWeight::<T>::set_claim(attests, signature)]
         fn set_claim(
             origin,
             attests: SetAttestationClaim<T>,
@@ -126,7 +126,7 @@ impl<T: Config + Debug> Module<T> {
         ensure!(prev.priority < attest.priority, Error::<T>::PriorityTooLow);
 
         // execute
-        Attestations::insert(&attester, &attest);
+        Attestations::insert(attester, &attest);
 
         Ok(())
     }

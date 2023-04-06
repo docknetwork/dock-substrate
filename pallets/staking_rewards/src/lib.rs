@@ -178,9 +178,8 @@ impl<T: Config> Module<T> {
             total_staked,
             total_issuance,
         );
-        let reward_proportion_of_max =
-            Perbill::from_rational(reward_as_per_npos, reward_curve.maximum * total_issuance);
-        reward_proportion_of_max
+
+        Perbill::from_rational(reward_as_per_npos, reward_curve.maximum * total_issuance)
     }
 
     /// Get emission per year according to NPoS as described in token economics doc here

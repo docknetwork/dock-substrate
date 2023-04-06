@@ -27,7 +27,7 @@ impl<T: Config + Debug> Module<T> {
         }
 
         for ctrl in &controllers {
-            DidControllers::insert(&did, &ctrl, ());
+            DidControllers::insert(did, ctrl, ());
             *active_controllers += 1;
         }
 
@@ -50,7 +50,7 @@ impl<T: Config + Debug> Module<T> {
         }
 
         for controller_did in &controllers {
-            DidControllers::remove(&did, controller_did);
+            DidControllers::remove(did, controller_did);
             *active_controllers -= 1;
         }
 

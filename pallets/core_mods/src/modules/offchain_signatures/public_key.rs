@@ -72,8 +72,7 @@ impl OffchainPublicKey {
             Error::<T>::PublicKeyTooBig
         );
         if let Some((did, params_id)) = self.params_ref() {
-            let params =
-                SignatureParams::get(&did, &params_id).ok_or(Error::<T>::ParamsDontExist)?;
+            let params = SignatureParams::get(did, params_id).ok_or(Error::<T>::ParamsDontExist)?;
 
             ensure!(
                 self.params_match_scheme(&params),
@@ -260,13 +259,13 @@ impl<T: Config + Debug> Module<T> {
         _: &mut OnChainDidDetails,
     ) -> DispatchResult {
         ensure!(
-            PublicKeys::contains_key(&did, &counter),
+            PublicKeys::contains_key(did, counter),
             Error::<T>::PublicKeyDoesntExist
         );
 
         ensure!(did == owner, Error::<T>::NotOwner);
 
-        PublicKeys::remove(&did, &counter);
+        PublicKeys::remove(did, counter);
 
         Self::deposit_event(Event::KeyRemoved(owner, counter));
         Ok(())

@@ -262,7 +262,7 @@ impl Secp256k1Keypair {
     }
 
     pub fn public(&self) -> libsecp256k1::PublicKey {
-        self.pk.clone()
+        self.pk
     }
 }
 

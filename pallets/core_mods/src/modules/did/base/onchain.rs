@@ -79,11 +79,11 @@ impl<T: Config + Debug> Module<T> {
 
         let mut last_key_id = IncId::new();
         for (key, key_id) in keys.into_iter().zip(&mut last_key_id) {
-            DidKeys::insert(&did, key_id, key);
+            DidKeys::insert(did, key_id, key);
         }
 
         for ctrl in &controllers {
-            DidControllers::insert(&did, &ctrl, ());
+            DidControllers::insert(did, ctrl, ());
         }
 
         let did_details = WithNonce::new(OnChainDidDetails::new(

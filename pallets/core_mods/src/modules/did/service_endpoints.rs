@@ -63,7 +63,7 @@ where
             Error::<T>::InvalidServiceEndpoint
         );
 
-        if Self::did_service_endpoints(&did, &id).is_some() {
+        if Self::did_service_endpoints(did, &id).is_some() {
             fail!(Error::<T>::ServiceEndpointAlreadyExists)
         }
         DidServiceEndpoints::insert(did, id, endpoint);
@@ -78,7 +78,7 @@ where
     ) -> Result<(), Error<T>> {
         ensure!(!id.is_empty(), Error::<T>::InvalidServiceEndpoint);
 
-        if Self::did_service_endpoints(&did, &id).is_none() {
+        if Self::did_service_endpoints(did, &id).is_none() {
             fail!(Error::<T>::ServiceEndpointDoesNotExist)
         }
         DidServiceEndpoints::remove(did, id);

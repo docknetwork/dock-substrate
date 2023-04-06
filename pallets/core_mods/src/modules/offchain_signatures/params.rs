@@ -196,11 +196,11 @@ impl<T: Config + Debug> Module<T> {
         ensure!(did == owner, Error::<T>::NotOwner);
 
         ensure!(
-            SignatureParams::contains_key(&did, &counter),
+            SignatureParams::contains_key(did, counter),
             Error::<T>::ParamsDontExist
         );
 
-        SignatureParams::remove(&did, &counter);
+        SignatureParams::remove(did, counter);
 
         Self::deposit_event(Event::ParamsRemoved(did, counter));
         Ok(())

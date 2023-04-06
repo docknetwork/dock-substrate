@@ -118,7 +118,7 @@ decl_module! {
         // Weights are not yet determined by benchmarks and thus ignore processing time and also event storage
         // cost
 
-        #[weight = SubstrateWeight::<T>::add_params(&params, signature)]
+        #[weight = SubstrateWeight::<T>::add_params(params, signature)]
         pub fn add_params(
             origin,
             params: AddOffchainSignatureParams<T>,
@@ -131,7 +131,7 @@ decl_module! {
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.
         /// This kind of key cannot be removed by calling `remove_keys` from the DID module but only by calling `remove_public_key` of this module.
-        #[weight = SubstrateWeight::<T>::add_public(&public_key, signature)]
+        #[weight = SubstrateWeight::<T>::add_public(public_key, signature)]
         pub fn add_public_key(
             origin,
             public_key: AddOffchainSignaturePublicKey<T>,
@@ -143,7 +143,7 @@ decl_module! {
             did::Pallet::<T>::try_exec_signed_action_from_controller(Self::add_public_key_, public_key, signature)
         }
 
-        #[weight = SubstrateWeight::<T>::remove_params(&remove, signature)]
+        #[weight = SubstrateWeight::<T>::remove_params(remove, signature)]
         pub fn remove_params(
             origin,
             remove: RemoveOffchainSignatureParams<T>,
@@ -156,7 +156,7 @@ decl_module! {
 
         /// Remove existing offchain signature public key. Only the DID controller can remove key and it should use the nonce from the DID module.
         /// This kind of key cannot be removed by calling `remove_keys` from the DID module.
-        #[weight = SubstrateWeight::<T>::remove_public(&remove, signature)]
+        #[weight = SubstrateWeight::<T>::remove_public(remove, signature)]
         pub fn remove_public_key(
             origin,
             remove: RemoveOffchainSignaturePublicKey<T>,

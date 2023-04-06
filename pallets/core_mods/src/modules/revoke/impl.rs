@@ -5,14 +5,14 @@ impl<T: Config + Debug> Module<T> {
     pub(super) fn new_registry_(AddRegistry { new_registry, id }: AddRegistry) -> DispatchResult {
         // check
         ensure!(new_registry.policy.valid(), RevErr::<T>::InvalidPolicy);
-        ensure!(!Registries::contains_key(&id), RevErr::<T>::RegExists);
+        ensure!(!Registries::contains_key(id), RevErr::<T>::RegExists);
         ensure!(
             T::MaxControllers::get() >= new_registry.policy.len(),
             RevErr::<T>::TooManyControllers
         );
 
         // execute
-        Registries::insert(&id, new_registry);
+        Registries::insert(id, new_registry);
 
         deposit_indexed_event!(RegistryAdded(id));
         Ok(())
@@ -28,7 +28,7 @@ impl<T: Config + Debug> Module<T> {
     ) -> DispatchResult {
         // execute
         for cred_id in &revoke_ids {
-            Revocations::insert(&registry_id, cred_id, ());
+            Revocations::insert(registry_id, cred_id, ());
         }
 
         deposit_indexed_event!(RevokedInRegistry(registry_id));
@@ -47,7 +47,7 @@ impl<T: Config + Debug> Module<T> {
 
         // execute
         for cred_id in &revoke_ids {
-            Revocations::remove(&registry_id, cred_id);
+            Revocations::remove(registry_id, cred_id);
         }
 
         deposit_indexed_event!(UnrevokedInRegistry(registry_id));
@@ -63,7 +63,7 @@ impl<T: Config + Debug> Module<T> {
 
         // execute
         // TODO: limit and cursor
-        let _ = Revocations::clear_prefix(&registry_id, u32::MAX, None);
+        let _ = Revocations::clear_prefix(registry_id, u32::MAX, None);
 
         deposit_indexed_event!(RegistryRemoved(registry_id));
         Ok(())

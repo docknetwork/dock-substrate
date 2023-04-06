@@ -124,7 +124,7 @@ impl<T: Config + attest::Config + Debug> Module<T> {
             .then(|| DidServiceEndpoints::iter_prefix(did));
         let attestation = params
             .intersects(AggregatedDidDetailsRequestParams::ATTESTATION)
-            .then(|| <attest::Pallet<T>>::attestation(&Attester(*did)));
+            .then(|| <attest::Pallet<T>>::attestation(Attester(*did)));
 
         Some(AggregatedDidDetailsResponse::new(
             *did,

@@ -97,7 +97,7 @@ decl_module! {
         const StorageWeight: Weight = T::StorageWeight::get();
 
         /// Create a new immutable blob.
-        #[weight = SubstrateWeight::<T>::new(&blob, &signature)]
+        #[weight = SubstrateWeight::<T>::new(blob, signature)]
         pub fn new(
             origin,
             blob: AddBlob<T>,
@@ -118,7 +118,7 @@ impl<T: Config + Debug> Module<T> {
             BlobError::<T>::BlobTooBig
         );
         ensure!(
-            !Blobs::contains_key(&blob.id),
+            !Blobs::contains_key(blob.id),
             BlobError::<T>::BlobAlreadyExists
         );
 
