@@ -4,7 +4,7 @@ use crate::{
     offchain_signatures,
     test_common::*,
     types::CurveType,
-    util::WrappedBytes,
+    util::Bytes,
 };
 use alloc::collections::BTreeMap;
 use frame_support::assert_err;
@@ -81,11 +81,8 @@ fn add_remove_params() {
         run_to_block(10);
 
         let params_bytes = vec![1u8; 600];
-        let mut params = BBSPlusParams::new(
-            WrappedBytes(vec![0, 1, 2, 3]),
-            params_bytes,
-            CurveType::Bls12381,
-        );
+        let mut params =
+            BBSPlusParams::new(Bytes(vec![0, 1, 2, 3]), params_bytes, CurveType::Bls12381);
         let ap = AddOffchainSignatureParams {
             params: params.clone().into(),
             nonce: next_nonce,
@@ -224,11 +221,8 @@ fn add_remove_params() {
 
         run_to_block(25);
 
-        let params_2 = BBSPlusParams::new(
-            WrappedBytes(vec![0, 9, 1]),
-            vec![9u8; 100],
-            CurveType::Bls12381,
-        );
+        let params_2 =
+            BBSPlusParams::new(Bytes(vec![0, 9, 1]), vec![9u8; 100], CurveType::Bls12381);
         let ap = AddOffchainSignatureParams {
             params: params_2.clone().into(),
             nonce: next_nonce_1,
@@ -837,11 +831,8 @@ fn add_remove_public_key() {
 
         run_to_block(80);
 
-        let params = BBSPlusParams::new(
-            WrappedBytes(vec![0, 1, 2, 3]),
-            vec![19; 100],
-            CurveType::Bls12381,
-        );
+        let params =
+            BBSPlusParams::new(Bytes(vec![0, 1, 2, 3]), vec![19; 100], CurveType::Bls12381);
         let ap = AddOffchainSignatureParams {
             params: params.clone().into(),
             nonce: next_nonce,

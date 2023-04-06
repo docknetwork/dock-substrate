@@ -1,5 +1,5 @@
 use super::*;
-use crate::util::WrappedBytes;
+use crate::util::Bytes;
 
 pub type AccumParametersStorageKey = (AccumulatorOwner, IncId);
 pub type AccumPublicKeyStorageKey = (AccumulatorOwner, IncId);
@@ -25,27 +25,27 @@ pub struct AccumulatorOwner(pub Did);
 
 crate::impl_wrapper!(AccumulatorOwner(Did), for rand use Did(rand::random()), with tests as acc_owner_tests);
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorParameters {
     /// The label (generating string) used to generate the params
-    pub label: Option<WrappedBytes>,
+    pub label: Option<Bytes>,
     pub curve_type: CurveType,
-    pub bytes: WrappedBytes,
+    pub bytes: Bytes,
 }
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorPublicKey {
     pub curve_type: CurveType,
-    pub bytes: WrappedBytes,
+    pub bytes: Bytes,
     /// The params used to generate the public key (`P_tilde` comes from params)
     pub params_ref: Option<AccumParametersStorageKey>,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub enum Accumulator {
@@ -53,15 +53,15 @@ pub enum Accumulator {
     Universal(UniversalAccumulator),
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorCommon {
-    pub accumulated: WrappedBytes,
+    pub accumulated: Bytes,
     pub key_ref: AccumPublicKeyStorageKey,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct UniversalAccumulator {
@@ -94,7 +94,7 @@ impl Accumulator {
         }
     }
 
-    pub fn set_new_accumulated(&mut self, new_accumulated: impl Into<WrappedBytes>) {
+    pub fn set_new_accumulated(&mut self, new_accumulated: impl Into<Bytes>) {
         match self {
             Accumulator::Positive(a) => a.accumulated = new_accumulated.into(),
             Accumulator::Universal(a) => a.common.accumulated = new_accumulated.into(),
@@ -110,7 +110,7 @@ pub struct StoredAccumulatorOwnerCounters {
     pub key_counter: IncId,
 }
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]

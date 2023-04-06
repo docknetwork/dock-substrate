@@ -3,7 +3,7 @@ use crate::{
     did::{Did, DidSignature},
     keys_and_sigs::SigValue,
     types::CurveType,
-    util::{IncId, WrappedBytes},
+    util::{Bytes, IncId},
     StorageVersion,
 };
 pub use actions::*;
@@ -57,8 +57,8 @@ decl_event!(
         ParamsRemoved(AccumulatorOwner, IncId),
         KeyAdded(AccumulatorOwner, IncId),
         KeyRemoved(AccumulatorOwner, IncId),
-        AccumulatorAdded(AccumulatorId, WrappedBytes),
-        AccumulatorUpdated(AccumulatorId, WrappedBytes),
+        AccumulatorAdded(AccumulatorId, Bytes),
+        AccumulatorUpdated(AccumulatorId, Bytes),
         AccumulatorRemoved(AccumulatorId),
     }
 );

@@ -2,7 +2,7 @@ use crate::{
     did::{Did, OnChainDidDetails},
     offchain_signatures::SignatureParams,
     types::CurveType,
-    util::{IncId, WrappedBytes},
+    util::{Bytes, IncId},
 };
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -18,7 +18,7 @@ use super::{
 pub type SignaturePublicKeyStorageKey = (Did, IncId);
 
 /// Public key for different signature schemes. Currently can be either BBS+ or Pointcheval-Sanders.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub enum OffchainPublicKey {
@@ -88,14 +88,14 @@ impl OffchainPublicKey {
 }
 
 /// Public key for the BBS+ signature scheme.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct BBSPlusPublicKey(OffchainPublicKeyBase);
 crate::impl_wrapper! { no_wrapper_from_type BBSPlusPublicKey(OffchainPublicKeyBase) }
 
 /// Public key for the Pointcheval-Sanders signature scheme.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct PSPublicKey(OffchainPublicKeyBase);
@@ -105,7 +105,7 @@ impl BBSPlusPublicKey {
     /// Instantiates new public key for the BBS+ signature scheme.
     /// This function doesn't validate supplied bytes.
     pub fn new(
-        bytes: impl Into<WrappedBytes>,
+        bytes: impl Into<Bytes>,
         params_ref: impl Into<Option<OffchainSignatureParamsStorageKey>>,
         curve_type: CurveType,
     ) -> Self {
@@ -121,7 +121,7 @@ impl BBSPlusPublicKey {
     /// This function doesn't validate supplied bytes.
     /// Participant id implies the usage of this key in threshold issuance.
     pub fn new_participant(
-        bytes: impl Into<WrappedBytes>,
+        bytes: impl Into<Bytes>,
         params_ref: impl Into<Option<OffchainSignatureParamsStorageKey>>,
         curve_type: CurveType,
         participant_id: u16,
@@ -148,7 +148,7 @@ impl PSPublicKey {
     /// Instantiates new public key for the Pointcheval-Sanders signature scheme.
     /// This function doesn't validate supplied bytes.
     pub fn new(
-        bytes: impl Into<WrappedBytes>,
+        bytes: impl Into<Bytes>,
         params_ref: impl Into<Option<OffchainSignatureParamsStorageKey>>,
         curve_type: CurveType,
     ) -> Self {
@@ -164,7 +164,7 @@ impl PSPublicKey {
     /// This function doesn't validate supplied bytes.
     /// Participant id implies the usage of this key in threshold issuance.
     pub fn new_participant(
-        bytes: impl Into<WrappedBytes>,
+        bytes: impl Into<Bytes>,
         params_ref: impl Into<Option<OffchainSignatureParamsStorageKey>>,
         curve_type: CurveType,
         participant_id: u16,
@@ -209,14 +209,15 @@ impl TryFrom<OffchainPublicKey> for PSPublicKey {
     }
 }
 
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+/// Defines shared base for the offchain signature public key. Can be changed later.
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct OffchainPublicKeyBase {
     /// The public key should be for the same curve as the parameters but a public key might not have
     /// parameters on chain
     pub curve_type: CurveType,
-    pub bytes: WrappedBytes,
+    pub bytes: Bytes,
     /// The params used to generate the public key
     pub params_ref: Option<OffchainSignatureParamsStorageKey>,
     /// Optional participant id used in threshold issuance.

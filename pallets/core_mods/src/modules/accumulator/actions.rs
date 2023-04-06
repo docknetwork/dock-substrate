@@ -1,7 +1,7 @@
 use super::*;
-use crate::util::WrappedBytes;
+use crate::util::Bytes;
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -10,7 +10,7 @@ pub struct AddAccumulatorPublicKey<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -19,7 +19,7 @@ pub struct AddAccumulatorParams<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -28,7 +28,7 @@ pub struct RemoveAccumulatorParams<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -37,7 +37,7 @@ pub struct RemoveAccumulatorPublicKey<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -47,7 +47,7 @@ pub struct AddAccumulator<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -57,16 +57,16 @@ pub struct RemoveAccumulator<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct UpdateAccumulator<T: frame_system::Config> {
     pub id: AccumulatorId,
-    pub new_accumulated: WrappedBytes,
-    pub additions: Option<Vec<WrappedBytes>>,
-    pub removals: Option<Vec<WrappedBytes>>,
-    pub witness_update_info: Option<WrappedBytes>,
+    pub new_accumulated: Bytes,
+    pub additions: Option<Vec<Bytes>>,
+    pub removals: Option<Vec<Bytes>>,
+    pub witness_update_info: Option<Bytes>,
     /// Next valid nonce, i.e. 1 greater than currently stored
     pub nonce: T::BlockNumber,
 }

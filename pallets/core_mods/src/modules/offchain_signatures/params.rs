@@ -1,7 +1,7 @@
 use crate::{
     did::Did,
     types::CurveType,
-    util::{IncId, WrappedBytes},
+    util::{Bytes, IncId},
 };
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -28,7 +28,7 @@ pub type BBSPlusPublicKeyWithParams = (BBSPlusPublicKey, Option<BBSPlusParams>);
 pub type PSPublicKeyWithParams = (PSPublicKey, Option<PSParams>);
 
 /// Signature parameters. Currently can be either BBS+ or Pointcheval-Sanders.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub enum OffchainSignatureParams {
@@ -81,14 +81,14 @@ impl OffchainSignatureParams {
 }
 
 /// Signature parameters for the BBS+ signature scheme.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct BBSPlusParams(SingatureParamsBase);
 crate::impl_wrapper! { no_wrapper_from_type BBSPlusParams(SingatureParamsBase) }
 
 /// Signature parameters for the Pointcheval-Sanders signature scheme.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct PSParams(SingatureParamsBase);
@@ -98,8 +98,8 @@ impl BBSPlusParams {
     /// Instantiates new parameters for the BBS+ signature scheme.
     /// This function doesn't validate supplied bytes.
     pub fn new(
-        label: impl Into<Option<WrappedBytes>>,
-        bytes: impl Into<WrappedBytes>,
+        label: impl Into<Option<Bytes>>,
+        bytes: impl Into<Bytes>,
         curve_type: CurveType,
     ) -> Self {
         Self(SingatureParamsBase {
@@ -114,8 +114,8 @@ impl PSParams {
     /// Instantiates new parameters for the BBS+ signature scheme.
     /// This function doesn't validate supplied bytes.
     pub fn new(
-        label: impl Into<Option<WrappedBytes>>,
-        bytes: impl Into<WrappedBytes>,
+        label: impl Into<Option<Bytes>>,
+        bytes: impl Into<Bytes>,
         curve_type: CurveType,
     ) -> Self {
         Self(SingatureParamsBase {
@@ -127,14 +127,14 @@ impl PSParams {
 }
 
 /// Defines shared base for the signature params. Can be changed later.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub struct SingatureParamsBase {
     /// The label (generating string) used to generate the params
-    pub label: Option<WrappedBytes>,
+    pub label: Option<Bytes>,
     pub curve_type: CurveType,
-    pub bytes: WrappedBytes,
+    pub bytes: Bytes,
 }
 
 impl From<BBSPlusParams> for OffchainSignatureParams {

@@ -5,7 +5,7 @@ use crate::{
     did,
     did::{Did, DidSignature},
     keys_and_sigs::SigValue,
-    util::WrappedBytes,
+    util::Bytes,
 };
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -47,7 +47,7 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 #[scale_info(omit_prefix)]
 pub struct Blob {
     pub id: BlobId,
-    pub blob: WrappedBytes,
+    pub blob: Bytes,
 }
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
@@ -86,7 +86,7 @@ decl_error! {
 decl_storage! {
     trait Store for Module<T: Config> as Blob where T: Debug {
         Blobs get(fn get_blob): map hasher(blake2_128_concat)
-            dock::blob::BlobId => Option<(BlobOwner, WrappedBytes)>;
+            dock::blob::BlobId => Option<(BlobOwner, Bytes)>;
     }
 }
 

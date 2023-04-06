@@ -1,10 +1,9 @@
 use super::*;
-use crate::{
-    deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info, util::WrappedBytes,
-};
+use crate::{deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info, util::Bytes};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 
+/// DID service endpoint.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -12,7 +11,7 @@ use core::fmt::Debug;
 #[scale_info(omit_prefix)]
 pub struct ServiceEndpoint {
     pub types: ServiceEndpointType,
-    pub origins: Vec<WrappedBytes>,
+    pub origins: Vec<Bytes>,
 }
 
 bitflags::bitflags! {

@@ -49,7 +49,7 @@ pub mod types {
     pub type Controller = controllers::Controller;
     pub type StoredOnChainDidDetails<T> = base::StoredOnChainDidDetails<T>;
     pub type OffChainDidDocRef = base::offchain::OffChainDidDocRef;
-    pub type WrappedBytes = crate::util::WrappedBytes;
+    pub type WrappedBytes = crate::util::Bytes;
 }
 
 #[cfg(feature = "runtime-benchmarks")]

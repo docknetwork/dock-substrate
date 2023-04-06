@@ -25,24 +25,24 @@ pub struct BBSPlusParamsOwner(pub Did);
 crate::impl_wrapper!(BBSPlusParamsOwner(Did), for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
 
 /// Public key for BBS+ keys
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BBSPlusPublicKey {
     /// The public key should be for the same curve as the parameters but a public key might not have
     /// parameters on chain
     pub curve_type: CurveType,
-    pub bytes: WrappedBytes,
+    pub bytes: Bytes,
     /// The params used to generate the public key (`g2` comes from params)
     pub params_ref: Option<OffchainSignatureParamsStorageKey>,
 }
 /// BBSPlus params
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct BBSPlusParameters {
     /// The label (generating string) used to generate the params
-    pub label: Option<WrappedBytes>,
+    pub label: Option<Bytes>,
     pub curve_type: CurveType,
-    pub bytes: WrappedBytes,
+    pub bytes: Bytes,
 }
 
 decl_module! {

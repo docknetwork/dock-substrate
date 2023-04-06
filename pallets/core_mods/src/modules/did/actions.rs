@@ -55,7 +55,7 @@ pub struct RemoveControllers<T: frame_system::Config> {
 pub struct AddServiceEndpoint<T: frame_system::Config> {
     pub did: Did,
     /// Endpoint id
-    pub id: WrappedBytes,
+    pub id: Bytes,
     /// Endpoint data
     pub endpoint: ServiceEndpoint,
     pub nonce: T::BlockNumber,
@@ -69,13 +69,13 @@ pub struct AddServiceEndpoint<T: frame_system::Config> {
 pub struct RemoveServiceEndpoint<T: frame_system::Config> {
     pub did: Did,
     /// Endpoint id to remove
-    pub id: WrappedBytes,
+    pub id: Bytes,
     pub nonce: T::BlockNumber,
 }
 
 /// This struct is passed as an argument while removing the DID
 /// `did` is the DID which is being removed.
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
