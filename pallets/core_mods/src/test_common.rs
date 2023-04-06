@@ -58,7 +58,7 @@ pub enum TestEvent {
     Master(crate::master::Event<Test>),
     Anchor(crate::anchor::Event<Test>),
     Unknown,
-    Signature(offchain_signatures::Event),
+    OffchainSignature(offchain_signatures::Event),
     Accum(accumulator::Event),
 }
 
@@ -112,7 +112,7 @@ impl From<crate::master::Event<Test>> for TestEvent {
 
 impl From<offchain_signatures::Event> for TestEvent {
     fn from(other: offchain_signatures::Event) -> Self {
-        Self::Signature(other)
+        Self::OffchainSignature(other)
     }
 }
 
