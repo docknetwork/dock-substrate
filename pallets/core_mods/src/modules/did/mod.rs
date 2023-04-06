@@ -49,7 +49,7 @@ pub mod types {
     pub type Controller = controllers::Controller;
     pub type StoredOnChainDidDetails<T> = base::StoredOnChainDidDetails<T>;
     pub type OffChainDidDocRef = base::offchain::OffChainDidDocRef;
-    pub type WrappedBytes = crate::util::Bytes;
+    pub type Bytes = crate::util::Bytes;
 }
 
 #[cfg(feature = "runtime-benchmarks")]
@@ -157,7 +157,7 @@ decl_storage! {
         /// Stores controlled - controller pairs of a DID as (DID, DID) -> zero-sized record. If a record exists, then the controller is bound.
         pub DidControllers get(fn bound_controller): double_map hasher(blake2_128_concat) types::Did, hasher(blake2_128_concat) types::Controller => Option<()>;
         /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
-        pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) types::Did, hasher(blake2_128_concat) types::WrappedBytes => Option<types::ServiceEndpoint>;
+        pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) types::Did, hasher(blake2_128_concat) types::Bytes => Option<types::ServiceEndpoint>;
 
         pub Version get(fn storage_version): StorageVersion;
     }

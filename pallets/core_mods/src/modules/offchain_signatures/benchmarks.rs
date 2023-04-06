@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     did::{Did, DidSignature, UncheckedDidKey},
     types::CurveType,
-    util::{IncId, WrappedBytes},
+    util::{Bytes, IncId},
     ToStateChange,
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
@@ -32,7 +32,7 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let params = BBSPlusParams::new(
-            WrappedBytes(vec![0; l as usize]),
+            Bytes(vec![0; l as usize]),
             vec![0; b as usize],
             CurveType::Bls12381,
         );
@@ -63,7 +63,7 @@ crate::bench_with_all_pairs! {
         Module::<T>::add_params_(
             AddOffchainSignatureParams {
                 params: BBSPlusParams::new(
-                    WrappedBytes(vec![1; MAX_LABEL as usize]),
+                    Bytes(vec![1; MAX_LABEL as usize]),
                     vec![0; MAX_PARAMS as usize],
                     CurveType::Bls12381,
                 ).into(),
@@ -103,7 +103,7 @@ crate::bench_with_all_pairs! {
         Module::<T>::add_params_(
             AddOffchainSignatureParams {
                 params: BBSPlusParams::new(
-                    WrappedBytes(vec![1; MAX_LABEL as usize]),
+                    Bytes(vec![1; MAX_LABEL as usize]),
                     vec![0; MAX_PARAMS as usize],
                     CurveType::Bls12381,
                 ).into(),
@@ -146,7 +146,7 @@ crate::bench_with_all_pairs! {
         Module::<T>::add_params_(
             AddOffchainSignatureParams {
                 params: BBSPlusParams::new(
-                    WrappedBytes(vec![1; MAX_LABEL as usize]),
+                    Bytes(vec![1; MAX_LABEL as usize]),
                     vec![0; MAX_PARAMS as usize],
                     CurveType::Bls12381,
                 ).into(),
@@ -159,7 +159,7 @@ crate::bench_with_all_pairs! {
             AddOffchainSignaturePublicKey {
                 did: did,
                 key: BBSPlusPublicKey::new(
-                    WrappedBytes(vec![0; MAX_KEY as usize].into()),
+                    Bytes(vec![0; MAX_KEY as usize].into()),
                     (SignatureParamsOwner(did), IncId::from(1u8)),
                     CurveType::Bls12381,
                 ).into(),

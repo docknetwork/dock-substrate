@@ -122,8 +122,10 @@ impl DidKey {
     pub fn new_with_all_relationships(public_key: impl Into<PublicKey>) -> Self {
         let public_key = public_key.into();
         let ver_rels = if public_key.can_sign() {
+            // If the key can be used for signing, mark it with all related relationships.
             VerRelType::ALL_FOR_SIGNING
         } else {
+            // The non-signing public key can be used only for key agreement currently.
             VerRelType::KEY_AGREEMENT
         };
 
