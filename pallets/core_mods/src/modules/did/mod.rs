@@ -330,7 +330,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_keys_sr25519,
             SigValue::Ed25519(_) => Self::add_keys_ed25519,
             SigValue::Secp256k1(_) => Self::add_keys_secp256k1,
-        }(keys.len() as u32))
+        }(keys.len()))
     }
 
     fn remove_keys(
@@ -341,7 +341,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_keys_sr25519,
             SigValue::Ed25519(_) => Self::remove_keys_ed25519,
             SigValue::Secp256k1(_) => Self::remove_keys_secp256k1,
-        }(keys.len() as u32))
+        }(keys.len()))
     }
 
     fn add_controllers(
@@ -352,7 +352,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::add_controllers_sr25519,
             SigValue::Ed25519(_) => Self::add_controllers_ed25519,
             SigValue::Secp256k1(_) => Self::add_controllers_secp256k1,
-        }(controllers.len() as u32))
+        }(controllers.len()))
     }
 
     fn remove_controllers(
@@ -363,7 +363,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
             SigValue::Sr25519(_) => Self::remove_controllers_sr25519,
             SigValue::Ed25519(_) => Self::remove_controllers_ed25519,
             SigValue::Secp256k1(_) => Self::remove_controllers_secp256k1,
-        }(controllers.len() as u32))
+        }(controllers.len()))
     }
 
     fn add_service_endpoint(

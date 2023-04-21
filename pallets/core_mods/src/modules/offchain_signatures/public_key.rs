@@ -1,8 +1,7 @@
 use crate::{
     did::{Did, OnChainDidDetails},
     offchain_signatures::{schemas::*, SignatureParams},
-    types::CurveType,
-    util::{Bytes, IncId},
+    util::IncId,
 };
 use codec::{Decode, Encode};
 use core::fmt::Debug;
@@ -10,9 +9,8 @@ use frame_support::{ensure, traits::Get, IterableStorageDoubleMap, StorageDouble
 use sp_runtime::DispatchResult;
 
 use super::{
-    AddOffchainSignaturePublicKey, BBSPlusPublicKeyWithParams, Config, Error, Event, Module,
-    OffchainSignatureParams, PSPublicKeyWithParams, PublicKeys, RemoveOffchainSignaturePublicKey,
-    SignatureParamsStorageKey,
+    AddOffchainSignaturePublicKey, Config, Error, Event, Module, OffchainSignatureParams,
+    PublicKeys, RemoveOffchainSignaturePublicKey, SignatureParamsStorageKey,
 };
 
 pub type SignaturePublicKeyStorageKey = (Did, IncId);

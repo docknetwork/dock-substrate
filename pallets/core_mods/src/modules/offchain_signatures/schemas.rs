@@ -1,19 +1,10 @@
-use crate::{
-    did::{Did, OnChainDidDetails},
-    offchain_signatures::SignatureParams,
-    types::CurveType,
-    util::{Bytes, IncId},
-};
+use crate::{offchain_signatures::SignatureParams, types::CurveType, util::Bytes};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
-use frame_support::{ensure, IterableStorageDoubleMap, StorageDoubleMap};
-use sp_runtime::{traits::CheckedConversion, DispatchResult};
+use frame_support::StorageDoubleMap;
+use sp_runtime::traits::CheckedConversion;
 
-use super::{
-    AddOffchainSignaturePublicKey, BBSPlusPublicKeyWithParams, Config, Error, Event, Module,
-    OffchainSignatureParams, PSPublicKeyWithParams, PublicKeys, RemoveOffchainSignaturePublicKey,
-    SignatureParamsStorageKey,
-};
+use super::{OffchainSignatureParams, SignatureParamsStorageKey};
 use crate::offchain_signatures::OffchainPublicKey;
 
 /// Defines public key and signature params for the given signature schema.

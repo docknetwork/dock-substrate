@@ -1,9 +1,4 @@
-use crate::{
-    did::Did,
-    offchain_signatures::schemas::*,
-    types::CurveType,
-    util::{Bytes, IncId},
-};
+use crate::{did::Did, offchain_signatures::schemas::*, util::IncId};
 use codec::{Decode, Encode};
 use core::fmt::Debug;
 use frame_support::{ensure, traits::Get, IterableStorageDoubleMap, StorageDoubleMap, StorageMap};
