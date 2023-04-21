@@ -1,5 +1,6 @@
 use crate::{
     did::Did,
+    offchain_signatures::schemas::*,
     types::CurveType,
     util::{Bytes, IncId},
 };
@@ -23,7 +24,8 @@ pub struct SignatureParamsOwner(pub Did);
 
 crate::impl_wrapper!(SignatureParamsOwner(Did), for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
 
-pub type OffchainSignatureParamsStorageKey = (SignatureParamsOwner, IncId);
+pub type SignatureParamsStorageKey = (SignatureParamsOwner, IncId);
+pub type BBSPublicKeyWithParams = (BBSPublicKey, Option<BBSParams>);
 pub type BBSPlusPublicKeyWithParams = (BBSPlusPublicKey, Option<BBSPlusParams>);
 pub type PSPublicKeyWithParams = (PSPublicKey, Option<PSParams>);
 
@@ -32,6 +34,8 @@ pub type PSPublicKeyWithParams = (PSPublicKey, Option<PSParams>);
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub enum OffchainSignatureParams {
+    /// Signature parameters for the BBS signature scheme.
+    BBS(BBSParams),
     /// Signature parameters for the BBS+ signature scheme.
     BBSPlus(BBSPlusParams),
     /// Signature parameters for the Pointcheval-Sanders signature scheme.
@@ -39,6 +43,11 @@ pub enum OffchainSignatureParams {
 }
 
 impl OffchainSignatureParams {
+    /// Returns underlying parameters if it corresponds to the BBS+ scheme.
+    pub fn into_bbs(self) -> Option<BBSParams> {
+        self.try_into().ok()
+    }
+
     /// Returns underlying parameters if it corresponds to the BBS+ scheme.
     pub fn into_bbs_plus(self) -> Option<BBSPlusParams> {
         self.try_into().ok()
@@ -52,6 +61,7 @@ impl OffchainSignatureParams {
     /// Returns underlying **unchecked** bytes representation for a key corresponding to either signature scheme.
     pub fn bytes(&self) -> &[u8] {
         match self {
+            Self::BBS(params) => &params.bytes[..],
             Self::BBSPlus(params) => &params.bytes[..],
             Self::PS(params) => &params.bytes[..],
         }
@@ -60,6 +70,7 @@ impl OffchainSignatureParams {
     /// Returns underlying label for a key corresponding to either signature scheme.
     pub fn label(&self) -> Option<&[u8]> {
         match self {
+            Self::BBS(params) => params.label.as_ref().map(|slice| &slice[..]),
             Self::BBSPlus(params) => params.label.as_ref().map(|slice| &slice[..]),
             Self::PS(params) => params.label.as_ref().map(|slice| &slice[..]),
         }
@@ -77,97 +88,6 @@ impl OffchainSignatureParams {
         );
 
         Ok(())
-    }
-}
-
-/// Signature parameters for the BBS+ signature scheme.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
-pub struct BBSPlusParams(SingatureParamsBase);
-crate::impl_wrapper! { no_wrapper_from_type BBSPlusParams(SingatureParamsBase) }
-
-/// Signature parameters for the Pointcheval-Sanders signature scheme.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
-pub struct PSParams(SingatureParamsBase);
-crate::impl_wrapper! { no_wrapper_from_type PSParams(SingatureParamsBase) }
-
-impl BBSPlusParams {
-    /// Instantiates new parameters for the BBS+ signature scheme.
-    /// This function doesn't validate supplied bytes.
-    pub fn new(
-        label: impl Into<Option<Bytes>>,
-        bytes: impl Into<Bytes>,
-        curve_type: CurveType,
-    ) -> Self {
-        Self(SingatureParamsBase {
-            label: label.into(),
-            curve_type,
-            bytes: bytes.into(),
-        })
-    }
-}
-
-impl PSParams {
-    /// Instantiates new parameters for the BBS+ signature scheme.
-    /// This function doesn't validate supplied bytes.
-    pub fn new(
-        label: impl Into<Option<Bytes>>,
-        bytes: impl Into<Bytes>,
-        curve_type: CurveType,
-    ) -> Self {
-        Self(SingatureParamsBase {
-            label: label.into(),
-            curve_type,
-            bytes: bytes.into(),
-        })
-    }
-}
-
-/// Defines shared base for the signature params. Can be changed later.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
-pub struct SingatureParamsBase {
-    /// The label (generating string) used to generate the params
-    pub label: Option<Bytes>,
-    pub curve_type: CurveType,
-    pub bytes: Bytes,
-}
-
-impl From<BBSPlusParams> for OffchainSignatureParams {
-    fn from(bbs_plus_params: BBSPlusParams) -> Self {
-        Self::BBSPlus(bbs_plus_params)
-    }
-}
-
-impl From<PSParams> for OffchainSignatureParams {
-    fn from(ps_params: PSParams) -> Self {
-        Self::PS(ps_params)
-    }
-}
-
-impl TryFrom<OffchainSignatureParams> for BBSPlusParams {
-    type Error = OffchainSignatureParams;
-
-    fn try_from(key: OffchainSignatureParams) -> Result<Self, OffchainSignatureParams> {
-        match key {
-            OffchainSignatureParams::BBSPlus(params) => Ok(params),
-            other => Err(other),
-        }
-    }
-}
-
-impl TryFrom<OffchainSignatureParams> for PSParams {
-    type Error = OffchainSignatureParams;
-
-    fn try_from(key: OffchainSignatureParams) -> Result<Self, OffchainSignatureParams> {
-        match key {
-            OffchainSignatureParams::PS(key) => Ok(key),
-            other => Err(other),
-        }
     }
 }
 

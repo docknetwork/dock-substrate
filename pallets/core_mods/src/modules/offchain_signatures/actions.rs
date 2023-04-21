@@ -24,7 +24,7 @@ pub struct AddOffchainSignaturePublicKey<T: frame_system::Config> {
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct RemoveOffchainSignatureParams<T: frame_system::Config> {
-    pub params_ref: OffchainSignatureParamsStorageKey,
+    pub params_ref: SignatureParamsStorageKey,
     pub nonce: T::BlockNumber,
 }
 

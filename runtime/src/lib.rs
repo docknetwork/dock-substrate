@@ -84,9 +84,9 @@ use sp_core::{crypto::KeyTypeId, OpaqueMetadata, H160, H256, U256};
 use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
-        AccountIdLookup, BlakeTwo256, Block as BlockT, ConvertInto, DispatchInfoOf, Dispatchable,
-        Extrinsic, IdentifyAccount, Keccak256, NumberFor, OpaqueKeys, PostDispatchInfoOf,
-        StaticLookup, UniqueSaturatedInto, Verify,
+        AccountIdLookup, BlakeTwo256, Block as BlockT, CheckedConversion, ConvertInto,
+        DispatchInfoOf, Dispatchable, Extrinsic, IdentifyAccount, Keccak256, NumberFor, OpaqueKeys,
+        PostDispatchInfoOf, StaticLookup, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
@@ -2392,28 +2392,55 @@ impl_runtime_apis! {
             dids.into_iter().map(|did| DIDModule::aggregate_did_details(&did, params)).collect()
         }
 
+        fn bbs_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPublicKeyWithParams> {
+            OffchainSignatures::did_public_key(did, key_id)
+                .and_then(CheckedConversion::checked_into)
+        }
+
+        fn bbs_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSParams> {
+            OffchainSignatures::did_params(&owner)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
+        }
+
+        fn bbs_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBSPublicKeyWithParams> {
+            OffchainSignatures::did_public_keys(&did)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
+        }
+
         fn bbs_plus_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPlusPublicKeyWithParams> {
-            OffchainSignatures::did_public_key(did, key_id).and_then(OffchainPublicKey::into_bbs_plus).map(BBSPlusPublicKey::with_params)
+            OffchainSignatures::did_public_key(did, key_id)
+                .and_then(CheckedConversion::checked_into)
         }
 
         fn bbs_plus_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSPlusParams> {
-            OffchainSignatures::did_params(&owner).filter_map(|(id, params)| params.into_bbs_plus().map(|bbs_plus_params| (id, bbs_plus_params))).collect()
+            OffchainSignatures::did_params(&owner)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
         }
 
         fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams> {
-            OffchainSignatures::did_public_keys(&did).filter_map(|(id, key)| key.into_bbs_plus().map(BBSPlusPublicKey::with_params).map(|key_with_params| (id, key_with_params))).collect()
+            OffchainSignatures::did_public_keys(&did)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
         }
 
         fn ps_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::PSPublicKeyWithParams> {
-            OffchainSignatures::did_public_key(did, key_id).and_then(OffchainPublicKey::into_ps).map(PSPublicKey::with_params)
+            OffchainSignatures::did_public_key(did, key_id)
+                .and_then(CheckedConversion::checked_into)
         }
 
         fn ps_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::PSParams> {
-            OffchainSignatures::did_params(&owner).filter_map(|(id, params)| params.into_ps().map(|ps_params| (id, ps_params))).collect()
+            OffchainSignatures::did_params(&owner)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
         }
 
         fn ps_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::PSPublicKeyWithParams> {
-            OffchainSignatures::did_public_keys(&did).filter_map(|(id, key)| key.into_ps().map(PSPublicKey::with_params).map(|key_with_params| (id, key_with_params))).collect()
+            OffchainSignatures::did_public_keys(&did)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
         }
 
         fn accumulator_public_key_with_params(id: accumulator::AccumPublicKeyStorageKey) -> Option<accumulator::AccumPublicKeyWithParams> {
@@ -2558,6 +2585,14 @@ impl_runtime_apis! {
             Ok(batches)
         }
     }
+}
+
+/// Executes `CheckedConversion::try_into` on the indexed item, returning the mapped indexed item in case of success.
+fn checked_convert_indexed_item<Idx, I, O>((idx, item): (Idx, I)) -> Option<(Idx, O)>
+where
+    I: TryInto<O>,
+{
+    item.checked_into().map(|item| (idx, item))
 }
 
 #[cfg(test)]

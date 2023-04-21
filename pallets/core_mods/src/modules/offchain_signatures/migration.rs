@@ -1,8 +1,8 @@
 use crate::{
     did::*,
     offchain_signatures::{
-        self, Config, OffchainPublicKey, OffchainSignatureParams,
-        OffchainSignatureParamsStorageKey, PublicKeys, SignatureParams, SignatureParamsOwner,
+        self, Config, OffchainPublicKey, OffchainSignatureParams, PublicKeys, SignatureParams,
+        SignatureParamsOwner, SignatureParamsStorageKey,
     },
     types::CurveType,
     util::*,
@@ -33,7 +33,7 @@ pub struct BBSPlusPublicKey {
     pub curve_type: CurveType,
     pub bytes: Bytes,
     /// The params used to generate the public key (`g2` comes from params)
-    pub params_ref: Option<OffchainSignatureParamsStorageKey>,
+    pub params_ref: Option<SignatureParamsStorageKey>,
 }
 /// BBSPlus params
 #[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]

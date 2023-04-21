@@ -51,6 +51,14 @@ macro_rules! with_each_scheme {
     ($key: ident, $params: ident $($tt: tt)+) => {
         mod bbs {
             use super::*;
+            use BBSPublicKey as $key;
+            use BBSParams as $params;
+
+            $($tt)+
+        }
+
+        mod bbs_plus {
+            use super::*;
             use BBSPlusPublicKey as $key;
             use BBSPlusParams as $params;
 
@@ -531,7 +539,7 @@ with_each_scheme! {
 
             run_to_block(15);
 
-            let mut key =   SchemeKey::new(vec![1u8; 200], None, CurveType::Bls12381);
+            let mut key = SchemeKey::new(vec![1u8; 200], None, CurveType::Bls12381);
             let ak = AddOffchainSignaturePublicKey {
                 key: key.clone().into(),
                 did: author.clone(),
@@ -982,7 +990,7 @@ with_each_scheme! {
             check_did_detail(&did, 1, 1, 1, next_nonce - 1);
             next_nonce_1 += 1;
 
-            let key =   SchemeKey::new(vec![8u8; 100], None, CurveType::Bls12381);
+            let key = SchemeKey::new(vec![8u8; 100], None, CurveType::Bls12381);
             let ak = AddOffchainSignaturePublicKey {
                 key: key.clone().into(),
                 did: did_1,
@@ -1040,7 +1048,7 @@ with_each_scheme! {
             let params = SchemeParams::new(None, vec![5; 100], CurveType::Bls12381);
             let params_1 = SchemeParams::new(None, vec![6; 100], CurveType::Bls12381);
 
-            let key =   SchemeKey::new(vec![1; 80], None, CurveType::Bls12381);
+            let key = SchemeKey::new(vec![1; 80], None, CurveType::Bls12381);
             let key_1 = SchemeKey::new(vec![2; 80], None, CurveType::Bls12381);
             let key_2 = SchemeKey::new(vec![3; 80], None, CurveType::Bls12381);
 
@@ -1271,7 +1279,7 @@ with_each_scheme! {
             let params_1 = SchemeParams::new(None, vec![6; 100], CurveType::Bls12381);
             let params_2 = SchemeParams::new(None, vec![7; 100], CurveType::Bls12381);
 
-            let key =   SchemeKey::new(vec![1; 80], None, CurveType::Bls12381);
+            let key = SchemeKey::new(vec![1; 80], None, CurveType::Bls12381);
             let key_1 = SchemeKey::new(
                 vec![2; 80],
                 Some((SignatureParamsOwner(author.clone()), 1u8.into())),

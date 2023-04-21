@@ -12,6 +12,12 @@ sp_api::decl_runtime_apis! {
 
         fn did_list_details(dids: Vec<did::Did>, params: Option<did::AggregatedDidDetailsRequestParams>) -> Vec<Option<did::AggregatedDidDetailsResponse<T>>>;
 
+        fn bbs_public_key_with_params(id: offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPublicKeyWithParams>;
+
+        fn bbs_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSParams>;
+
+        fn bbs_public_keys_by_did(did: crate::did::Did) -> BTreeMap<IncId, offchain_signatures::BBSPublicKeyWithParams>;
+
         fn bbs_plus_public_key_with_params(id: offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPlusPublicKeyWithParams>;
 
         fn bbs_plus_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSPlusParams>;

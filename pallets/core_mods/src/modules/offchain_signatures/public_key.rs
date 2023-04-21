@@ -1,6 +1,6 @@
 use crate::{
     did::{Did, OnChainDidDetails},
-    offchain_signatures::SignatureParams,
+    offchain_signatures::{schemas::*, SignatureParams},
     types::CurveType,
     util::{Bytes, IncId},
 };
@@ -11,8 +11,8 @@ use sp_runtime::DispatchResult;
 
 use super::{
     AddOffchainSignaturePublicKey, BBSPlusPublicKeyWithParams, Config, Error, Event, Module,
-    OffchainSignatureParams, OffchainSignatureParamsStorageKey, PSPublicKeyWithParams, PublicKeys,
-    RemoveOffchainSignaturePublicKey,
+    OffchainSignatureParams, PSPublicKeyWithParams, PublicKeys, RemoveOffchainSignaturePublicKey,
+    SignatureParamsStorageKey,
 };
 
 pub type SignaturePublicKeyStorageKey = (Did, IncId);
@@ -22,6 +22,8 @@ pub type SignaturePublicKeyStorageKey = (Did, IncId);
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub enum OffchainPublicKey {
+    /// Public key for the BBS signature scheme.
+    BBS(BBSPublicKey),
     /// Public key for the BBS+ signature scheme.
     BBSPlus(BBSPlusPublicKey),
     /// Public key for the Pointcheval-Sanders signature scheme.
@@ -29,6 +31,11 @@ pub enum OffchainPublicKey {
 }
 
 impl OffchainPublicKey {
+    /// Returns underlying public key if it corresponds to the BBS+ scheme.
+    pub fn into_bbs(self) -> Option<BBSPublicKey> {
+        self.try_into().ok()
+    }
+
     /// Returns underlying public key if it corresponds to the BBS+ scheme.
     pub fn into_bbs_plus(self) -> Option<BBSPlusPublicKey> {
         self.try_into().ok()
@@ -42,14 +49,16 @@ impl OffchainPublicKey {
     /// Returns underlying **unchecked** bytes representation for a key corresponding to either signature scheme.
     pub fn bytes(&self) -> &[u8] {
         match self {
-            Self::BBSPlus(params) => &params.bytes[..],
-            Self::PS(params) => &params.bytes[..],
+            Self::BBS(key) => &key.bytes[..],
+            Self::BBSPlus(key) => &key.bytes[..],
+            Self::PS(key) => &key.bytes[..],
         }
     }
 
     /// Returns underlying parameters reference for a key corresponding to either signature scheme.
-    pub fn params_ref(&self) -> Option<&OffchainSignatureParamsStorageKey> {
+    pub fn params_ref(&self) -> Option<&SignatureParamsStorageKey> {
         let opt = match self {
+            Self::BBS(bbs_key) => &bbs_key.params_ref,
             Self::BBSPlus(bbs_plus_key) => &bbs_plus_key.params_ref,
             Self::PS(ps_key) => &ps_key.params_ref,
         };
@@ -60,6 +69,7 @@ impl OffchainPublicKey {
     /// Returns `true` if supplied params have same scheme as the given key.
     pub fn params_match_scheme(&self, params: &OffchainSignatureParams) -> bool {
         match self {
+            Self::BBS(_) => matches!(params, OffchainSignatureParams::BBS(_)),
             Self::BBSPlus(_) => matches!(params, OffchainSignatureParams::BBSPlus(_)),
             Self::PS(_) => matches!(params, OffchainSignatureParams::PS(_)),
         }
@@ -83,155 +93,6 @@ impl OffchainPublicKey {
         };
 
         Ok(())
-    }
-}
-
-/// Public key for the BBS+ signature scheme.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
-pub struct BBSPlusPublicKey(OffchainPublicKeyBase);
-crate::impl_wrapper! { no_wrapper_from_type BBSPlusPublicKey(OffchainPublicKeyBase) }
-
-/// Public key for the Pointcheval-Sanders signature scheme.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
-pub struct PSPublicKey(OffchainPublicKeyBase);
-crate::impl_wrapper! { no_wrapper_from_type PSPublicKey(OffchainPublicKeyBase) }
-
-impl BBSPlusPublicKey {
-    /// Instantiates new public key for the BBS+ signature scheme.
-    /// This function doesn't validate supplied bytes.
-    pub fn new(
-        bytes: impl Into<Bytes>,
-        params_ref: impl Into<Option<OffchainSignatureParamsStorageKey>>,
-        curve_type: CurveType,
-    ) -> Self {
-        Self(OffchainPublicKeyBase {
-            bytes: bytes.into(),
-            params_ref: params_ref.into(),
-            curve_type,
-            participant_id: None,
-        })
-    }
-
-    /// Instantiates new public key with participant id for the BBS+ signature scheme.
-    /// This function doesn't validate supplied bytes.
-    /// Participant id implies the usage of this key in threshold issuance.
-    pub fn new_participant(
-        bytes: impl Into<Bytes>,
-        params_ref: impl Into<Option<OffchainSignatureParamsStorageKey>>,
-        curve_type: CurveType,
-        participant_id: u16,
-    ) -> Self {
-        let mut this = Self::new(bytes, params_ref, curve_type);
-        this.participant_id = Some(participant_id);
-
-        this
-    }
-
-    /// Combines BBS+ key with signature params (if exist and have BBS+ scheme).
-    pub fn with_params(self) -> BBSPlusPublicKeyWithParams {
-        let params = self
-            .params_ref
-            .as_ref()
-            .and_then(|(did, params_id)| SignatureParams::get(did, params_id))
-            .and_then(OffchainSignatureParams::into_bbs_plus);
-
-        (self, params)
-    }
-}
-
-impl PSPublicKey {
-    /// Instantiates new public key for the Pointcheval-Sanders signature scheme.
-    /// This function doesn't validate supplied bytes.
-    pub fn new(
-        bytes: impl Into<Bytes>,
-        params_ref: impl Into<Option<OffchainSignatureParamsStorageKey>>,
-        curve_type: CurveType,
-    ) -> Self {
-        Self(OffchainPublicKeyBase {
-            bytes: bytes.into(),
-            params_ref: params_ref.into(),
-            curve_type,
-            participant_id: None,
-        })
-    }
-
-    /// Instantiates new public key with participant id for the BBS+ signature scheme.
-    /// This function doesn't validate supplied bytes.
-    /// Participant id implies the usage of this key in threshold issuance.
-    pub fn new_participant(
-        bytes: impl Into<Bytes>,
-        params_ref: impl Into<Option<OffchainSignatureParamsStorageKey>>,
-        curve_type: CurveType,
-        participant_id: u16,
-    ) -> Self {
-        let mut this = Self::new(bytes, params_ref, curve_type);
-        this.participant_id = Some(participant_id);
-
-        this
-    }
-
-    /// Combines Pointcheval-Sanders key with signature params (if exist and have Pointcheval-Sanders scheme).
-    pub fn with_params(self) -> PSPublicKeyWithParams {
-        let params = self
-            .params_ref
-            .as_ref()
-            .and_then(|(did, params_id)| SignatureParams::get(did, params_id))
-            .and_then(OffchainSignatureParams::into_ps);
-
-        (self, params)
-    }
-}
-
-impl TryFrom<OffchainPublicKey> for BBSPlusPublicKey {
-    type Error = OffchainPublicKey;
-
-    fn try_from(key: OffchainPublicKey) -> Result<Self, OffchainPublicKey> {
-        match key {
-            OffchainPublicKey::BBSPlus(key) => Ok(key),
-            other => Err(other),
-        }
-    }
-}
-
-impl TryFrom<OffchainPublicKey> for PSPublicKey {
-    type Error = OffchainPublicKey;
-
-    fn try_from(key: OffchainPublicKey) -> Result<Self, OffchainPublicKey> {
-        match key {
-            OffchainPublicKey::PS(key) => Ok(key),
-            other => Err(other),
-        }
-    }
-}
-
-/// Defines shared base for the offchain signature public key. Can be changed later.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(omit_prefix)]
-pub struct OffchainPublicKeyBase {
-    /// The public key should be for the same curve as the parameters but a public key might not have
-    /// parameters on chain
-    pub curve_type: CurveType,
-    pub bytes: Bytes,
-    /// The params used to generate the public key
-    pub params_ref: Option<OffchainSignatureParamsStorageKey>,
-    /// Optional participant id used in threshold issuance.
-    pub participant_id: Option<u16>,
-}
-
-impl From<BBSPlusPublicKey> for OffchainPublicKey {
-    fn from(bbs_plus_key: BBSPlusPublicKey) -> Self {
-        Self::BBSPlus(bbs_plus_key)
-    }
-}
-
-impl From<PSPublicKey> for OffchainPublicKey {
-    fn from(ps_key: PSPublicKey) -> Self {
-        Self::PS(ps_key)
     }
 }
 
