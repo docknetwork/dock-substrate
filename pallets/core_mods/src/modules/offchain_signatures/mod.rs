@@ -1,5 +1,5 @@
 //! Module to store offchain signature keys and parameters for different signature schemes.
-//! Currently can be either BBS+ or Pointcheval-Sanders.
+//! Currently can be either BBS, BBS+ or Pointcheval-Sanders.
 
 use crate::{
     did,

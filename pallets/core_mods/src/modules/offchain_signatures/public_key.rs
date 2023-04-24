@@ -15,7 +15,7 @@ use super::{
 
 pub type SignaturePublicKeyStorageKey = (Did, IncId);
 
-/// Public key for different signature schemes. Currently can be either BBS+ or Pointcheval-Sanders.
+/// Public key for different signature schemes. Currently can be either BBS, BBS+ or Pointcheval-Sanders.
 #[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
@@ -29,7 +29,7 @@ pub enum OffchainPublicKey {
 }
 
 impl OffchainPublicKey {
-    /// Returns underlying public key if it corresponds to the BBS+ scheme.
+    /// Returns underlying public key if it corresponds to the BBS scheme.
     pub fn into_bbs(self) -> Option<BBSPublicKey> {
         self.try_into().ok()
     }

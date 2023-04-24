@@ -680,11 +680,6 @@ frame_election_provider_support::generate_solution_type!(
     >(16)
 );
 
-type EnsureRootOrHalfCouncil = EitherOfDiverse<
-    EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
->;
-
 /// The numbers configured here could always be more than the the maximum limits of staking pallet
 /// to ensure election snapshot will not run out of memory. For now, we set them to smaller values
 /// since the staking is bounded and the weight pipeline takes hours for this single pallet.
@@ -737,7 +732,10 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
         AccountId,
         pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
     >;
-    type ForceOrigin = EnsureRootOrHalfCouncil;
+    type ForceOrigin = EitherOfDiverse<
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
+    >;
 
     type Event = Event;
     type Currency = Balances;
@@ -856,7 +854,7 @@ impl OverriddenLengthFee {
             .or_else(|| match call {
                 Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
                     Self::is_preimage_with_deposit(proposal)
-                        .then_some(Self::last_council_execute_was_successful as _)
+                        .then_some(Self::last_council_execute_was_successful)
                         .map(|check| Self::PartialIf {
                             len: len / Self::BASE_LENGTH_DIVIDER,
                             check,
