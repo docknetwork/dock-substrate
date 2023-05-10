@@ -15,7 +15,7 @@ use super::{
 
 pub type SignaturePublicKeyStorageKey = (Did, IncId);
 
-/// Public key for different signature schemes. Currently can be either BBS, BBS+ or Pointcheval-Sanders.
+/// Public key for different signature schemes. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 #[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
@@ -75,10 +75,14 @@ impl OffchainPublicKey {
 
     /// Ensures that supplied key has a valid size and has constrained parameters.
     pub fn ensure_valid<T: Config + Debug>(&self) -> Result<(), Error<T>> {
+        let max_size = matches!(self, Self::PS(_))
+            .then(T::PSPublicKeyMaxSize::get)
+            .unwrap_or_else(T::BBSPublicKeyMaxSize::get);
         ensure!(
-            T::PublicKeyMaxSize::get() as usize >= self.bytes().len(),
+            max_size as usize >= self.bytes().len(),
             Error::<T>::PublicKeyTooBig
         );
+
         if let Some((did, params_id)) = self.params_ref() {
             let params = SignatureParams::get(did, params_id).ok_or(Error::<T>::ParamsDontExist)?;
 

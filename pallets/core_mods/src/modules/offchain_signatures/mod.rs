@@ -1,5 +1,5 @@
 //! Module to store offchain signature keys and parameters for different signature schemes.
-//! Currently can be either BBS, BBS+ or Pointcheval-Sanders.
+//! Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 
 use crate::{
     did,
@@ -47,8 +47,10 @@ pub trait Config: system::Config + did::Config {
     type ParamsMaxSize: Get<u32>;
     /// Weight consumed per byte of the params. This will determine the cost of the transaction.
     type ParamsPerByteWeight: Get<Weight>;
-    /// Maximum byte size of the public key. This depends only on the chosen elliptic curve.
-    type PublicKeyMaxSize: Get<u32>;
+    /// Maximum byte size of the `BBS`/`BBS+` (fixed) public key. This depends only on the chosen elliptic curve.
+    type BBSPublicKeyMaxSize: Get<u32>;
+    /// Maximum byte size of the `PS` public key. This depends only on the chosen elliptic curve.
+    type PSPublicKeyMaxSize: Get<u32>;
     /// Weight consumed per byte of the public key. This will determine the cost of the transaction.
     type PublicKeyPerByteWeight: Get<Weight>;
     /// The overarching event type.
@@ -112,7 +114,8 @@ decl_module! {
         const LabelPerByteWeight: Weight = T::LabelPerByteWeight::get();
         const ParamsMaxSize: u32 = T::ParamsMaxSize::get();
         const ParamsPerByteWeight: Weight = T::ParamsPerByteWeight::get();
-        const PublicKeyMaxSize: u32 = T::ParamsMaxSize::get();
+        const BBSPublicKeyMaxSize: u32 = T::BBSPublicKeyMaxSize::get();
+        const PSPublicKeyMaxSize: u32 = T::PSPublicKeyMaxSize::get();
         const PublicKeyPerByteWeight: Weight = T::PublicKeyPerByteWeight::get();
 
         // Note: The weights for the dispatchables below consider only the major contributions, i.e. storage

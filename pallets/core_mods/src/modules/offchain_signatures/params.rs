@@ -24,7 +24,7 @@ pub type BBSPublicKeyWithParams = (BBSPublicKey, Option<BBSParams>);
 pub type BBSPlusPublicKeyWithParams = (BBSPlusPublicKey, Option<BBSPlusParams>);
 pub type PSPublicKeyWithParams = (PSPublicKey, Option<PSParams>);
 
-/// Signature parameters. Currently can be either BBS, BBS+ or Pointcheval-Sanders.
+/// Signature parameters. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 #[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]

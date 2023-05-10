@@ -1034,7 +1034,8 @@ parameter_types! {
     // 16KB
     pub const ParamsMaxSize: u32 = 65536;
     pub const ParamsPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const PublicKeyMaxSize: u32 = 256;
+    pub const FixedPublicKeyMaxSize: u32 = 256;
+    pub const PSPublicKeyMaxSize: u32 = 65536;
     pub const PublicKeyPerByteWeight: Weight = Weight::from_ref_time(10);
     pub const AccumulatorParamsMaxSize: u32 = 512;
     pub const AccumulatorParamsPerByteWeight: Weight = Weight::from_ref_time(10);
@@ -1072,7 +1073,8 @@ impl offchain_signatures::Config for Runtime {
     type LabelPerByteWeight = LabelPerByteWeight;
     type ParamsMaxSize = ParamsMaxSize;
     type ParamsPerByteWeight = ParamsPerByteWeight;
-    type PublicKeyMaxSize = PublicKeyMaxSize;
+    type BBSPublicKeyMaxSize = FixedPublicKeyMaxSize;
+    type PSPublicKeyMaxSize = PSPublicKeyMaxSize;
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
 }
 
@@ -1082,7 +1084,7 @@ impl accumulator::Config for Runtime {
     type LabelPerByteWeight = LabelPerByteWeight;
     type ParamsMaxSize = AccumulatorParamsMaxSize;
     type ParamsPerByteWeight = AccumulatorParamsPerByteWeight;
-    type PublicKeyMaxSize = PublicKeyMaxSize;
+    type PublicKeyMaxSize = FixedPublicKeyMaxSize;
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
     type AccumulatedMaxSize = AccumulatedMaxSize;
     type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
