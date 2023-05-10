@@ -246,7 +246,7 @@ parameter_types! {
     pub const ParamsMaxSize: u32 = 512;
     pub const ParamsPerByteWeight: Weight = Weight::from_ref_time(10);
     pub const FixedPublicKeyMaxSize: u32 = 128;
-    pub const PSPublicKeyMaxSize: u32 = 1024;
+    pub const PSPublicKeyMaxSize: u32 = 128;
     pub const PublicKeyPerByteWeight: Weight = Weight::from_ref_time(10);
     pub const AccumulatedMaxSize: u32 = 256;
     pub const AccumulatedPerByteWeight: Weight = Weight::from_ref_time(10);
