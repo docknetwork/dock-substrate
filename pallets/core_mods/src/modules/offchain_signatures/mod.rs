@@ -49,7 +49,8 @@ pub trait Config: system::Config + did::Config {
     type ParamsPerByteWeight: Get<Weight>;
     /// Maximum byte size of the `BBS`/`BBS+` (fixed) public key. This depends only on the chosen elliptic curve.
     type BBSPublicKeyMaxSize: Get<u32>;
-    /// Maximum byte size of the `PS` public key. This depends only on the chosen elliptic curve.
+    /// Maximum byte size of the `PS` public key. This depends on the chosen elliptic curve and the number
+    /// of messages that can be signed.
     type PSPublicKeyMaxSize: Get<u32>;
     /// Weight consumed per byte of the public key. This will determine the cost of the transaction.
     type PublicKeyPerByteWeight: Get<Weight>;
