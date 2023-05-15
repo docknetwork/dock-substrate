@@ -7,8 +7,11 @@ use sp_runtime::traits::CheckedConversion;
 use super::{OffchainSignatureParams, SignatureParamsStorageKey};
 use crate::offchain_signatures::OffchainPublicKey;
 
+/// Identifier of the participant used in the threshold issuance.
+pub type ParticipantId = u16;
+
 /// Defines public key and signature params for the given signature schema.
-macro_rules! def_signature_schema_key_and_params {
+macro_rules! def_signature_scheme_key_and_params {
     (for $schema: ident: $(#[$key_meta:meta])* $key: ident, $(#[$params_meta:meta])* $params: ident) => {
         $(#[$key_meta])*
         #[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
@@ -22,11 +25,11 @@ macro_rules! def_signature_schema_key_and_params {
             /// The params used to generate the public key
             pub(crate) params_ref: Option<SignatureParamsStorageKey>,
             /// Optional participant id used in threshold issuance.
-            pub(crate) participant_id: Option<u16>,
+            pub(crate) participant_id: Option<ParticipantId>,
         }
 
         impl $key {
-            /// Instantiates new public key for the BBS+ signature scheme.
+            /// Instantiates new public key for the signature scheme.
             /// This function doesn't validate supplied bytes.
             pub fn new(
                 bytes: impl Into<Bytes>,
@@ -41,14 +44,14 @@ macro_rules! def_signature_schema_key_and_params {
                 }
             }
 
-            /// Instantiates new public key with participant id for the BBS+ signature scheme.
+            /// Instantiates new public key with participant id for the signature scheme.
             /// This function doesn't validate supplied bytes.
             /// Participant id implies the usage of this key in threshold issuance.
-            pub fn new_participant(
+            pub fn new_with_participant_id(
                 bytes: impl Into<Bytes>,
                 params_ref: impl Into<Option<SignatureParamsStorageKey>>,
                 curve_type: CurveType,
-                participant_id: u16,
+                participant_id: ParticipantId,
             ) -> Self {
                 let mut this = Self::new(bytes, params_ref, curve_type);
                 this.participant_id = Some(participant_id);
@@ -56,7 +59,7 @@ macro_rules! def_signature_schema_key_and_params {
                 this
             }
 
-            /// Combines BBS+ key with signature params (if exist and have BBS+ scheme).
+            /// Combines key with signature params (if exist and have same scheme).
             pub fn with_params(self) -> ($key, Option<$params>) {
                 let params = self
                     .params_ref
@@ -114,7 +117,7 @@ macro_rules! def_signature_schema_key_and_params {
         }
 
         impl $params {
-            /// Instantiates new parameters for the BBS+ signature scheme.
+            /// Instantiates new parameters for the signature scheme.
             /// This function doesn't validate supplied bytes.
             pub fn new(
                 label: impl Into<Option<Bytes>>,
@@ -148,7 +151,7 @@ macro_rules! def_signature_schema_key_and_params {
     }
 }
 
-def_signature_schema_key_and_params! {
+def_signature_scheme_key_and_params! {
     for BBS:
         /// Public key for the BBS signature scheme.
         BBSPublicKey,
@@ -156,7 +159,7 @@ def_signature_schema_key_and_params! {
         BBSParams
 }
 
-def_signature_schema_key_and_params! {
+def_signature_scheme_key_and_params! {
     for BBSPlus:
         /// Public key for the BBS+ signature scheme.
         BBSPlusPublicKey,
@@ -164,7 +167,7 @@ def_signature_schema_key_and_params! {
         BBSPlusParams
 }
 
-def_signature_schema_key_and_params! {
+def_signature_scheme_key_and_params! {
     for PS:
         /// Public key for the PS signature scheme.
         PSPublicKey,

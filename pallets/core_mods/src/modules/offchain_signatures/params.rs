@@ -53,7 +53,7 @@ impl OffchainSignatureParams {
         self.try_into().ok()
     }
 
-    /// Returns underlying **unchecked** bytes representation for a key corresponding to either signature scheme.
+    /// Returns underlying **unchecked** bytes representation for parameters corresponding to either signature scheme.
     pub fn bytes(&self) -> &[u8] {
         match self {
             Self::BBS(params) => &params.bytes[..],
