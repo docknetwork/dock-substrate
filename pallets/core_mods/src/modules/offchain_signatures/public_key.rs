@@ -1,6 +1,6 @@
 use crate::{
     did::{Did, OnChainDidDetails},
-    offchain_signatures::{schemas::*, SignatureParams},
+    offchain_signatures::{schemes::*, SignatureParams},
     util::IncId,
 };
 use codec::{Decode, Encode};

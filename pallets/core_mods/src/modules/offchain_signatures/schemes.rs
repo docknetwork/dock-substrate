@@ -10,9 +10,9 @@ use crate::offchain_signatures::OffchainPublicKey;
 /// Identifier of the participant used in the threshold issuance.
 pub type ParticipantId = u16;
 
-/// Defines public key and signature params for the given signature schema.
+/// Defines public key and signature params for the given signature scheme.
 macro_rules! def_signature_scheme_key_and_params {
-    (for $schema: ident: $(#[$key_meta:meta])* $key: ident, $(#[$params_meta:meta])* $params: ident) => {
+    (for $scheme: ident: $(#[$key_meta:meta])* $key: ident, $(#[$params_meta:meta])* $params: ident) => {
         $(#[$key_meta])*
         #[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -79,7 +79,7 @@ macro_rules! def_signature_scheme_key_and_params {
 
         impl From<$key> for OffchainPublicKey {
             fn from(key: $key) -> Self {
-                Self::$schema(key)
+                Self::$scheme(key)
             }
         }
 
@@ -88,7 +88,7 @@ macro_rules! def_signature_scheme_key_and_params {
 
             fn try_from(key: OffchainPublicKey) -> Result<$key, OffchainPublicKey> {
                 match key {
-                    OffchainPublicKey::$schema(key) => Ok(key),
+                    OffchainPublicKey::$scheme(key) => Ok(key),
                     other => Err(other),
                 }
             }
@@ -99,7 +99,7 @@ macro_rules! def_signature_scheme_key_and_params {
 
             fn try_from(key: OffchainPublicKey) -> Result<($key, Option<$params>), OffchainPublicKey> {
                 match key {
-                    OffchainPublicKey::$schema(key) => Ok(key.with_params()),
+                    OffchainPublicKey::$scheme(key) => Ok(key.with_params()),
                     other => Err(other),
                 }
             }
@@ -134,7 +134,7 @@ macro_rules! def_signature_scheme_key_and_params {
 
         impl From<$params> for OffchainSignatureParams {
             fn from(ps_params: $params) -> Self {
-                Self::$schema(ps_params)
+                Self::$scheme(ps_params)
             }
         }
 
@@ -143,7 +143,7 @@ macro_rules! def_signature_scheme_key_and_params {
 
             fn try_from(key: OffchainSignatureParams) -> Result<$params, OffchainSignatureParams> {
                 match key {
-                    OffchainSignatureParams::$schema(params) => Ok(params),
+                    OffchainSignatureParams::$scheme(params) => Ok(params),
                     other => Err(other),
                 }
             }

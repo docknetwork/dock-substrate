@@ -23,7 +23,7 @@ use weights::*;
 pub use actions::*;
 pub use params::*;
 pub use public_key::*;
-pub use schemas::*;
+pub use schemes::*;
 
 mod actions;
 #[cfg(feature = "runtime-benchmarks")]
@@ -31,7 +31,7 @@ mod benchmarks;
 mod migration;
 mod params;
 mod public_key;
-mod schemas;
+mod schemes;
 #[cfg(test)]
 mod tests;
 mod weights;
