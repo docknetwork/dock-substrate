@@ -52,7 +52,7 @@ macro_rules! with_each_scheme {
         mod bbs {
             use super::*;
             use BBSPublicKey as $key;
-            use BBSParams as $params;
+            use BBSParameters as $params;
 
             $($tt)+
         }
@@ -60,7 +60,7 @@ macro_rules! with_each_scheme {
         mod bbs_plus {
             use super::*;
             use BBSPlusPublicKey as $key;
-            use BBSPlusParams as $params;
+            use BBSPlusParameters as $params;
 
             $($tt)+
         }
@@ -68,7 +68,7 @@ macro_rules! with_each_scheme {
         mod ps {
             use super::*;
             use PSPublicKey as $key;
-            use PSParams as $params;
+            use PSParameters as $params;
 
             $($tt)+
         }

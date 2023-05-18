@@ -316,9 +316,12 @@ decl_module! {
         }
 
         /// Adds `StateChange` to the metadata.
-        #[weight = <T as frame_system::Config>::DbWeight::get().reads(1)]
+        #[weight = <T as frame_system::Config>::DbWeight::get().writes(10)]
         #[doc(hidden)]
-        fn _noop(_o, _s: crate::StateChange<'static, T>) -> DispatchResult {
+        fn _noop(
+            _o,
+            _s: crate::StateChange<'static, T>
+        ) -> DispatchResult {
             Err(DispatchError::BadOrigin)
         }
     }

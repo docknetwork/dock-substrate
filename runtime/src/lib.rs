@@ -2397,7 +2397,7 @@ impl_runtime_apis! {
                 .and_then(CheckedConversion::checked_into)
         }
 
-        fn bbs_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSParams> {
+        fn bbs_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSParameters> {
             OffchainSignatures::did_params(&owner)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
@@ -2414,7 +2414,7 @@ impl_runtime_apis! {
                 .and_then(CheckedConversion::checked_into)
         }
 
-        fn bbs_plus_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSPlusParams> {
+        fn bbs_plus_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSPlusParameters> {
             OffchainSignatures::did_params(&owner)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
@@ -2431,7 +2431,7 @@ impl_runtime_apis! {
                 .and_then(CheckedConversion::checked_into)
         }
 
-        fn ps_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::PSParams> {
+        fn ps_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::PSParameters> {
             OffchainSignatures::did_params(&owner)
                 .filter_map(checked_convert_indexed_item)
                 .collect()

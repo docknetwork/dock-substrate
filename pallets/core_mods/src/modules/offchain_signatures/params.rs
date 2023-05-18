@@ -20,9 +20,9 @@ pub struct SignatureParamsOwner(pub Did);
 crate::impl_wrapper!(SignatureParamsOwner(Did), for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
 
 pub type SignatureParamsStorageKey = (SignatureParamsOwner, IncId);
-pub type BBSPublicKeyWithParams = (BBSPublicKey, Option<BBSParams>);
-pub type BBSPlusPublicKeyWithParams = (BBSPlusPublicKey, Option<BBSPlusParams>);
-pub type PSPublicKeyWithParams = (PSPublicKey, Option<PSParams>);
+pub type BBSPublicKeyWithParams = (BBSPublicKey, Option<BBSParameters>);
+pub type BBSPlusPublicKeyWithParams = (BBSPlusPublicKey, Option<BBSPlusParameters>);
+pub type PSPublicKeyWithParams = (PSPublicKey, Option<PSParameters>);
 
 /// Signature parameters. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 #[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
@@ -30,26 +30,26 @@ pub type PSPublicKeyWithParams = (PSPublicKey, Option<PSParams>);
 #[scale_info(omit_prefix)]
 pub enum OffchainSignatureParams {
     /// Signature parameters for the BBS signature scheme.
-    BBS(BBSParams),
+    BBS(BBSParameters),
     /// Signature parameters for the BBS+ signature scheme.
-    BBSPlus(BBSPlusParams),
+    BBSPlus(BBSPlusParameters),
     /// Signature parameters for the Pointcheval-Sanders signature scheme.
-    PS(PSParams),
+    PS(PSParameters),
 }
 
 impl OffchainSignatureParams {
     /// Returns underlying parameters if it corresponds to the BBS scheme.
-    pub fn into_bbs(self) -> Option<BBSParams> {
+    pub fn into_bbs(self) -> Option<BBSParameters> {
         self.try_into().ok()
     }
 
     /// Returns underlying parameters if it corresponds to the BBS+ scheme.
-    pub fn into_bbs_plus(self) -> Option<BBSPlusParams> {
+    pub fn into_bbs_plus(self) -> Option<BBSPlusParameters> {
         self.try_into().ok()
     }
 
     /// Returns underlying parameters if it corresponds to the Pointcheval-Sanders scheme.
-    pub fn into_ps(self) -> Option<PSParams> {
+    pub fn into_ps(self) -> Option<PSParameters> {
         self.try_into().ok()
     }
 
