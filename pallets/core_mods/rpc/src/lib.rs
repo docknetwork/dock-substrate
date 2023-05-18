@@ -90,21 +90,21 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams>>;
 
-    #[method(name = "core_mods_PSPublicKeyWithParams")]
+    #[method(name = "core_mods_psPublicKeyWithParams")]
     async fn ps_public_key_with_params(
         &self,
         id: offchain_signatures::SignaturePublicKeyStorageKey,
         at: Option<BlockHash>,
     ) -> RpcResult<Option<offchain_signatures::PSPublicKeyWithParams>>;
 
-    #[method(name = "core_mods_PSParamsByDid")]
+    #[method(name = "core_mods_psParamsByDid")]
     async fn ps_params_by_did(
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParams>>;
 
-    #[method(name = "core_mods_PSPublicKeysByDid")]
+    #[method(name = "core_mods_psPublicKeysByDid")]
     async fn ps_public_keys_by_did(
         &self,
         did: did::Did,
