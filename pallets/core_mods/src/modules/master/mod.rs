@@ -88,7 +88,7 @@ use frame_system::{self as system, ensure_root, ensure_signed};
 #[cfg(test)]
 mod tests;
 
-#[derive(Encode, Decode, Clone, PartialEq, Debug)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
@@ -106,7 +106,7 @@ impl Default for Membership {
     }
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug, Default)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -139,7 +139,7 @@ fn get_min_weight_for_execute<T: frame_system::Config>(
     auth: &[DidSigs<T>],
     db_weights: RuntimeDbWeight,
 ) -> Weight {
-    MIN_WEIGHT + get_weight_for_did_sigs(&auth, db_weights) + db_weights.reads_writes(1, 1)
+    MIN_WEIGHT + get_weight_for_did_sigs(auth, db_weights) + db_weights.reads_writes(1, 1)
 }
 
 pub trait Config: system::Config + crate::did::Config
@@ -213,7 +213,7 @@ decl_module! {
         /// After a successful execution, the round number is increased.
         #[
             weight = (
-             get_min_weight_for_execute(&auth, T::DbWeight::get()) + proposal.get_dispatch_info().weight,
+             get_min_weight_for_execute(auth, T::DbWeight::get()) + proposal.get_dispatch_info().weight,
              proposal.get_dispatch_info().class,
              proposal.get_dispatch_info().pays_fee,
             )
@@ -233,7 +233,7 @@ decl_module! {
         /// `Call` its wrapping but expects the caller to provide it
         #[
             weight = (
-             get_min_weight_for_execute(&auth, T::DbWeight::get()) + *_weight,
+             get_min_weight_for_execute(auth, T::DbWeight::get()) + *_weight,
              proposal.get_dispatch_info().class,
              proposal.get_dispatch_info().pays_fee,
             )
@@ -351,9 +351,7 @@ impl<T: Config + Debug> Module<T> {
         let actual_weight = move |post_info: PostDispatchInfo| {
             given_weight.or_else(|| {
                 Some(
-                    post_info
-                        .actual_weight
-                        .unwrap_or_else(|| dispatch_decl_weight)
+                    post_info.actual_weight.unwrap_or(dispatch_decl_weight)
                         + get_min_weight_for_execute(&auth, T::DbWeight::get()),
                 )
             })

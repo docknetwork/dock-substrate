@@ -187,7 +187,7 @@ crate::bench_with_all_pairs! {
 
         let add_endpoint = AddServiceEndpoint {
             did,
-            id: WrappedBytes(vec![1; i as usize]),
+            id: Bytes(vec![1; i as usize]),
             endpoint: ServiceEndpoint {
                 origins: (0..o).map(|i| vec![i as u8; l as usize].into()).collect(),
                 types: crate::did::service_endpoints::ServiceEndpointType::LINKED_DOMAINS
@@ -199,7 +199,7 @@ crate::bench_with_all_pairs! {
         let signature = DidSignature::new(did, 1u32, sig);
     }: add_service_endpoint(RawOrigin::Signed(caller), add_endpoint.clone(), signature)
     verify {
-        assert_eq!(DidServiceEndpoints::get(did, WrappedBytes(vec![1; i as usize])).unwrap(), add_endpoint.endpoint);
+        assert_eq!(DidServiceEndpoints::get(did, Bytes(vec![1; i as usize])).unwrap(), add_endpoint.endpoint);
     }
 
     remove_service_endpoint_sr25519 for sr25519, remove_service_endpoint_ed25519 for ed25519, remove_service_endpoint_secp256k1 for secp256k1 {
@@ -220,7 +220,7 @@ crate::bench_with_all_pairs! {
         crate::did::Pallet::<T>::add_service_endpoint_(
             AddServiceEndpoint {
                 did,
-                id: WrappedBytes(vec![1; i as usize]),
+                id: Bytes(vec![1; i as usize]),
                 endpoint: ServiceEndpoint {
                     origins: (0..MAX_ORIGINS as usize).map(|i| vec![i as u8; MAX_ORIGIN_LENGTH as usize].into()).collect(),
                     types: crate::did::service_endpoints::ServiceEndpointType::LINKED_DOMAINS
@@ -231,7 +231,7 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let remove_endpoint = RemoveServiceEndpoint {
-            id: WrappedBytes(vec![1; i as usize]),
+            id: Bytes(vec![1; i as usize]),
             did,
             nonce: 1u8.into()
         };
@@ -240,7 +240,7 @@ crate::bench_with_all_pairs! {
         let signature = DidSignature::new(did, 1u32, sig);
     }: remove_service_endpoint(RawOrigin::Signed(caller), remove_endpoint.clone(), signature)
     verify {
-       assert!(DidServiceEndpoints::get(did, WrappedBytes(vec![1; i as usize])).is_none());
+       assert!(DidServiceEndpoints::get(did, Bytes(vec![1; i as usize])).is_none());
     }
     remove_onchain_did_sr25519 for sr25519, remove_onchain_did_ed25519 for ed25519, remove_onchain_did_secp256k1 for secp256k1 {
         let pair as Pair;
@@ -273,7 +273,7 @@ crate::bench_with_all_pairs! {
             crate::did::Pallet::<T>::add_service_endpoint_(
                 AddServiceEndpoint {
                     did,
-                    id: WrappedBytes(vec![1; (i + 1) as usize]),
+                    id: Bytes(vec![1; (i + 1) as usize]),
                     endpoint: ServiceEndpoint {
                         origins: (0..MAX_ORIGINS as usize).map(|i| vec![i as u8; MAX_ORIGIN_LENGTH as usize].into()).collect(),
                         types: crate::did::service_endpoints::ServiceEndpointType::LINKED_DOMAINS

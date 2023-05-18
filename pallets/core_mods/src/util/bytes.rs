@@ -4,16 +4,16 @@ use crate::util::hex;
 use codec::{Decode, Encode};
 use sp_std::{fmt, vec::Vec};
 
-/// Raw bytes wrapper providing ability to encode/decode in `hex` format.
+/// Wrapper around raw bytes vector providing the ability to encode/decode in `hex` format.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct WrappedBytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
+pub struct Bytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
 
 #[cfg(test)]
 use rand::distributions::Distribution;
-impl_wrapper! { WrappedBytes(Vec<u8>), for rand use rand::distributions::Standard.sample_iter(&mut rand::thread_rng()).take(32).collect(), with tests as wrapped_bytes_tests }
+impl_wrapper! { Bytes(Vec<u8>), for rand use rand::distributions::Standard.sample_iter(&mut rand::thread_rng()).take(32).collect(), with tests as wrapped_bytes_tests }
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array

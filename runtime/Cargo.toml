@@ -439,8 +439,6 @@ path = "../pallets/core_mods"
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
 
-
-
 [dependencies.libsecp256k1]
 version = "0.7"
 default-features = false

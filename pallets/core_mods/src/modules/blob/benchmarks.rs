@@ -23,7 +23,7 @@ crate::bench_with_all_pairs! {
 
         let blob = Blob {
             id,
-            blob: WrappedBytes((0..s).map(|i| i as u8).collect()),
+            blob: Bytes((0..s).map(|i| i as u8).collect()),
         };
         let add_blob = AddBlob {
             blob,

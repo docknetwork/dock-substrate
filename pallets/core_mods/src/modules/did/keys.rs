@@ -121,16 +121,13 @@ impl DidKey {
     /// for this key.
     pub fn new_with_all_relationships(public_key: impl Into<PublicKey>) -> Self {
         let public_key = public_key.into();
-        let ver_rels = public_key
-            .can_sign()
-            .then_some(
-                // If the key can be used for signing, mark it with all related relationships.
-                VerRelType::ALL_FOR_SIGNING,
-            )
-            .unwrap_or(
-                // The non-signing public key can be used only for key agreement currently.
-                VerRelType::KEY_AGREEMENT,
-            );
+        let ver_rels = if public_key.can_sign() {
+            // If the key can be used for signing, mark it with all related relationships.
+            VerRelType::ALL_FOR_SIGNING
+        } else {
+            // The non-signing public key can be used only for key agreement currently.
+            VerRelType::KEY_AGREEMENT
+        };
 
         Self {
             public_key,
@@ -238,7 +235,7 @@ impl<T: Config + Debug> Module<T> {
         // Make self controlled if needed
         let add_self_controlled = controller_keys_count > 0 && !Self::is_self_controlled(&did);
         if add_self_controlled {
-            DidControllers::insert(&did, &Controller(did), ());
+            DidControllers::insert(did, Controller(did), ());
             *active_controllers += 1;
         }
 
@@ -259,7 +256,7 @@ impl<T: Config + Debug> Module<T> {
         }: &mut OnChainDidDetails,
     ) -> Result<(), Error<T>> {
         for key_id in &keys {
-            let key = DidKeys::get(&did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+            let key = DidKeys::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
             if key.can_control() {
                 *active_controller_keys -= 1;
@@ -273,7 +270,7 @@ impl<T: Config + Debug> Module<T> {
         // If no self-control keys exist for the given DID, remove self-control
         let remove_self_controlled = *active_controller_keys == 0 && Self::is_self_controlled(&did);
         if remove_self_controlled {
-            DidControllers::remove(&did, &Controller(did));
+            DidControllers::remove(did, Controller(did));
             *active_controllers -= 1;
         }
 
@@ -282,8 +279,8 @@ impl<T: Config + Debug> Module<T> {
     }
 
     /// Return `did`'s key with id `key_id` only if has control capability, otherwise returns an error.
-    pub fn control_key(did: &Controller, key_id: IncId) -> Result<PublicKey, Error<T>> {
-        let did_key = DidKeys::get(did.0, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+    pub fn control_key(&did: &Controller, key_id: IncId) -> Result<PublicKey, Error<T>> {
+        let did_key = DidKeys::get(*did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
         if did_key.can_control() {
             Ok(did_key.public_key)

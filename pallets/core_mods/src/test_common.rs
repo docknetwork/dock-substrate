@@ -1,9 +1,9 @@
 //! Boilerplate for runtime module unit tests
 
 use crate::{
-    accumulator, anchor, attest, bbs_plus, blob,
+    accumulator, anchor, attest, blob,
     did::{self, Did, DidKey, DidSignature},
-    keys_and_sigs, master, revoke, util, StateChange, ToStateChange,
+    keys_and_sigs, master, offchain_signatures, revoke, util, StateChange, ToStateChange,
 };
 
 use crate::{
@@ -45,7 +45,7 @@ frame_support::construct_runtime!(
         MasterMod: master::{Pallet, Call, Storage, Event<T>, Config},
         AnchorMod: anchor::{Pallet, Call, Storage, Event<T>},
         AttestMod: attest::{Pallet, Call, Storage},
-        BBSPlusMod: bbs_plus::{Pallet, Call, Storage, Event},
+        SignatureMod: offchain_signatures::{Pallet, Call, Storage, Event},
         AccumMod: accumulator::{Pallet, Call, Storage, Event},
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
     }
@@ -58,7 +58,7 @@ pub enum TestEvent {
     Master(crate::master::Event<Test>),
     Anchor(crate::anchor::Event<Test>),
     Unknown,
-    BBSPlus(bbs_plus::Event),
+    OffchainSignature(offchain_signatures::Event),
     Accum(accumulator::Event),
 }
 
@@ -110,9 +110,9 @@ impl From<crate::master::Event<Test>> for TestEvent {
     }
 }
 
-impl From<bbs_plus::Event> for TestEvent {
-    fn from(other: bbs_plus::Event) -> Self {
-        Self::BBSPlus(other)
+impl From<offchain_signatures::Event> for TestEvent {
+    fn from(other: offchain_signatures::Event) -> Self {
+        Self::OffchainSignature(other)
     }
 }
 
@@ -245,7 +245,8 @@ parameter_types! {
     pub const LabelPerByteWeight: Weight = Weight::from_ref_time(10);
     pub const ParamsMaxSize: u32 = 512;
     pub const ParamsPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const PublicKeyMaxSize: u32 = 128;
+    pub const FixedPublicKeyMaxSize: u32 = 128;
+    pub const PSPublicKeyMaxSize: u32 = 128;
     pub const PublicKeyPerByteWeight: Weight = Weight::from_ref_time(10);
     pub const AccumulatedMaxSize: u32 = 256;
     pub const AccumulatedPerByteWeight: Weight = Weight::from_ref_time(10);
@@ -276,13 +277,14 @@ impl crate::attest::Config for Test {
     type StorageWeight = StorageWeight;
 }
 
-impl bbs_plus::Config for Test {
+impl offchain_signatures::Config for Test {
     type Event = TestEvent;
     type LabelMaxSize = LabelMaxSize;
     type LabelPerByteWeight = LabelPerByteWeight;
     type ParamsMaxSize = ParamsMaxSize;
     type ParamsPerByteWeight = ParamsPerByteWeight;
-    type PublicKeyMaxSize = PublicKeyMaxSize;
+    type BBSPublicKeyMaxSize = FixedPublicKeyMaxSize;
+    type PSPublicKeyMaxSize = PSPublicKeyMaxSize;
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
 }
 
@@ -292,7 +294,7 @@ impl accumulator::Config for Test {
     type LabelPerByteWeight = LabelPerByteWeight;
     type ParamsMaxSize = ParamsMaxSize;
     type ParamsPerByteWeight = ParamsPerByteWeight;
-    type PublicKeyMaxSize = PublicKeyMaxSize;
+    type PublicKeyMaxSize = FixedPublicKeyMaxSize;
     type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
     type AccumulatedMaxSize = AccumulatedMaxSize;
     type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
@@ -427,12 +429,12 @@ pub fn run_to_block(n: u64) {
 }
 
 pub fn check_nonce(d: &Did, nonce: u64) {
-    let did_detail = DIDModule::onchain_did_details(&d).unwrap();
+    let did_detail = DIDModule::onchain_did_details(d).unwrap();
     assert_eq!(did_detail.nonce, nonce);
 }
 
 pub fn inc_nonce(d: &Did) {
-    let mut did_detail = DIDModule::onchain_did_details(&d).unwrap();
+    let mut did_detail = DIDModule::onchain_did_details(d).unwrap();
     did_detail.nonce = did_detail.next_nonce().unwrap();
     DIDModule::insert_did_details(*d, did_detail);
 }

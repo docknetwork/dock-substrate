@@ -1841,10 +1841,10 @@ fn service_endpoints() {
         let alice = 1u64;
         let did: Did = [51; Did::BYTE_SIZE].into();
 
-        let endpoint_1_id: WrappedBytes = vec![102; 50].into();
-        let origins_1: Vec<WrappedBytes> = vec![vec![112; 100].into()];
-        let endpoint_2_id: WrappedBytes = vec![202; 90].into();
-        let origins_2: Vec<WrappedBytes> = vec![vec![212; 150].into(), vec![225; 30].into()];
+        let endpoint_1_id: Bytes = vec![102; 50].into();
+        let origins_1: Vec<Bytes> = vec![vec![112; 100].into()];
+        let endpoint_2_id: Bytes = vec![202; 90].into();
+        let origins_2: Vec<Bytes> = vec![vec![212; 150].into(), vec![225; 30].into()];
 
         let (pair_sr, _, _) = sr25519::Pair::generate_with_phrase(None);
         let pk_sr = pair_sr.public().0;
@@ -2456,10 +2456,10 @@ fn batched_did_changes() {
 
         run_to_block(10);
 
-        let endpoint_1_id: WrappedBytes = vec![102; 50].into();
-        let origins_1: Vec<WrappedBytes> = vec![vec![112; 100].into()];
-        let endpoint_2_id: WrappedBytes = vec![202; 90].into();
-        let origins_2: Vec<WrappedBytes> = vec![vec![212; 150].into(), vec![225; 30].into()];
+        let endpoint_1_id: Bytes = vec![102; 50].into();
+        let origins_1: Vec<Bytes> = vec![vec![112; 100].into()];
+        let endpoint_2_id: Bytes = vec![202; 90].into();
+        let origins_2: Vec<Bytes> = vec![vec![212; 150].into(), vec![225; 30].into()];
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),

@@ -43,7 +43,7 @@ pub struct DidKeyWithId {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(omit_prefix)]
 pub struct ServiceEndpointWithId {
-    id: WrappedBytes,
+    id: Bytes,
     endpoint: ServiceEndpoint,
 }
 
@@ -60,7 +60,7 @@ impl<T: Config> AggregatedDidDetailsResponse<T> {
     where
         KI: IntoIterator<Item = (IncId, DidKey)>,
         CI: IntoIterator<Item = Controller>,
-        SI: IntoIterator<Item = (WrappedBytes, ServiceEndpoint)>,
+        SI: IntoIterator<Item = (Bytes, ServiceEndpoint)>,
     {
         Self {
             did,
@@ -124,7 +124,7 @@ impl<T: Config + attest::Config + Debug> Module<T> {
             .then(|| DidServiceEndpoints::iter_prefix(did));
         let attestation = params
             .intersects(AggregatedDidDetailsRequestParams::ATTESTATION)
-            .then(|| <attest::Pallet<T>>::attestation(&Attester(*did)));
+            .then(|| <attest::Pallet<T>>::attestation(Attester(*did)));
 
         Some(AggregatedDidDetailsResponse::new(
             *did,

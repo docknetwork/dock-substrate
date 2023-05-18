@@ -31,7 +31,7 @@ where
 pub fn get_nonces(signers: &[(Did, &sr25519::Pair)]) -> BTreeMap<Did, u64> {
     let mut nonces = BTreeMap::new();
     for (d, _) in signers {
-        let did_detail = DIDModule::onchain_did_details(&d).unwrap();
+        let did_detail = DIDModule::onchain_did_details(d).unwrap();
         nonces.insert(*d, did_detail.nonce);
     }
     nonces

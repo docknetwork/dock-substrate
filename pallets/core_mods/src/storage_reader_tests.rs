@@ -172,7 +172,7 @@ fn map_access() {
                 Some(10_000_000),
                 DUMMY_CTX
             )),
-            Ok(Some(details.clone()))
+            Ok(Some(details))
         );
 
         let non_existent_did = Did([3u8; 32]);

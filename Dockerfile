@@ -45,11 +45,11 @@ ARG release
 
 RUN if [ "$release" = "Y" ] ; then \
       echo 'Building in release mode.' ; \
-      WASM_BUILD_TOOLCHAIN=$nightly cargo build --profile=release $features ; \
+      cargo build --profile=release $features ; \
       mv /dock-node/target/release/dock-node /dock-node/target/; \
     else \
       echo 'Building in production mode.' ; \
-      WASM_BUILD_TOOLCHAIN=$nightly cargo build --profile=production $features ; \
+      cargo build --profile=production $features ; \
       mv /dock-node/target/production/dock-node /dock-node/target/; \
     fi
 

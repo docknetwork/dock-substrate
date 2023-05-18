@@ -60,11 +60,11 @@ impl<T: Config + Debug> OffChainDidDetails<T> {
 #[scale_info(omit_prefix)]
 pub enum OffChainDidDocRef {
     /// Content IDentifier as per https://github.com/multiformats/cid.
-    CID(WrappedBytes),
+    CID(Bytes),
     /// A URL
-    URL(WrappedBytes),
+    URL(Bytes),
     /// A custom encoding of the reference
-    Custom(WrappedBytes),
+    Custom(Bytes),
 }
 
 impl OffChainDidDocRef {

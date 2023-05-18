@@ -72,11 +72,11 @@ impl<T: Config> Module<T> {
     fn deploy_(data: Vec<u8>, account: T::AccountId) -> DispatchResult {
         // check
         let hash = <T as system::Config>::Hashing::hash(&data);
-        ensure!(Anchors::<T>::get(&hash).is_none(), Error::<T>::AnchorExists);
+        ensure!(Anchors::<T>::get(hash).is_none(), Error::<T>::AnchorExists);
 
         // execute
         let last_block = <system::Pallet<T>>::block_number();
-        Anchors::<T>::insert(&hash, &last_block);
+        Anchors::<T>::insert(hash, last_block);
         Self::deposit_event(Event::<T>::AnchorDeployed(hash, account, last_block));
 
         Ok(())

@@ -27,10 +27,10 @@ def_state_change! {
         blob::AddBlob,
         master::MasterVote,
         attest::SetAttestationClaim,
-        bbs_plus::AddBBSPlusParams,
-        bbs_plus::AddBBSPlusPublicKey,
-        bbs_plus::RemoveBBSPlusParams,
-        bbs_plus::RemoveBBSPlusPublicKey,
+        offchain_signatures::AddOffchainSignatureParams,
+        offchain_signatures::AddOffchainSignaturePublicKey,
+        offchain_signatures::RemoveOffchainSignatureParams,
+        offchain_signatures::RemoveOffchainSignaturePublicKey,
         accumulator::AddAccumulatorParams,
         accumulator::AddAccumulatorPublicKey,
         accumulator::RemoveAccumulatorParams,
@@ -87,13 +87,12 @@ impl Default for StorageVersion {
 }
 
 pub mod keys_and_sigs;
-mod migrations;
 mod modules;
 pub mod runtime_api;
 pub mod types;
 pub mod util;
 
-pub use modules::{accumulator, anchor, attest, bbs_plus, blob, did, master, revoke};
+pub use modules::{accumulator, anchor, attest, blob, did, master, offchain_signatures, revoke};
 
 #[cfg(test)]
 mod storage_reader_tests;
