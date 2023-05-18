@@ -85,9 +85,12 @@ pub fn migrate<T: Config, P: GetStorageVersion + PalletInfoAccess>() -> Weight {
 
     for (did, id, params) in BbsPlusParams::drain() {
         frame_support::log::info!("BBS+ params with id={:?} migrated for did={:?}", id, did);
-        let bbs_plus_key: OffchainSignatureParams =
-            offchain_signatures::BBSPlusParams::new(params.label, params.bytes, params.curve_type)
-                .into();
+        let bbs_plus_key: OffchainSignatureParams = offchain_signatures::BBSPlusParameters::new(
+            params.label,
+            params.bytes,
+            params.curve_type,
+        )
+        .into();
 
         SignatureParams::insert(SignatureParamsOwner::from(*did), id, bbs_plus_key);
     }

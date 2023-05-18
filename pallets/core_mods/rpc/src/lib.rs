@@ -60,7 +60,7 @@ where
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSParams>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSParameters>>;
 
     #[method(name = "core_mods_bbsPublicKeysByDid")]
     async fn bbs_public_keys_by_did(
@@ -81,7 +81,7 @@ where
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusParams>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusParameters>>;
 
     #[method(name = "core_mods_bbsPlusPublicKeysByDid")]
     async fn bbs_plus_public_keys_by_did(
@@ -102,7 +102,7 @@ where
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParams>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParameters>>;
 
     #[method(name = "core_mods_psPublicKeysByDid")]
     async fn ps_public_keys_by_did(
@@ -215,7 +215,7 @@ where
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSParams>> {
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSParameters>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -257,7 +257,7 @@ where
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusParams>> {
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusParameters>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -299,7 +299,7 @@ where
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParams>> {
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParameters>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.

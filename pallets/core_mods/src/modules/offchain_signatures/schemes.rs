@@ -156,7 +156,7 @@ def_signature_scheme_key_and_params! {
         /// Public key for the BBS signature scheme.
         BBSPublicKey,
         /// Signature parameters for the BBS signature scheme.
-        BBSParams
+        BBSParameters
 }
 
 def_signature_scheme_key_and_params! {
@@ -164,7 +164,7 @@ def_signature_scheme_key_and_params! {
         /// Public key for the BBS+ signature scheme.
         BBSPlusPublicKey,
         /// Signature parameters for the BBS+ signature scheme.
-        BBSPlusParams
+        BBSPlusParameters
 }
 
 def_signature_scheme_key_and_params! {
@@ -172,5 +172,5 @@ def_signature_scheme_key_and_params! {
         /// Public key for the PS signature scheme.
         PSPublicKey,
         /// Signature parameters for the PS signature scheme.
-        PSParams
+        PSParameters
 }

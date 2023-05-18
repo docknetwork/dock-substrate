@@ -31,7 +31,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        let params = BBSPlusParams::new(
+        let params = BBSPlusParameters::new(
             Bytes(vec![0; l as usize]),
             vec![0; b as usize],
             CurveType::Bls12381,
@@ -62,7 +62,7 @@ crate::bench_with_all_pairs! {
 
         Module::<T>::add_params_(
             AddOffchainSignatureParams {
-                params: BBSPlusParams::new(
+                params: BBSPlusParameters::new(
                     Bytes(vec![1; MAX_LABEL as usize]),
                     vec![0; MAX_PARAMS as usize],
                     CurveType::Bls12381,
@@ -102,7 +102,7 @@ crate::bench_with_all_pairs! {
 
         Module::<T>::add_params_(
             AddOffchainSignatureParams {
-                params: BBSPlusParams::new(
+                params: BBSPlusParameters::new(
                     Bytes(vec![1; MAX_LABEL as usize]),
                     vec![0; MAX_PARAMS as usize],
                     CurveType::Bls12381,
@@ -145,7 +145,7 @@ crate::bench_with_all_pairs! {
 
         Module::<T>::add_params_(
             AddOffchainSignatureParams {
-                params: BBSPlusParams::new(
+                params: BBSPlusParameters::new(
                     Bytes(vec![1; MAX_LABEL as usize]),
                     vec![0; MAX_PARAMS as usize],
                     CurveType::Bls12381,
