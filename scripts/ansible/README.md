@@ -8,21 +8,25 @@ It requires python3 to be installed on the remote (where node will run) as well 
 pull the testnet node image, start a container running a node. These are the parameters
 
 1. path to python interpreter on remote `ansible_python_interpreter`
-1. node name as `node_name`
-1. libp2p secret key as `libp2p_key`, if not provided, the node will generate a random key
-1. whether to allow external RPC requests as `allow_ext_rpc`, defaults to false
-1. whether to allow external Prometheus interfaces as `allow_ext_prom`, defaults to false
-1. whether the node is running as a validator or not as `is_validator`, defaults to false
-1. if a node is a sentry of a validator as `sentry_of`, if not provided then ignored
-1. whether will only connect to its reserved (whitelisted nodes) as `reserved_only`, defaults to false
-1. its reserved nodes as an array `reserved_nodes`, defaults to empty array
-1. if the node should use bootnodes or not as an array `bootnodes`, defaults to empty array
-1. what telemetry url it should use as `telemetry_url`, default to no telemetry
-1. if session key should be rotated, as `rotate_session_key`, defaults to false. If true, session key will be stored 
+2. node name as `node_name`
+3. libp2p secret key as `libp2p_key`, if not provided, the node will generate a random key
+4. whether to allow external RPC requests as `allow_ext_rpc`, defaults to false
+5. whether to allow external Prometheus interfaces as `allow_ext_prom`, defaults to false
+6. whether the node is running as a validator or not as `is_validator`, defaults to false
+7. if a node is a sentry of a validator as `sentry_of`, if not provided then ignored
+8. whether will only connect to its reserved (whitelisted nodes) as `reserved_only`, defaults to false
+9. its reserved nodes as an array `reserved_nodes`, defaults to empty array
+10. if the node should use bootnodes or not as an array `bootnodes`, defaults to empty array
+11. what telemetry url it should use as `telemetry_url`, default to no telemetry
+12. if session key should be rotated, as `rotate_session_key`, defaults to false. If true, session key will be stored 
 in a file called session_key.txt on the host.
-1. pruning mode for the node, as `pruning`, this can be either `archive` or a positive integer.
-1. chain spec file name present in `cspec` directory of this repo's root as `chain_spec_file`
-1. tag of the docker image to download as `docker_image_tag`
+13. pruning mode for the node, as `pruning`, this can be either `archive` or a positive integer.
+14. chain spec file name present in `cspec` directory of this repo's root as `chain_spec_file`
+15. tag of the docker image to download as `docker_image_tag`
+16. `export_aws_metrics` if there's a need to install `amazon-cloudwatch-agent`
+17. `overriden_host` to override `host` from the context
+18. `chains_data_path` specifies a directory containing chains data to be copied if needed
+19. `copy_chains_data` to copy chains data to the created docker volume. Default to `false`
 
 The [sample hosts file](hosts.sample) can be checked for the parameters. Note that the sample file has several 
 placeholders enclosed in angle brackets, i.e. like `<validator node ip>` or `<path of private key file>`, all of these 

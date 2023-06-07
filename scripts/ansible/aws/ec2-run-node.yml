@@ -1,0 +1,199 @@
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    instance_name: "{{ name }} (created by ansible)"
+    ssh_key_full_name: "{{ ssh_key_name }} (created by ansible)"
+  tasks:
+
+  - name: Create new keypair
+    amazon.aws.ec2_key:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ ssh_key_full_name }}"
+      force: false
+      key_material: "{{ lookup('file', ssh_key_pub) }}"
+
+  - name: Create setup security group
+    amazon.aws.ec2_security_group:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: Setup (created by ansible)
+      description: Allows connecting to node directly via SSH (created by ansible)
+      rules:
+        - proto: tcp
+          from_port: 22
+          to_port: 22
+          cidr_ip: 0.0.0.0/0
+
+  - name: Create substrate P2P security group
+    amazon.aws.ec2_security_group:
+      region: "{{ aws_region }}"
+      profile: "{{ aws_profile }}"
+      name: Substrate P2P (created by ansible)
+      description: Allows nodes to communicate peer-to-peer (created by ansible)
+      rules:
+        - proto: tcp
+          from_port: 30333
+          to_port: 30333
+          cidr_ip: 0.0.0.0/0
+
+  - name: Create prometheus security group
+    amazon.aws.ec2_security_group:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: Prometheus monitoring (created by ansible)
+      description: Allows Prometheus instance access to scrape metrics from other EC2 instances (created by ansible)
+      rules:
+        - proto: tcp
+          from_port: 9615
+          to_port: 9615
+          cidr_ip: "{{ prom_mask }}"
+
+  - name: Get AMI identifier
+    amazon.aws.ec2_ami_info:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      owner: "amazon"
+      filters:
+        name: "{{ ami_name | default('ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230601') }}"
+    register: ami_info
+
+  - name: AMI image info
+    ansible.builtin.debug:
+      msg: "{{ ami_info['images'][-1] }}"
+
+  - name: Run new AWS EC2 instance
+    amazon.aws.ec2_instance:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ instance_name }}"
+      key_name: "{{ ssh_key_full_name }}"
+      instance_role: "{{ instance_role | default('CloudWatchAgent_Role') }}"
+      instance_type: "{{ instance_type | default('t3.large') }}"
+      state: "running"
+      wait: true
+      security_groups: 
+        - "Prometheus monitoring (created by ansible)"
+        - "Substrate P2P (created by ansible)"
+        - "Setup (created by ansible)"
+      network:
+        # assign_public_ip: true
+        delete_on_termination: true
+      image_id: "{{ ami_info['images'][-1]['image_id'] }}"
+      volumes:
+        - device_name: /dev/sda1
+          ebs:
+            volume_size: "{{ volume_size | default('300') }}"
+            delete_on_termination: "{{ not(persistent | default('false') | bool) }}"
+            snapshot_id: "{{ snapshot_id | default(omit) }}"
+    register: instances
+
+  - name: EC2 instance info
+    ansible.builtin.debug:
+      msg: Created public EC2 instance {{ instances['instances'][0]['instance_id'] }} with IP {{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}
+
+  - name: Create SNS alarm topic
+    community.aws.sns_topic:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "AlarmTopicCreatedByAnsible"
+      state: present
+      display_name: "SNS alarm topic (created by ansible)"
+      delivery_policy:
+        http:
+          defaultHealthyRetryPolicy:
+            minDelayTarget: 20
+            maxDelayTarget: 20
+            numRetries: 3
+            numMaxDelayRetries: 0
+            numNoDelayRetries: 0
+            numMinDelayRetries: 0
+            backoffFunction: linear
+          disableSubscriptionOverrides: false
+      subscriptions:
+        - endpoint: "{{ alarm_lambda_arn }}"
+          protocol: "LAMBDA"
+    register: sns_topic
+
+  - name: Add a host
+    ansible.builtin.add_host:
+      hostname: "{{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
+      inventory_dir: "{{ inventory_dir }}"
+      groups: Ec2Instance
+
+  - name: Pause for 10 seconds before connecting to the node
+    ansible.builtin.pause:
+      seconds: 10
+
+- name: Run a node
+  ansible.builtin.import_playbook: ../run-node.yml
+  vars:
+    overriden_host: "{{ hostvars['localhost']['instances']['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
+    node_name: "{{ hostvars['localhost']['name'] }}"
+    export_aws_metrics: true
+
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    instance_name: "{{ name }} (created by ansible)"
+    ssh_key_full_name: "{{ ssh_key_name }} (created by ansible)"
+  tasks:
+    - name: Remove setup security group
+      amazon.aws.ec2_instance:
+        profile: "{{ aws_profile }}"
+        region: "{{ aws_region }}"
+        name: "{{ instance_name }}"
+        key_name: "{{ ssh_key_full_name }}"
+        instance_role: "{{ instance_role | default('CloudWatchAgent_Role') }}"
+        instance_type: "{{ instance_type | default('t3.large') }}"
+        state: "running"
+        wait: true
+        security_groups: 
+          - "Prometheus monitoring (created by ansible)"
+          - "Substrate P2P (created by ansible)"
+        network:
+          # assign_public_ip: true
+          delete_on_termination: true
+
+    - name: Pause for 30 seconds before creating a disk space alarm
+      ansible.builtin.pause:
+        seconds: 30
+
+    - name: Create disk space alarm
+      amazon.aws.cloudwatch_metric_alarm:
+        profile: "{{ aws_profile }}"
+        region: "{{ aws_region }}"
+        state: present
+        name: "Low disk space alarm for `{{ instance_name }}` (created by ansible)"
+        metric: "disk_free_gb"
+        namespace: "CWAgent"
+        statistic: Minimum
+        comparison: "LessThanOrEqualToThreshold"
+        threshold: 10000000
+        period: 21600
+        evaluation_periods: 1
+        treat_missing_data: breaching
+        description: "This will alarm when a instance's disk free space is less than or equal to 10 GB"
+        dimensions: {
+          "path": "/",
+          "InstanceId": "{{ instances['instances'][0]['instance_id'] }}",
+          "ImageId": "{{ ami_info['images'][-1]['image_id'] }}",
+          "InstanceType": "{{ instance_type | default('t3.large') }}",
+          "device": "nvme0n1p1",
+          "fstype": "ext4"
+        }
+        alarm_actions: ["{{ sns_topic.sns_arn }}"]
+        ok_actions: ["{{ sns_topic.sns_arn }}"]
+
+    - name: Configure Lambda to receive alarm notifications
+      amazon.aws.lambda_policy:
+        profile: "{{ aws_profile }}"
+        region: "{{ alarm_lambda_arn.split(':').3 }}"
+        state: present
+        function_name: "{{ alarm_lambda_arn }}"
+        statement_id: "{{ sns_topic.sns_arn | replace(':', '-') }}"
+        action: lambda:InvokeFunction
+        principal: sns.amazonaws.com
+        source_arn: "{{ sns_topic.sns_arn }}"

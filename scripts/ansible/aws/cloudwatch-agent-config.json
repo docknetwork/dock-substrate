@@ -31,7 +31,7 @@
       },
       "statsd": {
         "metrics_aggregation_interval": 60,
-        "metrics_collection_interval": 10,
+        "metrics_collection_interval": 30,
         "service_address": ":8125"
       }
     }

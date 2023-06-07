@@ -1,4 +1,4 @@
-- hosts: '{{ host }}'
+- hosts: '{{ overriden_host | default(host) }}'
   vars:
     node_nm: "--name={{ node_name | default('') }}"
     image_tag: "{{ docker_image_tag | default('mainnet') }}"
@@ -6,6 +6,8 @@
     mount_at: "{{ mount_container_at | default('/docknode') }}" # Mount docker volume at
     base_path: "--base-path={{ node_base_path if node_base_path is defined else mount_at}}" # Base path for Substrate node
     chain: "--chain=./cspec/{{ chain_spec_file | default('knox_raw.json') }}"   # chain spec for mainnet by default
+    export_aws_metrics_bool: "{{ export_aws_metrics | default('false') | bool }}"
+    copy_chains_data_bool: "{{ copy_chains_data | default('false') | bool }}"
     
     # When `libp2p_key` is not provided `--node-key=...` parameter is not passed to the node making it generate a random key
     # Expecting a 32 byte hex string without leading `0x`. No input validation done
@@ -55,7 +57,7 @@
     become: yes
     become_method: sudo
     apt: name={{ item }} state=latest update_cache=yes
-    loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'virtualenv', 'python3-setuptools']
+    loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'python3-dnf', 'virtualenv', 'python3-setuptools' ]
  
   - name: Add Docker GPG apt Key (Will only run for Ubuntu/Debian)
     when: ansible_facts['os_family'] == "Debian"
@@ -156,6 +158,53 @@
     become_method: sudo
     pip:
       name: docker
+
+  - name: Copy chain data
+    when: copy_chains_data_bool
+    become: yes
+    become_method: sudo
+    ansible.builtin.copy:
+      src: "{{ chains_data_path }}"
+      dest: /var/lib/docker/volumes/dock-chain-data/_data
+
+  - name: Download AWS Cloudwatch Agent
+    when: export_aws_metrics_bool
+    ansible.builtin.command: wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+
+  - name: Install AWS Cloudwatch Agent
+    when: export_aws_metrics_bool
+    become: yes
+    become_method: sudo
+    ansible.builtin.command: dpkg -i -E ./amazon-cloudwatch-agent.deb
+
+  - name: Copy AWS Cloudwatch Agent configuration file
+    when: export_aws_metrics_bool
+    become: yes
+    become_method: sudo
+    ansible.builtin.copy:
+      src: ./aws/cloudwatch-agent-config.json
+      dest: /opt/aws/amazon-cloudwatch-agent/bin/config.json
+      owner: "{{ ansible_ssh_user }}"
+      group: "{{ ansible_ssh_user }}"
+      mode: '777'
+  
+  - name: Create collectD dir
+    when: export_aws_metrics_bool
+    become: yes
+    become_method: sudo
+    ansible.builtin.command: "mkdir -p /usr/share/collectd/"
+
+  - name: Touch collectd/types.db
+    when: export_aws_metrics_bool
+    become: yes
+    become_method: sudo
+    ansible.builtin.command: "touch /usr/share/collectd/types.db"
+
+  - name: Run AWS Cloudwatch Agent
+    when: export_aws_metrics_bool
+    become: yes
+    become_method: sudo
+    ansible.builtin.command: "/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json"
   
   - name: Download image if not already.
     become: yes
@@ -167,6 +216,8 @@
       state: present
 
   - name: Run container for node.
+    become: yes
+    become_method: sudo
     docker_container:
       name: '{{ container_name }}'
       image: 'docknetwork/dock-substrate:{{ image_tag }}'
