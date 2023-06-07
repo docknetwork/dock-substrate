@@ -17,8 +17,7 @@ Variables:
 9. `ami_name` - AMI name to launch an instance from, default to `ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230601`
 10. `volume_size` - volume size to be created in GB. The default is `300``.
 11. `persistent` - don't delete a volume on termination. Default to `false`.
-12. `prom_mask` - subnet to allow access to the `prometheus` metrics.
-
+13. `snapshot_id` - optional snapshot id to be used to instantiate the volume from.
 
 The host `Ec2Instance` must be defined. It will represent an EC2 instance with dynamic IP.
 

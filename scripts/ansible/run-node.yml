@@ -182,7 +182,7 @@
     become: yes
     become_method: sudo
     ansible.builtin.copy:
-      src: ./aws/cloudwatch-agent-config.json
+      src: "{{ cloudwatch_agent_config | default('../../.maintain/monitoring/diskspace/cloudwatch-agent-config.json') }}"
       dest: /opt/aws/amazon-cloudwatch-agent/bin/config.json
       owner: "{{ ansible_ssh_user }}"
       group: "{{ ansible_ssh_user }}"

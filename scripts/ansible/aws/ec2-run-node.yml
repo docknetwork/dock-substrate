@@ -38,19 +38,7 @@
           to_port: 30333
           cidr_ip: 0.0.0.0/0
 
-  - name: Create prometheus security group
-    amazon.aws.ec2_security_group:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: Prometheus monitoring (created by ansible)
-      description: Allows Prometheus instance access to scrape metrics from other EC2 instances (created by ansible)
-      rules:
-        - proto: tcp
-          from_port: 9615
-          to_port: 9615
-          cidr_ip: "{{ prom_mask }}"
-
-  - name: Get AMI identifier
+  - name: Get AMI info
     amazon.aws.ec2_ami_info:
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
@@ -74,7 +62,6 @@
       state: "running"
       wait: true
       security_groups: 
-        - "Prometheus monitoring (created by ansible)"
         - "Substrate P2P (created by ansible)"
         - "Setup (created by ansible)"
       network:
@@ -151,7 +138,6 @@
         state: "running"
         wait: true
         security_groups: 
-          - "Prometheus monitoring (created by ansible)"
           - "Substrate P2P (created by ansible)"
         network:
           # assign_public_ip: true

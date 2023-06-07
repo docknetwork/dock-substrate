@@ -12,27 +12,7 @@
       name: "Low disk space alarm for `{{ instance_name }}` (created by ansible)"
       state: absent
 
-  - name: Remove SNS alarm topic
-    community.aws.sns_topic:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: AlarmTopicCreatedByAnsible
-      state: absent
-    register: sns_topic
-
-  - name: Remove Lambda policy to receive alarm notifications
-    when: sns_topic.sns_arn != None
-    amazon.aws.lambda_policy:
-      profile: "{{ aws_profile }}"
-      region: "{{ alarm_lambda_arn.split(':').3 }}"
-      state: present
-      function_name: "{{ alarm_lambda_arn }}"
-      statement_id: "{{ sns_topic.sns_arn | replace(':', '-') }}"
-      action: lambda:InvokeFunction
-      principal: sns.amazonaws.com
-      source_arn: "{{ sns_topic.sns_arn }}"
-
-  - name: Get ubuntu AMI identifier
+  - name: Get AMI info
     amazon.aws.ec2_ami_info:
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"

@@ -11,7 +11,6 @@ aws_profile=<AWS profile name>
 aws_region=<AWS region>
 ssh_key_name=<AWS keypair name>
 ssh_key_pub=<AWS keypair public key>
-prom_mask=0.0.0.0/0
 
 [Ec2Instance:vars]
 ansible_ssh_user=ubuntu

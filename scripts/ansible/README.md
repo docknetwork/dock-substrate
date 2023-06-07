@@ -27,6 +27,7 @@ in a file called session_key.txt on the host.
 17. `overriden_host` to override `host` from the context
 18. `chains_data_path` specifies a directory containing chains data to be copied if needed
 19. `copy_chains_data` to copy chains data to the created docker volume. Default to `false`
+20. `cloudwatch_agent_config` specifies the path to the clouldwatch agent config to be used.
 
 The [sample hosts file](hosts.sample) can be checked for the parameters. Note that the sample file has several 
 placeholders enclosed in angle brackets, i.e. like `<validator node ip>` or `<path of private key file>`, all of these 
