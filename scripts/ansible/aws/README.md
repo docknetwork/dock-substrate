@@ -8,20 +8,21 @@ Variables:
 
 1. `aws_profile` - AWS profile to be used
 2. `aws_region` - AWS region to be used
-3. `ssh_key_name` - ssh public key name to be used
-4. `ssh_key_pub` - file path of the ssh public key to be used
-5. `alarm_lambda_arn` - arn of the lambda function to be invoked in case of alarm
-6. `name` to use for the created instance and node naming
-7. `instance_type` - type of the EC2 instance to be used, default to `t3.large`.
-8. `instance_role` - role assigned to the EC2 instance, default to `CloudWatchAgent_Role`.
-9. `ami_name` - AMI name to launch an instance from, default to `ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230601`
-10. `volume_size` - volume size to be created in GB. The default is `300``.
-11. `persistent` - don't delete a volume on termination. Default to `false`.
-13. `snapshot_id` - optional snapshot id to be used to instantiate the volume from.
+3. `instance_host` - host vars to be used to launch the dock-node
+4. `ssh_key_name` - ssh public key name to be used
+5. `ssh_key_pub` - file path of the ssh public key to be used
+6. `alarm_lambda_arn` - arn of the lambda function to be invoked in case of alarm
+7. `name` to use for the created instance and node naming
+8. `instance_type` - the type of the EC2 instance to be used, default to `t3.large`
+9. `instance_role` - role assigned to the EC2 instance, default to `CloudWatchAgent_Role`
+10. `ami_name` - AMI name to launch an instance from, default to `ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230601`
+11. `volume_size` - volume size to be created in GB. The default is `300`
+12. `persistent` - don't delete a volume on termination. Default to `false`
+13. `snapshot_id` - optional snapshot id to be used to instantiate the volume from
 
-The host `Ec2Instance` must be defined. It will represent an EC2 instance with dynamic IP.
+`instance_host` will represent an EC2 instance with dynamic IP.
 
-Variables ([Ec2Instance:vars]):
+Variables ([`instance_host`:vars]):
 
 1. path to python interpreter on remote `ansible_python_interpreter`
 2. node name as `node_name`
@@ -58,7 +59,7 @@ Variables:
 3. `alarm_lambda_arn` - arn of the lambda function to be invoked in case of alarm
 4. `name` to use for the created instance and node naming
 5. `ami_name` - AMI name to launch an instance from, default to `ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230601`
-6. `terminate` - terminate instance instead of stopping
+6. `terminate` - terminate instance instead of stopping, default to `false`
 
 Stop a node:
 

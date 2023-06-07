@@ -107,7 +107,7 @@
     ansible.builtin.add_host:
       hostname: "{{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
       inventory_dir: "{{ inventory_dir }}"
-      groups: Ec2Instance
+      groups: "{{ instance_host }}"
 
   - name: Pause for 10 seconds before connecting to the node
     ansible.builtin.pause:
@@ -161,7 +161,7 @@
         period: 21600
         evaluation_periods: 1
         treat_missing_data: breaching
-        description: "This will alarm when a instance's disk free space is less than or equal to 10 GB"
+        description: "This will alarm when an instance's disk free space is less than or equal to 10 GB"
         dimensions: {
           "path": "/",
           "InstanceId": "{{ instances['instances'][0]['instance_id'] }}",
