@@ -72,3 +72,43 @@ Terminate a node:
 ```
 ansible-playbook -i <hosts file> ec2-stop-node.yml --extra-vars "host=Mainnet" --extract-vars="terminate=true"
 ```
+
+## Ansible playbook to enable SSH access to the AWS ec2 instance with a dock-node.
+
+Variables:
+1. `aws_profile` - AWS profile to be used
+2. `aws_region` - AWS region to be used
+3. `name` to use for the instance
+
+Open SSH port:
+
+```
+ansible-playbook -i <hosts file> ec2-enable-ssh.yml --extra-vars "host=Mainnet"
+```
+
+## Ansible playbook to disable SSH access to the AWS ec2 instance with a dock-node.
+
+Variables:
+1. `aws_profile` - AWS profile to be used
+2. `aws_region` - AWS region to be used
+3. `name` to use for the instance
+
+Close SSH port:
+
+```
+ansible-playbook -i <hosts file> ec2-disable-ssh.yml --extra-vars "host=Mainnet"
+```
+
+## Ansible playbook to set new volume size for the AWS ec2 instance with a dock-node.
+
+Variables:
+1. `aws_profile` - AWS profile to be used
+2. `aws_region` - AWS region to be used
+3. `name` - to use for the instance
+4. `volume_size` - new size to be set for the volume
+
+Resize the volume:
+
+```
+ansible-playbook -i <hosts file> ec2-set-volume-size.yml --extra-vars "host=Mainnet"
+```
