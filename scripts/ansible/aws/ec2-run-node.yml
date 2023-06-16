@@ -14,18 +14,6 @@
       force: false
       key_material: "{{ lookup('file', ssh_key_pub) }}"
 
-  - name: Create setup security group
-    amazon.aws.ec2_security_group:
-      region: "{{ aws_region }}"
-      profile: "{{ aws_profile }}"
-      name: Setup (created by ansible)
-      description: Allows connecting to node directly via SSH (created by ansible)
-      rules:
-        - proto: tcp
-          from_port: 22
-          to_port: 22
-          cidr_ip: 0.0.0.0/0
-
   - name: Create substrate P2P security group
     amazon.aws.ec2_security_group:
       region: "{{ aws_region }}"
@@ -63,9 +51,7 @@
       wait: true
       security_groups: 
         - "Substrate P2P (created by ansible)"
-        - "Setup (created by ansible)"
       network:
-        # assign_public_ip: true
         delete_on_termination: true
       image_id: "{{ ami_info['images'][-1]['image_id'] }}"
       volumes:
@@ -109,9 +95,8 @@
       inventory_dir: "{{ inventory_dir }}"
       groups: "{{ instance_host }}"
 
-  - name: Pause for 10 seconds before connecting to the node
-    ansible.builtin.pause:
-      seconds: 10
+- name: Open SSH port
+  ansible.builtin.import_playbook: ./ec2-enable-ssh.yml
 
 - name: Run a node
   ansible.builtin.import_playbook: ../run-node.yml
@@ -120,6 +105,9 @@
     node_name: "{{ hostvars['localhost']['name'] }}"
     export_aws_metrics: true
 
+- name: Close SSH port
+  ansible.builtin.import_playbook: ./ec2-disable-ssh.yml
+
 - hosts: localhost
   connection: local
   gather_facts: False
@@ -127,21 +115,6 @@
     instance_name: "{{ name }} (created by ansible)"
     ssh_key_full_name: "{{ ssh_key_name }} (created by ansible)"
   tasks:
-    - name: Remove setup security group
-      amazon.aws.ec2_instance:
-        profile: "{{ aws_profile }}"
-        region: "{{ aws_region }}"
-        name: "{{ instance_name }}"
-        key_name: "{{ ssh_key_full_name }}"
-        instance_role: "{{ instance_role | default('CloudWatchAgent_Role') }}"
-        instance_type: "{{ instance_type | default('t3.large') }}"
-        state: "running"
-        wait: true
-        security_groups: 
-          - "Substrate P2P (created by ansible)"
-        network:
-          # assign_public_ip: true
-          delete_on_termination: true
 
     - name: Pause for 30 seconds before creating a disk space alarm
       ansible.builtin.pause:
