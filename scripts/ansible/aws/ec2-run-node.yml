@@ -60,6 +60,8 @@
             volume_size: "{{ volume_size | default('300') }}"
             delete_on_termination: "{{ not(persistent | default('false') | bool) }}"
             snapshot_id: "{{ snapshot_id | default(omit) }}"
+            volume_type: "io1"
+            iops: 1300
     register: instances
 
   - name: EC2 instance info
@@ -130,7 +132,7 @@
         namespace: "CWAgent"
         statistic: Minimum
         comparison: "LessThanOrEqualToThreshold"
-        threshold: 10000000
+        threshold: 10000000000
         period: 21600
         evaluation_periods: 1
         treat_missing_data: breaching

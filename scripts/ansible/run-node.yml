@@ -14,10 +14,12 @@
     # As the node key is passed as command line argument, it can be learned through bash history. 
     # TODO: Ansible should disable history before running script and enable once done.
     has_node_key: "{{ libp2p_key | default(false) }}"  # libp2p_key might not be defined
-    node_key_cmd: "{{ '--node-key='+ libp2p_key if (has_node_key) else '' }}"
+    node_key_cmd: "{{ '--node-key=' + libp2p_key if (has_node_key) else '' }}"
 
     ext_rpc_flag: "{{ allow_ext_rpc | default('false') | bool }}"  # External RPC is disabled by default
     external_rpc: "{{ '--unsafe-rpc-external --unsafe-ws-external --rpc-cors=all' if (ext_rpc_flag) else '' }}"
+
+    ws_max: "{{ '--ws-max-connections=' + (ws_max_connections | string) if ws_max_connections is defined else '' }}"
 
     ext_prometheus_flag: "{{ allow_ext_prom | default('false') | bool }}"  # Listening to external Prometheus interfaces is disabled by default
     external_prom: "{{ '--prometheus-external' if (ext_prometheus_flag) else '' }}"
@@ -236,7 +238,7 @@
       mounts:
       - source: 'dock-chain-data'
         target: '{{ mount_at }}'
-      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }} {{ offchain_indexing }}'
+      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }} {{ offchain_indexing }} {{ ws_max }}'
 
   # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
   - name: Rotate session key
