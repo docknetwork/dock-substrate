@@ -8,6 +8,7 @@
     chain: "--chain=./cspec/{{ chain_spec_file | default('knox_raw.json') }}"   # chain spec for mainnet by default
     export_aws_metrics_bool: "{{ export_aws_metrics | default('false') | bool }}"
     copy_chains_data_bool: "{{ copy_chains_data | default('false') | bool }}"
+    rpc_methods_value: "{{ '--rpc-methods=' + rpc_methods if rpc_methods is defined else '' }}"
     
     # When `libp2p_key` is not provided `--node-key=...` parameter is not passed to the node making it generate a random key
     # Expecting a 32 byte hex string without leading `0x`. No input validation done
@@ -238,7 +239,7 @@
       mounts:
       - source: 'dock-chain-data'
         target: '{{ mount_at }}'
-      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }} {{ offchain_indexing }} {{ ws_max }}'
+      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }} {{ offchain_indexing }} {{ ws_max }} {{ rpc_methods_value }}'
 
   # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
   - name: Rotate session key
