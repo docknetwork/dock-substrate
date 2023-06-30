@@ -4,6 +4,7 @@
   vars:
     instance_name: "{{ name }} (created by ansible)"
     ssh_key_full_name: "{{ ssh_key_name }} (created by ansible)"
+    volume_type_default: "{{ volume_type | default('io1') }}" 
   tasks:
 
   - name: Create new keypair
@@ -60,8 +61,8 @@
             volume_size: "{{ volume_size | default('300') }}"
             delete_on_termination: "{{ not(persistent | default('false') | bool) }}"
             snapshot_id: "{{ snapshot_id | default(omit) }}"
-            volume_type: "io1"
-            iops: 1300
+            volume_type: "{{ volume_type_default }}"
+            iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
     register: instances
 
   - name: EC2 instance info

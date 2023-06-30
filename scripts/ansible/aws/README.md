@@ -112,3 +112,22 @@ Resize the volume:
 ```
 ansible-playbook -i <hosts file> ec2-set-volume-size.yml --extra-vars "host=Mainnet"
 ```
+
+
+## Ansible playbook to setup a gateway from the AWS ec2 instance with a dock-node.
+
+Requires `geerlingguy.certbot` role installed.
+
+Variables:
+
+1. `aws_profile` - AWS profile to be used
+2. `aws_region` - AWS region to be used
+3. `name` - to use for the instance
+4. `restricted_cidr_ip` - set of IP addresses to allow `https` connections from. If provided, only port `443` will be open for the supplied IP mask.
+
+Variables ([`instance_host`:vars]):
+
+1. path to python interpreter on remote `ansible_python_interpreter`
+2. `domain` to issue certs for
+3. `admin_email` to be included in certificates
+4. `nginx_dir` to take the nginx base configuration from

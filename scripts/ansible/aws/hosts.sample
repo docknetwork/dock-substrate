@@ -15,6 +15,7 @@ aws_profile=<AWS profile name>
 aws_region=<AWS region>
 ssh_key_name=<AWS keypair name>
 ssh_key_pub=<AWS keypair public key>
+instance_host=validator
 
 [validator:vars]
 ansible_ssh_common_args='-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null'

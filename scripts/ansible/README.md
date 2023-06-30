@@ -28,6 +28,7 @@ in a file called session_key.txt on the host.
 18. `chains_data_path` specifies a directory containing chains data to be copied if needed
 19. `copy_chains_data` to copy chains data to the created docker volume. Default to `false`
 20. `cloudwatch_agent_config` specifies the path to the clouldwatch agent config to be used.
+21. `volume_type` - specifies type of the volume to be created
 
 The [sample hosts file](hosts.sample) can be checked for the parameters. Note that the sample file has several 
 placeholders enclosed in angle brackets, i.e. like `<validator node ip>` or `<path of private key file>`, all of these 
@@ -81,3 +82,20 @@ ansible-playbook -i <hosts file> reset-node.yml --extra-vars "host=<name in the 
 ```
 
 The above script will clear the node's data dorectories and restart the node. Passing `rebuild_node=true` will pull the latest source and rebuild the node as well.
+
+
+## Ansible playbook for setting up a nginx with `certbot`-issued SSL certificates for the node
+
+This script assumes that you have some basic `nginx` configuration to be modified by the `certbot`.
+Requires `geerlingguy.certbot` role installed.
+
+```
+ansible-playbook -i ~/.dock-aws setup-nginx.yml --extra-vars="host=TestNode"
+```
+
+Variables:
+
+1. `domain` to issue certs for
+2. `admin_email` to be included in certificates
+3. `nginx_dir` to take the nginx base configuration from
+4. `overriden_host` to override `host` from the context

@@ -1,0 +1,45 @@
+- hosts: '{{ overriden_host | default(host) }}'
+  gather_facts: true
+  become: true
+  name: Install and issue certbot certs
+  vars:
+    certbot_create_command: >-
+      {{ certbot_script }} run --nginx
+      {{ '--hsts' if certbot_hsts else '' }}
+      {{ '--test-cert' if certbot_testmode else '' }}
+      --noninteractive --agree-tos
+      --email {{ cert_item.email | default(certbot_admin_email) }}
+      {{ '--webroot-path ' if certbot_create_method == 'webroot'  else '' }}
+      {{ cert_item.webroot | default(certbot_webroot) if certbot_create_method == 'webroot' else '' }}
+      -d {{ cert_item.domains | join(',') }}
+      {{ '--pre-hook /etc/letsencrypt/renewal-hooks/pre/stop_services'
+        if certbot_create_standalone_stop_services and certbot_create_method == 'standalone'
+      else '' }}
+      {{ '--post-hook /etc/letsencrypt/renewal-hooks/post/start_services'
+        if certbot_create_standalone_stop_services and certbot_create_method == 'standalone'
+      else '' }}
+    certbot_admin_email: "{{ admin_email }}"
+    certbot_install_method: 'snap'
+    certbot_create_if_missing: true
+    certbot_auto_renew_user: ubuntu
+    certbot_create_method: webroot
+    certbot_certs:
+      - domains:
+        - "{{ domain }}"
+
+  roles:
+    - geerlingguy.certbot
+
+  pre_tasks:
+    - name: Install nginx
+      become: yes
+      become_method: sudo
+      ansible.builtin.apt:
+        name: nginx
+        state: latest
+
+    - name: Copy basic nginx configuration
+      become: yes
+      ansible.builtin.copy:
+        src: "{{ nginx_dir }}"
+        dest: /etc/
