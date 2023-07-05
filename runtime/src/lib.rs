@@ -115,6 +115,7 @@ pub use balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
 pub use pallet_election_provider_multi_phase::Call as EPMCall;
+use pallet_staking::migrations::unclaimed_stash_eras::MigrateToUnclaimedStashEras;
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use precompiles::FrontierPrecompiles;
@@ -574,7 +575,7 @@ parameter_types! {
 }
 pub struct StakingBenchmarkingConfig;
 impl pallet_staking::BenchmarkingConfig for StakingBenchmarkingConfig {
-    type MaxValidators = ConstU32<200>;
+    type MaxValidators = ConstU32<100>;
     type MaxNominators = ConstU32<200>;
 }
 
@@ -1889,6 +1890,7 @@ type Executive = frame_executive::Executive<
     system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
+    MigrateToUnclaimedStashEras<Runtime>,
 >;
 
 /// The address format for describing accounts.
@@ -2470,8 +2472,8 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, blob, BlobStore);
             list_benchmark!(list, extra, balances, Balances);
             list_benchmark!(list, extra, token_migration, MigrationModule);
-            // list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
             list_benchmark!(list, extra, pallet_collective, Council);
+            list_benchmark!(list, extra, pallet_staking, Staking);
 
             macro_rules! storage_info {
                 ($($pallet: ty),+) => {
@@ -2569,6 +2571,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, revoke, Revoke);
             add_benchmark!(params, batches, blob, BlobStore);
             add_benchmark!(params, batches, balances, Balances);
+            add_benchmark!(params, batches, pallet_staking, Staking);
             add_benchmark!(params, batches, token_migration, MigrationModule);
             // add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 
