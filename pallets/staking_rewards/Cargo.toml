@@ -49,7 +49,6 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-staking]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false

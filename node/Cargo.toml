@@ -514,7 +514,6 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-elections-phragmen]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.staking_rewards]
 path = "../pallets/staking_rewards"
@@ -528,7 +527,6 @@ rev = "dc50c3d973d1f53434c7a03e426faa9c20062f60"
 
 [dependencies.price-feed-rpc]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.staking_rewards_rpc]
 path = "../pallets/staking_rewards/rpc"
@@ -538,7 +536,6 @@ path = "../pallets/core_mods/rpc"
 
 [dependencies.pallet-staking]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.fp-consensus]
 git = "https://github.com/docknetwork/frontier.git"

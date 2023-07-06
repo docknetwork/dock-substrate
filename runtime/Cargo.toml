@@ -274,7 +274,6 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-collective]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.pallet-membership]
 default-features = false
@@ -314,7 +313,6 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-staking]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
@@ -349,12 +347,10 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-democracy]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.pallet-elections-phragmen]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.hex-literal]
 version = "0.3.4"
@@ -441,7 +437,6 @@ path = "../pallets/core_mods"
 [dependencies.price-feed]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "staking-unclaimed-era-rewards-counter"
 
 [dependencies.libsecp256k1]
 version = "0.7"
