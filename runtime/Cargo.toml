@@ -312,8 +312,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-staking]
 default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
@@ -612,6 +611,7 @@ runtime-benchmarks = [
   "frame-system-benchmarking",
   "token_migration/runtime-benchmarks",
   "core_mods/runtime-benchmarks",
+  "pallet-staking/runtime-benchmarks"
 ]
 
 # For building testnet, affects spec name and ss58 prefix

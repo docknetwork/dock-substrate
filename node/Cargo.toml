@@ -535,8 +535,7 @@ path = "../pallets/staking_rewards/rpc"
 path = "../pallets/core_mods/rpc"
 
 [dependencies.pallet-staking]
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
+git = "https://github.com/docknetwork/dock-substrate-common.git"
 
 [dependencies.fp-consensus]
 git = "https://github.com/docknetwork/frontier.git"
