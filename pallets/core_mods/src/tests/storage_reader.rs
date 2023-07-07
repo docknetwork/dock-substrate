@@ -1,8 +1,8 @@
 use crate::{
+    common::StorageVersion,
     did::*,
-    test_common::*,
+    tests::common::*,
     util::{IncId, WithNonce},
-    StorageVersion,
 };
 use codec::{Decode, Encode};
 use fp_evm::{ExitError, ExitSucceed, Precompile, PrecompileFailure, PrecompileOutput};

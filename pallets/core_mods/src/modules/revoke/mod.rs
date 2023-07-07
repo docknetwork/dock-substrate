@@ -1,9 +1,11 @@
 use crate as dock;
 use crate::{
-    did::{self, Did, DidSignature},
-    keys_and_sigs::{SigValue, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT},
-    util::{NonceError, WithNonce},
-    Action, StorageVersion, ToStateChange,
+    common::{
+        DidSignatureWithNonce, HasPolicy, MaxPolicyControllers, Policy, SigValue, StorageVersion,
+        ToStateChange,
+    },
+    did::{self},
+    util::{Action, NonceError, WithNonce},
 };
 use alloc::collections::BTreeSet;
 use codec::{Decode, Encode};
@@ -12,14 +14,10 @@ use sp_std::vec::Vec;
 
 pub use actions::*;
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
-    dispatch::DispatchResult,
-    ensure,
-    traits::Get,
-    weights::{RuntimeDbWeight, Weight},
+    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
+    weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::traits::Hash;
 use sp_std::prelude::*;
 use weights::*;
 
@@ -37,54 +35,8 @@ pub type RegistryId = [u8; 32];
 /// Points to a revocation which may or may not exist in a registry.
 pub type RevokeId = [u8; 32];
 
-/// Collection of signatures sent by different DIDs.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
-pub struct DidSigs<T>
-where
-    T: frame_system::Config,
-{
-    /// Signature by DID
-    pub sig: DidSignature<Did>,
-    /// Nonce used to make the above signature
-    pub nonce: T::BlockNumber,
-}
-
-/// Authorization logic for a registry.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub enum Policy {
-    /// Set of dids allowed to modify a registry.
-    OneOf(BTreeSet<Did>),
-}
-
-impl Default for Policy {
-    fn default() -> Self {
-        Self::OneOf(Default::default())
-    }
-}
-
-impl Policy {
-    /// Check for user error in the construction of self.
-    /// if self is invalid, return `false`, else return `true`.
-    fn valid(&self) -> bool {
-        self.len() != 0
-    }
-
-    fn len(&self) -> u32 {
-        match self {
-            Self::OneOf(controllers) => controllers.len() as u32,
-        }
-    }
-}
-
 /// Metadata about a revocation scope.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
@@ -96,41 +48,14 @@ pub struct Registry {
     pub add_only: bool,
 }
 
-/// Return counts of different signature types in given `DidSigs` as 3-Tuple as (no. of Sr22519 sigs,
-/// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
-/// type is in `Weight` but realistically, it should fit in a u8
-fn count_sig_types<T: frame_system::Config>(auth: &[DidSigs<T>]) -> (u64, u64, u64) {
-    let mut sr = 0;
-    let mut ed = 0;
-    let mut secp = 0;
-    for a in auth.iter() {
-        match a.sig.sig {
-            SigValue::Sr25519(_) => sr += 1,
-            SigValue::Ed25519(_) => ed += 1,
-            SigValue::Secp256k1(_) => secp += 1,
-        }
+impl HasPolicy for Registry {
+    fn policy(&self) -> &Policy {
+        &self.policy
     }
-    (sr, ed, secp)
 }
 
-/// Computes weight of the given `DidSigs`. Considers the no. and types of signatures and no. of reads. Disregards
-/// message size as messages are hashed giving the same output size and hashing itself is very cheap.
-/// The extrinsic using it might decide to consider adding some weight proportional to the message size.
-pub fn get_weight_for_did_sigs<T: frame_system::Config>(
-    auth: &[DidSigs<T>],
-    db_weights: RuntimeDbWeight,
-) -> Weight {
-    let (sr, ed, secp) = count_sig_types(auth);
-    db_weights
-        .reads(auth.len() as u64)
-        .saturating_add(SR25519_WEIGHT.saturating_mul(sr))
-        .saturating_add(ED25519_WEIGHT.saturating_mul(ed))
-        .saturating_add(SECP256K1_WEIGHT.saturating_mul(secp))
-}
-
-pub trait Config: system::Config + did::Config {
+pub trait Config: MaxPolicyControllers + system::Config + did::Config {
     type Event: From<Event> + Into<<Self as system::Config>::Event>;
-    type MaxControllers: Get<u32>;
 }
 
 decl_event!(
@@ -149,14 +74,8 @@ decl_event!(
 decl_error! {
     /// Revocation Error
     pub enum RevErr for Module<T: Config> where T: Debug {
-        /// The authorization policy provided was illegal.
-        InvalidPolicy,
-        /// Proof of authorization does not meet policy requirements.
-        NotAuthorized,
         /// A revocation registry with that name already exists.
         RegExists,
-        /// A revocation registry with that name does not exist.
-        NoReg,
         /// nonce is incorrect. This is related to replay protection.
         IncorrectNonce,
         /// Too many controllers specified.
@@ -220,7 +139,7 @@ decl_module! {
             Ok(())
         }
 
-        /// Create some revocations according to the `revoke`` command.
+        /// Create some revocations according to the `revoke` command.
         ///
         /// # Errors
         ///
@@ -233,11 +152,11 @@ decl_module! {
         pub fn revoke(
             origin,
             revoke: dock::revoke::RevokeRaw<T>,
-            proof: Vec<DidSigs<T>>,
+            proof: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_registry(revoke, proof, Self::revoke_)?;
+            Self::try_exec_action_over_registry(Self::revoke_, revoke, proof)?;
             Ok(())
         }
 
@@ -256,11 +175,11 @@ decl_module! {
         pub fn unrevoke(
             origin,
             unrevoke: dock::revoke::UnRevokeRaw<T>,
-            proof: Vec<DidSigs<T>>,
+            proof: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_registry(unrevoke, proof, Self::unrevoke_)?;
+            Self::try_exec_action_over_registry(Self::unrevoke_, unrevoke, proof)?;
             Ok(())
         }
 
@@ -281,18 +200,18 @@ decl_module! {
         pub fn remove_registry(
             origin,
             removal: dock::revoke::RemoveRegistryRaw<T>,
-            proof: Vec<DidSigs<T>>,
+            proof: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_removable_action_over_registry(removal, proof, Self::remove_registry_)?;
+            Self::try_exec_removable_action_over_registry(Self::remove_registry_, removal, proof)?;
             Ok(())
         }
     }
 }
 
 impl<T: frame_system::Config> SubstrateWeight<T> {
-    fn revoke(DidSigs { sig, .. }: &DidSigs<T>) -> fn(u32) -> Weight {
+    fn revoke(DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>) -> fn(u32) -> Weight {
         match sig.sig {
             SigValue::Sr25519(_) => Self::revoke_sr25519,
             SigValue::Ed25519(_) => Self::revoke_ed25519,
@@ -300,7 +219,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
         }
     }
 
-    fn unrevoke(DidSigs { sig, .. }: &DidSigs<T>) -> fn(u32) -> Weight {
+    fn unrevoke(DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>) -> fn(u32) -> Weight {
         match sig.sig {
             SigValue::Sr25519(_) => Self::unrevoke_sr25519,
             SigValue::Ed25519(_) => Self::unrevoke_ed25519,
@@ -308,7 +227,7 @@ impl<T: frame_system::Config> SubstrateWeight<T> {
         }
     }
 
-    fn remove_registry(DidSigs { sig, .. }: &DidSigs<T>) -> Weight {
+    fn remove_registry(DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>) -> Weight {
         (match sig.sig {
             SigValue::Sr25519(_) => Self::remove_registry_sr25519,
             SigValue::Ed25519(_) => Self::remove_registry_ed25519,

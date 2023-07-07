@@ -1,10 +1,9 @@
 use crate::{
+    common::{SigValue, StorageVersion},
     did,
     did::{Did, DidSignature},
-    keys_and_sigs::SigValue,
     types::CurveType,
     util::{Bytes, IncId},
-    StorageVersion,
 };
 pub use actions::*;
 use arith_utils::DivCeil;

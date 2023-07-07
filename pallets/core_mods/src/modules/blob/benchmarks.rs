@@ -1,6 +1,7 @@
 use super::*;
-use crate::{did::UncheckedDidKey, ToStateChange};
+use crate::{common::state_change::ToStateChange, did::UncheckedDidKey};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
+#[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 use system::RawOrigin;
 

@@ -1,6 +1,6 @@
 use dock_runtime::{
+    common::PublicKey,
     did::{Did, DidKey},
-    keys_and_sigs::PublicKey,
     master::Membership,
     AccountId, AuthorityDiscoveryConfig, BabeConfig, Balance, BalancesConfig, Block,
     DIDModuleConfig, EVMConfig, ElectionsConfig, EthereumConfig, GenesisConfig,

@@ -1,8 +1,7 @@
 use crate as dock;
 use crate::{
-    keys_and_sigs::{PublicKey, SigValue},
+    common::{PublicKey, SigValue, StorageVersion},
     util::{with_nonce::NonceError, *},
-    Action, ActionWithNonce, StorageVersion,
 };
 
 use arith_utils::DivCeil;
@@ -13,7 +12,7 @@ use frame_support::{
     traits::Get, weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_runtime::{traits::Hash, DispatchError};
+use sp_runtime::DispatchError;
 use sp_std::{
     collections::btree_set::BTreeSet,
     convert::{TryFrom, TryInto},
@@ -320,7 +319,7 @@ decl_module! {
         #[doc(hidden)]
         fn _noop(
             _o,
-            _s: crate::StateChange<'static, T>
+            _s: crate::common::StateChange<'static, T>
         ) -> DispatchResult {
             Err(DispatchError::BadOrigin)
         }

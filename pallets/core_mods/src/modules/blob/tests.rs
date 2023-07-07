@@ -1,5 +1,5 @@
 use super::{did, Blob, BlobError, BlobId, BlobOwner, Blobs, DispatchResult};
-use crate::{blob::AddBlob, did::Did, test_common::*};
+use crate::{blob::AddBlob, did::Did, tests::common::*};
 use frame_support::StorageMap;
 use sp_core::{sr25519, Pair};
 

@@ -6,3 +6,4 @@ pub mod did;
 pub mod master;
 pub mod offchain_signatures;
 pub mod revoke;
+pub mod status_list_credential;

@@ -2,9 +2,9 @@
 
 use crate as dock;
 use crate::{
+    common::SigValue,
     did,
     did::{Did, DidSignature},
-    keys_and_sigs::SigValue,
     util::Bytes,
 };
 use codec::{Decode, Encode};

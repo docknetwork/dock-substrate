@@ -1,13 +1,13 @@
 use super::*;
-use crate::ToStateChange;
+use crate::common::ToStateChange;
 
 use crate::{
+    common::{get_secp256k1_keypair, SigValue},
     did::{
         keys::{DidKeyError, UncheckedDidKey},
         service_endpoints::ServiceEndpointType,
     },
-    keys_and_sigs::{get_secp256k1_keypair, SigValue},
-    test_common::*,
+    tests::common::*,
     util::{Bytes64, Bytes65},
 };
 use frame_support::{assert_err, assert_noop, assert_ok};

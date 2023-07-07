@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_common::*;
+use crate::tests::common::*;
 use frame_support::assert_err;
 use sp_core::{sr25519, Hasher, H256};
 

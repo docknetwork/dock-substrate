@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     did::{tests::check_did_detail, AddControllers},
     offchain_signatures,
-    test_common::*,
+    tests::common::*,
     types::CurveType,
     util::Bytes,
 };

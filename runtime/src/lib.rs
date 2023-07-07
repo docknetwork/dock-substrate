@@ -41,9 +41,9 @@ extern crate alloc;
 extern crate static_assertions;
 
 pub use core_mods::{
-    accumulator, anchor, attest, blob, did, keys_and_sigs, master, offchain_signatures,
+    accumulator, anchor, attest, blob, common, did, master, offchain_signatures,
     offchain_signatures::{BBSPlusPublicKey, OffchainPublicKey, PSPublicKey},
-    revoke,
+    revoke, status_list_credential,
 };
 use price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
 pub mod precompiles;
@@ -1049,7 +1049,9 @@ parameter_types! {
     pub const MaxServiceEndpointOrigins: u16 = 64;
     pub const MaxServiceEndpointOriginSize: u16 = 1025;
     pub const ServiceEndpointOriginPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const MaxControllers: u32 = 15;
+    pub const MaxPolicyControllers: u32 = 15;
+    pub const MaxStatusListCredentialSize: u32 = 100_000;
+    pub const MinStatusListCredentialSize: u32 = 100;
 }
 
 impl did::Config for Runtime {
@@ -1065,7 +1067,16 @@ impl did::Config for Runtime {
 
 impl revoke::Config for Runtime {
     type Event = Event;
-    type MaxControllers = MaxControllers;
+}
+
+impl common::MaxPolicyControllers for Runtime {
+    type MaxPolicyControllers = MaxPolicyControllers;
+}
+
+impl status_list_credential::Config for Runtime {
+    type Event = Event;
+    type MinStatusListCredentialSize = MinStatusListCredentialSize;
+    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
 }
 
 impl offchain_signatures::Config for Runtime {
@@ -1744,7 +1755,8 @@ pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider! {
         "Tips" => Tips,
         "Identity" => Identity,
         "Accumulator" => Accumulator,
-        "BaseFee" => BaseFee
+        "BaseFee" => BaseFee,
+        "StatusListCredential" => StatusListCredential
 }
 
 impl pallet_evm::Config for Runtime {
@@ -1848,7 +1860,8 @@ construct_runtime!(
         Tips: pallet_tips::{Pallet, Call, Storage, Event<T>} = 38,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 39,
         Accumulator: accumulator::{Pallet, Call, Storage, Event} = 40,
-        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41
+        BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
+        StatusListCredential: status_list_credential::{Pallet, Call, Storage, Event} = 42
     }
 );
 
@@ -2463,12 +2476,11 @@ impl_runtime_apis! {
             use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
-            // use frame_system_benchmarking::Pallet as SystemBench;
-
             let mut list = Vec::<BenchmarkList>::new();
 
             list_benchmark!(list, extra, did, DIDModule);
             list_benchmark!(list, extra, revoke, Revoke);
+            list_benchmark!(list, extra, status_list_credential, StatusListCredential);
             list_benchmark!(list, extra, blob, BlobStore);
             list_benchmark!(list, extra, balances, Balances);
             list_benchmark!(list, extra, token_migration, MigrationModule);
@@ -2522,7 +2534,8 @@ impl_runtime_apis! {
                 Identity,
                 OffchainSignatures,
                 Accumulator,
-                BaseFee
+                BaseFee,
+                StatusListCredential
             );
             //list_benchmark!(list, extra, pallet_democracy, Democracy);
             //list_benchmark!(list, extra, pallet_scheduler, Scheduler);
@@ -2569,6 +2582,7 @@ impl_runtime_apis! {
 
             add_benchmark!(params, batches, did, DIDModule);
             add_benchmark!(params, batches, revoke, Revoke);
+            add_benchmark!(params, batches, status_list_credential, StatusListCredential);
             add_benchmark!(params, batches, blob, BlobStore);
             add_benchmark!(params, batches, balances, Balances);
             add_benchmark!(params, batches, pallet_staking, Staking);

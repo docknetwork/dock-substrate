@@ -1,3 +1,4 @@
+pub mod action;
 pub mod bytes;
 #[cfg(feature = "serde")]
 pub mod hex;
@@ -6,6 +7,7 @@ pub mod macros;
 pub mod with_nonce;
 pub mod wrapped_action_with_nonce;
 
+pub use action::*;
 pub use bytes::*;
 #[cfg(feature = "serde")]
 pub use hex::*;
