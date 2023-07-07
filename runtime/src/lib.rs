@@ -115,7 +115,6 @@ pub use balances::Call as BalancesCall;
 #[cfg(any(feature = "std", test))]
 pub use frame_system::Call as SystemCall;
 pub use pallet_election_provider_multi_phase::Call as EPMCall;
-use pallet_staking::migrations::unclaimed_stash_eras::MigrateToUnclaimedStashEras;
 #[cfg(feature = "std")]
 pub use pallet_staking::StakerStatus;
 use precompiles::FrontierPrecompiles;
@@ -1890,7 +1889,6 @@ type Executive = frame_executive::Executive<
     system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    MigrateToUnclaimedStashEras<Runtime>,
 >;
 
 /// The address format for describing accounts.
