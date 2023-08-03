@@ -15,7 +15,7 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 # rustup directory
 ENV PATH /root/.cargo/bin:$PATH
 
-ARG nightly='nightly-2022-09-23'
+ARG nightly='nightly-2023-03-09'
 
 # setup rust nightly channel, pinning specific version as newer versions have a regression
 RUN rustup install $nightly
@@ -45,11 +45,11 @@ ARG release
 
 RUN if [ "$release" = "Y" ] ; then \
       echo 'Building in release mode.' ; \
-      cargo build --profile=release $features ; \
+      cargo +$nightly build --profile=release $features ; \
       mv /dock-node/target/release/dock-node /dock-node/target/; \
     else \
       echo 'Building in production mode.' ; \
-      cargo build --profile=production $features ; \
+      cargo +$nightly build --profile=production $features ; \
       mv /dock-node/target/production/dock-node /dock-node/target/; \
     fi
 

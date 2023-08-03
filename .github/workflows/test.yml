@@ -14,23 +14,23 @@ jobs:
       - name: Install rust toolchain
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2022-09-23
+          toolchain: nightly-2023-03-09
           override: true
           components: rustfmt
       - name: Ensure Standard Formatting
-        run: cargo +nightly-2022-09-23 fmt -- --check
+        run: cargo +nightly-2023-03-09 fmt -- --check
 
   unit-tests:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install nightly-2022-09-23
+      - name: Install nightly-2023-03-09
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: nightly-2022-09-23
+          toolchain: nightly-2023-03-09
           override: true
       - name: Install WASM
-        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2022-09-23
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
       - name: Ensure docs are buildable
         run: cargo doc --no-deps
       - name: Run tests
@@ -39,5 +39,12 @@ jobs:
   integration-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v2
+      - name: Install nightly-2023-03-09
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2023-03-09
+          override: true
+      - name: Install WASM
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
       - run: ./scripts/integration_tests
