@@ -15,7 +15,7 @@
 // --extrinsic=*
 // --steps=50
 // --template=node/module-weight-template.hbs
-// --output=./weights.rs
+// --output=./pallets/core_mods/src/modules/revoke/weights.rs
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]

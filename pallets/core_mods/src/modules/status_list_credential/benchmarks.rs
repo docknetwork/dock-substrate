@@ -37,9 +37,9 @@ crate::bench_with_all_pairs! {
         };
         super::Pallet::<T>::create_(
             CreateStatusListCredential {
-                /// Unique identifier of the undelrying StatusListCredential
+                /// Unique identifier of the underlying `StatusListCredential`
                id,
-               /// The StatusListCredential itself
+               /// The `StatusListCredential` itself
                credential,
                _marker: PhantomData
            }
@@ -47,9 +47,9 @@ crate::bench_with_all_pairs! {
 
         let credential = StatusListCredential::StatusList2021Credential((0..r).map(|v| v as u8).collect());
         let update_credential_raw = UpdateStatusListCredentialRaw {
-             /// Unique identifier of the undelrying StatusListCredential
+             /// Unique identifier of the underlying `StatusListCredential`
             id,
-            /// The StatusListCredential itself
+            /// The `StatusListCredential` itself
             credential,
             _marker: PhantomData
         };
@@ -85,16 +85,16 @@ crate::bench_with_all_pairs! {
         };
         super::Pallet::<T>::create_(
             CreateStatusListCredential {
-                /// Unique identifier of the undelrying StatusListCredential
+                /// Unique identifier of the underlying `StatusListCredential`
                id,
-               /// The StatusListCredential itself
+               /// The `StatusListCredential` itself
                credential,
                _marker: PhantomData
            }
         ).unwrap();
 
         let remove_credential_raw = RemoveStatusListCredentialRaw {
-             /// Unique identifier of the undelrying StatusListCredential
+             /// Unique identifier of the underlying `StatusListCredential`
             id,
             _marker: PhantomData
         };
@@ -122,9 +122,9 @@ crate::bench_with_all_pairs! {
         };
 
         let create_credential_raw = CreateStatusListCredential {
-             /// Unique identifier of the undelrying StatusListCredential
+             /// Unique identifier of the underlying `StatusListCredential`
             id,
-            /// The StatusListCredential itself
+            /// The `StatusListCredential` itself
             credential,
             _marker: PhantomData
         };
