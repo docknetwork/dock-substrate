@@ -136,26 +136,6 @@ pub const ED25519_WEIGHT: Weight = Weight::from_ref_time(152_000_000);
 // Weight for ecdsa using secp256k1 sig verification
 pub const SECP256K1_WEIGHT: Weight = Weight::from_ref_time(456_000_000);
 
-// XXX: Substrate UI can't parse them. Maybe later versions will fix it.
-/*
-/// Size of a Sr25519 public key in bytes.
-pub const Sr25519_PK_BYTE_SIZE: usize = 32;
-/// Size of a Ed25519 public key in bytes.
-pub const Ed25519_PK_BYTE_SIZE: usize = 32;
-
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
-pub enum PublicKey {
-    Sr25519([u8; 32]),
-    Ed25519([u8; 32])
-}*/
-
-/*#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
-pub enum PublicKey {
-    Sr25519(Bytes32),
-    Ed25519(Bytes32)
-}
-*/
-
 pub fn sign_with_secp256k1(msg: &[u8], sk: &libsecp256k1::SecretKey) -> SigValue {
     let hash = Sha256::digest(msg).try_into().unwrap();
     let m = libsecp256k1::Message::parse(&hash);
@@ -171,6 +151,7 @@ mod tests {
     use crate::common::get_secp256k1_keypair;
 
     use super::*;
+    use crate::util::Bytes32;
     use sp_core::Pair;
 
     #[test]

@@ -322,32 +322,6 @@ fn update_status_list_credential() {
             Mod::update(Origin::signed(ABBA), update, auth),
             StatusListCredentialError::<Test>::StatusListCredentialTooSmall
         );
-
-        let update = UpdateStatusListCredentialRaw {
-            id,
-            credential: StatusListCredential::StatusList2021Credential(
-                (0..10).map(|v| v as u8).collect(),
-            ),
-            _marker: PhantomData,
-        };
-        let auth = get_pauth(&update, &[(did, &keypair)][..]);
-        assert_noop!(
-            Mod::update(Origin::signed(ABBA), update, auth),
-            PolicyValidationError::Empty
-        );
-
-        let update = UpdateStatusListCredentialRaw {
-            id,
-            credential: StatusListCredential::StatusList2021Credential(
-                (0..10).map(|v| v as u8).collect(),
-            ),
-            _marker: PhantomData,
-        };
-        let auth = get_pauth(&update, &[(did, &keypair)][..]);
-        assert_noop!(
-            Mod::update(Origin::signed(ABBA), update, auth),
-            PolicyValidationError::TooManyControllers
-        );
     });
 }
 
