@@ -3,19 +3,7 @@ use core::marker::PhantomData;
 use crate::util::WithNonce;
 use codec::{Decode, Encode};
 
-use super::{StatusListCredential, StatusListCredentialId, StatusListCredentialWithPolicy};
-
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
-pub struct CreateStatusListCredential<T: frame_system::Config> {
-    pub id: StatusListCredentialId,
-    pub credential: StatusListCredentialWithPolicy,
-    #[codec(skip)]
-    #[cfg_attr(feature = "serde", serde(skip))]
-    pub _marker: PhantomData<T>,
-}
+use super::{StatusListCredential, StatusListCredentialId};
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

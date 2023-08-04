@@ -35,15 +35,7 @@ crate::bench_with_all_pairs! {
             status_list_credential: StatusListCredential::RevocationList2020Credential((0..r).map(|v| v as u8).collect()),
             policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did))
         };
-        super::Pallet::<T>::create_(
-            CreateStatusListCredential {
-                /// Unique identifier of the underlying `StatusListCredential`
-               id,
-               /// The `StatusListCredential` itself
-               credential,
-               _marker: PhantomData
-           }
-        ).unwrap();
+        super::Pallet::<T>::create_(id, credential).unwrap();
 
         let credential = StatusListCredential::StatusList2021Credential((0..r).map(|v| v as u8).collect());
         let update_credential_raw = UpdateStatusListCredentialRaw {
@@ -83,15 +75,7 @@ crate::bench_with_all_pairs! {
             status_list_credential: StatusListCredential::RevocationList2020Credential((0..MAX_CREDENTIAL_SIZE).map(|v| v as u8).collect()),
             policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did))
         };
-        super::Pallet::<T>::create_(
-            CreateStatusListCredential {
-                /// Unique identifier of the underlying `StatusListCredential`
-               id,
-               /// The `StatusListCredential` itself
-               credential,
-               _marker: PhantomData
-           }
-        ).unwrap();
+        super::Pallet::<T>::create_(id, credential).unwrap();
 
         let remove_credential_raw = RemoveStatusListCredentialRaw {
              /// Unique identifier of the underlying `StatusListCredential`
@@ -121,14 +105,7 @@ crate::bench_with_all_pairs! {
             policy: Policy::one_of((0..c).map(|i| U256::from(i).into()).map(Did))
         };
 
-        let create_credential_raw = CreateStatusListCredential {
-             /// Unique identifier of the underlying `StatusListCredential`
-            id,
-            /// The `StatusListCredential` itself
-            credential,
-            _marker: PhantomData
-        };
-    }: create(RawOrigin::Signed(caller), create_credential_raw)
+    }: create(RawOrigin::Signed(caller), id, credential)
     verify {
         assert_eq!(StatusListCredentials::get(id).unwrap(), StatusListCredentialWithPolicy {
             status_list_credential: StatusListCredential::RevocationList2020Credential((0..r).map(|v| v as u8).collect()),

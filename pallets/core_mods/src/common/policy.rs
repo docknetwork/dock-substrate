@@ -105,9 +105,8 @@ impl Policy {
     /// will be taken.
     ///
     /// Checks:
-    /// 1. Ensure that the data exists and this is not a replayed payload by checking the equality
-    /// with stored block number when the data was last modified.
-    /// 2. Verify that `proof` authorizes `action` according to `policy`.
+    /// 1. Verify that `proof` authorizes `action` according to `policy`.
+    /// 2. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
     ///
     /// Returns a mutable reference to the underlying data wrapped into an option if the command is authorized,
     /// otherwise returns Err.

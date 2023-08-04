@@ -71,9 +71,9 @@ impl<T: Config + Debug> Module<T> {
     /// Executes action over target registry providing a mutable reference if all checks succeed.
     ///
     /// Checks:
-    /// 1. Ensure that the registry exists and this is not a replayed payload by checking the equality
-    /// with stored block number when the registry was last modified.
+    /// 1. Ensure that the `StatusListCredential` exists.
     /// 2. Verify that `proof` authorizes `action` according to `policy`.
+    /// 3. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
     ///
     /// Returns a mutable reference to the underlying registry if the command is authorized, otherwise returns Err.
     pub(crate) fn try_exec_action_over_registry<A, F, R, E>(
@@ -100,9 +100,9 @@ impl<T: Config + Debug> Module<T> {
     /// will be taken.
     ///
     /// Checks:
-    /// 1. Ensure that the registry exists and this is not a replayed payload by checking the equality
-    /// with stored block number when the registry was last modified.
+    /// 1. Ensure that the `Registry` exists.
     /// 2. Verify that `proof` authorizes `action` according to `policy`.
+    /// 3. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
     ///
     /// Returns a mutable reference to the underlying registry wrapped into an option if the command is authorized,
     /// otherwise returns Err.

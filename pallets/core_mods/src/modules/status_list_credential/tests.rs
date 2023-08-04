@@ -86,18 +86,15 @@ fn ensure_auth() {
             eprintln!("running case from line {}", line_no);
             let id = StatusListCredentialId(rand::random());
 
-            Mod::create_(CreateStatusListCredential {
-                /// Unique identifier of the StatusListCredential
+            Mod::create_(
                 id,
-                /// StatusListCredential itself
-                credential: StatusListCredentialWithPolicy {
+                StatusListCredentialWithPolicy {
                     status_list_credential: StatusListCredential::RevocationList2020Credential(
                         (0..10).map(|v| v as u8).collect(),
                     ),
                     policy: policy.clone(),
                 },
-                _marker: PhantomData,
-            })
+            )
             .unwrap();
 
             let command = UpdateStatusListCredentialRaw {
@@ -151,75 +148,68 @@ fn create_status_list_credential() {
         let policy = Policy::one_of(&[did]);
         let id = StatusListCredentialId(rand::random());
 
-        let create = CreateStatusListCredential {
-            id,
-            credential: StatusListCredentialWithPolicy {
-                status_list_credential: StatusListCredential::RevocationList2020Credential(
-                    (0..10_000).map(|v| v as u8).collect(),
-                ),
-                policy: policy.clone(),
-            },
-            _marker: PhantomData,
-        };
         assert_noop!(
-            Mod::create(Origin::signed(ABBA), create),
+            Mod::create(
+                Origin::signed(ABBA),
+                id,
+                StatusListCredentialWithPolicy {
+                    status_list_credential: StatusListCredential::RevocationList2020Credential(
+                        (0..10_000).map(|v| v as u8).collect(),
+                    ),
+                    policy: policy.clone(),
+                }
+            ),
             StatusListCredentialError::<Test>::StatusListCredentialTooBig
         );
-        let create = CreateStatusListCredential {
-            id,
-            credential: StatusListCredentialWithPolicy {
-                status_list_credential: StatusListCredential::RevocationList2020Credential(
-                    (0..5).map(|v| v as u8).collect(),
-                ),
-                policy: policy.clone(),
-            },
-            _marker: PhantomData,
-        };
         assert_noop!(
-            Mod::create(Origin::signed(ABBA), create),
+            Mod::create(
+                Origin::signed(ABBA),
+                id,
+                StatusListCredentialWithPolicy {
+                    status_list_credential: StatusListCredential::RevocationList2020Credential(
+                        (0..5).map(|v| v as u8).collect(),
+                    ),
+                    policy: policy.clone(),
+                }
+            ),
             StatusListCredentialError::<Test>::StatusListCredentialTooSmall
         );
-
-        let create = CreateStatusListCredential {
-            id,
-            credential: StatusListCredentialWithPolicy {
-                status_list_credential: StatusListCredential::StatusList2021Credential(
-                    (0..10).map(|v| v as u8).collect(),
-                ),
-                policy: Policy::one_of(empty::<Did>()),
-            },
-            _marker: PhantomData,
-        };
         assert_noop!(
-            Mod::create(Origin::signed(ABBA), create),
+            Mod::create(
+                Origin::signed(ABBA),
+                id,
+                StatusListCredentialWithPolicy {
+                    status_list_credential: StatusListCredential::StatusList2021Credential(
+                        (0..10).map(|v| v as u8).collect(),
+                    ),
+                    policy: Policy::one_of(empty::<Did>()),
+                }
+            ),
             PolicyValidationError::Empty
         );
-
-        let create = CreateStatusListCredential {
-            id,
-            credential: StatusListCredentialWithPolicy {
-                status_list_credential: StatusListCredential::StatusList2021Credential(
-                    (0..10).map(|v| v as u8).collect(),
-                ),
-                policy: Policy::one_of(core::iter::repeat_with(|| Did(random())).take(16)),
-            },
-            _marker: PhantomData,
-        };
         assert_noop!(
-            Mod::create(Origin::signed(ABBA), create),
+            Mod::create(
+                Origin::signed(ABBA),
+                id,
+                StatusListCredentialWithPolicy {
+                    status_list_credential: StatusListCredential::StatusList2021Credential(
+                        (0..10).map(|v| v as u8).collect(),
+                    ),
+                    policy: Policy::one_of(core::iter::repeat_with(|| Did(random())).take(16)),
+                }
+            ),
             PolicyValidationError::TooManyControllers
         );
 
-        Mod::create_(CreateStatusListCredential {
+        Mod::create_(
             id,
-            credential: StatusListCredentialWithPolicy {
+            StatusListCredentialWithPolicy {
                 status_list_credential: StatusListCredential::StatusList2021Credential(
                     (0..10).map(|v| v as u8).collect(),
                 ),
                 policy: policy.clone(),
             },
-            _marker: PhantomData,
-        })
+        )
         .unwrap();
         assert_eq!(
             Mod::status_list_credential(id).unwrap(),
@@ -231,18 +221,17 @@ fn create_status_list_credential() {
             }
         );
 
-        let create = CreateStatusListCredential {
-            id,
-            credential: StatusListCredentialWithPolicy {
-                status_list_credential: StatusListCredential::StatusList2021Credential(
-                    (0..10).map(|v| v as u8).collect(),
-                ),
-                policy: Policy::one_of(core::iter::repeat_with(|| Did(random())).take(16)),
-            },
-            _marker: PhantomData,
-        };
         assert_noop!(
-            Mod::create(Origin::signed(ABBA), create),
+            Mod::create(
+                Origin::signed(ABBA),
+                id,
+                StatusListCredentialWithPolicy {
+                    status_list_credential: StatusListCredential::StatusList2021Credential(
+                        (0..10).map(|v| v as u8).collect(),
+                    ),
+                    policy: Policy::one_of(core::iter::repeat_with(|| Did(random())).take(16)),
+                }
+            ),
             StatusListCredentialError::<Test>::StatusListCredentialAlreadyExists
         );
     });
@@ -257,16 +246,15 @@ fn update_status_list_credential() {
         let policy = Policy::one_of(&[did]);
         let id = StatusListCredentialId(rand::random());
 
-        Mod::create_(CreateStatusListCredential {
+        Mod::create_(
             id,
-            credential: StatusListCredentialWithPolicy {
+            StatusListCredentialWithPolicy {
                 status_list_credential: StatusListCredential::StatusList2021Credential(
                     (0..10).map(|v| v as u8).collect(),
                 ),
                 policy: policy.clone(),
             },
-            _marker: PhantomData,
-        })
+        )
         .unwrap();
         assert_eq!(
             Mod::status_list_credential(id).unwrap(),
@@ -334,16 +322,15 @@ fn remove_status_list_credential() {
         let policy = Policy::one_of(&[did]);
         let id = StatusListCredentialId(rand::random());
 
-        Mod::create_(CreateStatusListCredential {
+        Mod::create_(
             id,
-            credential: StatusListCredentialWithPolicy {
+            StatusListCredentialWithPolicy {
                 status_list_credential: StatusListCredential::StatusList2021Credential(
                     (0..10).map(|v| v as u8).collect(),
                 ),
                 policy: policy.clone(),
             },
-            _marker: PhantomData,
-        })
+        )
         .unwrap();
         assert_eq!(
             Mod::status_list_credential(id).unwrap(),

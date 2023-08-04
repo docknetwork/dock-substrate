@@ -2,7 +2,8 @@ use super::*;
 
 impl<T: Config + Debug> Module<T> {
     pub(super) fn create_(
-        CreateStatusListCredential { id, credential, .. }: CreateStatusListCredential<T>,
+        id: StatusListCredentialId,
+        credential: StatusListCredentialWithPolicy,
     ) -> DispatchResult {
         ensure!(
             !StatusListCredentials::contains_key(id),
@@ -41,9 +42,9 @@ impl<T: Config + Debug> Module<T> {
     /// Executes action over target `StatusListCredential` providing a mutable reference if all checks succeed.
     ///
     /// Checks:
-    /// 1. Ensure that the StatusListCredential exists and this is not a replayed payload by checking the equality
-    /// with stored block number when the StatusListCredential was last modified.
+    /// 1. Ensure that the `StatusListCredential` exists.
     /// 2. Verify that `proof` authorizes `action` according to `policy`.
+    /// 3. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
     ///
     /// Returns a mutable reference to the underlying StatusListCredential if the command is authorized, otherwise returns Err.
     pub(crate) fn try_exec_action_over_status_list_credential<A, F, R, E>(
@@ -69,15 +70,15 @@ impl<T: Config + Debug> Module<T> {
 
     /// Executes action over target `StatusListCredential` providing a mutable reference if all checks succeed.
     ///
-    /// Unlike `try_exec_action_over_status_list_credential`, this action may result in a removal of a StatusListCredential, if the value under option
+    /// Unlike `try_exec_action_over_status_list_credential`, this action may result in a removal of a `StatusListCredential`, if the value under option
     /// will be taken.
     ///
     /// Checks:
-    /// 1. Ensure that the StatusListCredential exists and this is not a replayed payload by checking the equality
-    /// with stored block number when the StatusListCredential was last modified.
+    /// 1. Ensure that the `StatusListCredential` exists.
     /// 2. Verify that `proof` authorizes `action` according to `policy`.
+    /// 3. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
     ///
-    /// Returns a mutable reference to the underlying StatusListCredential wrapped into an option if the command is authorized,
+    /// Returns a mutable reference to the underlying `StatusListCredential` wrapped into an option if the command is authorized,
     /// otherwise returns Err.
     pub(crate) fn try_exec_removable_action_over_status_list_credential<A, F, R, E>(
         f: F,

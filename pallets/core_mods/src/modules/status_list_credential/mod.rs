@@ -81,14 +81,15 @@ decl_module! {
 
         /// Associates a new `StatusListCredentialWithPolicy` with the supplied identifier.
         /// This method doesn't ensure `StatusListCredential` is a valid `JSON-LD` object.
-        #[weight = SubstrateWeight::<T>::create(create_credential)]
+        #[weight = SubstrateWeight::<T>::create(credential)]
         pub fn create(
             origin,
-            create_credential: CreateStatusListCredential<T>
+            id: StatusListCredentialId,
+            credential: StatusListCredentialWithPolicy
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::create_(create_credential)
+            Self::create_(id, credential)
         }
 
         /// Updates `StatusListCredential` associated with the supplied identifier.
@@ -120,14 +121,10 @@ decl_module! {
 
 impl<T: frame_system::Config> SubstrateWeight<T> {
     fn create(
-        CreateStatusListCredential {
-            credential:
-                StatusListCredentialWithPolicy {
-                    status_list_credential,
-                    policy,
-                },
-            ..
-        }: &CreateStatusListCredential<T>,
+        StatusListCredentialWithPolicy {
+            status_list_credential,
+            policy,
+        }: &StatusListCredentialWithPolicy,
     ) -> Weight {
         <Self as WeightInfo>::create(status_list_credential.len(), policy.len())
     }
