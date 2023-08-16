@@ -1,5 +1,10 @@
 use super::*;
-use crate::{test_common::*, util::WithNonce, Action, ToStateChange};
+use crate::{
+    common::{Policy, ToStateChange},
+    did::Did,
+    tests::common::*,
+    util::{Action, WithNonce},
+};
 use alloc::collections::BTreeMap;
 use core::{iter::once, marker::PhantomData};
 use frame_support::assert_noop;
@@ -8,7 +13,7 @@ use sp_core::{sr25519, U256};
 pub fn get_pauth<A: Action<Test> + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
-) -> Vec<DidSigs<Test>>
+) -> Vec<DidSignatureWithNonce<Test>>
 where
     WithNonce<Test, A>: ToStateChange<Test>,
 {
@@ -20,7 +25,7 @@ where
             let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
             let sig =
                 did_sig_on_bytes::<Test, _>(&sp.to_state_change().encode(), &kp, did.clone(), 1);
-            DidSigs {
+            DidSignatureWithNonce {
                 sig,
                 nonce: next_nonce,
             }
@@ -52,7 +57,9 @@ pub fn check_nonce_increase(old_nonces: BTreeMap<Did, u64>, signers: &[(Did, &sr
 /// Tests in this module are named after the errors they check.
 /// For example, `#[test] fn invalidpolicy` exercises the RevErr::InvalidPolicy.
 mod errors {
-    // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
+    use crate::common::{PolicyExecutionError, PolicyValidationError};
+
+    // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
     use alloc::collections::BTreeSet;
     use frame_support::dispatch::DispatchError;
@@ -66,13 +73,13 @@ mod errors {
         let ar = AddRegistry {
             id: RGA,
             new_registry: Registry {
-                policy: oneof(&[]),
+                policy: Policy::one_of(&[]),
                 add_only: false,
             },
         };
 
         let err = RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap_err();
-        assert_eq!(err, RevErr::<Test>::InvalidPolicy.into());
+        assert_eq!(err, PolicyValidationError::Empty.into());
     }
 
     // this test has caught at least one bug
@@ -110,21 +117,41 @@ mod errors {
         let (kpa, kpb, kpc) = (create_did(a), create_did(b), create_did(c));
 
         let cases: &[(Policy, &[(Did, &sr25519::Pair)], &str)] = &[
-            (oneof(&[a]), &[], "provide no signatures"),
-            (oneof(&[a]), &[(b, &kpb)], "wrong account; wrong key"),
-            (oneof(&[a]), &[(a, &kpb)], "correct account; wrong key"),
-            (oneof(&[a]), &[(a, &kpb)], "wrong account; correct key"),
-            (oneof(&[a, b]), &[(c, &kpc)], "account not a controller"),
-            (oneof(&[a, b]), &[(a, &kpa), (b, &kpb)], "two signers"),
-            (oneof(&[a]), &[], "one controller; no sigs"),
-            (oneof(&[a, b]), &[], "two controllers; no sigs"),
+            (Policy::one_of(&[a]), &[], "provide no signatures"),
+            (
+                Policy::one_of(&[a]),
+                &[(b, &kpb)],
+                "wrong account; wrong key",
+            ),
+            (
+                Policy::one_of(&[a]),
+                &[(a, &kpb)],
+                "correct account; wrong key",
+            ),
+            (
+                Policy::one_of(&[a]),
+                &[(a, &kpb)],
+                "wrong account; correct key",
+            ),
+            (
+                Policy::one_of(&[a, b]),
+                &[(c, &kpc)],
+                "account not a controller",
+            ),
+            (
+                Policy::one_of(&[a, b]),
+                &[(a, &kpa), (b, &kpb)],
+                "two signers",
+            ),
+            (Policy::one_of(&[a]), &[], "one controller; no sigs"),
+            (Policy::one_of(&[a, b]), &[], "two controllers; no sigs"),
         ];
 
         for (pol, set, description) in cases {
             dbg!(description);
             assert_eq!(
                 assert_revoke_err(pol.clone(), set),
-                RevErr::<Test>::NotAuthorized.into(),
+                PolicyExecutionError::NotAuthorized.into(),
                 "{}",
                 description
             );
@@ -138,7 +165,7 @@ mod errors {
             return ext().execute_with(notauthorized_wrong_command);
         }
 
-        let policy = oneof(&[DIDA]);
+        let policy = Policy::one_of(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
 
@@ -169,7 +196,7 @@ mod errors {
         let ur_proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
         assert_eq!(
             RevoMod::revoke(Origin::signed(ABBA), rev, ur_proof).unwrap_err(),
-            RevErr::<Test>::NotAuthorized.into()
+            PolicyExecutionError::NotAuthorized.into()
         );
 
         let ur_proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
@@ -183,7 +210,7 @@ mod errors {
         }
 
         let reg = Registry {
-            policy: oneof(&[DIDA]),
+            policy: Policy::one_of(&[DIDA]),
             add_only: false,
         };
         let ar = AddRegistry {
@@ -203,7 +230,7 @@ mod errors {
 
         let registry_id = RGA;
 
-        let noreg: Result<(), DispatchError> = Err(RevErr::<Test>::NoReg.into());
+        let noreg: Result<(), DispatchError> = Err(PolicyExecutionError::NoEntity.into());
 
         assert_eq!(
             RevoMod::revoke(
@@ -254,7 +281,7 @@ mod errors {
         let ar = AddRegistry {
             id: registry_id,
             new_registry: Registry {
-                policy: Policy::OneOf((0u8..16).map(U256::from).map(Into::into).map(Did).collect()),
+                policy: Policy::one_of((0u8..16).map(U256::from).map(Into::into).map(Did)),
                 add_only: false,
             },
         };
@@ -272,7 +299,7 @@ mod errors {
         let kpa = create_did(DIDA);
         let registry_id = RGA;
         let reg = Registry {
-            policy: oneof(&[DIDA]),
+            policy: Policy::one_of(&[DIDA]),
             add_only: false,
         };
         let ar = AddRegistry {
@@ -304,12 +331,12 @@ mod errors {
         let kpa = create_did(DIDA);
 
         let registry_id = RGA;
-        let err: Result<(), DispatchError> = Err(RevErr::<Test>::IncorrectNonce.into());
+        let err: Result<(), DispatchError> = Err(PolicyExecutionError::IncorrectNonce.into());
 
         let ar = AddRegistry {
             id: registry_id,
             new_registry: Registry {
-                policy: oneof(&[DIDA]),
+                policy: Policy::one_of(&[DIDA]),
                 add_only: false,
             },
         };
@@ -372,7 +399,7 @@ mod errors {
         let ar = AddRegistry {
             id: registry_id,
             new_registry: Registry {
-                policy: oneof(&[DIDA]),
+                policy: Policy::one_of(&[DIDA]),
                 add_only: true,
             },
         };
@@ -406,13 +433,10 @@ mod errors {
     fn _all_included(dummy: RevErr<Test>) {
         match dummy {
             RevErr::__Ignore(_, _)
-            | RevErr::InvalidPolicy
-            | RevErr::NotAuthorized
             | RevErr::RegExists
-            | RevErr::NoReg
+            | RevErr::EmptyPayload
             | RevErr::IncorrectNonce
             | RevErr::AddOnly
-            | RevErr::EmptyPayload
             | RevErr::TooManyControllers => {}
         }
     }
@@ -426,7 +450,7 @@ mod errors {
 /// For example, `#[test] fn new_registry` tests the happy path for Module::new_registry.
 mod calls {
     use super::*;
-    // Cannot do `use super::super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
+    // Cannot do `use super::super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::super::{Call as RevCall, Registries, Revocations};
     use alloc::collections::BTreeSet;
     use frame_support::{StorageDoubleMap, StorageMap};
@@ -438,10 +462,10 @@ mod calls {
         }
 
         let cases: &[(Policy, bool)] = &[
-            (oneof(&[DIDA]), false),
-            (oneof(&[DIDA, DIDB]), false),
-            (oneof(&[DIDA]), true),
-            (oneof(&[DIDA, DIDB]), true),
+            (Policy::one_of(&[DIDA]), false),
+            (Policy::one_of(&[DIDA, DIDB]), false),
+            (Policy::one_of(&[DIDA]), true),
+            (Policy::one_of(&[DIDA, DIDB]), true),
         ];
         for (policy, add_only) in cases.iter().cloned() {
             let reg_id = random();
@@ -463,7 +487,7 @@ mod calls {
             return ext().execute_with(revoke);
         }
 
-        let policy = oneof(&[DIDA]);
+        let policy = Policy::one_of(&[DIDA]);
         let registry_id = RGA;
         let add_only = true;
 
@@ -510,7 +534,7 @@ mod calls {
             return ext().execute_with(unrevoke);
         }
 
-        let policy = oneof(&[DIDA]);
+        let policy = Policy::one_of(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
 
@@ -596,7 +620,7 @@ mod calls {
             return ext().execute_with(remove_registry);
         }
 
-        let policy = oneof(&[DIDA]);
+        let policy = Policy::one_of(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
         let kpa = create_did(DIDA);
@@ -640,7 +664,7 @@ mod calls {
 mod test {
     use frame_support::StorageMap;
     use sp_runtime::DispatchError;
-    // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
+    // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
     use crate::revoke::Registries;
 
@@ -662,17 +686,22 @@ mod test {
         };
 
         let cases: &[(u32, Policy, &[(Did, &sr25519::Pair)], bool)] = &[
-            (line!(), oneof(&[a]), &[(a, &kpa)], true),
-            (line!(), oneof(&[a, b]), &[(a, &kpa)], true),
-            (line!(), oneof(&[a, b]), &[(b, &kpb)], true),
-            (line!(), oneof(&[a]), &[], false), // provide no signatures
-            (line!(), oneof(&[a]), &[(b, &kpb)], false), // wrong account; wrong key
-            (line!(), oneof(&[a]), &[(a, &kpb)], false), // correct account; wrong key
-            (line!(), oneof(&[a]), &[(a, &kpb)], false), // wrong account; correct key
-            (line!(), oneof(&[a, b]), &[(c, &kpc)], false), // account not a controller
-            (line!(), oneof(&[a, b]), &[(a, &kpa), (b, &kpb)], false), // two signers
-            (line!(), oneof(&[a]), &[], false), // one controller; no sigs
-            (line!(), oneof(&[a, b]), &[], false), // two controllers; no sigs
+            (line!(), Policy::one_of(&[a]), &[(a, &kpa)], true),
+            (line!(), Policy::one_of(&[a, b]), &[(a, &kpa)], true),
+            (line!(), Policy::one_of(&[a, b]), &[(b, &kpb)], true),
+            (line!(), Policy::one_of(&[a]), &[], false), // provide no signatures
+            (line!(), Policy::one_of(&[a]), &[(b, &kpb)], false), // wrong account; wrong key
+            (line!(), Policy::one_of(&[a]), &[(a, &kpb)], false), // correct account; wrong key
+            (line!(), Policy::one_of(&[a]), &[(a, &kpb)], false), // wrong account; correct key
+            (line!(), Policy::one_of(&[a, b]), &[(c, &kpc)], false), // account not a controller
+            (
+                line!(),
+                Policy::one_of(&[a, b]),
+                &[(a, &kpa), (b, &kpb)],
+                false,
+            ), // two signers
+            (line!(), Policy::one_of(&[a]), &[], false), // one controller; no sigs
+            (line!(), Policy::one_of(&[a, b]), &[], false), // two controllers; no sigs
         ];
         for (i, (line_no, policy, signers, expect_success)) in cases.into_iter().enumerate() {
             eprintln!("running case from line {}", line_no);
@@ -687,9 +716,11 @@ mod test {
             let old_nonces = get_nonces(signers);
             let command = &rev;
             let proof = get_pauth(command, &signers);
-            let res = RevoMod::try_exec_action_over_registry(command.clone(), proof, |_, _| {
-                Ok::<_, DispatchError>(())
-            });
+            let res = RevoMod::try_exec_action_over_registry(
+                |_, _| Ok::<_, DispatchError>(()),
+                command.clone(),
+                proof,
+            );
             assert_eq!(res.is_ok(), *expect_success);
 
             if *expect_success {
@@ -706,7 +737,7 @@ mod test {
             return ext().execute_with(get_revocation_registry);
         }
 
-        let policy = oneof(&[DIDA]);
+        let policy = Policy::one_of(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
         let reg = Registry { policy, add_only };
@@ -728,7 +759,7 @@ mod test {
             return ext().execute_with(get_revocation_status);
         }
 
-        let policy = oneof(&[DIDA]);
+        let policy = Policy::one_of(&[DIDA]);
         let registry_id = RGA;
         let add_only = false;
         let reg = Registry { policy, add_only };

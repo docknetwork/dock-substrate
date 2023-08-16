@@ -1,11 +1,11 @@
 use codec::Encode;
-// Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `test_common`
+// Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
 use super::{
     Call as MasterCall, Event, MasterError, MasterVoteRaw, Members, Membership, PhantomData, Round,
 };
 use crate::{
     revoke::tests::{check_nonce_increase, get_nonces, get_pauth},
-    test_common::*,
+    tests::common::*,
 };
 use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::{weights::Weight, StorageValue};

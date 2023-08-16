@@ -2,13 +2,14 @@
 
 use crate::{
     accumulator, anchor, attest, blob,
+    common::{self, StateChange, ToStateChange},
     did::{self, Did, DidKey, DidSignature},
-    keys_and_sigs, master, offchain_signatures, revoke, util, StateChange, ToStateChange,
+    master, offchain_signatures, revoke, status_list_credential, util,
 };
 
 use crate::{
-    keys_and_sigs::SigValue,
-    revoke::{Policy, RegistryId, RevokeId},
+    common::SigValue,
+    revoke::{RegistryId, RevokeId},
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -47,6 +48,7 @@ frame_support::construct_runtime!(
         AttestMod: attest::{Pallet, Call, Storage},
         SignatureMod: offchain_signatures::{Pallet, Call, Storage, Event},
         AccumMod: accumulator::{Pallet, Call, Storage, Event},
+        StatusListCredentialMod: status_list_credential::{Pallet, Call, Storage, Event},
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
     }
 );
@@ -60,6 +62,7 @@ pub enum TestEvent {
     Unknown,
     OffchainSignature(offchain_signatures::Event),
     Accum(accumulator::Event),
+    StatusListCredential(status_list_credential::Event),
 }
 
 impl From<system::Event<Test>> for TestEvent {
@@ -110,6 +113,12 @@ impl From<crate::master::Event<Test>> for TestEvent {
     }
 }
 
+impl From<crate::status_list_credential::Event> for TestEvent {
+    fn from(other: crate::status_list_credential::Event) -> Self {
+        Self::StatusListCredential(other)
+    }
+}
+
 impl From<offchain_signatures::Event> for TestEvent {
     fn from(other: offchain_signatures::Event) -> Self {
         Self::OffchainSignature(other)
@@ -124,7 +133,9 @@ impl From<accumulator::Event> for TestEvent {
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaxControllers: u32 = 15;
+    pub const MaxPolicyControllers: u32 = 15;
+    pub const MaxStatusListCredentialSize: u32 = 1_000;
+    pub const MinStatusListCredentialSize: u32 = 10;
     pub const ByteReadWeight: Weight = Weight::from_ref_time(10);
 }
 
@@ -235,7 +246,15 @@ impl crate::did::Config for Test {
 
 impl crate::revoke::Config for Test {
     type Event = TestEvent;
-    type MaxControllers = MaxControllers;
+}
+impl crate::status_list_credential::Config for Test {
+    type Event = TestEvent;
+    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
+    type MinStatusListCredentialSize = MinStatusListCredentialSize;
+}
+
+impl crate::common::MaxPolicyControllers for Test {
+    type MaxPolicyControllers = MaxPolicyControllers;
 }
 
 parameter_types! {
@@ -335,11 +354,6 @@ pub fn ext() -> sp_io::TestExternalities {
     ret
 }
 
-/// create a OneOf policy
-pub fn oneof(dids: &[Did]) -> Policy {
-    Policy::OneOf(dids.iter().cloned().collect())
-}
-
 /// generate a random keypair
 pub fn gen_kp() -> sr25519::Pair {
     sr25519::Pair::generate_with_phrase(None).0
@@ -355,7 +369,7 @@ pub fn create_did(did: did::Did) -> sr25519::Pair {
         Origin::signed(ABBA),
         did,
         vec![
-            DidKey::new_with_all_relationships(keys_and_sigs::PublicKey::Sr25519(util::Bytes32 {
+            DidKey::new_with_all_relationships(common::PublicKey::Sr25519(util::Bytes32 {
                 value: kp.public().0,
             }))
             .into(),

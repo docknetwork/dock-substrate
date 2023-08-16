@@ -1,6 +1,5 @@
 use super::*;
 use crate::deposit_indexed_event;
-use sp_core::Hasher;
 
 impl<T: Config + Debug> Module<T> {
     pub(super) fn add_params_(

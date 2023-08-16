@@ -1,7 +1,7 @@
 use super::super::*;
 use crate::{
-    deposit_indexed_event, offchain_signatures::PublicKeys, util::WrappedActionWithNonce,
-    ToStateChange,
+    common::ToStateChange, deposit_indexed_event, offchain_signatures::PublicKeys,
+    util::WrappedActionWithNonce,
 };
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a

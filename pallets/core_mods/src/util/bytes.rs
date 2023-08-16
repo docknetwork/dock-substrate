@@ -11,6 +11,12 @@ use sp_std::{fmt, vec::Vec};
 #[scale_info(omit_prefix)]
 pub struct Bytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
 
+impl FromIterator<u8> for Bytes {
+    fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Bytes {
+        Bytes(Vec::from_iter(iter))
+    }
+}
+
 #[cfg(test)]
 use rand::distributions::Distribution;
 impl_wrapper! { Bytes(Vec<u8>), for rand use rand::distributions::Standard.sample_iter(&mut rand::thread_rng()).take(32).collect(), with tests as wrapped_bytes_tests }

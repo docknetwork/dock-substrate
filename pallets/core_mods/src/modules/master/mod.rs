@@ -57,12 +57,7 @@
 //! This module implement partial replay protection to prevent unauthorized resubmission of votes
 //! from previous rounds.
 
-use crate::{
-    did,
-    did::Did,
-    revoke::{get_weight_for_did_sigs, DidSigs},
-    util::WithNonce,
-};
+use crate::{common::DidSignatureWithNonce, did, did::Did, util::WithNonce};
 use alloc::{
     boxed::Box,
     collections::{BTreeMap, BTreeSet},
@@ -136,10 +131,12 @@ const MIN_WEIGHT: Weight = Weight::from_ref_time(10_000);
 
 /// Minimum weight for master's extrinsics. Considers cost of signature verification and update to round no
 fn get_min_weight_for_execute<T: frame_system::Config>(
-    auth: &[DidSigs<T>],
+    auth: &[DidSignatureWithNonce<T>],
     db_weights: RuntimeDbWeight,
 ) -> Weight {
-    MIN_WEIGHT + get_weight_for_did_sigs(auth, db_weights) + db_weights.reads_writes(1, 1)
+    MIN_WEIGHT
+        + DidSignatureWithNonce::auth_weight(auth, db_weights)
+        + db_weights.reads_writes(1, 1)
 }
 
 pub trait Config: system::Config + crate::did::Config
@@ -221,7 +218,7 @@ decl_module! {
         pub fn execute(
             origin,
             proposal: Box<<T as Config>::Call>,
-            auth: Vec<DidSigs<T>>,
+            auth: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
@@ -241,7 +238,7 @@ decl_module! {
         pub fn execute_unchecked_weight(
             origin,
             proposal: Box<<T as Config>::Call>,
-            auth: Vec<DidSigs<T>>,
+            auth: Vec<DidSignatureWithNonce<T>>,
             _weight: Weight,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
@@ -285,7 +282,7 @@ impl<T: Config + Debug> Module<T> {
     /// in this case
     fn execute_(
         proposal: Box<<T as Config>::Call>,
-        auth: Vec<DidSigs<T>>,
+        auth: Vec<DidSignatureWithNonce<T>>,
         given_weight: Option<Weight>,
     ) -> DispatchResultWithPostInfo {
         // check

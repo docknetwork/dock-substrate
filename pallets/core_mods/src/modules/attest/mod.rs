@@ -3,8 +3,8 @@
 //! method by specifying an Iri.
 
 use crate::{
+    common::SigValue,
     did::{self, Did, DidSignature},
-    keys_and_sigs::SigValue,
 };
 use codec::{Decode, Encode};
 use core::fmt::Debug;

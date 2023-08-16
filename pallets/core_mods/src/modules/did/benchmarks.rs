@@ -1,10 +1,11 @@
 use super::*;
-use crate::ToStateChange;
+use crate::common::state_change::ToStateChange;
 use alloc::collections::BTreeSet;
 use core::iter::once;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use sp_application_crypto::Pair;
 use sp_core::{ed25519, U256};
+#[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 use system::RawOrigin;
 

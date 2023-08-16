@@ -3,6 +3,7 @@
 use super::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::sp_runtime::traits::Saturating;
+#[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 use system::RawOrigin;
 

@@ -2,11 +2,10 @@
 //! Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 
 use crate::{
+    common::{SigValue, StorageVersion},
     did,
     did::{Controller, Did, DidSignature},
-    keys_and_sigs::SigValue,
     util::IncId,
-    StorageVersion,
 };
 use codec::{Decode, Encode};
 use core::fmt::Debug;

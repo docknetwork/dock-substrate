@@ -1,5 +1,5 @@
 use super::*;
-use crate::test_common::*;
+use crate::tests::common::*;
 use sp_core::sr25519;
 
 type Er = crate::attest::Error<Test>;

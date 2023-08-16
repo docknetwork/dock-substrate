@@ -3,7 +3,7 @@ use frame_support::StorageMap;
 use frame_system as system;
 use sp_runtime::traits::Hash;
 
-use crate::test_common::*;
+use crate::tests::common::*;
 use sp_core::H256;
 
 #[test]
