@@ -1049,8 +1049,8 @@ parameter_types! {
     pub const MaxServiceEndpointOriginSize: u16 = 1025;
     pub const ServiceEndpointOriginPerByteWeight: Weight = Weight::from_ref_time(10);
     pub const MaxPolicyControllers: u32 = 15;
-    pub const MaxStatusListCredentialSize: u32 = 100_000;
-    pub const MinStatusListCredentialSize: u32 = 100;
+    pub const MinStatusListCredentialSize: u32 = 900;
+    pub const MaxStatusListCredentialSize: u32 = 50_000;
 }
 
 impl did::Config for Runtime {
