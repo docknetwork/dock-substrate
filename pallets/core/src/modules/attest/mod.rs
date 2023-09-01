@@ -7,13 +7,12 @@ use crate::{
     did::{self, Did, DidSignature},
 };
 use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
 use frame_support::{
     decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
     weights::Weight,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 use weights::*;
 
 #[cfg(feature = "runtime-benchmarks")]

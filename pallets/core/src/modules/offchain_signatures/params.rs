@@ -1,8 +1,8 @@
 use crate::{did::Did, offchain_signatures::schemes::*, util::IncId};
 use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
 use frame_support::{ensure, traits::Get, IterableStorageDoubleMap, StorageDoubleMap, StorageMap};
 use sp_runtime::DispatchResult;
+use sp_std::fmt::Debug;
 
 use super::{
     AddOffchainSignatureParams, BBSPlusPublicKey, Config, Error, Event, Module, PSPublicKey,

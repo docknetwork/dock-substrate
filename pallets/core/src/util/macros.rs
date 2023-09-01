@@ -219,8 +219,8 @@ macro_rules! impl_wrapper_type_info {
             fn type_info() -> scale_info::Type {
                 scale_info::Type::builder()
                     .path(scale_info::Path::new(
-                        rust_core::stringify!($wrapper),
-                        rust_core::stringify!($wrapper),
+                        core::stringify!($wrapper),
+                        core::stringify!($wrapper),
                     ))
                     .composite(scale_info::build::Fields::unnamed().field(|f| f.ty::<$type>()))
             }

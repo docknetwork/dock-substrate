@@ -1,9 +1,9 @@
-use sp_std::{fmt, marker::PhantomData};
 use serde::{
     self,
     de::{Error, Visitor},
 };
 use serde_hex::FromHex;
+use sp_std::{fmt, marker::PhantomData};
 
 struct HexStrVisitor<T>(PhantomData<T>);
 

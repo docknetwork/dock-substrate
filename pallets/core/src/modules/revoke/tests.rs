@@ -8,9 +8,9 @@ use crate::{
     util::{Action, WithNonce},
 };
 use alloc::collections::BTreeMap;
-use sp_std::{iter::once, marker::PhantomData};
 use frame_support::assert_noop;
 use sp_core::{sr25519, U256};
+use sp_std::{iter::once, marker::PhantomData};
 
 pub fn get_pauth<A: Action<Test> + Clone>(
     action: &A,

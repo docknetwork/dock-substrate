@@ -18,7 +18,7 @@ jobs:
           override: true
           components: rustfmt
       - name: Ensure Standard Formatting
-        run: cargo +nightly-2023-03-09 fmt -- --check --all
+        run: cargo +nightly-2023-03-09 fmt --all -- --check
 
   clippy:
     runs-on: ubuntu-latest
@@ -29,6 +29,8 @@ jobs:
         with:
           toolchain: nightly-2023-03-09
           override: true
-          components: rustfmt
+          components: clippy
+      - name: Install WASM
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
       - name: Ensure `clippy` is happy
-        run: cargo +nightly-2023-03-09 clippy -- --all --all-targets
+        run: cargo +nightly-2023-03-09 clippy --all

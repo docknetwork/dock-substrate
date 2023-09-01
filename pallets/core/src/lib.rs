@@ -2,7 +2,6 @@
 #![allow(clippy::unused_unit)]
 
 extern crate alloc;
-extern crate core as rust_core;
 
 pub mod common;
 pub mod modules;

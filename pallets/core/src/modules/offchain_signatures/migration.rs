@@ -1,6 +1,6 @@
 use crate::{
-    did::*,
     common::CurveType,
+    did::*,
     offchain_signatures::{
         self, Config, OffchainPublicKey, OffchainSignatureParams, PublicKeys, SignatureParams,
         SignatureParamsOwner, SignatureParamsStorageKey,
@@ -9,12 +9,12 @@ use crate::{
 };
 use alloc::vec;
 use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
 use frame_support::{
     traits::{Get, GetStorageVersion, PalletInfoAccess},
     weights::Weight,
     *,
 };
+use sp_std::fmt::Debug;
 
 /// DID owner of the BBSPlus parameters.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]

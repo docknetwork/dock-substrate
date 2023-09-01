@@ -1,9 +1,9 @@
 use super::*;
 use crate::{
+    common::CurveType,
     did::{tests::check_did_detail, AddControllers},
     offchain_signatures,
     tests::common::*,
-    common::CurveType,
     util::Bytes,
 };
 use alloc::collections::BTreeMap;

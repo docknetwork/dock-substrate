@@ -8,8 +8,7 @@ use crate::{
     util::IncId,
 };
 use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,

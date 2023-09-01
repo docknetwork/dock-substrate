@@ -1,8 +1,8 @@
-use crate::{offchain_signatures::SignatureParams, common::CurveType, util::Bytes};
+use crate::{common::CurveType, offchain_signatures::SignatureParams, util::Bytes};
 use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
 use frame_support::StorageDoubleMap;
 use sp_runtime::traits::CheckedConversion;
+use sp_std::fmt::Debug;
 
 use super::{OffchainSignatureParams, SignatureParamsStorageKey};
 use crate::offchain_signatures::OffchainPublicKey;

@@ -6,7 +6,6 @@ use crate::{
 
 use arith_utils::DivCeil;
 use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
     traits::Get, weights::Weight,
@@ -16,6 +15,7 @@ use sp_runtime::DispatchError;
 use sp_std::{
     collections::btree_set::BTreeSet,
     convert::{TryFrom, TryInto},
+    fmt::Debug,
     prelude::*,
     vec::Vec,
 };

@@ -14,8 +14,6 @@ use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{collections::BTreeMap, sync::Arc};
 
-extern crate core as rust_core;
-
 pub trait ConfigWrapper {
     type T: Config;
 }

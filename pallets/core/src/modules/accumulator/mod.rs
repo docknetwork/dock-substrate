@@ -1,5 +1,5 @@
 use crate::{
-    common::{SigValue, StorageVersion, CurveType},
+    common::{CurveType, SigValue, StorageVersion},
     did,
     did::{Did, DidSignature},
     util::{Bytes, IncId},
@@ -7,7 +7,6 @@ use crate::{
 pub use actions::*;
 use arith_utils::DivCeil;
 use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Weight},
@@ -15,7 +14,7 @@ use frame_support::{
     traits::Get,
 };
 use frame_system::{self as system, ensure_signed};
-use sp_std::prelude::*;
+use sp_std::{fmt::Debug, prelude::*};
 pub use types::*;
 use weights::*;
 

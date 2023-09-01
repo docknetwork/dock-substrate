@@ -1,7 +1,9 @@
 use crate::impl_wrapper;
 use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
-use sp_std::ops::{Index, RangeFull};
+use sp_std::{
+    fmt::Debug,
+    ops::{Index, RangeFull},
+};
 
 use super::*;
 

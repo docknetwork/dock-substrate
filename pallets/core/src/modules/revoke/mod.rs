@@ -9,8 +9,7 @@ use crate::{
 };
 use alloc::collections::BTreeSet;
 use codec::{Decode, Encode};
-use sp_std::{fmt::Debug, marker::PhantomData};
-use sp_std::vec::Vec;
+use sp_std::{fmt::Debug, marker::PhantomData, vec::Vec};
 
 pub use actions::*;
 use frame_support::{
