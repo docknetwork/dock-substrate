@@ -138,7 +138,7 @@ where
     C::Api: pallet_mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash>,
     C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block, BlockNumber>,
     C::Api: staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
-    C::Api: core_mods_rpc::CoreModsRuntimeApi<Block, dock_runtime::Runtime>,
+    C::Api: core_rpc::CoreModsRuntimeApi<Block, dock_runtime::Runtime>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
     C::Api: fp_rpc::ConvertTransactionRuntimeApi<Block>,
@@ -146,7 +146,7 @@ where
     SC: SelectChain<Block> + 'static,
     A: ChainApi<Block = Block> + 'static,
 {
-    use core_mods_rpc::{CoreMods, CoreModsApiServer};
+    use core_rpc::{CoreMods, CoreModsApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
     use poa_rpc::{PoA, PoAApiServer};
     use price_feed_rpc::{PriceFeed, PriceFeedApiServer};
@@ -212,7 +212,7 @@ where
     // RPC calls for core mods pallet
     io.merge(<CoreMods<_, _> as CoreModsApiServer<
         _,
-        core_mods_rpc::SerializableConfigWrapper<dock_runtime::Runtime>,
+        core_rpc::SerializableConfigWrapper<dock_runtime::Runtime>,
     >>::into_rpc(CoreMods::new(client.clone())))?;
 
     io.merge(

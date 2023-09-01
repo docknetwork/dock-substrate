@@ -12,13 +12,13 @@ mod wasm_handlers {
     pub fn panic(info: &core::panic::PanicInfo) -> ! {
         let message = sp_std::alloc::format!("{}", info);
         log::error!("{}", message);
-        core::arch::wasm32::unreachable();
+        ::core::arch::wasm32::unreachable();
     }
 
     #[alloc_error_handler]
     pub fn oom(_: core::alloc::Layout) -> ! {
         log::error!("Runtime memory exhausted. Aborting");
-        core::arch::wasm32::unreachable();
+        ::core::arch::wasm32::unreachable();
     }
 }
 
@@ -40,9 +40,9 @@ extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
 
-pub use core_mods::{
-    accumulator, anchor, attest, blob, common, did, master, offchain_signatures,
-    offchain_signatures::{BBSPlusPublicKey, OffchainPublicKey, PSPublicKey},
+pub use dock_core::{
+    accumulator, anchor, attest, blob, common, did, master,
+    offchain_signatures::{self, BBSPlusPublicKey, OffchainPublicKey, PSPublicKey},
     revoke, status_list_credential,
 };
 use price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
@@ -56,7 +56,7 @@ pub use token_migration;
 use sp_core::crypto::ByteArray;
 
 use codec::{Decode, Encode};
-use core_mods::util::IncId;
+use dock_core::util::IncId;
 use frame_election_provider_support::{onchain, SequentialPhragmen};
 use frame_support::{
     construct_runtime, parameter_types,
@@ -2394,7 +2394,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl core_mods::runtime_api::CoreModsApi<Block, Runtime> for Runtime {
+    impl dock_core::runtime_api::CoreModsApi<Block, Runtime> for Runtime {
         fn did_details(did: did::Did, params: Option<did::AggregatedDidDetailsRequestParams>) -> Option<did::AggregatedDidDetailsResponse<Runtime>> {
             DIDModule::aggregate_did_details(&did, params.unwrap_or_default())
         }

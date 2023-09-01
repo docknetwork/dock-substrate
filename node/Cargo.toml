@@ -3,7 +3,7 @@ authors = ["Dock.io"]
 build = "build.rs"
 edition = "2021"
 name = "dock-node"
-version = "0.23.0"
+version = "0.23.1"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -28,7 +28,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = "../runtime"
-version = "0.23.0"
+version = "0.23.1"
 
 [dependencies.beefy-primitives]
 git = "https://github.com/paritytech/substrate.git"
@@ -531,8 +531,8 @@ git = "https://github.com/docknetwork/dock-substrate-common.git"
 [dependencies.staking_rewards_rpc]
 path = "../pallets/staking_rewards/rpc"
 
-[dependencies.core_mods_rpc]
-path = "../pallets/core_mods/rpc"
+[dependencies.core_rpc]
+path = "../pallets/core/rpc"
 
 [dependencies.pallet-staking]
 git = "https://github.com/docknetwork/dock-substrate-common.git"

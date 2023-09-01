@@ -1,0 +1,227 @@
+[package]
+name = "dock-core"
+version = "0.5.0"
+authors = ["Dock.io"]
+edition = "2021"
+license = "Apache-2.0"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies.bitflags]
+version = "1.3.2"
+
+[dependencies.arith-utils]
+git = "https://github.com/docknetwork/dock-substrate-common.git"
+default-features = false
+
+[dependencies.scale-info]
+version = "2.1.2"
+default-features = false
+features = ["derive", "serde"]
+
+[dependencies.scale-info-derive]
+git = "https://github.com/docknetwork/scale-info.git"
+branch = "master"
+
+[dependencies.serde-hex]
+package = "hex"
+default-features = false
+version = "0.4.2"
+features = ["serde"]
+optional = true
+
+[dependencies.serde]
+features = ["derive"]
+optional = true
+version = "1.0.119"
+
+[dependencies.serde-big-array]
+optional = true
+version = "0.3.0"
+
+[dependencies.codec]
+default-features = false
+features = ["derive"]
+package = "parity-scale-codec"
+version = "3.1.5"
+
+[dependencies.sp-core]
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+features = ["full_crypto"]
+
+[dependencies.sp-std]
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.sp-runtime]
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.sp-io]
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.frame-system]
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.frame-support]
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.sp-api]
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.hex-literal]
+version = "0.3.1"
+optional = true
+
+[dependencies.sp-application-crypto]
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+features = ["full_crypto"]
+
+[dependencies.frame-benchmarking]
+optional = true
+default-features = false
+#version = "3.0.0"
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.libsecp256k1]
+version = "0.7"
+default-features = false
+features = ["static-context", "hmac"]
+
+[dependencies.sha2]
+version = "0.9"
+default-features = false
+
+[dependencies.getrandom]
+default-features = false
+version = "0.2"
+features = ["js"]
+optional = true
+
+[dependencies.rand]
+version = "0.8.3"
+default-features = false
+optional = true
+
+[dependencies.rand_chacha]
+version = "0.2.2"
+default-features = false
+optional = true
+
+[dependencies.schnorrkel]
+version = "0.9.1"
+default-features = false
+optional = true
+
+[dependencies.merlin]
+version = "2.0.1"
+default-features = false
+optional = true
+
+[dev-dependencies]
+rand = "0.8.3"
+evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c", default-features = false, features = ["with-codec"] }
+
+[dev-dependencies.pallet-evm-precompile-storage-reader]
+default-features = false
+git = "https://github.com/docknetwork/frontier.git"
+branch = "master"
+# path = "../../../../frontier/frame/evm/precompile/storage-reader"
+
+[dev-dependencies.pallet-balances]
+default-features = false
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dev-dependencies.pallet-evm]
+default-features = false
+git = "https://github.com/docknetwork/frontier.git"
+branch = "master"
+# path = "../../../../frontier/frame/evm"
+
+[dev-dependencies.fp-evm]
+default-features = false
+git = "https://github.com/docknetwork/frontier.git"
+branch = "master"
+# path = "../../../../frontier/frame/evm"
+
+[dev-dependencies.pallet-ethereum]
+default-features = false
+git = "https://github.com/docknetwork/frontier.git"
+branch = "master"
+# path = "../../../../frontier/frame/ethereum"
+
+[dev-dependencies.pallet-evm-test-vector-support]
+default-features = false
+git = "https://github.com/docknetwork/frontier.git"
+branch = "master"
+
+[dev-dependencies.pallet-timestamp]
+default-features = false
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[features]
+default = ["std"]
+std = [
+    "serde-hex/std",
+    "codec/std",
+    "frame-support/std",
+    "frame-benchmarking/std",
+    "sp-application-crypto/std",
+    "sp-application-crypto/full_crypto",
+    "serde",
+    "serde-big-array",
+    "getrandom/std",
+    "serde-hex",
+    "arith-utils/std",
+    "serde-big-array",
+    "sp-core/std",
+    "sp-core/full_crypto",
+    "sp-io/std",
+    "sp-runtime/std",
+    "sp-std/std",
+    "frame-system/std",
+    "sp-api/std",
+    "libsecp256k1/std",
+    "pallet-evm-precompile-storage-reader/std",
+    "fp-evm/std",
+    "scale-info/std",
+    "pallet-evm/std",
+    "evm/std"
+]
+
+runtime-benchmarks = [
+    "frame-benchmarking",
+    "hex-literal",
+    "getrandom",
+    "schnorrkel",
+    "schnorrkel/chacha",
+    "rand_chacha",
+    "rand",
+    "merlin"
+]

@@ -1,4 +1,4 @@
-use core::{fmt::Debug, num::NonZeroU16};
+use sp_std::{fmt::Debug, num::NonZeroU16};
 
 use scale_info::TypeInfo;
 

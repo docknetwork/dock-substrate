@@ -1015,49 +1015,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "core_mods"
-version = "0.5.0"
-dependencies = [
- "arith-utils",
- "bitflags",
- "evm",
- "fp-evm",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "getrandom 0.2.3",
- "hex",
- "hex-literal",
- "libsecp256k1",
- "merlin",
- "pallet-balances",
- "pallet-ethereum",
- "pallet-evm",
- "pallet-evm-precompile-storage-reader",
- "pallet-evm-test-vector-support",
- "pallet-timestamp",
- "parity-scale-codec",
- "rand 0.8.4",
- "rand_chacha 0.2.2",
- "scale-info",
- "scale-info-derive 2.3.0 (git+https://github.com/docknetwork/scale-info.git?branch=master)",
- "schnorrkel",
- "serde",
- "serde-big-array",
- "sha2 0.9.5",
- "sp-api",
- "sp-application-crypto",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "core_mods_rpc"
+name = "core_rpc"
 version = "0.1.0"
 dependencies = [
- "core_mods",
+ "dock-core",
  "jsonrpsee",
  "parity-scale-codec",
  "serde",
@@ -1487,8 +1448,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock-core"
+version = "0.5.0"
+dependencies = [
+ "arith-utils",
+ "bitflags",
+ "evm",
+ "fp-evm",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "getrandom 0.2.3",
+ "hex",
+ "hex-literal",
+ "libsecp256k1",
+ "merlin",
+ "pallet-balances",
+ "pallet-ethereum",
+ "pallet-evm",
+ "pallet-evm-precompile-storage-reader",
+ "pallet-evm-test-vector-support",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rand 0.8.4",
+ "rand_chacha 0.2.2",
+ "scale-info",
+ "scale-info-derive 2.3.0 (git+https://github.com/docknetwork/scale-info.git?branch=master)",
+ "schnorrkel",
+ "serde",
+ "serde-big-array",
+ "sha2 0.9.5",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "dock-node"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "async-trait",
  "beefy-gadget",
@@ -1496,7 +1496,7 @@ dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
  "clap 3.2.23",
- "core_mods_rpc",
+ "core_rpc",
  "dock-runtime",
  "fc-db",
  "fc-mapping-sync",
@@ -1646,11 +1646,11 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
- "core_mods",
+ "dock-core",
  "ethabi-decode",
  "ethbloom",
  "ethereum",
