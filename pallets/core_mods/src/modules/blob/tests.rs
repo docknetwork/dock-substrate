@@ -17,7 +17,7 @@ fn create_blob(
     println!("did: {:?}", author);
     println!("pk: {:?}", author_kp.public().0);
     println!("id: {:?}", id);
-    println!("content: {:?}", content.clone());
+    println!("content: {:?}", content);
 
     BlobMod::new(
         Origin::signed(ABBA),
@@ -149,7 +149,7 @@ fn err_invalid_sig() {
             let err = BlobMod::new(
                 Origin::signed(ABBA),
                 AddBlob {
-                    blob: bl.clone(),
+                    blob: bl,
                     nonce: 10 + 1,
                 },
                 did_sig(&att, &author_kp, BlobOwner(author), 1),

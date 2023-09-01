@@ -196,26 +196,26 @@ fn test_high_rate_emission_rate() {
 #[test]
 fn test_emission_status_set_get() {
     new_test_ext().execute_with(|| {
-        assert_eq!(StakingRewards::staking_emission_status(), false);
+        assert!(!StakingRewards::staking_emission_status());
 
         assert_noop!(
             StakingRewards::set_emission_status(Origin::signed(4), true),
             BadOrigin
         );
-        assert_eq!(StakingRewards::staking_emission_status(), false);
+        assert!(!StakingRewards::staking_emission_status());
 
         // Only root can enable/disable emissions
         assert_ok!(StakingRewards::set_emission_status(
             RawOrigin::Root.into(),
             true
         ));
-        assert_eq!(StakingRewards::staking_emission_status(), true);
+        assert!(StakingRewards::staking_emission_status());
 
         assert_noop!(
             StakingRewards::set_emission_status(Origin::signed(5), false),
             BadOrigin
         );
-        assert_eq!(StakingRewards::staking_emission_status(), true);
+        assert!(StakingRewards::staking_emission_status());
     })
 }
 
@@ -226,17 +226,17 @@ fn check_yearly_emission_with_max_decay(emission_supply: u64, max_yearly_decay: 
     // No tokens staked
     let total_staked_zilch = 0;
     let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
-        &reward_curve,
+        reward_curve,
         total_staked_zilch,
         total_issuance,
     );
     let npos_reward_prop = StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
-        &reward_curve,
+        reward_curve,
         total_staked_zilch,
         total_issuance,
     );
     let yearly_rewards_at_no_staking = StakingRewards::get_yearly_emission_reward(
-        &reward_curve,
+        reward_curve,
         total_staked_zilch,
         total_issuance,
         emission_supply,
@@ -253,17 +253,17 @@ fn check_yearly_emission_with_max_decay(emission_supply: u64, max_yearly_decay: 
     // 50% tokens staked
     let total_staked = 50_000;
     let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
-        &reward_curve,
+        reward_curve,
         total_staked,
         total_issuance,
     );
     let npos_reward_prop = StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
-        &reward_curve,
+        reward_curve,
         total_staked,
         total_issuance,
     );
     let yearly_rewards = StakingRewards::get_yearly_emission_reward(
-        &reward_curve,
+        reward_curve,
         total_staked,
         total_issuance,
         emission_supply,
@@ -280,17 +280,17 @@ fn check_yearly_emission_with_max_decay(emission_supply: u64, max_yearly_decay: 
     // 75% tokens staked which yield the maximum reward as per the reward curve
     let total_staked_ideal = 75_000;
     let npos_reward_ideal = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
-        &reward_curve,
+        reward_curve,
         total_staked_ideal,
         total_issuance,
     );
     let npos_reward_prop_ideal = StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
-        &reward_curve,
+        reward_curve,
         total_staked_ideal,
         total_issuance,
     );
     let yearly_rewards_idea_staking = StakingRewards::get_yearly_emission_reward(
-        &reward_curve,
+        reward_curve,
         total_staked_ideal,
         total_issuance,
         emission_supply,
@@ -307,17 +307,17 @@ fn check_yearly_emission_with_max_decay(emission_supply: u64, max_yearly_decay: 
     // tokens than ideal staked
     let total_staked_sub_ideal = 80_000;
     let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
-        &reward_curve,
+        reward_curve,
         total_staked_sub_ideal,
         total_issuance,
     );
     let npos_reward_prop = StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
-        &reward_curve,
+        reward_curve,
         total_staked_sub_ideal,
         total_issuance,
     );
     let yearly_rewards_sub_ideal = StakingRewards::get_yearly_emission_reward(
-        &reward_curve,
+        reward_curve,
         total_staked_sub_ideal,
         total_issuance,
         emission_supply,
@@ -384,12 +384,12 @@ fn test_yearly_rewards_with_increasing_staking() {
 
         for total_staked in (1000u64..=(total_issuance + emission_supply)).step_by(1000) {
             let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
-                &reward_curve,
+                reward_curve,
                 total_staked,
                 total_issuance,
             );
             let npos_reward_prop = StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
-                &reward_curve,
+                reward_curve,
                 total_staked,
                 total_issuance,
             );
@@ -399,7 +399,7 @@ fn test_yearly_rewards_with_increasing_staking() {
             );
 
             let yearly_rewards = StakingRewards::get_yearly_emission_reward(
-                &reward_curve,
+                reward_curve,
                 total_staked,
                 total_issuance,
                 emission_supply,
@@ -425,19 +425,19 @@ fn test_yearly_rewards_with_constant_staking() {
         let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
         let decay_pct = <Test as staking_rewards::Config>::LowRateRewardDecayPct::get();
 
-        for total_staked in vec![10_000, 50_000, 75_000, 100_000] {
+        for total_staked in [10_000, 50_000, 75_000, 100_000] {
             let mut total_issuance = 100_000u64;
             let mut emission_supply = 10_000u64;
             let mut total_rewards = 0;
             loop {
                 let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
-                    &reward_curve,
+                    reward_curve,
                     total_staked,
                     total_issuance,
                 );
                 let npos_reward_prop =
                     StakingRewards::get_yearly_emission_reward_prop_as_per_npos_only(
-                        &reward_curve,
+                        reward_curve,
                         total_staked,
                         total_issuance,
                     );
@@ -447,7 +447,7 @@ fn test_yearly_rewards_with_constant_staking() {
                 );
 
                 let yearly_rewards = StakingRewards::get_yearly_emission_reward(
-                    &reward_curve,
+                    reward_curve,
                     total_staked,
                     total_issuance,
                     emission_supply,
@@ -529,17 +529,17 @@ fn test_emission_rewards_0_when_disabled() {
         let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
 
         // Emission is disabled so no emission rewards
-        assert_eq!(StakingRewards::staking_emission_status(), false);
+        assert!(!StakingRewards::staking_emission_status());
         let (rewards, remaining) =
-            StakingRewards::emission_reward_for_era(&reward_curve, 1_000, 100_000, 300_000_000);
+            StakingRewards::emission_reward_for_era(reward_curve, 1_000, 100_000, 300_000_000);
         assert_eq!(rewards, 0);
         assert_eq!(remaining, 10_000);
 
         // Emission is enabled so some emission rewards
         StakingRewards::set_emission_status(RawOrigin::Root.into(), true).unwrap();
-        assert_eq!(StakingRewards::staking_emission_status(), true);
+        assert!(StakingRewards::staking_emission_status());
         let (rewards, remaining) =
-            StakingRewards::emission_reward_for_era(&reward_curve, 1_000, 100_000, 300_000_000);
+            StakingRewards::emission_reward_for_era(reward_curve, 1_000, 100_000, 300_000_000);
         assert!(rewards > 0);
         assert!(remaining < 10_000);
     })

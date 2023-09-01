@@ -75,6 +75,10 @@ impl OffChainDidDocRef {
             OffChainDidDocRef::Custom(v) => v.len(),
         }
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 impl<T: Config + Debug> Module<T> {

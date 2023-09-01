@@ -122,7 +122,7 @@ fn invalid_input() {
         let did = Did([2u8; 32]);
         let details: StoredDidDetails<Test> =
             WithNonce::new_with_nonce(OnChainDidDetails::new(IncId::from(1u32), 2, 3), 5).into();
-        Dids::insert(did, &details);
+        Dids::insert(did, details);
 
         let input = Input::new("DIDModule", "Dids", MapKey::new_single(did), Params::None);
         assert_decoded_eq!(

@@ -96,6 +96,7 @@ pub fn open_frontier_backend(path: PathBuf) -> Result<Arc<fc_db::Backend<Block>>
     )?))
 }
 
+#[allow(clippy::type_complexity)]
 pub fn new_partial(
     config: &Configuration,
     _cli: &Cli,
@@ -119,12 +120,12 @@ pub fn new_partial(
     ServiceError,
 > {
     if config.keystore_remote.is_some() {
-        return Err(ServiceError::Other(format!(
-            "Remote Keystores are not supported."
-        )));
+        return Err(ServiceError::Other(
+            "Remote Keystores are not supported.".to_string(),
+        ));
     }
 
-    let telemetry = get_telemetry_worker_from_config(&config)?;
+    let telemetry = get_telemetry_worker_from_config(config)?;
     let executor = NativeElseWasmExecutor::<ExecutorDispatch>::new(
         config.wasm_method,
         config.default_heap_pages,
@@ -134,7 +135,7 @@ pub fn new_partial(
 
     let (client, backend, keystore_container, task_manager) =
         sc_service::new_full_parts::<Block, RuntimeApi, _>(
-            &config,
+            config,
             telemetry.as_ref().map(|(_, telemetry)| telemetry.handle()),
             executor,
         )?;
@@ -429,7 +430,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
             Duration::from_millis(dock_runtime::SLOT_DURATION),
             client.clone(),
             backend.clone(),
-            frontier_backend.clone(),
+            frontier_backend,
             3,
             0,
             SyncStrategy::Normal,
@@ -460,9 +461,9 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
         task_manager: &mut task_manager,
         transaction_pool: transaction_pool.clone(),
         rpc_builder: rpc_extensions_builder,
-        config: config,
+        config,
         client: client.clone(),
-        backend: backend.clone(),
+        backend,
         // on_demand: None,
         // warp_sync: None,
         //
@@ -487,7 +488,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
         None,
         EthTask::fee_history_task(
             client.clone(),
-            overrides.clone(),
+            overrides,
             fee_history_cache,
             fee_history_cache_limit,
         ),
@@ -576,7 +577,7 @@ pub fn new_full(mut config: Configuration, cli: &Cli) -> Result<TaskManager, Ser
                     }
                 });
         let (authority_discovery_worker, _service) = sc_authority_discovery::new_worker_and_service(
-            client.clone(),
+            client,
             network.clone(),
             Box::pin(dht_event_stream),
             authority_discovery_role,

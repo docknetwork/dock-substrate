@@ -235,7 +235,7 @@ fn valid_call() {
 
         let pauth = get_pauth(&sc, &signers);
 
-        MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+        MasterMod::execute(Origin::signed(0), Box::new(call), pauth).unwrap();
         assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec().into()));
         check_nonce_increase(old_nonces, &signers);
     });
@@ -271,7 +271,7 @@ fn all_members_vote() {
 
         let pauth = get_pauth(&sc, &signers);
 
-        MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+        MasterMod::execute(Origin::signed(0), Box::new(call), pauth).unwrap();
         assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec().into()));
         check_nonce_increase(old_nonces, &signers);
     });
@@ -306,7 +306,7 @@ fn two_successful_rounds_of_voting() {
 
             let pauth = get_pauth(&sc, &signers);
 
-            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call), pauth).unwrap();
             assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec().into()));
             check_nonce_increase(old_nonces, &signers);
         }
@@ -329,7 +329,7 @@ fn two_successful_rounds_of_voting() {
 
             let pauth = get_pauth(&sc, &signers);
 
-            MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
+            MasterMod::execute(Origin::signed(0), Box::new(call), pauth).unwrap();
             assert_eq!(sp_io::storage::get(&kv.0), Some(kv.1.to_vec().into()));
             check_nonce_increase(old_nonces, &signers);
         }
@@ -376,7 +376,7 @@ fn err_bad_sig() {
                 _marker: PhantomData,
             };
             let pauth = get_pauth(&sc, &[(dida, &didak)]);
-            let err = MasterMod::execute(Origin::signed(0), call.clone(), pauth).unwrap_err();
+            let err = MasterMod::execute(Origin::signed(0), call, pauth).unwrap_err();
             assert_eq!(err, MasterError::<Test>::BadSig.into());
         }
     });
@@ -400,7 +400,7 @@ fn err_not_member() {
             round_no: 0,
         };
         let pauth = get_pauth(&sc, &[(didc, &didck)]);
-        let err = MasterMod::execute(Origin::signed(0), call.clone(), pauth).unwrap_err();
+        let err = MasterMod::execute(Origin::signed(0), call, pauth).unwrap_err();
         assert_eq!(err, MasterError::<Test>::NotMember.into());
     });
 }
@@ -424,7 +424,7 @@ fn replay_protec() {
         MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap();
 
         let pauth = get_pauth(&sc, &[(dida, &didak)]);
-        let err = MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap_err();
+        let err = MasterMod::execute(Origin::signed(0), Box::new(call), pauth).unwrap_err();
         assert_eq!(err, MasterError::<Test>::BadSig.into());
     });
 }
@@ -446,7 +446,7 @@ fn err_insufficient_votes() {
         });
 
         let pauth = get_pauth(&sc, &[(dida, &didak)]);
-        let err = MasterMod::execute(Origin::signed(0), Box::new(call.clone()), pauth).unwrap_err();
+        let err = MasterMod::execute(Origin::signed(0), Box::new(call), pauth).unwrap_err();
         assert_eq!(err, MasterError::<Test>::InsufficientVotes.into());
     });
 }

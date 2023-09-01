@@ -1,3 +1,5 @@
+#![allow(unused_lifetimes)]
+
 crate::def_state_change! {
     /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
     /// This is done to make it unambiguous which command was intended as the SCALE codec's

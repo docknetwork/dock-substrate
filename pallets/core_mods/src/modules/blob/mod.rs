@@ -130,6 +130,7 @@ impl<T: Config + Debug> Module<T> {
 }
 
 impl<T: frame_system::Config> SubstrateWeight<T> {
+    #[allow(clippy::new_ret_no_self)]
     fn new(
         AddBlob { blob, .. }: &AddBlob<T>,
         DidSignature { sig, .. }: &DidSignature<BlobOwner>,

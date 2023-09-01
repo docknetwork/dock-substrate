@@ -43,10 +43,7 @@ impl From<libsecp256k1::PublicKey> for PublicKey {
 
 impl PublicKey {
     pub const fn can_sign(&self) -> bool {
-        match self {
-            PublicKey::X25519(_) => false,
-            _ => true,
-        }
+        !matches!(self, PublicKey::X25519(_))
     }
 
     pub const fn sr25519(bytes: [u8; 32]) -> Self {

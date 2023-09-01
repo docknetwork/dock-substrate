@@ -245,13 +245,13 @@ mod small_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = 1 * WEEKS;
+    pub const TERM_DURATION: BlockNumber = WEEKS;
     /// The time-out for council motions.
     pub const COUNCIL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
     /// The time-out for technical committee motions.
     pub const TECHNICAL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
     /// Delay after which an accepted proposal executes
-    pub const ENACTMENT_PERIOD: BlockNumber = 1 * MINUTES;
+    pub const ENACTMENT_PERIOD: BlockNumber = MINUTES;
     /// How often new public referrenda are launched
     pub const LAUNCH_PERIOD: BlockNumber = 15 * MINUTES;
     pub const VOTING_PERIOD: BlockNumber = 10 * MINUTES;
@@ -261,9 +261,9 @@ mod small_durations {
     /// Duration after which funds from treasury are spent for approved bounties
     pub const SPEND_PERIOD: BlockNumber = 15 * MINUTES;
     /// The delay period for which a bounty beneficiary need to wait before claim the payout.
-    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = 1 * MINUTES;
+    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = MINUTES;
     /// The period for which a tip remains open after is has achieved threshold tippers.
-    pub const TIP_COUNTDOWN: BlockNumber = 1 * MINUTES;
+    pub const TIP_COUNTDOWN: BlockNumber = MINUTES;
     /// Bounty duration in blocks.
     pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 5 * MINUTES;
 }
@@ -286,11 +286,11 @@ mod prod_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = 1 * WEEKS;
+    pub const TERM_DURATION: BlockNumber = WEEKS;
     /// The time-out for council motions.
-    pub const COUNCIL_MOTION_DURATION: BlockNumber = 1 * WEEKS;
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = WEEKS;
     /// The time-out for technical committee motions.
-    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 1 * WEEKS;
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = WEEKS;
     /// Delay after which an accepted proposal executes
     pub const ENACTMENT_PERIOD: BlockNumber = 2 * DAYS;
     /// How often new public referrenda are launched
@@ -300,11 +300,11 @@ mod prod_durations {
     pub const COOLOFF_PERIOD: BlockNumber = 28 * 24 * 60 * MINUTES;
 
     /// Duration after which funds from treasury are spent for approved bounties
-    pub const SPEND_PERIOD: BlockNumber = 1 * DAYS;
+    pub const SPEND_PERIOD: BlockNumber = DAYS;
     /// The delay period for which a bounty beneficiary need to wait before claim the payout.
-    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = 1 * DAYS;
+    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = DAYS;
     /// The period for which a tip remains open after is has achieved threshold tippers.
-    pub const TIP_COUNTDOWN: BlockNumber = 1 * DAYS;
+    pub const TIP_COUNTDOWN: BlockNumber = DAYS;
     /// Bounty duration in blocks.
     pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 14 * DAYS;
 }
@@ -485,7 +485,7 @@ where
         let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
         let address = <Runtime as system::Config>::Lookup::unlookup(account);
         let (call, extra, _) = raw_payload.deconstruct();
-        Some((call, (address, signature.into(), extra)))
+        Some((call, (address, signature, extra)))
     }
 }
 
@@ -696,7 +696,7 @@ impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfi
 
 parameter_types! {
     pub const SignedMaxSubmissions: u32 = 10;
-    pub const SignedRewardBase: Balance = 1 * DOCK;
+    pub const SignedRewardBase: Balance = DOCK;
     pub const SignedDepositBase: Balance = 500 * DOCK;
     pub const SignedDepositByte: Balance = DOCK / 100;
     pub const OffchainRepeat: BlockNumber = 5;
@@ -850,7 +850,7 @@ impl OverriddenLengthFee {
     /// Checks whether the given call has a customized length fee or not.
     pub fn new(call: &<Runtime as frame_system::Config>::Call, len: u32) -> OverriddenLengthFee {
         Self::is_preimage_with_deposit(call)
-            .then(|| Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
+            .then_some(Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
             .or_else(|| match call {
                 Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
                     Self::is_preimage_with_deposit(proposal)
@@ -1481,12 +1481,12 @@ impl pallet_democracy::Config for Runtime {
 
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
-    pub const ProposalBondMinimum: Balance = 1 * DOCK;
+    pub const ProposalBondMinimum: Balance = DOCK;
     pub const SpendPeriod: BlockNumber = SPEND_PERIOD;
     /// We are fixed supply token, we don't burn any tokens
     pub const Burn: Permill = Permill::from_percent(0);
     pub const DataDepositPerByte: Balance = DOCK / 100;
-    pub const BountyDepositBase: Balance = 1 * DOCK;
+    pub const BountyDepositBase: Balance = DOCK;
     pub const BountyCuratorDepositMin: Balance = DOCK / 2;
     pub const BountyCuratorDepositMax: Balance = 250 * DOCK;
     pub const BountyDepositPayoutDelay: BlockNumber = BOUNTY_DEPOSIT_PAYOUT_DELAY;
@@ -1494,7 +1494,7 @@ parameter_types! {
     pub const BountyValueMinimum: Balance = 5 * DOCK;
     pub const TipCountdown: BlockNumber = TIP_COUNTDOWN;
     pub const TipFindersFee: Percent = Percent::from_percent(20);
-    pub const TipReportDepositBase: Balance = 1 * DOCK;
+    pub const TipReportDepositBase: Balance = DOCK;
     /// Matches treasury account created during PoA.
     pub const TreasuryPalletId: PalletId = PalletId(*b"Treasury");
     pub const BountyUpdatePeriod: BlockNumber = BOUNTY_UPDATE_PERIOD;
@@ -1708,7 +1708,7 @@ impl pallet_evm::GasWeightMapping for GasWeightMap {
         Weight::from_ref_time(gas.saturating_mul(WEIGHT_PER_GAS))
     }
     fn weight_to_gas(weight: Weight) -> u64 {
-        u64::try_from(weight.ref_time().wrapping_div(WEIGHT_PER_GAS)).unwrap_or(u32::MAX as u64)
+        weight.ref_time().wrapping_div(WEIGHT_PER_GAS)
     }
 }
 
@@ -1804,10 +1804,8 @@ parameter_types! {
 
 pub struct BaseFilter;
 impl Contains<Call> for BaseFilter {
-    fn contains(call: &Call) -> bool {
-        match call {
-            _ => true,
-        }
+    fn contains(_call: &Call) -> bool {
+        true
     }
 }
 
@@ -2233,6 +2231,7 @@ impl_runtime_apis! {
             EVM::account_storages(address, H256::from_slice(&tmp[..]))
         }
 
+        #[allow(clippy::or_fun_call)]
         fn call(
             from: H160,
             to: H160,
@@ -2272,6 +2271,7 @@ impl_runtime_apis! {
             ).map_err(|err| err.error.into())
         }
 
+        #[allow(clippy::or_fun_call)]
         fn create(
             from: H160,
             data: Vec<u8>,

@@ -1,6 +1,6 @@
 use crate::{
     common::{HasPolicy, Policy},
-    util::{self, Bytes},
+    util::Bytes,
 };
 use codec::{Decode, Encode};
 use core::{
@@ -37,6 +37,11 @@ impl StatusListCredential {
     /// Returns underlying raw bytes length.
     pub fn len(&self) -> u32 {
         self.bytes().len() as u32
+    }
+
+    /// Returns `true` if underlying raw bytes length is equal to zero.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 
     /// Ensures that byte length is valid.
@@ -80,6 +85,11 @@ impl StatusListCredentialWithPolicy {
         self.status_list_credential.len()
     }
 
+    /// Returns `true` if underlying raw bytes length is equal to zero.
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Ensures that underlying `Policy` and `StatusListCredential` are valid.
     pub fn ensure_valid<T: Config + Debug>(&self) -> DispatchResult {
         self.policy.ensure_valid::<T>()?;
@@ -106,7 +116,7 @@ impl From<StatusListCredentialWithPolicy> for StatusListCredential {
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct StatusListCredentialId(
-    #[cfg_attr(feature = "serde", serde(with = "util::hex"))] pub [u8; 32],
+    #[cfg_attr(feature = "serde", serde(with = "crate::util::hex"))] pub [u8; 32],
 );
 
 crate::impl_wrapper!(StatusListCredentialId([u8; 32]));

@@ -141,10 +141,8 @@ parameter_types! {
 
 pub struct BaseFilter;
 impl Contains<Call> for BaseFilter {
-    fn contains(call: &Call) -> bool {
-        match call {
-            _ => true,
-        }
+    fn contains(_call: &Call) -> bool {
+        true
     }
 }
 
@@ -409,7 +407,7 @@ pub fn did_sig<T: frame_system::Config, A: ToStateChange<T>, D: Into<Did>>(
     }
 }
 
-pub fn did_sig_on_bytes<T: frame_system::Config, D: Into<Did>>(
+pub fn did_sig_on_bytes<D: Into<Did>>(
     msg_bytes: &[u8],
     keypair: &sr25519::Pair,
     did: D,

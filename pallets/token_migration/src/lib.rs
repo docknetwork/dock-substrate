@@ -7,6 +7,7 @@
 //! should verify with external migrators.
 
 #![cfg_attr(not(feature = "std"), no_std)]
+#![allow(clippy::unused_unit)]
 
 use codec::{Decode, Encode};
 use frame_support::{
@@ -640,6 +641,12 @@ impl<T: Config> Module<T> {
 #[derive(Encode, Decode, scale_info::TypeInfo, Clone, Eq, PartialEq)]
 #[scale_info(skip_type_params(T))]
 pub struct OnlyMigrator<T: Config + Send + Sync>(PhantomData<T>);
+
+impl<T: Config + Send + Sync> Default for OnlyMigrator<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl<T: Config + Send + Sync> OnlyMigrator<T> {
     /// Create new `SignedExtension` to check runtime version.

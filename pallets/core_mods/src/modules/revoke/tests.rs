@@ -1,3 +1,5 @@
+#![allow(clippy::type_complexity)]
+
 use super::*;
 use crate::{
     common::{Policy, ToStateChange},
@@ -20,11 +22,10 @@ where
     signers
         .iter()
         .map(|(did, kp)| {
-            let did_detail = DIDModule::onchain_did_details(&did).unwrap();
+            let did_detail = DIDModule::onchain_did_details(did).unwrap();
             let next_nonce = did_detail.next_nonce().unwrap();
             let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
-            let sig =
-                did_sig_on_bytes::<Test, _>(&sp.to_state_change().encode(), &kp, did.clone(), 1);
+            let sig = did_sig_on_bytes(&sp.to_state_change().encode(), kp, *did, 1);
             DidSignatureWithNonce {
                 sig,
                 nonce: next_nonce,
@@ -43,7 +44,7 @@ pub fn get_nonces(signers: &[(Did, &sr25519::Pair)]) -> BTreeMap<Did, u64> {
 }
 
 pub fn check_nonce_increase(old_nonces: BTreeMap<Did, u64>, signers: &[(Did, &sr25519::Pair)]) {
-    let new_nonces = get_nonces(&signers);
+    let new_nonces = get_nonces(signers);
     assert_eq!(new_nonces.len(), old_nonces.len());
     for (d, new_nonce) in new_nonces {
         assert_eq!(old_nonces.get(&d).unwrap() + 1, new_nonce);
@@ -73,7 +74,7 @@ mod errors {
         let ar = AddRegistry {
             id: RGA,
             new_registry: Registry {
-                policy: Policy::one_of(&[]),
+                policy: Policy::one_of(None::<Did>),
                 add_only: false,
             },
         };
@@ -117,34 +118,34 @@ mod errors {
         let (kpa, kpb, kpc) = (create_did(a), create_did(b), create_did(c));
 
         let cases: &[(Policy, &[(Did, &sr25519::Pair)], &str)] = &[
-            (Policy::one_of(&[a]), &[], "provide no signatures"),
+            (Policy::one_of([a]), &[], "provide no signatures"),
             (
-                Policy::one_of(&[a]),
+                Policy::one_of([a]),
                 &[(b, &kpb)],
                 "wrong account; wrong key",
             ),
             (
-                Policy::one_of(&[a]),
+                Policy::one_of([a]),
                 &[(a, &kpb)],
                 "correct account; wrong key",
             ),
             (
-                Policy::one_of(&[a]),
+                Policy::one_of([a]),
                 &[(a, &kpb)],
                 "wrong account; correct key",
             ),
             (
-                Policy::one_of(&[a, b]),
+                Policy::one_of([a, b]),
                 &[(c, &kpc)],
                 "account not a controller",
             ),
             (
-                Policy::one_of(&[a, b]),
+                Policy::one_of([a, b]),
                 &[(a, &kpa), (b, &kpb)],
                 "two signers",
             ),
-            (Policy::one_of(&[a]), &[], "one controller; no sigs"),
-            (Policy::one_of(&[a, b]), &[], "two controllers; no sigs"),
+            (Policy::one_of([a]), &[], "one controller; no sigs"),
+            (Policy::one_of([a, b]), &[], "two controllers; no sigs"),
         ];
 
         for (pol, set, description) in cases {
@@ -165,7 +166,7 @@ mod errors {
             return ext().execute_with(notauthorized_wrong_command);
         }
 
-        let policy = Policy::one_of(&[DIDA]);
+        let policy = Policy::one_of([DIDA]);
         let registry_id = RGA;
         let add_only = false;
 
@@ -200,7 +201,7 @@ mod errors {
         );
 
         let ur_proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
-        RevoMod::unrevoke(Origin::signed(ABBA), unrevoke.clone(), ur_proof).unwrap();
+        RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, ur_proof).unwrap();
     }
 
     #[test]
@@ -210,7 +211,7 @@ mod errors {
         }
 
         let reg = Registry {
-            policy: Policy::one_of(&[DIDA]),
+            policy: Policy::one_of([DIDA]),
             add_only: false,
         };
         let ar = AddRegistry {
@@ -218,7 +219,7 @@ mod errors {
             new_registry: reg,
         };
         RevoMod::new_registry(Origin::signed(ABBA), ar.clone()).unwrap();
-        let err = RevoMod::new_registry(Origin::signed(ABBA), ar.clone()).unwrap_err();
+        let err = RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap_err();
         assert_eq!(err, RevErr::<Test>::RegExists.into());
     }
 
@@ -299,14 +300,14 @@ mod errors {
         let kpa = create_did(DIDA);
         let registry_id = RGA;
         let reg = Registry {
-            policy: Policy::one_of(&[DIDA]),
+            policy: Policy::one_of([DIDA]),
             add_only: false,
         };
         let ar = AddRegistry {
             id: RGA,
             new_registry: reg,
         };
-        RevoMod::new_registry(Origin::signed(ABBA), ar.clone()).unwrap();
+        RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
         let revoke_raw = RevokeRaw {
             _marker: PhantomData,
             registry_id,
@@ -336,7 +337,7 @@ mod errors {
         let ar = AddRegistry {
             id: registry_id,
             new_registry: Registry {
-                policy: Policy::one_of(&[DIDA]),
+                policy: Policy::one_of([DIDA]),
                 add_only: false,
             },
         };
@@ -399,7 +400,7 @@ mod errors {
         let ar = AddRegistry {
             id: registry_id,
             new_registry: Registry {
-                policy: Policy::one_of(&[DIDA]),
+                policy: Policy::one_of([DIDA]),
                 add_only: true,
             },
         };
@@ -462,10 +463,10 @@ mod calls {
         }
 
         let cases: &[(Policy, bool)] = &[
-            (Policy::one_of(&[DIDA]), false),
-            (Policy::one_of(&[DIDA, DIDB]), false),
-            (Policy::one_of(&[DIDA]), true),
-            (Policy::one_of(&[DIDA, DIDB]), true),
+            (Policy::one_of([DIDA]), false),
+            (Policy::one_of([DIDA, DIDB]), false),
+            (Policy::one_of([DIDA]), true),
+            (Policy::one_of([DIDA, DIDB]), true),
         ];
         for (policy, add_only) in cases.iter().cloned() {
             let reg_id = random();
@@ -474,7 +475,7 @@ mod calls {
                 id: reg_id,
                 new_registry: reg.clone(),
             };
-            assert!(!Registries::contains_key(&reg_id));
+            assert!(!Registries::contains_key(reg_id));
             RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
             assert!(Registries::contains_key(reg_id));
             assert_eq!(Registries::get(reg_id).unwrap(), reg);
@@ -487,7 +488,7 @@ mod calls {
             return ext().execute_with(revoke);
         }
 
-        let policy = Policy::one_of(&[DIDA]);
+        let policy = Policy::one_of([DIDA]);
         let registry_id = RGA;
         let add_only = true;
 
@@ -510,7 +511,7 @@ mod calls {
             &[RA], // Test idempotence, step 1
             &[RA], // Test idempotence, step 2
         ];
-        for (i, ids) in cases.into_iter().enumerate() {
+        for (i, ids) in cases.iter().enumerate() {
             println!("Revoke ids: {:?}", ids);
             let revoke = RevokeRaw {
                 _marker: PhantomData,
@@ -518,12 +519,12 @@ mod calls {
                 revoke_ids: ids.iter().cloned().collect(),
             };
             let proof = get_pauth(&revoke, &[(DIDA, &kpa)]);
-            let old_nonces = get_nonces(&[((DIDA, &kpa))]);
+            let old_nonces = get_nonces(&[(DIDA, &kpa)]);
             RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
             assert!(ids
                 .iter()
                 .all(|id| Revocations::contains_key(registry_id, id)));
-            check_nonce_increase(old_nonces, &[((DIDA, &kpa))]);
+            check_nonce_increase(old_nonces, &[(DIDA, &kpa)]);
             run_to_block(1 + 1 + i as u64);
         }
     }
@@ -534,7 +535,7 @@ mod calls {
             return ext().execute_with(unrevoke);
         }
 
-        let policy = Policy::one_of(&[DIDA]);
+        let policy = Policy::one_of([DIDA]);
         let registry_id = RGA;
         let add_only = false;
 
@@ -573,7 +574,7 @@ mod calls {
             (Action::UnRevo, &[RA, RB], line!()),
             (Action::AsrtNR, &[RA, RB], line!()),
         ];
-        for (i, (action, ids, line_no)) in cases.into_iter().enumerate() {
+        for (i, (action, ids, line_no)) in cases.iter().enumerate() {
             eprintln!("running action from line {}", line_no);
             let revoke_ids: BTreeSet<RevokeId> = ids.iter().cloned().collect();
             match action {
@@ -584,9 +585,9 @@ mod calls {
                         revoke_ids,
                     };
                     let proof = get_pauth(&revoke, &[(DIDA, &kpa)]);
-                    let old_nonces = get_nonces(&[((DIDA, &kpa))]);
+                    let old_nonces = get_nonces(&[(DIDA, &kpa)]);
                     RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
-                    check_nonce_increase(old_nonces, &[((DIDA, &kpa))]);
+                    check_nonce_increase(old_nonces, &[(DIDA, &kpa)]);
                 }
                 Action::UnRevo => {
                     let unrevoke = UnRevokeRaw {
@@ -594,10 +595,10 @@ mod calls {
                         registry_id,
                         revoke_ids: revoke_ids.clone(),
                     };
-                    let old_nonces = get_nonces(&[((DIDA, &kpa))]);
+                    let old_nonces = get_nonces(&[(DIDA, &kpa)]);
                     let proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
                     RevoMod::unrevoke(Origin::signed(ABBA), unrevoke, proof).unwrap();
-                    check_nonce_increase(old_nonces, &[((DIDA, &kpa))]);
+                    check_nonce_increase(old_nonces, &[(DIDA, &kpa)]);
                 }
                 Action::AsrtRv => {
                     assert!(revoke_ids
@@ -620,7 +621,7 @@ mod calls {
             return ext().execute_with(remove_registry);
         }
 
-        let policy = Policy::one_of(&[DIDA]);
+        let policy = Policy::one_of([DIDA]);
         let registry_id = RGA;
         let add_only = false;
         let kpa = create_did(DIDA);
@@ -628,7 +629,7 @@ mod calls {
         let reg = Registry { policy, add_only };
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: reg.clone(),
+            new_registry: reg,
         };
 
         RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
@@ -640,9 +641,9 @@ mod calls {
             registry_id,
         };
         let proof = get_pauth(&rem, &[(DIDA, &kpa)]);
-        let old_nonces = get_nonces(&[((DIDA, &kpa))]);
+        let old_nonces = get_nonces(&[(DIDA, &kpa)]);
         RevoMod::remove_registry(Origin::signed(ABBA), rem, proof).unwrap();
-        check_nonce_increase(old_nonces, &[((DIDA, &kpa))]);
+        check_nonce_increase(old_nonces, &[(DIDA, &kpa)]);
 
         // assert not exists
         assert!(!Registries::contains_key(registry_id));
@@ -686,24 +687,24 @@ mod test {
         };
 
         let cases: &[(u32, Policy, &[(Did, &sr25519::Pair)], bool)] = &[
-            (line!(), Policy::one_of(&[a]), &[(a, &kpa)], true),
-            (line!(), Policy::one_of(&[a, b]), &[(a, &kpa)], true),
-            (line!(), Policy::one_of(&[a, b]), &[(b, &kpb)], true),
-            (line!(), Policy::one_of(&[a]), &[], false), // provide no signatures
-            (line!(), Policy::one_of(&[a]), &[(b, &kpb)], false), // wrong account; wrong key
-            (line!(), Policy::one_of(&[a]), &[(a, &kpb)], false), // correct account; wrong key
-            (line!(), Policy::one_of(&[a]), &[(a, &kpb)], false), // wrong account; correct key
-            (line!(), Policy::one_of(&[a, b]), &[(c, &kpc)], false), // account not a controller
+            (line!(), Policy::one_of([a]), &[(a, &kpa)], true),
+            (line!(), Policy::one_of([a, b]), &[(a, &kpa)], true),
+            (line!(), Policy::one_of([a, b]), &[(b, &kpb)], true),
+            (line!(), Policy::one_of([a]), &[], false), // provide no signatures
+            (line!(), Policy::one_of([a]), &[(b, &kpb)], false), // wrong account; wrong key
+            (line!(), Policy::one_of([a]), &[(a, &kpb)], false), // correct account; wrong key
+            (line!(), Policy::one_of([a]), &[(a, &kpb)], false), // wrong account; correct key
+            (line!(), Policy::one_of([a, b]), &[(c, &kpc)], false), // account not a controller
             (
                 line!(),
-                Policy::one_of(&[a, b]),
+                Policy::one_of([a, b]),
                 &[(a, &kpa), (b, &kpb)],
                 false,
             ), // two signers
-            (line!(), Policy::one_of(&[a]), &[], false), // one controller; no sigs
-            (line!(), Policy::one_of(&[a, b]), &[], false), // two controllers; no sigs
+            (line!(), Policy::one_of([a]), &[], false), // one controller; no sigs
+            (line!(), Policy::one_of([a, b]), &[], false), // two controllers; no sigs
         ];
-        for (i, (line_no, policy, signers, expect_success)) in cases.into_iter().enumerate() {
+        for (i, (line_no, policy, signers, expect_success)) in cases.iter().enumerate() {
             eprintln!("running case from line {}", line_no);
             Registries::insert(
                 RGA,
@@ -715,7 +716,7 @@ mod test {
 
             let old_nonces = get_nonces(signers);
             let command = &rev;
-            let proof = get_pauth(command, &signers);
+            let proof = get_pauth(command, signers);
             let res = RevoMod::try_exec_action_over_registry(
                 |_, _| Ok::<_, DispatchError>(()),
                 command.clone(),
@@ -737,7 +738,7 @@ mod test {
             return ext().execute_with(get_revocation_registry);
         }
 
-        let policy = Policy::one_of(&[DIDA]);
+        let policy = Policy::one_of([DIDA]);
         let registry_id = RGA;
         let add_only = false;
         let reg = Registry { policy, add_only };
@@ -759,7 +760,7 @@ mod test {
             return ext().execute_with(get_revocation_status);
         }
 
-        let policy = Policy::one_of(&[DIDA]);
+        let policy = Policy::one_of([DIDA]);
         let registry_id = RGA;
         let add_only = false;
         let reg = Registry { policy, add_only };
@@ -768,7 +769,7 @@ mod test {
 
         let ar = AddRegistry {
             id: registry_id,
-            new_registry: reg.clone(),
+            new_registry: reg,
         };
 
         RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();

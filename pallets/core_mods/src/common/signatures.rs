@@ -20,31 +20,12 @@ pub enum SigValue {
     Secp256k1(Bytes65),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum VerificationError {
+    IncompatibleKey(PublicKey, SigValue),
+}
+
 impl SigValue {
-    /// Try to get reference to the bytes if its a Sr25519 signature. Return error if its not.
-    pub fn as_sr25519_sig_bytes(&self) -> Result<&[u8], ()> {
-        match self {
-            SigValue::Sr25519(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(()),
-        }
-    }
-
-    /// Try to get reference to the bytes if its a Ed25519 signature. Return error if its not.
-    pub fn as_ed25519_sig_bytes(&self) -> Result<&[u8], ()> {
-        match self {
-            SigValue::Ed25519(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(()),
-        }
-    }
-
-    /// Try to get reference to the bytes if its a Secp256k1 signature. Return error if its not.
-    pub fn as_secp256k1_sig_bytes(&self) -> Result<&[u8], ()> {
-        match self {
-            SigValue::Secp256k1(bytes) => Ok(bytes.as_bytes()),
-            _ => Err(()),
-        }
-    }
-
     /// Get weight for signature verification.
     /// Considers the type of signature. Disregards message size as messages are hashed giving the
     /// same output size and hashing itself is very cheap. The extrinsic using it might decide to
@@ -57,7 +38,11 @@ impl SigValue {
         }
     }
 
-    pub fn verify(&self, message: &[u8], public_key: &PublicKey) -> Result<bool, ()> {
+    pub fn verify(
+        &self,
+        message: &[u8],
+        public_key: &PublicKey,
+    ) -> Result<bool, VerificationError> {
         macro_rules! verify {
             ( $message:ident, $sig_bytes:ident, $pk_bytes:ident, $sig_type:expr, $pk_type:expr ) => {{
                 let signature = $sig_type($sig_bytes.value);
@@ -65,6 +50,7 @@ impl SigValue {
                 signature.verify($message, &pk)
             }};
         }
+
         let result = match (public_key, self) {
             (PublicKey::Sr25519(pk_bytes), SigValue::Sr25519(sig_bytes)) => {
                 verify!(
@@ -93,10 +79,12 @@ impl SigValue {
                 let p = libsecp256k1::PublicKey::parse_compressed(&pk_bytes.value).unwrap();
                 libsecp256k1::verify(&m, &sig, &p)
             }
-            _ => {
-                return Err(());
-            }
+            _ => Err(VerificationError::IncompatibleKey(
+                public_key.clone(),
+                self.clone(),
+            ))?,
         };
+
         Ok(result)
     }
 

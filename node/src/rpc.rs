@@ -296,16 +296,7 @@ where
 
     io.merge(Web3::new(client.clone()).into_rpc())?;
 
-    io.merge(
-        EthPubSub::new(
-            pool,
-            client.clone(),
-            network.clone(),
-            subscription_executor,
-            overrides,
-        )
-        .into_rpc(),
-    )?;
+    io.merge(EthPubSub::new(pool, client, network, subscription_executor, overrides).into_rpc())?;
 
     io.merge(
         Beefy::<Block>::new(

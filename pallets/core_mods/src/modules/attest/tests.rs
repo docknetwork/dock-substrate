@@ -87,7 +87,7 @@ fn invalid_sig_a() {
         let err = AttestMod::set_claim(
             Origin::signed(0),
             SetAttestationClaim {
-                attest: att.clone(),
+                attest: att,
                 nonce: 10 + 2,
             },
             sig,
@@ -218,10 +218,9 @@ fn priority_battle_royale() {
                 &kp,
                 nonce,
             )
-            .and_then(|_| {
+            .map(|_| {
                 check_nonce(&did, nonce);
                 nonce += 1;
-                Ok(())
             });
         }
         assert_eq!(
@@ -349,7 +348,7 @@ fn set_claim(
                 nonce,
             },
             kp,
-            claimer.clone(),
+            *claimer,
             1,
         ),
     )

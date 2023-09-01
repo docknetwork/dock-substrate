@@ -887,10 +887,8 @@ fn vesting_bonus_claims_2() {
 
         let _ = <TestRuntime as Config>::Currency::deposit_creating(&sender, 10000);
 
-        for amount in vec![
-            15, // Amount divides milestone count exactly
-            20, // Amount does not divide milestone count exactly
-        ] {
+        // Amount divides milestone count exactly
+        for amount in [15, 20] {
             System::set_block_number(0);
 
             let start = 1;
