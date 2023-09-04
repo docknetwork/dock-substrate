@@ -1,5 +1,6 @@
-use crate as staking_rewards;
+use crate as dock_staking_rewards;
 
+use dock_staking_rewards::*;
 use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnRuntimeUpgrade};
 use frame_system::{self as system, RawOrigin};
 use sp_core::H256;
@@ -9,7 +10,6 @@ use sp_runtime::{
     traits::{BadOrigin, BlakeTwo256, IdentityLookup},
     Perbill, Percent,
 };
-use staking_rewards::*;
 use std::cell::RefCell;
 
 // Configure a mock runtime to test the pallet.
@@ -23,8 +23,8 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: balances::{Pallet, Call, Storage},
-        PoAModule: poa::{Pallet, Call, Storage, Config<T>},
-        StakingRewards: staking_rewards::{Pallet, Call, Storage, Event<T>},
+        PoAModule: dock_poa::{Pallet, Call, Storage, Config<T>},
+        StakingRewards: dock_staking_rewards::{Pallet, Call, Storage, Event<T>},
     }
 );
 
@@ -114,7 +114,7 @@ impl balances::Config for Test {
     type MaxLocks = ();
 }
 
-impl staking_rewards::Config for Test {
+impl dock_staking_rewards::Config for Test {
     type Event = ();
     type PostUpgradeHighRateDuration = PostUpgradeHighRateDuration;
     type LowRateRewardDecayPct = LowRateRewardDecayPct;
@@ -123,7 +123,7 @@ impl staking_rewards::Config for Test {
     type RewardCurve = RewardCurve;
 }
 
-impl poa::Config for Test {
+impl dock_poa::Config for Test {
     type Currency = Balances;
 }
 
@@ -221,7 +221,7 @@ fn test_emission_status_set_get() {
 
 fn check_yearly_emission_with_max_decay(emission_supply: u64, max_yearly_decay: u64) {
     let total_issuance = 100_000u64;
-    let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
+    let reward_curve = <Test as dock_staking_rewards::Config>::RewardCurve::get();
 
     // No tokens staked
     let total_staked_zilch = 0;
@@ -379,8 +379,8 @@ fn test_yearly_rewards_with_increasing_staking() {
     new_test_ext().execute_with(|| {
         let mut total_issuance = 100_000u64;
         let mut emission_supply = 10_000u64;
-        let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
-        let decay_pct = <Test as staking_rewards::Config>::LowRateRewardDecayPct::get();
+        let reward_curve = <Test as dock_staking_rewards::Config>::RewardCurve::get();
+        let decay_pct = <Test as dock_staking_rewards::Config>::LowRateRewardDecayPct::get();
 
         for total_staked in (1000u64..=(total_issuance + emission_supply)).step_by(1000) {
             let npos_reward = StakingRewards::get_yearly_emission_reward_as_per_npos_only(
@@ -422,8 +422,8 @@ fn test_yearly_rewards_with_increasing_staking() {
 fn test_yearly_rewards_with_constant_staking() {
     // Test emission rewards with amount of staked tokens remaining constant
     new_test_ext().execute_with(|| {
-        let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
-        let decay_pct = <Test as staking_rewards::Config>::LowRateRewardDecayPct::get();
+        let reward_curve = <Test as dock_staking_rewards::Config>::RewardCurve::get();
+        let decay_pct = <Test as dock_staking_rewards::Config>::LowRateRewardDecayPct::get();
 
         for total_staked in [10_000, 50_000, 75_000, 100_000] {
             let mut total_issuance = 100_000u64;
@@ -526,7 +526,7 @@ fn test_emission_rewards_0_when_disabled() {
     // There should be no emission rewards if emissions are disabled
     new_test_ext().execute_with(|| {
         StakingRewards::set_new_emission_supply(10_000);
-        let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
+        let reward_curve = <Test as dock_staking_rewards::Config>::RewardCurve::get();
 
         // Emission is disabled so no emission rewards
         assert!(!StakingRewards::staking_emission_status());
@@ -551,7 +551,7 @@ fn test_emission_rewards_in_era() {
     new_test_ext().execute_with(|| {
         let mut total_issuance = 100_000u64;
         let initial_emission_supply = 10_000;
-        let reward_curve = <Test as staking_rewards::Config>::RewardCurve::get();
+        let reward_curve = <Test as dock_staking_rewards::Config>::RewardCurve::get();
 
         StakingRewards::set_new_emission_supply(initial_emission_supply);
         StakingRewards::set_emission_status(RawOrigin::Root.into(), true).unwrap();
@@ -616,7 +616,7 @@ fn test_era_payout() {
 
             assert_eq!(StakingRewards::staking_emission_supply(), emission_supply);
             assert_eq!(
-                <Test as staking_rewards::Config>::TreasuryRewardsPct::get() * total_reward,
+                <Test as dock_staking_rewards::Config>::TreasuryRewardsPct::get() * total_reward,
                 treasury_reward
             );
 
@@ -657,21 +657,21 @@ fn test_initial_emission_supply_on_runtime_upgrade() {
         assert_eq!(StakingRewards::staking_emission_supply(), 0);
         assert_eq!(PoAModule::emission_supply(), 0);
 
-        <poa::EmissionSupply<Test>>::put(initial_emission_supply);
+        <dock_poa::EmissionSupply<Test>>::put(initial_emission_supply);
         assert_eq!(PoAModule::emission_supply(), initial_emission_supply);
         // No emission supply for staking
         assert_eq!(StakingRewards::staking_emission_supply(), 0);
 
         /*// Emission supply should be set in staking and reset in PoA
-        StakingRewards::set_emission_supply_from_poa();
+        StakingRewards::set_emission_supply_from_dock_poa();
         assert_eq!(
             StakingRewards::staking_emission_supply(),
             initial_emission_supply
         );
         assert_eq!(PoAModule::emission_supply(), 0);
 
-        // Setting emission supply from poa again does not change supply in staking
-        StakingRewards::set_emission_supply_from_poa();
+        // Setting emission supply from dock_poa again does not change supply in staking
+        StakingRewards::set_emission_supply_from_dock_poa();
         assert_eq!(
             StakingRewards::staking_emission_supply(),
             initial_emission_supply

@@ -1,7 +1,7 @@
 #![cfg(test)]
 
 use super::*;
-use crate as poa;
+use crate as dock_poa;
 
 use frame_support::{
     parameter_types,
@@ -29,7 +29,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: balances::{Pallet, Call, Storage},
-        PoAModule: poa::{Pallet, Call, Storage, Config<T>},
+        PoAModule: dock_poa::{Pallet, Call, Storage, Config<T>},
     }
 );
 

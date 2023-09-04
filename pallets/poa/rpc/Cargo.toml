@@ -1,5 +1,5 @@
 [package]
-name = "poa_rpc"
+name = "dock-poa-rpc"
 version = "0.1.0"
 authors = ["Dock.io"]
 edition = "2021"
@@ -17,4 +17,4 @@ sp-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkad
 sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29"}
 sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
 sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
-poa = { version = "0.8.0", path = ".." }
+dock-poa = { version = "0.8.0", path = ".." }

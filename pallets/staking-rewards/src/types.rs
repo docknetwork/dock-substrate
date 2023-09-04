@@ -37,7 +37,7 @@ impl HighRateRewardsState {
     /// This function defines the following transitions:
     /// - High-rate rewards were activated.
     /// ```
-    /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
+    /// # use dock_staking_rewards::{HighRateRewardsState, DurationInEras};
     /// # const TWO_ERAS: DurationInEras = DurationInEras::new_non_zero(2);
     /// # assert_eq!(
     /// HighRateRewardsState::StartingInNextEra { duration: TWO_ERAS }.try_next(), /* => */ Ok(HighRateRewardsState::Active { ends_after: TWO_ERAS })
@@ -45,7 +45,7 @@ impl HighRateRewardsState {
     /// ```
     /// - High-rate rewards passed one more era, so the remaining amount is decreased by 1.
     /// ```
-    /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
+    /// # use dock_staking_rewards::{HighRateRewardsState, DurationInEras};
     /// # const TWO_ERAS: DurationInEras = DurationInEras::new_non_zero(2);
     /// # const ONE_ERA: DurationInEras = DurationInEras::new_non_zero(1);
     /// # assert_eq!(
@@ -54,7 +54,7 @@ impl HighRateRewardsState {
     /// ```
     /// - High-rate rewards ended, switching back to the default state.
     /// ```
-    /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
+    /// # use dock_staking_rewards::{HighRateRewardsState, DurationInEras};
     /// # const ONE_ERA: DurationInEras = DurationInEras::new_non_zero(1);
     /// # assert_eq!(
     /// HighRateRewardsState::Active { ends_after: ONE_ERA }.try_next(), /* => */ Ok(HighRateRewardsState::None)
@@ -62,7 +62,7 @@ impl HighRateRewardsState {
     /// ```
     /// - No state transition for the default state.
     /// ```
-    /// # use staking_rewards::{HighRateRewardsState};
+    /// # use dock_staking_rewards::{HighRateRewardsState};
     /// # assert_eq!(
     /// HighRateRewardsState::None.try_next(), /* => */ Err(HighRateRewardsState::None)
     /// # );
@@ -95,7 +95,7 @@ impl HighRateRewardsState {
     /// # Examples
     ///
     /// ```
-    /// # use staking_rewards::{HighRateRewardsState, DurationInEras};
+    /// # use dock_staking_rewards::{HighRateRewardsState, DurationInEras};
     /// # const THREE_ERAS: DurationInEras = DurationInEras::new_non_zero(3);
     /// # const TWO_ERAS: DurationInEras = DurationInEras::new_non_zero(2);
     /// # const ONE_ERA: DurationInEras = DurationInEras::new_non_zero(1);

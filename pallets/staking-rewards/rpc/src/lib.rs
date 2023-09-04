@@ -1,5 +1,6 @@
 use codec::Codec;
 use core::fmt::Debug;
+pub use dock_staking_rewards::runtime_api::StakingRewardsApi as StakingRewardsRuntimeApi;
 use jsonrpsee::{
     core::{async_trait, Error as JsonRpseeError, RpcResult},
     proc_macros::rpc,
@@ -11,7 +12,6 @@ use sp_runtime::{
     generic::BlockId,
     traits::{Block as BlockT, MaybeDisplay, MaybeFromStr},
 };
-pub use staking_rewards::runtime_api::StakingRewardsApi as StakingRewardsRuntimeApi;
 use std::sync::Arc;
 
 #[rpc(server, client)]

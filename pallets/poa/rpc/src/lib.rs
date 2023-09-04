@@ -1,11 +1,11 @@
 use codec::Codec;
 use core::fmt::Debug;
+pub use dock_poa::runtime_api::PoAApi as PoARuntimeApi;
 use jsonrpsee::{
     core::{async_trait, Error as JsonRpseeError, RpcResult},
     proc_macros::rpc,
     types::{error::CallError, ErrorObject},
 };
-pub use poa::runtime_api::PoAApi as PoARuntimeApi;
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{

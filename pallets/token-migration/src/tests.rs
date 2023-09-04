@@ -1,4 +1,4 @@
-use crate as token_migration;
+use crate as dock_token_migration;
 
 use super::*;
 
@@ -27,7 +27,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: balances::{Pallet, Call, Storage},
-        MigrationModule: token_migration::{Pallet, Call, Storage, Event<T>},
+        MigrationModule: dock_token_migration::{Pallet, Call, Storage, Event<T>},
     }
 );
 

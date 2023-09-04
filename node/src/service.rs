@@ -676,7 +676,7 @@ pub fn create_extrinsic(
         dock_runtime::CustomChargeTransactionPayment(
             pallet_transaction_payment::ChargeTransactionPayment::from(tip),
         ),
-        token_migration::OnlyMigrator::<dock_runtime::Runtime>::new(),
+        dock_token_migration::OnlyMigrator::<dock_runtime::Runtime>::new(),
     );
 
     let raw_payload = dock_runtime::SignedPayload::from_raw(

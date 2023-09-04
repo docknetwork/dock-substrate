@@ -45,18 +45,19 @@ pub use dock_core::{
     offchain_signatures::{self, BBSPlusPublicKey, OffchainPublicKey, PSPublicKey},
     revoke, status_list_credential,
 };
-use price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
+use dock_price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
 pub mod precompiles;
 pub mod weight_to_fee;
 
-pub use poa;
-pub use price_feed;
-pub use token_migration;
+pub use dock_poa;
+pub use dock_price_feed;
+pub use dock_token_migration;
 
 use sp_core::crypto::ByteArray;
 
 use codec::{Decode, Encode};
 use dock_core::util::IncId;
+use dock_staking_rewards::DurationInEras;
 use frame_election_provider_support::{onchain, SequentialPhragmen};
 use frame_support::{
     construct_runtime, parameter_types,
@@ -96,7 +97,6 @@ use sp_runtime::{
     Permill, Perquintill, SaturatedConversion,
 };
 use sp_std::collections::btree_map::BTreeMap;
-use staking_rewards::DurationInEras;
 use transaction_payment::{
     CurrencyAdapter, Multiplier, OnChargeTransaction, TargetedFeeAdjustment,
 };
@@ -475,7 +475,7 @@ where
             CustomChargeTransactionPayment(transaction_payment::ChargeTransactionPayment::from(
                 tip,
             )),
-            token_migration::OnlyMigrator::<Runtime>::new(),
+            dock_token_migration::OnlyMigrator::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
@@ -1138,7 +1138,7 @@ impl pallet_offences::Config for Runtime {
     type OnOffenceHandler = Staking;
 }
 
-impl poa::Config for Runtime {
+impl dock_poa::Config for Runtime {
     type Currency = balances::Pallet<Runtime>;
 }
 
@@ -1153,7 +1153,7 @@ parameter_types! {
 const_assert!(VestingMilestones::get() > 0);
 const_assert!(VestingDuration::get() > 0);
 
-impl token_migration::Config for Runtime {
+impl dock_token_migration::Config for Runtime {
     type Event = Event;
     type Currency = balances::Pallet<Runtime>;
     type BlockNumberToBalance = ConvertInto;
@@ -1637,7 +1637,7 @@ parameter_types! {
     pub const PostUpgradeHighRateDuration: Option<DurationInEras> = None;
 }
 
-impl staking_rewards::Config for Runtime {
+impl dock_staking_rewards::Config for Runtime {
     type Event = Event;
     type PostUpgradeHighRateDuration = PostUpgradeHighRateDuration;
     /// High-rate emission rewards decay by this % each year
@@ -1793,7 +1793,7 @@ parameter_types! {
     pub const MaxSymbolBytesLen: u32 = 10;
 }
 
-impl price_feed::Config for Runtime {
+impl dock_price_feed::Config for Runtime {
     type MaxSymbolBytesLen = MaxSymbolBytesLen;
     type Event = Event;
 }
@@ -1813,7 +1813,7 @@ construct_runtime!(
         // Balances pallet has to be put before Session in construct_runtime otherwise there is a runtime panic.
         Balances: balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 3,
-        PoAModule: poa::{Pallet, Call, Storage, Config<T>} = 4,
+        PoAModule: dock_poa::{Pallet, Call, Storage, Config<T>} = 4,
         GrandpaFinality: grandpa::{Pallet, Call, Storage, Config, Event} = 5,
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 6,
         TransactionPayment: transaction_payment::{Pallet, Storage, Event<T>} = 7,
@@ -1824,7 +1824,7 @@ construct_runtime!(
         BlobStore: blob::{Pallet, Call, Storage} = 12,
         Master: master::{Pallet, Call, Storage, Event<T>, Config} = 13,
         Sudo: sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
-        MigrationModule: token_migration::{Pallet, Call, Storage, Event<T>} = 15,
+        MigrationModule: dock_token_migration::{Pallet, Call, Storage, Event<T>} = 15,
         Anchor: anchor::{Pallet, Call, Storage, Event<T>} = 16,
         Attest: attest::{Pallet, Call, Storage} = 17,
         Democracy: pallet_democracy::{Pallet, Call, Storage, Event<T>} = 18,
@@ -1834,7 +1834,7 @@ construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 22,
         Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 23,
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 24,
-        PriceFeedModule: price_feed::{Pallet, Call, Storage, Event<T>} = 25,
+        PriceFeedModule: dock_price_feed::{Pallet, Call, Storage, Event<T>} = 25,
         // `fiat_filter` = 26 was here
         AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 27,
         Historical: pallet_session_historical::{Pallet} = 28,
@@ -1845,7 +1845,7 @@ construct_runtime!(
         Offences: pallet_offences::{Pallet, Storage, Event} = 33,
         Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 34,
         Bounties: pallet_bounties::{Pallet, Call, Storage, Event<T>} = 35,
-        StakingRewards: staking_rewards::{Pallet, Call, Storage, Event<T>} = 36,
+        StakingRewards: dock_staking_rewards::{Pallet, Call, Storage, Event<T>} = 36,
         Elections: pallet_elections_phragmen::{Pallet, Call, Storage, Event<T>, Config<T>} = 37,
         Tips: pallet_tips::{Pallet, Call, Storage, Event<T>} = 38,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 39,
@@ -1914,7 +1914,7 @@ pub type SignedExtra = (
     system::CheckNonce<Runtime>,
     system::CheckWeight<Runtime>,
     CustomChargeTransactionPayment,
-    token_migration::OnlyMigrator<Runtime>,
+    dock_token_migration::OnlyMigrator<Runtime>,
 );
 
 impl fp_self_contained::SelfContainedCall for Call {
@@ -2361,7 +2361,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl poa::runtime_api::PoAApi<Block, AccountId, Balance> for Runtime {
+    impl dock_poa::runtime_api::PoAApi<Block, AccountId, Balance> for Runtime {
         fn get_treasury_account() -> AccountId {
             PoAModule::treasury_account()
         }
@@ -2371,13 +2371,13 @@ impl_runtime_apis! {
         }
     }
 
-    impl price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber> for Runtime {
+    impl dock_price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber> for Runtime {
         fn price(currency_pair: CurrencySymbolPair<String, String>) -> Option<PriceRecord<<Runtime as frame_system::Config>::BlockNumber>> {
            PriceFeedModule::pair_price(currency_pair).ok().flatten()
         }
     }
 
-    impl staking_rewards::runtime_api::StakingRewardsApi<Block, Balance> for Runtime {
+    impl dock_staking_rewards::runtime_api::StakingRewardsApi<Block, Balance> for Runtime {
         fn yearly_emission(total_staked: Balance, total_issuance: Balance) -> Balance {
             StakingRewards::yearly_emission(total_staked, total_issuance)
         }
@@ -2474,7 +2474,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, status_list_credential, StatusListCredential);
             list_benchmark!(list, extra, blob, BlobStore);
             list_benchmark!(list, extra, balances, Balances);
-            list_benchmark!(list, extra, token_migration, MigrationModule);
+            list_benchmark!(list, extra, dock_token_migration, MigrationModule);
             list_benchmark!(list, extra, pallet_collective, Council);
             list_benchmark!(list, extra, pallet_staking, Staking);
 
@@ -2577,7 +2577,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, blob, BlobStore);
             add_benchmark!(params, batches, balances, Balances);
             add_benchmark!(params, batches, pallet_staking, Staking);
-            add_benchmark!(params, batches, token_migration, MigrationModule);
+            add_benchmark!(params, batches, dock_token_migration, MigrationModule);
             // add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 
             //add_benchmark!(params, batches, pallet_collective, Council);

@@ -1,6 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![allow(clippy::unused_unit)]
 
+pub use dock_poa::BalanceOf;
 use frame_support::{
     decl_event, decl_module, decl_storage, dispatch,
     traits::Get,
@@ -8,7 +9,6 @@ use frame_support::{
 };
 use frame_system::{self as system, ensure_root};
 use pallet_staking::EraPayout;
-pub use poa::BalanceOf;
 use sp_runtime::{
     curve::PiecewiseLinear,
     traits::{Saturating, Zero},
@@ -26,7 +26,7 @@ mod tests;
 // Milliseconds per year for the Julian year (365.25 days).
 pub const MILLISECONDS_PER_YEAR: u64 = 1000 * 3600 * 24 * 36525 / 100;
 
-pub trait Config: system::Config + poa::Config {
+pub trait Config: system::Config + dock_poa::Config {
     /// The overarching event type.
     type Event: From<Event<Self>> + Into<<Self as system::Config>::Event>;
     /// Optional duration in eras for high-rate rewards to be paid after the upgrade.
@@ -47,11 +47,11 @@ decl_storage! {
     trait Store for Module<T: Config> as StakingRewards {
         /// Remaining emission supply. This reduces after each era as emissions happen unless
         /// emissions are disabled. Name is intentionally kept different from `EmissionSupply` from
-        /// poa module.
+        /// dock_poa module.
         StakingEmissionSupply get(fn staking_emission_supply): BalanceOf<T>;
 
         /// Boolean flag determining whether to generate emission rewards or not. Name is intentionally
-        /// kept different from `EmissionStatus` from poa module.
+        /// kept different from `EmissionStatus` from dock_poa module.
         StakingEmissionStatus get(fn staking_emission_status): bool;
 
         /// Current state of the high-rate rewards.

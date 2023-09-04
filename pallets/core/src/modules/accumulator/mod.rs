@@ -5,7 +5,7 @@ use crate::{
     util::{Bytes, IncId},
 };
 pub use actions::*;
-use arith_utils::DivCeil;
+use arith_utils::CheckedDivCeil;
 use codec::{Decode, Encode};
 use frame_support::{
     decl_error, decl_event, decl_module, decl_storage,

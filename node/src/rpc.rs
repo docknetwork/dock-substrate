@@ -134,10 +134,10 @@ where
     C::Api: BabeApi<Block>,
     C::Api: substrate_frame_rpc_system::AccountNonceApi<Block, AccountId, Index>,
     C::Api: pallet_transaction_payment_rpc::TransactionPaymentRuntimeApi<Block, Balance>,
-    C::Api: poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
+    C::Api: dock_poa_rpc::PoARuntimeApi<Block, AccountId, Balance>,
     C::Api: pallet_mmr_rpc::MmrRuntimeApi<Block, <Block as sp_runtime::traits::Block>::Hash>,
-    C::Api: price_feed_rpc::PriceFeedRuntimeApi<Block, BlockNumber>,
-    C::Api: staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
+    C::Api: dock_price_feed_rpc::PriceFeedRuntimeApi<Block, BlockNumber>,
+    C::Api: dock_staking_rewards_rpc::StakingRewardsRuntimeApi<Block, Balance>,
     C::Api: dock_core_rpc::CoreModsRuntimeApi<Block, dock_runtime::Runtime>,
     C::Api: BlockBuilder<Block>,
     C::Api: fp_rpc::EthereumRuntimeRPCApi<Block>,
@@ -147,10 +147,10 @@ where
     A: ChainApi<Block = Block> + 'static,
 {
     use dock_core_rpc::{CoreMods, CoreModsApiServer};
+    use dock_poa_rpc::{PoA, PoAApiServer};
+    use dock_price_feed_rpc::{PriceFeed, PriceFeedApiServer};
+    use dock_staking_rewards_rpc::{StakingRewards, StakingRewardsApiServer};
     use pallet_transaction_payment_rpc::{TransactionPayment, TransactionPaymentApiServer};
-    use poa_rpc::{PoA, PoAApiServer};
-    use price_feed_rpc::{PriceFeed, PriceFeedApiServer};
-    use staking_rewards_rpc::{StakingRewards, StakingRewardsApiServer};
     use substrate_frame_rpc_system::{System, SystemApiServer};
 
     use fc_rpc::{

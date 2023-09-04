@@ -502,11 +502,11 @@ branch = "polkadot-v0.9.29"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
-[dependencies.poa]
+[dependencies.dock-poa]
 path = "../pallets/poa"
 
-[dependencies.token_migration]
-path = "../pallets/token_migration"
+[dependencies.dock-token-migration]
+path = "../pallets/token-migration"
 
 [dependencies.frame-election-provider-support]
 git = "https://github.com/paritytech/substrate.git"
@@ -515,21 +515,21 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-elections-phragmen]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
 
-[dependencies.staking_rewards]
-path = "../pallets/staking_rewards"
+[dependencies.dock-staking-rewards]
+path = "../pallets/staking-rewards"
 
-[dependencies.poa_rpc]
+[dependencies.dock-poa-rpc]
 path = "../pallets/poa/rpc"
 
 [dependencies.snowbridge-basic-channel-rpc]
 git = "https://github.com/Snowfork/snowbridge.git"
 rev = "dc50c3d973d1f53434c7a03e426faa9c20062f60"
 
-[dependencies.price-feed-rpc]
+[dependencies.dock-price-feed-rpc]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
 
-[dependencies.staking_rewards_rpc]
-path = "../pallets/staking_rewards/rpc"
+[dependencies.dock-staking-rewards-rpc]
+path = "../pallets/staking-rewards/rpc"
 
 [dependencies.dock-core-rpc]
 path = "../pallets/core/rpc"
