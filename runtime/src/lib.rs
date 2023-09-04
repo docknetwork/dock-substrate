@@ -221,18 +221,18 @@ pub const MILLISECS_PER_BLOCK: u64 = 3000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 // Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
-pub const WEEKS: BlockNumber = DAYS * 7;
+pub const MINUTE: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+pub const HOUR: BlockNumber = 60 * MINUTE;
+pub const DAY: BlockNumber = 24 * HOUR;
+pub const WEEK: BlockNumber = 7 * DAY;
 
 // The modules `small_durations` is used to generate runtimes with small duration events like epochs, eras,
 // bonding durations, etc for testing purposes. They should NOT be used in production.
 #[allow(dead_code)]
 mod small_durations {
-    use super::{BlockNumber, MINUTES, WEEKS};
+    use super::{BlockNumber, MINUTE, WEEK};
 
-    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
+    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTE;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
     /// Bonding duration is in number of era
@@ -245,34 +245,34 @@ mod small_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = WEEKS;
+    pub const TERM_DURATION: BlockNumber = WEEK;
     /// The time-out for council motions.
-    pub const COUNCIL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = 10 * MINUTE;
     /// The time-out for technical committee motions.
-    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 10 * MINUTE;
     /// Delay after which an accepted proposal executes
-    pub const ENACTMENT_PERIOD: BlockNumber = MINUTES;
+    pub const ENACTMENT_PERIOD: BlockNumber = MINUTE;
     /// How often new public referrenda are launched
-    pub const LAUNCH_PERIOD: BlockNumber = 15 * MINUTES;
-    pub const VOTING_PERIOD: BlockNumber = 10 * MINUTES;
-    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 2 * MINUTES;
-    pub const COOLOFF_PERIOD: BlockNumber = 60 * MINUTES;
+    pub const LAUNCH_PERIOD: BlockNumber = 15 * MINUTE;
+    pub const VOTING_PERIOD: BlockNumber = 10 * MINUTE;
+    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 2 * MINUTE;
+    pub const COOLOFF_PERIOD: BlockNumber = 60 * MINUTE;
 
     /// Duration after which funds from treasury are spent for approved bounties
-    pub const SPEND_PERIOD: BlockNumber = 15 * MINUTES;
+    pub const SPEND_PERIOD: BlockNumber = 15 * MINUTE;
     /// The delay period for which a bounty beneficiary need to wait before claim the payout.
-    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = MINUTES;
+    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = MINUTE;
     /// The period for which a tip remains open after is has achieved threshold tippers.
-    pub const TIP_COUNTDOWN: BlockNumber = MINUTES;
+    pub const TIP_COUNTDOWN: BlockNumber = MINUTE;
     /// Bounty duration in blocks.
-    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 5 * MINUTES;
+    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 5 * MINUTE;
 }
 
 #[allow(dead_code)]
 mod prod_durations {
-    use super::{BlockNumber, DAYS, HOURS, MINUTES, WEEKS};
+    use super::{BlockNumber, DAY, HOUR, MINUTE, WEEK};
 
-    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 3 * HOURS;
+    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 3 * HOUR;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
 
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 4; // 12 hours
@@ -286,27 +286,27 @@ mod prod_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = WEEKS;
+    pub const TERM_DURATION: BlockNumber = WEEK;
     /// The time-out for council motions.
-    pub const COUNCIL_MOTION_DURATION: BlockNumber = WEEKS;
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = WEEK;
     /// The time-out for technical committee motions.
-    pub const TECHNICAL_MOTION_DURATION: BlockNumber = WEEKS;
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = WEEK;
     /// Delay after which an accepted proposal executes
-    pub const ENACTMENT_PERIOD: BlockNumber = 2 * DAYS;
+    pub const ENACTMENT_PERIOD: BlockNumber = 2 * DAY;
     /// How often new public referrenda are launched
-    pub const LAUNCH_PERIOD: BlockNumber = 20 * DAYS;
-    pub const VOTING_PERIOD: BlockNumber = 15 * DAYS;
-    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 3 * HOURS;
-    pub const COOLOFF_PERIOD: BlockNumber = 28 * 24 * 60 * MINUTES;
+    pub const LAUNCH_PERIOD: BlockNumber = 20 * DAY;
+    pub const VOTING_PERIOD: BlockNumber = 15 * DAY;
+    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 3 * HOUR;
+    pub const COOLOFF_PERIOD: BlockNumber = 28 * 24 * 60 * MINUTE;
 
     /// Duration after which funds from treasury are spent for approved bounties
-    pub const SPEND_PERIOD: BlockNumber = DAYS;
+    pub const SPEND_PERIOD: BlockNumber = DAY;
     /// The delay period for which a bounty beneficiary need to wait before claim the payout.
-    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = DAYS;
+    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = DAY;
     /// The period for which a tip remains open after is has achieved threshold tippers.
-    pub const TIP_COUNTDOWN: BlockNumber = DAYS;
+    pub const TIP_COUNTDOWN: BlockNumber = DAY;
     /// Bounty duration in blocks.
-    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 14 * DAYS;
+    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 14 * DAY;
 }
 
 #[cfg(not(feature = "small_durations"))]
@@ -1417,7 +1417,7 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 /// Require 10K DOCK tokens to participate in the voting to immediately pay back provider's deposit.
 /// Otherwise, lock the deposit for 90 days.
 const PREIMAGE_DEPOSIT_LOCK_STRATEGY: DepositLockConfig<Runtime> =
-    DepositLockConfig::new(DAYS, 90, 10_000 * DOCK);
+    DepositLockConfig::new(DAY, 90, 10_000 * DOCK);
 
 parameter_types! {
     pub const DepositLockStrategy: DepositLockConfig<Runtime> = PREIMAGE_DEPOSIT_LOCK_STRATEGY;
