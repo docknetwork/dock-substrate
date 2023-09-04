@@ -388,7 +388,7 @@ parameter_types! {
 impl system::Config for Runtime {
     type MaxConsumers = ConstU32<16>;
     /// The basic call filter to use in dispatchable.
-    type BaseCallFilter = BaseFilter;
+    type BaseCallFilter = Everything;
     /// The ubiquitous origin type.
     type Origin = Origin;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -1800,13 +1800,6 @@ impl price_feed::Config for Runtime {
 
 parameter_types! {
     pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
-}
-
-pub struct BaseFilter;
-impl Contains<Call> for BaseFilter {
-    fn contains(_call: &Call) -> bool {
-        true
-    }
 }
 
 construct_runtime!(
