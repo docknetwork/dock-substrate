@@ -1,5 +1,5 @@
 [package]
-name = "core_rpc"
+name = "dock-core-rpc"
 version = "0.1.0"
 edition = "2021"
 

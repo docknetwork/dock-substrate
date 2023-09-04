@@ -531,7 +531,7 @@ git = "https://github.com/docknetwork/dock-substrate-common.git"
 [dependencies.staking_rewards_rpc]
 path = "../pallets/staking_rewards/rpc"
 
-[dependencies.core_rpc]
+[dependencies.dock-core-rpc]
 path = "../pallets/core/rpc"
 
 [dependencies.pallet-staking]

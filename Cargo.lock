@@ -1015,21 +1015,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "core_rpc"
-version = "0.1.0"
-dependencies = [
- "dock-core",
- "jsonrpsee",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
- "thiserror",
-]
-
-[[package]]
 name = "cpp_demangle"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1487,6 +1472,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock-core-rpc"
+version = "0.1.0"
+dependencies = [
+ "dock-core",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "thiserror",
+]
+
+[[package]]
 name = "dock-node"
 version = "0.23.1"
 dependencies = [
@@ -1496,7 +1496,7 @@ dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
  "clap 3.2.23",
- "core_rpc",
+ "dock-core-rpc",
  "dock-runtime",
  "fc-db",
  "fc-mapping-sync",
