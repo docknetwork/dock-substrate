@@ -118,7 +118,7 @@ dependencies = [
 [[package]]
 name = "arith-utils"
 version = "0.2.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#680d3d2001e1605e556b602269fb3cf1d83c821b"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "num-traits",
 ]
@@ -1686,7 +1686,7 @@ dependencies = [
 [[package]]
 name = "dock-price-feed"
 version = "0.2.1"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#680d3d2001e1605e556b602269fb3cf1d83c821b"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -1704,7 +1704,7 @@ dependencies = [
 [[package]]
 name = "dock-price-feed-rpc"
 version = "0.2.1"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#680d3d2001e1605e556b602269fb3cf1d83c821b"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "dock-price-feed",
  "jsonrpsee",
@@ -5085,7 +5085,7 @@ dependencies = [
 [[package]]
 name = "pallet-collective"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#680d3d2001e1605e556b602269fb3cf1d83c821b"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5102,7 +5102,7 @@ dependencies = [
 [[package]]
 name = "pallet-democracy"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#680d3d2001e1605e556b602269fb3cf1d83c821b"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5160,7 +5160,7 @@ dependencies = [
 [[package]]
 name = "pallet-elections-phragmen"
 version = "5.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#680d3d2001e1605e556b602269fb3cf1d83c821b"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5484,7 +5484,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#680d3d2001e1605e556b602269fb3cf1d83c821b"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -5978,7 +5978,7 @@ checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 [[package]]
 name = "price-provider"
 version = "0.2.1"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#680d3d2001e1605e556b602269fb3cf1d83c821b"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-support",
  "frame-system",
