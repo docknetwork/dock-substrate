@@ -2,7 +2,7 @@
 authors = ["Dock.io"]
 edition = "2021"
 name = "dock-runtime"
-version = "0.23.0"
+version = "0.23.1"
 license = "Apache-2.0"
 
 [package.metadata.docs.rs]
@@ -422,19 +422,19 @@ git = "https://github.com/docknetwork/frontier.git"
 branch = "master"
 # path = "../frontier/primitives/storage"
 
-[dependencies.poa]
+[dependencies.dock-poa]
 default-features = false
 path = "../pallets/poa"
 
-[dependencies.token_migration]
+[dependencies.dock-token-migration]
 default-features = false
-path = "../pallets/token_migration"
+path = "../pallets/token-migration"
 
-[dependencies.core_mods]
+[dependencies.dock-core]
 default-features = false
-path = "../pallets/core_mods"
+path = "../pallets/core"
 
-[dependencies.price-feed]
+[dependencies.dock-price-feed]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
 
@@ -443,9 +443,9 @@ version = "0.7"
 default-features = false
 features = []
 
-[dependencies.staking_rewards]
+[dependencies.dock-staking-rewards]
 default-features = false
-path = "../pallets/staking_rewards"
+path = "../pallets/staking-rewards"
 
 [dependencies.sp-npos-elections]
 default-features = false
@@ -589,12 +589,12 @@ std = [
     "pallet-evm-precompile-modexp/std",
     "pallet-evm-precompile-bn128/std",
     "pallet-evm-precompile-dispatch/std",
-    "poa/std",
-    "token_migration/std",
-    "core_mods/std",
-    "price-feed/std",
+    "dock-poa/std",
+    "dock-token-migration/std",
+    "dock-core/std",
+    "dock-price-feed/std",
     "pallet-base-fee/std",
-    "staking_rewards/std",
+    "dock-staking-rewards/std",
     "frame-benchmarking/std",
     "rustc-hex/std"
 ]
@@ -609,8 +609,8 @@ runtime-benchmarks = [
   "sp-runtime/runtime-benchmarks",
   "balances/runtime-benchmarks",
   "frame-system-benchmarking",
-  "token_migration/runtime-benchmarks",
-  "core_mods/runtime-benchmarks",
+  "dock-token-migration/runtime-benchmarks",
+  "dock-core/runtime-benchmarks",
   "pallet-staking/runtime-benchmarks"
 ]
 

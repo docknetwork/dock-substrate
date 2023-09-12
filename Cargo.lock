@@ -117,8 +117,11 @@ dependencies = [
 
 [[package]]
 name = "arith-utils"
-version = "0.1.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#06ee5106f68b7d7a15f9e80991ec598e42d56788"
+version = "0.2.0"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "arrayref"
@@ -1015,60 +1018,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "core_mods"
-version = "0.5.0"
-dependencies = [
- "arith-utils",
- "bitflags",
- "evm",
- "fp-evm",
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "getrandom 0.2.3",
- "hex",
- "hex-literal",
- "libsecp256k1",
- "merlin",
- "pallet-balances",
- "pallet-ethereum",
- "pallet-evm",
- "pallet-evm-precompile-storage-reader",
- "pallet-evm-test-vector-support",
- "pallet-timestamp",
- "parity-scale-codec",
- "rand 0.8.4",
- "rand_chacha 0.2.2",
- "scale-info",
- "scale-info-derive 2.3.0 (git+https://github.com/docknetwork/scale-info.git?branch=master)",
- "schnorrkel",
- "serde",
- "serde-big-array",
- "sha2 0.9.5",
- "sp-api",
- "sp-application-crypto",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "core_mods_rpc"
-version = "0.1.0"
-dependencies = [
- "core_mods",
- "jsonrpsee",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
- "thiserror",
-]
-
-[[package]]
 name = "cpp_demangle"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1487,8 +1436,62 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock-core"
+version = "0.5.0"
+dependencies = [
+ "arith-utils",
+ "bitflags",
+ "evm",
+ "fp-evm",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "getrandom 0.2.3",
+ "hex",
+ "hex-literal",
+ "libsecp256k1",
+ "merlin",
+ "pallet-balances",
+ "pallet-ethereum",
+ "pallet-evm",
+ "pallet-evm-precompile-storage-reader",
+ "pallet-evm-test-vector-support",
+ "pallet-timestamp",
+ "parity-scale-codec",
+ "rand 0.8.4",
+ "rand_chacha 0.2.2",
+ "scale-info",
+ "scale-info-derive 2.3.0 (git+https://github.com/docknetwork/scale-info.git?branch=master)",
+ "schnorrkel",
+ "serde",
+ "serde-big-array",
+ "sha2 0.9.5",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "dock-core-rpc"
+version = "0.1.0"
+dependencies = [
+ "dock-core",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "thiserror",
+]
+
+[[package]]
 name = "dock-node"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "async-trait",
  "beefy-gadget",
@@ -1496,8 +1499,14 @@ dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
  "clap 3.2.23",
- "core_mods_rpc",
+ "dock-core-rpc",
+ "dock-poa",
+ "dock-poa-rpc",
+ "dock-price-feed-rpc",
  "dock-runtime",
+ "dock-staking-rewards",
+ "dock-staking-rewards-rpc",
+ "dock-token-migration",
  "fc-db",
  "fc-mapping-sync",
  "fc-rpc",
@@ -1538,9 +1547,6 @@ dependencies = [
  "pallet-transaction-payment",
  "pallet-transaction-payment-rpc",
  "parking_lot 0.12.1",
- "poa",
- "poa_rpc",
- "price-feed-rpc",
  "sc-allocator",
  "sc-authority-discovery",
  "sc-basic-authorship",
@@ -1635,22 +1641,91 @@ dependencies = [
  "sp-version",
  "sp-version-proc-macro",
  "sp-wasm-interface",
- "staking_rewards",
- "staking_rewards_rpc",
  "structopt",
  "substrate-build-script-utils",
  "substrate-frame-rpc-system",
- "token_migration",
  "zstd",
 ]
 
 [[package]]
+name = "dock-poa"
+version = "0.8.0"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-application-crypto",
+ "sp-arithmetic",
+ "sp-authority-discovery",
+ "sp-core",
+ "sp-io",
+ "sp-npos-elections",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "dock-poa-rpc"
+version = "0.1.0"
+dependencies = [
+ "dock-poa",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "thiserror",
+]
+
+[[package]]
+name = "dock-price-feed"
+version = "0.2.1"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
+dependencies = [
+ "frame-support",
+ "frame-system",
+ "parity-scale-codec",
+ "price-provider",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "dock-price-feed-rpc"
+version = "0.2.1"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
+dependencies = [
+ "dock-price-feed",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+]
+
+[[package]]
 name = "dock-runtime"
-version = "0.23.0"
+version = "0.23.1"
 dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
- "core_mods",
+ "dock-core",
+ "dock-poa",
+ "dock-price-feed",
+ "dock-staking-rewards",
+ "dock-token-migration",
  "ethabi-decode",
  "ethbloom",
  "ethereum",
@@ -1716,8 +1791,6 @@ dependencies = [
  "parity-bytes",
  "parity-scale-codec",
  "parity-util-mem",
- "poa",
- "price-feed",
  "primitive-types",
  "rand 0.8.4",
  "rlp",
@@ -1754,10 +1827,62 @@ dependencies = [
  "sp-transaction-storage-proof",
  "sp-trie",
  "sp-version",
- "staking_rewards",
  "static_assertions",
  "substrate-wasm-builder",
- "token_migration",
+]
+
+[[package]]
+name = "dock-staking-rewards"
+version = "0.2.0"
+dependencies = [
+ "dock-poa",
+ "frame-support",
+ "frame-system",
+ "pallet-authorship",
+ "pallet-balances",
+ "pallet-session",
+ "pallet-staking",
+ "pallet-staking-reward-curve",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-api",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "dock-staking-rewards-rpc"
+version = "0.0.1"
+dependencies = [
+ "dock-staking-rewards",
+ "jsonrpsee",
+ "parity-scale-codec",
+ "serde",
+ "sp-api",
+ "sp-blockchain",
+ "sp-rpc",
+ "sp-runtime",
+ "thiserror",
+]
+
+[[package]]
+name = "dock-token-migration"
+version = "0.1.2"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-std",
 ]
 
 [[package]]
@@ -4960,7 +5085,7 @@ dependencies = [
 [[package]]
 name = "pallet-collective"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#06ee5106f68b7d7a15f9e80991ec598e42d56788"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -4977,7 +5102,7 @@ dependencies = [
 [[package]]
 name = "pallet-democracy"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#06ee5106f68b7d7a15f9e80991ec598e42d56788"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5035,7 +5160,7 @@ dependencies = [
 [[package]]
 name = "pallet-elections-phragmen"
 version = "5.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#06ee5106f68b7d7a15f9e80991ec598e42d56788"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -5359,7 +5484,7 @@ dependencies = [
 [[package]]
 name = "pallet-staking"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#06ee5106f68b7d7a15f9e80991ec598e42d56788"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -5809,42 +5934,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e8d0eef3571242013a0d5dc84861c3ae4a652e56e12adf8bdc26ff5f8cb34c94"
 
 [[package]]
-name = "poa"
-version = "0.8.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-api",
- "sp-application-crypto",
- "sp-arithmetic",
- "sp-authority-discovery",
- "sp-core",
- "sp-io",
- "sp-npos-elections",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "poa_rpc"
-version = "0.1.0"
-dependencies = [
- "jsonrpsee",
- "parity-scale-codec",
- "poa",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
- "thiserror",
-]
-
-[[package]]
 name = "polling"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5887,41 +5976,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ac74c624d6b2d21f425f752262f42188365d7b8ff1aff74c82e45136510a4857"
 
 [[package]]
-name = "price-feed"
-version = "0.2.1"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#06ee5106f68b7d7a15f9e80991ec598e42d56788"
-dependencies = [
- "frame-support",
- "frame-system",
- "parity-scale-codec",
- "price-provider",
- "scale-info",
- "serde",
- "sp-api",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "price-feed-rpc"
-version = "0.2.1"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#06ee5106f68b7d7a15f9e80991ec598e42d56788"
-dependencies = [
- "jsonrpsee",
- "parity-scale-codec",
- "price-feed",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
-]
-
-[[package]]
 name = "price-provider"
 version = "0.2.1"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#06ee5106f68b7d7a15f9e80991ec598e42d56788"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git#507eefbc5230dd3dbff6f6d2796902dbf24a3839"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -8783,43 +8840,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a8f112729512f8e442d81f95a8a7ddf2b7c6b8a1a6f509a95864142b30cab2d3"
 
 [[package]]
-name = "staking_rewards"
-version = "0.2.0"
-dependencies = [
- "frame-support",
- "frame-system",
- "pallet-authorship",
- "pallet-balances",
- "pallet-session",
- "pallet-staking",
- "pallet-staking-reward-curve",
- "parity-scale-codec",
- "poa",
- "scale-info",
- "serde",
- "sp-api",
- "sp-core",
- "sp-io",
- "sp-runtime",
- "sp-std",
-]
-
-[[package]]
-name = "staking_rewards_rpc"
-version = "0.0.1"
-dependencies = [
- "jsonrpsee",
- "parity-scale-codec",
- "serde",
- "sp-api",
- "sp-blockchain",
- "sp-rpc",
- "sp-runtime",
- "staking_rewards",
- "thiserror",
-]
-
-[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9198,23 +9218,6 @@ name = "tinyvec_macros"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cda74da7e1a664f795bb1f8a87ec406fb89a02522cf6e50620d016add6dbbf5c"
-
-[[package]]
-name = "token_migration"
-version = "0.1.2"
-dependencies = [
- "frame-benchmarking",
- "frame-support",
- "frame-system",
- "frame-system-benchmarking",
- "pallet-balances",
- "parity-scale-codec",
- "scale-info",
- "serde",
- "sp-core",
- "sp-io",
- "sp-std",
-]
 
 [[package]]
 name = "tokio"

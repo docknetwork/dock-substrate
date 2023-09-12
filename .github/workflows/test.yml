@@ -1,4 +1,4 @@
-name: Rust
+name: Tests
 
 on:
   push:
@@ -7,19 +7,6 @@ on:
   pull_request: {}
 
 jobs:
-  formatting:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install rust toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly-2023-03-09
-          override: true
-          components: rustfmt
-      - name: Ensure Standard Formatting
-        run: cargo +nightly-2023-03-09 fmt -- --check
-
   unit-tests:
     runs-on: ubuntu-latest
     steps:

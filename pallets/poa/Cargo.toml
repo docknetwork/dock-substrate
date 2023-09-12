@@ -1,5 +1,5 @@
 [package]
-name = "poa"
+name = "dock-poa"
 version = "0.8.0"
 authors = ["Dock.io"]
 edition = "2021"

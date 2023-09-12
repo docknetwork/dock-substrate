@@ -1,0 +1,36 @@
+name: Lints
+
+on:
+  push:
+    branches:
+      - master
+  pull_request: {}
+
+jobs:
+  fmt:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2023-03-09
+          override: true
+          components: rustfmt
+      - name: Ensure Standard Formatting
+        run: cargo +nightly-2023-03-09 fmt --all -- --check
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: nightly-2023-03-09
+          override: true
+          components: clippy
+      - name: Install WASM
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
+      - name: Ensure `clippy` is happy
+        run: cargo +nightly-2023-03-09 clippy --all
