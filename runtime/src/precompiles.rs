@@ -4,6 +4,8 @@ use pallet_evm::{Precompile, PrecompileHandle, PrecompileResult, PrecompileSet};
 use pallet_evm_precompile_storage_reader::meta_storage_reader::PalletStorageMetadataProvider;
 use sp_core::H160;
 use sp_std::marker::PhantomData;
+
+#[derive(Default)]
 pub struct FrontierPrecompiles<R>(PhantomData<R>);
 
 impl<R> FrontierPrecompiles<R>

@@ -1,0 +1,18 @@
+[package]
+name = "dock-core-rpc"
+version = "0.1.0"
+edition = "2021"
+
+[package.metadata.docs.rs]
+targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies]
+jsonrpsee = { version = "0.15.1", features = ["server", "macros"] }
+thiserror = "1.0"
+codec = { package = "parity-scale-codec", version = "3.0.0" }
+serde = { version = "1.0.119", features = ["derive"] }
+sp-rpc = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29"}
+sp-runtime = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29"}
+sp-api = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+sp-blockchain = { git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.29" }
+dock-core = { version = "0.5.0", path = ".." }

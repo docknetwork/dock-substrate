@@ -12,13 +12,13 @@ mod wasm_handlers {
     pub fn panic(info: &core::panic::PanicInfo) -> ! {
         let message = sp_std::alloc::format!("{}", info);
         log::error!("{}", message);
-        core::arch::wasm32::unreachable();
+        ::core::arch::wasm32::unreachable();
     }
 
     #[alloc_error_handler]
     pub fn oom(_: core::alloc::Layout) -> ! {
         log::error!("Runtime memory exhausted. Aborting");
-        core::arch::wasm32::unreachable();
+        ::core::arch::wasm32::unreachable();
     }
 }
 
@@ -40,23 +40,24 @@ extern crate alloc;
 #[macro_use]
 extern crate static_assertions;
 
-pub use core_mods::{
-    accumulator, anchor, attest, blob, common, did, master, offchain_signatures,
-    offchain_signatures::{BBSPlusPublicKey, OffchainPublicKey, PSPublicKey},
+pub use dock_core::{
+    accumulator, anchor, attest, blob, common, did, master,
+    offchain_signatures::{self, BBSPlusPublicKey, OffchainPublicKey, PSPublicKey},
     revoke, status_list_credential,
 };
-use price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
+use dock_price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
 pub mod precompiles;
 pub mod weight_to_fee;
 
-pub use poa;
-pub use price_feed;
-pub use token_migration;
+pub use dock_poa;
+pub use dock_price_feed;
+pub use dock_token_migration;
 
 use sp_core::crypto::ByteArray;
 
 use codec::{Decode, Encode};
-use core_mods::util::IncId;
+use dock_core::util::IncId;
+use dock_staking_rewards::DurationInEras;
 use frame_election_provider_support::{onchain, SequentialPhragmen};
 use frame_support::{
     construct_runtime, parameter_types,
@@ -96,7 +97,6 @@ use sp_runtime::{
     Permill, Perquintill, SaturatedConversion,
 };
 use sp_std::collections::btree_map::BTreeMap;
-use staking_rewards::DurationInEras;
 use transaction_payment::{
     CurrencyAdapter, Multiplier, OnChargeTransaction, TargetedFeeAdjustment,
 };
@@ -221,18 +221,18 @@ pub const MILLISECS_PER_BLOCK: u64 = 3000;
 pub const SLOT_DURATION: u64 = MILLISECS_PER_BLOCK;
 
 // Time is measured by number of blocks.
-pub const MINUTES: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
-pub const HOURS: BlockNumber = MINUTES * 60;
-pub const DAYS: BlockNumber = HOURS * 24;
-pub const WEEKS: BlockNumber = DAYS * 7;
+pub const MINUTE: BlockNumber = 60_000 / (MILLISECS_PER_BLOCK as BlockNumber);
+pub const HOUR: BlockNumber = 60 * MINUTE;
+pub const DAY: BlockNumber = 24 * HOUR;
+pub const WEEK: BlockNumber = 7 * DAY;
 
 // The modules `small_durations` is used to generate runtimes with small duration events like epochs, eras,
 // bonding durations, etc for testing purposes. They should NOT be used in production.
 #[allow(dead_code)]
 mod small_durations {
-    use super::{BlockNumber, MINUTES, WEEKS};
+    use super::{BlockNumber, MINUTE, WEEK};
 
-    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTES;
+    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 2 * MINUTE;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
     /// Bonding duration is in number of era
@@ -245,34 +245,34 @@ mod small_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = 1 * WEEKS;
+    pub const TERM_DURATION: BlockNumber = WEEK;
     /// The time-out for council motions.
-    pub const COUNCIL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = 10 * MINUTE;
     /// The time-out for technical committee motions.
-    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 10 * MINUTES;
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 10 * MINUTE;
     /// Delay after which an accepted proposal executes
-    pub const ENACTMENT_PERIOD: BlockNumber = 1 * MINUTES;
+    pub const ENACTMENT_PERIOD: BlockNumber = MINUTE;
     /// How often new public referrenda are launched
-    pub const LAUNCH_PERIOD: BlockNumber = 15 * MINUTES;
-    pub const VOTING_PERIOD: BlockNumber = 10 * MINUTES;
-    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 2 * MINUTES;
-    pub const COOLOFF_PERIOD: BlockNumber = 60 * MINUTES;
+    pub const LAUNCH_PERIOD: BlockNumber = 15 * MINUTE;
+    pub const VOTING_PERIOD: BlockNumber = 10 * MINUTE;
+    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 2 * MINUTE;
+    pub const COOLOFF_PERIOD: BlockNumber = 60 * MINUTE;
 
     /// Duration after which funds from treasury are spent for approved bounties
-    pub const SPEND_PERIOD: BlockNumber = 15 * MINUTES;
+    pub const SPEND_PERIOD: BlockNumber = 15 * MINUTE;
     /// The delay period for which a bounty beneficiary need to wait before claim the payout.
-    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = 1 * MINUTES;
+    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = MINUTE;
     /// The period for which a tip remains open after is has achieved threshold tippers.
-    pub const TIP_COUNTDOWN: BlockNumber = 1 * MINUTES;
+    pub const TIP_COUNTDOWN: BlockNumber = MINUTE;
     /// Bounty duration in blocks.
-    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 5 * MINUTES;
+    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 5 * MINUTE;
 }
 
 #[allow(dead_code)]
 mod prod_durations {
-    use super::{BlockNumber, DAYS, HOURS, MINUTES, WEEKS};
+    use super::{BlockNumber, DAY, HOUR, MINUTE, WEEK};
 
-    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 3 * HOURS;
+    pub const EPOCH_DURATION_IN_BLOCKS: BlockNumber = 3 * HOUR;
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
 
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 4; // 12 hours
@@ -286,27 +286,27 @@ mod prod_durations {
     pub const ELECTION_LOOKAHEAD: BlockNumber = EPOCH_DURATION_IN_BLOCKS / 4;
 
     /// How long each seat is kept for elections. Used for gov.
-    pub const TERM_DURATION: BlockNumber = 1 * WEEKS;
+    pub const TERM_DURATION: BlockNumber = WEEK;
     /// The time-out for council motions.
-    pub const COUNCIL_MOTION_DURATION: BlockNumber = 1 * WEEKS;
+    pub const COUNCIL_MOTION_DURATION: BlockNumber = WEEK;
     /// The time-out for technical committee motions.
-    pub const TECHNICAL_MOTION_DURATION: BlockNumber = 1 * WEEKS;
+    pub const TECHNICAL_MOTION_DURATION: BlockNumber = WEEK;
     /// Delay after which an accepted proposal executes
-    pub const ENACTMENT_PERIOD: BlockNumber = 2 * DAYS;
+    pub const ENACTMENT_PERIOD: BlockNumber = 2 * DAY;
     /// How often new public referrenda are launched
-    pub const LAUNCH_PERIOD: BlockNumber = 20 * DAYS;
-    pub const VOTING_PERIOD: BlockNumber = 15 * DAYS;
-    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 3 * HOURS;
-    pub const COOLOFF_PERIOD: BlockNumber = 28 * 24 * 60 * MINUTES;
+    pub const LAUNCH_PERIOD: BlockNumber = 20 * DAY;
+    pub const VOTING_PERIOD: BlockNumber = 15 * DAY;
+    pub const FAST_TRACK_VOTING_PERIOD: BlockNumber = 3 * HOUR;
+    pub const COOLOFF_PERIOD: BlockNumber = 28 * 24 * 60 * MINUTE;
 
     /// Duration after which funds from treasury are spent for approved bounties
-    pub const SPEND_PERIOD: BlockNumber = 1 * DAYS;
+    pub const SPEND_PERIOD: BlockNumber = DAY;
     /// The delay period for which a bounty beneficiary need to wait before claim the payout.
-    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = 1 * DAYS;
+    pub const BOUNTY_DEPOSIT_PAYOUT_DELAY: BlockNumber = DAY;
     /// The period for which a tip remains open after is has achieved threshold tippers.
-    pub const TIP_COUNTDOWN: BlockNumber = 1 * DAYS;
+    pub const TIP_COUNTDOWN: BlockNumber = DAY;
     /// Bounty duration in blocks.
-    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 14 * DAYS;
+    pub const BOUNTY_UPDATE_PERIOD: BlockNumber = 14 * DAY;
 }
 
 #[cfg(not(feature = "small_durations"))]
@@ -388,7 +388,7 @@ parameter_types! {
 impl system::Config for Runtime {
     type MaxConsumers = ConstU32<16>;
     /// The basic call filter to use in dispatchable.
-    type BaseCallFilter = BaseFilter;
+    type BaseCallFilter = Everything;
     /// The ubiquitous origin type.
     type Origin = Origin;
     /// The aggregated dispatch type that is available for extrinsics.
@@ -475,7 +475,7 @@ where
             CustomChargeTransactionPayment(transaction_payment::ChargeTransactionPayment::from(
                 tip,
             )),
-            token_migration::OnlyMigrator::<Runtime>::new(),
+            dock_token_migration::OnlyMigrator::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
             .map_err(|e| {
@@ -485,7 +485,7 @@ where
         let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
         let address = <Runtime as system::Config>::Lookup::unlookup(account);
         let (call, extra, _) = raw_payload.deconstruct();
-        Some((call, (address, signature.into(), extra)))
+        Some((call, (address, signature, extra)))
     }
 }
 
@@ -696,7 +696,7 @@ impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfi
 
 parameter_types! {
     pub const SignedMaxSubmissions: u32 = 10;
-    pub const SignedRewardBase: Balance = 1 * DOCK;
+    pub const SignedRewardBase: Balance = DOCK;
     pub const SignedDepositBase: Balance = 500 * DOCK;
     pub const SignedDepositByte: Balance = DOCK / 100;
     pub const OffchainRepeat: BlockNumber = 5;
@@ -850,7 +850,7 @@ impl OverriddenLengthFee {
     /// Checks whether the given call has a customized length fee or not.
     pub fn new(call: &<Runtime as frame_system::Config>::Call, len: u32) -> OverriddenLengthFee {
         Self::is_preimage_with_deposit(call)
-            .then(|| Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
+            .then_some(Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
             .or_else(|| match call {
                 Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
                     Self::is_preimage_with_deposit(proposal)
@@ -1138,7 +1138,7 @@ impl pallet_offences::Config for Runtime {
     type OnOffenceHandler = Staking;
 }
 
-impl poa::Config for Runtime {
+impl dock_poa::Config for Runtime {
     type Currency = balances::Pallet<Runtime>;
 }
 
@@ -1153,7 +1153,7 @@ parameter_types! {
 const_assert!(VestingMilestones::get() > 0);
 const_assert!(VestingDuration::get() > 0);
 
-impl token_migration::Config for Runtime {
+impl dock_token_migration::Config for Runtime {
     type Event = Event;
     type Currency = balances::Pallet<Runtime>;
     type BlockNumberToBalance = ConvertInto;
@@ -1417,7 +1417,7 @@ impl pallet_election_provider_multi_phase::MinerConfig for Runtime {
 /// Require 10K DOCK tokens to participate in the voting to immediately pay back provider's deposit.
 /// Otherwise, lock the deposit for 90 days.
 const PREIMAGE_DEPOSIT_LOCK_STRATEGY: DepositLockConfig<Runtime> =
-    DepositLockConfig::new(DAYS, 90, 10_000 * DOCK);
+    DepositLockConfig::new(DAY, 90, 10_000 * DOCK);
 
 parameter_types! {
     pub const DepositLockStrategy: DepositLockConfig<Runtime> = PREIMAGE_DEPOSIT_LOCK_STRATEGY;
@@ -1481,12 +1481,12 @@ impl pallet_democracy::Config for Runtime {
 
 parameter_types! {
     pub const ProposalBond: Permill = Permill::from_percent(5);
-    pub const ProposalBondMinimum: Balance = 1 * DOCK;
+    pub const ProposalBondMinimum: Balance = DOCK;
     pub const SpendPeriod: BlockNumber = SPEND_PERIOD;
     /// We are fixed supply token, we don't burn any tokens
     pub const Burn: Permill = Permill::from_percent(0);
     pub const DataDepositPerByte: Balance = DOCK / 100;
-    pub const BountyDepositBase: Balance = 1 * DOCK;
+    pub const BountyDepositBase: Balance = DOCK;
     pub const BountyCuratorDepositMin: Balance = DOCK / 2;
     pub const BountyCuratorDepositMax: Balance = 250 * DOCK;
     pub const BountyDepositPayoutDelay: BlockNumber = BOUNTY_DEPOSIT_PAYOUT_DELAY;
@@ -1494,7 +1494,7 @@ parameter_types! {
     pub const BountyValueMinimum: Balance = 5 * DOCK;
     pub const TipCountdown: BlockNumber = TIP_COUNTDOWN;
     pub const TipFindersFee: Percent = Percent::from_percent(20);
-    pub const TipReportDepositBase: Balance = 1 * DOCK;
+    pub const TipReportDepositBase: Balance = DOCK;
     /// Matches treasury account created during PoA.
     pub const TreasuryPalletId: PalletId = PalletId(*b"Treasury");
     pub const BountyUpdatePeriod: BlockNumber = BOUNTY_UPDATE_PERIOD;
@@ -1637,7 +1637,7 @@ parameter_types! {
     pub const PostUpgradeHighRateDuration: Option<DurationInEras> = None;
 }
 
-impl staking_rewards::Config for Runtime {
+impl dock_staking_rewards::Config for Runtime {
     type Event = Event;
     type PostUpgradeHighRateDuration = PostUpgradeHighRateDuration;
     /// High-rate emission rewards decay by this % each year
@@ -1708,7 +1708,7 @@ impl pallet_evm::GasWeightMapping for GasWeightMap {
         Weight::from_ref_time(gas.saturating_mul(WEIGHT_PER_GAS))
     }
     fn weight_to_gas(weight: Weight) -> u64 {
-        u64::try_from(weight.ref_time().wrapping_div(WEIGHT_PER_GAS)).unwrap_or(u32::MAX as u64)
+        weight.ref_time().wrapping_div(WEIGHT_PER_GAS)
     }
 }
 
@@ -1793,22 +1793,13 @@ parameter_types! {
     pub const MaxSymbolBytesLen: u32 = 10;
 }
 
-impl price_feed::Config for Runtime {
+impl dock_price_feed::Config for Runtime {
     type MaxSymbolBytesLen = MaxSymbolBytesLen;
     type Event = Event;
 }
 
 parameter_types! {
     pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
-}
-
-pub struct BaseFilter;
-impl Contains<Call> for BaseFilter {
-    fn contains(call: &Call) -> bool {
-        match call {
-            _ => true,
-        }
-    }
 }
 
 construct_runtime!(
@@ -1822,7 +1813,7 @@ construct_runtime!(
         // Balances pallet has to be put before Session in construct_runtime otherwise there is a runtime panic.
         Balances: balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 3,
-        PoAModule: poa::{Pallet, Call, Storage, Config<T>} = 4,
+        PoAModule: dock_poa::{Pallet, Call, Storage, Config<T>} = 4,
         GrandpaFinality: grandpa::{Pallet, Call, Storage, Config, Event} = 5,
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 6,
         TransactionPayment: transaction_payment::{Pallet, Storage, Event<T>} = 7,
@@ -1833,7 +1824,7 @@ construct_runtime!(
         BlobStore: blob::{Pallet, Call, Storage} = 12,
         Master: master::{Pallet, Call, Storage, Event<T>, Config} = 13,
         Sudo: sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
-        MigrationModule: token_migration::{Pallet, Call, Storage, Event<T>} = 15,
+        MigrationModule: dock_token_migration::{Pallet, Call, Storage, Event<T>} = 15,
         Anchor: anchor::{Pallet, Call, Storage, Event<T>} = 16,
         Attest: attest::{Pallet, Call, Storage} = 17,
         Democracy: pallet_democracy::{Pallet, Call, Storage, Event<T>} = 18,
@@ -1843,7 +1834,7 @@ construct_runtime!(
         Scheduler: pallet_scheduler::{Pallet, Call, Storage, Event<T>} = 22,
         Ethereum: pallet_ethereum::{Pallet, Call, Storage, Event, Config, Origin} = 23,
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>} = 24,
-        PriceFeedModule: price_feed::{Pallet, Call, Storage, Event<T>} = 25,
+        PriceFeedModule: dock_price_feed::{Pallet, Call, Storage, Event<T>} = 25,
         // `fiat_filter` = 26 was here
         AuthorityDiscovery: pallet_authority_discovery::{Pallet, Config} = 27,
         Historical: pallet_session_historical::{Pallet} = 28,
@@ -1854,7 +1845,7 @@ construct_runtime!(
         Offences: pallet_offences::{Pallet, Storage, Event} = 33,
         Treasury: pallet_treasury::{Pallet, Call, Storage, Config, Event<T>} = 34,
         Bounties: pallet_bounties::{Pallet, Call, Storage, Event<T>} = 35,
-        StakingRewards: staking_rewards::{Pallet, Call, Storage, Event<T>} = 36,
+        StakingRewards: dock_staking_rewards::{Pallet, Call, Storage, Event<T>} = 36,
         Elections: pallet_elections_phragmen::{Pallet, Call, Storage, Event<T>, Config<T>} = 37,
         Tips: pallet_tips::{Pallet, Call, Storage, Event<T>} = 38,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 39,
@@ -1923,7 +1914,7 @@ pub type SignedExtra = (
     system::CheckNonce<Runtime>,
     system::CheckWeight<Runtime>,
     CustomChargeTransactionPayment,
-    token_migration::OnlyMigrator<Runtime>,
+    dock_token_migration::OnlyMigrator<Runtime>,
 );
 
 impl fp_self_contained::SelfContainedCall for Call {
@@ -2233,6 +2224,7 @@ impl_runtime_apis! {
             EVM::account_storages(address, H256::from_slice(&tmp[..]))
         }
 
+        #[allow(clippy::or_fun_call)]
         fn call(
             from: H160,
             to: H160,
@@ -2272,6 +2264,7 @@ impl_runtime_apis! {
             ).map_err(|err| err.error.into())
         }
 
+        #[allow(clippy::or_fun_call)]
         fn create(
             from: H160,
             data: Vec<u8>,
@@ -2368,7 +2361,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl poa::runtime_api::PoAApi<Block, AccountId, Balance> for Runtime {
+    impl dock_poa::runtime_api::PoAApi<Block, AccountId, Balance> for Runtime {
         fn get_treasury_account() -> AccountId {
             PoAModule::treasury_account()
         }
@@ -2378,13 +2371,13 @@ impl_runtime_apis! {
         }
     }
 
-    impl price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber> for Runtime {
+    impl dock_price_feed::runtime_api::PriceFeedApi<Block, <Runtime as frame_system::Config>::BlockNumber> for Runtime {
         fn price(currency_pair: CurrencySymbolPair<String, String>) -> Option<PriceRecord<<Runtime as frame_system::Config>::BlockNumber>> {
            PriceFeedModule::pair_price(currency_pair).ok().flatten()
         }
     }
 
-    impl staking_rewards::runtime_api::StakingRewardsApi<Block, Balance> for Runtime {
+    impl dock_staking_rewards::runtime_api::StakingRewardsApi<Block, Balance> for Runtime {
         fn yearly_emission(total_staked: Balance, total_issuance: Balance) -> Balance {
             StakingRewards::yearly_emission(total_staked, total_issuance)
         }
@@ -2394,7 +2387,7 @@ impl_runtime_apis! {
         }
     }
 
-    impl core_mods::runtime_api::CoreModsApi<Block, Runtime> for Runtime {
+    impl dock_core::runtime_api::CoreModsApi<Block, Runtime> for Runtime {
         fn did_details(did: did::Did, params: Option<did::AggregatedDidDetailsRequestParams>) -> Option<did::AggregatedDidDetailsResponse<Runtime>> {
             DIDModule::aggregate_did_details(&did, params.unwrap_or_default())
         }
@@ -2481,7 +2474,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, status_list_credential, StatusListCredential);
             list_benchmark!(list, extra, blob, BlobStore);
             list_benchmark!(list, extra, balances, Balances);
-            list_benchmark!(list, extra, token_migration, MigrationModule);
+            list_benchmark!(list, extra, dock_token_migration, MigrationModule);
             list_benchmark!(list, extra, pallet_collective, Council);
             list_benchmark!(list, extra, pallet_staking, Staking);
 
@@ -2584,7 +2577,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, blob, BlobStore);
             add_benchmark!(params, batches, balances, Balances);
             add_benchmark!(params, batches, pallet_staking, Staking);
-            add_benchmark!(params, batches, token_migration, MigrationModule);
+            add_benchmark!(params, batches, dock_token_migration, MigrationModule);
             // add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 
             //add_benchmark!(params, batches, pallet_collective, Council);
