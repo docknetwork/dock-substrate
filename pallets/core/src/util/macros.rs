@@ -49,17 +49,17 @@ macro_rules! pub_for_test {
 /// Implements field accessor based on input using supplied `self`.
 #[macro_export]
 macro_rules! field_accessor {
-    ($self: ident, () $($add: tt)*) => {
-        ()
+    ($self: ident, () with $($rest: tt)*) => {
+        () $($rest)*
     };
-    ($self: ident, $lit: literal $($add: tt)*) => {
-        $lit
+    ($self: ident, $lit: literal with $($rest: tt)*) => {
+        $lit $($rest)*
     };
-    ($self: ident, { $expr: expr }$($add: tt)*) => {
-        $expr($self)
+    ($self: ident, { $expr: expr } with $($rest: tt)*) => {
+        $expr($self) $($rest)*
     };
-    ($self: ident, $($ident: tt $(($($call: tt),*))?).+ with $($add: tt)*) => {
-        $self.$($ident $(($($call)*))*).+ $($add)*
+    ($self: ident, $($ident: tt $(($($call: tt),*))?).+ with $($rest: tt)*) => {
+        $self.$($ident $(($($call)*))*).+ $($rest)*
     };
 }
 
@@ -118,13 +118,19 @@ macro_rules! impl_action {
     (
         for $target: ty:
         $(
-            $type: ident with $($len: tt $(($($call: tt),*))?).+ as len,
+            $type: ident with
+            $($len_field: tt $(($($len_call: tt),*))?).+ as len,
             $($target_field: tt $(($($target_call: tt),*))?).+ as target
-            $($addition: tt)?
+            $($rest: tt)?
         ),+
     ) => {
         $(
-            $crate::impl_action! { $type for $target: with $($len $(($($call),*))*).+ as len, $($target_field $(($($target_call)*))*).+ as target $($addition)? }
+            $crate::impl_action! {
+                $type for $target:
+                    with $($len_field $(($($len_call),*))*).+ as len,
+                    $($target_field $(($($target_call)*))*).+ as target
+                    $($rest)?
+            }
         )+
     };
 }
@@ -141,9 +147,18 @@ macro_rules! impl_action_with_nonce {
             }
         }
     };
-    (for $target: ty: $($type: ident with $($len: tt $(($($call: tt),*))?).+ as len, $($target_field: tt $(($($target_call: tt),*))?).+ as target),+) => {
+    (for $target: ty:
         $(
-            $crate::impl_action_with_nonce! { $type for $target: with $($len $(($($call),*))*).+ as len, $($target_field $(($($target_call)*))*).+ as target }
+            $type: ident with $($len: tt $(($($len_call: tt),*))?).+ as len,
+            $($target_field: tt $(($($target_call: tt),*))?).+ as target
+        ),+
+    ) => {
+        $(
+            $crate::impl_action_with_nonce! {
+                $type for $target:
+                    with $($len $(($($len_call),*))*).+ as len,
+                    $($target_field $(($($target_call)*))*).+ as target
+            }
         )+
     };
 }

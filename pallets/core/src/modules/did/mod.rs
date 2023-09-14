@@ -1,7 +1,7 @@
 use crate as dock;
 use crate::{
     common::{PublicKey, SigValue, StorageVersion},
-    util::{with_nonce::NonceError, *},
+    util::*,
 };
 
 use arith_utils::CheckedDivCeil;
@@ -37,19 +37,6 @@ pub(crate) mod details_aggregator;
 pub(crate) mod keys;
 pub(crate) mod service_endpoints;
 pub(crate) mod weights;
-
-pub mod types {
-    use super::{base, controllers, keys, service_endpoints};
-
-    pub type Did = base::Did;
-    pub type DidKey = keys::DidKey;
-    pub type ServiceEndpoint = service_endpoints::ServiceEndpoint;
-    pub type StoredDidDetails<T> = base::StoredDidDetails<T>;
-    pub type Controller = controllers::Controller;
-    pub type StoredOnChainDidDetails<T> = base::StoredOnChainDidDetails<T>;
-    pub type OffChainDidDocRef = base::offchain::OffChainDidDocRef;
-    pub type Bytes = crate::util::Bytes;
-}
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
@@ -150,13 +137,13 @@ decl_event!(
 decl_storage! {
     trait Store for Module<T: Config> as DIDModule where T: Debug {
         /// Stores details of off-chain and on-chain DIDs
-        pub Dids get(fn did): map hasher(blake2_128_concat) types::Did => Option<types::StoredDidDetails<T>>;
+        pub Dids get(fn did): map hasher(blake2_128_concat) Did => Option<StoredDidDetails<T>>;
         /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
-        pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) types::Did, hasher(identity) IncId => Option<types::DidKey>;
+        pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) Did, hasher(identity) IncId => Option<DidKey>;
         /// Stores controlled - controller pairs of a DID as (DID, DID) -> zero-sized record. If a record exists, then the controller is bound.
-        pub DidControllers get(fn bound_controller): double_map hasher(blake2_128_concat) types::Did, hasher(blake2_128_concat) types::Controller => Option<()>;
+        pub DidControllers get(fn bound_controller): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) Controller => Option<()>;
         /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
-        pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) types::Did, hasher(blake2_128_concat) types::Bytes => Option<types::ServiceEndpoint>;
+        pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) Bytes => Option<ServiceEndpoint>;
 
         pub Version get(fn storage_version): StorageVersion;
     }
