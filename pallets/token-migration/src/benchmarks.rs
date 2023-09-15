@@ -3,9 +3,9 @@
 use super::*;
 use frame_benchmarking::{account, benchmarks};
 use frame_support::sp_runtime::traits::Saturating;
+use frame_system::RawOrigin;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
-use system::RawOrigin;
 
 const SEED: u32 = 0;
 const MAX_USER_INDEX: u32 = 1000;

@@ -4,7 +4,7 @@ use crate::{
     did::{tests::check_did_detail, AddControllers},
     offchain_signatures,
     tests::common::*,
-    util::Bytes,
+    util::BoundedBytes,
 };
 use alloc::collections::BTreeMap;
 use frame_support::assert_err;
@@ -79,7 +79,7 @@ fn sig_events() -> Vec<super::Event> {
     System::events()
         .iter()
         .filter_map(|event_record| {
-            let system::EventRecord::<TestEvent, H256> {
+            let frame_system::EventRecord::<TestEvent, H256> {
                 phase: _p,
                 event,
                 topics: _t,
@@ -113,63 +113,20 @@ with_each_scheme! {
 
             run_to_block(10);
 
-            let params_bytes = vec![1u8; 600];
-            let mut params =
-                SchemeParams::new(Bytes(vec![0, 1, 2, 3]), params_bytes, CurveType::Bls12381);
-            let ap = AddOffchainSignatureParams {
-                params: params.clone().into(),
-                nonce: next_nonce,
-            };
-            let sig = sign_add_params::<Test>(&author_kp, &ap, author, 1);
+            assert!(vec![1u8; 600].try_into().map(|params_bytes| SchemeParams::<Test>::new(BoundedBytes::try_from(vec![0, 1, 2, 3]).unwrap(), params_bytes, CurveType::Bls12381)).is_err());
 
-            assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
-                IncId::from(0u8)
-            );
-            assert_err!(
-                SignatureMod::add_params(
-                    Origin::signed(1),
-                    AddOffchainSignatureParams {
-                        params: params.clone().into(),
-                        nonce: next_nonce
-                    },
-                    sig.clone()
-                ),
-                Error::<Test>::ParamsTooBig
-            );
-            assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
-                IncId::from(0u8)
-            );
-            assert!(
-                !sig_events().contains(&offchain_signatures::Event::ParamsAdded(
-                    SignatureParamsOwner(author),
-                    1u8.into()
-                ))
-            );
             check_nonce(&author, next_nonce - 1);
 
             run_to_block(15);
 
-            params.bytes = vec![1u8; 500].into();
+            let params = SchemeParams::<Test>::new(BoundedBytes::try_from(vec![0, 1, 2, 3]).unwrap(), vec![1u8; 500].try_into().unwrap(), CurveType::Bls12381);
 
-            assert_err!(
-                SignatureMod::add_params(
-                    Origin::signed(1),
-                    AddOffchainSignatureParams {
-                        params: params.clone().into(),
-                        nonce: next_nonce
-                    },
-                    sig
-                ),
-                did::Error::<Test>::InvalidSignature
-            );
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 None
             );
             assert!(
@@ -199,11 +156,11 @@ with_each_scheme! {
             check_nonce(&author, next_nonce);
             next_nonce += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(1u8)
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 Some(params.clone().into())
             );
 
@@ -217,10 +174,10 @@ with_each_scheme! {
             run_to_block(21);
 
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(2u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(2u8)),
                 None
             );
-            let params_1 = SchemeParams::new(None, vec![1u8; 100], CurveType::Bls12381);
+            let params_1 = SchemeParams::<Test>::new(None, vec![1u8; 100].try_into().unwrap(), CurveType::Bls12381);
             let ap = AddOffchainSignatureParams {
                 params: params_1.clone().into(),
                 nonce: next_nonce,
@@ -238,11 +195,11 @@ with_each_scheme! {
             check_nonce(&author, next_nonce);
             next_nonce += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(2u8)
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(2u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(2u8)),
                 Some(params_1.into())
             );
             assert!(
@@ -255,18 +212,18 @@ with_each_scheme! {
             run_to_block(25);
 
             let params_2 =
-                SchemeParams::new(Bytes(vec![0, 9, 1]), vec![9u8; 100], CurveType::Bls12381);
+                SchemeParams::<Test>::new(BoundedBytes::try_from(vec![0, 9, 1]).unwrap(), vec![9u8; 100].try_into().unwrap(), CurveType::Bls12381);
             let ap = AddOffchainSignatureParams {
                 params: params_2.clone().into(),
                 nonce: next_nonce_1,
             };
             let sig = sign_add_params::<Test>(&author_1_kp, &ap, author_1, 1);
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
                 None
             );
             SignatureMod::add_params(
@@ -281,15 +238,15 @@ with_each_scheme! {
             check_nonce(&author_1, next_nonce_1);
             next_nonce_1 += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(1u8)
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
                 Some(params_2.clone().into())
             );
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(2u8)
             );
             assert!(
@@ -302,10 +259,10 @@ with_each_scheme! {
             run_to_block(30);
 
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(3u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(3u8)),
                 None
             );
-            let params_3 = SchemeParams::new(None, vec![8u8; 100], CurveType::Bls12381);
+            let params_3 = SchemeParams::<Test>::new(None, vec![8u8; 100].try_into().unwrap(), CurveType::Bls12381);
             let ap = AddOffchainSignatureParams {
                 params: params_3.clone().into(),
                 nonce: next_nonce,
@@ -323,11 +280,11 @@ with_each_scheme! {
             check_nonce(&author, next_nonce);
             next_nonce += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(3u8)
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(3u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(3u8)),
                 Some(params_3.clone().into())
             );
             assert!(
@@ -369,25 +326,25 @@ with_each_scheme! {
             next_nonce += 1;
             // Counter doesn't go back
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(3u8)
             );
             // Entry gone from storage
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(2u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(2u8)),
                 None
             );
             // Other entries remain as it is
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(3u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(3u8)),
                 Some(params_3.clone().into())
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 Some(params.clone().into())
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
                 Some(params_2.into())
             );
             assert!(
@@ -427,21 +384,21 @@ with_each_scheme! {
             next_nonce_1 += 1;
             // Counter doesn't go back
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(1u8)
             );
             // Entry gone from storage
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
                 None
             );
             // Other entries remain as it is
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(3u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(3u8)),
                 Some(params_3.into())
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 Some(params.clone().into())
             );
             assert!(
@@ -481,17 +438,17 @@ with_each_scheme! {
             next_nonce += 1;
             // Counter doesn't go back
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(3u8)
             );
             // Entry gone from storage
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(3u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(3u8)),
                 None
             );
             // Other entries remain as it is
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 Some(params.into())
             );
             assert!(
@@ -511,12 +468,12 @@ with_each_scheme! {
             check_nonce(&author, next_nonce);
             // Counter doesn't go back
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(3u8)
             );
             // Entry gone from storage
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 None
             );
             assert!(
@@ -539,24 +496,14 @@ with_each_scheme! {
 
             run_to_block(15);
 
-            let mut key = SchemeKey::new(vec![1u8; 200], None, CurveType::Bls12381);
-            let ak = AddOffchainSignaturePublicKey {
-                key: key.clone().into(),
-                did: author,
-                nonce: next_nonce,
-            };
-            let sig = sign_add_key(&author_kp, &ak, author, 1);
+            assert!(vec![1u8; 200].try_into().map(|bytes| SchemeKey::<Test>::new(bytes, None, CurveType::Bls12381)).is_err());
 
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
-            assert_err!(
-                SignatureMod::add_public_key(Origin::signed(1), ak, sig.clone()),
-                Error::<Test>::PublicKeyTooBig
-            );
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             assert!(
@@ -566,23 +513,19 @@ with_each_scheme! {
 
             run_to_block(30);
 
-            key.bytes = vec![1u8; 100].into();
+            let key = SchemeKey::new(vec![1u8; 100].try_into().unwrap(), None, CurveType::Bls12381);
             let ak = AddOffchainSignaturePublicKey {
                 key: key.clone().into(),
                 did: author,
                 nonce: next_nonce,
             };
 
-            assert_err!(
-                SignatureMod::add_public_key(Origin::signed(1), ak.clone(), sig),
-                did::Error::<Test>::InvalidSignature
-            );
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
-            assert_eq!(PublicKeys::get(author, IncId::from(1u8)), None);
-            assert_eq!(PublicKeys::get(author, IncId::from(2u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(1u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(2u8)), None);
             assert!(
                 !sig_events().contains(&offchain_signatures::Event::KeyAdded(author, 2u8.into()))
             );
@@ -595,20 +538,20 @@ with_each_scheme! {
             check_nonce(&author, next_nonce);
             next_nonce += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
-            assert_eq!(PublicKeys::get(author, IncId::from(1u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(1u8)), None);
             assert_eq!(
-                PublicKeys::get(author, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author, IncId::from(2u8)),
                 Some(key.clone().into())
             );
             assert!(
                 sig_events().contains(&offchain_signatures::Event::KeyAdded(author, 2u8.into()))
             );
 
-            assert_eq!(PublicKeys::get(author, IncId::from(3u8)), None);
-            let key_1 = SchemeKey::new(vec![1u8; 100], None, CurveType::Bls12381);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(3u8)), None);
+            let key_1 = SchemeKey::new(vec![1u8; 100].try_into().unwrap(), None, CurveType::Bls12381);
             let ak = AddOffchainSignaturePublicKey {
                 key: key.clone().into(),
                 did: author,
@@ -619,11 +562,11 @@ with_each_scheme! {
             check_nonce(&author, next_nonce);
             next_nonce += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(3u8)),
+                PublicKeys::<Test>::get(author, IncId::from(3u8)),
                 Some(key_1.into())
             );
             assert!(
@@ -637,7 +580,7 @@ with_each_scheme! {
 
             run_to_block(50);
 
-            let key_2 = SchemeKey::new(vec![9u8; 100], None, CurveType::Bls12381);
+            let key_2 = SchemeKey::new(vec![9u8; 100].try_into().unwrap(), None, CurveType::Bls12381);
             let ak = AddOffchainSignaturePublicKey {
                 key: key_2.clone().into(),
                 did: author_1,
@@ -645,24 +588,24 @@ with_each_scheme! {
             };
             let sig = sign_add_key(&author_kp_1, &ak, author_1, 1);
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(0u8)
             );
-            assert_eq!(PublicKeys::get(author_1, IncId::from(1u8)), None);
-            assert_eq!(PublicKeys::get(author_1, IncId::from(2u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author_1, IncId::from(1u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author_1, IncId::from(2u8)), None);
             SignatureMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
             check_nonce(&author_1, next_nonce_1);
             next_nonce_1 += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                PublicKeys::get(author_1, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author_1, IncId::from(2u8)),
                 Some(key_2.clone().into())
             );
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             assert!(
@@ -672,10 +615,10 @@ with_each_scheme! {
             run_to_block(55);
 
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(3u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(3u8)),
                 None
             );
-            let key_3 = SchemeKey::new(vec![8u8; 100], None, CurveType::Bls12381);
+            let key_3 = SchemeKey::new(vec![8u8; 100].try_into().unwrap(), None, CurveType::Bls12381);
             let ak = AddOffchainSignaturePublicKey {
                 key: key_3.clone().into(),
                 did: author,
@@ -686,11 +629,11 @@ with_each_scheme! {
             check_nonce(&author, next_nonce);
             next_nonce += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(4u8)),
+                PublicKeys::<Test>::get(author, IncId::from(4u8)),
                 Some(key_3.clone().into())
             );
             assert!(
@@ -737,22 +680,22 @@ with_each_scheme! {
 
             // Counter doesn't go back
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             // Entry gone from storage
-            assert_eq!(PublicKeys::get(author, IncId::from(3u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(3u8)), None);
             // Other entries remain as it is
             assert_eq!(
-                PublicKeys::get(author, IncId::from(4u8)),
+                PublicKeys::<Test>::get(author, IncId::from(4u8)),
                 Some(key_3.clone().into())
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author, IncId::from(2u8)),
                 Some(key.clone().into())
             );
             assert_eq!(
-                PublicKeys::get(author_1, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author_1, IncId::from(2u8)),
                 Some(key_2.into())
             );
 
@@ -784,18 +727,18 @@ with_each_scheme! {
             next_nonce_1 += 1;
             // Counter doesn't go back
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(0u8)
             );
             // Entry gone from storage
-            assert_eq!(PublicKeys::get(author_1, IncId::from(2u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author_1, IncId::from(2u8)), None);
             // Other entries remain as it is
             assert_eq!(
-                PublicKeys::get(author, IncId::from(4u8)),
+                PublicKeys::<Test>::get(author, IncId::from(4u8)),
                 Some(key_3.into())
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author, IncId::from(2u8)),
                 Some(key.clone().into())
             );
             assert!(
@@ -830,13 +773,13 @@ with_each_scheme! {
             next_nonce += 1;
             // Counter doesn't go back
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             // Entry gone from storage
-            assert_eq!(PublicKeys::get(author, IncId::from(4u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(4u8)), None);
             // Other entries remain as it is
-            assert_eq!(PublicKeys::get(author, IncId::from(2u8)), Some(key.into()));
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(2u8)), Some(key.into()));
             assert!(
                 sig_events().contains(&offchain_signatures::Event::KeyRemoved(author, 4u8.into()))
             );
@@ -853,11 +796,11 @@ with_each_scheme! {
             next_nonce += 1;
             // Counter doesn't go back
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             // Entry gone from storage
-            assert_eq!(PublicKeys::get(author, IncId::from(2u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(2u8)), None);
             assert!(
                 sig_events().contains(&offchain_signatures::Event::KeyRemoved(author, 2u8.into()))
             );
@@ -865,7 +808,7 @@ with_each_scheme! {
             run_to_block(80);
 
             let params =
-                SchemeParams::new(Bytes(vec![0, 1, 2, 3]), vec![19; 100], CurveType::Bls12381);
+                SchemeParams::<Test>::new(BoundedBytes::try_from(vec![0, 1, 2, 3]).unwrap(), vec![19; 100].try_into().unwrap(), CurveType::Bls12381);
             let ap = AddOffchainSignatureParams {
                 params: params.clone().into(),
                 nonce: next_nonce,
@@ -883,17 +826,17 @@ with_each_scheme! {
             check_nonce(&author, next_nonce);
             next_nonce += 1;
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(1u8)
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 Some(params.into())
             );
 
             // Add key with reference to non-existent params
             let key_4 = SchemeKey::new(
-                vec![92u8; 100],
+                vec![92u8; 100].try_into().unwrap(),
                 Some((SignatureParamsOwner(author), 4u8.into())),
                 CurveType::Bls12381,
             );
@@ -909,13 +852,13 @@ with_each_scheme! {
             );
             check_nonce(&author_1, next_nonce_1 - 1);
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(0u8)
             );
 
             // Add key with reference to existent params
             let key_4 = SchemeKey::new(
-                vec![92u8; 100],
+                vec![92u8; 100].try_into().unwrap(),
                 Some((SignatureParamsOwner(author), 1u8.into())),
                 CurveType::Bls12381,
             );
@@ -928,11 +871,11 @@ with_each_scheme! {
             SignatureMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
             check_nonce(&author_1, next_nonce_1);
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                PublicKeys::get(author_1, IncId::from(3u8)),
+                PublicKeys::<Test>::get(author_1, IncId::from(3u8)),
                 Some(key_4.clone().into())
             );
             assert!(
@@ -948,11 +891,11 @@ with_each_scheme! {
             SignatureMod::add_public_key(Origin::signed(1), ak, sig).unwrap();
             check_nonce(&author, next_nonce);
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(1u8)
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(5u8)),
+                PublicKeys::<Test>::get(author, IncId::from(5u8)),
                 Some(key_4.into())
             );
             assert!(
@@ -990,7 +933,7 @@ with_each_scheme! {
             check_did_detail(&did, 1, 1, 1, next_nonce - 1);
             next_nonce_1 += 1;
 
-            let key = SchemeKey::new(vec![8u8; 100], None, CurveType::Bls12381);
+            let key = SchemeKey::new(vec![8u8; 100].try_into().unwrap(), None, CurveType::Bls12381);
             let ak = AddOffchainSignaturePublicKey {
                 key: key.clone().into(),
                 did: did_1,
@@ -1005,10 +948,10 @@ with_each_scheme! {
             next_nonce += 1;
 
             assert_eq!(
-                PublicKeys::get(did_1, IncId::from(2u8)),
+                PublicKeys::<Test>::get(did_1, IncId::from(2u8)),
                 Some(key.into())
             );
-            assert_eq!(PublicKeys::get(did, IncId::from(2u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(did, IncId::from(2u8)), None);
             assert!(
                 sig_events().contains(&offchain_signatures::Event::KeyAdded(did_1, 2u8.into()))
             );
@@ -1025,7 +968,7 @@ with_each_scheme! {
             check_did_detail(&did_1, 2, 1, 2, next_nonce_1 - 1);
             check_did_detail(&did, 1, 1, 1, next_nonce);
 
-            assert_eq!(PublicKeys::get(did_1, IncId::from(2u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(did_1, IncId::from(2u8)), None);
             assert!(
                 sig_events().contains(&offchain_signatures::Event::KeyRemoved(did_1, 2u8.into()))
             );
@@ -1045,23 +988,23 @@ with_each_scheme! {
             run_to_block(30);
             let (author_2, _) = newdid();
 
-            let params = SchemeParams::new(None, vec![5; 100], CurveType::Bls12381);
-            let params_1 = SchemeParams::new(None, vec![6; 100], CurveType::Bls12381);
+            let params = SchemeParams::<Test>::new(None, vec![5; 100].try_into().unwrap(), CurveType::Bls12381);
+            let params_1 = SchemeParams::<Test>::new(None, vec![6; 100].try_into().unwrap(), CurveType::Bls12381);
 
-            let key = SchemeKey::new(vec![1; 80], None, CurveType::Bls12381);
-            let key_1 = SchemeKey::new(vec![2; 80], None, CurveType::Bls12381);
-            let key_2 = SchemeKey::new(vec![3; 80], None, CurveType::Bls12381);
+            let key = SchemeKey::new(vec![1; 80].try_into().unwrap(), None, CurveType::Bls12381);
+            let key_1 = SchemeKey::new(vec![2; 80].try_into().unwrap(), None, CurveType::Bls12381);
+            let key_2 = SchemeKey::new(vec![3; 80].try_into().unwrap(), None, CurveType::Bls12381);
 
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_2)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_2)),
                 IncId::from(0u8)
             );
 
@@ -1076,12 +1019,12 @@ with_each_scheme! {
             )
             .is_ok());
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(1u8)
             );
-            assert_eq!(PublicKeys::get(author, IncId::from(1u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(1u8)), None);
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 Some(params.clone().into())
             );
 
@@ -1100,10 +1043,10 @@ with_each_scheme! {
             )
             .is_ok());
             assert_eq!(
-                PublicKeys::get(author, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author, IncId::from(2u8)),
                 Some(key.clone().into())
             );
-            assert_eq!(PublicKeys::get(author, IncId::from(3u8)), None);
+            assert_eq!(PublicKeys::<Test>::get(author, IncId::from(3u8)), None);
 
             run_to_block(50);
 
@@ -1120,11 +1063,11 @@ with_each_scheme! {
             )
             .is_ok());
             assert_eq!(
-                PublicKeys::get(author, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author, IncId::from(2u8)),
                 Some(key.clone().into())
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(3u8)),
+                PublicKeys::<Test>::get(author, IncId::from(3u8)),
                 Some(key_1.clone().into())
             );
 
@@ -1143,15 +1086,15 @@ with_each_scheme! {
             )
             .is_ok());
             assert_eq!(
-                PublicKeys::get(author, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author, IncId::from(2u8)),
                 Some(key.clone().into())
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(3u8)),
+                PublicKeys::<Test>::get(author, IncId::from(3u8)),
                 Some(key_1.clone().into())
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(4u8)),
+                PublicKeys::<Test>::get(author, IncId::from(4u8)),
                 Some(key_2.clone().into())
             );
 
@@ -1167,36 +1110,36 @@ with_each_scheme! {
             )
             .is_ok());
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author)),
                 IncId::from(2u8)
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author, IncId::from(2u8)),
                 Some(key.clone().into())
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(3u8)),
+                PublicKeys::<Test>::get(author, IncId::from(3u8)),
                 Some(key_1.clone().into())
             );
             assert_eq!(
-                PublicKeys::get(author, IncId::from(4u8)),
+                PublicKeys::<Test>::get(author, IncId::from(4u8)),
                 Some(key_2.into())
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(1u8)),
                 Some(params.clone().into())
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author), IncId::from(2u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author), IncId::from(2u8)),
                 Some(params_1.into())
             );
 
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(0u8)
             );
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_2)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_2)),
                 IncId::from(0u8)
             );
 
@@ -1215,7 +1158,7 @@ with_each_scheme! {
             )
             .is_ok());
             assert_eq!(
-                PublicKeys::get(author_1, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author_1, IncId::from(2u8)),
                 Some(key.clone().into())
             );
 
@@ -1231,15 +1174,15 @@ with_each_scheme! {
             )
             .is_ok());
             assert_eq!(
-                ParamsCounter::get(SignatureParamsOwner(author_1)),
+                ParamsCounter::<Test>::get(SignatureParamsOwner(author_1)),
                 IncId::from(1u8)
             );
             assert_eq!(
-                PublicKeys::get(author_1, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author_1, IncId::from(2u8)),
                 Some(key.clone().into())
             );
             assert_eq!(
-                SignatureParams::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
+                SignatureParams::<Test>::get(SignatureParamsOwner(author_1), IncId::from(1u8)),
                 Some(params.into())
             );
 
@@ -1258,11 +1201,11 @@ with_each_scheme! {
             )
             .is_ok());
             assert_eq!(
-                PublicKeys::get(author_1, IncId::from(2u8)),
+                PublicKeys::<Test>::get(author_1, IncId::from(2u8)),
                 Some(key.into())
             );
             assert_eq!(
-                PublicKeys::get(author_1, IncId::from(3u8)),
+                PublicKeys::<Test>::get(author_1, IncId::from(3u8)),
                 Some(key_1.into())
             );
         });
@@ -1275,18 +1218,18 @@ with_each_scheme! {
 
             let (author_1, _) = newdid();
 
-            let params = SchemeParams::new(None, vec![5; 100], CurveType::Bls12381);
-            let params_1 = SchemeParams::new(None, vec![6; 100], CurveType::Bls12381);
-            let params_2 = SchemeParams::new(None, vec![7; 100], CurveType::Bls12381);
+            let params = SchemeParams::<Test>::new(None, vec![5; 100].try_into().unwrap(), CurveType::Bls12381);
+            let params_1 = SchemeParams::<Test>::new(None, vec![6; 100].try_into().unwrap(), CurveType::Bls12381);
+            let params_2 = SchemeParams::<Test>::new(None, vec![7; 100].try_into().unwrap(), CurveType::Bls12381);
 
-            let key = SchemeKey::new(vec![1; 80], None, CurveType::Bls12381);
+            let key = SchemeKey::new(vec![1; 80].try_into().unwrap(), None, CurveType::Bls12381);
             let key_1 = SchemeKey::new(
-                vec![2; 80],
+                vec![2; 80].try_into().unwrap(),
                 Some((SignatureParamsOwner(author), 1u8.into())),
                 CurveType::Bls12381,
             );
             let key_2 = SchemeKey::new(
-                vec![3; 80],
+                vec![3; 80].try_into().unwrap(),
                 Some((SignatureParamsOwner(author_1), 1u8.into())),
                 CurveType::Bls12381,
             );
@@ -1301,13 +1244,13 @@ with_each_scheme! {
             );
             assert_eq!(
                 SignatureMod::did_public_key(author, IncId::from(0u8))
-                    .and_then(|key| -> Option<SchemeKey> { key.try_into().ok() })
+                    .and_then(|key| -> Option<SchemeKey<Test>> { key.try_into().ok() })
                     .map(SchemeKey::with_params),
                 None
             );
             assert_eq!(
                 SignatureMod::did_public_key(author_1, IncId::from(0u8))
-                    .and_then(|key| -> Option<SchemeKey> { key.try_into().ok() })
+                    .and_then(|key| -> Option<SchemeKey<Test>> { key.try_into().ok() })
                     .map(SchemeKey::with_params),
                 None
             );
@@ -1369,7 +1312,7 @@ with_each_scheme! {
             .is_ok());
             assert_eq!(
                 SignatureMod::did_public_key(author, IncId::from(2u8))
-                    .and_then(|key| -> Option<SchemeKey> { key.try_into().ok() })
+                    .and_then(|key| -> Option<SchemeKey<Test>> { key.try_into().ok() })
                     .map(SchemeKey::with_params),
                 Some((key.clone(), None))
             );
@@ -1387,7 +1330,7 @@ with_each_scheme! {
             .is_ok());
             assert_eq!(
                 SignatureMod::did_public_key(author_1, IncId::from(2u8))
-                    .and_then(|key| -> Option<SchemeKey> { key.try_into().ok() })
+                    .and_then(|key| -> Option<SchemeKey<Test>> { key.try_into().ok() })
                     .map(SchemeKey::with_params),
                 Some((key_1.clone(), Some(params.clone())))
             );
@@ -1405,14 +1348,14 @@ with_each_scheme! {
             .is_ok());
             assert_eq!(
                 SignatureMod::did_public_key(author, IncId::from(3u8))
-                    .and_then(|key| -> Option<SchemeKey> { key.try_into().ok() })
+                    .and_then(|key| -> Option<SchemeKey<Test>> { key.try_into().ok() })
                     .map(SchemeKey::with_params),
                 Some((key_2.clone(), Some(params_1.clone())))
             );
 
             assert_eq!(
                 SignatureMod::did_public_keys(&Controller(author_1))
-                    .map(|(idx, key)| (idx, key.checked_into::<SchemeKey>().unwrap().with_params()))
+                    .map(|(idx, key)| (idx, key.checked_into::<SchemeKey<Test>>().unwrap().with_params()))
                     .collect::<BTreeMap<_, _>>(),
                 {
                     let mut m = BTreeMap::new();
@@ -1423,7 +1366,7 @@ with_each_scheme! {
 
             assert_eq!(
                 SignatureMod::did_public_keys(&Controller(author))
-                    .map(|(idx, key)| (idx, key.checked_into::<SchemeKey>().unwrap().with_params()))
+                    .map(|(idx, key)| (idx, key.checked_into::<SchemeKey<Test>>().unwrap().with_params()))
                     .collect::<BTreeMap<_, _>>(),
                 {
                     let mut m = BTreeMap::new();
@@ -1433,7 +1376,7 @@ with_each_scheme! {
                 }
             );
 
-            SignatureParams::remove(SignatureParamsOwner(author), IncId::from(1u8));
+            SignatureParams::<Test>::remove(SignatureParamsOwner(author), IncId::from(1u8));
 
             assert_eq!(
                 SignatureMod::did_params(&SignatureParamsOwner(author)).count(),
@@ -1442,7 +1385,7 @@ with_each_scheme! {
 
             assert_eq!(
                 SignatureMod::did_public_keys(&Controller(author_1))
-                    .map(|(idx, key)| (idx, key.checked_into::<SchemeKey>().unwrap().with_params()))
+                    .map(|(idx, key)| (idx, key.checked_into::<SchemeKey<Test>>().unwrap().with_params()))
                     .collect::<BTreeMap<_, _>>(),
                 {
                     let mut m = BTreeMap::new();

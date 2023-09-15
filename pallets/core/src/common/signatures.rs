@@ -1,6 +1,6 @@
 use super::keys::PublicKey;
 use crate::util::{Bytes64, Bytes65};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::dispatch::Weight;
 use sha2::{Digest, Sha256};
 use sp_core::{ed25519, sr25519, Pair};
@@ -8,7 +8,9 @@ use sp_runtime::traits::Verify;
 use sp_std::convert::TryInto;
 
 /// An abstraction for a signature.
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(omit_prefix)]
 pub enum SigValue {
@@ -45,8 +47,8 @@ impl SigValue {
     ) -> Result<bool, VerificationError> {
         macro_rules! verify {
             ( $message:ident, $sig_bytes:ident, $pk_bytes:ident, $sig_type:expr, $pk_type:expr ) => {{
-                let signature = $sig_type($sig_bytes.value);
-                let pk = $pk_type($pk_bytes.value);
+                let signature = $sig_type(**$sig_bytes);
+                let pk = $pk_type(**$pk_bytes);
                 signature.verify($message, &pk)
             }};
         }
@@ -74,9 +76,9 @@ impl SigValue {
                 let hash = Sha256::digest(message).try_into().unwrap();
                 let m = libsecp256k1::Message::parse(&hash);
                 let sig = libsecp256k1::Signature::parse_overflowing(
-                    sig_bytes.value[0..64].try_into().unwrap(),
+                    sig_bytes[..][0..64].try_into().unwrap(),
                 );
-                let p = libsecp256k1::PublicKey::parse_compressed(&pk_bytes.value).unwrap();
+                let p = libsecp256k1::PublicKey::parse_compressed(pk_bytes).unwrap();
                 libsecp256k1::verify(&m, &sig, &p)
             }
             _ => Err(VerificationError::IncompatibleKey(
@@ -89,15 +91,11 @@ impl SigValue {
     }
 
     pub fn sr25519(msg: &[u8], pair: &sr25519::Pair) -> Self {
-        SigValue::Sr25519(Bytes64 {
-            value: pair.sign(msg).0,
-        })
+        SigValue::Sr25519(pair.sign(msg).0.into())
     }
 
     pub fn ed25519(msg: &[u8], pair: &ed25519::Pair) -> Self {
-        SigValue::Ed25519(Bytes64 {
-            value: pair.sign(msg).0,
-        })
+        SigValue::Ed25519(pair.sign(msg).0.into())
     }
 
     pub fn secp256k1(msg: &[u8], sk: &libsecp256k1::SecretKey) -> Self {
@@ -131,7 +129,7 @@ pub fn sign_with_secp256k1(msg: &[u8], sk: &libsecp256k1::SecretKey) -> SigValue
     let mut sig_bytes: [u8; 65] = [0; 65];
     sig_bytes[0..64].copy_from_slice(&sig.0.serialize()[..]);
     sig_bytes[64] = sig.1.serialize();
-    SigValue::Secp256k1(Bytes65 { value: sig_bytes })
+    SigValue::Secp256k1(sig_bytes.into())
 }
 
 #[cfg(test)]
@@ -139,7 +137,7 @@ mod tests {
     use crate::common::get_secp256k1_keypair;
 
     use super::*;
-    use crate::util::Bytes32;
+
     use sp_core::Pair;
 
     #[test]
@@ -155,16 +153,16 @@ mod tests {
             ( $module:ident, $pk_type:expr, $correct_sig_type:expr, $incorrect_sig_type:expr ) => {{
                 let (pair, _, _) = $module::Pair::generate_with_phrase(None);
                 let pk_bytes = pair.public().0;
-                let pk = $pk_type(Bytes32 { value: pk_bytes });
+                let pk = $pk_type(pk_bytes.into());
                 assert!(pk.can_sign());
                 let sig_bytes = pair.sign(&msg).0;
-                let correct_sig = $correct_sig_type(Bytes64 { value: sig_bytes });
+                let correct_sig = $correct_sig_type(sig_bytes.into());
 
                 // Valid signature wrapped in a correct type works
                 assert!(correct_sig.verify(&msg, &pk).unwrap());
 
                 // Valid signature wrapped in an incorrect type does not work
-                let incorrect_sig = $incorrect_sig_type(Bytes64 { value: sig_bytes });
+                let incorrect_sig = $incorrect_sig_type(sig_bytes.into());
                 assert!(incorrect_sig.verify(&msg, &pk).is_err())
             }};
         }
@@ -185,7 +183,7 @@ mod tests {
         let (sk, pk) = get_secp256k1_keypair(&[1; 32]);
         assert!(pk.can_sign());
         let correct_sig = sign_with_secp256k1(&msg, &sk);
-        let incorrect_sig = SigValue::Ed25519(Bytes64 { value: [10; 64] });
+        let incorrect_sig = SigValue::Ed25519([10; 64].into());
         assert!(correct_sig.verify(&msg, &pk).unwrap());
         assert!(incorrect_sig.verify(&msg, &pk).is_err());
     }

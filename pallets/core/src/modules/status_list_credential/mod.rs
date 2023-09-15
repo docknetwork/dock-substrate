@@ -2,18 +2,14 @@
 //! - [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
 //! - [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential).
 use crate::{
-    common::{
-        DidSignatureWithNonce, MaxPolicyControllers, Policy, PolicyExecutionError, SigValue,
-        ToStateChange,
-    },
+    common::{DidSignatureWithNonce, Policy, PolicyExecutionError, SigValue, ToStateChange},
     deposit_indexed_event, did,
     util::{Action, NonceError, WithNonce},
 };
 use alloc::vec::*;
-use frame_support::{decl_error, decl_event, decl_module, decl_storage, pallet_prelude::*};
-use frame_system as system;
+use frame_support::pallet_prelude::*;
+
 use frame_system::ensure_signed;
-use sp_std::{fmt::Debug, prelude::*};
 
 #[cfg(feature = "runtime-benchmarks")]
 pub mod benchmarks;
@@ -26,65 +22,67 @@ pub mod actions;
 pub mod types;
 
 pub use actions::*;
+pub use pallet::*;
 pub use types::*;
 use weights::*;
 
-pub trait Config: system::Config + did::Config + MaxPolicyControllers {
-    /// `StatusListCredential`s with size larger than this won't be accepted.
-    type MaxStatusListCredentialSize: Get<u32>;
-    /// `StatusListCredential`s with size less than this won't be accepted.
-    type MinStatusListCredentialSize: Get<u32>;
+#[frame_support::pallet]
 
-    type Event: From<Event> + Into<<Self as system::Config>::Event>;
-}
+pub mod pallet {
+    use super::*;
 
-decl_error! {
+    use frame_system::pallet_prelude::*;
+
     /// Error for the StatusListCredential module.
-    pub enum StatusListCredentialError for Module<T: Config> where T: Debug {
-        /// The `StatusListCredential` byte length is greater than `MaxStatusListCredentialSize`
-        StatusListCredentialTooBig,
+    #[pallet::error]
+    pub enum Error<T> {
         /// There is already a `StatusListCredential` with the same id
         StatusListCredentialAlreadyExists,
         /// The `StatusListCredential` byte length is less than `MinStatusListCredentialSize`
         StatusListCredentialTooSmall,
         /// Action can't have an empty payload.
-        EmptyPayload
+        EmptyPayload,
     }
-}
 
-decl_event! {
+    #[pallet::event]
     pub enum Event {
         /// `StatusListCredential` with the given id was created.
         StatusListCredentialCreated(StatusListCredentialId),
         /// `StatusListCredential` with the given id was updated.
         StatusListCredentialUpdated(StatusListCredentialId),
         /// `StatusListCredential` with the given id was removed.
-        StatusListCredentialRemoved(StatusListCredentialId)
+        StatusListCredentialRemoved(StatusListCredentialId),
     }
-}
 
-decl_storage! {
-    trait Store for Module<T: Config> as Credential where T: Debug {
-        /// Stores `StatusListCredential`s along with their modification policies.
-        /// The credential itself is represented as a raw byte sequence and can be either
-        /// - [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
-        /// - [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential)
-        StatusListCredentials get(fn status_list_credential): map
-            hasher(blake2_128_concat) StatusListCredentialId => Option<StatusListCredentialWithPolicy>;
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + did::Config {
+        type Event: From<Event>
+            + IsType<<Self as frame_system::Config>::Event>
+            + Into<<Self as frame_system::Config>::Event>;
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
-        fn deposit_event() = default;
+    /// Stores `StatusListCredential`s along with their modification policies.
+    /// The credential itself is represented as a raw byte sequence and can be either
+    /// - [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
+    /// - [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential)
+    #[pallet::storage]
+    #[pallet::getter(fn status_list_credential)]
+    pub type StatusListCredentials<T> =
+        StorageMap<_, Blake2_128Concat, StatusListCredentialId, StatusListCredentialWithPolicy<T>>;
 
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Associates a new `StatusListCredentialWithPolicy` with the supplied identifier.
         /// This method doesn't ensure `StatusListCredential` is a valid `JSON-LD` object.
-        #[weight = SubstrateWeight::<T>::create(credential)]
+        #[pallet::weight(SubstrateWeight::<T>::create(credential))]
         pub fn create(
-            origin,
+            origin: OriginFor<T>,
             id: StatusListCredentialId,
-            credential: StatusListCredentialWithPolicy
+            credential: StatusListCredentialWithPolicy<T>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -93,37 +91,45 @@ decl_module! {
 
         /// Updates `StatusListCredential` associated with the supplied identifier.
         /// This method doesn't ensure `StatusListCredential` is a valid `JSON-LD` object.
-        #[weight = SubstrateWeight::<T>::update(&proof[0], update_credential)]
+        #[pallet::weight(SubstrateWeight::<T>::update(&proof[0], update_credential))]
         pub fn update(
-            origin,
+            origin: OriginFor<T>,
             update_credential: UpdateStatusListCredentialRaw<T>,
             proof: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_status_list_credential(Self::update_, update_credential, proof)
+            Self::try_exec_action_over_status_list_credential(
+                Self::update_,
+                update_credential,
+                proof,
+            )
         }
 
         /// Removes `StatusListCredential` associated with the supplied identifier.
-        #[weight = SubstrateWeight::<T>::remove(&proof[0])]
+        #[pallet::weight(SubstrateWeight::<T>::remove(&proof[0]))]
         pub fn remove(
-            origin,
+            origin: OriginFor<T>,
             remove_credential: RemoveStatusListCredentialRaw<T>,
             proof: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_removable_action_over_status_list_credential(Self::remove_, remove_credential, proof)
+            Self::try_exec_removable_action_over_status_list_credential(
+                Self::remove_,
+                remove_credential,
+                proof,
+            )
         }
     }
 }
 
-impl<T: frame_system::Config> SubstrateWeight<T> {
+impl<T: Config> SubstrateWeight<T> {
     fn create(
         StatusListCredentialWithPolicy {
             status_list_credential,
             policy,
-        }: &StatusListCredentialWithPolicy,
+        }: &StatusListCredentialWithPolicy<T>,
     ) -> Weight {
         <Self as WeightInfo>::create(status_list_credential.len(), policy.len())
     }

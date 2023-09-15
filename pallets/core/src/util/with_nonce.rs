@@ -1,11 +1,11 @@
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::{traits::CheckedAdd, DispatchError};
 use sp_std::{convert::TryInto, fmt::Debug};
 
 /// Wrapper for any kind of entity with a nonce.
 /// Nonces are mostly used for replay protection.
 /// Initial nonce will be equal to the current block number provided by the system.
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, Debug, Eq, PartialEq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -16,12 +16,28 @@ use sp_std::{convert::TryInto, fmt::Debug};
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
+#[codec(encode_bound(T: frame_system::Config, D: Encode))]
 pub struct WithNonce<T: frame_system::Config, D> {
     pub nonce: T::BlockNumber,
     #[cfg(test)]
     pub data: D,
     #[cfg(not(test))]
     data: D,
+}
+
+impl<T: frame_system::Config, D: core::fmt::Debug> core::fmt::Debug for WithNonce<T, D> {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        f.debug_struct("WithNonce")
+            .field("nonce", &self.nonce)
+            .field("data", &self.data)
+            .finish()
+    }
+}
+
+impl<T: frame_system::Config, D: MaxEncodedLen> MaxEncodedLen for WithNonce<T, D> {
+    fn max_encoded_len() -> usize {
+        T::BlockNumber::max_encoded_len().saturating_add(D::max_encoded_len())
+    }
 }
 
 /// A nonce handling-related error.

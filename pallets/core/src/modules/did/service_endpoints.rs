@@ -1,18 +1,64 @@
 use super::*;
-use crate::{deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info, util::Bytes};
-use codec::{Decode, Encode};
-use sp_std::fmt::Debug;
+use crate::{
+    common::SizeConfig, deposit_indexed_event, impl_bits_conversion, impl_wrapper,
+    impl_wrapper_type_info,
+};
+use codec::{Decode, Encode, MaxEncodedLen};
+use sp_runtime::BoundedVec;
 
-/// DID service endpoint.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+/// `DID`'s service endpoint.
+#[derive(
+    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct ServiceEndpoint {
+pub struct ServiceEndpoint<T: SizeConfig> {
     pub types: ServiceEndpointType,
-    pub origins: Vec<Bytes>,
+    pub origins: BoundedVec<ServiceEndpointOrigin<T>, T::MaxDidServiceEndpointOrigins>,
 }
+
+/// `DID`'s service endpoint id.
+#[derive(
+    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct ServiceEndpointId<T: SizeConfig>(pub BoundedBytes<T::MaxDidServiceEndpointIdSize>);
+
+impl_wrapper!(ServiceEndpointId<T: SizeConfig>(BoundedBytes<T::MaxDidServiceEndpointIdSize>));
+
+/// `DID`'s service endpoint origin.
+#[derive(
+    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct ServiceEndpointOrigin<T: SizeConfig>(
+    pub BoundedBytes<T::MaxDidServiceEndpointOriginSize>,
+);
+
+impl_wrapper!(ServiceEndpointOrigin<T: SizeConfig>(BoundedBytes<T::MaxDidServiceEndpointOriginSize>));
 
 bitflags::bitflags! {
     /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
@@ -28,45 +74,29 @@ bitflags::bitflags! {
 impl_bits_conversion! { ServiceEndpointType from u16 }
 impl_wrapper_type_info! { ServiceEndpointType(u16) }
 
-impl ServiceEndpoint {
-    pub fn is_valid(&self, max_origins: usize, max_origin_length: usize) -> bool {
+impl<T: Config> ServiceEndpoint<T> {
+    pub fn is_valid(&self) -> bool {
         !self.types.is_empty()
             && !self.origins.is_empty()
-            && self.origins.len() <= max_origins
-            && !self
-                .origins
-                .iter()
-                .any(|o| o.is_empty() || o.len() > max_origin_length)
+            && !self.origins.iter().any(|origin| origin.is_empty())
     }
 }
 
-impl<T: Config> Module<T>
-where
-    T: Debug,
-{
+impl<T: Config> Pallet<T> {
     pub(crate) fn add_service_endpoint_(
         AddServiceEndpoint {
             did, id, endpoint, ..
         }: AddServiceEndpoint<T>,
         _: &mut OnChainDidDetails,
-    ) -> Result<(), Error<T>> {
+    ) -> DispatchResult {
         ensure!(!id.is_empty(), Error::<T>::InvalidServiceEndpoint);
+        ensure!(endpoint.is_valid(), Error::<T>::InvalidServiceEndpoint);
         ensure!(
-            T::MaxServiceEndpointIdSize::get() as usize >= id.len(),
-            Error::<T>::InvalidServiceEndpoint
-        );
-        ensure!(
-            endpoint.is_valid(
-                T::MaxServiceEndpointOrigins::get() as usize,
-                T::MaxServiceEndpointOriginSize::get() as usize
-            ),
-            Error::<T>::InvalidServiceEndpoint
+            Self::did_service_endpoints(did, &id).is_none(),
+            Error::<T>::ServiceEndpointAlreadyExists
         );
 
-        if Self::did_service_endpoints(did, &id).is_some() {
-            fail!(Error::<T>::ServiceEndpointAlreadyExists)
-        }
-        DidServiceEndpoints::insert(did, id, endpoint);
+        DidServiceEndpoints::<T>::insert(did, id, endpoint);
 
         deposit_indexed_event!(DidServiceEndpointAdded(did));
         Ok(())
@@ -75,13 +105,14 @@ where
     pub(crate) fn remove_service_endpoint_(
         RemoveServiceEndpoint { did, id, .. }: RemoveServiceEndpoint<T>,
         _: &mut OnChainDidDetails,
-    ) -> Result<(), Error<T>> {
+    ) -> DispatchResult {
         ensure!(!id.is_empty(), Error::<T>::InvalidServiceEndpoint);
+        ensure!(
+            Self::did_service_endpoints(did, &id).is_some(),
+            Error::<T>::ServiceEndpointDoesNotExist
+        );
 
-        if Self::did_service_endpoints(did, &id).is_none() {
-            fail!(Error::<T>::ServiceEndpointDoesNotExist)
-        }
-        DidServiceEndpoints::remove(did, id);
+        DidServiceEndpoints::<T>::remove(did, id);
 
         deposit_indexed_event!(DidServiceEndpointRemoved(did));
         Ok(())

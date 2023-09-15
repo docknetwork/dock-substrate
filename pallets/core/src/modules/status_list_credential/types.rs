@@ -1,31 +1,38 @@
+#[cfg(feature = "serde")]
+use crate::util::hex;
 use crate::{
-    common::{HasPolicy, Policy},
-    util::Bytes,
+    common::{HasPolicy, Policy, SizeConfig},
+    util::BoundedBytes,
 };
-use codec::{Decode, Encode};
-use core::{
-    fmt::Debug,
-    ops::{Index, RangeFull},
-};
-use frame_support::{ensure, traits::Get};
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::fmt::Debug;
+use frame_support::{traits::Get, DebugNoBound, *};
 use sp_runtime::DispatchResult;
 
-use super::{Config, StatusListCredentialError};
+use super::{Config, Error};
 
 /// Either [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
 /// or [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential).
 /// The underlying verifiable credential is represented as a raw byte sequence.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(
+    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum StatusListCredential {
+pub enum StatusListCredential<T: SizeConfig> {
     /// A verifiable credential that encapsulates a revocation list as per https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential.
-    RevocationList2020Credential(Bytes),
+    RevocationList2020Credential(BoundedBytes<T::MaxStatusListCredentialSize>),
     /// A verifiable credential that contains a status list as per https://www.w3.org/TR/vc-status-list/#statuslist2021credential.
-    StatusList2021Credential(Bytes),
+    StatusList2021Credential(BoundedBytes<T::MaxStatusListCredentialSize>),
 }
 
-impl StatusListCredential {
+impl<T: SizeConfig> StatusListCredential<T> {
     /// Returns underlying raw bytes.
     pub fn bytes(&self) -> &[u8] {
         match self {
@@ -45,14 +52,13 @@ impl StatusListCredential {
     }
 
     /// Ensures that byte length is valid.
-    pub fn ensure_valid<T: Config + Debug>(&self) -> Result<(), StatusListCredentialError<T>> {
-        ensure!(
-            self.len() <= T::MaxStatusListCredentialSize::get(),
-            StatusListCredentialError::StatusListCredentialTooBig
-        );
+    pub fn ensure_valid(&self) -> Result<(), Error<T>>
+    where
+        T: Config,
+    {
         ensure!(
             self.len() >= T::MinStatusListCredentialSize::get(),
-            StatusListCredentialError::StatusListCredentialTooSmall
+            Error::StatusListCredentialTooSmall
         );
 
         Ok(())
@@ -60,21 +66,23 @@ impl StatusListCredential {
 }
 
 /// `StatusListCredential` combined with `Policy`.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(
+    scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen,
+)]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct StatusListCredentialWithPolicy {
-    pub status_list_credential: StatusListCredential,
-    pub policy: Policy,
+pub struct StatusListCredentialWithPolicy<T: SizeConfig> {
+    pub status_list_credential: StatusListCredential<T>,
+    pub policy: Policy<T>,
 }
 
-impl HasPolicy for StatusListCredentialWithPolicy {
-    fn policy(&self) -> &Policy {
+impl<T: SizeConfig> HasPolicy<T> for StatusListCredentialWithPolicy<T> {
+    fn policy(&self) -> &Policy<T> {
         &self.policy
     }
 }
 
-impl StatusListCredentialWithPolicy {
+impl<T: SizeConfig> StatusListCredentialWithPolicy<T> {
     /// Returns underlying raw bytes.
     pub fn bytes(&self) -> &[u8] {
         self.status_list_credential.bytes()
@@ -91,40 +99,33 @@ impl StatusListCredentialWithPolicy {
     }
 
     /// Ensures that underlying `Policy` and `StatusListCredential` are valid.
-    pub fn ensure_valid<T: Config + Debug>(&self) -> DispatchResult {
-        self.policy.ensure_valid::<T>()?;
-        self.status_list_credential.ensure_valid::<T>()?;
+    pub fn ensure_valid(&self) -> DispatchResult
+    where
+        T: Config,
+    {
+        self.policy.ensure_valid()?;
+        self.status_list_credential.ensure_valid()?;
 
         Ok(())
     }
 }
 
-impl From<StatusListCredentialWithPolicy> for StatusListCredential {
+impl<T: SizeConfig> From<StatusListCredentialWithPolicy<T>> for StatusListCredential<T> {
     fn from(
         StatusListCredentialWithPolicy {
             status_list_credential,
             ..
-        }: StatusListCredentialWithPolicy,
-    ) -> StatusListCredential {
+        }: StatusListCredentialWithPolicy<T>,
+    ) -> StatusListCredential<T> {
         status_list_credential
     }
 }
 
 /// Unique identifier for the `StatusListCredential`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct StatusListCredentialId(
-    #[cfg_attr(feature = "serde", serde(with = "crate::util::hex"))] pub [u8; 32],
-);
+pub struct StatusListCredentialId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
 
 crate::impl_wrapper!(StatusListCredentialId([u8; 32]));
-
-impl Index<RangeFull> for StatusListCredentialId {
-    type Output = [u8; 32];
-
-    fn index(&self, _: RangeFull) -> &Self::Output {
-        &self.0
-    }
-}

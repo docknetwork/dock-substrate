@@ -38,7 +38,7 @@ crate::def_state_change! {
 }
 
 /// Converts the given entity to the state change.
-pub trait ToStateChange<T: frame_system::Config> {
+pub trait ToStateChange<T: crate::common::SizeConfig + frame_system::Config> {
     /// Converts the given entity to the state change.
     fn to_state_change(&self) -> StateChange<'_, T>;
 }

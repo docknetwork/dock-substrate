@@ -29,6 +29,12 @@ macro_rules! impl_bits_conversion {
                 Self::from_bits(decoded).ok_or("Invalid value".into())
             }
         }
+
+        impl MaxEncodedLen for $ident {
+            fn max_encoded_len() -> usize {
+                <$type>::max_encoded_len()
+            }
+        }
     };
 }
 
@@ -67,7 +73,9 @@ macro_rules! field_accessor {
 #[macro_export]
 macro_rules! impl_to_state_change {
     ($type: ident) => {
-        impl<T: frame_system::Config> $crate::common::ToStateChange<T> for $type<T> {
+        impl<T: $crate::common::SizeConfig + frame_system::Config> $crate::common::ToStateChange<T>
+            for $type<T>
+        {
             fn to_state_change(&self) -> $crate::common::StateChange<'_, T> {
                 $crate::common::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
             }
@@ -85,7 +93,7 @@ macro_rules! impl_action {
     ) => {
         $crate::impl_to_state_change! { $type }
 
-        impl<T: frame_system::Config> $crate::util::Action<T> for $type<T> {
+        impl<T: $crate::common::SizeConfig + frame_system::Config> $crate::util::Action<T> for $type<T> {
             type Target = $target;
 
             fn target(&self) -> $target {
@@ -103,7 +111,7 @@ macro_rules! impl_action {
         $($target_field: tt $(($($target_call: tt),*))?).+ as target
         no_state_change
     ) => {
-        impl<T: frame_system::Config> $crate::util::Action<T> for $type<T> {
+        impl<T: $crate::common::SizeConfig + frame_system::Config> $crate::util::Action<T> for $type<T> {
             type Target = $target;
 
             fn target(&self) -> $target {
@@ -141,7 +149,7 @@ macro_rules! impl_action_with_nonce {
     ($type: ident for $($token: tt)*) => {
         $crate::impl_action! { $type for $($token)* }
 
-        impl<T: frame_system::Config> $crate::util::ActionWithNonce<T> for $type<T> {
+        impl<T: $crate::common::SizeConfig + frame_system::Config> $crate::util::ActionWithNonce<T> for $type<T> {
             fn nonce(&self) -> T::BlockNumber {
                 self.nonce
             }
@@ -167,7 +175,7 @@ macro_rules! impl_action_with_nonce {
 #[macro_export]
 macro_rules! deposit_indexed_event {
     ($event: ident($($value: expr),+) over $($index: expr),+) => {{
-        <system::Pallet<T>>::deposit_event_indexed(
+        <frame_system::Pallet<T>>::deposit_event_indexed(
             &[$(<<T as frame_system::Config>::Hashing as sp_core::Hasher>::hash(&$index[..])),+],
             <T as Config>::Event::from(Event::$event($($value),+)).into()
         );
@@ -180,16 +188,16 @@ macro_rules! deposit_indexed_event {
 /// Implements two-direction `From`/`Into` and one-direction `Deref`/`DeferMut` traits for the supplied wrapper and type.
 #[macro_export]
 macro_rules! impl_wrapper {
-    (no_wrapper_from_type $wrapper: ident($type: ty) $(,$($tt: tt)*)?) => {
-        $($crate::impl_encode_decode_wrapper_tests! { $wrapper($type), $($tt)* })?
+    (no_wrapper_from_type $wrapper: ident$(<$($gen: ident: $($bound: path),+),*>)?($type: ty) $(,$($rest: tt)*)?) => {
+        $($crate::impl_encode_decode_wrapper_tests! { $wrapper($type), $($rest)* })?
 
-        impl From<$wrapper> for $type {
-            fn from(wrapper: $wrapper) -> $type {
+        impl$(<$($gen: $($bound)++),+>)* From<$wrapper$(<$($gen),+>)*> for $type {
+            fn from(wrapper: $wrapper$(<$($gen),+>)*) -> $type {
                 wrapper.0
             }
         }
 
-        impl sp_std::ops::Deref for $wrapper {
+        impl$(<$($gen: $($bound)++),+>)* sp_std::ops::Deref for $wrapper$(<$($gen),+>)* {
             type Target = $type;
 
             fn deref(&self) -> &Self::Target {
@@ -197,30 +205,28 @@ macro_rules! impl_wrapper {
             }
         }
 
-        impl sp_std::ops::DerefMut for $wrapper {
+        impl$(<$($gen: $($bound)++),+>)* sp_std::ops::DerefMut for $wrapper$(<$($gen),+>)* {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 &mut self.0
             }
         }
     };
-    ($wrapper: ident($type: ty) $(,$($tt: tt)*)?) => {
-        $crate::impl_wrapper! { no_wrapper_from_type $wrapper($type) $(,$($tt)*)? }
+    ($wrapper: ident$(<$($gen: ident: $($bound: path),+),*>)?($type: ty) $(,$($rest: tt)*)?) => {
+        $crate::impl_wrapper! { no_wrapper_from_type $wrapper$(<$($gen: $($bound),+),+>)*($type) $(,$($rest)*)? }
 
-        $crate::impl_wrapper_from_type_conversion! { $wrapper: $type }
+        $crate::impl_wrapper_from_type_conversion! { from $type => $wrapper$(<$($gen: $($bound),+),+>)* }
     };
 }
 
 /// Implements `From<type>` for the wrapper.
 #[macro_export]
 macro_rules! impl_wrapper_from_type_conversion {
-    ($wrapper: ident: $($type: ty),+) => {
-        $(
-            impl From<$type> for $wrapper {
-                fn from(value: $type) -> $wrapper {
-                    $wrapper(value.into())
-                }
+    (from $type: ty => $wrapper: ident$(<$($gen: ident: $($bound: path),+),*>)?) => {
+        impl$(<$($gen: $($bound)++),+>)* From<$type> for $wrapper$(<$($gen),+>)* {
+            fn from(value: $type) -> $wrapper$(<$($gen),+>)* {
+                $wrapper(value.into())
             }
-        )+
+        }
     }
 }
 
@@ -248,10 +254,19 @@ macro_rules! impl_wrapper_type_info {
 macro_rules! def_state_change {
     ($(#[$meta:meta])* $name: ident: $($mod: ident::$type: ident),+) => {
         $(#[$meta])*
-        #[derive(scale_info_derive::TypeInfo, codec::Encode, codec::Decode, Debug, Clone, PartialEq)]
+        #[
+            derive(
+                scale_info_derive::TypeInfo,
+                codec::Encode,
+                codec::Decode,
+                frame_support::DebugNoBound,
+                frame_support::CloneNoBound,
+                frame_support::PartialEqNoBound
+            )
+        ]
         #[scale_info(skip_type_params(T))]
         #[scale_info(omit_prefix)]
-        pub enum $name<'a, T: frame_system::Config> {
+        pub enum $name<'a, T: $crate::common::SizeConfig + frame_system::Config> {
             $($type(sp_std::borrow::Cow<'a, $crate::modules::$mod::$type<T>>)),+
         }
     }
@@ -260,6 +275,7 @@ macro_rules! def_state_change {
 /// Implements `Encode`/`Decode` wrapper tests for the supplied wrapper and type.
 #[macro_export]
 macro_rules! impl_encode_decode_wrapper_tests {
+    ($wrapper: ident($type: ty)) => {};
     ($wrapper: ident($type: ty), with tests as $mod: ident) => {
         $crate::impl_encode_decode_wrapper_tests!(
             $wrapper($type), for rand use rand::random(), with tests as $mod

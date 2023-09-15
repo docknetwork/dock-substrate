@@ -1,34 +1,69 @@
+use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use sp_std::{borrow::Borrow, fmt::Debug};
 
-use super::{SigValue, ToStateChange, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
+use super::{
+    SigValue, SizeConfig, ToStateChange, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT,
+};
+#[cfg(feature = "serde")]
+use crate::util::btree_set;
 use crate::{
     did,
     did::{Did, DidSignature},
     util::{NonceError, WithNonce},
 };
-use alloc::{collections::BTreeSet, vec::Vec};
-use codec::{Decode, Encode};
+use alloc::vec::Vec;
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     ensure,
     traits::Get,
     weights::{RuntimeDbWeight, Weight},
+    BoundedBTreeSet,
 };
-use sp_runtime::DispatchError;
+use sp_runtime::{traits::TryCollect, DispatchError};
 
 /// Authorization logic containing rules to modify some data entity.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[derive(
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    scale_info_derive::TypeInfo,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum Policy {
+pub enum Policy<T: SizeConfig> {
     /// Set of `DID`s allowed to modify the entity.
-    OneOf(BTreeSet<Did>),
+    OneOf(
+        #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
+        BoundedBTreeSet<Did, T::MaxPolicyControllers>,
+    ),
 }
 
-impl Policy {
+impl<T: SizeConfig> Policy<T> {
     /// Instantiates `Policy::OneOf` from the given iterator of controllers.
-    pub fn one_of(controllers: impl IntoIterator<Item = impl Borrow<Did>>) -> Self {
-        Self::OneOf(controllers.into_iter().map(|did| *did.borrow()).collect())
+    pub fn one_of(
+        controllers: impl IntoIterator<
+            IntoIter = impl ExactSizeIterator<Item = impl Borrow<Did>>,
+            Item = impl Borrow<Did>,
+        >,
+    ) -> Result<Self, PolicyValidationError> {
+        let this = controllers
+            .into_iter()
+            .map(|did| *did.borrow())
+            .try_collect()
+            .map_err(|_| PolicyValidationError::TooManyControllers)
+            .map(Self::OneOf)?;
+
+        Ok(this)
     }
 }
 
@@ -52,6 +87,7 @@ impl From<PolicyExecutionError> for DispatchError {
 }
 
 /// An error occurred during `Policy` validation.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyValidationError {
     Empty,
     TooManyControllers,
@@ -74,14 +110,11 @@ pub trait MaxPolicyControllers {
     type MaxPolicyControllers: Get<u32>;
 }
 
-impl Policy {
+impl<T: SizeConfig> Policy<T> {
     /// Ensures given `Policy` to be valid against supplied config.
-    pub fn ensure_valid<T: MaxPolicyControllers>(&self) -> Result<(), PolicyValidationError> {
+    pub fn ensure_valid(&self) -> Result<(), PolicyValidationError> {
         if self.is_empty() {
             Err(PolicyValidationError::Empty)?
-        }
-        if self.len() > T::MaxPolicyControllers::get() {
-            Err(PolicyValidationError::TooManyControllers)?
         }
 
         Ok(())
@@ -110,15 +143,15 @@ impl Policy {
     ///
     /// Returns a mutable reference to the underlying data wrapped into an option if the command is authorized,
     /// otherwise returns Err.
-    pub fn try_exec_removable_action<T, V, S, F, R, E>(
+    pub fn try_exec_removable_action<V, S, F, R, E>(
         entity: &mut Option<V>,
         f: F,
         mut action: S,
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        T: did::Config + Debug,
-        V: HasPolicy,
+        T: crate::did::Config,
+        V: HasPolicy<T>,
         F: FnOnce(S, &mut Option<V>) -> Result<R, E>,
         WithNonce<T, S>: ToStateChange<T>,
         E: From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
@@ -169,8 +202,12 @@ impl Policy {
 }
 
 /// Collection of signatures sent by different DIDs.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[derive(PartialEq, Eq, Encode, Decode, Clone, DebugNoBound, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -231,7 +268,7 @@ impl<T: frame_system::Config> DidSignatureWithNonce<T> {
 }
 
 /// Denotes an entity which has an associated `Policy`.
-pub trait HasPolicy {
+pub trait HasPolicy<T: SizeConfig> {
     /// Returns underlying `Policy`.
-    fn policy(&self) -> &Policy;
+    fn policy(&self) -> &Policy<T>;
 }

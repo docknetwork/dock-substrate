@@ -1,23 +1,14 @@
 use super::*;
 use crate::deposit_indexed_event;
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     pub(super) fn add_params_(
         AddAccumulatorParams { params, .. }: AddAccumulatorParams<T>,
         owner: AccumulatorOwner,
     ) -> DispatchResult {
-        ensure!(
-            T::LabelMaxSize::get() as usize >= params.label.as_ref().map_or(0, |l| l.len()),
-            Error::<T>::LabelTooBig
-        );
-        ensure!(
-            T::ParamsMaxSize::get() as usize >= params.bytes.len(),
-            Error::<T>::ParamsTooBig
-        );
-
         let params_counter =
-            AccumulatorOwnerCounters::mutate(owner, |counters| *counters.params_counter.inc());
-        AccumulatorParams::insert(owner, params_counter, params);
+            AccumulatorOwnerCounters::<T>::mutate(owner, |counters| *counters.params_counter.inc());
+        AccumulatorParams::<T>::insert(owner, params_counter, params);
 
         Self::deposit_event(Event::ParamsAdded(owner, params_counter));
         Ok(())
@@ -27,19 +18,15 @@ impl<T: Config + Debug> Module<T> {
         AddAccumulatorPublicKey { public_key, .. }: AddAccumulatorPublicKey<T>,
         owner: AccumulatorOwner,
     ) -> DispatchResult {
-        ensure!(
-            T::PublicKeyMaxSize::get() as usize >= public_key.bytes.len(),
-            Error::<T>::PublicKeyTooBig
-        );
         if let Some((acc_owner, params_id)) = public_key.params_ref {
             ensure!(
-                AccumulatorParams::contains_key(acc_owner, params_id),
+                AccumulatorParams::<T>::contains_key(acc_owner, params_id),
                 Error::<T>::ParamsDontExist
             );
         }
 
         let keys_counter =
-            AccumulatorOwnerCounters::mutate(owner, |counters| *counters.key_counter.inc());
+            AccumulatorOwnerCounters::<T>::mutate(owner, |counters| *counters.key_counter.inc());
         AccumulatorKeys::insert(owner, keys_counter, public_key);
 
         Self::deposit_event(Event::KeyAdded(owner, keys_counter));
@@ -56,11 +43,11 @@ impl<T: Config + Debug> Module<T> {
         // Only the DID that added the param can remove it
         ensure!(did == owner, Error::<T>::NotAccumulatorOwner);
         ensure!(
-            AccumulatorParams::contains_key(did, counter),
+            AccumulatorParams::<T>::contains_key(did, counter),
             Error::<T>::ParamsDontExist
         );
 
-        AccumulatorParams::remove(did, counter);
+        AccumulatorParams::<T>::remove(did, counter);
 
         Self::deposit_event(Event::ParamsRemoved(did, counter));
         Ok(())
@@ -75,11 +62,11 @@ impl<T: Config + Debug> Module<T> {
     ) -> DispatchResult {
         ensure!(did == owner, Error::<T>::NotAccumulatorOwner);
         ensure!(
-            AccumulatorKeys::contains_key(did, counter),
+            AccumulatorKeys::<T>::contains_key(did, counter),
             Error::<T>::PublicKeyDoesntExist
         );
 
-        AccumulatorKeys::remove(did, counter);
+        AccumulatorKeys::<T>::remove(did, counter);
 
         Self::deposit_event(Event::KeyRemoved(did, counter));
         Ok(())
@@ -92,24 +79,20 @@ impl<T: Config + Debug> Module<T> {
         owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
-            T::AccumulatedMaxSize::get() as usize >= accumulator.accumulated().len(),
-            Error::<T>::AccumulatedTooBig
-        );
-        ensure!(
             !Accumulators::<T>::contains_key(id),
             Error::<T>::AccumulatorAlreadyExists
         );
 
         let (acc_owner, key_id) = accumulator.key_ref();
         ensure!(
-            AccumulatorKeys::contains_key(acc_owner, key_id),
+            AccumulatorKeys::<T>::contains_key(acc_owner, key_id),
             Error::<T>::PublicKeyDoesntExist
         );
         ensure!(acc_owner == owner, Error::<T>::NotPublicKeyOwner);
 
         let accumulated = accumulator.accumulated().to_vec().into();
 
-        let current_block = <system::Pallet<T>>::block_number();
+        let current_block = <frame_system::Pallet<T>>::block_number();
         Accumulators::<T>::insert(
             id,
             AccumulatorWithUpdateInfo::new(accumulator, current_block),
@@ -127,11 +110,6 @@ impl<T: Config + Debug> Module<T> {
         }: UpdateAccumulator<T>,
         owner: AccumulatorOwner,
     ) -> DispatchResult {
-        ensure!(
-            T::AccumulatedMaxSize::get() as usize >= new_accumulated.len(),
-            Error::<T>::AccumulatedTooBig
-        );
-
         Accumulators::<T>::try_mutate(id, |accumulator| -> DispatchResult {
             let accumulator = accumulator
                 .as_mut()
@@ -145,8 +123,9 @@ impl<T: Config + Debug> Module<T> {
 
             accumulator
                 .accumulator
-                .set_new_accumulated(new_accumulated.clone());
-            accumulator.last_updated_at = <system::Pallet<T>>::block_number();
+                .set_new_accumulated(new_accumulated.clone().0)
+                .map_err(|_| Error::<T>::AccumulatedTooBig)?;
+            accumulator.last_updated_at = <frame_system::Pallet<T>>::block_number();
 
             Ok(())
         })?;
@@ -176,24 +155,23 @@ impl<T: Config + Debug> Module<T> {
 
     pub fn public_key_with_params(
         (key_did, key_id): &AccumPublicKeyStorageKey,
-    ) -> Option<AccumPublicKeyWithParams> {
-        AccumulatorKeys::get(key_did, key_id).map(|pk| {
-            let params = match &pk.params_ref {
-                Some((params_did, params_id)) => AccumulatorParams::get(params_did, params_id),
-                _ => None,
-            };
+    ) -> Option<AccumPublicKeyWithParams<T>> {
+        let pk = AccumulatorKeys::get(key_did, key_id)?;
+        let params = match &pk.params_ref {
+            Some((params_did, params_id)) => AccumulatorParams::<T>::get(params_did, params_id),
+            _ => None,
+        };
 
-            (pk, params)
-        })
+        Some((pk, params))
     }
 
     /// Get accumulated value with public key and params.
     pub fn get_accumulator_with_public_key_and_params(
         id: &AccumulatorId,
-    ) -> Option<(Vec<u8>, Option<AccumPublicKeyWithParams>)> {
-        Accumulators::<T>::get(id).map(|stored_acc| {
-            let pk_p = Self::public_key_with_params(&stored_acc.accumulator.key_ref());
-            (stored_acc.accumulator.accumulated().to_vec(), pk_p)
-        })
+    ) -> Option<(Vec<u8>, Option<AccumPublicKeyWithParams<T>>)> {
+        let stored_acc = Accumulators::<T>::get(id)?;
+        let pk_p = Self::public_key_with_params(&stored_acc.accumulator.key_ref());
+
+        Some((stored_acc.accumulator.accumulated().to_vec(), pk_p))
     }
 }

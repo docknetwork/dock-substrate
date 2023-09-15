@@ -1,13 +1,13 @@
 use super::super::*;
-use crate::common::{SigValue, ToStateChange};
+use crate::common::{SigValue, ToStateChange, VerificationError};
 
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 #[scale_info(skip_type_params(D))]
-#[codec(mel_bound())]
+#[codec(encode_bound(D: Encode + MaxEncodedLen + Into<Did>))]
 pub struct DidSignature<D: Into<Did>> {
     /// The DID that created this signature
     pub did: D,
@@ -26,14 +26,12 @@ impl<D: Into<Did>> DidSignature<D> {
         }
     }
 
-    pub fn verify<T: Config + Debug>(
+    pub fn verify(
         &self,
         message: &[u8],
         public_key: &PublicKey,
-    ) -> Result<bool, Error<T>> {
-        self.sig
-            .verify(message, public_key)
-            .map_err(|_| Error::<T>::IncompatSigPubkey)
+    ) -> Result<bool, VerificationError> {
+        self.sig.verify(message, public_key)
     }
 
     /// This is just the weight to verify the signature. It does not include weight to read the DID or the key.
@@ -42,7 +40,7 @@ impl<D: Into<Did>> DidSignature<D> {
     }
 }
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Verifies a `DidSignature` created by `signer` only if `signer` is a controller of `did` and has an
     /// appropriate key. To update a DID (add/remove keys, add/remove controllers), the updater must be a
     /// controller of the DID and must have a key with `CAPABILITY_INVOCATION` verification relationship
@@ -58,7 +56,8 @@ impl<T: Config + Debug> Module<T> {
         let signer_pubkey = Self::control_key(&sig.did, sig.key_id)?;
         let encoded_state_change = action.to_state_change().encode();
 
-        sig.verify::<T>(&encoded_state_change, &signer_pubkey)
+        sig.verify(&encoded_state_change, &signer_pubkey)
+            .map_err(Into::into)
     }
 
     /// Verifies that `did`'s key with id `key_id` can either authenticate or control otherwise returns an error.
@@ -74,6 +73,7 @@ impl<T: Config + Debug> Module<T> {
         let signer_pubkey = Self::auth_or_control_key(&sig.did.into(), sig.key_id)?;
         let encoded_state_change = state_change.to_state_change().encode();
 
-        sig.verify::<T>(&encoded_state_change, &signer_pubkey)
+        sig.verify(&encoded_state_change, &signer_pubkey)
+            .map_err(Into::into)
     }
 }

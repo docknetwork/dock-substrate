@@ -1,9 +1,10 @@
 use super::*;
 use crate::{common::state_change::ToStateChange, did::UncheckedDidKey};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_system::RawOrigin;
+use sp_runtime::traits::TryCollect;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
-use system::RawOrigin;
 
 const MAX_BLOB: u32 = 100;
 
@@ -24,7 +25,7 @@ crate::bench_with_all_pairs! {
 
         let blob = Blob {
             id,
-            blob: Bytes((0..s).map(|i| i as u8).collect()),
+            blob: BoundedBytes((0..s).map(|i| i as u8).try_collect().unwrap()),
         };
         let add_blob = AddBlob {
             blob,
@@ -34,7 +35,7 @@ crate::bench_with_all_pairs! {
         let signature = DidSignature::new(did.clone(), 1u32, sig);
     }: new(RawOrigin::Signed(caller), add_blob, signature)
     verify {
-        let value = Blobs::get(id);
+        let value = Blobs::<T>::get(id);
         assert!(value.is_some());
     }
 }

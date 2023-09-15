@@ -1,17 +1,16 @@
-use crate as dock;
 use crate::{
-    common::{PublicKey, SigValue, StorageVersion},
+    common::{self, PublicKey, SigValue, VerificationError},
     util::*,
 };
 
+use crate::common::SizeConfig;
 use arith_utils::CheckedDivCeil;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure, fail,
-    traits::Get, weights::Weight,
+    dispatch::DispatchResult, ensure, weights::Weight, CloneNoBound, DebugNoBound, EqNoBound,
+    PartialEqNoBound,
 };
-use frame_system::{self as system, ensure_signed};
-use sp_runtime::DispatchError;
+use frame_system::ensure_signed;
 use sp_std::{
     collections::btree_set::BTreeSet,
     convert::{TryFrom, TryInto},
@@ -23,12 +22,13 @@ use sp_std::{
 pub use actions::*;
 pub use base::{offchain, onchain, signature};
 pub use details_aggregator::*;
+pub use pallet::*;
 use weights::*;
 
 pub use base::*;
 pub use controllers::Controller;
 pub use keys::{DidKey, UncheckedDidKey, VerRelType};
-pub use service_endpoints::ServiceEndpoint;
+pub use service_endpoints::{ServiceEndpoint, ServiceEndpointId, ServiceEndpointOrigin};
 
 pub(crate) mod actions;
 pub(crate) mod base;
@@ -43,30 +43,44 @@ mod benchmarks;
 #[cfg(test)]
 pub mod tests;
 
-/// The module's configuration trait.
-pub trait Config: system::Config {
-    /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Config>::Event>;
-    /// Maximum byte size of reference to off-chain DID Doc.
-    type MaxDidDocRefSize: Get<u16>;
-    /// Weight per byte of the off-chain DID Doc reference
-    type DidDocRefPerByteWeight: Get<Weight>;
-    /// Maximum byte size of service endpoint's `id` field
-    type MaxServiceEndpointIdSize: Get<u16>;
-    /// Weight per byte of service endpoint's `id` field
-    type ServiceEndpointIdPerByteWeight: Get<Weight>;
-    /// Maximum number of service endpoint's `origin`
-    type MaxServiceEndpointOrigins: Get<u16>;
-    /// Maximum byte size of service endpoint's `origin`
-    type MaxServiceEndpointOriginSize: Get<u16>;
-    /// Weight per byte of service endpoint's `origin`
-    type ServiceEndpointOriginPerByteWeight: Get<Weight>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use alloc::collections::BTreeMap;
+    use frame_support::{pallet_prelude::*, Blake2_128Concat, Identity};
+    use frame_system::pallet_prelude::*;
 
-decl_error! {
+    /// The module's configuration trait.
+    #[pallet::config]
+    pub trait Config: frame_system::Config + crate::common::SizeConfig {
+        /// The handler of a `DID` removal.
+        type OnDidRemoval: OnDidRemoval;
+
+        /// The overarching event type.
+        type Event: From<Event<Self>>
+            + IsType<<Self as frame_system::Config>::Event>
+            + Into<<Self as frame_system::Config>::Event>;
+    }
+
+    #[pallet::event]
+    pub enum Event<T: Config> {
+        OffChainDidAdded(Did, OffChainDidDocRef<T>),
+        OffChainDidUpdated(Did, OffChainDidDocRef<T>),
+        OffChainDidRemoved(Did),
+        OnChainDidAdded(Did),
+        DidKeysAdded(Did),
+        DidKeysRemoved(Did),
+        DidControllersAdded(Did),
+        DidControllersRemoved(Did),
+        DidServiceEndpointAdded(Did),
+        DidServiceEndpointRemoved(Did),
+        OnChainDidRemoved(Did),
+    }
+
     /// Error for the DID module.
-    #[derive(Eq, PartialEq, Clone)]
-    pub enum Error for Module<T: Config> where T: Debug {
+    #[pallet::error]
+    #[derive(PartialEq, Clone)]
+    pub enum Error<T> {
         /// Given public key is not of the correct size
         PublicKeySizeIncorrect,
         /// There is already a DID with same value
@@ -77,7 +91,6 @@ decl_error! {
         IncompatSigPubkey,
         /// Signature by DID failed verification
         InvalidSignature,
-        DidDocRefTooBig,
         NotAnOffChainDid,
         DidNotOwnedByAccount,
         NoControllerProvided,
@@ -85,7 +98,6 @@ decl_error! {
         IncompatibleVerificationRelation,
         CannotGetDetailForOffChainDid,
         CannotGetDetailForOnChainDid,
-        NoKeyProvided,
         EmptyPayload,
         IncorrectNonce,
         /// Only controller of a DID can update the DID Doc
@@ -99,221 +111,273 @@ decl_error! {
         ServiceEndpointAlreadyExists,
         ServiceEndpointDoesNotExist,
         KeyAgreementCantBeUsedForSigning,
-        SigningKeyCantBeUsedForKeyAgreement
+        SigningKeyCantBeUsedForKeyAgreement,
     }
-}
 
-impl<T: Config + Debug> Error<T> {
-    fn empty_payload_to(self, to_err: Self) -> Self {
-        match self {
-            Self::EmptyPayload => to_err,
-            other => other,
+    impl<T: Config> From<NonceError> for Error<T> {
+        fn from(NonceError::IncorrectNonce: NonceError) -> Self {
+            Self::IncorrectNonce
         }
     }
-}
 
-impl<T: Config + Debug> From<NonceError> for Error<T> {
-    fn from(NonceError::IncorrectNonce: NonceError) -> Self {
-        Self::IncorrectNonce
+    impl<T: Config> From<VerificationError> for Error<T> {
+        fn from(VerificationError::IncompatibleKey(_, _): VerificationError) -> Self {
+            Self::IncompatSigPubkey
+        }
     }
-}
 
-decl_event!(
-    pub enum Event {
-        OffChainDidAdded(Did, OffChainDidDocRef),
-        OffChainDidUpdated(Did, OffChainDidDocRef),
-        OffChainDidRemoved(Did),
-        OnChainDidAdded(Did),
-        DidKeysAdded(Did),
-        DidKeysRemoved(Did),
-        DidControllersAdded(Did),
-        DidControllersRemoved(Did),
-        DidServiceEndpointAdded(Did),
-        DidServiceEndpointRemoved(Did),
-        OnChainDidRemoved(Did),
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
+
+    /// Stores details of off-chain and on-chain DIDs
+    #[pallet::storage]
+    #[pallet::getter(fn did)]
+    pub type Dids<T> = StorageMap<_, Blake2_128Concat, Did, StoredDidDetails<T>>;
+
+    /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
+    #[pallet::storage]
+    #[pallet::getter(fn did_key)]
+    pub type DidKeys<T> = StorageDoubleMap<_, Blake2_128Concat, Did, Identity, IncId, DidKey>;
+
+    /// Stores controlled - controller pairs of a DID as (DID, DID) -> zero-sized record. If a record exists, then the controller is bound.
+    #[pallet::storage]
+    #[pallet::getter(fn bound_controller)]
+    pub type DidControllers<T> =
+        StorageDoubleMap<_, Blake2_128Concat, Did, Blake2_128Concat, Controller, ()>;
+
+    /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
+    #[pallet::storage]
+    #[pallet::getter(fn did_service_endpoints)]
+    pub type DidServiceEndpoints<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        Did,
+        Blake2_128Concat,
+        ServiceEndpointId<T>,
+        ServiceEndpoint<T>,
+    >;
+
+    #[pallet::storage]
+    #[pallet::getter(fn storage_version)]
+    pub type Version<T> = StorageValue<_, common::StorageVersion, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub dids: BTreeMap<Did, DidKey>,
+        pub _marker: PhantomData<T>,
     }
-);
 
-decl_storage! {
-    trait Store for Module<T: Config> as DIDModule where T: Debug {
-        /// Stores details of off-chain and on-chain DIDs
-        pub Dids get(fn did): map hasher(blake2_128_concat) Did => Option<StoredDidDetails<T>>;
-        /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
-        pub DidKeys get(fn did_key): double_map hasher(blake2_128_concat) Did, hasher(identity) IncId => Option<DidKey>;
-        /// Stores controlled - controller pairs of a DID as (DID, DID) -> zero-sized record. If a record exists, then the controller is bound.
-        pub DidControllers get(fn bound_controller): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) Controller => Option<()>;
-        /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
-        pub DidServiceEndpoints get(fn did_service_endpoints): double_map hasher(blake2_128_concat) Did, hasher(blake2_128_concat) Bytes => Option<ServiceEndpoint>;
-
-        pub Version get(fn storage_version): StorageVersion;
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            GenesisConfig {
+                dids: Default::default(),
+                _marker: PhantomData,
+            }
+        }
     }
-    add_extra_genesis {
-        config(dids): Vec<(Did, DidKey)>;
-        build(|this: &Self| {
+
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
             debug_assert!({
-                let dedup: BTreeSet<&Did> = this.dids.iter().map(|(d, _kd)| d).collect();
-                this.dids.len() == dedup.len()
+                let dedup: BTreeSet<&Did> = self.dids.keys().collect();
+                self.dids.len() == dedup.len()
             });
-            debug_assert!({
-                this.dids.iter().all(|(_, key)| key.can_control())
-            });
+            debug_assert!({ self.dids.iter().all(|(_, key)| key.can_control()) });
 
-            for (did, key) in &this.dids {
+            for (did, key) in &self.dids {
                 let mut key_id = IncId::new();
                 key_id.inc();
-                let did_details = StoredOnChainDidDetails::new(
-                    OnChainDidDetails::new(key_id, 1u32, 1u32),
-                );
+                let did_details =
+                    StoredOnChainDidDetails::new(OnChainDidDetails::new(key_id, 1u32, 1u32));
 
-                <Module<T>>::insert_did_details(*did, did_details);
-                DidKeys::insert(did, key_id, key);
-                DidControllers::insert(did, Controller(*did), ());
+                <Pallet<T>>::insert_did_details(*did, did_details);
+                DidKeys::<T>::insert(did, key_id, key);
+                DidControllers::<T>::insert(did, Controller(*did), ());
             }
 
-            Version::put(StorageVersion::MultiKey);
-        })
+            Version::<T>::put(common::StorageVersion::MultiKey);
+        }
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
-        pub fn deposit_event() = default;
-
-        type Error = Error<T>;
-
-        const MaxDidDocRefSize: u16 = T::MaxDidDocRefSize::get();
-        const DidDocRefPerByteWeight: Weight = T::DidDocRefPerByteWeight::get();
-        const MaxServiceEndpointIdSize: u16 = T::MaxServiceEndpointIdSize::get();
-        const ServiceEndpointIdPerByteWeight: Weight = T::ServiceEndpointIdPerByteWeight::get();
-        const MaxServiceEndpointOrigins: u16 = T::MaxServiceEndpointOrigins::get();
-        const MaxServiceEndpointOriginSize: u16 = T::MaxServiceEndpointOriginSize::get();
-        const ServiceEndpointOriginPerByteWeight: Weight = T::ServiceEndpointOriginPerByteWeight::get();
-
-        #[weight = SubstrateWeight::<T>::new_offchain(did_doc_ref.len() as u32)]
-        pub fn new_offchain(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::weight(SubstrateWeight::<T>::new_offchain(did_doc_ref.len()))]
+        pub fn new_offchain(
+            origin: OriginFor<T>,
+            did: Did,
+            did_doc_ref: OffChainDidDocRef<T>,
+        ) -> DispatchResult {
             // Only `did_owner` can update or remove this DID
             let did_owner = ensure_signed(origin)?;
 
-            Self::new_offchain_(did_owner, did, did_doc_ref)?;
-            Ok(())
+            Self::new_offchain_(did_owner, did, did_doc_ref)
         }
 
-        #[weight = SubstrateWeight::<T>::set_offchain_did_doc_ref(did_doc_ref.len() as u32)]
-        pub fn set_offchain_did_doc_ref(origin, did: dock::did::Did, did_doc_ref: OffChainDidDocRef) -> DispatchResult {
+        #[pallet::weight(SubstrateWeight::<T>::set_offchain_did_doc_ref(did_doc_ref.len()))]
+        pub fn set_offchain_did_doc_ref(
+            origin: OriginFor<T>,
+            did: Did,
+            did_doc_ref: OffChainDidDocRef<T>,
+        ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
 
-            Self::set_offchain_did_doc_ref_(caller, did, did_doc_ref)?;
-            Ok(())
+            Self::set_offchain_did_doc_ref_(caller, did, did_doc_ref)
         }
 
-        #[weight = SubstrateWeight::<T>::remove_offchain_did()]
-        pub fn remove_offchain_did(origin, did: dock::did::Did) -> DispatchResult {
+        #[pallet::weight(SubstrateWeight::<T>::remove_offchain_did())]
+        pub fn remove_offchain_did(origin: OriginFor<T>, did: Did) -> DispatchResult {
             let caller = ensure_signed(origin)?;
 
-            Self::remove_offchain_did_(caller, did)?;
-            Ok(())
+            Self::remove_offchain_did_(caller, did)
         }
 
         /// Create new DID.
         /// At least 1 control key or 1 controller must be provided.
         /// If any supplied key has an empty `ver_rel`, then it will use all verification relationships available for its key type.
-        #[weight = SubstrateWeight::<T>::new_onchain(keys.len() as u32, controllers.len() as u32)]
-        pub fn new_onchain(origin, did: dock::did::Did, keys: Vec<UncheckedDidKey>, controllers: BTreeSet<Controller>) -> DispatchResult {
+        #[pallet::weight(SubstrateWeight::<T>::new_onchain(keys.len() as u32, controllers.len() as u32))]
+        pub fn new_onchain(
+            origin: OriginFor<T>,
+            did: Did,
+            keys: Vec<UncheckedDidKey>,
+            controllers: BTreeSet<Controller>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::new_onchain_(did, keys, controllers)?;
-            Ok(())
+            Self::new_onchain_(did, keys, controllers)
         }
 
         /// Add more keys from DID doc.
         /// **Does not** check if the key was already added.
-        #[weight = SubstrateWeight::<T>::add_keys(keys, sig)]
-        pub fn add_keys(origin, keys: AddKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        #[pallet::weight(SubstrateWeight::<T>::add_keys(keys, sig))]
+        pub fn add_keys(
+            origin: OriginFor<T>,
+            keys: AddKeys<T>,
+            sig: DidSignature<Controller>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_from_controller(Self::add_keys_, keys, sig)
-                .map_err(|err| err.empty_payload_to(Error::<T>::NoKeyProvided))?;
-            Ok(())
         }
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
-        /// **Note that removing all might make DID unusable**.
-        #[weight = SubstrateWeight::<T>::remove_keys(keys, sig)]
-        pub fn remove_keys(origin, keys: RemoveKeys<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        /// **Note that removing all keys might make DID unusable**.
+        #[pallet::weight(SubstrateWeight::<T>::remove_keys(keys, sig))]
+        pub fn remove_keys(
+            origin: OriginFor<T>,
+            keys: RemoveKeys<T>,
+            sig: DidSignature<Controller>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_from_controller(Self::remove_keys_, keys, sig)
-                .map_err(|err| err.empty_payload_to(Error::<T>::NoKeyProvided))?;
-            Ok(())
         }
 
-        /// Add new controllers.
+        /// Add new controllers to the signer DID.
         /// **Does not** require provided controllers to
         /// - have any key
         /// - exist on- or off-chain
-        #[weight = SubstrateWeight::<T>::add_controllers(controllers, sig)]
-        pub fn add_controllers(origin, controllers: AddControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        #[pallet::weight(SubstrateWeight::<T>::add_controllers(controllers, sig))]
+        pub fn add_controllers(
+            origin: OriginFor<T>,
+            controllers: AddControllers<T>,
+            sig: DidSignature<Controller>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
             Self::try_exec_signed_action_from_controller(Self::add_controllers_, controllers, sig)
-                .map_err(|err| err.empty_payload_to(Error::<T>::NoControllerProvided))?;
-            Ok(())
         }
 
-        /// Remove controllers.
+        /// Remove controllers from the signer DID.
         /// This is an atomic operation meaning that it will either remove all keys or do nothing.
-        /// **Note that removing all might make DID unusable**.
-        #[weight = SubstrateWeight::<T>::remove_controllers(controllers, sig)]
-        pub fn remove_controllers(origin, controllers: RemoveControllers<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        /// **Note that removing all controllers might make DID unusable**.
+        #[pallet::weight(SubstrateWeight::<T>::remove_controllers(controllers, sig))]
+        pub fn remove_controllers(
+            origin: OriginFor<T>,
+            controllers: RemoveControllers<T>,
+            sig: DidSignature<Controller>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(Self::remove_controllers_, controllers, sig)
-                .map_err(|err| err.empty_payload_to(Error::<T>::NoControllerProvided))?;
-            Ok(())
+            Self::try_exec_signed_action_from_controller(
+                Self::remove_controllers_,
+                controllers,
+                sig,
+            )
         }
 
-        /// Add a single service endpoint.
-        #[weight = SubstrateWeight::<T>::add_service_endpoint(service_endpoint, sig)]
-        pub fn add_service_endpoint(origin, service_endpoint: AddServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        /// Add a single service endpoint to the signer DID.
+        #[pallet::weight(SubstrateWeight::<T>::add_service_endpoint(service_endpoint, sig))]
+        pub fn add_service_endpoint(
+            origin: OriginFor<T>,
+            service_endpoint: AddServiceEndpoint<T>,
+            sig: DidSignature<Controller>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(Self::add_service_endpoint_, service_endpoint, sig)?;
-            Ok(())
+            Self::try_exec_signed_action_from_controller(
+                Self::add_service_endpoint_,
+                service_endpoint,
+                sig,
+            )
         }
 
         /// Remove a single service endpoint.
-        #[weight = SubstrateWeight::<T>::remove_service_endpoint(service_endpoint, sig)]
-        pub fn remove_service_endpoint(origin, service_endpoint: RemoveServiceEndpoint<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        #[pallet::weight(SubstrateWeight::<T>::remove_service_endpoint(service_endpoint, sig))]
+        pub fn remove_service_endpoint(
+            origin: OriginFor<T>,
+            service_endpoint: RemoveServiceEndpoint<T>,
+            sig: DidSignature<Controller>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(Self::remove_service_endpoint_, service_endpoint, sig)?;
-            Ok(())
+            Self::try_exec_signed_action_from_controller(
+                Self::remove_service_endpoint_,
+                service_endpoint,
+                sig,
+            )
         }
 
         /// Remove the on-chain DID along with its keys, controllers, service endpoints and BBS+ keys.
         /// Other DID-controlled entities won't be removed.
         /// However, the authorization logic ensures that once a DID is removed, it loses its ability to control any DID.
-        #[weight = SubstrateWeight::<T>::remove_onchain_did(removal, sig)]
-        pub fn remove_onchain_did(origin, removal: dock::did::DidRemoval<T>, sig: DidSignature<Controller>) -> DispatchResult {
+        #[pallet::weight(SubstrateWeight::<T>::remove_onchain_did(removal, sig))]
+        pub fn remove_onchain_did(
+            origin: OriginFor<T>,
+            removal: DidRemoval<T>,
+            sig: DidSignature<Controller>,
+        ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_removable_action_from_controller(Self::remove_onchain_did_, removal, sig)?;
-            Ok(())
+            Self::try_exec_signed_removable_action_from_controller(
+                Self::remove_onchain_did_,
+                removal,
+                sig,
+            )
         }
 
         /// Adds `StateChange` to the metadata.
-        #[weight = <T as frame_system::Config>::DbWeight::get().writes(10)]
         #[doc(hidden)]
-        fn _noop(
-            _o,
-            _s: crate::common::StateChange<'static, T>
-        ) -> DispatchResult {
+        #[pallet::weight(<T as frame_system::Config>::DbWeight::get().writes(10))]
+        pub fn noop(_o: OriginFor<T>, _s: common::StateChange<'static, T>) -> DispatchResult {
             Err(DispatchError::BadOrigin)
         }
     }
 }
 
-impl<T: frame_system::Config> SubstrateWeight<T> {
+pub trait OnDidRemoval {
+    fn on_remove_did(did: Did) -> Weight;
+}
+
+impl OnDidRemoval for () {
+    fn on_remove_did(_did: Did) -> Weight {
+        Default::default()
+    }
+}
+
+impl<T: Config> SubstrateWeight<T> {
     fn add_keys(keys: &AddKeys<T>, DidSignature { sig, .. }: &DidSignature<Controller>) -> Weight {
         (match sig {
             SigValue::Sr25519(_) => Self::add_keys_sr25519,

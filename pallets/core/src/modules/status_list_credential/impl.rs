@@ -1,15 +1,15 @@
 use super::*;
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     pub(super) fn create_(
         id: StatusListCredentialId,
-        credential: StatusListCredentialWithPolicy,
+        credential: StatusListCredentialWithPolicy<T>,
     ) -> DispatchResult {
         ensure!(
-            !StatusListCredentials::contains_key(id),
-            StatusListCredentialError::<T>::StatusListCredentialAlreadyExists
+            !StatusListCredentials::<T>::contains_key(id),
+            Error::<T>::StatusListCredentialAlreadyExists
         );
-        credential.ensure_valid::<T>()?;
+        credential.ensure_valid()?;
 
         StatusListCredentials::insert(id, credential);
 
@@ -19,9 +19,9 @@ impl<T: Config + Debug> Module<T> {
 
     pub(super) fn update_(
         UpdateStatusListCredentialRaw { id, credential, .. }: UpdateStatusListCredentialRaw<T>,
-        status_list_credential: &mut StatusListCredentialWithPolicy,
+        status_list_credential: &mut StatusListCredentialWithPolicy<T>,
     ) -> DispatchResult {
-        credential.ensure_valid::<T>()?;
+        credential.ensure_valid()?;
 
         status_list_credential.status_list_credential = credential;
 
@@ -31,7 +31,7 @@ impl<T: Config + Debug> Module<T> {
 
     pub(super) fn remove_(
         RemoveStatusListCredentialRaw { id, .. }: RemoveStatusListCredentialRaw<T>,
-        status_list_credential: &mut Option<StatusListCredentialWithPolicy>,
+        status_list_credential: &mut Option<StatusListCredentialWithPolicy<T>>,
     ) -> DispatchResult {
         status_list_credential.take();
 
@@ -53,13 +53,10 @@ impl<T: Config + Debug> Module<T> {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        F: FnOnce(A, &mut StatusListCredentialWithPolicy) -> Result<R, E>,
+        F: FnOnce(A, &mut StatusListCredentialWithPolicy<T>) -> Result<R, E>,
         A: Action<T, Target = StatusListCredentialId>,
         WithNonce<T, A>: ToStateChange<T>,
-        E: From<StatusListCredentialError<T>>
-            + From<PolicyExecutionError>
-            + From<did::Error<T>>
-            + From<NonceError>,
+        E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
     {
         Self::try_exec_removable_action_over_status_list_credential(
             |action, reg| f(action, reg.as_mut().unwrap()),
@@ -86,15 +83,12 @@ impl<T: Config + Debug> Module<T> {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        F: FnOnce(A, &mut Option<StatusListCredentialWithPolicy>) -> Result<R, E>,
+        F: FnOnce(A, &mut Option<StatusListCredentialWithPolicy<T>>) -> Result<R, E>,
         A: Action<T, Target = StatusListCredentialId>,
         WithNonce<T, A>: ToStateChange<T>,
-        E: From<StatusListCredentialError<T>>
-            + From<PolicyExecutionError>
-            + From<did::Error<T>>
-            + From<NonceError>,
+        E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
     {
-        ensure!(!action.is_empty(), StatusListCredentialError::EmptyPayload);
+        ensure!(!action.is_empty(), Error::EmptyPayload);
 
         StatusListCredentials::try_mutate_exists(action.target(), |credential| {
             Policy::try_exec_removable_action(credential, f, action, proof)

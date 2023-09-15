@@ -1,46 +1,53 @@
 use crate::{
+    common::SizeConfig,
     did::{Did, OnChainDidDetails},
     offchain_signatures::{schemes::*, SignatureParams},
     util::IncId,
 };
-use codec::{Decode, Encode};
-use frame_support::{ensure, traits::Get, IterableStorageDoubleMap, StorageDoubleMap};
+use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{ensure, DebugNoBound};
 use sp_runtime::DispatchResult;
-use sp_std::fmt::Debug;
 
 use super::{
-    AddOffchainSignaturePublicKey, Config, Error, Event, Module, OffchainSignatureParams,
+    AddOffchainSignaturePublicKey, Config, Error, Event, OffchainSignatureParams, Pallet,
     PublicKeys, RemoveOffchainSignaturePublicKey, SignatureParamsStorageKey,
 };
 
 pub type SignaturePublicKeyStorageKey = (Did, IncId);
 
 /// Public key for different signature schemes. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(
+    scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum OffchainPublicKey {
+pub enum OffchainPublicKey<T: SizeConfig> {
     /// Public key for the BBS signature scheme.
-    BBS(BBSPublicKey),
+    BBS(BBSPublicKey<T>),
     /// Public key for the BBS+ signature scheme.
-    BBSPlus(BBSPlusPublicKey),
+    BBSPlus(BBSPlusPublicKey<T>),
     /// Public key for the Pointcheval-Sanders signature scheme.
-    PS(PSPublicKey),
+    PS(PSPublicKey<T>),
 }
 
-impl OffchainPublicKey {
+impl<T: SizeConfig> OffchainPublicKey<T> {
     /// Returns underlying public key if it corresponds to the BBS scheme.
-    pub fn into_bbs(self) -> Option<BBSPublicKey> {
+    pub fn into_bbs(self) -> Option<BBSPublicKey<T>> {
         self.try_into().ok()
     }
 
     /// Returns underlying public key if it corresponds to the BBS+ scheme.
-    pub fn into_bbs_plus(self) -> Option<BBSPlusPublicKey> {
+    pub fn into_bbs_plus(self) -> Option<BBSPlusPublicKey<T>> {
         self.try_into().ok()
     }
 
     /// Returns underlying public key if it corresponds to the Pointcheval-Sanders scheme.
-    pub fn into_ps(self) -> Option<PSPublicKey> {
+    pub fn into_ps(self) -> Option<PSPublicKey<T>> {
         self.try_into().ok()
     }
 
@@ -65,7 +72,7 @@ impl OffchainPublicKey {
     }
 
     /// Returns `true` if supplied params have same scheme as the given key.
-    pub fn params_match_scheme(&self, params: &OffchainSignatureParams) -> bool {
+    pub fn params_match_scheme(&self, params: &OffchainSignatureParams<T>) -> bool {
         match self {
             Self::BBS(_) => matches!(params, OffchainSignatureParams::BBS(_)),
             Self::BBSPlus(_) => matches!(params, OffchainSignatureParams::BBSPlus(_)),
@@ -74,17 +81,13 @@ impl OffchainPublicKey {
     }
 
     /// Ensures that supplied key has a valid size and has constrained parameters.
-    pub fn ensure_valid<T: Config + Debug>(&self) -> Result<(), Error<T>> {
-        let max_size = matches!(self, Self::PS(_))
-            .then(T::PSPublicKeyMaxSize::get)
-            .unwrap_or_else(T::BBSPublicKeyMaxSize::get);
-        ensure!(
-            max_size as usize >= self.bytes().len(),
-            Error::<T>::PublicKeyTooBig
-        );
-
+    pub fn ensure_valid(&self) -> Result<(), Error<T>>
+    where
+        T: Config,
+    {
         if let Some((did, params_id)) = self.params_ref() {
-            let params = SignatureParams::get(did, params_id).ok_or(Error::<T>::ParamsDontExist)?;
+            let params =
+                SignatureParams::<T>::get(did, params_id).ok_or(Error::<T>::ParamsDontExist)?;
 
             ensure!(
                 self.params_match_scheme(&params),
@@ -98,16 +101,16 @@ impl OffchainPublicKey {
     }
 }
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     pub(super) fn add_public_key_(
         AddOffchainSignaturePublicKey {
             did: owner, key, ..
         }: AddOffchainSignaturePublicKey<T>,
         OnChainDidDetails { last_key_id, .. }: &mut OnChainDidDetails,
     ) -> DispatchResult {
-        key.ensure_valid::<T>()?;
+        key.ensure_valid()?;
 
-        PublicKeys::insert(owner, last_key_id.inc(), key);
+        PublicKeys::<T>::insert(owner, last_key_id.inc(), key);
 
         Self::deposit_event(Event::KeyAdded(owner, *last_key_id));
         Ok(())
@@ -122,19 +125,19 @@ impl<T: Config + Debug> Module<T> {
         _: &mut OnChainDidDetails,
     ) -> DispatchResult {
         ensure!(
-            PublicKeys::contains_key(did, counter),
+            PublicKeys::<T>::contains_key(did, counter),
             Error::<T>::PublicKeyDoesntExist
         );
 
         ensure!(did == owner, Error::<T>::NotOwner);
 
-        PublicKeys::remove(did, counter);
+        PublicKeys::<T>::remove(did, counter);
 
         Self::deposit_event(Event::KeyRemoved(owner, counter));
         Ok(())
     }
 
-    pub fn did_public_keys(did: &Did) -> impl Iterator<Item = (IncId, OffchainPublicKey)> {
-        PublicKeys::iter_prefix(did)
+    pub fn did_public_keys(did: &Did) -> impl Iterator<Item = (IncId, OffchainPublicKey<T>)> {
+        PublicKeys::<T>::iter_prefix(did)
     }
 }

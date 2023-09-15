@@ -1,16 +1,16 @@
-use crate::{did::Did, offchain_signatures::schemes::*, util::IncId};
-use codec::{Decode, Encode};
-use frame_support::{ensure, traits::Get, IterableStorageDoubleMap, StorageDoubleMap, StorageMap};
+use crate::{common::SizeConfig, did::Did, offchain_signatures::schemes::*, util::IncId};
+use codec::{Decode, Encode, MaxEncodedLen};
+use frame_support::{ensure, DebugNoBound};
 use sp_runtime::DispatchResult;
 use sp_std::fmt::Debug;
 
 use super::{
-    AddOffchainSignatureParams, BBSPlusPublicKey, Config, Error, Event, Module, PSPublicKey,
+    AddOffchainSignatureParams, BBSPlusPublicKey, Config, Error, Event, PSPublicKey, Pallet,
     ParamsCounter, RemoveOffchainSignatureParams, SignatureParams,
 };
 
 /// DID owner of the signature parameters.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -20,36 +20,43 @@ pub struct SignatureParamsOwner(pub Did);
 crate::impl_wrapper!(SignatureParamsOwner(Did), for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
 
 pub type SignatureParamsStorageKey = (SignatureParamsOwner, IncId);
-pub type BBSPublicKeyWithParams = (BBSPublicKey, Option<BBSParameters>);
-pub type BBSPlusPublicKeyWithParams = (BBSPlusPublicKey, Option<BBSPlusParameters>);
-pub type PSPublicKeyWithParams = (PSPublicKey, Option<PSParameters>);
+pub type BBSPublicKeyWithParams<T> = (BBSPublicKey<T>, Option<BBSParameters<T>>);
+pub type BBSPlusPublicKeyWithParams<T> = (BBSPlusPublicKey<T>, Option<BBSPlusParameters<T>>);
+pub type PSPublicKeyWithParams<T> = (PSPublicKey<T>, Option<PSParameters<T>>);
 
 /// Signature parameters. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
-#[derive(scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[derive(
+    scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum OffchainSignatureParams {
+pub enum OffchainSignatureParams<T: SizeConfig> {
     /// Signature parameters for the BBS signature scheme.
-    BBS(BBSParameters),
+    BBS(BBSParameters<T>),
     /// Signature parameters for the BBS+ signature scheme.
-    BBSPlus(BBSPlusParameters),
+    BBSPlus(BBSPlusParameters<T>),
     /// Signature parameters for the Pointcheval-Sanders signature scheme.
-    PS(PSParameters),
+    PS(PSParameters<T>),
 }
 
-impl OffchainSignatureParams {
+impl<T: SizeConfig> OffchainSignatureParams<T> {
     /// Returns underlying parameters if it corresponds to the BBS scheme.
-    pub fn into_bbs(self) -> Option<BBSParameters> {
+    pub fn into_bbs(self) -> Option<BBSParameters<T>> {
         self.try_into().ok()
     }
 
     /// Returns underlying parameters if it corresponds to the BBS+ scheme.
-    pub fn into_bbs_plus(self) -> Option<BBSPlusParameters> {
+    pub fn into_bbs_plus(self) -> Option<BBSPlusParameters<T>> {
         self.try_into().ok()
     }
 
     /// Returns underlying parameters if it corresponds to the Pointcheval-Sanders scheme.
-    pub fn into_ps(self) -> Option<PSParameters> {
+    pub fn into_ps(self) -> Option<PSParameters<T>> {
         self.try_into().ok()
     }
 
@@ -70,31 +77,15 @@ impl OffchainSignatureParams {
             Self::PS(params) => params.label.as_ref().map(|slice| &slice[..]),
         }
     }
-
-    /// Ensures that signature parameters have valid size.
-    pub fn ensure_valid<T: Config + Debug>(&self) -> Result<(), Error<T>> {
-        ensure!(
-            T::LabelMaxSize::get() as usize >= self.label().map_or(0, <[_]>::len),
-            Error::<T>::LabelTooBig
-        );
-        ensure!(
-            T::ParamsMaxSize::get() as usize >= self.bytes().len(),
-            Error::<T>::ParamsTooBig
-        );
-
-        Ok(())
-    }
 }
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     pub(super) fn add_params_(
         AddOffchainSignatureParams { params, .. }: AddOffchainSignatureParams<T>,
         signer: SignatureParamsOwner,
     ) -> DispatchResult {
-        params.ensure_valid::<T>()?;
-
-        let params_count = ParamsCounter::mutate(signer, |counter| *counter.inc());
-        SignatureParams::insert(signer, params_count, params);
+        let params_count = ParamsCounter::<T>::mutate(signer, |counter| *counter.inc());
+        SignatureParams::<T>::insert(signer, params_count, params);
 
         Self::deposit_event(Event::ParamsAdded(signer, params_count));
         Ok(())
@@ -111,11 +102,11 @@ impl<T: Config + Debug> Module<T> {
         ensure!(did == owner, Error::<T>::NotOwner);
 
         ensure!(
-            SignatureParams::contains_key(did, counter),
+            SignatureParams::<T>::contains_key(did, counter),
             Error::<T>::ParamsDontExist
         );
 
-        SignatureParams::remove(did, counter);
+        SignatureParams::<T>::remove(did, counter);
 
         Self::deposit_event(Event::ParamsRemoved(did, counter));
         Ok(())
@@ -123,7 +114,7 @@ impl<T: Config + Debug> Module<T> {
 
     pub fn did_params(
         did: &SignatureParamsOwner,
-    ) -> impl Iterator<Item = (IncId, OffchainSignatureParams)> {
-        SignatureParams::iter_prefix(did)
+    ) -> impl Iterator<Item = (IncId, OffchainSignatureParams<T>)> {
+        SignatureParams::<T>::iter_prefix(did)
     }
 }

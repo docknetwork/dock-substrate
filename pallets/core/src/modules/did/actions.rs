@@ -1,8 +1,12 @@
 use super::*;
-use crate::impl_action_with_nonce;
+use crate::{common::SizeConfig, impl_action_with_nonce};
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, DebugNoBound, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -12,8 +16,12 @@ pub struct AddKeys<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, DebugNoBound, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -24,8 +32,12 @@ pub struct RemoveKeys<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, DebugNoBound, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -35,8 +47,12 @@ pub struct AddControllers<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, DebugNoBound, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -47,36 +63,50 @@ pub struct RemoveControllers<T: frame_system::Config> {
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, DebugNoBound, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddServiceEndpoint<T: frame_system::Config> {
+pub struct AddServiceEndpoint<T: SizeConfig + frame_system::Config> {
     pub did: Did,
     /// Endpoint id
-    pub id: Bytes,
+    pub id: ServiceEndpointId<T>,
     /// Endpoint data
-    pub endpoint: ServiceEndpoint,
+    pub endpoint: ServiceEndpoint<T>,
     pub nonce: T::BlockNumber,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, DebugNoBound, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveServiceEndpoint<T: frame_system::Config> {
+pub struct RemoveServiceEndpoint<T: SizeConfig + frame_system::Config> {
     pub did: Did,
     /// Endpoint id to remove
-    pub id: Bytes,
+    pub id: ServiceEndpointId<T>,
     pub nonce: T::BlockNumber,
 }
 
 /// This struct is passed as an argument while removing the DID
 /// `did` is the DID which is being removed.
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, Debug)]
+#[derive(
+    Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]

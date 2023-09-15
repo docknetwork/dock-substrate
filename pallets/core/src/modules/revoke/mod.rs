@@ -1,24 +1,22 @@
-use crate as dock;
+#[cfg(feature = "serde")]
+use crate::util::hex;
 use crate::{
-    common::{
-        DidSignatureWithNonce, HasPolicy, MaxPolicyControllers, Policy, SigValue, StorageVersion,
-        ToStateChange,
-    },
+    common::{self, DidSignatureWithNonce, HasPolicy, Policy, SigValue, SizeConfig, ToStateChange},
     did::{self},
     util::{Action, NonceError, WithNonce},
 };
 use alloc::collections::BTreeSet;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::ops::{Index, RangeFull};
 use sp_std::{fmt::Debug, marker::PhantomData, vec::Vec};
 
-pub use actions::*;
-use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage, dispatch::DispatchResult, ensure,
-    weights::Weight,
-};
-use frame_system::{self as system, ensure_signed};
+use frame_support::{dispatch::DispatchResult, ensure, weights::Weight, DebugNoBound};
+use frame_system::ensure_signed;
 use sp_std::prelude::*;
 use weights::*;
+
+pub use actions::*;
+pub use pallet::*;
 
 mod actions;
 #[cfg(feature = "runtime-benchmarks")]
@@ -29,35 +27,84 @@ pub mod tests;
 mod weights;
 
 /// Points to an on-chain revocation registry.
-pub type RegistryId = [u8; 32];
-
-/// Points to a revocation which may or may not exist in a registry.
-pub type RevokeId = [u8; 32];
-
-/// Metadata about a revocation scope.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Registry {
+pub struct RegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+
+impl Index<RangeFull> for RegistryId {
+    type Output = [u8; 32];
+
+    fn index(&self, _: RangeFull) -> &Self::Output {
+        &self.0
+    }
+}
+
+crate::impl_wrapper!(RegistryId([u8; 32]));
+
+/// Points to a revocation which may or may not exist in a registry.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct RevokeId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+
+impl Index<RangeFull> for RevokeId {
+    type Output = [u8; 32];
+
+    fn index(&self, _: RangeFull) -> &Self::Output {
+        &self.0
+    }
+}
+
+crate::impl_wrapper!(RevokeId([u8; 32]));
+
+/// Metadata about a revocation scope.
+#[derive(
+    PartialEq, Eq, Encode, Decode, Clone, DebugNoBound, MaxEncodedLen, scale_info_derive::TypeInfo,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct Registry<T: SizeConfig> {
     /// Who is allowed to update this registry.
-    pub policy: Policy,
+    pub policy: Policy<T>,
     /// true: credentials can be revoked, but not un-revoked and the registry can't be removed either
     /// false: credentials can be revoked and un-revoked
     pub add_only: bool,
 }
 
-impl HasPolicy for Registry {
-    fn policy(&self) -> &Policy {
+impl<T: SizeConfig> HasPolicy<T> for Registry<T> {
+    fn policy(&self) -> &Policy<T> {
         &self.policy
     }
 }
 
-pub trait Config: MaxPolicyControllers + system::Config + did::Config {
-    type Event: From<Event> + Into<<Self as system::Config>::Event>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-decl_event!(
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
+
+    #[pallet::config]
+    pub trait Config: frame_system::Config + did::Config {
+        /// The overarching event type.
+        type Event: From<Event>
+            + IsType<<Self as frame_system::Config>::Event>
+            + Into<<Self as frame_system::Config>::Event>;
+    }
+
+    #[pallet::event]
     pub enum Event {
         /// Registry with given id created
         RegistryAdded(RegistryId),
@@ -68,11 +115,10 @@ decl_event!(
         /// Registry with given id removed
         RegistryRemoved(RegistryId),
     }
-);
 
-decl_error! {
     /// Revocation Error
-    pub enum RevErr for Module<T: Config> where T: Debug {
+    #[pallet::error]
+    pub enum Error<T> {
         /// A revocation registry with that name already exists.
         RegExists,
         /// nonce is incorrect. This is related to replay protection.
@@ -83,43 +129,55 @@ decl_error! {
         /// the registry is not allowed.
         AddOnly,
         /// Action is empty.
-        EmptyPayload
+        EmptyPayload,
     }
-}
 
-impl<T: Config + Debug> From<NonceError> for RevErr<T> {
-    fn from(NonceError::IncorrectNonce: NonceError) -> Self {
-        Self::IncorrectNonce
+    impl<T: Config> From<NonceError> for Error<T> {
+        fn from(NonceError::IncorrectNonce: NonceError) -> Self {
+            Self::IncorrectNonce
+        }
     }
-}
 
-decl_storage! {
-    trait Store for Module<T: Config> as Revoke where T: Debug {
-        /// Registry metadata
-        pub(crate) Registries get(fn get_revocation_registry):
-            map hasher(blake2_128_concat) dock::revoke::RegistryId => Option<Registry>;
+    /// Registry metadata
+    #[pallet::storage]
+    #[pallet::getter(fn get_revocation_registry)]
+    pub type Registries<T: Config> = StorageMap<_, Blake2_128Concat, RegistryId, Registry<T>>;
 
-        /// The single global revocation set
-        // double_map requires and explicit hasher specification for the second key. blake2_256 is
-        // the default.
-        Revocations get(fn get_revocation_status):
-            double_map hasher(blake2_128_concat) dock::revoke::RegistryId, hasher(opaque_blake2_256) dock::revoke::RevokeId => Option<()>;
+    /// The single global revocation set
+    // double_map requires and explicit hasher specification for the second key. blake2_256 is
+    // the default.
+    #[pallet::storage]
+    #[pallet::getter(fn get_revocation_status)]
+    pub type Revocations<T> =
+        StorageDoubleMap<_, Blake2_128Concat, RegistryId, Blake2_256, RevokeId, ()>;
 
-        pub Version get(fn version): StorageVersion;
+    #[pallet::storage]
+    #[pallet::getter(fn version)]
+    pub type Version<T> = StorageValue<_, common::StorageVersion, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub _marker: PhantomData<T>,
     }
-    add_extra_genesis {
-        build(|_| {
-            Version::put(StorageVersion::MultiKey);
-        })
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            GenesisConfig {
+                _marker: PhantomData,
+            }
+        }
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
-        fn deposit_event() = default;
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            Version::<T>::put(common::StorageVersion::MultiKey);
+        }
+    }
 
-        type Error = RevErr<T>;
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Create a new revocation registry named `id` with `registry` metadata.
         ///
         /// # Errors
@@ -127,11 +185,8 @@ decl_module! {
         /// Returns an error if `id` is already in use as a registry id.
         ///
         /// Returns an error if `registry.policy` is invalid.
-        #[weight = SubstrateWeight::<T>::new_registry(add_registry.new_registry.policy.len())]
-        pub fn new_registry(
-            origin,
-            add_registry: AddRegistry
-        ) -> DispatchResult {
+        #[pallet::weight(SubstrateWeight::<T>::new_registry(add_registry.new_registry.policy.len()))]
+        pub fn new_registry(origin: OriginFor<T>, add_registry: AddRegistry<T>) -> DispatchResult {
             ensure_signed(origin)?;
 
             Self::new_registry_(add_registry)?;
@@ -147,10 +202,10 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `revoke.registry_id`.
-        #[weight = SubstrateWeight::<T>::revoke(&proof[0])(revoke.len())]
+        #[pallet::weight(SubstrateWeight::<T>::revoke(&proof[0])(revoke.len()))]
         pub fn revoke(
-            origin,
-            revoke: dock::revoke::RevokeRaw<T>,
+            origin: OriginFor<T>,
+            revoke: RevokeRaw<T>,
             proof: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
@@ -170,10 +225,10 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `unrevoke.registry_id`.
-        #[weight = SubstrateWeight::<T>::unrevoke(&proof[0])(unrevoke.len())]
+        #[pallet::weight(SubstrateWeight::<T>::unrevoke(&proof[0])(unrevoke.len()))]
         pub fn unrevoke(
-            origin,
-            unrevoke: dock::revoke::UnRevokeRaw<T>,
+            origin: OriginFor<T>,
+            unrevoke: UnRevokeRaw<T>,
             proof: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
@@ -195,10 +250,10 @@ decl_module! {
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `removal.registry_id`.
-        #[weight = SubstrateWeight::<T>::remove_registry(&proof[0])]
+        #[pallet::weight(SubstrateWeight::<T>::remove_registry(&proof[0]))]
         pub fn remove_registry(
-            origin,
-            removal: dock::revoke::RemoveRegistryRaw<T>,
+            origin: OriginFor<T>,
+            removal: RemoveRegistryRaw<T>,
             proof: Vec<DidSignatureWithNonce<T>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
@@ -209,7 +264,7 @@ decl_module! {
     }
 }
 
-impl<T: frame_system::Config> SubstrateWeight<T> {
+impl<T: Config> SubstrateWeight<T> {
     fn revoke(DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>) -> fn(u32) -> Weight {
         match sig.sig {
             SigValue::Sr25519(_) => Self::revoke_sr25519,

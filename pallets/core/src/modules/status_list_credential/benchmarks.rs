@@ -2,12 +2,14 @@ use super::*;
 use crate::{
     common::state_change::ToStateChange,
     did::{Did, DidSignature, UncheckedDidKey},
+    util::BoundedBytes,
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_system::RawOrigin;
 use sp_core::U256;
+use sp_runtime::traits::TryCollect;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
-use system::RawOrigin;
 
 const MIN_CREDENTIAL_SIZE: u32 = 100;
 const MAX_CREDENTIAL_SIZE: u32 = 10_000;
@@ -32,12 +34,12 @@ crate::bench_with_all_pairs! {
 
         let id = [1u8; 32].into();
         let credential = StatusListCredentialWithPolicy {
-            status_list_credential: StatusListCredential::RevocationList2020Credential((0..r).map(|v| v as u8).collect()),
-            policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did))
+            status_list_credential: StatusListCredential::<T>::RevocationList2020Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap())),
+            policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did)).unwrap()
         };
         super::Pallet::<T>::create_(id, credential).unwrap();
 
-        let credential = StatusListCredential::StatusList2021Credential((0..r).map(|v| v as u8).collect());
+        let credential = StatusListCredential::<T>::StatusList2021Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap()));
         let update_credential_raw = UpdateStatusListCredentialRaw {
              /// Unique identifier of the underlying `StatusListCredential`
             id,
@@ -53,8 +55,8 @@ crate::bench_with_all_pairs! {
     }: update(RawOrigin::Signed(caller), update.into_data(), vec![DidSignatureWithNonce { sig: signature, nonce: 1u32.into() }])
     verify {
         assert_eq!(StatusListCredentials::get(id).unwrap(), StatusListCredentialWithPolicy {
-            status_list_credential: StatusListCredential::StatusList2021Credential((0..r).map(|v| v as u8).collect()),
-            policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did))
+            status_list_credential: StatusListCredential::<T>::StatusList2021Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap())),
+            policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did)).unwrap()
         });
     }
 
@@ -72,8 +74,8 @@ crate::bench_with_all_pairs! {
 
         let id = [1u8; 32].into();
         let credential = StatusListCredentialWithPolicy {
-            status_list_credential: StatusListCredential::RevocationList2020Credential((0..MAX_CREDENTIAL_SIZE).map(|v| v as u8).collect()),
-            policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did))
+            status_list_credential: StatusListCredential::<T>::RevocationList2020Credential(BoundedBytes((0..MAX_CREDENTIAL_SIZE).map(|v| v as u8).try_collect().unwrap())),
+            policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did)).unwrap()
         };
         super::Pallet::<T>::create_(id, credential).unwrap();
 
@@ -89,7 +91,7 @@ crate::bench_with_all_pairs! {
 
     }: remove(RawOrigin::Signed(caller), remove.into_data(), vec![DidSignatureWithNonce { sig: signature, nonce: 1u32.into() }])
     verify {
-        assert_eq!(StatusListCredentials::get(id), None);
+        assert_eq!(StatusListCredentials::<T>::get(id), None);
     };
 
     standard:
@@ -101,15 +103,15 @@ crate::bench_with_all_pairs! {
 
         let id = [1u8; 32].into();
         let credential = StatusListCredentialWithPolicy {
-            status_list_credential: StatusListCredential::RevocationList2020Credential((0..r).map(|v| v as u8).collect()),
-            policy: Policy::one_of((0..c).map(|i| U256::from(i).into()).map(Did))
+            status_list_credential: StatusListCredential::<T>::RevocationList2020Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap())),
+            policy: Policy::one_of((0..c).map(|i| U256::from(i).into()).map(Did)).unwrap()
         };
 
     }: create(RawOrigin::Signed(caller), id, credential)
     verify {
-        assert_eq!(StatusListCredentials::get(id).unwrap(), StatusListCredentialWithPolicy {
-            status_list_credential: StatusListCredential::RevocationList2020Credential((0..r).map(|v| v as u8).collect()),
-            policy: Policy::one_of((0..c).map(|i| U256::from(i).into()).map(Did))
+        assert_eq!(StatusListCredentials::<T>::get(id).unwrap(), StatusListCredentialWithPolicy {
+            status_list_credential: StatusListCredential::<T>::RevocationList2020Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap())),
+            policy: Policy::one_of((0..c).map(|i| U256::from(i).into()).map(Did)).unwrap()
         });
     }
 }

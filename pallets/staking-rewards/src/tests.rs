@@ -2,7 +2,7 @@ use crate as dock_staking_rewards;
 
 use dock_staking_rewards::*;
 use frame_support::{assert_noop, assert_ok, parameter_types, traits::OnRuntimeUpgrade};
-use frame_system::{self as system, RawOrigin};
+use frame_system::RawOrigin;
 use sp_core::H256;
 use sp_runtime::{
     curve::PiecewiseLinear,
@@ -23,7 +23,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: balances::{Pallet, Call, Storage},
-        PoAModule: dock_poa::{Pallet, Call, Storage, Config<T>},
+        PoAModule: dock_poa::{Pallet, Storage},
         StakingRewards: dock_staking_rewards::{Pallet, Call, Storage, Event<T>},
     }
 );
@@ -75,7 +75,7 @@ impl Get<Percent> for HighRateRewardDecayPct {
     }
 }
 
-impl system::Config for Test {
+impl frame_system::Config for Test {
     type OnSetCode = ();
     type MaxConsumers = sp_runtime::traits::ConstU32<10>;
     type BaseCallFilter = frame_support::traits::Everything;
@@ -129,7 +129,7 @@ impl dock_poa::Config for Test {
 
 // Build genesis storage according to the mock runtime.
 pub fn new_test_ext() -> sp_io::TestExternalities {
-    system::GenesisConfig::default()
+    frame_system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap()
         .into()

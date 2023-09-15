@@ -90,11 +90,14 @@ mod basic {
     pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
     where
         D: serde::Deserializer<'de>,
-        T: serde::Deserialize<'de> + serde_hex::FromHex,
-        <T as serde_hex::FromHex>::Error: sp_std::fmt::Display,
+        T: serde::Deserialize<'de> + TryFrom<Vec<u8>>,
     {
         if deserializer.is_human_readable() {
-            deserializer.deserialize_str(HexStrVisitor(PhantomData))
+            let deserialized_vec =
+                deserializer.deserialize_str(HexStrVisitor::<Vec<u8>>(PhantomData))?;
+
+            T::try_from(deserialized_vec)
+                .map_err(|_| serde::de::Error::custom("Failed to construct a value from hex"))
         } else {
             T::deserialize(deserializer)
         }

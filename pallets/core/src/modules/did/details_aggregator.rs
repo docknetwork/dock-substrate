@@ -1,4 +1,4 @@
-use super::*;
+use super::{service_endpoints::ServiceEndpointId, *};
 use crate::{
     attest::{self, Attestation, Attester},
     impl_bits_conversion, impl_wrapper_type_info,
@@ -22,9 +22,9 @@ pub struct AggregatedDidDetailsResponse<T: Config> {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     controllers: Option<Vec<Controller>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    service_endpoints: Option<Vec<ServiceEndpointWithId>>,
+    service_endpoints: Option<Vec<ServiceEndpointWithId<T>>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    attestation: Option<Attestation>,
+    attestation: Option<Attestation<T>>,
 }
 
 /// `DidKey` with its identifier.
@@ -41,10 +41,14 @@ pub struct DidKeyWithId {
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[scale_info(omit_prefix)]
-pub struct ServiceEndpointWithId {
-    id: Bytes,
-    endpoint: ServiceEndpoint,
+pub struct ServiceEndpointWithId<T: Config> {
+    id: ServiceEndpointId<T>,
+    endpoint: ServiceEndpoint<T>,
 }
 
 impl<T: Config> AggregatedDidDetailsResponse<T> {
@@ -55,12 +59,12 @@ impl<T: Config> AggregatedDidDetailsResponse<T> {
         keys: Option<KI>,
         controllers: Option<CI>,
         service_endpoints: Option<SI>,
-        attestation: Option<Attestation>,
+        attestation: Option<Attestation<T>>,
     ) -> Self
     where
         KI: IntoIterator<Item = (IncId, DidKey)>,
         CI: IntoIterator<Item = Controller>,
-        SI: IntoIterator<Item = (Bytes, ServiceEndpoint)>,
+        SI: IntoIterator<Item = (ServiceEndpointId<T>, ServiceEndpoint<T>)>,
     {
         Self {
             did,
@@ -106,7 +110,7 @@ bitflags::bitflags! {
 impl_bits_conversion! { AggregatedDidDetailsRequestParams from u8 }
 impl_wrapper_type_info! { AggregatedDidDetailsRequestParams(u8) }
 
-impl<T: Config + attest::Config + Debug> Module<T> {
+impl<T: attest::Config> Pallet<T> {
     /// Request aggregated DID details containing specified information.
     pub fn aggregate_did_details(
         did: &Did,
@@ -115,13 +119,13 @@ impl<T: Config + attest::Config + Debug> Module<T> {
         let details = Self::did(did)?;
         let keys = params
             .intersects(AggregatedDidDetailsRequestParams::KEYS)
-            .then(|| DidKeys::iter_prefix(did));
+            .then(|| DidKeys::<T>::iter_prefix(did));
         let controllers = params
             .intersects(AggregatedDidDetailsRequestParams::CONTROLLERS)
-            .then(|| DidControllers::iter_prefix(did).map(|(did, ())| did));
+            .then(|| DidControllers::<T>::iter_prefix(did).map(|(did, ())| did));
         let service_endpoints = params
             .intersects(AggregatedDidDetailsRequestParams::SERVICE_ENDPOINTS)
-            .then(|| DidServiceEndpoints::iter_prefix(did));
+            .then(|| DidServiceEndpoints::<T>::iter_prefix(did));
         let attestation = params
             .intersects(AggregatedDidDetailsRequestParams::ATTESTATION)
             .then(|| <attest::Pallet<T>>::attestation(Attester(*did)));

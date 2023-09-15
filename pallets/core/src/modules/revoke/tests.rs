@@ -53,10 +53,10 @@ pub fn check_nonce_increase(old_nonces: BTreeMap<Did, u64>, signers: &[(Did, &sr
 
 /// Tests every failure case in the module.
 /// If a failure case is not covered, thats a bug.
-/// If an error variant from RevErr is not covered, thats a bug.
+/// If an error variant from Error is not covered, thats a bug.
 ///
 /// Tests in this module are named after the errors they check.
-/// For example, `#[test] fn invalidpolicy` exercises the RevErr::InvalidPolicy.
+/// For example, `#[test] fn invalidpolicy` exercises the Error::InvalidPolicy.
 mod errors {
     use crate::common::{PolicyExecutionError, PolicyValidationError};
 
@@ -74,7 +74,7 @@ mod errors {
         let ar = AddRegistry {
             id: RGA,
             new_registry: Registry {
-                policy: Policy::one_of(None::<Did>),
+                policy: Policy::one_of(None::<Did>).unwrap(),
                 add_only: false,
             },
         };
@@ -90,8 +90,11 @@ mod errors {
             return ext().execute_with(notauthorized);
         }
 
-        fn assert_revoke_err(policy: Policy, signers: &[(Did, &sr25519::Pair)]) -> DispatchError {
-            let regid: RegistryId = random();
+        fn assert_revoke_err(
+            policy: Policy<Test>,
+            signers: &[(Did, &sr25519::Pair)],
+        ) -> DispatchError {
+            let regid: RegistryId = RegistryId(random());
             let ar = AddRegistry {
                 id: regid,
                 new_registry: Registry {
@@ -104,7 +107,11 @@ mod errors {
             let rev = RevokeRaw {
                 _marker: PhantomData,
                 registry_id: regid,
-                revoke_ids: random::<[RevokeId; 32]>().iter().cloned().collect(),
+                revoke_ids: random::<[[u8; 32]; 32]>()
+                    .iter()
+                    .cloned()
+                    .map(Into::into)
+                    .collect(),
             };
             let pauth = get_pauth(&rev, signers);
             dbg!(&rev);
@@ -117,35 +124,39 @@ mod errors {
         let (a, b, c) = (DIDA, DIDB, DIDC);
         let (kpa, kpb, kpc) = (create_did(a), create_did(b), create_did(c));
 
-        let cases: &[(Policy, &[(Did, &sr25519::Pair)], &str)] = &[
-            (Policy::one_of([a]), &[], "provide no signatures"),
+        let cases: &[(Policy<Test>, &[(Did, &sr25519::Pair)], &str)] = &[
+            (Policy::one_of([a]).unwrap(), &[], "provide no signatures"),
             (
-                Policy::one_of([a]),
+                Policy::one_of([a]).unwrap(),
                 &[(b, &kpb)],
                 "wrong account; wrong key",
             ),
             (
-                Policy::one_of([a]),
+                Policy::one_of([a]).unwrap(),
                 &[(a, &kpb)],
                 "correct account; wrong key",
             ),
             (
-                Policy::one_of([a]),
+                Policy::one_of([a]).unwrap(),
                 &[(a, &kpb)],
                 "wrong account; correct key",
             ),
             (
-                Policy::one_of([a, b]),
+                Policy::one_of([a, b]).unwrap(),
                 &[(c, &kpc)],
                 "account not a controller",
             ),
             (
-                Policy::one_of([a, b]),
+                Policy::one_of([a, b]).unwrap(),
                 &[(a, &kpa), (b, &kpb)],
                 "two signers",
             ),
-            (Policy::one_of([a]), &[], "one controller; no sigs"),
-            (Policy::one_of([a, b]), &[], "two controllers; no sigs"),
+            (Policy::one_of([a]).unwrap(), &[], "one controller; no sigs"),
+            (
+                Policy::one_of([a, b]).unwrap(),
+                &[],
+                "two controllers; no sigs",
+            ),
         ];
 
         for (pol, set, description) in cases {
@@ -166,7 +177,7 @@ mod errors {
             return ext().execute_with(notauthorized_wrong_command);
         }
 
-        let policy = Policy::one_of([DIDA]);
+        let policy = Policy::one_of([DIDA]).unwrap();
         let registry_id = RGA;
         let add_only = false;
 
@@ -184,7 +195,7 @@ mod errors {
         let unrevoke = UnRevokeRaw {
             _marker: PhantomData,
             registry_id,
-            revoke_ids: once(Default::default()).collect(),
+            revoke_ids: once(RevokeId(Default::default())).collect(),
         };
         let ur_proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
         RevoMod::unrevoke(Origin::signed(ABBA), unrevoke.clone(), ur_proof).unwrap();
@@ -192,7 +203,7 @@ mod errors {
         let rev = RevokeRaw {
             _marker: PhantomData,
             registry_id,
-            revoke_ids: once(Default::default()).collect(),
+            revoke_ids: once(RevokeId(Default::default())).collect(),
         };
         let ur_proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
         assert_eq!(
@@ -211,7 +222,7 @@ mod errors {
         }
 
         let reg = Registry {
-            policy: Policy::one_of([DIDA]),
+            policy: Policy::one_of([DIDA]).unwrap(),
             add_only: false,
         };
         let ar = AddRegistry {
@@ -220,7 +231,7 @@ mod errors {
         };
         RevoMod::new_registry(Origin::signed(ABBA), ar.clone()).unwrap();
         let err = RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap_err();
-        assert_eq!(err, RevErr::<Test>::RegExists.into());
+        assert_eq!(err, Error::<Test>::RegExists.into());
     }
 
     #[test]
@@ -239,7 +250,7 @@ mod errors {
                 RevokeRaw {
                     _marker: PhantomData,
                     registry_id,
-                    revoke_ids: once(Default::default()).collect(),
+                    revoke_ids: once(RevokeId(Default::default())).collect(),
                 },
                 vec![]
             ),
@@ -251,7 +262,7 @@ mod errors {
                 UnRevokeRaw {
                     _marker: PhantomData,
                     registry_id,
-                    revoke_ids: once(Default::default()).collect(),
+                    revoke_ids: once(RevokeId(Default::default())).collect(),
                 },
                 vec![],
             ),
@@ -277,12 +288,12 @@ mod errors {
         }
 
         let registry_id = RGA;
-        let err = RevErr::<Test>::TooManyControllers;
+        let err = Error::<Test>::TooManyControllers;
 
         let ar = AddRegistry {
             id: registry_id,
             new_registry: Registry {
-                policy: Policy::one_of((0u8..16).map(U256::from).map(Into::into).map(Did)),
+                policy: Policy::one_of((0u8..16).map(U256::from).map(Into::into).map(Did)).unwrap(),
                 add_only: false,
             },
         };
@@ -295,12 +306,12 @@ mod errors {
         if !in_ext() {
             return ext().execute_with(incorrect_nonce);
         }
-        let err = RevErr::<Test>::EmptyPayload;
+        let err = Error::<Test>::EmptyPayload;
 
         let kpa = create_did(DIDA);
         let registry_id = RGA;
         let reg = Registry {
-            policy: Policy::one_of([DIDA]),
+            policy: Policy::one_of([DIDA]).unwrap(),
             add_only: false,
         };
         let ar = AddRegistry {
@@ -337,7 +348,7 @@ mod errors {
         let ar = AddRegistry {
             id: registry_id,
             new_registry: Registry {
-                policy: Policy::one_of([DIDA]),
+                policy: Policy::one_of([DIDA]).unwrap(),
                 add_only: false,
             },
         };
@@ -347,7 +358,7 @@ mod errors {
         let rev = RevokeRaw {
             _marker: PhantomData,
             registry_id,
-            revoke_ids: once(Default::default()).collect(),
+            revoke_ids: once(RevokeId(Default::default())).collect(),
         };
         let proof = get_pauth(&rev, &[(DIDA, &kpa)]);
 
@@ -358,7 +369,7 @@ mod errors {
         let unrevoke = UnRevokeRaw {
             _marker: PhantomData,
             registry_id,
-            revoke_ids: once(Default::default()).collect(),
+            revoke_ids: once(RevokeId(Default::default())).collect(),
         };
         let proof = get_pauth(&unrevoke, &[(DIDA, &kpa)]);
 
@@ -390,7 +401,7 @@ mod errors {
         }
 
         let registry_id = RGA;
-        let err: Result<(), DispatchError> = Err(RevErr::<Test>::AddOnly.into());
+        let err: Result<(), DispatchError> = Err(Error::<Test>::AddOnly.into());
         let revoke_ids: BTreeSet<_> = [RA, RB, RC].iter().cloned().collect();
 
         run_to_block(1);
@@ -400,7 +411,7 @@ mod errors {
         let ar = AddRegistry {
             id: registry_id,
             new_registry: Registry {
-                policy: Policy::one_of([DIDA]),
+                policy: Policy::one_of([DIDA]).unwrap(),
                 add_only: true,
             },
         };
@@ -431,14 +442,14 @@ mod errors {
 
     // Untested variants will be a match error.
     // To fix the match error, write a test for the variant then update the test.
-    fn _all_included(dummy: RevErr<Test>) {
+    fn _all_included(dummy: Error<Test>) {
         match dummy {
-            RevErr::__Ignore(_, _)
-            | RevErr::RegExists
-            | RevErr::EmptyPayload
-            | RevErr::IncorrectNonce
-            | RevErr::AddOnly
-            | RevErr::TooManyControllers => {}
+            Error::__Ignore(_, _)
+            | Error::RegExists
+            | Error::EmptyPayload
+            | Error::IncorrectNonce
+            | Error::AddOnly
+            | Error::TooManyControllers => {}
         }
     }
 }
@@ -454,7 +465,6 @@ mod calls {
     // Cannot do `use super::super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::super::{Call as RevCall, Registries, Revocations};
     use alloc::collections::BTreeSet;
-    use frame_support::{StorageDoubleMap, StorageMap};
 
     #[test]
     fn new_registry() {
@@ -462,23 +472,23 @@ mod calls {
             return ext().execute_with(new_registry);
         }
 
-        let cases: &[(Policy, bool)] = &[
-            (Policy::one_of([DIDA]), false),
-            (Policy::one_of([DIDA, DIDB]), false),
-            (Policy::one_of([DIDA]), true),
-            (Policy::one_of([DIDA, DIDB]), true),
+        let cases: &[(Policy<Test>, bool)] = &[
+            (Policy::one_of([DIDA]).unwrap(), false),
+            (Policy::one_of([DIDA, DIDB]).unwrap(), false),
+            (Policy::one_of([DIDA]).unwrap(), true),
+            (Policy::one_of([DIDA, DIDB]).unwrap(), true),
         ];
         for (policy, add_only) in cases.iter().cloned() {
-            let reg_id = random();
+            let reg_id = RegistryId(random());
             let reg = Registry { policy, add_only };
             let ar = AddRegistry {
                 id: reg_id,
                 new_registry: reg.clone(),
             };
-            assert!(!Registries::contains_key(reg_id));
+            assert!(!Registries::<Test>::contains_key(reg_id));
             RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
-            assert!(Registries::contains_key(reg_id));
-            assert_eq!(Registries::get(reg_id).unwrap(), reg);
+            assert!(Registries::<Test>::contains_key(reg_id));
+            assert_eq!(Registries::<Test>::get(reg_id).unwrap(), reg);
         }
     }
 
@@ -488,7 +498,7 @@ mod calls {
             return ext().execute_with(revoke);
         }
 
-        let policy = Policy::one_of([DIDA]);
+        let policy = Policy::one_of([DIDA]).unwrap();
         let registry_id = RGA;
         let add_only = true;
 
@@ -505,9 +515,9 @@ mod calls {
 
         let cases: &[&[RevokeId]] = &[
             // &[],
-            &[random()],
-            &[random(), random()],
-            &[random(), random(), random()],
+            &[RevokeId(random())],
+            &[RevokeId(random()), RevokeId(random())],
+            &[RevokeId(random()), RevokeId(random()), RevokeId(random())],
             &[RA], // Test idempotence, step 1
             &[RA], // Test idempotence, step 2
         ];
@@ -523,7 +533,7 @@ mod calls {
             RevoMod::revoke(Origin::signed(ABBA), revoke, proof).unwrap();
             assert!(ids
                 .iter()
-                .all(|id| Revocations::contains_key(registry_id, id)));
+                .all(|id| Revocations::<Test>::contains_key(registry_id, id)));
             check_nonce_increase(old_nonces, &[(DIDA, &kpa)]);
             run_to_block(1 + 1 + i as u64);
         }
@@ -535,7 +545,7 @@ mod calls {
             return ext().execute_with(unrevoke);
         }
 
-        let policy = Policy::one_of([DIDA]);
+        let policy = Policy::one_of([DIDA]).unwrap();
         let registry_id = RGA;
         let add_only = false;
 
@@ -559,9 +569,17 @@ mod calls {
 
         let cases: &[(Action, &[RevokeId], u32)] = &[
             //(Action::UnRevo, &[], line!()),
-            (Action::UnRevo, &[random()], line!()),
-            (Action::UnRevo, &[random(), random()], line!()),
-            (Action::UnRevo, &[random(), random(), random()], line!()),
+            (Action::UnRevo, &[RevokeId(random())], line!()),
+            (
+                Action::UnRevo,
+                &[RevokeId(random()), RevokeId(random())],
+                line!(),
+            ),
+            (
+                Action::UnRevo,
+                &[RevokeId(random()), RevokeId(random()), RevokeId(random())],
+                line!(),
+            ),
             (Action::Revoke, &[RA, RB], line!()),
             (Action::AsrtRv, &[RA, RB], line!()),
             (Action::UnRevo, &[RA], line!()),
@@ -603,12 +621,12 @@ mod calls {
                 Action::AsrtRv => {
                     assert!(revoke_ids
                         .iter()
-                        .all(|id| Revocations::contains_key(registry_id, id)));
+                        .all(|id| Revocations::<Test>::contains_key(registry_id, id)));
                 }
                 Action::AsrtNR => {
                     assert!(!revoke_ids
                         .iter()
-                        .any(|id| Revocations::contains_key(registry_id, id)));
+                        .any(|id| Revocations::<Test>::contains_key(registry_id, id)));
                 }
             }
             run_to_block(10 + 1 + i as u64)
@@ -621,7 +639,7 @@ mod calls {
             return ext().execute_with(remove_registry);
         }
 
-        let policy = Policy::one_of([DIDA]);
+        let policy = Policy::one_of([DIDA]).unwrap();
         let registry_id = RGA;
         let add_only = false;
         let kpa = create_did(DIDA);
@@ -633,7 +651,7 @@ mod calls {
         };
 
         RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap();
-        assert!(Registries::contains_key(registry_id));
+        assert!(Registries::<Test>::contains_key(registry_id));
 
         // destroy reg
         let rem = RemoveRegistryRaw {
@@ -646,7 +664,7 @@ mod calls {
         check_nonce_increase(old_nonces, &[(DIDA, &kpa)]);
 
         // assert not exists
-        assert!(!Registries::contains_key(registry_id));
+        assert!(!Registries::<Test>::contains_key(registry_id));
     }
 
     // Untested variants will be a match error.
@@ -657,13 +675,12 @@ mod calls {
             | RevCall::revoke { .. }
             | RevCall::unrevoke { .. }
             | RevCall::remove_registry { .. }
-            | RevCall::__PhantomItem { .. } => {}
+            | RevCall::__Ignore { .. } => {}
         }
     }
 }
 
 mod test {
-    use frame_support::StorageMap;
     use sp_runtime::DispatchError;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
@@ -683,30 +700,35 @@ mod test {
         let rev = RevokeRaw {
             _marker: PhantomData,
             registry_id: RGA,
-            revoke_ids: once(Default::default()).collect(),
+            revoke_ids: once(RevokeId(Default::default())).collect(),
         };
 
-        let cases: &[(u32, Policy, &[(Did, &sr25519::Pair)], bool)] = &[
-            (line!(), Policy::one_of([a]), &[(a, &kpa)], true),
-            (line!(), Policy::one_of([a, b]), &[(a, &kpa)], true),
-            (line!(), Policy::one_of([a, b]), &[(b, &kpb)], true),
-            (line!(), Policy::one_of([a]), &[], false), // provide no signatures
-            (line!(), Policy::one_of([a]), &[(b, &kpb)], false), // wrong account; wrong key
-            (line!(), Policy::one_of([a]), &[(a, &kpb)], false), // correct account; wrong key
-            (line!(), Policy::one_of([a]), &[(a, &kpb)], false), // wrong account; correct key
-            (line!(), Policy::one_of([a, b]), &[(c, &kpc)], false), // account not a controller
+        let cases: &[(u32, Policy<Test>, &[(Did, &sr25519::Pair)], bool)] = &[
+            (line!(), Policy::one_of([a]).unwrap(), &[(a, &kpa)], true),
+            (line!(), Policy::one_of([a, b]).unwrap(), &[(a, &kpa)], true),
+            (line!(), Policy::one_of([a, b]).unwrap(), &[(b, &kpb)], true),
+            (line!(), Policy::one_of([a]).unwrap(), &[], false), // provide no signatures
+            (line!(), Policy::one_of([a]).unwrap(), &[(b, &kpb)], false), // wrong account; wrong key
+            (line!(), Policy::one_of([a]).unwrap(), &[(a, &kpb)], false), // correct account; wrong key
+            (line!(), Policy::one_of([a]).unwrap(), &[(a, &kpb)], false), // wrong account; correct key
             (
                 line!(),
-                Policy::one_of([a, b]),
+                Policy::one_of([a, b]).unwrap(),
+                &[(c, &kpc)],
+                false,
+            ), // account not a controller
+            (
+                line!(),
+                Policy::one_of([a, b]).unwrap(),
                 &[(a, &kpa), (b, &kpb)],
                 false,
             ), // two signers
-            (line!(), Policy::one_of([a]), &[], false), // one controller; no sigs
-            (line!(), Policy::one_of([a, b]), &[], false), // two controllers; no sigs
+            (line!(), Policy::one_of([a]).unwrap(), &[], false),          // one controller; no sigs
+            (line!(), Policy::one_of([a, b]).unwrap(), &[], false), // two controllers; no sigs
         ];
         for (i, (line_no, policy, signers, expect_success)) in cases.iter().enumerate() {
             eprintln!("running case from line {}", line_no);
-            Registries::insert(
+            Registries::<Test>::insert(
                 RGA,
                 Registry {
                     policy: policy.clone(),
@@ -738,7 +760,7 @@ mod test {
             return ext().execute_with(get_revocation_registry);
         }
 
-        let policy = Policy::one_of([DIDA]);
+        let policy = Policy::one_of([DIDA]).unwrap();
         let registry_id = RGA;
         let add_only = false;
         let reg = Registry { policy, add_only };
@@ -760,12 +782,12 @@ mod test {
             return ext().execute_with(get_revocation_status);
         }
 
-        let policy = Policy::one_of([DIDA]);
+        let policy = Policy::one_of([DIDA]).unwrap();
         let registry_id = RGA;
         let add_only = false;
         let reg = Registry { policy, add_only };
         let kpa = create_did(DIDA);
-        let revid: RevokeId = random();
+        let revid: RevokeId = RevokeId(random());
 
         let ar = AddRegistry {
             id: registry_id,

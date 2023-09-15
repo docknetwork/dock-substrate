@@ -1,5 +1,5 @@
 use crate::impl_wrapper;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use sp_std::{
     fmt::Debug,
     ops::{Index, RangeFull},
@@ -16,7 +16,7 @@ pub use onchain::*;
 pub use signature::DidSignature;
 
 /// The type of the Dock DID.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
@@ -41,7 +41,7 @@ impl Index<RangeFull> for Did {
 }
 
 /// Contains underlying DID describing its storage type.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -50,7 +50,7 @@ impl Index<RangeFull> for Did {
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum StoredDidDetails<T: Config> {
+pub enum StoredDidDetails<T: SizeConfig + frame_system::Config> {
     /// For off-chain DID, most data is stored off-chain.
     OffChain(OffChainDidDetails<T>),
     /// For on-chain DID, all data is stored on the chain.
@@ -95,7 +95,7 @@ impl<T: Config> StoredDidDetails<T> {
     }
 }
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     /// Inserts details for the given `DID`.
     pub(crate) fn insert_did_details<D: Into<StoredDidDetails<T>>>(did: Did, did_details: D) {
         Dids::<T>::insert(did, did_details.into())

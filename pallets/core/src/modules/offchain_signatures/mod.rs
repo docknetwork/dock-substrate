@@ -2,23 +2,23 @@
 //! Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 
 use crate::{
-    common::{SigValue, StorageVersion},
+    common::{self, SigValue},
     did,
-    did::{Controller, Did, DidSignature},
+    did::{Controller, Did, DidSignature, OnDidRemoval},
     util::IncId,
 };
 use codec::{Decode, Encode};
-use sp_std::{fmt::Debug, prelude::*};
+use sp_std::prelude::*;
 
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Weight},
     traits::Get,
 };
-use frame_system::{self as system, ensure_signed};
+use frame_system::ensure_signed;
 use weights::*;
 
 pub use actions::*;
+pub use pallet::*;
 pub use params::*;
 pub use public_key::*;
 pub use schemes::*;
@@ -26,7 +26,6 @@ pub use schemes::*;
 mod actions;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
-mod migration;
 mod params;
 mod public_key;
 mod schemes;
@@ -34,150 +33,174 @@ mod schemes;
 mod tests;
 mod weights;
 
-/// The module's configuration trait.
-pub trait Config: system::Config + did::Config {
-    /// Maximum size of the label
-    type LabelMaxSize: Get<u32>;
-    /// Weight consumed per byte of the label.
-    type LabelPerByteWeight: Get<Weight>;
-    /// Maximum byte size of the parameters. This depends on the chosen elliptic curve and the number
-    /// of messages that can be signed.
-    type ParamsMaxSize: Get<u32>;
-    /// Weight consumed per byte of the params. This will determine the cost of the transaction.
-    type ParamsPerByteWeight: Get<Weight>;
-    /// Maximum byte size of the `BBS`/`BBS+` (fixed) public key. This depends only on the chosen elliptic curve.
-    type BBSPublicKeyMaxSize: Get<u32>;
-    /// Maximum byte size of the `PS` public key. This depends on the chosen elliptic curve and the number
-    /// of messages that can be signed.
-    type PSPublicKeyMaxSize: Get<u32>;
-    /// Weight consumed per byte of the public key. This will determine the cost of the transaction.
-    type PublicKeyPerByteWeight: Get<Weight>;
-    /// The overarching event type.
-    type Event: From<Event> + Into<<Self as system::Config>::Event>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::{pallet_prelude::*, Blake2_128Concat};
+    use frame_system::pallet_prelude::*;
 
-decl_event!(
+    #[pallet::config]
+    /// The module's configuration trait.
+    pub trait Config: frame_system::Config + did::Config {
+        /// The overarching event type.
+        type Event: From<Event>
+            + IsType<<Self as frame_system::Config>::Event>
+            + Into<<Self as frame_system::Config>::Event>;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event {
         ParamsAdded(SignatureParamsOwner, IncId),
         ParamsRemoved(SignatureParamsOwner, IncId),
         KeyAdded(Did, IncId),
         KeyRemoved(Did, IncId),
     }
-);
 
-decl_error! {
-    pub enum Error for Module<T: Config> where T: Debug {
-        LabelTooBig,
-        ParamsTooBig,
-        PublicKeyTooBig,
+    #[pallet::error]
+    pub enum Error<T> {
         ParamsDontExist,
         IncorrectParamsScheme,
         PublicKeyDoesntExist,
         NotOwner,
-        IncorrectNonce
+        IncorrectNonce,
     }
-}
 
-decl_storage! {
-    trait Store for Module<T: Config> as OffchainSignatures where T: Debug {
-        /// Pair of counters where each is used to assign unique id to parameters and public keys
-        /// respectively. On adding new params or keys, corresponding counter is increased by 1 but
-        /// the counters don't decrease on removal
-        pub ParamsCounter get(fn did_params_counter):
-            map hasher(blake2_128_concat) SignatureParamsOwner => IncId;
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
 
-        /// Signature parameters are stored as key value (did, counter) -> signature parameters
-        pub SignatureParams get(fn did_public_key_params):
-            double_map hasher(blake2_128_concat) SignatureParamsOwner, hasher(identity) IncId => Option<OffchainSignatureParams>;
+    /// Pair of counters where each is used to assign unique id to parameters and public keys
+    /// respectively. On adding new params or keys, corresponding counter is increased by 1 but
+    /// the counters don't decrease on removal
+    #[pallet::storage]
+    #[pallet::getter(fn did_params_counter)]
+    pub type ParamsCounter<T> =
+        StorageMap<_, Blake2_128Concat, SignatureParamsOwner, IncId, ValueQuery>;
 
-        /// Public keys are stored as key value (did, counter) -> public key
-        pub PublicKeys get(fn did_public_key):
-            double_map hasher(blake2_128_concat) Did, hasher(identity) IncId => Option<OffchainPublicKey>;
+    /// Signature parameters are stored as key value (did, counter) -> signature parameters
+    #[pallet::storage]
+    #[pallet::getter(fn did_public_key_params)]
+    pub type SignatureParams<T> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        SignatureParamsOwner,
+        Identity,
+        IncId,
+        OffchainSignatureParams<T>,
+    >;
 
-        pub Version get(fn version): StorageVersion;
+    /// Public keys are stored as key value (did, counter) -> public key
+    #[pallet::storage]
+    #[pallet::getter(fn did_public_key)]
+    pub type PublicKeys<T> =
+        StorageDoubleMap<_, Blake2_128Concat, Did, Identity, IncId, OffchainPublicKey<T>>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn version)]
+    pub type Version<T> = StorageValue<_, common::StorageVersion, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub _marker: PhantomData<T>,
     }
-    add_extra_genesis {
-        build(|_| {
-            Version::put(StorageVersion::MultiKey);
-        })
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            GenesisConfig {
+                _marker: PhantomData,
+            }
+        }
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
-        fn deposit_event() = default;
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            Version::<T>::put(common::StorageVersion::MultiKey);
+        }
+    }
 
-        type Error = Error<T>;
-
-        const LabelMaxSize: u32 = T::LabelMaxSize::get();
-        const LabelPerByteWeight: Weight = T::LabelPerByteWeight::get();
-        const ParamsMaxSize: u32 = T::ParamsMaxSize::get();
-        const ParamsPerByteWeight: Weight = T::ParamsPerByteWeight::get();
-        const BBSPublicKeyMaxSize: u32 = T::BBSPublicKeyMaxSize::get();
-        const PSPublicKeyMaxSize: u32 = T::PSPublicKeyMaxSize::get();
-        const PublicKeyPerByteWeight: Weight = T::PublicKeyPerByteWeight::get();
-
-        // Note: The weights for the dispatchables below consider only the major contributions, i.e. storage
-        // reads and writes, signature verifications and any major contributors to the size of the arguments.
-        // Weights are not yet determined by benchmarks and thus ignore processing time and also event storage
-        // cost
-
-        #[weight = SubstrateWeight::<T>::add_params(params, signature)]
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::weight(SubstrateWeight::<T>::add_params(params, signature))]
         pub fn add_params(
-            origin,
+            origin: OriginFor<T>,
             params: AddOffchainSignatureParams<T>,
             signature: DidSignature<SignatureParamsOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::add_params_,
+                params,
+                signature,
+            )
         }
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.
         /// This kind of key cannot be removed by calling `remove_keys` from the DID module but only by calling `remove_public_key` of this module.
-        #[weight = SubstrateWeight::<T>::add_public(public_key, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
         pub fn add_public_key(
-            origin,
+            origin: OriginFor<T>,
             public_key: AddOffchainSignaturePublicKey<T>,
             signature: DidSignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
-            // Only controller can add a key
 
-            did::Pallet::<T>::try_exec_signed_action_from_controller(Self::add_public_key_, public_key, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_controller(
+                Self::add_public_key_,
+                public_key,
+                signature,
+            )
         }
 
-        #[weight = SubstrateWeight::<T>::remove_params(remove, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
         pub fn remove_params(
-            origin,
+            origin: OriginFor<T>,
             remove: RemoveOffchainSignatureParams<T>,
             signature: DidSignature<SignatureParamsOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::remove_params_,
+                remove,
+                signature,
+            )
         }
 
         /// Remove existing offchain signature public key. Only the DID controller can remove key and it should use the nonce from the DID module.
         /// This kind of key cannot be removed by calling `remove_keys` from the DID module.
-        #[weight = SubstrateWeight::<T>::remove_public(remove, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
         pub fn remove_public_key(
-            origin,
+            origin: OriginFor<T>,
             remove: RemoveOffchainSignaturePublicKey<T>,
             signature: DidSignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_controller(Self::remove_public_key_, remove, signature)
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            migration::migrate::<T, Module<T>>()
+            did::Pallet::<T>::try_exec_signed_action_from_controller(
+                Self::remove_public_key_,
+                remove,
+                signature,
+            )
         }
     }
 }
 
-impl<T: frame_system::Config> SubstrateWeight<T> {
+impl<T: Config> OnDidRemoval for Pallet<T> {
+    fn on_remove_did(did: Did) -> Weight {
+        use sp_io::MultiRemovalResults;
+        // TODO: limit and cursor
+        let MultiRemovalResults { backend, .. } =
+            PublicKeys::<T>::clear_prefix(did, u32::MAX, None);
+
+        T::DbWeight::get().writes(backend as u64)
+    }
+}
+
+impl<T: Config> SubstrateWeight<T> {
     fn add_params(
         add_params: &AddOffchainSignatureParams<T>,
         DidSignature { sig, .. }: &DidSignature<SignatureParamsOwner>,
