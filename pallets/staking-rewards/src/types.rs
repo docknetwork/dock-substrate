@@ -3,17 +3,26 @@ use sp_std::{fmt::Debug, num::NonZeroU16};
 use scale_info::TypeInfo;
 
 /// Non-zero amount of eras used to express duration.
-#[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug, TypeInfo)]
+#[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug)]
 pub struct DurationInEras(pub NonZeroU16);
+
+/// There's a bug with `NonZeroU16` in substrate metadata generation.
+impl scale_info::TypeInfo for DurationInEras {
+    type Identity = Self;
+
+    fn type_info() -> scale_info::Type {
+        scale_info::Type::builder()
+            .path(scale_info::Path::new("DurationInEras", "DurationInEras"))
+            .composite(scale_info::build::Fields::unnamed().field(|f| f.ty::<u16>()))
+    }
+}
 
 impl DurationInEras {
     /// Instantiates `DurationInEras` using supplied *non-zero* count.
     /// # Panics
     /// If the count is equal to zero.
     pub const fn new_non_zero(count: u16) -> Self {
-        if count == 0 {
-            panic!("`DurationInEras` can't be equal to zero")
-        }
+        assert!(count != 0, "`DurationInEras` can't be equal to zero");
 
         Self(unsafe { NonZeroU16::new_unchecked(count) })
     }

@@ -203,7 +203,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 46,
+    spec_version: 47,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -637,8 +637,8 @@ parameter_types! {
 /// Denotes when the system should decrease/increase the base fee based on how much weight was used by the last block.
 /// `target` is the ideal congestion of the network where the base fee should remain unchanged.
 /// Under normal circumstances the `target` should be 50%.
-/// If we go below the `target`, the base fee is linearly decreased by the Elasticity delta of lower~target.
-/// If we go above the `target`, the base fee is linearly increased by the Elasticity delta of upper~target.
+/// If we go below the `target`, the base fee is linearly decreased by the Elasticity delta of lower`~`target.
+/// If we go above the `target`, the base fee is linearly increased by the Elasticity delta of upper`~`target.
 /// The base fee is fully increased (default 12.5%) if the block is upper full (default 100%).
 /// The base fee is fully decreased (default 12.5%) if the block is lower empty (default 0%).
 pub struct BaseFeeThreshold;
@@ -1629,12 +1629,20 @@ pallet_staking_reward_curve::build! {
     );
 }
 
+/// Pay high-rate rewards for 3 months (in eras) after the upgrade.
+const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
+    DurationInEras::new_non_zero((90 * DAY / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
+
+#[cfg(not(feature = "small_durations"))]
+// 1 era lasts for 12h.
+const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 90 * 2);
+
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const HighRateRewardDecayPct: Percent = Percent::from_percent(50);
     pub const LowRateRewardDecayPct: Percent = Percent::from_percent(25);
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
-    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = None;
+    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = Some(POST_UPGRADE_HIGH_RATE_DURATION);
 }
 
 impl dock_staking_rewards::Config for Runtime {
@@ -1676,26 +1684,25 @@ parameter_types! {
     pub const ByteReadWeight: Weight = Weight::from_ref_time(100);
 }
 
-/*
-Considering the cost of following ops assuming 1 gas = 1 mirco-token.
-ERC token deploy - 891,328 gas = 0.8 tokens
-ERC token send - 28,500 gas = 0.0285 tokens
-Link token deploy - 951,000 gas = 0.951 tokens
-Link token send - 47,066 gas = 0.047 tokens
-AccessControlledAggregator - 4,425,900 gas = 4.425 tokens
-AggregatorProxy - 1,665,600 gas = 1.665 tokens
-Aggregator submit - 209,500 gas = 0.209 tokens
-Aggregator add access - 45,200 gas = 0.045 tokens
-Add oracle - 135,600 gas = 0.135 tokens
-EVM transfer DOCK token - 21,000 gas = 0.021 tokens
-
-The above is much lower than we would like. At this price it seems better to use EVM for token transfers.
-*/
-/// Fixed gas price
+/// Fixed gas price.
+/// Gas price is always 50 mirco-token (0.00005 token) per gas.
+///
+/// Considering the cost of following ops assuming 1 gas = 1 mirco-token.
+/// ERC token deploy - 891,328 gas = 0.8 tokens
+/// ERC token send - 28,500 gas = 0.0285 tokens
+/// Link token deploy - 951,000 gas = 0.951 tokens
+/// Link token send - 47,066 gas = 0.047 tokens
+/// AccessControlledAggregator - 4,425,900 gas = 4.425 tokens
+/// AggregatorProxy - 1,665,600 gas = 1.665 tokens
+/// Aggregator submit - 209,500 gas = 0.209 tokens
+/// Aggregator add access - 45,200 gas = 0.045 tokens
+/// Add oracle - 135,600 gas = 0.135 tokens
+/// EVM transfer DOCK token - 21,000 gas = 0.021 tokens
+///
+/// The above is much lower than we would like. At this price it seems better to use EVM for token transfers.
 pub struct GasPrice;
 impl FeeCalculator for GasPrice {
     fn min_gas_price() -> (U256, Weight) {
-        // Gas price is always 50 mirco-token (0.00005 token) per gas.
         (50.into(), Weight::zero())
     }
 }

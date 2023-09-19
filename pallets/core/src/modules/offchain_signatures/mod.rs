@@ -26,7 +26,6 @@ pub use schemes::*;
 mod actions;
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
-mod migration;
 mod params;
 mod public_key;
 mod schemes;
@@ -169,10 +168,6 @@ decl_module! {
             ensure_signed(origin)?;
 
             did::Pallet::<T>::try_exec_signed_action_from_controller(Self::remove_public_key_, remove, signature)
-        }
-
-        fn on_runtime_upgrade() -> Weight {
-            migration::migrate::<T, Module<T>>()
         }
     }
 }
