@@ -15,7 +15,6 @@ use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     ensure,
-    traits::Get,
     weights::{RuntimeDbWeight, Weight},
     BoundedBTreeSet,
 };
@@ -56,14 +55,12 @@ impl<T: SizeConfig> Policy<T> {
             Item = impl Borrow<Did>,
         >,
     ) -> Result<Self, PolicyValidationError> {
-        let this = controllers
+        controllers
             .into_iter()
             .map(|did| *did.borrow())
             .try_collect()
             .map_err(|_| PolicyValidationError::TooManyControllers)
-            .map(Self::OneOf)?;
-
-        Ok(this)
+            .map(Self::OneOf)
     }
 }
 
@@ -102,12 +99,6 @@ impl From<PolicyValidationError> for DispatchError {
 
         DispatchError::Other(raw)
     }
-}
-
-/// Denotes max amount of controllers per a single `Policy`.
-pub trait MaxPolicyControllers {
-    /// Max amount of controllers per a single `Policy`.
-    type MaxPolicyControllers: Get<u32>;
 }
 
 impl<T: SizeConfig> Policy<T> {

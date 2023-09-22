@@ -1925,14 +1925,23 @@ fn service_endpoints() {
             Error::<Test>::InsufficientVerificationRelationship
         );
 
-        /*ServiceEndpointId::<Test>(vec![20; 512].try_into().unwrap_err()); // too big id not allowed
-        ServiceEndpointOrigin(vec![30; 561].try_into().unwrap_err()); // too big origin not allowed
-        ServiceEndpoint {
-            types: ServiceEndpointType::LINKED_DOMAINS,
-            origins: vec![vec![30; 20].try_into().unwrap(); 300]
+        assert!(vec![20; 512]
+            .try_into()
+            .map(ServiceEndpointId::<Test>)
+            .is_err()); // too big id not allowed
+        assert!(vec![30; 561]
+            .try_into()
+            .map(ServiceEndpointOrigin::<Test>)
+            .is_err()); // too big origin not allowed
+        assert!(
+            vec![ServiceEndpointOrigin::<Test>(vec![30; 20].try_into().unwrap()); 300]
                 .try_into()
-                .unwrap_err(), // too many origins not allowed
-        };*/
+                .map(|origins| ServiceEndpoint {
+                    types: ServiceEndpointType::LINKED_DOMAINS,
+                    origins,
+                })
+                .is_err()
+        ); // too many origins not allowed
 
         // Trying to add invalid endpoint fails
         for (id, ep) in vec![
