@@ -171,6 +171,24 @@ macro_rules! impl_action_with_nonce {
     };
 }
 
+/// Implements given trait for the tuple type.
+#[macro_export]
+macro_rules! impl_tuple {
+    (@ $method: ident($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident) => { $main::$method($($arg),*) };
+    (@ $method: ident($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident $($ty: ident)+) => {
+        $main::$method($($arg),*).$combine($crate::impl_tuple!(@ $method($($arg: $arg_ty),*) => using $combine for $($ty)*))
+    };
+    ($trait: ident::$method: ident($($arg: ident: $arg_ty: ty),*) -> $ret_ty: ty => using $combine: ident for $($ty: ident)*) => {
+        impl<$($ty),+> $trait for ($($ty),+)
+            where $($ty: $trait),+
+        {
+            fn $method($($arg: $arg_ty)*) -> $ret_ty {
+                $crate::impl_tuple!(@ $method($($arg: $arg_ty),*) => using $combine for $($ty)*)
+            }
+        }
+    }
+}
+
 /// Deposits an event indexed over the supplied fields.
 #[macro_export]
 macro_rules! deposit_indexed_event {

@@ -372,10 +372,15 @@ pub trait OnDidRemoval {
 }
 
 impl OnDidRemoval for () {
-    fn on_remove_did(_did: Did) -> Weight {
+    fn on_remove_did(_: Did) -> Weight {
         Default::default()
     }
 }
+
+crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B);
+crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C);
+crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C D);
+crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C D E);
 
 impl<T: Config> SubstrateWeight<T> {
     fn add_keys(keys: &AddKeys<T>, DidSignature { sig, .. }: &DidSignature<Controller>) -> Weight {
