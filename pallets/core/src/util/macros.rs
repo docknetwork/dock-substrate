@@ -73,9 +73,7 @@ macro_rules! field_accessor {
 #[macro_export]
 macro_rules! impl_to_state_change {
     ($type: ident) => {
-        impl<T: $crate::common::SizeConfig + frame_system::Config> $crate::common::ToStateChange<T>
-            for $type<T>
-        {
+        impl<T: $crate::common::TypesAndLimits> $crate::common::ToStateChange<T> for $type<T> {
             fn to_state_change(&self) -> $crate::common::StateChange<'_, T> {
                 $crate::common::StateChange::$type(sp_std::borrow::Cow::Borrowed(self))
             }
@@ -93,7 +91,7 @@ macro_rules! impl_action {
     ) => {
         $crate::impl_to_state_change! { $type }
 
-        impl<T: $crate::common::SizeConfig + frame_system::Config> $crate::util::Action<T> for $type<T> {
+        impl<T: $crate::common::TypesAndLimits> $crate::util::Action for $type<T> {
             type Target = $target;
 
             fn target(&self) -> $target {
@@ -111,7 +109,7 @@ macro_rules! impl_action {
         $($target_field: tt $(($($target_call: tt),*))?).+ as target
         no_state_change
     ) => {
-        impl<T: $crate::common::SizeConfig + frame_system::Config> $crate::util::Action<T> for $type<T> {
+        impl<T: $crate::common::TypesAndLimits> $crate::util::Action for $type<T> {
             type Target = $target;
 
             fn target(&self) -> $target {
@@ -149,7 +147,7 @@ macro_rules! impl_action_with_nonce {
     ($type: ident for $($token: tt)*) => {
         $crate::impl_action! { $type for $($token)* }
 
-        impl<T: $crate::common::SizeConfig + frame_system::Config> $crate::util::ActionWithNonce<T> for $type<T> {
+        impl<T: $crate::common::TypesAndLimits> $crate::util::ActionWithNonce<T> for $type<T> {
             fn nonce(&self) -> T::BlockNumber {
                 self.nonce
             }
@@ -284,7 +282,7 @@ macro_rules! def_state_change {
         ]
         #[scale_info(skip_type_params(T))]
         #[scale_info(omit_prefix)]
-        pub enum $name<'a, T: $crate::common::SizeConfig + frame_system::Config> {
+        pub enum $name<'a, T: $crate::common::TypesAndLimits> {
             $($type(sp_std::borrow::Cow<'a, $crate::modules::$mod::$type<T>>)),+
         }
     }

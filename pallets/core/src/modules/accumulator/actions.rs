@@ -1,5 +1,5 @@
 use super::*;
-use crate::{common::SizeConfig, util::Bytes};
+use crate::{common::TypesAndLimits, util::Bytes};
 use frame_support::DebugNoBound;
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, DebugNoBound, Eq)]
@@ -11,7 +11,7 @@ use frame_support::DebugNoBound;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddAccumulatorPublicKey<T: SizeConfig + frame_system::Config> {
+pub struct AddAccumulatorPublicKey<T: TypesAndLimits> {
     pub public_key: AccumulatorPublicKey<T>,
     pub nonce: T::BlockNumber,
 }
@@ -25,7 +25,7 @@ pub struct AddAccumulatorPublicKey<T: SizeConfig + frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddAccumulatorParams<T: SizeConfig + frame_system::Config> {
+pub struct AddAccumulatorParams<T: TypesAndLimits> {
     pub params: AccumulatorParameters<T>,
     pub nonce: T::BlockNumber,
 }
@@ -39,7 +39,7 @@ pub struct AddAccumulatorParams<T: SizeConfig + frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveAccumulatorParams<T: SizeConfig + frame_system::Config> {
+pub struct RemoveAccumulatorParams<T: TypesAndLimits> {
     pub params_ref: AccumParametersStorageKey,
     pub nonce: T::BlockNumber,
 }
@@ -53,7 +53,7 @@ pub struct RemoveAccumulatorParams<T: SizeConfig + frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveAccumulatorPublicKey<T: SizeConfig + frame_system::Config> {
+pub struct RemoveAccumulatorPublicKey<T: TypesAndLimits> {
     pub key_ref: AccumPublicKeyStorageKey,
     pub nonce: T::BlockNumber,
 }
@@ -67,7 +67,7 @@ pub struct RemoveAccumulatorPublicKey<T: SizeConfig + frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddAccumulator<T: SizeConfig + frame_system::Config> {
+pub struct AddAccumulator<T: TypesAndLimits> {
     pub id: AccumulatorId,
     pub accumulator: Accumulator<T>,
     pub nonce: T::BlockNumber,
@@ -82,7 +82,7 @@ pub struct AddAccumulator<T: SizeConfig + frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveAccumulator<T: SizeConfig + frame_system::Config> {
+pub struct RemoveAccumulator<T: TypesAndLimits> {
     pub id: AccumulatorId,
     /// Next valid nonce, i.e. 1 greater than currently stored
     pub nonce: T::BlockNumber,
@@ -97,7 +97,7 @@ pub struct RemoveAccumulator<T: SizeConfig + frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct UpdateAccumulator<T: SizeConfig + frame_system::Config> {
+pub struct UpdateAccumulator<T: TypesAndLimits> {
     pub id: AccumulatorId,
     pub new_accumulated: Bytes,
     pub additions: Option<Vec<Bytes>>,

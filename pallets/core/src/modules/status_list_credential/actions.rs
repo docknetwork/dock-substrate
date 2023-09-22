@@ -1,7 +1,7 @@
 use frame_support::DebugNoBound;
 use sp_std::marker::PhantomData;
 
-use crate::{common::SizeConfig, util::WithNonce};
+use crate::{common::Limits, util::WithNonce};
 use codec::{Decode, Encode};
 
 use super::{StatusListCredential, StatusListCredentialId};
@@ -15,7 +15,7 @@ use super::{StatusListCredential, StatusListCredentialId};
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct UpdateStatusListCredentialRaw<T: SizeConfig> {
+pub struct UpdateStatusListCredentialRaw<T: Limits> {
     pub id: StatusListCredentialId,
     pub credential: StatusListCredential<T>,
     #[codec(skip)]
@@ -32,7 +32,7 @@ pub struct UpdateStatusListCredentialRaw<T: SizeConfig> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveStatusListCredentialRaw<T: SizeConfig> {
+pub struct RemoveStatusListCredentialRaw<T: Limits> {
     pub id: StatusListCredentialId,
     #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]

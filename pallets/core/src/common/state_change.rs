@@ -1,4 +1,5 @@
 #![allow(unused_lifetimes)]
+use super::TypesAndLimits;
 
 crate::def_state_change! {
     /// Any state change that needs to be signed is first wrapped in this enum and then its serialized.
@@ -38,7 +39,7 @@ crate::def_state_change! {
 }
 
 /// Converts the given entity to the state change.
-pub trait ToStateChange<T: crate::common::SizeConfig + frame_system::Config> {
+pub trait ToStateChange<T: TypesAndLimits> {
     /// Converts the given entity to the state change.
     fn to_state_change(&self) -> StateChange<'_, T>;
 }

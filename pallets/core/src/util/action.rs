@@ -1,5 +1,7 @@
+use crate::common::Types;
+
 /// Describes an action which can be performed on some `Target`.
-pub trait Action<T: frame_system::Config> {
+pub trait Action {
     /// Action target.
     type Target;
 
@@ -16,7 +18,7 @@ pub trait Action<T: frame_system::Config> {
 }
 
 /// Describes an action with nonce which can be performed on some `Target`
-pub trait ActionWithNonce<T: frame_system::Config>: Action<T> {
+pub trait ActionWithNonce<T: Types>: Action {
     /// Returns action's nonce.
     fn nonce(&self) -> T::BlockNumber;
 }

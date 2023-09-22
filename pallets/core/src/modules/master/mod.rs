@@ -60,7 +60,7 @@
 #[cfg(feature = "serde")]
 use crate::util::btree_set;
 use crate::{
-    common::{DidSignatureWithNonce, SizeConfig},
+    common::{DidSignatureWithNonce, Limits, Types},
     did,
     did::Did,
     util::WithNonce,
@@ -99,13 +99,13 @@ mod tests;
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct Membership<T: SizeConfig> {
+pub struct Membership<T: Limits> {
     #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
     pub members: BoundedBTreeSet<Did, T::MaxMasterMembers>,
     pub vote_requirement: u64,
 }
 
-impl<T: SizeConfig> Default for Membership<T> {
+impl<T: Limits> Default for Membership<T> {
     fn default() -> Self {
         Membership {
             members: Default::default(),
@@ -149,7 +149,7 @@ crate::impl_action_with_nonce! {
 const MIN_WEIGHT: Weight = Weight::from_ref_time(10_000);
 
 /// Minimum weight for master's extrinsics. Considers cost of signature verification and update to round no
-fn get_min_weight_for_execute<T: frame_system::Config>(
+fn get_min_weight_for_execute<T: Types>(
     auth: &[DidSignatureWithNonce<T>],
     db_weights: RuntimeDbWeight,
 ) -> Weight {
@@ -193,7 +193,7 @@ pub mod pallet {
     }
 
     #[pallet::config]
-    pub trait Config: frame_system::Config + crate::did::Config {
+    pub trait Config: frame_system::Config + did::Config {
         /// The overarching event type.
         type Event: From<Event<Self>>
             + IsType<<Self as frame_system::Config>::Event>

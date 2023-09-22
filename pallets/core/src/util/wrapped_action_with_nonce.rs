@@ -22,7 +22,7 @@ impl<T: Config, A, Ta> WrappedActionWithNonce<T, A, Ta> {
     }
 }
 
-impl<T: Config, A: Action<T>, Ta: Clone> Action<T> for WrappedActionWithNonce<T, A, Ta> {
+impl<T: Config, A: Action, Ta: Clone> Action for WrappedActionWithNonce<T, A, Ta> {
     type Target = Ta;
 
     fn target(&self) -> Self::Target {
@@ -34,7 +34,7 @@ impl<T: Config, A: Action<T>, Ta: Clone> Action<T> for WrappedActionWithNonce<T,
     }
 }
 
-impl<T: Config, A: Action<T>, Ta: Clone> ActionWithNonce<T> for WrappedActionWithNonce<T, A, Ta> {
+impl<T: Config, A: Action, Ta: Clone> ActionWithNonce<T> for WrappedActionWithNonce<T, A, Ta> {
     fn nonce(&self) -> T::BlockNumber {
         self.nonce
     }

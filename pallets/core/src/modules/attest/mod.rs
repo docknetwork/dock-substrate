@@ -3,7 +3,7 @@
 //! method by specifying an Iri.
 
 use crate::{
-    common::{SigValue, SizeConfig},
+    common::{Limits, SigValue, TypesAndLimits},
     did::{self, Did, DidSignature},
     util::BoundedBytes,
 };
@@ -24,7 +24,7 @@ mod benchmarks;
 mod tests;
 mod weights;
 
-pub type Iri<T> = BoundedBytes<<T as SizeConfig>::MaxIriSize>;
+pub type Iri<T> = BoundedBytes<<T as Limits>::MaxIriSize>;
 
 /// Attester is a DID giving an attestation to arbitrary (and arbitrarily large) RDF claimgraphs.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -54,7 +54,7 @@ crate::impl_wrapper!(Attester(Did), for rand use Did(rand::random()), with tests
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct Attestation<T: SizeConfig> {
+pub struct Attestation<T: Limits> {
     #[codec(compact)]
     pub priority: u64,
     pub iri: Option<Iri<T>>,
@@ -70,7 +70,7 @@ pub struct Attestation<T: SizeConfig> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct SetAttestationClaim<T: SizeConfig + frame_system::Config> {
+pub struct SetAttestationClaim<T: TypesAndLimits> {
     pub attest: Attestation<T>,
     pub nonce: T::BlockNumber,
 }

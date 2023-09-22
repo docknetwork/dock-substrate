@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    common::SizeConfig, deposit_indexed_event, impl_bits_conversion, impl_wrapper,
+    common::Limits, deposit_indexed_event, impl_bits_conversion, impl_wrapper,
     impl_wrapper_type_info,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -19,7 +19,7 @@ use sp_runtime::BoundedVec;
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct ServiceEndpoint<T: SizeConfig> {
+pub struct ServiceEndpoint<T: Limits> {
     pub types: ServiceEndpointType,
     pub origins: BoundedVec<ServiceEndpointOrigin<T>, T::MaxDidServiceEndpointOrigins>,
 }
@@ -37,9 +37,9 @@ pub struct ServiceEndpoint<T: SizeConfig> {
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct ServiceEndpointId<T: SizeConfig>(pub BoundedBytes<T::MaxDidServiceEndpointIdSize>);
+pub struct ServiceEndpointId<T: Limits>(pub BoundedBytes<T::MaxDidServiceEndpointIdSize>);
 
-impl_wrapper!(ServiceEndpointId<T: SizeConfig>(BoundedBytes<T::MaxDidServiceEndpointIdSize>));
+impl_wrapper!(ServiceEndpointId<T: Limits>(BoundedBytes<T::MaxDidServiceEndpointIdSize>));
 
 /// `DID`'s service endpoint origin.
 #[derive(
@@ -54,11 +54,9 @@ impl_wrapper!(ServiceEndpointId<T: SizeConfig>(BoundedBytes<T::MaxDidServiceEndp
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct ServiceEndpointOrigin<T: SizeConfig>(
-    pub BoundedBytes<T::MaxDidServiceEndpointOriginSize>,
-);
+pub struct ServiceEndpointOrigin<T: Limits>(pub BoundedBytes<T::MaxDidServiceEndpointOriginSize>);
 
-impl_wrapper!(ServiceEndpointOrigin<T: SizeConfig>(BoundedBytes<T::MaxDidServiceEndpointOriginSize>));
+impl_wrapper!(ServiceEndpointOrigin<T: Limits>(BoundedBytes<T::MaxDidServiceEndpointOriginSize>));
 
 bitflags::bitflags! {
     /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services

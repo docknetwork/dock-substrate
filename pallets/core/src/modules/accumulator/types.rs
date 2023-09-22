@@ -1,7 +1,10 @@
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 
 use super::*;
-use crate::{common::SizeConfig, util::BoundedBytes};
+use crate::{
+    common::{Limits, TypesAndLimits},
+    util::BoundedBytes,
+};
 
 pub type AccumParametersStorageKey = (AccumulatorOwner, IncId);
 pub type AccumPublicKeyStorageKey = (AccumulatorOwner, IncId);
@@ -46,7 +49,7 @@ crate::impl_wrapper!(AccumulatorOwner(Did), for rand use Did(rand::random()), wi
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AccumulatorParameters<T: SizeConfig> {
+pub struct AccumulatorParameters<T: Limits> {
     /// The label (generating string) used to generate the params
     pub label: Option<BoundedBytes<T::MaxAccumulatorLabelSize>>,
     pub curve_type: CurveType,
@@ -70,7 +73,7 @@ pub struct AccumulatorParameters<T: SizeConfig> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AccumulatorPublicKey<T: SizeConfig> {
+pub struct AccumulatorPublicKey<T: Limits> {
     pub curve_type: CurveType,
     pub bytes: BoundedBytes<T::MaxAccumulatorPublicKeySize>,
     /// The params used to generate the public key (`P_tilde` comes from params)
@@ -87,7 +90,7 @@ pub struct AccumulatorPublicKey<T: SizeConfig> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum Accumulator<T: SizeConfig> {
+pub enum Accumulator<T: Limits> {
     Positive(AccumulatorCommon<T>),
     Universal(UniversalAccumulator<T>),
 }
@@ -109,7 +112,7 @@ pub enum Accumulator<T: SizeConfig> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AccumulatorCommon<T: SizeConfig> {
+pub struct AccumulatorCommon<T: Limits> {
     pub accumulated: BoundedBytes<T::MaxAccumulatorAccumulatedSize>,
     pub key_ref: AccumPublicKeyStorageKey,
 }
@@ -131,13 +134,13 @@ pub struct AccumulatorCommon<T: SizeConfig> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct UniversalAccumulator<T: SizeConfig> {
+pub struct UniversalAccumulator<T: Limits> {
     pub common: AccumulatorCommon<T>,
     /// This is not enforced on chain and serves as metadata only
     pub max_size: u64,
 }
 
-impl<T: SizeConfig> Accumulator<T> {
+impl<T: Limits> Accumulator<T> {
     /// Get reference to the public key of the accumulator
     pub fn key_ref(&self) -> AccumPublicKeyStorageKey {
         match self {
@@ -196,14 +199,14 @@ pub struct StoredAccumulatorOwnerCounters {
 #[scale_info(omit_prefix)]
 pub struct AccumulatorWithUpdateInfo<T>
 where
-    T: SizeConfig + frame_system::Config,
+    T: TypesAndLimits,
 {
     pub created_at: T::BlockNumber,
     pub last_updated_at: T::BlockNumber,
     pub accumulator: Accumulator<T>,
 }
 
-impl<T: SizeConfig + frame_system::Config> AccumulatorWithUpdateInfo<T> {
+impl<T: TypesAndLimits> AccumulatorWithUpdateInfo<T> {
     pub fn new(accumulator: Accumulator<T>, created_at: T::BlockNumber) -> Self {
         Self {
             accumulator,

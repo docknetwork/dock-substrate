@@ -1,6 +1,7 @@
 use super::{service_endpoints::ServiceEndpointId, *};
 use crate::{
     attest::{self, Attestation, Attester},
+    common::TypesAndLimits,
     impl_bits_conversion, impl_wrapper_type_info,
 };
 
@@ -14,7 +15,7 @@ use crate::{
 )]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct AggregatedDidDetailsResponse<T: Config> {
+pub struct AggregatedDidDetailsResponse<T: TypesAndLimits> {
     did: Did,
     details: StoredDidDetails<T>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
@@ -46,12 +47,12 @@ pub struct DidKeyWithId {
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
 #[scale_info(omit_prefix)]
-pub struct ServiceEndpointWithId<T: Config> {
+pub struct ServiceEndpointWithId<T: Limits> {
     id: ServiceEndpointId<T>,
     endpoint: ServiceEndpoint<T>,
 }
 
-impl<T: Config> AggregatedDidDetailsResponse<T> {
+impl<T: TypesAndLimits> AggregatedDidDetailsResponse<T> {
     /// Constructs new `DID` response using supplied arguments.
     pub fn new<CI, KI, SI>(
         did: Did,

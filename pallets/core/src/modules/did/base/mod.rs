@@ -1,4 +1,4 @@
-use crate::impl_wrapper;
+use crate::{common::TypesAndLimits, impl_wrapper};
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_std::{
     fmt::Debug,
@@ -50,7 +50,7 @@ impl Index<RangeFull> for Did {
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum StoredDidDetails<T: SizeConfig + frame_system::Config> {
+pub enum StoredDidDetails<T: TypesAndLimits> {
     /// For off-chain DID, most data is stored off-chain.
     OffChain(OffChainDidDetails<T>),
     /// For on-chain DID, all data is stored on the chain.

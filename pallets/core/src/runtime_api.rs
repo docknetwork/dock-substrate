@@ -1,13 +1,8 @@
-use crate::{
-    accumulator,
-    did::{self, Config},
-    offchain_signatures,
-    util::IncId,
-};
+use crate::{accumulator, common::TypesAndLimits, did, offchain_signatures, util::IncId};
 use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
 
 sp_api::decl_runtime_apis! {
-    pub trait CoreModsApi<T: Config> {
+    pub trait CoreModsApi<T: TypesAndLimits> {
         fn did_details(id: did::Did, params: Option<did::AggregatedDidDetailsRequestParams>) -> Option<did::AggregatedDidDetailsResponse<T>>;
 
         fn did_list_details(dids: Vec<did::Did>, params: Option<did::AggregatedDidDetailsRequestParams>) -> Vec<Option<did::AggregatedDidDetailsResponse<T>>>;

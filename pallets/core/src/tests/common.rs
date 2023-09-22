@@ -234,7 +234,7 @@ parameter_types! {
     pub const MaxMasterMembers: u32 = 100;
 }
 
-impl crate::common::SizeConfig for Test {
+impl crate::common::Limits for Test {
     type MaxDidDocRefSize = MaxDidDocRefSize;
     type MaxDidServiceEndpointIdSize = MaxDidServiceEndpointIdSize;
     type MaxDidServiceEndpointOrigins = MaxDidServiceEndpointOrigins;

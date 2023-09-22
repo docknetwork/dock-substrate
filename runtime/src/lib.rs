@@ -1066,7 +1066,7 @@ impl revoke::Config for Runtime {
     type Event = Event;
 }
 
-impl common::SizeConfig for Runtime {
+impl common::Limits for Runtime {
     type MaxPolicyControllers = MaxPolicyControllers;
 
     type MaxDidDocRefSize = MaxDidDocRefSize;

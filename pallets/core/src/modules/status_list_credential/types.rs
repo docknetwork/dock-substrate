@@ -1,7 +1,7 @@
 #[cfg(feature = "serde")]
 use crate::util::hex;
 use crate::{
-    common::{HasPolicy, Policy, SizeConfig},
+    common::{HasPolicy, Limits, Policy},
     util::BoundedBytes,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -25,14 +25,14 @@ use super::{Config, Error};
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum StatusListCredential<T: SizeConfig> {
+pub enum StatusListCredential<T: Limits> {
     /// A verifiable credential that encapsulates a revocation list as per https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential.
     RevocationList2020Credential(BoundedBytes<T::MaxStatusListCredentialSize>),
     /// A verifiable credential that contains a status list as per https://www.w3.org/TR/vc-status-list/#statuslist2021credential.
     StatusList2021Credential(BoundedBytes<T::MaxStatusListCredentialSize>),
 }
 
-impl<T: SizeConfig> StatusListCredential<T> {
+impl<T: Limits> StatusListCredential<T> {
     /// Returns underlying raw bytes.
     pub fn bytes(&self) -> &[u8] {
         match self {
@@ -71,18 +71,18 @@ impl<T: SizeConfig> StatusListCredential<T> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct StatusListCredentialWithPolicy<T: SizeConfig> {
+pub struct StatusListCredentialWithPolicy<T: Limits> {
     pub status_list_credential: StatusListCredential<T>,
     pub policy: Policy<T>,
 }
 
-impl<T: SizeConfig> HasPolicy<T> for StatusListCredentialWithPolicy<T> {
+impl<T: Limits> HasPolicy<T> for StatusListCredentialWithPolicy<T> {
     fn policy(&self) -> &Policy<T> {
         &self.policy
     }
 }
 
-impl<T: SizeConfig> StatusListCredentialWithPolicy<T> {
+impl<T: Limits> StatusListCredentialWithPolicy<T> {
     /// Returns underlying raw bytes.
     pub fn bytes(&self) -> &[u8] {
         self.status_list_credential.bytes()
@@ -110,7 +110,7 @@ impl<T: SizeConfig> StatusListCredentialWithPolicy<T> {
     }
 }
 
-impl<T: SizeConfig> From<StatusListCredentialWithPolicy<T>> for StatusListCredential<T> {
+impl<T: Limits> From<StatusListCredentialWithPolicy<T>> for StatusListCredential<T> {
     fn from(
         StatusListCredentialWithPolicy {
             status_list_credential,

@@ -54,7 +54,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<R, E>
     where
         F: FnOnce(A, &mut StatusListCredentialWithPolicy<T>) -> Result<R, E>,
-        A: Action<T, Target = StatusListCredentialId>,
+        A: Action<Target = StatusListCredentialId>,
         WithNonce<T, A>: ToStateChange<T>,
         E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
     {
@@ -84,7 +84,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<R, E>
     where
         F: FnOnce(A, &mut Option<StatusListCredentialWithPolicy<T>>) -> Result<R, E>,
-        A: Action<T, Target = StatusListCredentialId>,
+        A: Action<Target = StatusListCredentialId>,
         WithNonce<T, A>: ToStateChange<T>,
         E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
     {

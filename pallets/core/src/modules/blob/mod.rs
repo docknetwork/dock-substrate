@@ -1,7 +1,7 @@
 //! Generic immutable single-owner storage.
 
 use crate::{
-    common::{SigValue, SizeConfig},
+    common::{Limits, SigValue, TypesAndLimits},
     did,
     did::{Did, DidSignature},
     util::BoundedBytes,
@@ -50,7 +50,7 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct Blob<T: SizeConfig> {
+pub struct Blob<T: Limits> {
     pub id: BlobId,
     pub blob: BoundedBytes<T::MaxBlobSize>,
 }
@@ -63,7 +63,7 @@ pub struct Blob<T: SizeConfig> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddBlob<T: SizeConfig + frame_system::Config> {
+pub struct AddBlob<T: TypesAndLimits> {
     pub blob: Blob<T>,
     pub nonce: T::BlockNumber,
 }

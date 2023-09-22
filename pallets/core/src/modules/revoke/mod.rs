@@ -1,7 +1,7 @@
 #[cfg(feature = "serde")]
 use crate::util::hex;
 use crate::{
-    common::{self, DidSignatureWithNonce, HasPolicy, Policy, SigValue, SizeConfig, ToStateChange},
+    common::{self, DidSignatureWithNonce, HasPolicy, Limits, Policy, SigValue, ToStateChange},
     did::{self},
     util::{Action, NonceError, WithNonce},
 };
@@ -72,7 +72,7 @@ crate::impl_wrapper!(RevokeId([u8; 32]));
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct Registry<T: SizeConfig> {
+pub struct Registry<T: Limits> {
     /// Who is allowed to update this registry.
     pub policy: Policy<T>,
     /// true: credentials can be revoked, but not un-revoked and the registry can't be removed either
@@ -80,7 +80,7 @@ pub struct Registry<T: SizeConfig> {
     pub add_only: bool,
 }
 
-impl<T: SizeConfig> HasPolicy<T> for Registry<T> {
+impl<T: Limits> HasPolicy<T> for Registry<T> {
     fn policy(&self) -> &Policy<T> {
         &self.policy
     }

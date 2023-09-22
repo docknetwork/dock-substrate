@@ -1,4 +1,4 @@
-use crate::{common::SizeConfig, did::Did, offchain_signatures::schemes::*, util::IncId};
+use crate::{common::Limits, did::Did, offchain_signatures::schemes::*, util::IncId};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{ensure, DebugNoBound};
 use sp_runtime::DispatchResult;
@@ -35,7 +35,7 @@ pub type PSPublicKeyWithParams<T> = (PSPublicKey<T>, Option<PSParameters<T>>);
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum OffchainSignatureParams<T: SizeConfig> {
+pub enum OffchainSignatureParams<T: Limits> {
     /// Signature parameters for the BBS signature scheme.
     BBS(BBSParameters<T>),
     /// Signature parameters for the BBS+ signature scheme.
@@ -44,7 +44,7 @@ pub enum OffchainSignatureParams<T: SizeConfig> {
     PS(PSParameters<T>),
 }
 
-impl<T: SizeConfig> OffchainSignatureParams<T> {
+impl<T: Limits> OffchainSignatureParams<T> {
     /// Returns underlying parameters if it corresponds to the BBS scheme.
     pub fn into_bbs(self) -> Option<BBSParameters<T>> {
         self.try_into().ok()

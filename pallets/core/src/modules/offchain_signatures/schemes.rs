@@ -1,5 +1,5 @@
 use crate::{
-    common::{CurveType, SizeConfig},
+    common::{CurveType, Limits},
     offchain_signatures::SignatureParams,
     util::BoundedBytes,
 };
@@ -25,7 +25,7 @@ macro_rules! def_signature_scheme_key_and_params {
         )]
         #[scale_info(skip_type_params(T))]
         #[scale_info(omit_prefix)]
-        pub struct $key<T: SizeConfig> {
+        pub struct $key<T: Limits> {
             /// The public key should be for the same curve as the parameters but a public key might not have
             /// parameters on chain
             pub(crate) curve_type: CurveType,
@@ -36,7 +36,7 @@ macro_rules! def_signature_scheme_key_and_params {
             pub(crate) participant_id: Option<ParticipantId>,
         }
 
-        impl<T: SizeConfig> $key<T> {
+        impl<T: Limits> $key<T> {
             /// Instantiates new public key for the signature scheme.
             /// This function doesn't validate supplied bytes.
             pub fn new(
@@ -85,13 +85,13 @@ macro_rules! def_signature_scheme_key_and_params {
             }
         }
 
-        impl<T: SizeConfig> From<$key<T>> for OffchainPublicKey<T> {
+        impl<T: Limits> From<$key<T>> for OffchainPublicKey<T> {
             fn from(key: $key<T>) -> Self {
                 Self::$scheme(key)
             }
         }
 
-        impl<T: SizeConfig> TryFrom<OffchainPublicKey<T>> for $key<T> {
+        impl<T: Limits> TryFrom<OffchainPublicKey<T>> for $key<T> {
             type Error = OffchainPublicKey<T>;
 
             fn try_from(key: OffchainPublicKey<T>) -> Result<$key<T>, OffchainPublicKey<T>> {
@@ -122,14 +122,14 @@ macro_rules! def_signature_scheme_key_and_params {
         )]
         #[scale_info(skip_type_params(T))]
         #[scale_info(omit_prefix)]
-        pub struct $params<T: SizeConfig> {
+        pub struct $params<T: Limits> {
             /// The label (generating string) used to generate the params
             pub(crate) label: Option<BoundedBytes<T::MaxOffchainParamsLabelSize>>,
             pub(crate) curve_type: CurveType,
             pub(crate) bytes: BoundedBytes<T::$params_byte_size>,
         }
 
-        impl<T: SizeConfig> $params<T> {
+        impl<T: Limits> $params<T> {
             /// Instantiates new parameters for the signature scheme.
             /// This function doesn't validate supplied bytes.
             pub fn new(
@@ -145,13 +145,13 @@ macro_rules! def_signature_scheme_key_and_params {
             }
         }
 
-        impl<T: SizeConfig> From<$params<T>> for OffchainSignatureParams<T> {
+        impl<T: Limits> From<$params<T>> for OffchainSignatureParams<T> {
             fn from(params: $params<T>) -> Self {
                 Self::$scheme(params)
             }
         }
 
-        impl<T: SizeConfig> TryFrom<OffchainSignatureParams<T>> for $params<T> {
+        impl<T: Limits> TryFrom<OffchainSignatureParams<T>> for $params<T> {
             type Error = OffchainSignatureParams<T>;
 
             fn try_from(key: OffchainSignatureParams<T>) -> Result<$params<T>, OffchainSignatureParams<T>> {

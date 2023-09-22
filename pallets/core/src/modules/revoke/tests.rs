@@ -12,7 +12,7 @@ use frame_support::assert_noop;
 use sp_core::{sr25519, U256};
 use sp_std::{iter::once, marker::PhantomData};
 
-pub fn get_pauth<A: Action<Test> + Clone>(
+pub fn get_pauth<A: Action + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
 ) -> Vec<DidSignatureWithNonce<Test>>

@@ -13,7 +13,7 @@ use sp_std::prelude::*;
 const MAX_REVOCATIONS: u32 = 1000;
 const MAX_CONTROLLERS: u32 = 15;
 
-fn dummy_registry<T: SizeConfig>() -> Registry<T> {
+fn dummy_registry<T: Limits>() -> Registry<T> {
     Registry {
         policy: Policy::one_of(once(Did([3; 32]))).unwrap(),
         add_only: false,

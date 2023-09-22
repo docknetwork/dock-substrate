@@ -1,12 +1,11 @@
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use sp_std::{borrow::Borrow, fmt::Debug};
 
-use super::{
-    SigValue, SizeConfig, ToStateChange, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT,
-};
+use super::{Limits, SigValue, ToStateChange, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
 #[cfg(feature = "serde")]
 use crate::util::btree_set;
 use crate::{
+    common::Types,
     did,
     did::{Did, DidSignature},
     util::{NonceError, WithNonce},
@@ -39,7 +38,7 @@ use sp_runtime::{traits::TryCollect, DispatchError};
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum Policy<T: SizeConfig> {
+pub enum Policy<T: Limits> {
     /// Set of `DID`s allowed to modify the entity.
     OneOf(
         #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
@@ -47,7 +46,7 @@ pub enum Policy<T: SizeConfig> {
     ),
 }
 
-impl<T: SizeConfig> Policy<T> {
+impl<T: Limits> Policy<T> {
     /// Instantiates `Policy::OneOf` from the given iterator of controllers.
     pub fn one_of(
         controllers: impl IntoIterator<
@@ -101,7 +100,7 @@ impl From<PolicyValidationError> for DispatchError {
     }
 }
 
-impl<T: SizeConfig> Policy<T> {
+impl<T: Limits> Policy<T> {
     /// Ensures given `Policy` to be valid against supplied config.
     pub fn ensure_valid(&self) -> Result<(), PolicyValidationError> {
         if self.is_empty() {
@@ -204,7 +203,7 @@ impl<T: SizeConfig> Policy<T> {
 #[scale_info(omit_prefix)]
 pub struct DidSignatureWithNonce<T>
 where
-    T: frame_system::Config,
+    T: Types,
 {
     /// Signature by DID
     pub sig: DidSignature<Did>,
@@ -219,7 +218,7 @@ struct SigTypes<V> {
     secp: V,
 }
 
-impl<T: frame_system::Config> DidSignatureWithNonce<T> {
+impl<T: Types> DidSignatureWithNonce<T> {
     /// Return counts of different signature types in given `DidSignatureWithNonce` as 3-Tuple as (no. of Sr22519 sigs,
     /// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
     /// type is in `Weight` but realistically, it should fit in a u8
@@ -259,7 +258,7 @@ impl<T: frame_system::Config> DidSignatureWithNonce<T> {
 }
 
 /// Denotes an entity which has an associated `Policy`.
-pub trait HasPolicy<T: SizeConfig> {
+pub trait HasPolicy<T: Limits> {
     /// Returns underlying `Policy`.
     fn policy(&self) -> &Policy<T>;
 }

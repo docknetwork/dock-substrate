@@ -1,5 +1,5 @@
 use core::{fmt::Debug, marker::PhantomData};
-use dock_core::{accumulator, offchain_signatures, util::IncId};
+use dock_core::{accumulator, common::TypesAndLimits, offchain_signatures, util::IncId};
 pub use dock_core::{
     did::{self, Config},
     runtime_api::CoreModsApi as CoreModsRuntimeApi,
@@ -15,7 +15,7 @@ use sp_runtime::{generic::BlockId, traits::Block as BlockT};
 use std::{collections::BTreeMap, sync::Arc};
 
 pub trait ConfigWrapper {
-    type T: Config;
+    type T: TypesAndLimits;
 }
 
 /// To be used in places where `Serialize`/`Deserialize` bounds required for `Config`.
@@ -134,7 +134,7 @@ where
 /// A struct that implements the [`CoreModsApi`].
 pub struct CoreMods<C, P> {
     client: Arc<C>,
-    _marker: core::marker::PhantomData<P>,
+    _marker: PhantomData<P>,
 }
 
 impl<C, P> CoreMods<C, P> {

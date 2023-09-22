@@ -1,4 +1,4 @@
-use crate::common::SizeConfig;
+use crate::common::{Types, TypesAndLimits};
 use frame_support::DebugNoBound;
 
 use super::*;
@@ -11,7 +11,7 @@ use super::*;
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddOffchainSignatureParams<T: SizeConfig + frame_system::Config> {
+pub struct AddOffchainSignatureParams<T: TypesAndLimits> {
     pub params: OffchainSignatureParams<T>,
     pub nonce: T::BlockNumber,
 }
@@ -24,7 +24,7 @@ pub struct AddOffchainSignatureParams<T: SizeConfig + frame_system::Config> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddOffchainSignaturePublicKey<T: SizeConfig + frame_system::Config> {
+pub struct AddOffchainSignaturePublicKey<T: TypesAndLimits> {
     pub key: OffchainPublicKey<T>,
     pub did: Did,
     pub nonce: T::BlockNumber,
@@ -38,7 +38,7 @@ pub struct AddOffchainSignaturePublicKey<T: SizeConfig + frame_system::Config> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveOffchainSignatureParams<T: SizeConfig + frame_system::Config> {
+pub struct RemoveOffchainSignatureParams<T: Types> {
     pub params_ref: SignatureParamsStorageKey,
     pub nonce: T::BlockNumber,
 }
@@ -51,7 +51,7 @@ pub struct RemoveOffchainSignatureParams<T: SizeConfig + frame_system::Config> {
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveOffchainSignaturePublicKey<T: SizeConfig + frame_system::Config> {
+pub struct RemoveOffchainSignaturePublicKey<T: Types> {
     pub key_ref: SignaturePublicKeyStorageKey,
     pub did: Did,
     pub nonce: T::BlockNumber,

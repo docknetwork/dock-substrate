@@ -2,6 +2,8 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::{traits::CheckedAdd, DispatchError};
 use sp_std::{convert::TryInto, fmt::Debug};
 
+use crate::common::Types;
+
 /// Wrapper for any kind of entity with a nonce.
 /// Nonces are mostly used for replay protection.
 /// Initial nonce will be equal to the current block number provided by the system.
@@ -16,8 +18,8 @@ use sp_std::{convert::TryInto, fmt::Debug};
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-#[codec(encode_bound(T: frame_system::Config, D: Encode))]
-pub struct WithNonce<T: frame_system::Config, D> {
+#[codec(encode_bound(D: Encode))]
+pub struct WithNonce<T: Types, D> {
     pub nonce: T::BlockNumber,
     #[cfg(test)]
     pub data: D,
@@ -25,7 +27,7 @@ pub struct WithNonce<T: frame_system::Config, D> {
     data: D,
 }
 
-impl<T: frame_system::Config, D: core::fmt::Debug> core::fmt::Debug for WithNonce<T, D> {
+impl<T: Types, D: core::fmt::Debug> core::fmt::Debug for WithNonce<T, D> {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.debug_struct("WithNonce")
             .field("nonce", &self.nonce)
@@ -34,7 +36,7 @@ impl<T: frame_system::Config, D: core::fmt::Debug> core::fmt::Debug for WithNonc
     }
 }
 
-impl<T: frame_system::Config, D: MaxEncodedLen> MaxEncodedLen for WithNonce<T, D> {
+impl<T: Types, D: MaxEncodedLen> MaxEncodedLen for WithNonce<T, D> {
     fn max_encoded_len() -> usize {
         T::BlockNumber::max_encoded_len().saturating_add(D::max_encoded_len())
     }
@@ -53,10 +55,13 @@ impl From<NonceError> for DispatchError {
     }
 }
 
-impl<T: frame_system::Config, D> WithNonce<T, D> {
+impl<T: Types, D> WithNonce<T, D> {
     /// Adds a nonce to the given `data`.
     /// Nonce will be equal to the current block number provided by the system.
-    pub fn new(data: D) -> Self {
+    pub fn new(data: D) -> Self
+    where
+        T: frame_system::Config<BlockNumber = <T as Types>::BlockNumber>,
+    {
         Self::new_with_nonce(data, <frame_system::Pallet<T>>::block_number())
     }
 

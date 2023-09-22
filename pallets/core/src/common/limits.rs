@@ -1,7 +1,7 @@
 use frame_support::traits::{ConstU32, Get};
 
 /// All size limits for the `dock-core` encodable data structures.
-pub trait SizeConfig {
+pub trait Limits: Clone + Eq {
     /// Maximum size of the label
     type MaxAccumulatorLabelSize: Get<u32> + Send + Sync + 'static;
     /// Maximum byte size of the parameters. This depends only on the chosen elliptic curve.
@@ -53,8 +53,8 @@ pub trait SizeConfig {
 type NoLimit = ConstU32<{ u32::MAX }>;
 type Zero = ConstU32<0>;
 
-/// `SizeConfig` without any limits.
-impl SizeConfig for () {
+/// `Limits` without any limits.
+impl Limits for () {
     type MaxAccumulatorLabelSize = NoLimit;
     type MaxAccumulatorParamsSize = NoLimit;
     type MaxAccumulatorPublicKeySize = NoLimit;

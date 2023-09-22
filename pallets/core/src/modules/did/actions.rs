@@ -1,5 +1,8 @@
 use super::*;
-use crate::{common::SizeConfig, impl_action_with_nonce};
+use crate::{
+    common::{Types, TypesAndLimits},
+    impl_action_with_nonce,
+};
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, DebugNoBound, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -10,7 +13,7 @@ use crate::{common::SizeConfig, impl_action_with_nonce};
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddKeys<T: frame_system::Config> {
+pub struct AddKeys<T: Types> {
     pub did: Did,
     pub keys: Vec<UncheckedDidKey>,
     pub nonce: T::BlockNumber,
@@ -25,7 +28,7 @@ pub struct AddKeys<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveKeys<T: frame_system::Config> {
+pub struct RemoveKeys<T: Types> {
     pub did: Did,
     /// Key ids to remove
     pub keys: BTreeSet<IncId>,
@@ -41,7 +44,7 @@ pub struct RemoveKeys<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddControllers<T: frame_system::Config> {
+pub struct AddControllers<T: Types> {
     pub did: Did,
     pub controllers: BTreeSet<Controller>,
     pub nonce: T::BlockNumber,
@@ -56,7 +59,7 @@ pub struct AddControllers<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveControllers<T: frame_system::Config> {
+pub struct RemoveControllers<T: Types> {
     pub did: Did,
     /// Controller ids to remove
     pub controllers: BTreeSet<Controller>,
@@ -72,7 +75,7 @@ pub struct RemoveControllers<T: frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddServiceEndpoint<T: SizeConfig + frame_system::Config> {
+pub struct AddServiceEndpoint<T: TypesAndLimits> {
     pub did: Did,
     /// Endpoint id
     pub id: ServiceEndpointId<T>,
@@ -90,7 +93,7 @@ pub struct AddServiceEndpoint<T: SizeConfig + frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveServiceEndpoint<T: SizeConfig + frame_system::Config> {
+pub struct RemoveServiceEndpoint<T: TypesAndLimits> {
     pub did: Did,
     /// Endpoint id to remove
     pub id: ServiceEndpointId<T>,
@@ -110,7 +113,7 @@ pub struct RemoveServiceEndpoint<T: SizeConfig + frame_system::Config> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct DidRemoval<T: frame_system::Config> {
+pub struct DidRemoval<T: Types> {
     pub did: Did,
     pub nonce: T::BlockNumber,
 }

@@ -1,5 +1,5 @@
 use crate::{
-    common::SizeConfig,
+    common::Limits,
     did::{Did, OnChainDidDetails},
     offchain_signatures::{schemes::*, SignatureParams},
     util::IncId,
@@ -26,7 +26,7 @@ pub type SignaturePublicKeyStorageKey = (Did, IncId);
 )]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum OffchainPublicKey<T: SizeConfig> {
+pub enum OffchainPublicKey<T: Limits> {
     /// Public key for the BBS signature scheme.
     BBS(BBSPublicKey<T>),
     /// Public key for the BBS+ signature scheme.
@@ -35,7 +35,7 @@ pub enum OffchainPublicKey<T: SizeConfig> {
     PS(PSPublicKey<T>),
 }
 
-impl<T: SizeConfig> OffchainPublicKey<T> {
+impl<T: Limits> OffchainPublicKey<T> {
     /// Returns underlying public key if it corresponds to the BBS scheme.
     pub fn into_bbs(self) -> Option<BBSPublicKey<T>> {
         self.try_into().ok()

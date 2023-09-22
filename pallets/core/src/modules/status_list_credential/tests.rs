@@ -15,7 +15,7 @@ use sp_std::{iter::empty, marker::PhantomData};
 
 type Mod = super::Pallet<Test>;
 
-pub fn get_pauth<A: Action<Test> + Clone>(
+pub fn get_pauth<A: Action + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
 ) -> Vec<DidSignatureWithNonce<Test>>

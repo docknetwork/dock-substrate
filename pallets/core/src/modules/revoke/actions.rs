@@ -10,7 +10,7 @@ use frame_support::DebugNoBound;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddRegistry<T: SizeConfig> {
+pub struct AddRegistry<T: Limits> {
     pub id: RegistryId,
     pub new_registry: Registry<T>,
 }

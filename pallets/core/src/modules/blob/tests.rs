@@ -1,5 +1,5 @@
 use super::{did, Blob, BlobId, BlobOwner, Blobs, DispatchResult, Error};
-use crate::{blob::AddBlob, common::SizeConfig, did::Did, tests::common::*};
+use crate::{blob::AddBlob, common::Limits, did::Did, tests::common::*};
 use sp_core::{sr25519, Pair};
 
 fn create_blob(
@@ -30,7 +30,7 @@ fn create_blob(
 }
 
 fn get_max_blob_size() -> usize {
-    <Test as SizeConfig>::MaxBlobSize::get() as usize
+    <Test as Limits>::MaxBlobSize::get() as usize
 }
 
 #[test]

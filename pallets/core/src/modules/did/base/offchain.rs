@@ -1,5 +1,5 @@
 use super::super::*;
-use crate::deposit_indexed_event;
+use crate::{common::TypesAndLimits, deposit_indexed_event};
 
 /// Stores details of an off-chain DID.
 /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
@@ -15,7 +15,7 @@ use crate::deposit_indexed_event;
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct OffChainDidDetails<T: SizeConfig + frame_system::Config> {
+pub struct OffChainDidDetails<T: TypesAndLimits> {
     pub account_id: T::AccountId,
     pub doc_ref: OffChainDidDocRef<T>,
 }
@@ -62,7 +62,7 @@ impl<T: Config> OffChainDidDetails<T> {
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum OffChainDidDocRef<T: SizeConfig> {
+pub enum OffChainDidDocRef<T: Limits> {
     /// Content IDentifier as per https://github.com/multiformats/cid.
     CID(BoundedBytes<T::MaxDidDocRefSize>),
     /// A URL

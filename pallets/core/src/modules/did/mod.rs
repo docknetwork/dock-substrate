@@ -3,7 +3,7 @@ use crate::{
     util::*,
 };
 
-use crate::common::SizeConfig;
+use crate::common::Limits;
 use arith_utils::CheckedDivCeil;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -52,7 +52,7 @@ pub mod pallet {
 
     /// The module's configuration trait.
     #[pallet::config]
-    pub trait Config: frame_system::Config + crate::common::SizeConfig {
+    pub trait Config: frame_system::Config + Limits {
         /// The handler of a `DID` removal.
         type OnDidRemoval: OnDidRemoval;
 
@@ -79,7 +79,7 @@ pub mod pallet {
 
     /// Error for the DID module.
     #[pallet::error]
-    #[derive(PartialEq, Clone)]
+    #[derive(PartialEq, Eq, Clone)]
     pub enum Error<T> {
         /// Given public key is not of the correct size
         PublicKeySizeIncorrect,

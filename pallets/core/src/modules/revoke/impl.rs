@@ -85,7 +85,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<R, E>
     where
         F: FnOnce(A, &mut Registry<T>) -> Result<R, E>,
-        A: Action<T, Target = RegistryId>,
+        A: Action<Target = RegistryId>,
         WithNonce<T, A>: ToStateChange<T>,
         E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
     {
@@ -115,7 +115,7 @@ impl<T: Config> Pallet<T> {
     ) -> Result<R, E>
     where
         F: FnOnce(A, &mut Option<Registry<T>>) -> Result<R, E>,
-        A: Action<T, Target = RegistryId>,
+        A: Action<Target = RegistryId>,
         WithNonce<T, A>: ToStateChange<T>,
         E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
     {

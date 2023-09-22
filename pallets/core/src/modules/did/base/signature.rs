@@ -5,9 +5,9 @@ use crate::common::{SigValue, ToStateChange, VerificationError};
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
 #[scale_info(skip_type_params(D))]
 #[codec(encode_bound(D: Encode + MaxEncodedLen + Into<Did>))]
+#[scale_info(omit_prefix)]
 pub struct DidSignature<D: Into<Did>> {
     /// The DID that created this signature
     pub did: D,
@@ -49,7 +49,7 @@ impl<T: Config> Pallet<T> {
         sig: &DidSignature<Controller>,
     ) -> Result<bool, Error<T>>
     where
-        A: Action<T> + ToStateChange<T>,
+        A: Action + ToStateChange<T>,
         A::Target: Into<Did>,
     {
         Self::ensure_controller(&action.target().into(), &sig.did)?;
