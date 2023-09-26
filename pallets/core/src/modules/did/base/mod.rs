@@ -41,7 +41,7 @@ impl Index<RangeFull> for Did {
 }
 
 /// Contains underlying DID describing its storage type.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
+#[derive(Encode, Decode, DebugNoBound, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
