@@ -1,6 +1,5 @@
-use super::{did, Blob, BlobError, BlobId, BlobOwner, Blobs, DispatchResult};
-use crate::{blob::AddBlob, did::Did, tests::common::*};
-use frame_support::StorageMap;
+use super::{did, Blob, BlobId, BlobOwner, Blobs, DispatchResult, Error};
+use crate::{blob::AddBlob, common::Limits, did::Did, tests::common::*};
 use sp_core::{sr25519, Pair};
 
 fn create_blob(
@@ -9,10 +8,10 @@ fn create_blob(
     author: BlobOwner,
     author_kp: sr25519::Pair,
     nonce: u64,
-) -> DispatchResult {
+) -> Option<DispatchResult> {
     let bl = Blob {
         id,
-        blob: content.clone().into(),
+        blob: content.clone().try_into().ok()?,
     };
     println!("did: {:?}", author);
     println!("pk: {:?}", author_kp.public().0);
@@ -27,10 +26,11 @@ fn create_blob(
         },
         did_sig::<Test, _, _>(&AddBlob { blob: bl, nonce }, &author_kp, author, 1),
     )
+    .into()
 }
 
 fn get_max_blob_size() -> usize {
-    <Test as crate::blob::Config>::MaxBlobSize::get() as usize
+    <Test as Limits>::MaxBlobSize::get() as usize
 }
 
 #[test]
@@ -41,7 +41,7 @@ fn add_blob() {
         let id: BlobId = rand::random();
         let noise = random_bytes(size);
         let (author, author_kp) = newdid();
-        assert_eq!(Blobs::get(id), None);
+        assert_eq!(Blobs::<Test>::get(id), None);
         create_blob(
             id,
             noise.clone(),
@@ -49,9 +49,13 @@ fn add_blob() {
             author_kp,
             block_no + 1,
         )
+        .unwrap()
         .unwrap();
         // Can retrieve a valid blob and the blob contents and author match the given ones.
-        assert_eq!(Blobs::get(id), Some((BlobOwner(author), noise.into())));
+        assert_eq!(
+            Blobs::<Test>::get(id),
+            Some((BlobOwner(author), noise.try_into().unwrap()))
+        );
         check_nonce(&author, block_no + 1);
     }
 
@@ -73,11 +77,9 @@ fn err_blob_too_big() {
         let (author, author_kp) = newdid();
         let noise = random_bytes(size);
         let id = rand::random();
-        assert_eq!(Blobs::get(id), None);
+        assert_eq!(Blobs::<Test>::get(id), None);
         check_nonce(&author, block_no);
-        let err = create_blob(id, noise, BlobOwner(author), author_kp, block_no + 1).unwrap_err();
-        assert_eq!(err, BlobError::<Test>::BlobTooBig.into());
-        assert_eq!(Blobs::get(id), None);
+        assert!(create_blob(id, noise, BlobOwner(author), author_kp, block_no + 1).is_none());
         check_nonce(&author, block_no);
     }
 
@@ -95,7 +97,7 @@ fn err_blob_already_exists() {
         // Adding a blob with already used id fails with error BlobAlreadyExists.
         let id = rand::random();
         let (author, author_kp) = newdid();
-        assert_eq!(Blobs::get(id), None);
+        assert_eq!(Blobs::<Test>::get(id), None);
         check_nonce(&author, 10);
         create_blob(
             id,
@@ -104,11 +106,13 @@ fn err_blob_already_exists() {
             author_kp.clone(),
             10 + 1,
         )
+        .unwrap()
         .unwrap();
         check_nonce(&author, 10 + 1);
-        let err =
-            create_blob(id, random_bytes(10), BlobOwner(author), author_kp, 11 + 1).unwrap_err();
-        assert_eq!(err, BlobError::<Test>::BlobAlreadyExists.into());
+        let err = create_blob(id, random_bytes(10), BlobOwner(author), author_kp, 11 + 1)
+            .unwrap()
+            .unwrap_err();
+        assert_eq!(err, Error::<Test>::BlobAlreadyExists.into());
         check_nonce(&author, 10 + 1);
     });
 }
@@ -121,8 +125,9 @@ fn err_did_does_not_exist() {
         // Adding a blob with an unregistered DID fails with error DidDoesNotExist.
         let author = BlobOwner(Did(rand::random()));
         let author_kp = gen_kp();
-        let err =
-            create_blob(rand::random(), random_bytes(10), author, author_kp, 10 + 1).unwrap_err();
+        let err = create_blob(rand::random(), random_bytes(10), author, author_kp, 10 + 1)
+            .unwrap()
+            .unwrap_err();
         assert_eq!(err, did::Error::<Test>::NoKeyForDid.into());
     });
 }
@@ -136,7 +141,7 @@ fn err_invalid_sig() {
             let (author, author_kp) = newdid();
             let bl = Blob {
                 id: rand::random(),
-                blob: random_bytes(10).into(),
+                blob: random_bytes(10).try_into().unwrap(),
             };
             let att = crate::attest::SetAttestationClaim::<Test> {
                 attest: crate::attest::Attestation {
@@ -167,7 +172,7 @@ fn err_invalid_sig() {
             let (_, author_kp) = newdid();
             let bl = Blob {
                 id: rand::random(),
-                blob: random_bytes(10).into(),
+                blob: random_bytes(10).try_into().unwrap(),
             };
             check_nonce(&author, 20);
             let err = BlobMod::new(

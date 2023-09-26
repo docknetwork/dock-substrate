@@ -1,8 +1,8 @@
 use super::*;
 use crate::{deposit_indexed_event, impl_wrapper};
 
-/// DID controller.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+/// `DID`'s controller.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -11,7 +11,7 @@ pub struct Controller(pub Did);
 
 impl_wrapper!(Controller(Did), for rand use Did(rand::random()), with tests as controller_tests);
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     pub(crate) fn add_controllers_(
         AddControllers {
             did, controllers, ..
@@ -19,15 +19,16 @@ impl<T: Config + Debug> Module<T> {
         OnChainDidDetails {
             active_controllers, ..
         }: &mut OnChainDidDetails,
-    ) -> Result<(), Error<T>> {
+    ) -> DispatchResult {
         for ctrl in &controllers {
-            if Self::is_controller(&did, ctrl) {
-                fail!(Error::<T>::ControllerIsAlreadyAdded)
-            }
+            ensure!(
+                !Self::is_controller(&did, ctrl),
+                Error::<T>::ControllerIsAlreadyAdded
+            )
         }
 
         for ctrl in &controllers {
-            DidControllers::insert(did, ctrl, ());
+            DidControllers::<T>::insert(did, ctrl, ());
             *active_controllers += 1;
         }
 
@@ -42,15 +43,16 @@ impl<T: Config + Debug> Module<T> {
         OnChainDidDetails {
             active_controllers, ..
         }: &mut OnChainDidDetails,
-    ) -> Result<(), Error<T>> {
+    ) -> DispatchResult {
         for controller_did in &controllers {
-            if !Self::is_controller(&did, controller_did) {
-                fail!(Error::<T>::NoControllerForDid)
-            }
+            ensure!(
+                Self::is_controller(&did, controller_did),
+                Error::<T>::NoControllerForDid
+            )
         }
 
         for controller_did in &controllers {
-            DidControllers::remove(did, controller_did);
+            DidControllers::<T>::remove(did, controller_did);
             *active_controllers -= 1;
         }
 
@@ -60,9 +62,11 @@ impl<T: Config + Debug> Module<T> {
 
     /// Throws an error if `controller` is not the controller of `controlled`
     pub fn ensure_controller(controlled: &Did, controller: &Controller) -> Result<(), Error<T>> {
-        if !Self::is_controller(controlled, controller) {
-            fail!(Error::<T>::OnlyControllerCanUpdate)
-        }
+        ensure!(
+            Self::is_controller(controlled, controller),
+            Error::<T>::OnlyControllerCanUpdate
+        );
+
         Ok(())
     }
 

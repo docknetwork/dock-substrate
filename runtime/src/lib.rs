@@ -68,8 +68,8 @@ use frame_support::{
     },
     ConsensusEngineId, PalletId,
 };
-use frame_system as system;
 use frame_system::{
+    self as system,
     limits::{BlockLength, BlockWeights},
     EnsureRoot,
 };
@@ -385,7 +385,7 @@ parameter_types! {
     pub const SS58Prefix: u8 = 42;
 }
 
-impl system::Config for Runtime {
+impl frame_system::Config for Runtime {
     type MaxConsumers = ConstU32<16>;
     /// The basic call filter to use in dispatchable.
     type BaseCallFilter = Everything;
@@ -483,7 +483,7 @@ where
             })
             .ok()?;
         let signature = raw_payload.using_encoded(|payload| C::sign(payload, public))?;
-        let address = <Runtime as system::Config>::Lookup::unlookup(account);
+        let address = <Runtime as frame_system::Config>::Lookup::unlookup(account);
         let (call, extra, _) = raw_payload.deconstruct();
         Some((call, (address, signature, extra)))
     }
@@ -494,7 +494,7 @@ impl frame_system::offchain::SigningTypes for Runtime {
     type Signature = Signature;
 }
 
-impl<C> system::offchain::SendTransactionTypes<C> for Runtime
+impl<C> frame_system::offchain::SendTransactionTypes<C> for Runtime
 where
     Call: From<C>,
 {
@@ -1025,86 +1025,89 @@ impl transaction_payment::Config for Runtime {
 }
 
 parameter_types! {
-    // 8KB
+    /// 8KB
     pub const MaxBlobSize: u32 = 8192;
-    pub const StorageWeight: Weight = Weight::from_ref_time(1100);
-    // 128 bytes, for large labels, hash of a label can be used
-    pub const LabelMaxSize: u32 = 128;
-    pub const LabelPerByteWeight: Weight = Weight::from_ref_time(10);
-    // 16KB
-    pub const ParamsMaxSize: u32 = 65536;
-    pub const ParamsPerByteWeight: Weight = Weight::from_ref_time(10);
+    /// 1KB
+    pub const MaxIriSize: u32 = 1024;
+
+    /// 128 bytes, for large labels, hash of a label can be used
+    pub const MaxAccumulatorLabelSize: u32 = 128;
+
+    pub const MaxAccumulatorParamsSize: u32 = 512;
+
+    /// 128 bytes, for large labels, hash of a label can be used
+    pub const MaxOffchainParamsLabelSize: u32 = 128;
+    /// 16KB
+    pub const MaxOffchainParamsBytesSize: u32 = 65536;
+
     pub const FixedPublicKeyMaxSize: u32 = 256;
     pub const PSPublicKeyMaxSize: u32 = 65536;
-    pub const PublicKeyPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const AccumulatorParamsMaxSize: u32 = 512;
-    pub const AccumulatorParamsPerByteWeight: Weight = Weight::from_ref_time(10);
+
     pub const AccumulatedMaxSize: u32 = 128;
-    pub const AccumulatedPerByteWeight: Weight = Weight::from_ref_time(10);
+
     pub const MaxDidDocRefSize: u16 = 1024;
-    pub const DidDocRefPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const MaxServiceEndpointIdSize: u16 = 1024;
-    pub const ServiceEndpointIdPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const MaxServiceEndpointOrigins: u16 = 64;
-    pub const MaxServiceEndpointOriginSize: u16 = 1025;
-    pub const ServiceEndpointOriginPerByteWeight: Weight = Weight::from_ref_time(10);
+    pub const MaxDidServiceEndpointIdSize: u16 = 1024;
+    pub const MaxDidServiceEndpointOrigins: u16 = 64;
+    pub const MaxDidServiceEndpointOriginSize: u16 = 1025;
+
     pub const MaxPolicyControllers: u32 = 15;
     pub const MinStatusListCredentialSize: u32 = 500;
     pub const MaxStatusListCredentialSize: u32 = 40_000;
+
+    pub const MaxMasterMembers: u32 = 25;
 }
 
 impl did::Config for Runtime {
     type Event = Event;
-    type MaxDidDocRefSize = MaxDidDocRefSize;
-    type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
-    type MaxServiceEndpointIdSize = MaxServiceEndpointIdSize;
-    type ServiceEndpointIdPerByteWeight = ServiceEndpointIdPerByteWeight;
-    type MaxServiceEndpointOrigins = MaxServiceEndpointOrigins;
-    type MaxServiceEndpointOriginSize = MaxServiceEndpointOriginSize;
-    type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
+    type OnDidRemoval = OffchainSignatures;
 }
 
 impl revoke::Config for Runtime {
     type Event = Event;
 }
 
-impl common::MaxPolicyControllers for Runtime {
+impl common::Limits for Runtime {
     type MaxPolicyControllers = MaxPolicyControllers;
+
+    type MaxDidDocRefSize = MaxDidDocRefSize;
+    type MaxDidServiceEndpointIdSize = MaxDidServiceEndpointIdSize;
+    type MaxDidServiceEndpointOriginSize = MaxDidServiceEndpointOriginSize;
+    type MaxDidServiceEndpointOrigins = MaxDidServiceEndpointOrigins;
+
+    type MinStatusListCredentialSize = MinStatusListCredentialSize;
+    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
+
+    type MaxPSPublicKeySize = PSPublicKeyMaxSize;
+    type MaxBBSPublicKeySize = FixedPublicKeyMaxSize;
+    type MaxBBSPlusPublicKeySize = FixedPublicKeyMaxSize;
+
+    type MaxOffchainParamsLabelSize = MaxOffchainParamsLabelSize;
+    type MaxOffchainParamsBytesSize = MaxOffchainParamsBytesSize;
+
+    type MaxAccumulatorLabelSize = MaxAccumulatorLabelSize;
+    type MaxAccumulatorParamsSize = MaxAccumulatorParamsSize;
+    type MaxAccumulatorPublicKeySize = FixedPublicKeyMaxSize;
+    type MaxAccumulatorAccumulatedSize = AccumulatedMaxSize;
+
+    type MaxBlobSize = MaxBlobSize;
+    type MaxIriSize = MaxIriSize;
+
+    type MaxMasterMembers = MaxMasterMembers;
 }
 
 impl status_list_credential::Config for Runtime {
     type Event = Event;
-    type MinStatusListCredentialSize = MinStatusListCredentialSize;
-    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
 }
 
 impl offchain_signatures::Config for Runtime {
     type Event = Event;
-    type LabelMaxSize = LabelMaxSize;
-    type LabelPerByteWeight = LabelPerByteWeight;
-    type ParamsMaxSize = ParamsMaxSize;
-    type ParamsPerByteWeight = ParamsPerByteWeight;
-    type BBSPublicKeyMaxSize = FixedPublicKeyMaxSize;
-    type PSPublicKeyMaxSize = PSPublicKeyMaxSize;
-    type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
 }
 
 impl accumulator::Config for Runtime {
     type Event = Event;
-    type LabelMaxSize = LabelMaxSize;
-    type LabelPerByteWeight = LabelPerByteWeight;
-    type ParamsMaxSize = AccumulatorParamsMaxSize;
-    type ParamsPerByteWeight = AccumulatorParamsPerByteWeight;
-    type PublicKeyMaxSize = FixedPublicKeyMaxSize;
-    type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
-    type AccumulatedMaxSize = AccumulatedMaxSize;
-    type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
 }
 
-impl blob::Config for Runtime {
-    type MaxBlobSize = MaxBlobSize;
-    type StorageWeight = StorageWeight;
-}
+impl blob::Config for Runtime {}
 
 parameter_types! {
     pub const DisabledValidatorsThreshold: Perbill = Perbill::from_percent(17);
@@ -1112,7 +1115,7 @@ parameter_types! {
 
 impl pallet_session::Config for Runtime {
     type Event = Event;
-    type ValidatorId = <Self as system::Config>::AccountId;
+    type ValidatorId = <Self as frame_system::Config>::AccountId;
     type ValidatorIdOf = pallet_staking::StashOf<Self>;
     type ShouldEndSession = Babe;
     type NextSessionRotation = Babe;
@@ -1147,6 +1150,9 @@ parameter_types! {
     pub const VestingMilestones: u8 = 3;
     /// Vesting duration in number of blocks. Duration is 183 days and block time is 3 sec. (183 * 24 * 3600) / 3 = 5270400
     pub const VestingDuration: u32 = 5270400;
+
+    pub const MaxVestingBonuses: u32 = 100;
+    pub const MaxSwapBonuses: u32 = 100;
 }
 
 // `VestingMilestones` and `VestingDuration` must be > 0
@@ -1159,6 +1165,8 @@ impl dock_token_migration::Config for Runtime {
     type BlockNumberToBalance = ConvertInto;
     type VestingMilestones = VestingMilestones;
     type VestingDuration = VestingDuration;
+    type MaxVestingBonuses = MaxVestingBonuses;
+    type MaxSwapBonuses = MaxSwapBonuses;
 }
 
 parameter_types! {
@@ -1216,9 +1224,7 @@ impl anchor::Config for Runtime {
     type Event = Event;
 }
 
-impl attest::Config for Runtime {
-    type StorageWeight = StorageWeight;
-}
+impl attest::Config for Runtime {}
 
 /// This origin indicates that either >50% (simple majority) of Council members approved some dispatch (through a proposal)
 /// or the dispatch was done as `Root` (by sudo or master)
@@ -1820,16 +1826,16 @@ construct_runtime!(
         // Balances pallet has to be put before Session in construct_runtime otherwise there is a runtime panic.
         Balances: balances::{Pallet, Call, Storage, Config<T>, Event<T>} = 2,
         Session: pallet_session::{Pallet, Call, Storage, Event, Config<T>} = 3,
-        PoAModule: dock_poa::{Pallet, Call, Storage, Config<T>} = 4,
+        PoAModule: dock_poa::{Pallet, Storage, Config<T>} = 4,
         GrandpaFinality: grandpa::{Pallet, Call, Storage, Config, Event} = 5,
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 6,
         TransactionPayment: transaction_payment::{Pallet, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Event} = 8,
         OffchainSignatures: offchain_signatures::{Pallet, Call, Storage, Event} = 9,
-        DIDModule: did::{Pallet, Call, Storage, Event, Config} = 10,
+        DIDModule: did::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
         Revoke: revoke::{Pallet, Call, Storage, Event} = 11,
         BlobStore: blob::{Pallet, Call, Storage} = 12,
-        Master: master::{Pallet, Call, Storage, Event<T>, Config} = 13,
+        Master: master::{Pallet, Call, Storage, Event<T>, Config<T>} = 13,
         Sudo: sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
         MigrationModule: dock_token_migration::{Pallet, Call, Storage, Event<T>} = 15,
         Anchor: anchor::{Pallet, Call, Storage, Event<T>} = 16,
@@ -1897,7 +1903,7 @@ pub type CheckedExtrinsic = fp_self_contained::CheckedExtrinsic<AccountId, Call,
 type Executive = frame_executive::Executive<
     Runtime,
     Block,
-    system::ChainContext<Runtime>,
+    frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
 >;
@@ -1914,12 +1920,12 @@ pub type SignedBlock = generic::SignedBlock<Block>;
 pub type BlockId = generic::BlockId<Block>;
 /// The SignedExtension to the basic transaction logic.
 pub type SignedExtra = (
-    system::CheckSpecVersion<Runtime>,
-    system::CheckTxVersion<Runtime>,
-    system::CheckGenesis<Runtime>,
-    system::CheckEra<Runtime>,
-    system::CheckNonce<Runtime>,
-    system::CheckWeight<Runtime>,
+    frame_system::CheckSpecVersion<Runtime>,
+    frame_system::CheckTxVersion<Runtime>,
+    frame_system::CheckGenesis<Runtime>,
+    frame_system::CheckEra<Runtime>,
+    frame_system::CheckNonce<Runtime>,
+    frame_system::CheckWeight<Runtime>,
     CustomChargeTransactionPayment,
     dock_token_migration::OnlyMigrator<Runtime>,
 );
@@ -2405,62 +2411,62 @@ impl_runtime_apis! {
             dids.into_iter().map(|did| DIDModule::aggregate_did_details(&did, params)).collect()
         }
 
-        fn bbs_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPublicKeyWithParams> {
+        fn bbs_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPublicKeyWithParams<Runtime>> {
             OffchainSignatures::did_public_key(did, key_id)
                 .and_then(CheckedConversion::checked_into)
         }
 
-        fn bbs_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSParameters> {
+        fn bbs_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSParameters<Runtime>> {
             OffchainSignatures::did_params(&owner)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
         }
 
-        fn bbs_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBSPublicKeyWithParams> {
+        fn bbs_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBSPublicKeyWithParams<Runtime>> {
             OffchainSignatures::did_public_keys(&did)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
         }
 
-        fn bbs_plus_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPlusPublicKeyWithParams> {
+        fn bbs_plus_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBSPlusPublicKeyWithParams<Runtime>> {
             OffchainSignatures::did_public_key(did, key_id)
                 .and_then(CheckedConversion::checked_into)
         }
 
-        fn bbs_plus_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSPlusParameters> {
+        fn bbs_plus_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBSPlusParameters<Runtime>> {
             OffchainSignatures::did_params(&owner)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
         }
 
-        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams> {
+        fn bbs_plus_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams<Runtime>> {
             OffchainSignatures::did_public_keys(&did)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
         }
 
-        fn ps_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::PSPublicKeyWithParams> {
+        fn ps_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::PSPublicKeyWithParams<Runtime>> {
             OffchainSignatures::did_public_key(did, key_id)
                 .and_then(CheckedConversion::checked_into)
         }
 
-        fn ps_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::PSParameters> {
+        fn ps_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::PSParameters<Runtime>> {
             OffchainSignatures::did_params(&owner)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
         }
 
-        fn ps_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::PSPublicKeyWithParams> {
+        fn ps_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::PSPublicKeyWithParams<Runtime>> {
             OffchainSignatures::did_public_keys(&did)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
         }
 
-        fn accumulator_public_key_with_params(id: accumulator::AccumPublicKeyStorageKey) -> Option<accumulator::AccumPublicKeyWithParams> {
+        fn accumulator_public_key_with_params(id: accumulator::AccumPublicKeyStorageKey) -> Option<accumulator::AccumPublicKeyWithParams<Runtime>> {
             Accumulator::public_key_with_params(&id)
         }
 
-        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams>)> {
+        fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams<Runtime>>)> {
             Accumulator::get_accumulator_with_public_key_and_params(&id)
         }
     }
@@ -2629,7 +2635,7 @@ mod tests {
     }
 
     fn new_test_ext() -> sp_io::TestExternalities {
-        system::GenesisConfig::default()
+        frame_system::GenesisConfig::default()
             .build_storage::<Runtime>()
             .unwrap()
             .into()

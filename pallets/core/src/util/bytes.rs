@@ -1,8 +1,47 @@
 use crate::impl_wrapper;
 #[cfg(feature = "serde")]
 use crate::util::hex;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
+use core::ops::{Index, RangeFull};
+use frame_support::*;
+use sp_runtime::traits::Get;
+
 use sp_std::{fmt, vec::Vec};
+
+/// Wrapper around the bounded vector. providing the ability to encode/decode in `hex` format.
+#[derive(
+    Encode,
+    Decode,
+    DebugNoBound,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DefaultNoBound,
+    PartialOrd,
+    Ord,
+    MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "MaxSize: Sized", deserialize = "MaxSize: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(MaxSize))]
+#[scale_info(omit_prefix)]
+pub struct BoundedBytes<MaxSize: Get<u32>>(
+    #[cfg_attr(feature = "serde", serde(with = "hex"))] pub BoundedVec<u8, MaxSize>,
+);
+
+crate::impl_wrapper!(BoundedBytes<MaxSize: Get<u32>>(BoundedVec<u8, MaxSize>));
+
+impl<MaxSize: Get<u32>> TryFrom<Vec<u8>> for BoundedBytes<MaxSize> {
+    type Error = ();
+
+    fn try_from(bytes: Vec<u8>) -> Result<Self, ()> {
+        TryFrom::try_from(bytes).map(Self)
+    }
+}
 
 /// Wrapper around raw bytes vector providing the ability to encode/decode in `hex` format.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
@@ -23,18 +62,19 @@ impl_wrapper! { Bytes(Vec<u8>), for rand use rand::distributions::Standard.sampl
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Ord, PartialOrd)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Ord, Copy, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Bytes32 {
-    #[cfg_attr(feature = "serde", serde(with = "hex"))]
-    pub value: [u8; 32],
-}
+pub struct Bytes32(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
 
-impl Bytes32 {
-    pub fn as_bytes(&self) -> &[u8] {
-        &self.value
+crate::impl_wrapper! { Bytes32([u8; 32]) }
+
+impl Index<RangeFull> for Bytes32 {
+    type Output = [u8; 32];
+
+    fn index(&self, _: RangeFull) -> &Self::Output {
+        &self.0
     }
 }
 
@@ -51,32 +91,44 @@ serde_big_array::big_array! {
 macro_rules! struct_over_byte_array {
     ( $name:ident, $size:tt ) => {
         /// A wrapper over a byte array
-        #[derive(Encode, Decode, Clone, PartialOrd, Ord, scale_info_derive::TypeInfo)]
+        #[derive(
+            Encode, Decode, Clone, Copy, PartialOrd, Ord, scale_info_derive::TypeInfo, MaxEncodedLen,
+        )]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[scale_info(omit_prefix)]
-        pub struct $name {
+        pub struct $name(
             #[cfg_attr(feature = "serde", serde(with = "hex::big_array"))]
-            pub value: [u8; $size],
-        }
+            pub [u8; $size]
+        );
+
+        $crate::impl_wrapper! { $name([u8; $size]) }
 
         /// Implementing Default as it cannot be automatically derived for arrays of size > 32
         impl Default for $name {
             fn default() -> Self {
-                Self { value: [0; $size] }
+                Self([0; $size])
+            }
+        }
+
+        impl Index<RangeFull> for $name {
+            type Output = [u8; $size];
+
+            fn index(&self, _: RangeFull) -> &Self::Output {
+                &self.0
             }
         }
 
         /// Implementing Debug as it cannot be automatically derived for arrays of size > 32
         impl fmt::Debug for $name {
             fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                self.value[..].fmt(f)
+                self.0[..].fmt(f)
             }
         }
 
         /// Implementing PartialEq as it cannot be automatically derived for arrays of size > 32
         impl PartialEq for $name {
             fn eq(&self, other: &Self) -> bool {
-                self.value[..] == other.value[..]
+                self.0[..] == other.0[..]
             }
         }
 
@@ -85,19 +137,7 @@ macro_rules! struct_over_byte_array {
         impl $name {
             /// Return a slice to the underlying bytearray
             pub fn as_bytes(&self) -> &[u8] {
-                &self.value
-            }
-        }
-
-        impl From<[u8; $size]> for $name {
-            fn from(value: [u8; $size]) -> Self {
-                Self { value }
-            }
-        }
-
-        impl From<$name> for [u8; $size] {
-            fn from($name { value }: $name) -> Self {
-                value
+                &self.0
             }
         }
     };

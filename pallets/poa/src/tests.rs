@@ -15,7 +15,6 @@ use frame_support::{
         Weight,
     },
 };
-use frame_system::{self as system};
 use sp_core::H256;
 
 // Configure a mock runtime to test the pallet.
@@ -29,7 +28,7 @@ frame_support::construct_runtime!(
     {
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: balances::{Pallet, Call, Storage},
-        PoAModule: dock_poa::{Pallet, Call, Storage, Config<T>},
+        PoAModule: dock_poa::{Pallet, Storage},
     }
 );
 
@@ -44,7 +43,7 @@ parameter_types! {
     pub const MinimumPeriod: u64 = 1000;
 }
 
-impl system::Config for TestRuntime {
+impl frame_system::Config for TestRuntime {
     type OnSetCode = ();
     type MaxConsumers = sp_runtime::traits::ConstU32<10>;
     type BaseCallFilter = frame_support::traits::Everything;

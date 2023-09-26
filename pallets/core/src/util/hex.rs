@@ -47,10 +47,10 @@ pub mod big_array {
     pub fn serialize<'a, T, S>(value: &'a T, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
-        T: util::BigArray<'a> + AsRef<[u8]>,
+        T: util::BigArray<'a> + serde_hex::ToHex,
     {
         if serializer.is_human_readable() {
-            let str = serde_hex::encode(value.as_ref());
+            let str: String = value.encode_hex();
             serializer.serialize_str(&format!("0x{}", str))
         } else {
             BigArray::serialize(value, serializer)
@@ -90,11 +90,14 @@ mod basic {
     pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
     where
         D: serde::Deserializer<'de>,
-        T: serde::Deserialize<'de> + serde_hex::FromHex,
-        <T as serde_hex::FromHex>::Error: sp_std::fmt::Display,
+        T: serde::Deserialize<'de> + TryFrom<Vec<u8>>,
     {
         if deserializer.is_human_readable() {
-            deserializer.deserialize_str(HexStrVisitor(PhantomData))
+            let deserialized_bytes =
+                deserializer.deserialize_str(HexStrVisitor::<Vec<u8>>(PhantomData))?;
+
+            T::try_from(deserialized_bytes)
+                .map_err(|_| serde::de::Error::custom("Failed to construct a value from hex"))
         } else {
             T::deserialize(deserializer)
         }

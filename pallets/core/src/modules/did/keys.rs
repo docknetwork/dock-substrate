@@ -2,7 +2,7 @@ use super::*;
 use crate::{deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info};
 
 /// Valid did key with correct verification relationships.
-#[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd)]
+#[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -71,15 +71,17 @@ pub enum DidKeyError {
 impl From<DidKeyError> for &'static str {
     fn from(err: DidKeyError) -> &'static str {
         match err {
-            DidKeyError::KeyAgreementCantBeUsedForSigning => "KeyAgreementCantBeUsedForSigning",
+            DidKeyError::KeyAgreementCantBeUsedForSigning => {
+                "Key Agreement can't be used for signing"
+            }
             DidKeyError::SigningKeyCantBeUsedForKeyAgreement => {
-                "SigningKeyCantBeUsedForKeyAgreement"
+                "Signing key can't be used for Key Agreement"
             }
         }
     }
 }
 
-impl<T: Config + Debug> From<DidKeyError> for Error<T> {
+impl<T: Config> From<DidKeyError> for Error<T> {
     fn from(err: DidKeyError) -> Error<T> {
         match err {
             DidKeyError::KeyAgreementCantBeUsedForSigning => {
@@ -213,7 +215,7 @@ impl From<DidKey> for UncheckedDidKey {
     }
 }
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     pub(crate) fn add_keys_(
         AddKeys { did, keys, .. }: AddKeys<T>,
         OnChainDidDetails {
@@ -222,11 +224,12 @@ impl<T: Config + Debug> Module<T> {
             last_key_id,
             ..
         }: &mut OnChainDidDetails,
-    ) -> Result<(), Error<T>> {
+    ) -> DispatchResult {
         let keys: Vec<_> = keys
             .into_iter()
             .map(DidKey::try_from)
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<_, _>>()
+            .map_err(Error::<T>::from)?;
 
         // If DID was not self controlled first, check if it can become by looking over new keys
         let controller_keys_count = keys.iter().filter(|key| key.can_control()).count() as u32;
@@ -235,12 +238,12 @@ impl<T: Config + Debug> Module<T> {
         // Make self controlled if needed
         let add_self_controlled = controller_keys_count > 0 && !Self::is_self_controlled(&did);
         if add_self_controlled {
-            DidControllers::insert(did, Controller(did), ());
+            DidControllers::<T>::insert(did, Controller(did), ());
             *active_controllers += 1;
         }
 
         for (key, key_id) in keys.into_iter().zip(last_key_id) {
-            DidKeys::insert(did, key_id, key);
+            DidKeys::<T>::insert(did, key_id, key);
         }
 
         deposit_indexed_event!(DidKeysAdded(did));
@@ -254,9 +257,9 @@ impl<T: Config + Debug> Module<T> {
             active_controller_keys,
             ..
         }: &mut OnChainDidDetails,
-    ) -> Result<(), Error<T>> {
+    ) -> DispatchResult {
         for key_id in &keys {
-            let key = DidKeys::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+            let key = DidKeys::<T>::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
             if key.can_control() {
                 *active_controller_keys -= 1;
@@ -264,13 +267,13 @@ impl<T: Config + Debug> Module<T> {
         }
 
         for key in &keys {
-            DidKeys::remove(did, key);
+            DidKeys::<T>::remove(did, key);
         }
 
         // If no self-control keys exist for the given DID, remove self-control
         let remove_self_controlled = *active_controller_keys == 0 && Self::is_self_controlled(&did);
         if remove_self_controlled {
-            DidControllers::remove(did, Controller(did));
+            DidControllers::<T>::remove(did, Controller(did));
             *active_controllers -= 1;
         }
 
@@ -280,7 +283,7 @@ impl<T: Config + Debug> Module<T> {
 
     /// Return `did`'s key with id `key_id` only if has control capability, otherwise returns an error.
     pub fn control_key(&did: &Controller, key_id: IncId) -> Result<PublicKey, Error<T>> {
-        let did_key = DidKeys::get(*did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+        let did_key = DidKeys::<T>::get(*did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
         if did_key.can_control() {
             Ok(did_key.public_key)
@@ -291,7 +294,7 @@ impl<T: Config + Debug> Module<T> {
 
     /// Return `did`'s key with id `key_id` only if it can authenticate or control otherwise returns an error
     pub fn auth_or_control_key(did: &Did, key_id: IncId) -> Result<PublicKey, Error<T>> {
-        let did_key = DidKeys::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
+        let did_key = DidKeys::<T>::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
 
         if did_key.can_authenticate_or_control() {
             Ok(did_key.public_key)

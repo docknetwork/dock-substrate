@@ -46,18 +46,21 @@ fn encoded_attestation_size() {
             (63, None, 1 + 1),
             (64, None, 2 + 1),
             (256, None, 2 + 1),
-            (0, Some(vec![]), 1 + 2),
-            (0, Some(vec![0]), 1 + 3),
-            (0, Some(vec![0; 63]), 1 + 63 + 2),
-            (0, Some(vec![0; 64]), 1 + 64 + 3),
-            (0, Some(vec![0; 256]), 1 + 256 + 3),
-            (63, Some(vec![0; 256]), 1 + 256 + 3),
-            (64, Some(vec![0; 256]), 2 + 256 + 3),
+            (0, Some(vec![].try_into().unwrap()), 1 + 2),
+            (0, Some(vec![0].try_into().unwrap()), 1 + 3),
+            (0, Some(vec![0; 63].try_into().unwrap()), 1 + 63 + 2),
+            (0, Some(vec![0; 64].try_into().unwrap()), 1 + 64 + 3),
+            (0, Some(vec![0; 256].try_into().unwrap()), 1 + 256 + 3),
+            (63, Some(vec![0; 256].try_into().unwrap()), 1 + 256 + 3),
+            (64, Some(vec![0; 256].try_into().unwrap()), 2 + 256 + 3),
         ]
         .iter()
         .cloned()
         {
-            assert_eq!(Attestation { priority, iri }.encode().len(), expected_size);
+            assert_eq!(
+                Attestation::<Test> { priority, iri }.encode().len(),
+                expected_size
+            );
         }
     });
 }
@@ -171,7 +174,7 @@ fn priority_face_off() {
             &did,
             &Attestation {
                 priority: 2,
-                iri: Some(vec![0]),
+                iri: Some(vec![0].try_into().unwrap()),
             },
             &kp,
             11 + 1,
@@ -184,7 +187,7 @@ fn priority_face_off() {
                 &did,
                 &Attestation {
                     priority: 2,
-                    iri: Some(vec![0, 2, 3]),
+                    iri: Some(vec![0, 2, 3].try_into().unwrap()),
                 },
                 &kp,
                 12 + 1
@@ -224,7 +227,7 @@ fn priority_battle_royale() {
             });
         }
         assert_eq!(
-            Attestations::get(did).priority,
+            Attestations::<Test>::get(did).priority,
             prios.iter().max().unwrap().clone()
         );
     });
@@ -275,7 +278,7 @@ fn set_some_attestation() {
         let (did, kp) = newdid();
         let did = Attester(did);
         assert_eq!(
-            Attestations::get(did),
+            Attestations::<Test>::get(did),
             Attestation {
                 priority: 0,
                 iri: None,
@@ -286,7 +289,7 @@ fn set_some_attestation() {
             &did,
             &Attestation {
                 priority: 1,
-                iri: Some(vec![0, 1, 2]),
+                iri: Some(vec![0, 1, 2].try_into().unwrap()),
             },
             &kp,
             10 + 1,
@@ -294,10 +297,10 @@ fn set_some_attestation() {
         .unwrap();
         check_nonce(&did, 10 + 1);
         assert_eq!(
-            Attestations::get(did),
+            Attestations::<Test>::get(did),
             Attestation {
                 priority: 1,
-                iri: Some(vec![0, 1, 2]),
+                iri: Some(vec![0, 1, 2].try_into().unwrap()),
             }
         );
     });
@@ -332,7 +335,7 @@ fn skip_prio() {
 /// helper
 fn set_claim(
     claimer: &Attester,
-    att: &Attestation,
+    att: &Attestation<Test>,
     kp: &sr25519::Pair,
     nonce: u64,
 ) -> DispatchResult {

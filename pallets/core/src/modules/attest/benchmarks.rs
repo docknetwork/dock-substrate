@@ -4,9 +4,9 @@ use crate::{
     did::{Did, DidSignature, UncheckedDidKey},
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_system::RawOrigin;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
-use system::RawOrigin;
 
 const MAX_LEN: u32 = 10_000;
 
@@ -24,7 +24,7 @@ crate::bench_with_all_pairs! {
 
         let attest = Attestation {
             priority: 1,
-            iri: Some(vec![12; l as usize])
+            iri: Some(vec![12; l as usize].try_into().unwrap())
         };
 
         let set_attest = SetAttestationClaim {

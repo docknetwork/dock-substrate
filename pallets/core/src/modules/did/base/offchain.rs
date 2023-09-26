@@ -1,11 +1,11 @@
 use super::super::*;
-use crate::deposit_indexed_event;
+use crate::{common::TypesAndLimits, deposit_indexed_event};
 
 /// Stores details of an off-chain DID.
 /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
 /// the caller account and Substrate takes care of replay protection. Thus it stores the data
 /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
@@ -15,9 +15,9 @@ use crate::deposit_indexed_event;
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct OffChainDidDetails<T: Config> {
+pub struct OffChainDidDetails<T: TypesAndLimits> {
     pub account_id: T::AccountId,
-    pub doc_ref: OffChainDidDocRef,
+    pub doc_ref: OffChainDidDocRef<T>,
 }
 
 impl<T: Config> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
@@ -26,7 +26,7 @@ impl<T: Config> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
     }
 }
 
-impl<T: Config + Debug> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
+impl<T: Config> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
     type Error = Error<T>;
 
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
@@ -36,9 +36,9 @@ impl<T: Config + Debug> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
     }
 }
 
-impl<T: Config + Debug> OffChainDidDetails<T> {
+impl<T: Config> OffChainDidDetails<T> {
     /// Constructs new off-chain DID details using supplied params.
-    pub fn new(account_id: T::AccountId, doc_ref: OffChainDidDocRef) -> Self {
+    pub fn new(account_id: T::AccountId, doc_ref: OffChainDidDocRef<T>) -> Self {
         Self {
             account_id,
             doc_ref,
@@ -55,24 +55,28 @@ impl<T: Config + Debug> OffChainDidDetails<T> {
 
 /// To describe the off chain DID Doc's reference. This is just to inform the client, this module
 /// does not check if the bytes are indeed valid as per the enum variant
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(
+    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub enum OffChainDidDocRef {
+pub enum OffChainDidDocRef<T: Limits> {
     /// Content IDentifier as per https://github.com/multiformats/cid.
-    CID(Bytes),
+    CID(BoundedBytes<T::MaxDidDocRefSize>),
     /// A URL
-    URL(Bytes),
+    URL(BoundedBytes<T::MaxDidDocRefSize>),
     /// A custom encoding of the reference
-    Custom(Bytes),
+    Custom(BoundedBytes<T::MaxDidDocRefSize>),
 }
 
-impl OffChainDidDocRef {
-    pub fn len(&self) -> usize {
+impl<T: Config> OffChainDidDocRef<T> {
+    pub fn len(&self) -> u32 {
         match self {
-            OffChainDidDocRef::CID(v) => v.len(),
-            OffChainDidDocRef::URL(v) => v.len(),
-            OffChainDidDocRef::Custom(v) => v.len(),
+            OffChainDidDocRef::CID(v) => v.len() as u32,
+            OffChainDidDocRef::URL(v) => v.len() as u32,
+            OffChainDidDocRef::Custom(v) => v.len() as u32,
         }
     }
 
@@ -81,16 +85,12 @@ impl OffChainDidDocRef {
     }
 }
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     pub(crate) fn new_offchain_(
         caller: T::AccountId,
         did: Did,
-        did_doc_ref: OffChainDidDocRef,
-    ) -> Result<(), Error<T>> {
-        ensure!(
-            T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
-            Error::<T>::DidDocRefTooBig
-        );
+        did_doc_ref: OffChainDidDocRef<T>,
+    ) -> DispatchResult {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
@@ -104,12 +104,8 @@ impl<T: Config + Debug> Module<T> {
     pub(crate) fn set_offchain_did_doc_ref_(
         caller: T::AccountId,
         did: Did,
-        did_doc_ref: OffChainDidDocRef,
-    ) -> Result<(), Error<T>> {
-        ensure!(
-            T::MaxDidDocRefSize::get() as usize >= did_doc_ref.len(),
-            Error::<T>::DidDocRefTooBig
-        );
+        did_doc_ref: OffChainDidDocRef<T>,
+    ) -> DispatchResult {
         Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
         let details: StoredDidDetails<T> =
@@ -120,7 +116,7 @@ impl<T: Config + Debug> Module<T> {
         Ok(())
     }
 
-    pub(crate) fn remove_offchain_did_(caller: T::AccountId, did: Did) -> Result<(), Error<T>> {
+    pub(crate) fn remove_offchain_did_(caller: T::AccountId, did: Did) -> DispatchResult {
         Self::offchain_did_details(&did)?.ensure_can_update(&caller)?;
 
         Dids::<T>::remove(did);

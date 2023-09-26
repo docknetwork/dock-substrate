@@ -1,9 +1,10 @@
+use codec::MaxEncodedLen;
 use sp_std::{fmt::Debug, num::NonZeroU16};
 
 use scale_info::TypeInfo;
 
 /// Non-zero amount of eras used to express duration.
-#[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug)]
+#[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug, MaxEncodedLen)]
 pub struct DurationInEras(pub NonZeroU16);
 
 /// There's a bug with `NonZeroU16` in substrate metadata generation.
@@ -29,7 +30,9 @@ impl DurationInEras {
 }
 
 /// Denotes the current state of the high-rate rewards.
-#[derive(codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug, TypeInfo)]
+#[derive(
+    codec::Encode, codec::Decode, Eq, PartialEq, Clone, Copy, Debug, TypeInfo, MaxEncodedLen,
+)]
 pub enum HighRateRewardsState {
     /// High-rate rewards are disabled.
     None,

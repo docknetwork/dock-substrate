@@ -1,22 +1,22 @@
 //! Generic immutable single-owner storage.
 
-use crate as dock;
 use crate::{
-    common::SigValue,
+    common::{Limits, SigValue, TypesAndLimits},
     did,
     did::{Did, DidSignature},
-    util::Bytes,
+    util::BoundedBytes,
 };
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use sp_std::fmt::Debug;
 
 use frame_support::{
-    decl_error, decl_module, decl_storage, dispatch::DispatchResult, ensure, traits::Get,
-    weights::Weight,
+    dispatch::DispatchResult, ensure, weights::Weight, CloneNoBound, DebugNoBound, EqNoBound,
+    PartialEqNoBound,
 };
-use frame_system::{self as system, ensure_signed};
 use sp_std::prelude::*;
 use weights::*;
+
+pub use pallet::*;
 
 #[cfg(feature = "runtime-benchmarks")]
 mod benchmarks;
@@ -25,7 +25,7 @@ mod tests;
 mod weights;
 
 /// Owner of a Blob.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd)]
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -41,21 +41,30 @@ pub const ID_BYTE_SIZE: usize = 32;
 pub type BlobId = [u8; ID_BYTE_SIZE];
 
 /// When a new blob is being registered, the following object is sent.
-#[derive(Encode, Decode, Clone, PartialEq, Debug, Eq)]
+#[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, DebugNoBound, EqNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
 #[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub struct Blob {
-    pub id: BlobId,
-    pub blob: Bytes,
-}
-
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct AddBlob<T: frame_system::Config> {
-    pub blob: Blob,
+pub struct Blob<T: Limits> {
+    pub id: BlobId,
+    pub blob: BoundedBytes<T::MaxBlobSize>,
+}
+
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct AddBlob<T: TypesAndLimits> {
+    pub blob: Blob<T>,
     pub nonce: T::BlockNumber,
 }
 
@@ -63,43 +72,39 @@ crate::impl_action_with_nonce! {
     AddBlob for (): with 1 as len, () as target
 }
 
-pub trait Config: system::Config + did::Config {
-    /// Blobs larger than this will not be accepted.
-    type MaxBlobSize: Get<u32>;
-    /// The cost charged by the network to store a single byte in chain-state for the life of the
-    /// chain.
-    type StorageWeight: Get<Weight>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-decl_error! {
+    #[pallet::config]
+    pub trait Config: frame_system::Config + did::Config {}
+
     /// Error for the blob module.
-    pub enum BlobError for Module<T: Config> where T: Debug {
-        /// The blob is greater than `MaxBlobSize`
-        BlobTooBig,
+    #[pallet::error]
+    pub enum Error<T> {
         /// There is already a blob with same id
         BlobAlreadyExists,
         /// There is no such DID registered
-        DidDoesNotExist
+        DidDoesNotExist,
     }
-}
 
-decl_storage! {
-    trait Store for Module<T: Config> as Blob where T: Debug {
-        Blobs get(fn get_blob): map hasher(blake2_128_concat)
-            dock::blob::BlobId => Option<(BlobOwner, Bytes)>;
-    }
-}
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
-        const MaxBlobSize: u32 = T::MaxBlobSize::get();
+    #[pallet::storage]
+    #[pallet::getter(fn blob)]
+    pub type Blobs<T: Config> =
+        StorageMap<_, Blake2_128Concat, BlobId, (BlobOwner, BoundedBytes<T::MaxBlobSize>)>;
 
-        const StorageWeight: Weight = T::StorageWeight::get();
-
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
         /// Create a new immutable blob.
-        #[weight = SubstrateWeight::<T>::new(blob, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::new(blob, signature))]
         pub fn new(
-            origin,
+            origin: OriginFor<T>,
             blob: AddBlob<T>,
             signature: DidSignature<BlobOwner>,
         ) -> DispatchResult {
@@ -108,28 +113,24 @@ decl_module! {
             did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::new_, blob, signature)
         }
     }
-}
 
-impl<T: Config + Debug> Module<T> {
-    fn new_(AddBlob { blob, .. }: AddBlob<T>, signer: BlobOwner) -> DispatchResult {
-        // check
-        ensure!(
-            T::MaxBlobSize::get() as usize >= blob.blob.len(),
-            BlobError::<T>::BlobTooBig
-        );
-        ensure!(
-            !Blobs::contains_key(blob.id),
-            BlobError::<T>::BlobAlreadyExists
-        );
+    impl<T: Config> Pallet<T> {
+        fn new_(AddBlob { blob, .. }: AddBlob<T>, signer: BlobOwner) -> DispatchResult {
+            // check
+            ensure!(
+                !Blobs::<T>::contains_key(blob.id),
+                Error::<T>::BlobAlreadyExists
+            );
 
-        // execute
-        Blobs::insert(blob.id, (signer, blob.blob));
+            // execute
+            Blobs::<T>::insert(blob.id, (signer, blob.blob));
 
-        Ok(())
+            Ok(())
+        }
     }
 }
 
-impl<T: frame_system::Config> SubstrateWeight<T> {
+impl<T: Config> SubstrateWeight<T> {
     #[allow(clippy::new_ret_no_self)]
     fn new(
         AddBlob { blob, .. }: &AddBlob<T>,

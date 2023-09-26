@@ -1,27 +1,38 @@
+use frame_support::DebugNoBound;
 use sp_std::marker::PhantomData;
 
-use crate::util::WithNonce;
+use crate::{common::Limits, util::WithNonce};
 use codec::{Decode, Encode};
 
 use super::{StatusListCredential, StatusListCredentialId};
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct UpdateStatusListCredentialRaw<T> {
+pub struct UpdateStatusListCredentialRaw<T: Limits> {
     pub id: StatusListCredentialId,
-    pub credential: StatusListCredential,
+    pub credential: StatusListCredential<T>,
     #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub _marker: PhantomData<T>,
 }
 
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveStatusListCredentialRaw<T> {
+pub struct RemoveStatusListCredentialRaw<T: Limits> {
     pub id: StatusListCredentialId,
     #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]

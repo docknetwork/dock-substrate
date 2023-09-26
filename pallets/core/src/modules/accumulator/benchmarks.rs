@@ -1,9 +1,9 @@
 use super::*;
 use crate::{common::state_change::ToStateChange, did::UncheckedDidKey, util::IncId};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
+use frame_system::RawOrigin;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
-use system::RawOrigin;
 
 const MAX_PARAMS: u32 = 512;
 const MAX_LABEL: u32 = 128;
@@ -30,8 +30,8 @@ crate::bench_with_all_pairs! {
 
         let params = AccumulatorParameters {
             curve_type: CurveType::Bls12381,
-            bytes: vec![3; b as usize].into(),
-            label: Some(vec![0; l as usize].into())
+            bytes: vec![3; b as usize].try_into().unwrap(),
+            label: Some(vec![0; l as usize].try_into().unwrap())
         };
 
         let new_params = AddAccumulatorParams {
@@ -58,12 +58,12 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Module::<T>::add_params_(
+        Pallet::<T>::add_params_(
             AddAccumulatorParams {
                 params: AccumulatorParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into()),
+                    bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
+                    label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
                 },
                 nonce: 1u8.into()
             },
@@ -71,7 +71,7 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let rem_params = RemoveAccumulatorParams {
-            params_ref: (AccumulatorOwner(did), 1u8.into()),
+            params_ref: (AccumulatorOwner(did), 1u8.try_into().unwrap()),
             nonce: 1u8.into()
         };
 
@@ -81,7 +81,7 @@ crate::bench_with_all_pairs! {
 
     }: remove_params(RawOrigin::Signed(caller), rem_params, signature)
     verify {
-        assert!(AccumulatorParams::get(AccumulatorOwner(did), IncId::from(1u8)).is_none());
+        assert!(AccumulatorParams::<T>::get(AccumulatorOwner(did), IncId::from(1u8)).is_none());
     }
 
     add_public_sr25519 for sr25519, add_public_ed25519 for ed25519, add_public_secp256k1 for secp256k1 {
@@ -99,12 +99,12 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Module::<T>::add_params_(
+        Pallet::<T>::add_params_(
             AddAccumulatorParams {
                 params: AccumulatorParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into()),
+                    bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
+                    label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
                 },
                 nonce: 1u8.into()
             },
@@ -113,7 +113,7 @@ crate::bench_with_all_pairs! {
 
         let public_key = AccumulatorPublicKey {
             curve_type: CurveType::Bls12381,
-            bytes: vec![3; b as usize].into(),
+            bytes: vec![3; b as usize].try_into().unwrap(),
             /// The params used to generate the public key (`P_tilde` comes from params)
             params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
         };
@@ -143,23 +143,23 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Module::<T>::add_params_(
+        Pallet::<T>::add_params_(
             AddAccumulatorParams {
                 params: AccumulatorParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into()),
+                    bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
+                    label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
                 },
                 nonce: 1u8.into()
             },
             AccumulatorOwner(did)
         ).unwrap();
 
-        Module::<T>::add_public_key_(
+        Pallet::<T>::add_public_key_(
             AddAccumulatorPublicKey {
                 public_key: AccumulatorPublicKey {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_KEY as usize].into(),
+                    bytes: vec![3; MAX_KEY as usize].try_into().unwrap(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
                     params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
                 },
@@ -169,7 +169,7 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let rem_key = RemoveAccumulatorPublicKey {
-            key_ref: (AccumulatorOwner(did), 1u8.into()),
+            key_ref: (AccumulatorOwner(did), 1u8.try_into().unwrap()),
             nonce: 1u8.into()
         };
 
@@ -179,7 +179,7 @@ crate::bench_with_all_pairs! {
 
     }: remove_public_key(RawOrigin::Signed(caller), rem_key, signature)
     verify {
-        assert!(AccumulatorKeys::get(AccumulatorOwner(did), IncId::from(1u8)).is_none());
+        assert!(AccumulatorKeys::<T>::get(AccumulatorOwner(did), IncId::from(1u8)).is_none());
     }
 
     add_accumulator_sr25519 for sr25519, add_accumulator_ed25519 for ed25519, add_accumulator_secp256k1 for secp256k1 {
@@ -192,7 +192,7 @@ crate::bench_with_all_pairs! {
 
         let public = pair.public();
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; b as usize].into(),
+            accumulated: vec![3; b as usize].try_into().unwrap(),
             key_ref: (AccumulatorOwner(did), 1u8.into()),
         });
 
@@ -204,12 +204,12 @@ crate::bench_with_all_pairs! {
 
         let acc_id: AccumulatorId = AccumulatorId([1; 32]);
 
-        Module::<T>::add_params_(
+        Pallet::<T>::add_params_(
             AddAccumulatorParams {
                 params: AccumulatorParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into()),
+                    bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
+                    label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
                 },
                 nonce: 1u8.into()
             },
@@ -217,11 +217,11 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
 
-        Module::<T>::add_public_key_(
+        Pallet::<T>::add_public_key_(
             AddAccumulatorPublicKey {
                 public_key: AccumulatorPublicKey {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_KEY as usize].into(),
+                    bytes: vec![3; MAX_KEY as usize].try_into().unwrap(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
                     params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
                 },
@@ -259,8 +259,8 @@ crate::bench_with_all_pairs! {
 
         let public = pair.public();
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; MAX_ACC as usize].into(),
-            key_ref: (AccumulatorOwner(did), 1u8.into()),
+            accumulated: vec![3; MAX_ACC as usize].try_into().unwrap(),
+            key_ref: (AccumulatorOwner(did), 1u8.try_into().unwrap()),
         });
 
         crate::did::Pallet::<T>::new_onchain_(
@@ -271,12 +271,12 @@ crate::bench_with_all_pairs! {
 
         let acc_id: AccumulatorId = AccumulatorId([1; 32]);
 
-        Module::<T>::add_params_(
+        Pallet::<T>::add_params_(
             AddAccumulatorParams {
                 params: AccumulatorParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into()),
+                    bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
+                    label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
                 },
                 nonce: 1u8.into()
             },
@@ -284,11 +284,11 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
 
-        Module::<T>::add_public_key_(
+        Pallet::<T>::add_public_key_(
             AddAccumulatorPublicKey {
                 public_key: AccumulatorPublicKey {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_KEY as usize].into(),
+                    bytes: vec![3; MAX_KEY as usize].try_into().unwrap(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
                     params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
                 },
@@ -296,7 +296,7 @@ crate::bench_with_all_pairs! {
             },
             AccumulatorOwner(did)
         ).unwrap();
-        Module::<T>::add_accumulator_(
+        Pallet::<T>::add_accumulator_(
             AddAccumulator {
                 id: acc_id,
                 accumulator,
@@ -312,7 +312,7 @@ crate::bench_with_all_pairs! {
             new_accumulated: new_accumulated.clone().into(),
             additions: Some((0..b).map(|i| vec![i as u8; c as usize].into()).collect()),
             removals: Some((0..d).map(|i| vec![i as u8; e as usize].into()).collect()),
-            witness_update_info: Some(vec![5; f as usize].into()),
+            witness_update_info: Some(vec![5; f as usize].try_into().unwrap()),
             nonce: 1u32.into(),
         };
 
@@ -331,8 +331,8 @@ crate::bench_with_all_pairs! {
         let public = pair.public();
 
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; MAX_ACC as usize].into(),
-            key_ref: (AccumulatorOwner(did), 1u8.into()),
+            accumulated: vec![3; MAX_ACC as usize].try_into().unwrap(),
+            key_ref: (AccumulatorOwner(did), 1u8.try_into().unwrap()),
         });
 
         crate::did::Pallet::<T>::new_onchain_(
@@ -343,12 +343,12 @@ crate::bench_with_all_pairs! {
 
         let acc_id: AccumulatorId = AccumulatorId([2; 32]);
 
-        Module::<T>::add_params_(
+        Pallet::<T>::add_params_(
             AddAccumulatorParams {
                 params: AccumulatorParameters {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_PARAMS as usize].into(),
-                    label: Some(vec![1; MAX_LABEL as usize].into()),
+                    bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
+                    label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
                 },
                 nonce: 1u8.into()
             },
@@ -356,11 +356,11 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
 
-        Module::<T>::add_public_key_(
+        Pallet::<T>::add_public_key_(
             AddAccumulatorPublicKey {
                 public_key: AccumulatorPublicKey {
                     curve_type: CurveType::Bls12381,
-                    bytes: vec![3; MAX_KEY as usize].into(),
+                    bytes: vec![3; MAX_KEY as usize].try_into().unwrap(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
                     params_ref: Some((AccumulatorOwner(did), IncId::from(1u8)))
                 },
@@ -369,7 +369,7 @@ crate::bench_with_all_pairs! {
             AccumulatorOwner(did)
         ).unwrap();
 
-        Module::<T>::add_accumulator_(
+        Pallet::<T>::add_accumulator_(
             AddAccumulator {
                 id: acc_id,
                 accumulator,

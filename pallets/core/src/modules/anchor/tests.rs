@@ -1,6 +1,4 @@
 use super::{Anchors, Error, Event};
-use frame_support::StorageMap;
-use frame_system as system;
 use sp_runtime::traits::Hash;
 
 use crate::tests::common::*;
@@ -10,7 +8,7 @@ use sp_core::H256;
 fn deploy_and_check() {
     ext().execute_with(|| {
         let bs = random_bytes(32);
-        let h = <Test as system::Config>::Hashing::hash(&bs);
+        let h = <Test as frame_system::Config>::Hashing::hash(&bs);
         assert!(Anchors::<Test>::get(h).is_none());
         AnchorMod::deploy(Origin::signed(ABBA), bs).unwrap();
         assert!(Anchors::<Test>::get(h).is_some());
@@ -31,7 +29,7 @@ fn deploy_twice_error() {
 fn deploy_and_observe_event() {
     ext().execute_with(|| {
         let bs = random_bytes(32);
-        let h = <Test as system::Config>::Hashing::hash(&bs);
+        let h = <Test as frame_system::Config>::Hashing::hash(&bs);
         AnchorMod::deploy(Origin::signed(ABBA), bs).unwrap();
         assert_eq!(
             &anchor_events(),
@@ -48,12 +46,12 @@ fn anchor_events() -> Vec<Event<Test>> {
     System::events()
         .iter()
         .filter_map(|event_record| {
-            let system::EventRecord::<TestEvent, H256> {
+            let frame_system::EventRecord::<TestEvent, H256> {
                 phase,
                 event,
                 topics,
             } = event_record;
-            assert_eq!(phase, &system::Phase::Initialization);
+            assert_eq!(phase, &frame_system::Phase::Initialization);
             assert_eq!(topics, &vec![]);
             match event {
                 TestEvent::Anchor(e) => Some(e.clone()),

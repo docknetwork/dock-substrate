@@ -1,3 +1,4 @@
+use core::marker::PhantomData;
 use dock_runtime::{
     common::PublicKey,
     did::{Did, DidKey},
@@ -22,7 +23,10 @@ use sp_runtime::traits::{IdentifyAccount, Verify};
 use serde_json::map::Map;
 
 use sp_runtime::Perbill;
-use std::{collections::BTreeMap, str::FromStr};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    str::FromStr,
+};
 
 /// Node `ChainSpec` extensions.
 ///
@@ -175,7 +179,9 @@ pub fn development_config() -> ChainSpec {
                     ]
                     .iter()
                     .map(|d| Did(**d))
-                    .collect(),
+                    .collect::<BTreeSet<_>>()
+                    .try_into()
+                    .unwrap(),
                     vote_requirement: 2,
                 },
                 dids: [
@@ -252,7 +258,9 @@ pub fn local_testnet_config() -> ChainSpec {
                     ]
                     .iter()
                     .map(|d| Did(**d))
-                    .collect(),
+                    .collect::<BTreeSet<_>>()
+                    .try_into()
+                    .unwrap(),
                     vote_requirement: 2,
                 },
                 dids: [
@@ -345,7 +353,9 @@ pub fn pos_testnet_config() -> ChainSpec {
                     ]
                     .iter()
                     .map(|d| Did(**d))
-                    .collect(),
+                    .collect::<BTreeSet<_>>()
+                    .try_into()
+                    .unwrap(),
                     vote_requirement: 2,
                 },
                 dids: [
@@ -507,7 +517,9 @@ pub fn pos_devnet_config() -> ChainSpec {
                     ]
                     .iter()
                     .map(|d| Did(**d))
-                    .collect(),
+                    .collect::<BTreeSet<_>>()
+                    .try_into()
+                    .unwrap(),
                     vote_requirement: 2,
                 },
                 dids: [
@@ -709,7 +721,9 @@ pub fn pos_mainnet_config() -> ChainSpec {
                     ]
                     .iter()
                     .map(|d| Did(**d))
-                    .collect(),
+                    .collect::<BTreeSet<_>>()
+                    .try_into()
+                    .unwrap(),
                     vote_requirement: 2,
                 },
                 dids: [
@@ -795,8 +809,8 @@ struct GenesisBuilder {
         AuthorityDiscoveryId,
     )>,
     endowed_accounts: Vec<AccountId>,
-    master: Membership,
-    dids: Vec<(Did, DidKey)>,
+    master: Membership<()>,
+    dids: BTreeMap<Did, DidKey>,
     sudo: AccountId,
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
@@ -837,11 +851,12 @@ impl GenesisBuilder {
                             session_keys(x.2.clone(), x.3.clone(), x.4.clone(), x.5.clone()),
                         )
                     })
-                    .collect::<Vec<_>>(),
+                    .collect(),
             },
             po_a_module: PoAModuleConfig {
                 emission_supply,
                 poa_last_block: self.poa_last_block,
+                _marker: PhantomData,
             },
             balances: BalancesConfig {
                 balances: self
@@ -855,9 +870,16 @@ impl GenesisBuilder {
                 authorities: vec![],
             },
             master: MasterConfig {
-                members: self.master,
+                members: Membership {
+                    members: self.master.members.into_inner().try_into().unwrap(),
+                    vote_requirement: self.master.vote_requirement,
+                },
+                _marker: PhantomData,
             },
-            did_module: DIDModuleConfig { dids: self.dids },
+            did_module: DIDModuleConfig {
+                dids: self.dids,
+                _marker: PhantomData,
+            },
             sudo: SudoConfig {
                 key: Some(self.sudo),
             },

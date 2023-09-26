@@ -3,7 +3,7 @@ use crate::tests::common::*;
 use frame_support::assert_err;
 use sp_core::{sr25519, Hasher, H256};
 
-fn sign_add_params<T: frame_system::Config>(
+fn sign_add_params<T: Config>(
     keypair: &sr25519::Pair,
     params: &AddAccumulatorParams<T>,
     signer: AccumulatorOwner,
@@ -12,7 +12,7 @@ fn sign_add_params<T: frame_system::Config>(
     did_sig::<T, _, _>(params, keypair, signer, key_id)
 }
 
-fn sign_remove_params<T: frame_system::Config>(
+fn sign_remove_params<T: Config>(
     keypair: &sr25519::Pair,
     remove: &RemoveAccumulatorParams<T>,
     signer: AccumulatorOwner,
@@ -21,7 +21,7 @@ fn sign_remove_params<T: frame_system::Config>(
     did_sig::<T, _, _>(remove, keypair, signer, key_id)
 }
 
-fn sign_add_key<T: frame_system::Config>(
+fn sign_add_key<T: Config>(
     keypair: &sr25519::Pair,
     public_key: &AddAccumulatorPublicKey<T>,
     signer: AccumulatorOwner,
@@ -30,7 +30,7 @@ fn sign_add_key<T: frame_system::Config>(
     did_sig::<T, _, _>(public_key, keypair, signer, key_id)
 }
 
-fn sign_remove_key<T: frame_system::Config>(
+fn sign_remove_key<T: Config>(
     keypair: &sr25519::Pair,
     remove: &RemoveAccumulatorPublicKey<T>,
     signer: AccumulatorOwner,
@@ -39,7 +39,7 @@ fn sign_remove_key<T: frame_system::Config>(
     did_sig::<T, _, _>(remove, keypair, signer, key_id)
 }
 
-fn sign_add_accum<T: frame_system::Config>(
+fn sign_add_accum<T: Config>(
     keypair: &sr25519::Pair,
     accum: &AddAccumulator<T>,
     signer: AccumulatorOwner,
@@ -48,7 +48,7 @@ fn sign_add_accum<T: frame_system::Config>(
     did_sig::<T, _, _>(accum, keypair, signer, key_id)
 }
 
-fn sign_remove_accum<T: frame_system::Config>(
+fn sign_remove_accum<T: Config>(
     keypair: &sr25519::Pair,
     remove: &RemoveAccumulator<T>,
     signer: AccumulatorOwner,
@@ -57,7 +57,7 @@ fn sign_remove_accum<T: frame_system::Config>(
     did_sig::<T, _, _>(remove, keypair, signer, key_id)
 }
 
-fn sign_update_accum<T: frame_system::Config>(
+fn sign_update_accum<T: Config>(
     keypair: &sr25519::Pair,
     update: &UpdateAccumulator<T>,
     signer: AccumulatorOwner,
@@ -70,7 +70,7 @@ fn accumulator_events() -> Vec<(super::Event, Vec<H256>)> {
     System::events()
         .iter()
         .filter_map(|event_record| {
-            let system::EventRecord::<TestEvent, H256> {
+            let frame_system::EventRecord::<TestEvent, H256> {
                 phase: _p,
                 event,
                 topics,
@@ -100,31 +100,28 @@ fn accumulator_errors() {
         let next_nonce_1 = 11 + 1;
         check_nonce(&author_1, next_nonce_1 - 1);
 
-        run_to_block(20);
-
-        let id = AccumulatorId(rand::random());
-        let mut accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; 300].into(),
-            key_ref: (author, 1u8.into()),
-        });
-        let add_accum = AddAccumulator {
-            id,
-            accumulator: accumulator.clone(),
-            nonce: next_nonce,
-        };
-        let sig = sign_add_accum(&author_kp, &add_accum, author, 1);
-        assert_err!(
-            AccumMod::add_accumulator(Origin::signed(1), add_accum, sig),
-            Error::<Test>::AccumulatedTooBig
-        );
-        check_nonce(&author, next_nonce - 1);
-
         run_to_block(30);
 
-        accumulator.set_new_accumulated(vec![3; 100]);
+        assert!(vec![3; 300]
+            .try_into()
+            .map(
+                |accumulated| Accumulator::<Test>::Positive(AccumulatorCommon {
+                    accumulated,
+                    key_ref: (author, 1u8.into()),
+                })
+            )
+            .is_err());
+
+        let id = AccumulatorId(rand::random());
+
+        let accumulator = Accumulator::Positive(AccumulatorCommon {
+            key_ref: (author, 1u8.into()),
+            accumulated: vec![3; 100].try_into().unwrap(),
+        });
+
         let add_accum = AddAccumulator {
             id,
-            accumulator: accumulator.clone(),
+            accumulator,
             nonce: next_nonce,
         };
         let sig = sign_add_accum(&author_kp, &add_accum, author, 1);
@@ -137,9 +134,9 @@ fn accumulator_errors() {
         run_to_block(40);
 
         let params = AccumulatorParameters {
-            label: Some(vec![0, 1, 2, 3].into()),
+            label: Some(vec![0, 1, 2, 3].try_into().unwrap()),
             curve_type: CurveType::Bls12381,
-            bytes: vec![1; 100].into(),
+            bytes: vec![1; 100].try_into().unwrap(),
         };
         let ap = AddAccumulatorParams {
             params,
@@ -155,7 +152,7 @@ fn accumulator_errors() {
         let key = AccumulatorPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![2; 100].into(),
+            bytes: vec![2; 100].try_into().unwrap(),
         };
         let ak = AddAccumulatorPublicKey {
             public_key: key,
@@ -170,7 +167,7 @@ fn accumulator_errors() {
 
         let id = AccumulatorId(rand::random());
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; 32].into(),
+            accumulated: vec![3; 32].try_into().unwrap(),
             key_ref: (author, 1u8.into()),
         });
         let add_accum = AddAccumulator {
@@ -200,7 +197,7 @@ fn accumulator_errors() {
 
         let mut update_accum = UpdateAccumulator {
             id: AccumulatorId(rand::random()),
-            new_accumulated: vec![4; 32].into(),
+            new_accumulated: vec![4; 32].try_into().unwrap(),
             additions: Some(vec![vec![0, 1, 2].into(), vec![3, 5, 4].into()]),
             removals: Some(vec![vec![9, 4].into()]),
             witness_update_info: Some(vec![1, 1, 2, 3].into()),
@@ -222,7 +219,7 @@ fn accumulator_errors() {
 
         let mut update_accum = UpdateAccumulator {
             id,
-            new_accumulated: vec![5; 300].into(),
+            new_accumulated: vec![5; 300].try_into().unwrap(),
             additions: Some(vec![vec![0, 1, 2].into(), vec![3, 5, 4].into()]),
             removals: Some(vec![vec![9, 4].into()]),
             witness_update_info: Some(vec![1, 1, 2, 3].into()),
@@ -368,9 +365,9 @@ fn add_remove_accumulator() {
         run_to_block(20);
 
         let params = AccumulatorParameters {
-            label: Some(vec![0, 1, 2, 3].into()),
+            label: Some(vec![0, 1, 2, 3].try_into().unwrap()),
             curve_type: CurveType::Bls12381,
-            bytes: vec![1; 100].into(),
+            bytes: vec![1; 100].try_into().unwrap(),
         };
         let ap = AddAccumulatorParams {
             params: params.clone(),
@@ -401,7 +398,7 @@ fn add_remove_accumulator() {
         let key = AccumulatorPublicKey {
             params_ref: None,
             curve_type: CurveType::Bls12381,
-            bytes: vec![2; 100].into(),
+            bytes: vec![2; 100].try_into().unwrap(),
         };
         let ak = AddAccumulatorPublicKey {
             public_key: key.clone(),
@@ -428,7 +425,7 @@ fn add_remove_accumulator() {
 
         let id = AccumulatorId(rand::random());
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![3; 32].into(),
+            accumulated: vec![3; 32].try_into().unwrap(),
             key_ref: (author, 1u8.into()),
         });
         let add_accum = AddAccumulator {
@@ -446,14 +443,14 @@ fn add_remove_accumulator() {
         );
         assert!(accumulator_events().contains(&(
             super::Event::AccumulatorAdded(id, accumulator.accumulated().to_vec().into()),
-            vec![<Test as system::Config>::Hashing::hash(&id[..])]
+            vec![<Test as frame_system::Config>::Hashing::hash(&id[..])]
         )));
 
         run_to_block(50);
 
         let mut update_accum = UpdateAccumulator {
             id,
-            new_accumulated: vec![4; 32].into(),
+            new_accumulated: vec![4; 32].try_into().unwrap(),
             additions: Some(vec![vec![0, 1, 2].into(), vec![3, 5, 4].into()]),
             removals: Some(vec![vec![9, 4].into()]),
             witness_update_info: Some(vec![1, 2, 3, 4].into()),
@@ -481,7 +478,7 @@ fn add_remove_accumulator() {
         next_nonce += 1;
 
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![4; 32].into(),
+            accumulated: vec![4; 32].try_into().unwrap(),
             key_ref: (author, 1u8.into()),
         });
         assert_eq!(
@@ -494,14 +491,14 @@ fn add_remove_accumulator() {
         );
         assert!(accumulator_events().contains(&(
             super::Event::AccumulatorUpdated(id, accumulator.accumulated().to_vec().into()),
-            vec![<Test as system::Config>::Hashing::hash(&id[..])]
+            vec![<Test as frame_system::Config>::Hashing::hash(&id[..])]
         )));
 
         run_to_block(60);
 
         let update_accum = UpdateAccumulator {
             id,
-            new_accumulated: vec![5; 32].into(),
+            new_accumulated: vec![5; 32].try_into().unwrap(),
             additions: Some(vec![vec![0, 1, 2].into(), vec![3, 5, 4].into()]),
             removals: None,
             witness_update_info: Some(vec![1, 1, 0, 11, 8, 19].into()),
@@ -513,7 +510,7 @@ fn add_remove_accumulator() {
         next_nonce += 1;
 
         let accumulator = Accumulator::Positive(AccumulatorCommon {
-            accumulated: vec![5; 32].into(),
+            accumulated: vec![5; 32].try_into().unwrap(),
             key_ref: (author, 1u8.into()),
         });
         assert_eq!(
@@ -526,7 +523,7 @@ fn add_remove_accumulator() {
         );
         assert!(accumulator_events().contains(&(
             super::Event::AccumulatorUpdated(id, accumulator.accumulated().to_vec().into()),
-            vec![<Test as system::Config>::Hashing::hash(&id[..])]
+            vec![<Test as frame_system::Config>::Hashing::hash(&id[..])]
         )));
 
         run_to_block(70);
@@ -557,7 +554,7 @@ fn add_remove_accumulator() {
         assert_eq!(Accumulators::<Test>::get(id), None);
         assert!(accumulator_events().contains(&(
             super::Event::AccumulatorRemoved(id),
-            vec![<Test as system::Config>::Hashing::hash(&id[..])]
+            vec![<Test as frame_system::Config>::Hashing::hash(&id[..])]
         )));
     });
 }

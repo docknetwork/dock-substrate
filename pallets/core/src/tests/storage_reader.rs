@@ -6,7 +6,6 @@ use crate::{
 };
 use codec::{Decode, Encode};
 use fp_evm::{ExitError, ExitSucceed, Precompile, PrecompileFailure, PrecompileOutput};
-use frame_support::{StorageDoubleMap, StorageMap};
 use pallet_evm_test_vector_support::MockHandle;
 use sp_core::{H160, U256};
 
@@ -195,7 +194,7 @@ fn double_map_access() {
         let did = Did([3u8; 32]);
         let controller = Controller(Did([4u8; 32]));
 
-        DidControllers::insert(did, controller, ());
+        DidControllers::<Test>::insert(did, controller, ());
 
         let input = Input::new(
             "DIDModule",

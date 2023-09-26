@@ -1,8 +1,5 @@
 use super::super::*;
-use crate::{
-    common::ToStateChange, deposit_indexed_event, offchain_signatures::PublicKeys,
-    util::WrappedActionWithNonce,
-};
+use crate::{common::ToStateChange, deposit_indexed_event, util::WrappedActionWithNonce};
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
 /// write (through an extrinsic). The nonce starts from the block number when the DID was created to avoid
@@ -11,7 +8,7 @@ use crate::{
 pub type StoredOnChainDidDetails<T> = WithNonce<T, OnChainDidDetails>;
 
 /// Stores details of an on-chain DID.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Default, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -31,7 +28,7 @@ impl<T: Config> From<StoredOnChainDidDetails<T>> for StoredDidDetails<T> {
     }
 }
 
-impl<T: Config + Debug> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
+impl<T: Config> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
     type Error = Error<T>;
 
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
@@ -56,19 +53,20 @@ impl OnChainDidDetails {
     }
 }
 
-impl<T: Config + Debug> Module<T> {
+impl<T: Config> Pallet<T> {
     pub(crate) fn new_onchain_(
         did: Did,
         keys: Vec<UncheckedDidKey>,
         mut controllers: BTreeSet<Controller>,
-    ) -> Result<(), Error<T>> {
+    ) -> DispatchResult {
         // DID is not registered already
         ensure!(!Dids::<T>::contains_key(did), Error::<T>::DidAlreadyExists);
 
         let keys: Vec<_> = keys
             .into_iter()
             .map(DidKey::try_from)
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<_, _>>()
+            .map_err(Error::<T>::from)?;
 
         let controller_keys_count = keys.iter().filter(|key| key.can_control()).count() as u32;
         // Make self controlled if needed
@@ -79,11 +77,11 @@ impl<T: Config + Debug> Module<T> {
 
         let mut last_key_id = IncId::new();
         for (key, key_id) in keys.into_iter().zip(&mut last_key_id) {
-            DidKeys::insert(did, key_id, key);
+            DidKeys::<T>::insert(did, key_id, key);
         }
 
         for ctrl in &controllers {
-            DidControllers::insert(did, ctrl, ());
+            DidControllers::<T>::insert(did, ctrl, ());
         }
 
         let did_details = WithNonce::new(OnChainDidDetails::new(
@@ -101,18 +99,18 @@ impl<T: Config + Debug> Module<T> {
     pub(crate) fn remove_onchain_did_(
         DidRemoval { did, .. }: DidRemoval<T>,
         details: &mut Option<OnChainDidDetails>,
-    ) -> Result<(), Error<T>> {
+    ) -> DispatchResult {
         // This will result in the removal of DID from storage map `Dids`
         details.take();
 
         // TODO: limit and cursor
-        let _ = DidKeys::clear_prefix(did, u32::MAX, None);
+        let _ = DidKeys::<T>::clear_prefix(did, u32::MAX, None);
         // TODO: limit and cursor
-        let _ = DidControllers::clear_prefix(did, u32::MAX, None);
+        let _ = DidControllers::<T>::clear_prefix(did, u32::MAX, None);
         // TODO: limit and cursor
-        let _ = DidServiceEndpoints::clear_prefix(did, u32::MAX, None);
-        // TODO: limit and cursor
-        let _ = PublicKeys::clear_prefix(did, u32::MAX, None);
+        let _ = DidServiceEndpoints::<T>::clear_prefix(did, u32::MAX, None);
+        // TODO: dynamic weight
+        let _ = T::OnDidRemoval::on_remove_did(did);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())
@@ -216,6 +214,7 @@ impl<T: Config + Debug> Module<T> {
             A: ActionWithNonce<T>,
             A::Target: Into<Did>,
             E: From<Error<T>> + From<NonceError>,
+
         {
             Self::try_exec_removable_action_over_onchain_did(|action, details_opt| {
                 f(action, details_opt.as_mut().unwrap())
@@ -237,6 +236,7 @@ impl<T: Config + Debug> Module<T> {
             A: ActionWithNonce<T>,
             A::Target: Into<Did>,
             E: From<Error<T>> + From<NonceError>,
+
         {
             ensure!(!action.is_empty(), Error::<T>::EmptyPayload);
 

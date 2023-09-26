@@ -1,20 +1,19 @@
 use crate::{
-    common::{CurveType, SigValue, StorageVersion},
+    common::{self, CurveType, SigValue},
     did,
     did::{Did, DidSignature},
     util::{Bytes, IncId},
 };
 pub use actions::*;
 use arith_utils::CheckedDivCeil;
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    decl_error, decl_event, decl_module, decl_storage,
     dispatch::{DispatchResult, Weight},
     ensure,
-    traits::Get,
 };
-use frame_system::{self as system, ensure_signed};
 use sp_std::{fmt::Debug, prelude::*};
+
+pub use pallet::*;
 pub use types::*;
 use weights::*;
 
@@ -27,28 +26,23 @@ mod tests;
 mod types;
 mod weights;
 
-// The module's configuration trait.
-pub trait Config: system::Config + did::Config {
-    /// Maximum size of the label
-    type LabelMaxSize: Get<u32>;
-    /// Weight consumed per byte of the label.
-    type LabelPerByteWeight: Get<Weight>;
-    /// Maximum byte size of the parameters. This depends only on the chosen elliptic curve.
-    type ParamsMaxSize: Get<u32>;
-    /// Weight consumed per byte of the params. This will determine the cost of the transaction.
-    type ParamsPerByteWeight: Get<Weight>;
-    /// Maximum byte size of the public key. This depends only on the chosen elliptic curve.
-    type PublicKeyMaxSize: Get<u32>;
-    /// Weight consumed per byte of the public key. This will determine the cost of the transaction.
-    type PublicKeyPerByteWeight: Get<Weight>;
-    /// Maximum byte size of the accumulated value which is just one group element (not the number of members)
-    type AccumulatedMaxSize: Get<u32>;
-    /// Weight consumed per byte of accumulated.
-    type AccumulatedPerByteWeight: Get<Weight>;
-    type Event: From<Event> + Into<<Self as system::Config>::Event>;
-}
+#[frame_support::pallet]
+pub mod pallet {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+    use frame_system::pallet_prelude::*;
 
-decl_event!(
+    // The module's configuration trait.
+    #[pallet::config]
+    pub trait Config: frame_system::Config + did::Config {
+        /// The overarching event type.
+        type Event: From<Event>
+            + IsType<<Self as frame_system::Config>::Event>
+            + Into<<Self as frame_system::Config>::Event>;
+    }
+
+    #[pallet::event]
+    #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event {
         ParamsAdded(AccumulatorOwner, IncId),
         ParamsRemoved(AccumulatorOwner, IncId),
@@ -58,13 +52,9 @@ decl_event!(
         AccumulatorUpdated(AccumulatorId, Bytes),
         AccumulatorRemoved(AccumulatorId),
     }
-);
 
-decl_error! {
-    pub enum Error for Module<T: Config> where T: Debug {
-        LabelTooBig,
-        ParamsTooBig,
-        PublicKeyTooBig,
+    #[pallet::error]
+    pub enum Error<T> {
         ParamsDontExist,
         PublicKeyDoesntExist,
         AccumulatedTooBig,
@@ -74,106 +64,146 @@ decl_error! {
         NotAccumulatorOwner,
         IncorrectNonce,
     }
-}
 
-decl_storage! {
-    trait Store for Module<T: Config> as AccumulatorModule where T: Debug {
-        pub AccumulatorOwnerCounters get(fn did_counters):
-            map hasher(blake2_128_concat) AccumulatorOwner => StoredAccumulatorOwnerCounters;
+    #[pallet::pallet]
+    #[pallet::generate_store(pub(super) trait Store)]
+    pub struct Pallet<T>(_);
 
-        pub AccumulatorParams get(fn get_params):
-            double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<AccumulatorParameters>;
+    #[pallet::storage]
+    #[pallet::getter(fn did_counters)]
+    pub type AccumulatorOwnerCounters<T> = StorageMap<
+        _,
+        Blake2_128Concat,
+        AccumulatorOwner,
+        StoredAccumulatorOwnerCounters,
+        ValueQuery,
+    >;
 
-        /// Public key storage is kept separate from accumulator storage and a single key can be used to manage
-        /// several accumulators. It is assumed that whoever (DID) owns the public key, owns the accumulator as
-        /// well and only that DID can update accumulator.
-        pub AccumulatorKeys get(fn get_key):
-            double_map hasher(blake2_128_concat) AccumulatorOwner, hasher(identity) IncId => Option<AccumulatorPublicKey>;
+    #[pallet::storage]
+    #[pallet::getter(fn accumulator_params)]
+    pub type AccumulatorParams<T> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AccumulatorOwner,
+        Identity,
+        IncId,
+        AccumulatorParameters<T>,
+    >;
 
-        /// Stores latest accumulator as key value: accumulator id -> (created_at, last_updated_at, Accumulator)
-        /// `created_at` is the block number when the accumulator was created and is intended to serve as a starting
-        /// point for anyone looking for all updates to the accumulator. `last_updated_at` is the block number when
-        /// the last update was sent. `created_at` and `last_updated_at` together indicate which blocks should be
-        /// considered for finding accumulator updates.
-        /// Historical values and updates are persisted as events indexed with the accumulator id. The reason for
-        /// not storing past values is to save storage in chain state. Another option could have been to store
-        /// block numbers for the updates so that each block from `created_at` doesn't need to be scanned but
-        /// even that requires large storage as we expect millions of updates.
-        /// Just keeping the latest accumulated value allows for any potential on chain verification as well.
-        pub Accumulators get(fn get_accumulator):
-            map hasher(blake2_128_concat) AccumulatorId => Option<AccumulatorWithUpdateInfo<T>>;
+    /// Public key storage is kept separate from accumulator storage and a single key can be used to manage
+    /// several accumulators. It is assumed that whoever (DID) owns the public key, owns the accumulator as
+    /// well and only that DID can update accumulator.
+    #[pallet::storage]
+    #[pallet::getter(fn accumulator_key)]
+    pub type AccumulatorKeys<T> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        AccumulatorOwner,
+        Identity,
+        IncId,
+        AccumulatorPublicKey<T>,
+    >;
 
-        pub Version get(fn version): StorageVersion;
+    /// Stores latest accumulator as key value: accumulator id -> (created_at, last_updated_at, Accumulator)
+    /// `created_at` is the block number when the accumulator was created and is intended to serve as a starting
+    /// point for anyone looking for all updates to the accumulator. `last_updated_at` is the block number when
+    /// the last update was sent. `created_at` and `last_updated_at` together indicate which blocks should be
+    /// considered for finding accumulator updates.
+    /// Historical values and updates are persisted as events indexed with the accumulator id. The reason for
+    /// not storing past values is to save storage in chain state. Another option could have been to store
+    /// block numbers for the updates so that each block from `created_at` doesn't need to be scanned but
+    /// even that requires large storage as we expect millions of updates.
+    /// Just keeping the latest accumulated value allows for any potential on chain verification as well.
+    #[pallet::storage]
+    #[pallet::getter(fn accumulator)]
+    pub type Accumulators<T> =
+        StorageMap<_, Blake2_128Concat, AccumulatorId, AccumulatorWithUpdateInfo<T>, OptionQuery>;
+
+    #[pallet::storage]
+    #[pallet::getter(fn version)]
+    pub type Version<T> = StorageValue<_, common::StorageVersion, ValueQuery>;
+
+    #[pallet::genesis_config]
+    pub struct GenesisConfig<T: Config> {
+        pub _marker: PhantomData<T>,
     }
-    add_extra_genesis {
-        build(|_| {
-            Version::put(StorageVersion::MultiKey);
-        })
+
+    #[cfg(feature = "std")]
+    impl<T: Config> Default for GenesisConfig<T> {
+        fn default() -> Self {
+            GenesisConfig {
+                _marker: PhantomData,
+            }
+        }
     }
-}
 
-decl_module! {
-    pub struct Module<T: Config> for enum Call where origin: T::Origin, T: Debug {
-        fn deposit_event() = default;
+    #[pallet::genesis_build]
+    impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
+        fn build(&self) {
+            Version::<T>::put(common::StorageVersion::MultiKey);
+        }
+    }
 
-        type Error = Error<T>;
-
-        const LabelMaxSize: u32 = T::LabelMaxSize::get();
-        const LabelPerByteWeight: Weight = T::LabelPerByteWeight::get();
-        const ParamsMaxSize: u32 = T::ParamsMaxSize::get();
-        const ParamsPerByteWeight: Weight = T::ParamsPerByteWeight::get();
-        const PublicKeyMaxSize: u32 = T::ParamsMaxSize::get();
-        const PublicKeyPerByteWeight: Weight = T::PublicKeyPerByteWeight::get();
-        const AccumulatedMaxSize: u32 = T::AccumulatedMaxSize::get();
-        const AccumulatedPerByteWeight: Weight = T::AccumulatedPerByteWeight::get();
-
-        // Note: The weights for the dispatchables below consider only the major contributions, i.e. storage
-        // reads and writes, signature verifications and any major contributors to the size of the arguments.
-        // Weights are not yet determined by benchmarks and thus ignore processing time and also event storage
-        // cost
-
-        #[weight = SubstrateWeight::<T>::add_params(params, signature)]
+    #[pallet::call]
+    impl<T: Config> Pallet<T> {
+        #[pallet::weight(SubstrateWeight::<T>::add_params(params, signature))]
         pub fn add_params(
-            origin,
+            origin: OriginFor<T>,
             params: AddAccumulatorParams<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_params_, params, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::add_params_,
+                params,
+                signature,
+            )
         }
 
-        #[weight = SubstrateWeight::<T>::add_public(public_key, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
         pub fn add_public_key(
-            origin,
+            origin: OriginFor<T>,
             public_key: AddAccumulatorPublicKey<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_public_key_, public_key, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::add_public_key_,
+                public_key,
+                signature,
+            )
         }
 
-        #[weight = SubstrateWeight::<T>::remove_params(remove, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
         pub fn remove_params(
-            origin,
+            origin: OriginFor<T>,
             remove: RemoveAccumulatorParams<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_params_, remove, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::remove_params_,
+                remove,
+                signature,
+            )
         }
 
-        #[weight = SubstrateWeight::<T>::remove_public(remove, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
         pub fn remove_public_key(
-            origin,
+            origin: OriginFor<T>,
             remove: RemoveAccumulatorPublicKey<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_public_key_, remove, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::remove_public_key_,
+                remove,
+                signature,
+            )
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -181,15 +211,19 @@ decl_module! {
         /// It logs an event with the accumulator id and accumulated value. For each new accumulator, its creation block
         /// is recorded in state to indicate from which block, the chain should be scanned for the accumulator's updates.
         /// Note: Weight is same for both kinds of accumulator even when universal takes a bit more space
-        #[weight = SubstrateWeight::<T>::add_accumulator(add_accumulator, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::add_accumulator(add_accumulator, signature))]
         pub fn add_accumulator(
-            origin,
+            origin: OriginFor<T>,
             add_accumulator: AddAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::add_accumulator_, add_accumulator, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::add_accumulator_,
+                add_accumulator,
+                signature,
+            )
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -197,31 +231,39 @@ decl_module! {
         /// privately communicating the updated witnesses. It logs an event with the accumulator id and the new
         /// accumulated value which is sufficient for a verifier. But the prover (who has a witness to update) needs
         /// the updates and the witness update info and is expected to look into the corresponding extrinsic arguments.
-        #[weight = SubstrateWeight::<T>::update_accumulator(update, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::update_accumulator(update, signature))]
         pub fn update_accumulator(
-            origin,
+            origin: OriginFor<T>,
             update: UpdateAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::update_accumulator_, update, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::update_accumulator_,
+                update,
+                signature,
+            )
         }
 
-        #[weight = SubstrateWeight::<T>::remove_accumulator(remove, signature)]
+        #[pallet::weight(SubstrateWeight::<T>::remove_accumulator(remove, signature))]
         pub fn remove_accumulator(
-            origin,
+            origin: OriginFor<T>,
             remove: RemoveAccumulator<T>,
             signature: DidSignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::remove_accumulator_, remove, signature)
+            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
+                Self::remove_accumulator_,
+                remove,
+                signature,
+            )
         }
     }
 }
 
-impl<T: frame_system::Config> SubstrateWeight<T> {
+impl<T: Config> SubstrateWeight<T> {
     fn add_params(
         add_params: &AddAccumulatorParams<T>,
         DidSignature { sig, .. }: &DidSignature<AccumulatorOwner>,

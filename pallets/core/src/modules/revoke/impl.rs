@@ -4,14 +4,16 @@ use crate::{
     deposit_indexed_event,
 };
 
-impl<T: Config + Debug> Module<T> {
-    pub(super) fn new_registry_(AddRegistry { new_registry, id }: AddRegistry) -> DispatchResult {
+impl<T: Config> Pallet<T> {
+    pub(super) fn new_registry_(
+        AddRegistry { new_registry, id }: AddRegistry<T>,
+    ) -> DispatchResult {
         // check
-        new_registry.policy.ensure_valid::<T>()?;
-        ensure!(!Registries::contains_key(id), RevErr::<T>::RegExists);
+        new_registry.policy.ensure_valid()?;
+        ensure!(!Registries::<T>::contains_key(id), Error::<T>::RegExists);
 
         // execute
-        Registries::insert(id, new_registry);
+        Registries::<T>::insert(id, new_registry);
 
         deposit_indexed_event!(RegistryAdded(id));
         Ok(())
@@ -23,11 +25,11 @@ impl<T: Config + Debug> Module<T> {
             revoke_ids,
             ..
         }: RevokeRaw<T>,
-        _: &mut Registry,
+        _: &mut Registry<T>,
     ) -> DispatchResult {
         // execute
         for cred_id in &revoke_ids {
-            Revocations::insert(registry_id, cred_id, ());
+            Revocations::<T>::insert(registry_id, cred_id, ());
         }
 
         deposit_indexed_event!(RevokedInRegistry(registry_id));
@@ -40,13 +42,13 @@ impl<T: Config + Debug> Module<T> {
             registry_id,
             ..
         }: UnRevokeRaw<T>,
-        registry: &mut Registry,
+        registry: &mut Registry<T>,
     ) -> DispatchResult {
-        ensure!(!registry.add_only, RevErr::<T>::AddOnly);
+        ensure!(!registry.add_only, Error::<T>::AddOnly);
 
         // execute
         for cred_id in &revoke_ids {
-            Revocations::remove(registry_id, cred_id);
+            Revocations::<T>::remove(registry_id, cred_id);
         }
 
         deposit_indexed_event!(UnrevokedInRegistry(registry_id));
@@ -55,14 +57,14 @@ impl<T: Config + Debug> Module<T> {
 
     pub(super) fn remove_registry_(
         RemoveRegistryRaw { registry_id, .. }: RemoveRegistryRaw<T>,
-        registry: &mut Option<Registry>,
+        registry: &mut Option<Registry<T>>,
     ) -> DispatchResult {
         let registry = registry.take().unwrap();
-        ensure!(!registry.add_only, RevErr::<T>::AddOnly);
+        ensure!(!registry.add_only, Error::<T>::AddOnly);
 
         // execute
         // TODO: limit and cursor
-        let _ = Revocations::clear_prefix(registry_id, u32::MAX, None);
+        let _ = Revocations::<T>::clear_prefix(registry_id, u32::MAX, None);
 
         deposit_indexed_event!(RegistryRemoved(registry_id));
         Ok(())
@@ -82,10 +84,10 @@ impl<T: Config + Debug> Module<T> {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        F: FnOnce(A, &mut Registry) -> Result<R, E>,
-        A: Action<T, Target = RegistryId>,
+        F: FnOnce(A, &mut Registry<T>) -> Result<R, E>,
+        A: Action<Target = RegistryId>,
         WithNonce<T, A>: ToStateChange<T>,
-        E: From<RevErr<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
+        E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
     {
         Self::try_exec_removable_action_over_registry(
             |action, reg| f(action, reg.as_mut().unwrap()),
@@ -112,12 +114,12 @@ impl<T: Config + Debug> Module<T> {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        F: FnOnce(A, &mut Option<Registry>) -> Result<R, E>,
-        A: Action<T, Target = RegistryId>,
+        F: FnOnce(A, &mut Option<Registry<T>>) -> Result<R, E>,
+        A: Action<Target = RegistryId>,
         WithNonce<T, A>: ToStateChange<T>,
-        E: From<RevErr<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
+        E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
     {
-        ensure!(!action.is_empty(), RevErr::EmptyPayload);
+        ensure!(!action.is_empty(), Error::EmptyPayload);
 
         Registries::try_mutate_exists(action.target(), |registry| {
             Policy::try_exec_removable_action(registry, f, action, proof)

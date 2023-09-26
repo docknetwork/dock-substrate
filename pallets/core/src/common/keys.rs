@@ -1,12 +1,12 @@
 use crate::util::{Bytes32, Bytes33};
-use codec::{Decode, Encode};
+use codec::{Decode, Encode, MaxEncodedLen};
 use sp_core::{ed25519, sr25519};
 
 use super::signatures::{sign_with_secp256k1, SigValue};
 
 /// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
 /// byte array
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
@@ -35,9 +35,7 @@ impl From<sr25519::Public> for PublicKey {
 
 impl From<libsecp256k1::PublicKey> for PublicKey {
     fn from(pubkey: libsecp256k1::PublicKey) -> Self {
-        PublicKey::Secp256k1(Bytes33 {
-            value: pubkey.serialize_compressed(),
-        })
+        PublicKey::Secp256k1(pubkey.serialize_compressed().into())
     }
 }
 
@@ -47,27 +45,27 @@ impl PublicKey {
     }
 
     pub const fn sr25519(bytes: [u8; 32]) -> Self {
-        PublicKey::Sr25519(Bytes32 { value: bytes })
+        PublicKey::Sr25519(Bytes32(bytes))
     }
 
     pub const fn ed25519(bytes: [u8; 32]) -> Self {
-        PublicKey::Ed25519(Bytes32 { value: bytes })
+        PublicKey::Ed25519(Bytes32(bytes))
     }
 
     pub const fn secp256k1(bytes: [u8; 33]) -> Self {
-        PublicKey::Secp256k1(Bytes33 { value: bytes })
+        PublicKey::Secp256k1(Bytes33(bytes))
     }
 
     pub const fn x25519(bytes: [u8; 32]) -> Self {
-        PublicKey::X25519(Bytes32 { value: bytes })
+        PublicKey::X25519(Bytes32(bytes))
     }
 
     pub fn as_slice(&self) -> &[u8] {
         match self {
-            Self::Sr25519(bytes) => &bytes.value[..],
-            Self::Ed25519(bytes) => &bytes.value[..],
-            Self::Secp256k1(bytes) => &bytes.value[..],
-            Self::X25519(bytes) => &bytes.value[..],
+            Self::Sr25519(bytes) => &bytes[..],
+            Self::Ed25519(bytes) => &bytes[..],
+            Self::Secp256k1(bytes) => &bytes[..],
+            Self::X25519(bytes) => &bytes[..],
         }
     }
 }
@@ -77,7 +75,7 @@ pub fn get_secp256k1_keypair(
 ) -> (libsecp256k1::SecretKey, PublicKey) {
     let sk = libsecp256k1::SecretKey::parse(seed).unwrap();
     let pk = libsecp256k1::PublicKey::from_secret_key(&sk).serialize_compressed();
-    (sk, PublicKey::Secp256k1(Bytes33 { value: pk }))
+    (sk, PublicKey::Secp256k1(pk.into()))
 }
 
 pub fn get_secp256k1_keypair_struct(

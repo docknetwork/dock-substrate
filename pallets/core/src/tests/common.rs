@@ -4,7 +4,7 @@ use crate::{
     accumulator, anchor, attest, blob,
     common::{self, StateChange, ToStateChange},
     did::{self, Did, DidKey, DidSignature},
-    master, offchain_signatures, revoke, status_list_credential, util,
+    master, offchain_signatures, revoke, status_list_credential,
 };
 
 use crate::{
@@ -17,7 +17,7 @@ use frame_support::{
     traits::{Contains, OnFinalize, OnInitialize},
     weights::Weight,
 };
-use frame_system as system;
+use frame_system::RawOrigin;
 use pallet_evm::EnsureAddressOrigin;
 pub use rand::random;
 use sp_core::{sr25519, Pair, H160, H256};
@@ -26,7 +26,6 @@ use sp_runtime::{
     traits::{BlakeTwo256, ConstU32, IdentityLookup},
 };
 pub use std::iter::once;
-use system::RawOrigin;
 
 // Configure a mock runtime to test the pallet.
 type UncheckedExtrinsic = frame_system::mocking::MockUncheckedExtrinsic<Test>;
@@ -40,10 +39,10 @@ frame_support::construct_runtime!(
         System: frame_system::{Pallet, Call, Config, Storage, Event<T>},
         Balances: pallet_balances::{Pallet, Call, Storage, Config<T>, Event<T>},
         Timestamp: pallet_timestamp::{Pallet, Call, Storage, Inherent},
-        DIDModule: did::{Pallet, Call, Storage, Event, Config},
+        DIDModule: did::{Pallet, Call, Storage, Event<T>, Config<T>},
         RevoMod: revoke::{Pallet, Call, Storage, Event},
         BlobMod: blob::{Pallet, Call, Storage},
-        MasterMod: master::{Pallet, Call, Storage, Event<T>, Config},
+        MasterMod: master::{Pallet, Call, Storage, Event<T>, Config<T>},
         AnchorMod: anchor::{Pallet, Call, Storage, Event<T>},
         AttestMod: attest::{Pallet, Call, Storage},
         SignatureMod: offchain_signatures::{Pallet, Call, Storage, Event},
@@ -55,7 +54,7 @@ frame_support::construct_runtime!(
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Debug, Eq)]
 pub enum TestEvent {
-    Did(crate::did::Event),
+    Did(crate::did::Event<Test>),
     Revoke(crate::revoke::Event),
     Master(crate::master::Event<Test>),
     Anchor(crate::anchor::Event<Test>),
@@ -65,8 +64,8 @@ pub enum TestEvent {
     StatusListCredential(status_list_credential::Event),
 }
 
-impl From<system::Event<Test>> for TestEvent {
-    fn from(_: system::Event<Test>) -> Self {
+impl From<frame_system::Event<Test>> for TestEvent {
+    fn from(_: frame_system::Event<Test>) -> Self {
         unimplemented!()
     }
 }
@@ -89,8 +88,8 @@ impl From<()> for TestEvent {
     }
 }
 
-impl From<crate::did::Event> for TestEvent {
-    fn from(other: crate::did::Event) -> Self {
+impl From<crate::did::Event<Test>> for TestEvent {
+    fn from(other: crate::did::Event<Test>) -> Self {
         Self::Did(other)
     }
 }
@@ -146,7 +145,7 @@ impl Contains<Call> for BaseFilter {
     }
 }
 
-impl system::Config for Test {
+impl frame_system::Config for Test {
     type OnSetCode = ();
     type MaxConsumers = ConstU32<10>;
     type BaseCallFilter = BaseFilter;
@@ -231,15 +230,40 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
 }
 
+parameter_types! {
+    pub const MaxMasterMembers: u32 = 100;
+}
+
+impl crate::common::Limits for Test {
+    type MaxDidDocRefSize = MaxDidDocRefSize;
+    type MaxDidServiceEndpointIdSize = MaxDidServiceEndpointIdSize;
+    type MaxDidServiceEndpointOrigins = MaxDidServiceEndpointOrigins;
+    type MaxDidServiceEndpointOriginSize = MaxDidServiceEndpointOriginSize;
+
+    type MaxAccumulatorLabelSize = MaxAccumulatorLabelSize;
+    type MaxAccumulatorParamsSize = MaxAccumulatorParamsSize;
+    type MaxAccumulatorPublicKeySize = MaxBBSPublicKeySize;
+    type MaxAccumulatorAccumulatedSize = MaxAccumulatorAccumulatedSize;
+
+    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
+    type MinStatusListCredentialSize = MinStatusListCredentialSize;
+
+    type MaxIriSize = MaxIriSize;
+    type MaxBlobSize = MaxBlobSize;
+
+    type MaxOffchainParamsLabelSize = MaxAccumulatorParamsSize;
+    type MaxOffchainParamsBytesSize = MaxAccumulatorParamsSize;
+    type MaxBBSPublicKeySize = MaxBBSPublicKeySize;
+    type MaxBBSPlusPublicKeySize = MaxBBSPublicKeySize;
+    type MaxPSPublicKeySize = MaxPSPublicKeySize;
+
+    type MaxMasterMembers = MaxMasterMembers;
+    type MaxPolicyControllers = MaxPolicyControllers;
+}
+
 impl crate::did::Config for Test {
     type Event = TestEvent;
-    type MaxDidDocRefSize = MaxDidDocRefSize;
-    type DidDocRefPerByteWeight = DidDocRefPerByteWeight;
-    type MaxServiceEndpointIdSize = MaxServiceEndpointIdSize;
-    type ServiceEndpointIdPerByteWeight = ServiceEndpointIdPerByteWeight;
-    type MaxServiceEndpointOrigins = MaxServiceEndpointOrigins;
-    type MaxServiceEndpointOriginSize = MaxServiceEndpointOriginSize;
-    type ServiceEndpointOriginPerByteWeight = ServiceEndpointOriginPerByteWeight;
+    type OnDidRemoval = SignatureMod;
 }
 
 impl crate::revoke::Config for Test {
@@ -247,42 +271,26 @@ impl crate::revoke::Config for Test {
 }
 impl crate::status_list_credential::Config for Test {
     type Event = TestEvent;
-    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
-    type MinStatusListCredentialSize = MinStatusListCredentialSize;
 }
-
-impl crate::common::MaxPolicyControllers for Test {
-    type MaxPolicyControllers = MaxPolicyControllers;
-}
+impl crate::blob::Config for Test {}
+impl crate::attest::Config for Test {}
 
 parameter_types! {
     pub const MaxBlobSize: u32 = 1024;
-    pub const StorageWeight: Weight = Weight::from_ref_time(1100);
-    pub const LabelMaxSize: u32 = 512;
-    pub const LabelPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const ParamsMaxSize: u32 = 512;
-    pub const ParamsPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const FixedPublicKeyMaxSize: u32 = 128;
-    pub const PSPublicKeyMaxSize: u32 = 128;
-    pub const PublicKeyPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const AccumulatedMaxSize: u32 = 256;
-    pub const AccumulatedPerByteWeight: Weight = Weight::from_ref_time(10);
+    pub const MaxIriSize: u32 = 1024;
+    pub const MaxAccumulatorLabelSize: u32 = 512;
+    pub const MaxAccumulatorParamsSize: u32 = 512;
+    pub const MaxBBSPublicKeySize: u32 = 128;
+    pub const MaxPSPublicKeySize: u32 = 128;
+    pub const MaxAccumulatorAccumulatedSize: u32 = 256;
     pub const MaxDidDocRefSize: u16 = 128;
-    pub const DidDocRefPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const MaxServiceEndpointIdSize: u16 = 256;
-    pub const ServiceEndpointIdPerByteWeight: Weight = Weight::from_ref_time(10);
-    pub const MaxServiceEndpointOrigins: u16 = 20;
-    pub const MaxServiceEndpointOriginSize: u16 = 256;
-    pub const ServiceEndpointOriginPerByteWeight: Weight = Weight::from_ref_time(10);
+    pub const MaxDidServiceEndpointIdSize: u16 = 256;
+    pub const MaxDidServiceEndpointOrigins: u16 = 20;
+    pub const MaxDidServiceEndpointOriginSize: u16 = 256;
 }
 
 impl crate::anchor::Config for Test {
     type Event = TestEvent;
-}
-
-impl crate::blob::Config for Test {
-    type MaxBlobSize = MaxBlobSize;
-    type StorageWeight = StorageWeight;
 }
 
 impl crate::master::Config for Test {
@@ -290,41 +298,22 @@ impl crate::master::Config for Test {
     type Call = Call;
 }
 
-impl crate::attest::Config for Test {
-    type StorageWeight = StorageWeight;
-}
-
 impl offchain_signatures::Config for Test {
     type Event = TestEvent;
-    type LabelMaxSize = LabelMaxSize;
-    type LabelPerByteWeight = LabelPerByteWeight;
-    type ParamsMaxSize = ParamsMaxSize;
-    type ParamsPerByteWeight = ParamsPerByteWeight;
-    type BBSPublicKeyMaxSize = FixedPublicKeyMaxSize;
-    type PSPublicKeyMaxSize = PSPublicKeyMaxSize;
-    type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
 }
 
 impl accumulator::Config for Test {
     type Event = TestEvent;
-    type LabelMaxSize = LabelMaxSize;
-    type LabelPerByteWeight = LabelPerByteWeight;
-    type ParamsMaxSize = ParamsMaxSize;
-    type ParamsPerByteWeight = ParamsPerByteWeight;
-    type PublicKeyMaxSize = FixedPublicKeyMaxSize;
-    type PublicKeyPerByteWeight = PublicKeyPerByteWeight;
-    type AccumulatedMaxSize = AccumulatedMaxSize;
-    type AccumulatedPerByteWeight = AccumulatedPerByteWeight;
 }
 
 pub const ABBA: u64 = 0;
 pub const DIDA: Did = Did([0u8; 32]);
 pub const DIDB: Did = Did([1u8; 32]);
 pub const DIDC: Did = Did([2u8; 32]);
-pub const RGA: RegistryId = [0u8; 32];
-pub const RA: RevokeId = [0u8; 32];
-pub const RB: RevokeId = [1u8; 32];
-pub const RC: RevokeId = [2u8; 32];
+pub const RGA: RegistryId = RegistryId([0u8; 32]);
+pub const RA: RevokeId = RevokeId([0u8; 32]);
+pub const RB: RevokeId = RevokeId([1u8; 32]);
+pub const RC: RevokeId = RevokeId([2u8; 32]);
 
 /// check whether test externalities are available
 pub fn in_ext() -> bool {
@@ -338,12 +327,12 @@ pub fn meta_in_ext() {
 }
 
 pub fn ext() -> sp_io::TestExternalities {
-    let mut ret: sp_io::TestExternalities = system::GenesisConfig::default()
+    let mut ret: sp_io::TestExternalities = frame_system::GenesisConfig::default()
         .build_storage::<Test>()
         .unwrap()
         .into();
     ret.execute_with(|| {
-        system::Pallet::<Test>::initialize(
+        frame_system::Pallet::<Test>::initialize(
             &1, // system module will not store events if block_number == 0
             &[0u8; 32].into(),
             &Default::default(),
@@ -367,10 +356,8 @@ pub fn create_did(did: did::Did) -> sr25519::Pair {
         Origin::signed(ABBA),
         did,
         vec![
-            DidKey::new_with_all_relationships(common::PublicKey::Sr25519(util::Bytes32 {
-                value: kp.public().0,
-            }))
-            .into(),
+            DidKey::new_with_all_relationships(common::PublicKey::Sr25519(kp.public().0.into()))
+                .into(),
         ],
         vec![].into_iter().collect(),
     )
@@ -384,16 +371,11 @@ pub fn newdid() -> (Did, sr25519::Pair) {
     (d, create_did(d))
 }
 
-pub fn sign<T: frame_system::Config>(
-    payload: &StateChange<T>,
-    keypair: &sr25519::Pair,
-) -> SigValue {
-    SigValue::Sr25519(util::Bytes64 {
-        value: keypair.sign(&payload.encode()).0,
-    })
+pub fn sign<T: crate::did::Config>(payload: &StateChange<T>, keypair: &sr25519::Pair) -> SigValue {
+    SigValue::Sr25519(keypair.sign(&payload.encode()).0.into())
 }
 
-pub fn did_sig<T: frame_system::Config, A: ToStateChange<T>, D: Into<Did>>(
+pub fn did_sig<T: crate::did::Config, A: ToStateChange<T>, D: Into<Did>>(
     change: &A,
     keypair: &sr25519::Pair,
     did: D,
@@ -413,9 +395,7 @@ pub fn did_sig_on_bytes<D: Into<Did>>(
     did: D,
     key_id: u32,
 ) -> DidSignature<D> {
-    let sig = SigValue::Sr25519(util::Bytes64 {
-        value: keypair.sign(msg_bytes).0,
-    });
+    let sig = SigValue::Sr25519(keypair.sign(msg_bytes).0.into());
 
     DidSignature {
         did,
