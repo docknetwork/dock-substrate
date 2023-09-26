@@ -205,7 +205,7 @@ pub struct DidSignatureWithNonce<T>
 where
     T: Types,
 {
-    /// Signature by DID
+    /// `DID`'s signature
     pub sig: DidSignature<Did>,
     /// Nonce used to make the above signature
     pub nonce: T::BlockNumber,

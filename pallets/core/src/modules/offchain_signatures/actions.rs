@@ -5,6 +5,7 @@ use super::*;
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, DebugNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -18,6 +19,7 @@ pub struct AddOffchainSignatureParams<T: TypesAndLimits> {
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, DebugNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -32,6 +34,7 @@ pub struct AddOffchainSignaturePublicKey<T: TypesAndLimits> {
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, DebugNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -45,6 +48,7 @@ pub struct RemoveOffchainSignatureParams<T: Types> {
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, DebugNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))

@@ -1,11 +1,11 @@
 use super::super::*;
 use crate::common::{SigValue, ToStateChange, VerificationError};
 
+/// `DID`'s signature along with the used `DID`s key reference.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
-#[scale_info(skip_type_params(D))]
 #[codec(encode_bound(D: Encode + MaxEncodedLen + Into<Did>))]
 #[scale_info(omit_prefix)]
 pub struct DidSignature<D: Into<Did>> {

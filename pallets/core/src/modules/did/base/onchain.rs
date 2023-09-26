@@ -1,5 +1,9 @@
 use super::super::*;
-use crate::{common::ToStateChange, deposit_indexed_event, util::WrappedActionWithNonce};
+use crate::{
+    common::{ToStateChange, TypesAndLimits},
+    deposit_indexed_event,
+    util::WrappedActionWithNonce,
+};
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
 /// write (through an extrinsic). The nonce starts from the block number when the DID was created to avoid
@@ -22,13 +26,13 @@ pub struct OnChainDidDetails {
     pub active_controllers: u32,
 }
 
-impl<T: Config> From<StoredOnChainDidDetails<T>> for StoredDidDetails<T> {
+impl<T: TypesAndLimits> From<StoredOnChainDidDetails<T>> for StoredDidDetails<T> {
     fn from(details: StoredOnChainDidDetails<T>) -> Self {
         Self::OnChain(details)
     }
 }
 
-impl<T: Config> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
+impl<T: TypesAndLimits> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
     type Error = Error<T>;
 
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {

@@ -15,7 +15,7 @@ pub use offchain::*;
 pub use onchain::*;
 pub use signature::DidSignature;
 
-/// The type of the Dock DID.
+/// The type of the Dock `DID`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -57,7 +57,7 @@ pub enum StoredDidDetails<T: TypesAndLimits> {
     OnChain(StoredOnChainDidDetails<T>),
 }
 
-impl<T: Config> StoredDidDetails<T> {
+impl<T: TypesAndLimits> StoredDidDetails<T> {
     pub fn is_onchain(&self) -> bool {
         matches!(self, StoredDidDetails::OnChain(_))
     }

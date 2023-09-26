@@ -20,13 +20,13 @@ pub struct OffChainDidDetails<T: TypesAndLimits> {
     pub doc_ref: OffChainDidDocRef<T>,
 }
 
-impl<T: Config> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
+impl<T: TypesAndLimits> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
     fn from(details: OffChainDidDetails<T>) -> Self {
         Self::OffChain(details)
     }
 }
 
-impl<T: Config> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
+impl<T: TypesAndLimits> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
     type Error = Error<T>;
 
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
@@ -36,7 +36,7 @@ impl<T: Config> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
     }
 }
 
-impl<T: Config> OffChainDidDetails<T> {
+impl<T: TypesAndLimits> OffChainDidDetails<T> {
     /// Constructs new off-chain DID details using supplied params.
     pub fn new(account_id: T::AccountId, doc_ref: OffChainDidDocRef<T>) -> Self {
         Self {
@@ -71,7 +71,7 @@ pub enum OffChainDidDocRef<T: Limits> {
     Custom(BoundedBytes<T::MaxDidDocRefSize>),
 }
 
-impl<T: Config> OffChainDidDocRef<T> {
+impl<T: Limits> OffChainDidDocRef<T> {
     pub fn len(&self) -> u32 {
         match self {
             OffChainDidDocRef::CID(v) => v.len() as u32,
