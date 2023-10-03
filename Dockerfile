@@ -15,12 +15,12 @@ RUN curl https://sh.rustup.rs -sSf | sh -s -- -y
 # rustup directory
 ENV PATH /root/.cargo/bin:$PATH
 
+ARG stable='stable-2023-03-09'
 ARG nightly='nightly-2023-03-09'
 
-# setup rust nightly channel, pinning specific version as newer versions have a regression
+# setup rust stable and nightly channels, pinning specific version as newer versions have a regression
+RUN rustup install $stable
 RUN rustup install $nightly
-
-RUN rustup install stable
 
 # install wasm toolchain for substrate
 RUN rustup target add wasm32-unknown-unknown --toolchain $nightly
@@ -45,11 +45,11 @@ ARG release
 
 RUN if [ "$release" = "Y" ] ; then \
       echo 'Building in release mode.' ; \
-      cargo +$nightly build --profile=release $features ; \
+      WASM_BUILD_TOOLCHAIN=$nightly cargo +$stable build --profile=release $features ; \
       mv /dock-node/target/release/dock-node /dock-node/target/; \
     else \
       echo 'Building in production mode.' ; \
-      cargo +$nightly build --profile=production $features ; \
+      WASM_BUILD_TOOLCHAIN=$nightly cargo +$stable build --profile=production $features ; \
       mv /dock-node/target/production/dock-node /dock-node/target/; \
     fi
 
