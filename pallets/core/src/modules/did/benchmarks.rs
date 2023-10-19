@@ -39,15 +39,15 @@ crate::bench_with_all_pairs! {
                 .map(UncheckedDidKey::new_with_all_relationships)
                 .collect();
 
-        let key_update = AddKeys {
+        let add_keys = AddKeys {
             did,
             keys: keys.clone(),
             nonce: 1u8.into()
         };
 
-        let sig = pair.sign(&key_update.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
-    }: add_keys(RawOrigin::Signed(caller), key_update, signature)
+        let sig = pair.sign(&add_keys.to_state_change().encode());
+        let signature = DidSignature::new(did, 1u32, sig).into();
+    }: add_keys(RawOrigin::Signed(caller), add_keys, signature)
     verify {
         let mut stored_keys = DidKeys::<T>::iter_prefix_values(did).collect::<Vec<_>>();
         stored_keys.sort_by_key(|key| key.public_key().as_slice().to_vec());
@@ -91,7 +91,7 @@ crate::bench_with_all_pairs! {
         };
 
         let sig = pair.sign(&key_update.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: remove_keys(RawOrigin::Signed(caller), key_update, signature)
     verify {
         assert_eq!(DidKeys::<T>::iter_prefix(did).count(), 0);
@@ -115,6 +115,7 @@ crate::bench_with_all_pairs! {
         let controllers: BTreeSet<_> = (0..k)
             .map(|i| U256::from(i).into())
             .map(Did)
+            .map(Into::into)
             .map(Controller)
             .collect();
 
@@ -125,14 +126,14 @@ crate::bench_with_all_pairs! {
         };
 
         let sig = pair.sign(&new_controllers.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: add_controllers(RawOrigin::Signed(caller), new_controllers, signature)
     verify {
         let mut stored_controllers = DidControllers::<T>::iter_prefix(did).map(|(cnt, _)| cnt).collect::<Vec<_>>();
         stored_controllers.sort();
 
         let mut controllers = controllers.into_iter().collect::<Vec<_>>();
-        controllers.push(Controller(did));
+        controllers.push(Controller(did.into()));
         controllers.sort();
 
         assert_eq!(stored_controllers, controllers);
@@ -149,6 +150,7 @@ crate::bench_with_all_pairs! {
         let controllers: BTreeSet<_> = (0..k)
             .map(|i| U256::from(i).into())
             .map(Did)
+            .map(Into::into)
             .map(Controller)
             .collect();
 
@@ -160,12 +162,12 @@ crate::bench_with_all_pairs! {
 
         let rem_controllers = RemoveControllers {
             did,
-            controllers: controllers.clone().into_iter().chain(once(Controller(did))).collect(),
+            controllers: controllers.clone().into_iter().chain(once(Controller(did.into()))).collect(),
             nonce: 1u8.into()
         };
 
         let sig = pair.sign(&rem_controllers.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: remove_controllers(RawOrigin::Signed(caller), rem_controllers, signature)
     verify {
         assert_eq!(DidControllers::<T>::iter_prefix(did).count(), 0);
@@ -199,7 +201,7 @@ crate::bench_with_all_pairs! {
         };
 
         let sig = pair.sign(&add_endpoint.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: add_service_endpoint(RawOrigin::Signed(caller), add_endpoint.clone(), signature)
     verify {
         assert_eq!(DidServiceEndpoints::<T>::get(did, ServiceEndpointId(vec![1; i as usize].try_into().unwrap())), Some(add_endpoint.endpoint));
@@ -240,7 +242,7 @@ crate::bench_with_all_pairs! {
         };
 
         let sig = pair.sign(&remove_endpoint.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: remove_service_endpoint(RawOrigin::Signed(caller), remove_endpoint.clone(), signature)
     verify {
        assert!(DidServiceEndpoints::<T>::get(did, ServiceEndpointId(vec![1; i as usize].try_into().unwrap())).is_none());
@@ -258,6 +260,7 @@ crate::bench_with_all_pairs! {
         let controllers: BTreeSet<_> = (0..MAX_ENTITY_AMOUNT)
             .map(|i| U256::from(i).into())
             .map(Did)
+            .map(Into::into)
             .map(Controller)
             .collect();
 
@@ -288,7 +291,7 @@ crate::bench_with_all_pairs! {
         }
 
         let sig = pair.sign(&remove_did.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: remove_onchain_did(RawOrigin::Signed(caller), remove_did.clone(), signature)
     verify {
        assert!(Dids::<T>::get(did).is_none());
@@ -309,6 +312,7 @@ crate::bench_with_all_pairs! {
         let controllers: BTreeSet<_> = (0..c)
             .map(|i| U256::from(i).into())
             .map(Did)
+            .map(Into::into)
             .map(Controller)
             .collect();
 
@@ -329,7 +333,7 @@ crate::bench_with_all_pairs! {
         stored_controllers.sort();
 
         let mut controllers = controllers.into_iter().collect::<Vec<_>>();
-        controllers.push(Controller(did));
+        controllers.push(Controller(did.into()));
         controllers.sort();
 
         assert_eq!(stored_controllers, controllers);

@@ -1,3 +1,5 @@
+use crate::util::{ActionWithNonce, UpdateWithNonceError};
+
 use super::*;
 
 impl<T: Config> Pallet<T> {
@@ -55,8 +57,12 @@ impl<T: Config> Pallet<T> {
     where
         F: FnOnce(A, &mut StatusListCredentialWithPolicy<T>) -> Result<R, E>,
         A: Action<Target = StatusListCredentialId>,
-        WithNonce<T, A>: ToStateChange<T>,
-        E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
+        WithNonce<T, A>: ActionWithNonce<T, Target = StatusListCredentialId> + ToStateChange<T>,
+        E: From<Error<T>>
+            + From<PolicyExecutionError>
+            + From<did::Error<T>>
+            + From<NonceError>
+            + From<UpdateWithNonceError>,
     {
         Self::try_exec_removable_action_over_status_list_credential(
             |action, reg| f(action, reg.as_mut().unwrap()),
@@ -85,11 +91,13 @@ impl<T: Config> Pallet<T> {
     where
         F: FnOnce(A, &mut Option<StatusListCredentialWithPolicy<T>>) -> Result<R, E>,
         A: Action<Target = StatusListCredentialId>,
-        WithNonce<T, A>: ToStateChange<T>,
-        E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
+        WithNonce<T, A>: ActionWithNonce<T, Target = StatusListCredentialId> + ToStateChange<T>,
+        E: From<Error<T>>
+            + From<PolicyExecutionError>
+            + From<did::Error<T>>
+            + From<NonceError>
+            + From<UpdateWithNonceError>,
     {
-        ensure!(!action.is_empty(), Error::EmptyPayload);
-
         StatusListCredentials::try_mutate_exists(action.target(), |credential| {
             Policy::try_exec_removable_action(credential, f, action, proof)
         })

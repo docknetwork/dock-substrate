@@ -15,7 +15,7 @@
 // --extrinsic=*
 // --steps=50
 // --template=node/module-weight-template.hbs
-// --output=./pallets/core/src/modules/revoke/weights.rs
+// --output=./pallets/core/src/modules/status_list_credential/weights.rs
 
 #![allow(unused_parens)]
 #![allow(unused_imports)]

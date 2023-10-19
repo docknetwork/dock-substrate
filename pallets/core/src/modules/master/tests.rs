@@ -5,13 +5,37 @@ use super::{
     Call as MasterCall, Error, Event, MasterVoteRaw, Members, Membership, PhantomData, Round,
 };
 use crate::{
-    revoke::tests::{check_nonce_increase, get_nonces, get_pauth},
+    common::ToStateChange,
+    did::{Did, DidSignature},
+    revoke::tests::{check_nonce_increase, get_nonces},
     tests::common::*,
+    util::{Action, WithNonce},
 };
+use sp_core::sr25519;
 
 use frame_support::weights::Weight;
 use frame_system;
 use sp_core::H256;
+
+pub fn get_pauth<A: Action + Clone>(
+    action: &A,
+    signers: &[(Did, &sr25519::Pair)],
+) -> Vec<WithNonce<Test, DidSignature<Did>>>
+where
+    WithNonce<Test, A>: ToStateChange<Test>,
+{
+    signers
+        .iter()
+        .map(|(did, kp)| {
+            let did_detail = DIDModule::onchain_did_details(did).unwrap();
+            let next_nonce = did_detail.next_nonce().unwrap();
+            let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
+            let sig = did_sig_on_bytes(&sp.to_state_change().encode(), kp, *did, 1);
+
+            WithNonce::new_with_nonce(sig, next_nonce)
+        })
+        .collect()
+}
 
 // XXX: To check both `execute` and `execute_unchecked_weight`, we can simply test `execute_` but
 // thats less future proof in theory

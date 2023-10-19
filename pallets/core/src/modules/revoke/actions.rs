@@ -11,8 +11,8 @@ use frame_support::DebugNoBound;
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct AddRegistry<T: Limits> {
-    pub id: RegistryId,
-    pub new_registry: Registry<T>,
+    pub id: RevocationRegistryId,
+    pub new_registry: RevocationRegistry<T>,
 }
 
 /// Command to create a set of revocations withing a registry.
@@ -29,7 +29,7 @@ pub struct AddRegistry<T: Limits> {
 #[scale_info(omit_prefix)]
 pub struct RevokeRaw<T> {
     /// The registry on which to operate
-    pub registry_id: RegistryId,
+    pub registry_id: RevocationRegistryId,
     /// Credential ids which will be revoked
     pub revoke_ids: BTreeSet<RevokeId>,
     #[codec(skip)]
@@ -51,7 +51,7 @@ pub struct RevokeRaw<T> {
 #[scale_info(omit_prefix)]
 pub struct UnRevokeRaw<T> {
     /// The registry on which to operate
-    pub registry_id: RegistryId,
+    pub registry_id: RevocationRegistryId,
     /// Credential ids which will be revoked
     pub revoke_ids: BTreeSet<RevokeId>,
     #[codec(skip)]
@@ -72,14 +72,14 @@ pub struct UnRevokeRaw<T> {
 #[scale_info(omit_prefix)]
 pub struct RemoveRegistryRaw<T> {
     /// The registry on which to operate
-    pub registry_id: RegistryId,
+    pub registry_id: RevocationRegistryId,
     #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub _marker: PhantomData<T>,
 }
 
 crate::impl_action! {
-    for RegistryId:
+    for RevocationRegistryId:
         RevokeRaw with revoke_ids.len() as len, registry_id as target no_state_change,
         UnRevokeRaw with revoke_ids.len() as len, registry_id as target no_state_change,
         RemoveRegistryRaw with 1 as len, registry_id as target no_state_change
@@ -98,7 +98,7 @@ pub type UnRevoke<T> = WithNonce<T, UnRevokeRaw<T>>;
 pub type RemoveRegistry<T> = WithNonce<T, RemoveRegistryRaw<T>>;
 
 crate::impl_action_with_nonce! {
-    for RegistryId:
+    for RevocationRegistryId:
         UnRevoke with data().len() as len, data().registry_id as target,
         Revoke with data().len() as len, data().registry_id as target,
         RemoveRegistry with data().len() as len, data().registry_id as target

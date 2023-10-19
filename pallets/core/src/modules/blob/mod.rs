@@ -1,9 +1,12 @@
 //! Generic immutable single-owner storage.
 
 use crate::{
-    common::{Limits, SigValue, TypesAndLimits},
+    common::{signatures::ForSigType, Limits, TypesAndLimits},
     did,
-    did::{Did, DidSignature},
+    did::{
+        AuthorizeAction, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
+        SignedActionWithNonce,
+    },
     util::BoundedBytes,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -30,9 +33,12 @@ mod weights;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct BlobOwner(pub Did);
+pub struct BlobOwner(pub DidOrDidMethodKey);
 
-crate::impl_wrapper!(BlobOwner(Did), for rand use Did(rand::random()), with tests as blob_owner_tests);
+impl AuthorizeAction<(), DidKey> for BlobOwner {}
+impl AuthorizeAction<(), DidMethodKey> for BlobOwner {}
+
+crate::impl_wrapper!(BlobOwner(DidOrDidMethodKey));
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;
@@ -102,15 +108,15 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Create a new immutable blob.
-        #[pallet::weight(SubstrateWeight::<T>::new(blob, signature))]
+        #[pallet::weight(SubstrateWeight::<T>::new(add_blob, signature))]
         pub fn new(
             origin: OriginFor<T>,
-            blob: AddBlob<T>,
-            signature: DidSignature<BlobOwner>,
+            add_blob: AddBlob<T>,
+            signature: DidOrDidMethodKeySignature<BlobOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::new_, blob, signature)
+            SignedActionWithNonce::new(add_blob, signature).execute(Self::new_)
         }
     }
 
@@ -128,18 +134,33 @@ pub mod pallet {
             Ok(())
         }
     }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let mut reads_writes = 0;
+
+            Blobs::<T>::translate_values(|(did, blob): (Did, BoundedBytes<T::MaxBlobSize>)| {
+                reads_writes += 1;
+
+                Some((BlobOwner(did.into()), blob))
+            });
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
+        }
+    }
 }
 
 impl<T: Config> SubstrateWeight<T> {
     #[allow(clippy::new_ret_no_self)]
     fn new(
         AddBlob { blob, .. }: &AddBlob<T>,
-        DidSignature { sig, .. }: &DidSignature<BlobOwner>,
+        sig: &DidOrDidMethodKeySignature<BlobOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::new_sr25519,
-            SigValue::Ed25519(_) => Self::new_ed25519,
-            SigValue::Secp256k1(_) => Self::new_secp256k1,
-        }(blob.blob.len() as u32))
+        sig.weight_for_sig_type::<T>(
+            || Self::new_sr25519(blob.blob.len() as u32),
+            || Self::new_ed25519(blob.blob.len() as u32),
+            || Self::new_secp256k1(blob.blob.len() as u32),
+        )
     }
 }

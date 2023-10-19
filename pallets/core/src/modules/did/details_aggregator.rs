@@ -129,7 +129,7 @@ impl<T: attest::Config> Pallet<T> {
             .then(|| DidServiceEndpoints::<T>::iter_prefix(did));
         let attestation = params
             .intersects(AggregatedDidDetailsRequestParams::ATTESTATION)
-            .then(|| <attest::Pallet<T>>::attestation(Attester(*did)));
+            .then(|| <attest::Pallet<T>>::attestation(Attester((*did).into())));
 
         Some(AggregatedDidDetailsResponse::new(
             *did,

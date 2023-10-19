@@ -1,14 +1,13 @@
 use crate::{
-    common::{self, PublicKey, SigValue, VerificationError},
+    common::{self, PublicKey, VerificationError},
     util::*,
 };
 
-use crate::common::Limits;
-use arith_utils::CheckedDivCeil;
+use crate::common::{signatures::ForSigType, Limits};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    dispatch::DispatchResult, ensure, weights::Weight, CloneNoBound, DebugNoBound, EqNoBound,
-    PartialEqNoBound,
+    dispatch::DispatchResult, ensure, storage_alias, weights::Weight, CloneNoBound, DebugNoBound,
+    EqNoBound, PartialEqNoBound,
 };
 use frame_system::ensure_signed;
 use sp_std::{
@@ -18,6 +17,7 @@ use sp_std::{
     prelude::*,
     vec::Vec,
 };
+use utils::CheckedDivCeil;
 
 pub use actions::*;
 pub use base::{offchain, onchain, signature};
@@ -68,6 +68,7 @@ pub mod pallet {
         OffChainDidUpdated(Did, OffChainDidDocRef<T>),
         OffChainDidRemoved(Did),
         OnChainDidAdded(Did),
+        DidMethodKeyAdded(DidMethodKey),
         DidKeysAdded(Did),
         DidKeysRemoved(Did),
         DidControllersAdded(Did),
@@ -85,12 +86,10 @@ pub mod pallet {
         PublicKeySizeIncorrect,
         /// There is already a DID with same value
         DidAlreadyExists,
+        /// There is already a DID key with same value
+        DidMethodKeyExists,
         /// There is no such DID registered
         DidDoesNotExist,
-        /// Signature type does not match public key type
-        IncompatSigPubkey,
-        /// Signature by DID failed verification
-        InvalidSignature,
         NotAnOffChainDid,
         DidNotOwnedByAccount,
         NoControllerProvided,
@@ -98,12 +97,12 @@ pub mod pallet {
         IncompatibleVerificationRelation,
         CannotGetDetailForOffChainDid,
         CannotGetDetailForOnChainDid,
-        EmptyPayload,
-        IncorrectNonce,
+        InvalidSignature,
         /// Only controller of a DID can update the DID Doc
         OnlyControllerCanUpdate,
         NoKeyForDid,
         NoControllerForDid,
+        IncompatSigPubkey,
         /// The key does not have the required verification relationship
         InsufficientVerificationRelationship,
         ControllerIsAlreadyAdded,
@@ -114,14 +113,8 @@ pub mod pallet {
         SigningKeyCantBeUsedForKeyAgreement,
     }
 
-    impl<T: Config> From<NonceError> for Error<T> {
-        fn from(NonceError::IncorrectNonce: NonceError) -> Self {
-            Self::IncorrectNonce
-        }
-    }
-
     impl<T: Config> From<VerificationError> for Error<T> {
-        fn from(VerificationError::IncompatibleKey(_, _): VerificationError) -> Self {
+        fn from(VerificationError::IncompatibleKey(_): VerificationError) -> Self {
             Self::IncompatSigPubkey
         }
     }
@@ -134,6 +127,11 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn did)]
     pub type Dids<T> = StorageMap<_, Blake2_128Concat, Did, StoredDidDetails<T>>;
+
+    /// Stores details of the DID keys.
+    #[pallet::storage]
+    #[pallet::getter(fn did_method_key)]
+    pub type DidMethodKeys<T> = StorageMap<_, Blake2_128Concat, DidMethodKey, WithNonce<T, ()>>;
 
     /// Stores keys of a DID as (DID, IncId) -> DidKey. Does not check if the same key is being added multiple times to the same DID.
     #[pallet::storage]
@@ -148,7 +146,7 @@ pub mod pallet {
 
     /// Stores service endpoints of a DID as (DID, endpoint id) -> ServiceEndpoint.
     #[pallet::storage]
-    #[pallet::getter(fn did_service_endpoints)]
+    #[pallet::getter(fn did_service_endpoint)]
     pub type DidServiceEndpoints<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -195,7 +193,7 @@ pub mod pallet {
 
                 <Pallet<T>>::insert_did_details(*did, did_details);
                 DidKeys::<T>::insert(did, key_id, key);
-                DidControllers::<T>::insert(did, Controller(*did), ());
+                DidControllers::<T>::insert(did, Controller((*did).into()), ());
             }
 
             Version::<T>::put(common::StorageVersion::MultiKey);
@@ -213,7 +211,7 @@ pub mod pallet {
             // Only `did_owner` can update or remove this DID
             let did_owner = ensure_signed(origin)?;
 
-            Self::new_offchain_(did_owner, did, did_doc_ref)
+            Self::new_offchain_(did_owner, did, did_doc_ref).map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::set_offchain_did_doc_ref(did_doc_ref.len()))]
@@ -224,14 +222,14 @@ pub mod pallet {
         ) -> DispatchResult {
             let caller = ensure_signed(origin)?;
 
-            Self::set_offchain_did_doc_ref_(caller, did, did_doc_ref)
+            Self::set_offchain_did_doc_ref_(caller, did, did_doc_ref).map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_offchain_did())]
         pub fn remove_offchain_did(origin: OriginFor<T>, did: Did) -> DispatchResult {
             let caller = ensure_signed(origin)?;
 
-            Self::remove_offchain_did_(caller, did)
+            Self::remove_offchain_did_(caller, did).map_err(Into::into)
         }
 
         /// Create new DID.
@@ -246,7 +244,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::new_onchain_(did, keys, controllers)
+            Self::new_onchain_(did, keys, controllers).map_err(Into::into)
         }
 
         /// Add more keys from DID doc.
@@ -255,11 +253,13 @@ pub mod pallet {
         pub fn add_keys(
             origin: OriginFor<T>,
             keys: AddKeys<T>,
-            sig: DidSignature<Controller>,
+            sig: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(Self::add_keys_, keys, sig)
+            SignedActionWithNonce::new(keys, sig)
+                .execute_from_controller(Self::add_keys_)
+                .map_err(Into::into)
         }
 
         /// Remove keys from DID doc. This is an atomic operation meaning that it will either remove all keys or do nothing.
@@ -268,11 +268,13 @@ pub mod pallet {
         pub fn remove_keys(
             origin: OriginFor<T>,
             keys: RemoveKeys<T>,
-            sig: DidSignature<Controller>,
+            sig: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(Self::remove_keys_, keys, sig)
+            SignedActionWithNonce::new(keys, sig)
+                .execute_from_controller(Self::remove_keys_)
+                .map_err(Into::into)
         }
 
         /// Add new controllers to the signer DID.
@@ -283,11 +285,13 @@ pub mod pallet {
         pub fn add_controllers(
             origin: OriginFor<T>,
             controllers: AddControllers<T>,
-            sig: DidSignature<Controller>,
+            sig: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(Self::add_controllers_, controllers, sig)
+            SignedActionWithNonce::new(controllers, sig)
+                .execute_from_controller(Self::add_controllers_)
+                .map_err(Into::into)
         }
 
         /// Remove controllers from the signer DID.
@@ -297,15 +301,13 @@ pub mod pallet {
         pub fn remove_controllers(
             origin: OriginFor<T>,
             controllers: RemoveControllers<T>,
-            sig: DidSignature<Controller>,
+            sig: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(
-                Self::remove_controllers_,
-                controllers,
-                sig,
-            )
+            SignedActionWithNonce::new(controllers, sig)
+                .execute_from_controller(Self::remove_controllers_)
+                .map_err(Into::into)
         }
 
         /// Add a single service endpoint to the signer DID.
@@ -313,15 +315,13 @@ pub mod pallet {
         pub fn add_service_endpoint(
             origin: OriginFor<T>,
             service_endpoint: AddServiceEndpoint<T>,
-            sig: DidSignature<Controller>,
+            sig: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(
-                Self::add_service_endpoint_,
-                service_endpoint,
-                sig,
-            )
+            SignedActionWithNonce::new(service_endpoint, sig)
+                .execute_from_controller(Self::add_service_endpoint_)
+                .map_err(Into::into)
         }
 
         /// Remove a single service endpoint.
@@ -329,15 +329,13 @@ pub mod pallet {
         pub fn remove_service_endpoint(
             origin: OriginFor<T>,
             service_endpoint: RemoveServiceEndpoint<T>,
-            sig: DidSignature<Controller>,
+            sig: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_action_from_controller(
-                Self::remove_service_endpoint_,
-                service_endpoint,
-                sig,
-            )
+            SignedActionWithNonce::new(service_endpoint, sig)
+                .execute_from_controller(Self::remove_service_endpoint_)
+                .map_err(Into::into)
         }
 
         /// Remove the on-chain DID along with its keys, controllers, service endpoints and BBS+ keys.
@@ -347,15 +345,22 @@ pub mod pallet {
         pub fn remove_onchain_did(
             origin: OriginFor<T>,
             removal: DidRemoval<T>,
-            sig: DidSignature<Controller>,
+            sig: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_signed_removable_action_from_controller(
-                Self::remove_onchain_did_,
-                removal,
-                sig,
-            )
+            SignedActionWithNonce::new(removal, sig)
+                .execute_removable_from_controller(Self::remove_onchain_did_)
+                .map_err(Into::into)
+        }
+
+        /// Adds an on-chain state storing the nonce for the provided DID method key.
+        /// After this state is set, this DID method key will be able to submit a DID transaction.
+        #[pallet::weight(T::DbWeight::get().reads_writes(1, 1))]
+        pub fn new_did_method_key(origin: OriginFor<T>, did_key: DidMethodKey) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            Self::new_did_method_key_(did_key).map_err(Into::into)
         }
 
         /// Adds `StateChange` to the metadata.
@@ -363,6 +368,32 @@ pub mod pallet {
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().writes(10))]
         pub fn noop(_o: OriginFor<T>, _s: common::StateChange<'static, T>) -> DispatchResult {
             Err(DispatchError::BadOrigin)
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let mut reads_writes = 0;
+
+            let controllers: Vec<_> = {
+                #[storage_alias]
+                pub type DidControllers<T: Config> =
+                    StorageDoubleMap<Pallet<T>, Blake2_128Concat, Did, Blake2_128Concat, Did, ()>;
+
+                DidControllers::<T>::drain()
+                    .map(|(did, controller, ()): (Did, Did, ())| {
+                        (did, Controller(did.into()), controller)
+                    })
+                    .collect()
+            };
+
+            reads_writes += controllers.len() as u64;
+            for (owner, id, _controllers) in controllers {
+                DidControllers::<T>::insert(owner, id, ());
+            }
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }
@@ -383,87 +414,100 @@ crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using satu
 crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C D E);
 
 impl<T: Config> SubstrateWeight<T> {
-    fn add_keys(keys: &AddKeys<T>, DidSignature { sig, .. }: &DidSignature<Controller>) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::add_keys_sr25519,
-            SigValue::Ed25519(_) => Self::add_keys_ed25519,
-            SigValue::Secp256k1(_) => Self::add_keys_secp256k1,
-        }(keys.len()))
+    fn add_keys(keys: &AddKeys<T>, sig: &DidOrDidMethodKeySignature<Controller>) -> Weight {
+        sig.weight_for_sig_type::<T>(
+            || Self::add_keys_sr25519(keys.len()),
+            || Self::add_keys_ed25519(keys.len()),
+            || Self::add_keys_secp256k1(keys.len()),
+        )
     }
 
-    fn remove_keys(
-        keys: &RemoveKeys<T>,
-        DidSignature { sig, .. }: &DidSignature<Controller>,
-    ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_keys_sr25519,
-            SigValue::Ed25519(_) => Self::remove_keys_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_keys_secp256k1,
-        }(keys.len()))
+    fn remove_keys(keys: &RemoveKeys<T>, sig: &DidOrDidMethodKeySignature<Controller>) -> Weight {
+        sig.weight_for_sig_type::<T>(
+            || Self::remove_keys_sr25519(keys.len()),
+            || Self::remove_keys_ed25519(keys.len()),
+            || Self::remove_keys_secp256k1(keys.len()),
+        )
     }
 
     fn add_controllers(
         controllers: &AddControllers<T>,
-        DidSignature { sig, .. }: &DidSignature<Controller>,
+        sig: &DidOrDidMethodKeySignature<Controller>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::add_controllers_sr25519,
-            SigValue::Ed25519(_) => Self::add_controllers_ed25519,
-            SigValue::Secp256k1(_) => Self::add_controllers_secp256k1,
-        }(controllers.len()))
+        sig.weight_for_sig_type::<T>(
+            || Self::add_controllers_sr25519(controllers.len()),
+            || Self::add_controllers_ed25519(controllers.len()),
+            || Self::add_controllers_secp256k1(controllers.len()),
+        )
     }
 
     fn remove_controllers(
         controllers: &RemoveControllers<T>,
-        DidSignature { sig, .. }: &DidSignature<Controller>,
+        sig: &DidOrDidMethodKeySignature<Controller>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_controllers_sr25519,
-            SigValue::Ed25519(_) => Self::remove_controllers_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_controllers_secp256k1,
-        }(controllers.len()))
+        sig.weight_for_sig_type::<T>(
+            || Self::remove_controllers_sr25519(controllers.len()),
+            || Self::remove_controllers_ed25519(controllers.len()),
+            || Self::remove_controllers_secp256k1(controllers.len()),
+        )
     }
 
     fn add_service_endpoint(
         AddServiceEndpoint { id, endpoint, .. }: &AddServiceEndpoint<T>,
-        DidSignature { sig, .. }: &DidSignature<Controller>,
+        sig: &DidOrDidMethodKeySignature<Controller>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::add_service_endpoint_sr25519,
-            SigValue::Ed25519(_) => Self::add_service_endpoint_ed25519,
-            SigValue::Secp256k1(_) => Self::add_service_endpoint_secp256k1,
-        })(
-            endpoint.origins.len() as u32,
-            endpoint
-                .origins
-                .iter()
-                .map(|v| v.len() as u32)
-                .sum::<u32>()
-                .checked_div_ceil(endpoint.origins.len() as u32)
-                .unwrap_or(0),
-            id.len() as u32,
+        let end_avg_origin = endpoint
+            .origins
+            .iter()
+            .map(|v| v.len() as u32)
+            .sum::<u32>()
+            .checked_div_ceil(endpoint.origins.len() as u32)
+            .unwrap_or(0);
+
+        sig.weight_for_sig_type::<T>(
+            || {
+                Self::add_service_endpoint_sr25519(
+                    endpoint.origins.len() as u32,
+                    end_avg_origin,
+                    id.len() as u32,
+                )
+            },
+            || {
+                Self::add_service_endpoint_ed25519(
+                    endpoint.origins.len() as u32,
+                    end_avg_origin,
+                    id.len() as u32,
+                )
+            },
+            || {
+                Self::add_service_endpoint_secp256k1(
+                    endpoint.origins.len() as u32,
+                    end_avg_origin,
+                    id.len() as u32,
+                )
+            },
         )
     }
 
     fn remove_service_endpoint(
         RemoveServiceEndpoint { id, .. }: &RemoveServiceEndpoint<T>,
-        DidSignature { sig, .. }: &DidSignature<Controller>,
+        sig: &DidOrDidMethodKeySignature<Controller>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_service_endpoint_sr25519,
-            SigValue::Ed25519(_) => Self::remove_service_endpoint_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_service_endpoint_secp256k1,
-        }(id.len() as u32))
+        sig.weight_for_sig_type::<T>(
+            || Self::remove_service_endpoint_sr25519(id.len() as u32),
+            || Self::remove_service_endpoint_ed25519(id.len() as u32),
+            || Self::remove_service_endpoint_secp256k1(id.len() as u32),
+        )
     }
 
     fn remove_onchain_did(
         _: &DidRemoval<T>,
-        DidSignature { sig, .. }: &DidSignature<Controller>,
+        sig: &DidOrDidMethodKeySignature<Controller>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_onchain_did_sr25519,
-            SigValue::Ed25519(_) => Self::remove_onchain_did_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_onchain_did_secp256k1,
-        }())
+        sig.weight_for_sig_type::<T>(
+            Self::remove_onchain_did_sr25519,
+            Self::remove_onchain_did_ed25519,
+            Self::remove_onchain_did_secp256k1,
+        )
     }
 }

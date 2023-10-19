@@ -2,6 +2,7 @@ use super::*;
 use crate::{
     common::{DidSignatureWithNonce, PolicyExecutionError},
     deposit_indexed_event,
+    util::{ActionWithNonce, UpdateWithNonceError},
 };
 
 impl<T: Config> Pallet<T> {
@@ -25,7 +26,7 @@ impl<T: Config> Pallet<T> {
             revoke_ids,
             ..
         }: RevokeRaw<T>,
-        _: &mut Registry<T>,
+        _: &mut RevocationRegistry<T>,
     ) -> DispatchResult {
         // execute
         for cred_id in &revoke_ids {
@@ -42,7 +43,7 @@ impl<T: Config> Pallet<T> {
             registry_id,
             ..
         }: UnRevokeRaw<T>,
-        registry: &mut Registry<T>,
+        registry: &mut RevocationRegistry<T>,
     ) -> DispatchResult {
         ensure!(!registry.add_only, Error::<T>::AddOnly);
 
@@ -57,7 +58,7 @@ impl<T: Config> Pallet<T> {
 
     pub(super) fn remove_registry_(
         RemoveRegistryRaw { registry_id, .. }: RemoveRegistryRaw<T>,
-        registry: &mut Option<Registry<T>>,
+        registry: &mut Option<RevocationRegistry<T>>,
     ) -> DispatchResult {
         let registry = registry.take().unwrap();
         ensure!(!registry.add_only, Error::<T>::AddOnly);
@@ -84,10 +85,14 @@ impl<T: Config> Pallet<T> {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        F: FnOnce(A, &mut Registry<T>) -> Result<R, E>,
-        A: Action<Target = RegistryId>,
-        WithNonce<T, A>: ToStateChange<T>,
-        E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
+        F: FnOnce(A, &mut RevocationRegistry<T>) -> Result<R, E>,
+        A: Action<Target = RevocationRegistryId>,
+        WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
+        E: From<Error<T>>
+            + From<PolicyExecutionError>
+            + From<did::Error<T>>
+            + From<NonceError>
+            + From<UpdateWithNonceError>,
     {
         Self::try_exec_removable_action_over_registry(
             |action, reg| f(action, reg.as_mut().unwrap()),
@@ -114,13 +119,15 @@ impl<T: Config> Pallet<T> {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        F: FnOnce(A, &mut Option<Registry<T>>) -> Result<R, E>,
-        A: Action<Target = RegistryId>,
-        WithNonce<T, A>: ToStateChange<T>,
-        E: From<Error<T>> + From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
+        F: FnOnce(A, &mut Option<RevocationRegistry<T>>) -> Result<R, E>,
+        A: Action<Target = RevocationRegistryId>,
+        WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
+        E: From<Error<T>>
+            + From<PolicyExecutionError>
+            + From<did::Error<T>>
+            + From<NonceError>
+            + From<UpdateWithNonceError>,
     {
-        ensure!(!action.is_empty(), Error::EmptyPayload);
-
         Registries::try_mutate_exists(action.target(), |registry| {
             Policy::try_exec_removable_action(registry, f, action, proof)
         })

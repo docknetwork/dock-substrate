@@ -32,7 +32,7 @@ crate::bench_with_all_pairs! {
             nonce: 1u8.into()
         };
         let sig = pair.sign(&add_blob.to_state_change().encode());
-        let signature = DidSignature::new(did.clone(), 1u32, sig);
+        let signature = DidSignature::new(did.clone(), 1u32, sig).into();
     }: new(RawOrigin::Signed(caller), add_blob, signature)
     verify {
         let value = Blobs::<T>::get(id);

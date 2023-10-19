@@ -60,9 +60,8 @@
 #[cfg(feature = "serde")]
 use crate::util::btree_set;
 use crate::{
-    common::{DidSignatureWithNonce, Limits, Types},
-    did,
-    did::Did,
+    common::{signatures::ForSigType, Limits, Types},
+    did::{self, Authorization, AuthorizeSigned, Did, DidSignature},
     util::WithNonce,
 };
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
@@ -150,11 +149,11 @@ const MIN_WEIGHT: Weight = Weight::from_ref_time(10_000);
 
 /// Minimum weight for master's extrinsics. Considers cost of signature verification and update to round no
 fn get_min_weight_for_execute<T: Types>(
-    auth: &[DidSignatureWithNonce<T>],
+    auth: &[WithNonce<T, DidSignature<Did>>],
     db_weights: RuntimeDbWeight,
 ) -> Weight {
     MIN_WEIGHT
-        + DidSignatureWithNonce::auth_weight(auth, db_weights)
+        + DidSignature::auth_weight(auth.iter().map(WithNonce::data), db_weights)
         + db_weights.reads_writes(1, 1)
 }
 
@@ -235,7 +234,7 @@ pub mod pallet {
         pub fn execute(
             origin: OriginFor<T>,
             proposal: Box<<T as Config>::Call>,
-            auth: Vec<DidSignatureWithNonce<T>>,
+            auth: Vec<WithNonce<T, DidSignature<Did>>>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
@@ -257,7 +256,7 @@ pub mod pallet {
         pub fn execute_unchecked_weight(
             origin: OriginFor<T>,
             proposal: Box<<T as Config>::Call>,
-            auth: Vec<DidSignatureWithNonce<T>>,
+            auth: Vec<WithNonce<T, DidSignature<Did>>>,
             _weight: Weight,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
@@ -325,11 +324,11 @@ pub mod pallet {
         /// in this case
         fn execute_(
             proposal: Box<<T as Config>::Call>,
-            auth: Vec<DidSignatureWithNonce<T>>,
+            auth: Vec<WithNonce<T, DidSignature<Did>>>,
             given_weight: Option<Weight>,
         ) -> DispatchResultWithPostInfo {
             // check
-            let new_payload = MasterVoteRaw {
+            let mut new_payload = MasterVoteRaw::<T> {
                 _marker: PhantomData,
                 proposal: proposal.encode(),
                 round_no: Round::<T>::get(),
@@ -337,21 +336,21 @@ pub mod pallet {
 
             let mut new_did_details = BTreeMap::new();
             // check each signature is valid over payload and signed by the claimed signer
-            for a in auth.iter() {
-                let signer = a.sig.did;
+            for a in &auth {
                 let nonce = a.nonce;
+                let action = WithNonce::new_with_nonce(new_payload, nonce);
+                let Authorization { signer, .. } = a
+                    .data()
+                    .ensure_authorizes(&action)?
+                    .ok_or(Error::<T>::BadSig)?;
+
                 // Check if nonce is valid and increase it
                 let mut did_detail = did::Pallet::<T>::onchain_did_details(&signer)?;
                 did_detail
                     .try_update(nonce)
                     .map_err(|_| Error::<T>::IncorrectNonce)?;
-                // Verify signature
-                let valid = did::Pallet::<T>::verify_sig_from_auth_or_control_key(
-                    &WithNonce::new_with_nonce(new_payload.clone(), nonce),
-                    &a.sig,
-                )?;
-                ensure!(valid, Error::<T>::BadSig);
 
+                new_payload = action.into_data();
                 new_did_details.insert(signer, did_detail);
             }
 

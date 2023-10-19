@@ -33,7 +33,7 @@ pub struct BoundedBytes<MaxSize: Get<u32>>(
     #[cfg_attr(feature = "serde", serde(with = "hex"))] pub BoundedVec<u8, MaxSize>,
 );
 
-crate::impl_wrapper!(BoundedBytes<MaxSize: Get<u32>>(BoundedVec<u8, MaxSize>));
+crate::impl_wrapper!(BoundedBytes<MaxSize> where MaxSize: Get<u32> => (BoundedVec<u8, MaxSize>));
 
 impl<MaxSize: Get<u32>> TryFrom<Vec<u8>> for BoundedBytes<MaxSize> {
     type Error = ();

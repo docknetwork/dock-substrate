@@ -172,15 +172,15 @@ macro_rules! impl_action_with_nonce {
 /// Implements given trait for the tuple type.
 #[macro_export]
 macro_rules! impl_tuple {
-    (@ $method: ident($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident) => { $main::$method($($arg),*) };
-    (@ $method: ident($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident $($ty: ident)+) => {
-        $main::$method($($arg),*).$combine($crate::impl_tuple!(@ $method($($arg: $arg_ty),*) => using $combine for $($ty)*))
+    (@ $method: ident$(<$($gen: ident),+>)?($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident) => { $main::$method::<$($($gen),+)*>($($arg),*) };
+    (@ $method: ident$(<$($gen: ident),+>)?($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident $($ty: ident)+) => {
+        $main::$method::<$($($gen),+)*>($($arg),*).$combine($crate::impl_tuple!(@ $method$(<$($gen),+>)*($($arg: $arg_ty),*) => using $combine for $($ty)*))
     };
-    ($trait: ident::$method: ident($($arg: ident: $arg_ty: ty),*) -> $ret_ty: ty => using $combine: ident for $($ty: ident)*) => {
-        impl<$($ty),+> $trait for ($($ty),+)
+    ($trait: ident$(<$($trait_gen: ident),+>)?::$method: ident$(<$($gen: ident),+>)?($($arg: ident: $arg_ty: ty),*) -> $ret_ty: ty => using $combine: ident for $($ty: ident)* $(=> where $($where_tt: tt)+)?) => {
+        impl<$($ty),+ $(,$($trait_gen),+)*> $trait$(<$($trait_gen),+>)* for ($($ty),+)
             where $($ty: $trait),+
         {
-            fn $method($($arg: $arg_ty)*) -> $ret_ty {
+            fn $method<$($($gen),+)*>($($arg: $arg_ty),*) -> $ret_ty $(where $($where_tt)+)* {
                 $crate::impl_tuple!(@ $method($($arg: $arg_ty),*) => using $combine for $($ty)*)
             }
         }
@@ -204,16 +204,16 @@ macro_rules! deposit_indexed_event {
 /// Implements two-direction `From`/`Into` and one-direction `Deref`/`DeferMut` traits for the supplied wrapper and type.
 #[macro_export]
 macro_rules! impl_wrapper {
-    (no_wrapper_from_type $wrapper: ident$(<$($gen: ident: $($bound: path),+),*>)?($type: ty) $(,$($rest: tt)*)?) => {
+    (no_wrapper_from_type $wrapper: ident$(<$($gen: ident),+>)? $(where $($where_ty: ident: $bound: path),+ =>)? ($type: ty) $(,$($rest: tt)*)?) => {
         $($crate::impl_encode_decode_wrapper_tests! { $wrapper($type), $($rest)* })?
 
-        impl$(<$($gen: $($bound)++),+>)* From<$wrapper$(<$($gen),+>)*> for $type {
+        impl$(<$($gen),+>)* From<$wrapper$(<$($gen),+>)*> for $type $(where $($where_ty: $bound),+)* {
             fn from(wrapper: $wrapper$(<$($gen),+>)*) -> $type {
                 wrapper.0
             }
         }
 
-        impl$(<$($gen: $($bound)++),+>)* sp_std::ops::Deref for $wrapper$(<$($gen),+>)* {
+        impl$(<$($gen),+>)* core::ops::Deref for $wrapper$(<$($gen),+>)* $(where $($where_ty: $bound),+)* {
             type Target = $type;
 
             fn deref(&self) -> &Self::Target {
@@ -221,24 +221,24 @@ macro_rules! impl_wrapper {
             }
         }
 
-        impl$(<$($gen: $($bound)++),+>)* sp_std::ops::DerefMut for $wrapper$(<$($gen),+>)* {
+        impl$(<$($gen),+>)* core::ops::DerefMut for $wrapper$(<$($gen),+>)* $(where $($where_ty: $bound),+)* {
             fn deref_mut(&mut self) -> &mut Self::Target {
                 &mut self.0
             }
         }
     };
-    ($wrapper: ident$(<$($gen: ident: $($bound: path),+),*>)?($type: ty) $(,$($rest: tt)*)?) => {
-        $crate::impl_wrapper! { no_wrapper_from_type $wrapper$(<$($gen: $($bound),+),+>)*($type) $(,$($rest)*)? }
+    ($wrapper: ident$(<$($gen: ident),+>)? $(where $($where_ty: ident: $bound: path),+ =>)? ($type: ty) $(,$($rest: tt)*)?) => {
+        $crate::impl_wrapper! { no_wrapper_from_type $wrapper$(<$($gen),+>)* $(where $($where_ty: $bound),+ =>)* ($type) $(,$($rest)*)? }
 
-        $crate::impl_wrapper_from_type_conversion! { from $type => $wrapper$(<$($gen: $($bound),+),+>)* }
+        $crate::impl_wrapper_from_type_conversion! { from $type => $wrapper$(<$($gen),+>)* $(where $($where_ty: $bound),+)* }
     };
 }
 
 /// Implements `From<type>` for the wrapper.
 #[macro_export]
 macro_rules! impl_wrapper_from_type_conversion {
-    (from $type: ty => $wrapper: ident$(<$($gen: ident: $($bound: path),+),*>)?) => {
-        impl$(<$($gen: $($bound)++),+>)* From<$type> for $wrapper$(<$($gen),+>)* {
+    (from $type: ty => $wrapper: ident$(<$($gen: ident),+>)? $(where $($where_ty: ident: $bound: path),+)? ) => {
+        impl$(<$($gen),+>)* From<$type> for $wrapper$(<$($gen),+>)* $(where $($where_ty: $bound),+)* {
             fn from(value: $type) -> $wrapper$(<$($gen),+>)* {
                 $wrapper(value.into())
             }

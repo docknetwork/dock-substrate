@@ -1,4 +1,6 @@
 pub mod action;
+pub mod batch_update;
+pub mod bounded_key_value;
 #[cfg(feature = "serde")]
 pub mod btree;
 pub mod bytes;
@@ -10,6 +12,8 @@ pub mod with_nonce;
 pub mod wrapped_action_with_nonce;
 
 pub use action::*;
+pub use batch_update::*;
+pub use bounded_key_value::*;
 #[cfg(feature = "serde")]
 pub use btree::*;
 pub use bytes::*;

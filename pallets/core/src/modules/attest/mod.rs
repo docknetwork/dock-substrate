@@ -3,8 +3,11 @@
 //! method by specifying an Iri.
 
 use crate::{
-    common::{Limits, SigValue, TypesAndLimits},
-    did::{self, Did, DidSignature},
+    common::{signatures::ForSigType, Limits, TypesAndLimits},
+    did::{
+        self, AuthorizeAction, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
+        SignedActionWithNonce,
+    },
     util::BoundedBytes,
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -32,9 +35,12 @@ pub type Iri<T> = BoundedBytes<<T as Limits>::MaxIriSize>;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Attester(pub Did);
+pub struct Attester(pub DidOrDidMethodKey);
 
-crate::impl_wrapper!(Attester(Did), for rand use Did(rand::random()), with tests as attester_tests);
+impl AuthorizeAction<(), DidKey> for Attester {}
+impl AuthorizeAction<(), DidMethodKey> for Attester {}
+
+crate::impl_wrapper!(Attester(DidOrDidMethodKey));
 
 #[derive(
     Encode,
@@ -79,6 +85,8 @@ crate::impl_action_with_nonce! { for (): SetAttestationClaim with 1 as len, () a
 
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::did::DidOrDidMethodKeySignature;
+
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
@@ -90,8 +98,8 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + did::Config {}
 
-    #[pallet::error]
     /// Error for the attest module.
+    #[pallet::error]
     pub enum Error<T> {
         /// The Attestation was not posted because its priority was less than or equal to that of
         /// an attestation previously posted by the same entity.
@@ -135,15 +143,11 @@ pub mod pallet {
         pub fn set_claim(
             origin: OriginFor<T>,
             attests: SetAttestationClaim<T>,
-            signature: DidSignature<Attester>,
+            signature: DidOrDidMethodKeySignature<Attester>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::set_claim_,
-                attests,
-                signature,
-            )
+            SignedActionWithNonce::new(attests, signature).execute(Self::set_claim_)
         }
     }
 
@@ -161,17 +165,46 @@ pub mod pallet {
             Ok(())
         }
     }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            use did::Did;
+            use frame_support::storage_alias;
+
+            let mut reads_writes = 0;
+
+            let attestations: Vec<_> = {
+                #[storage_alias]
+                pub type Attestations<T: Config> =
+                    StorageMap<Pallet<T>, Blake2_128Concat, Did, Attestation<T>, ValueQuery>;
+
+                Attestations::<T>::drain()
+                    .map(|(did, attest): (Did, _)| (Attester(did.into()), attest))
+                    .collect()
+            };
+
+            reads_writes += attestations.len() as u64;
+            for (did, attest) in attestations {
+                Attestations::<T>::insert(did, attest);
+            }
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
+        }
+    }
 }
 
 impl<T: Config> SubstrateWeight<T> {
     fn set_claim(
         SetAttestationClaim { attest, .. }: &SetAttestationClaim<T>,
-        DidSignature { sig, .. }: &DidSignature<Attester>,
+        sig: &DidOrDidMethodKeySignature<Attester>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::set_claim_sr25519,
-            SigValue::Ed25519(_) => Self::set_claim_ed25519,
-            SigValue::Secp256k1(_) => Self::set_claim_secp256k1,
-        }(attest.iri.as_ref().map_or(0, |v| v.len()) as u32))
+        let len = attest.iri.as_ref().map_or(0, |v| v.len()) as u32;
+
+        sig.weight_for_sig_type::<T>(
+            || Self::set_claim_sr25519(len),
+            || Self::set_claim_ed25519(len),
+            || Self::set_claim_secp256k1(len),
+        )
     }
 }

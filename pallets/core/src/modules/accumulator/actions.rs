@@ -108,9 +108,9 @@ pub struct UpdateAccumulator<T: TypesAndLimits> {
 }
 
 crate::impl_action_with_nonce! {
-    for AccumulatorId:
-        UpdateAccumulator with 1 as len, id as target,
-        RemoveAccumulator with 1 as len, id as target
+    for ():
+        UpdateAccumulator with 1 as len, () as target,
+        RemoveAccumulator with 1 as len, () as target
 }
 
 crate::impl_action_with_nonce! {

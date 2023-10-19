@@ -192,7 +192,7 @@ fn map_access() {
 fn double_map_access() {
     ext().execute_with(|| {
         let did = Did([3u8; 32]);
-        let controller = Controller(Did([4u8; 32]));
+        let controller = Controller(Did([4u8; 32]).into());
 
         DidControllers::<Test>::insert(did, controller, ());
 
@@ -223,7 +223,7 @@ fn double_map_access() {
             Ok(None::<()>)
         );
 
-        let non_existent_controller = Controller(Did([6u8; 32]));
+        let non_existent_controller = Controller(Did([6u8; 32]).into());
         assert_decoded_eq!(
             MetaStorageReader::<Test>::execute(&mut MockHandle::new(
                 input

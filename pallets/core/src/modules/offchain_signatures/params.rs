@@ -1,4 +1,9 @@
-use crate::{common::Limits, did::Did, offchain_signatures::schemes::*, util::IncId};
+use crate::{
+    common::Limits,
+    did::{AuthorizeAction, DidKey, DidMethodKey, DidOrDidMethodKey},
+    offchain_signatures::schemes::*,
+    util::IncId,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{ensure, DebugNoBound};
 use sp_runtime::DispatchResult;
@@ -15,9 +20,12 @@ use super::{
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct SignatureParamsOwner(pub Did);
+pub struct SignatureParamsOwner(pub DidOrDidMethodKey);
 
-crate::impl_wrapper!(SignatureParamsOwner(Did), for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
+crate::impl_wrapper!(SignatureParamsOwner(DidOrDidMethodKey));
+
+impl AuthorizeAction<(), DidKey> for SignatureParamsOwner {}
+impl AuthorizeAction<(), DidMethodKey> for SignatureParamsOwner {}
 
 pub type SignatureParamsStorageKey = (SignatureParamsOwner, IncId);
 pub type BBSPublicKeyWithParams<T> = (BBSPublicKey<T>, Option<BBSParameters<T>>);

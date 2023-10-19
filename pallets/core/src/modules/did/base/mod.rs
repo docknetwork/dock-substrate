@@ -7,13 +7,59 @@ use sp_std::{
 
 use super::*;
 
+pub mod did_method_key;
 pub mod offchain;
 pub mod onchain;
 pub mod signature;
 
+pub use did_method_key::*;
 pub use offchain::*;
 pub use onchain::*;
-pub use signature::DidSignature;
+pub use signature::*;
+
+/// Either Dock DID or `did:key`,
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub enum DidOrDidMethodKey {
+    Did(Did),
+    DidMethodKey(DidMethodKey),
+}
+
+impl From<Did> for DidOrDidMethodKey {
+    fn from(did: Did) -> Self {
+        Self::Did(did)
+    }
+}
+
+impl From<DidMethodKey> for DidOrDidMethodKey {
+    fn from(did: DidMethodKey) -> Self {
+        Self::DidMethodKey(did)
+    }
+}
+
+impl TryFrom<DidOrDidMethodKey> for Did {
+    type Error = DidMethodKey;
+
+    fn try_from(did_or_did_key: DidOrDidMethodKey) -> Result<Self, Self::Error> {
+        match did_or_did_key {
+            DidOrDidMethodKey::Did(did) => Ok(did),
+            DidOrDidMethodKey::DidMethodKey(did_key) => Err(did_key),
+        }
+    }
+}
+
+impl TryFrom<DidOrDidMethodKey> for DidMethodKey {
+    type Error = Did;
+
+    fn try_from(did_or_did_key: DidOrDidMethodKey) -> Result<Self, Self::Error> {
+        match did_or_did_key {
+            DidOrDidMethodKey::Did(did) => Err(did),
+            DidOrDidMethodKey::DidMethodKey(did_key) => Ok(did_key),
+        }
+    }
+}
 
 /// The type of the Dock DID.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -21,6 +67,21 @@ pub use signature::DidSignature;
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct Did(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub RawDid);
+
+impl<Target> AuthorizeAction<Target, DidKey> for Did {
+    fn ensure_can_perform_action<T, A>(&self, key: &DidKey, _: &A) -> Result<(), Error<T>>
+    where
+        T: crate::did::Config,
+        A: Action<Target = Target>,
+    {
+        ensure!(
+            key.can_authenticate_or_control(),
+            Error::<T>::InsufficientVerificationRelationship
+        );
+
+        Ok(())
+    }
+}
 
 impl Did {
     /// Size of the Dock DID in bytes

@@ -30,12 +30,9 @@ where
             let action_with_nonce =
                 WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
             let state_change = action_with_nonce.to_state_change().encode();
-            let sig = did_sig_on_bytes(&state_change, kp, *did, 1);
+            let sig = did_sig_on_bytes(&state_change, kp, *did, 1).into();
 
-            DidSignatureWithNonce {
-                sig,
-                nonce: next_nonce,
-            }
+            WithNonce::new_with_nonce(sig, next_nonce)
         })
         .collect()
 }

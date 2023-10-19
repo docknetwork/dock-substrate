@@ -1,17 +1,17 @@
 use crate::{
-    common::{self, CurveType, SigValue},
+    common::{self, signatures::ForSigType, CurveType},
     did,
-    did::{Did, DidSignature},
+    did::{Did, DidOrDidMethodKeySignature, SignedActionWithNonce},
     util::{Bytes, IncId},
 };
 pub use actions::*;
-use arith_utils::CheckedDivCeil;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
     dispatch::{DispatchResult, Weight},
-    ensure,
+    ensure, storage_alias,
 };
 use sp_std::{fmt::Debug, prelude::*};
+use utils::CheckedDivCeil;
 
 pub use pallet::*;
 pub use types::*;
@@ -150,60 +150,44 @@ pub mod pallet {
         pub fn add_params(
             origin: OriginFor<T>,
             params: AddAccumulatorParams<T>,
-            signature: DidSignature<AccumulatorOwner>,
+            signature: DidOrDidMethodKeySignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::add_params_,
-                params,
-                signature,
-            )
+            SignedActionWithNonce::new(params, signature).execute(Self::add_params_)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
         pub fn add_public_key(
             origin: OriginFor<T>,
             public_key: AddAccumulatorPublicKey<T>,
-            signature: DidSignature<AccumulatorOwner>,
+            signature: DidOrDidMethodKeySignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::add_public_key_,
-                public_key,
-                signature,
-            )
+            SignedActionWithNonce::new(public_key, signature).execute(Self::add_public_key_)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
         pub fn remove_params(
             origin: OriginFor<T>,
             remove: RemoveAccumulatorParams<T>,
-            signature: DidSignature<AccumulatorOwner>,
+            signature: DidOrDidMethodKeySignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::remove_params_,
-                remove,
-                signature,
-            )
+            SignedActionWithNonce::new(remove, signature).execute(Self::remove_params_)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
         pub fn remove_public_key(
             origin: OriginFor<T>,
             remove: RemoveAccumulatorPublicKey<T>,
-            signature: DidSignature<AccumulatorOwner>,
+            signature: DidOrDidMethodKeySignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::remove_public_key_,
-                remove,
-                signature,
-            )
+            SignedActionWithNonce::new(remove, signature).execute(Self::remove_public_key_)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -215,15 +199,11 @@ pub mod pallet {
         pub fn add_accumulator(
             origin: OriginFor<T>,
             add_accumulator: AddAccumulator<T>,
-            signature: DidSignature<AccumulatorOwner>,
+            signature: DidOrDidMethodKeySignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::add_accumulator_,
-                add_accumulator,
-                signature,
-            )
+            SignedActionWithNonce::new(add_accumulator, signature).execute(Self::add_accumulator_)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -235,30 +215,95 @@ pub mod pallet {
         pub fn update_accumulator(
             origin: OriginFor<T>,
             update: UpdateAccumulator<T>,
-            signature: DidSignature<AccumulatorOwner>,
+            signature: DidOrDidMethodKeySignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::update_accumulator_,
-                update,
-                signature,
-            )
+            SignedActionWithNonce::new(update, signature).execute(Self::update_accumulator_)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_accumulator(remove, signature))]
         pub fn remove_accumulator(
             origin: OriginFor<T>,
             remove: RemoveAccumulator<T>,
-            signature: DidSignature<AccumulatorOwner>,
+            signature: DidOrDidMethodKeySignature<AccumulatorOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::remove_accumulator_,
-                remove,
-                signature,
-            )
+            SignedActionWithNonce::new(remove, signature).execute(Self::remove_accumulator_)
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let mut reads_writes = 0;
+
+            let counters: Vec<_> = {
+                #[storage_alias]
+                pub type AccumulatorOwnerCounters<T: Config> = StorageMap<
+                    Pallet<T>,
+                    Blake2_128Concat,
+                    Did,
+                    StoredAccumulatorOwnerCounters,
+                    ValueQuery,
+                >;
+
+                AccumulatorOwnerCounters::<T>::drain()
+                    .map(|(did, counters): (Did, _)| (AccumulatorOwner(did.into()), counters))
+                    .collect()
+            };
+
+            reads_writes += counters.len() as u64;
+            for (did, counters) in counters {
+                AccumulatorOwnerCounters::<T>::insert(did, counters);
+            }
+
+            let params: Vec<_> = {
+                #[storage_alias]
+                pub type AccumulatorParams<T: Config> = StorageDoubleMap<
+                    Pallet<T>,
+                    Blake2_128Concat,
+                    Did,
+                    Identity,
+                    IncId,
+                    AccumulatorParameters<T>,
+                >;
+
+                AccumulatorParams::<T>::drain()
+                    .map(|(did, id, params): (Did, _, _)| {
+                        (AccumulatorOwner(did.into()), id, params)
+                    })
+                    .collect()
+            };
+
+            reads_writes += params.len() as u64;
+            for (did, id, params) in params {
+                AccumulatorParams::<T>::insert(did, id, params);
+            }
+
+            let keys: Vec<_> = {
+                #[storage_alias]
+                pub type AccumulatorKeys<T: Config> = StorageDoubleMap<
+                    Pallet<T>,
+                    Blake2_128Concat,
+                    Did,
+                    Identity,
+                    IncId,
+                    AccumulatorPublicKey<T>,
+                >;
+
+                AccumulatorKeys::<T>::drain()
+                    .map(|(did, id, key): (Did, _, _)| (AccumulatorOwner(did.into()), id, key))
+                    .collect()
+            };
+
+            reads_writes += keys.len() as u64;
+            for (did, id, params) in keys {
+                AccumulatorKeys::<T>::insert(did, id, params);
+            }
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }
@@ -266,100 +311,134 @@ pub mod pallet {
 impl<T: Config> SubstrateWeight<T> {
     fn add_params(
         add_params: &AddAccumulatorParams<T>,
-        DidSignature { sig, .. }: &DidSignature<AccumulatorOwner>,
+        sig: &DidOrDidMethodKeySignature<AccumulatorOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::add_params_sr25519,
-            SigValue::Ed25519(_) => Self::add_params_ed25519,
-            SigValue::Secp256k1(_) => Self::add_params_secp256k1,
-        }(
-            add_params.params.bytes.len() as u32,
-            add_params.params.label.as_ref().map_or(0, |v| v.len()) as u32,
-        ))
+        let bytes_len = add_params.params.bytes.len() as u32;
+        let label_len = add_params.params.label.as_ref().map_or(0, |v| v.len()) as u32;
+
+        sig.weight_for_sig_type::<T>(
+            || Self::add_params_sr25519(bytes_len, label_len),
+            || Self::add_params_ed25519(bytes_len, label_len),
+            || Self::add_params_secp256k1(bytes_len, label_len),
+        )
     }
 
     fn add_public(
         public_key: &AddAccumulatorPublicKey<T>,
-        DidSignature { sig, .. }: &DidSignature<AccumulatorOwner>,
+        sig: &DidOrDidMethodKeySignature<AccumulatorOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::add_public_sr25519,
-            SigValue::Ed25519(_) => Self::add_public_ed25519,
-            SigValue::Secp256k1(_) => Self::add_public_secp256k1,
-        }(public_key.public_key.bytes.len() as u32))
+        let bytes_len = public_key.public_key.bytes.len() as u32;
+
+        sig.weight_for_sig_type::<T>(
+            || Self::add_public_sr25519(bytes_len),
+            || Self::add_public_ed25519(bytes_len),
+            || Self::add_public_secp256k1(bytes_len),
+        )
     }
 
     fn remove_params(
         _: &RemoveAccumulatorParams<T>,
-        DidSignature { sig, .. }: &DidSignature<AccumulatorOwner>,
+        sig: &DidOrDidMethodKeySignature<AccumulatorOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_params_sr25519,
-            SigValue::Ed25519(_) => Self::remove_params_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_params_secp256k1,
-        }())
+        sig.weight_for_sig_type::<T>(
+            Self::remove_params_sr25519,
+            Self::remove_params_ed25519,
+            Self::remove_params_secp256k1,
+        )
     }
 
     fn remove_public(
         _: &RemoveAccumulatorPublicKey<T>,
-        DidSignature { sig, .. }: &DidSignature<AccumulatorOwner>,
+        sig: &DidOrDidMethodKeySignature<AccumulatorOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_public_sr25519,
-            SigValue::Ed25519(_) => Self::remove_public_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_public_secp256k1,
-        }())
+        sig.weight_for_sig_type::<T>(
+            Self::remove_public_sr25519,
+            Self::remove_public_ed25519,
+            Self::remove_public_secp256k1,
+        )
     }
 
     fn add_accumulator(
         acc: &AddAccumulator<T>,
-        DidSignature { sig, .. }: &DidSignature<AccumulatorOwner>,
+        sig: &DidOrDidMethodKeySignature<AccumulatorOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::add_accumulator_sr25519,
-            SigValue::Ed25519(_) => Self::add_accumulator_ed25519,
-            SigValue::Secp256k1(_) => Self::add_accumulator_secp256k1,
-        }(acc.accumulator.accumulated().len() as u32))
+        let len = acc.accumulator.accumulated().len() as u32;
+
+        sig.weight_for_sig_type::<T>(
+            || Self::add_accumulator_sr25519(len),
+            || Self::add_accumulator_ed25519(len),
+            || Self::add_accumulator_secp256k1(len),
+        )
     }
 
     fn remove_accumulator(
         _: &RemoveAccumulator<T>,
-        DidSignature { sig, .. }: &DidSignature<AccumulatorOwner>,
+        sig: &DidOrDidMethodKeySignature<AccumulatorOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_accumulator_sr25519,
-            SigValue::Ed25519(_) => Self::remove_accumulator_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_accumulator_secp256k1,
-        }())
+        sig.weight_for_sig_type::<T>(
+            Self::remove_accumulator_sr25519,
+            Self::remove_accumulator_ed25519,
+            Self::remove_accumulator_secp256k1,
+        )
     }
 
     fn update_accumulator(
         acc: &UpdateAccumulator<T>,
-        DidSignature { sig, .. }: &DidSignature<AccumulatorOwner>,
+        sig: &DidOrDidMethodKeySignature<AccumulatorOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::update_accumulator_sr25519,
-            SigValue::Ed25519(_) => Self::update_accumulator_ed25519,
-            SigValue::Secp256k1(_) => Self::update_accumulator_secp256k1,
-        })(
-            acc.new_accumulated.len() as u32,
-            acc.additions.as_ref().map_or(0, |v| v.len()) as u32,
-            acc.additions
-                .iter()
-                .flatten()
-                .map(|v| v.len() as u32)
-                .sum::<u32>()
-                .checked_div_ceil(acc.additions.as_ref().map_or(0, |v| v.len()) as u32)
-                .unwrap_or(0),
-            acc.removals.as_ref().map_or(0, |v| v.len()) as u32,
-            acc.removals
-                .iter()
-                .flatten()
-                .map(|v| v.len() as u32)
-                .sum::<u32>()
-                .checked_div_ceil(acc.removals.as_ref().map_or(0, |v| v.len()) as u32)
-                .unwrap_or(0),
-            acc.witness_update_info.as_ref().map_or(0, |v| v.len()) as u32,
+        let acc_len = acc.new_accumulated.len() as u32;
+        let add_len = acc.additions.as_ref().map_or(0, |v| v.len()) as u32;
+        let add_avg_len = acc
+            .additions
+            .iter()
+            .flatten()
+            .map(|v| v.len() as u32)
+            .sum::<u32>()
+            .checked_div_ceil(acc.additions.as_ref().map_or(0, |v| v.len()) as u32)
+            .unwrap_or(0);
+
+        let rem_len = acc.removals.as_ref().map_or(0, |v| v.len()) as u32;
+        let rem_avg_len = acc
+            .removals
+            .iter()
+            .flatten()
+            .map(|v| v.len() as u32)
+            .sum::<u32>()
+            .checked_div_ceil(acc.removals.as_ref().map_or(0, |v| v.len()) as u32)
+            .unwrap_or(0);
+        let wit_len = acc.witness_update_info.as_ref().map_or(0, |v| v.len()) as u32;
+
+        sig.weight_for_sig_type::<T>(
+            || {
+                Self::update_accumulator_sr25519(
+                    acc_len,
+                    add_len,
+                    add_avg_len,
+                    rem_len,
+                    rem_avg_len,
+                    wit_len,
+                )
+            },
+            || {
+                Self::update_accumulator_ed25519(
+                    acc_len,
+                    add_len,
+                    add_avg_len,
+                    rem_len,
+                    rem_avg_len,
+                    wit_len,
+                )
+            },
+            || {
+                Self::update_accumulator_secp256k1(
+                    acc_len,
+                    add_len,
+                    add_avg_len,
+                    rem_len,
+                    rem_avg_len,
+                    wit_len,
+                )
+            },
         )
     }
 }

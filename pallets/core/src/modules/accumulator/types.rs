@@ -3,6 +3,7 @@ use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use super::*;
 use crate::{
     common::{Limits, TypesAndLimits},
+    did::{AuthorizeAction, DidKey, DidMethodKey, DidOrDidMethodKey},
     util::BoundedBytes,
 };
 
@@ -28,9 +29,12 @@ crate::impl_wrapper!(AccumulatorId([u8; 32]), with tests as acc_tests);
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct AccumulatorOwner(pub Did);
+pub struct AccumulatorOwner(pub DidOrDidMethodKey);
 
-crate::impl_wrapper!(AccumulatorOwner(Did), for rand use Did(rand::random()), with tests as acc_owner_tests);
+crate::impl_wrapper!(AccumulatorOwner(DidOrDidMethodKey));
+
+impl AuthorizeAction<(), DidKey> for AccumulatorOwner {}
+impl AuthorizeAction<(), DidMethodKey> for AccumulatorOwner {}
 
 #[derive(
     scale_info_derive::TypeInfo,

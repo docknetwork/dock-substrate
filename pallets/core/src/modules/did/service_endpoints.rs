@@ -39,7 +39,7 @@ pub struct ServiceEndpoint<T: Limits> {
 #[scale_info(omit_prefix)]
 pub struct ServiceEndpointId<T: Limits>(pub BoundedBytes<T::MaxDidServiceEndpointIdSize>);
 
-impl_wrapper!(ServiceEndpointId<T: Limits>(BoundedBytes<T::MaxDidServiceEndpointIdSize>));
+impl_wrapper!(ServiceEndpointId<T> where T: Limits => (BoundedBytes<T::MaxDidServiceEndpointIdSize>));
 
 /// `DID`'s service endpoint origin.
 #[derive(
@@ -56,7 +56,7 @@ impl_wrapper!(ServiceEndpointId<T: Limits>(BoundedBytes<T::MaxDidServiceEndpoint
 #[scale_info(omit_prefix)]
 pub struct ServiceEndpointOrigin<T: Limits>(pub BoundedBytes<T::MaxDidServiceEndpointOriginSize>);
 
-impl_wrapper!(ServiceEndpointOrigin<T: Limits>(BoundedBytes<T::MaxDidServiceEndpointOriginSize>));
+impl_wrapper!(ServiceEndpointOrigin<T> where T: Limits => (BoundedBytes<T::MaxDidServiceEndpointOriginSize>));
 
 bitflags::bitflags! {
     /// Different service endpoint types specified in the DID spec here https://www.w3.org/TR/did-core/#services
@@ -90,7 +90,7 @@ impl<T: Config> Pallet<T> {
         ensure!(!id.is_empty(), Error::<T>::InvalidServiceEndpoint);
         ensure!(endpoint.is_valid(), Error::<T>::InvalidServiceEndpoint);
         ensure!(
-            Self::did_service_endpoints(did, &id).is_none(),
+            Self::did_service_endpoint(did, &id).is_none(),
             Error::<T>::ServiceEndpointAlreadyExists
         );
 
@@ -106,7 +106,7 @@ impl<T: Config> Pallet<T> {
     ) -> DispatchResult {
         ensure!(!id.is_empty(), Error::<T>::InvalidServiceEndpoint);
         ensure!(
-            Self::did_service_endpoints(did, &id).is_some(),
+            Self::did_service_endpoint(did, &id).is_some(),
             Error::<T>::ServiceEndpointDoesNotExist
         );
 
