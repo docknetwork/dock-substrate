@@ -30,7 +30,7 @@ impl<T: crate::did::Config> StorageMapRef<T, WithNonce<T, ()>> for DidMethodKey 
     type Storage = DidMethodKeys<T>;
 }
 
-impl<Target> AuthorizeAction<Target, Self> for DidMethodKey {}
+impl<Target> AuthorizeTarget<Target, Self> for DidMethodKey {}
 
 impl Index<RangeFull> for DidMethodKey {
     type Output = [u8];

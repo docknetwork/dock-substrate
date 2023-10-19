@@ -1,6 +1,6 @@
 use crate::{
     common::Limits,
-    did::{AuthorizeAction, DidKey, DidMethodKey, DidOrDidMethodKey},
+    did::{AuthorizeTarget, DidKey, DidMethodKey, DidOrDidMethodKey},
     offchain_signatures::schemes::*,
     util::IncId,
 };
@@ -24,8 +24,8 @@ pub struct SignatureParamsOwner(pub DidOrDidMethodKey);
 
 crate::impl_wrapper!(SignatureParamsOwner(DidOrDidMethodKey));
 
-impl AuthorizeAction<(), DidKey> for SignatureParamsOwner {}
-impl AuthorizeAction<(), DidMethodKey> for SignatureParamsOwner {}
+impl AuthorizeTarget<(), DidKey> for SignatureParamsOwner {}
+impl AuthorizeTarget<(), DidMethodKey> for SignatureParamsOwner {}
 
 pub type SignatureParamsStorageKey = (SignatureParamsOwner, IncId);
 pub type BBSPublicKeyWithParams<T> = (BBSPublicKey<T>, Option<BBSParameters<T>>);

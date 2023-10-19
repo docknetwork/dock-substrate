@@ -4,7 +4,7 @@ use crate::{
     common::{signatures::ForSigType, Limits, TypesAndLimits},
     did,
     did::{
-        AuthorizeAction, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
+        AuthorizeTarget, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
         SignedActionWithNonce,
     },
     util::BoundedBytes,
@@ -35,8 +35,8 @@ mod weights;
 #[scale_info(omit_prefix)]
 pub struct BlobOwner(pub DidOrDidMethodKey);
 
-impl AuthorizeAction<(), DidKey> for BlobOwner {}
-impl AuthorizeAction<(), DidMethodKey> for BlobOwner {}
+impl AuthorizeTarget<(), DidKey> for BlobOwner {}
+impl AuthorizeTarget<(), DidMethodKey> for BlobOwner {}
 
 crate::impl_wrapper!(BlobOwner(DidOrDidMethodKey));
 

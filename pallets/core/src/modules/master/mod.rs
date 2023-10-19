@@ -61,7 +61,7 @@
 use crate::util::btree_set;
 use crate::{
     common::{signatures::ForSigType, Limits, Types},
-    did::{self, Authorization, AuthorizeSigned, Did, DidSignature},
+    did::{self, Authorization, AuthorizeSignedAction, Did, DidSignature},
     util::WithNonce,
 };
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
@@ -343,7 +343,7 @@ pub mod pallet {
                 let action = WithNonce::new_with_nonce(new_payload, nonce);
                 let Authorization { signer, .. } = a
                     .data()
-                    .ensure_authorizes(&action)?
+                    .authorizes_signed_action(&action)?
                     .ok_or(Error::<T>::BadSig)?;
 
                 // Check if nonce is valid and increase it

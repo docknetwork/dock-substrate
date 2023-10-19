@@ -39,7 +39,6 @@
         state: latest
 
     - name: Copy basic nginx configuration
-      when: 
       become: yes
       ansible.builtin.copy:
         src: "{{ nginx_dir }}"

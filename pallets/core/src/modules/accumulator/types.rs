@@ -3,7 +3,7 @@ use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use super::*;
 use crate::{
     common::{Limits, TypesAndLimits},
-    did::{AuthorizeAction, DidKey, DidMethodKey, DidOrDidMethodKey},
+    did::{AuthorizeTarget, DidKey, DidMethodKey, DidOrDidMethodKey},
     util::BoundedBytes,
 };
 
@@ -32,8 +32,8 @@ pub struct AccumulatorOwner(pub DidOrDidMethodKey);
 
 crate::impl_wrapper!(AccumulatorOwner(DidOrDidMethodKey));
 
-impl AuthorizeAction<(), DidKey> for AccumulatorOwner {}
-impl AuthorizeAction<(), DidMethodKey> for AccumulatorOwner {}
+impl AuthorizeTarget<(), DidKey> for AccumulatorOwner {}
+impl AuthorizeTarget<(), DidMethodKey> for AccumulatorOwner {}
 
 #[derive(
     scale_info_derive::TypeInfo,

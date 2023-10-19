@@ -68,8 +68,8 @@ impl TryFrom<DidOrDidMethodKey> for DidMethodKey {
 #[scale_info(omit_prefix)]
 pub struct Did(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub RawDid);
 
-impl<Target> AuthorizeAction<Target, DidKey> for Did {
-    fn ensure_can_perform_action<T, A>(&self, key: &DidKey, _: &A) -> Result<(), Error<T>>
+impl<Target> AuthorizeTarget<Target, DidKey> for Did {
+    fn ensure_authorizes_target<T, A>(&self, key: &DidKey, _: &A) -> Result<(), Error<T>>
     where
         T: crate::did::Config,
         A: Action<Target = Target>,

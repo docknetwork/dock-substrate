@@ -34,6 +34,10 @@ scale-info = { version = "2.1.2", default-features = false, features = ["derive"
 getrandom = { version = "0.2", features = ["js"] }
 hex = { version = "0.4", default-features = false }
 
+[dependencies.utils]
+git = "https://github.com/docknetwork/dock-substrate-common.git"
+default-features = false
+
 [dependencies.pallet-babe]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
@@ -494,6 +498,7 @@ default = ["std"]
 std = [
     "pallet-babe/std",
     "balances/std",
+    "utils/std",
     "sp-consensus-vrf/std",
     "codec/std",
     "log/std",

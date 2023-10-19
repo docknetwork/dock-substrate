@@ -5,7 +5,7 @@
 use crate::{
     common::{signatures::ForSigType, Limits, TypesAndLimits},
     did::{
-        self, AuthorizeAction, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
+        self, AuthorizeTarget, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
         SignedActionWithNonce,
     },
     util::BoundedBytes,
@@ -37,8 +37,8 @@ pub type Iri<T> = BoundedBytes<<T as Limits>::MaxIriSize>;
 #[scale_info(omit_prefix)]
 pub struct Attester(pub DidOrDidMethodKey);
 
-impl AuthorizeAction<(), DidKey> for Attester {}
-impl AuthorizeAction<(), DidMethodKey> for Attester {}
+impl AuthorizeTarget<(), DidKey> for Attester {}
+impl AuthorizeTarget<(), DidMethodKey> for Attester {}
 
 crate::impl_wrapper!(Attester(DidOrDidMethodKey));
 

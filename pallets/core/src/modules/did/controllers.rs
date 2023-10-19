@@ -22,8 +22,8 @@ impl Controller {
     }
 }
 
-impl AuthorizeAction<Did, DidKey> for Controller {
-    fn ensure_can_perform_action<T, A>(&self, key: &DidKey, action: &A) -> Result<(), Error<T>>
+impl AuthorizeTarget<Did, DidKey> for Controller {
+    fn ensure_authorizes_target<T, A>(&self, key: &DidKey, action: &A) -> Result<(), Error<T>>
     where
         T: crate::did::Config,
         A: Action<Target = Did>,
@@ -38,8 +38,8 @@ impl AuthorizeAction<Did, DidKey> for Controller {
     }
 }
 
-impl AuthorizeAction<Did, DidMethodKey> for Controller {
-    fn ensure_can_perform_action<T, A>(&self, _: &DidMethodKey, action: &A) -> Result<(), Error<T>>
+impl AuthorizeTarget<Did, DidMethodKey> for Controller {
+    fn ensure_authorizes_target<T, A>(&self, _: &DidMethodKey, action: &A) -> Result<(), Error<T>>
     where
         T: crate::did::Config,
         A: Action<Target = Did>,

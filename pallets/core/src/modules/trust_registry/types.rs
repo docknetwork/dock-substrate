@@ -1,11 +1,11 @@
 use super::{Config, Error};
 #[cfg(feature = "serde")]
-use crate::util::{batch_update::*, btree_map, btree_set, hex};
+use crate::util::{btree_map, btree_set, hex};
 use crate::{
     common::Limits,
-    did::{AuthorizeAction, DidKey, DidMethodKey, DidOrDidMethodKey},
+    did::{AuthorizeTarget, DidKey, DidMethodKey, DidOrDidMethodKey},
     impl_wrapper,
-    util::BoundedKeyValue,
+    util::{batch_update::*, BoundedKeyValue},
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -26,10 +26,10 @@ pub struct Convener(pub DidOrDidMethodKey);
 
 impl_wrapper!(Convener(DidOrDidMethodKey));
 
-impl AuthorizeAction<(), DidKey> for Convener {}
-impl AuthorizeAction<TrustRegistryId, DidKey> for Convener {}
-impl AuthorizeAction<(), DidMethodKey> for Convener {}
-impl AuthorizeAction<TrustRegistryId, DidMethodKey> for Convener {}
+impl AuthorizeTarget<(), DidKey> for Convener {}
+impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
+impl AuthorizeTarget<(), DidMethodKey> for Convener {}
+impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 
 /// Maybe an `Issuer` or `Verifier` but definitely not a `Convener`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -69,8 +69,8 @@ pub struct Issuer(pub DidOrDidMethodKey);
 
 impl_wrapper!(Issuer(DidOrDidMethodKey));
 
-impl AuthorizeAction<TrustRegistryId, DidKey> for Issuer {}
-impl AuthorizeAction<TrustRegistryId, DidMethodKey> for Issuer {}
+impl AuthorizeTarget<TrustRegistryId, DidKey> for Issuer {}
+impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Issuer {}
 
 /// Trust registry `Verifier`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -92,8 +92,8 @@ pub struct ConvenerOrIssuerOrVerifier(pub DidOrDidMethodKey);
 
 impl_wrapper!(ConvenerOrIssuerOrVerifier(DidOrDidMethodKey));
 
-impl AuthorizeAction<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
-impl AuthorizeAction<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
+impl AuthorizeTarget<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
+impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
 
 /// Trust registry `Convener`/`Issuer`/`Verifier`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -237,6 +237,10 @@ impl<T: Limits> DelegatedUpdate<T> {
             SetOrModify::Set(delegated) => delegated.len(),
             SetOrModify::Modify(update) => update.len() as u32,
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
     }
 }
 

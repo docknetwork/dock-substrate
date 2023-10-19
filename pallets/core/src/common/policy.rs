@@ -9,7 +9,7 @@ use crate::util::btree_set;
 use crate::{
     did,
     did::{
-        AuthorizeAction, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
+        AuthorizeTarget, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
         Signed, SignedActionWithNonce,
     },
     util::{Action, ActionWithNonce, NonceError, UpdateWithNonceError, WithNonce},
@@ -144,8 +144,8 @@ impl<T: Limits> Policy<T> {
         V: HasPolicy<T>,
         F: FnOnce(S, &mut Option<V>) -> Result<R, E>,
         WithNonce<T, S>: ActionWithNonce<T> + ToStateChange<T>,
-        Did: AuthorizeAction<<WithNonce<T, S> as Action>::Target, DidKey>,
-        DidMethodKey: AuthorizeAction<<WithNonce<T, S> as Action>::Target, DidMethodKey>,
+        Did: AuthorizeTarget<<WithNonce<T, S> as Action>::Target, DidKey>,
+        DidMethodKey: AuthorizeTarget<<WithNonce<T, S> as Action>::Target, DidMethodKey>,
         E: From<PolicyExecutionError>
             + From<did::Error<T>>
             + From<NonceError>
@@ -178,8 +178,8 @@ fn rec_update<T: did::Config, A, R, E, D>(
 where
     E: From<UpdateWithNonceError> + From<NonceError> + From<did::Error<T>>,
     WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
-    Did: AuthorizeAction<<WithNonce<T, A> as Action>::Target, DidKey>,
-    DidMethodKey: AuthorizeAction<<WithNonce<T, A> as Action>::Target, DidMethodKey>,
+    Did: AuthorizeTarget<<WithNonce<T, A> as Action>::Target, DidKey>,
+    DidMethodKey: AuthorizeTarget<<WithNonce<T, A> as Action>::Target, DidMethodKey>,
 {
     if let Some(sig_with_nonce) = proof.next() {
         let action_with_nonce = WithNonce::new_with_nonce(action, sig_with_nonce.nonce);
@@ -202,8 +202,8 @@ pub struct PolicyExecutor(pub DidOrDidMethodKey);
 
 crate::impl_wrapper!(PolicyExecutor(DidOrDidMethodKey));
 
-impl<T> AuthorizeAction<T, DidKey> for PolicyExecutor {}
-impl<T> AuthorizeAction<T, DidMethodKey> for PolicyExecutor {}
+impl<T> AuthorizeTarget<T, DidKey> for PolicyExecutor {}
+impl<T> AuthorizeTarget<T, DidMethodKey> for PolicyExecutor {}
 
 /// `DID`s signature along with the nonce.
 pub type DidSignatureWithNonce<T> = WithNonce<T, DidOrDidMethodKeySignature<PolicyExecutor>>;
