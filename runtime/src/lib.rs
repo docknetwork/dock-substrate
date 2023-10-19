@@ -5,7 +5,7 @@
 // `construct_runtime!` does a lot of recursion and requires us to increase the limit to 256.
 #![recursion_limit = "256"]
 
-/*#[cfg(not(feature = "std"))]
+#[cfg(not(feature = "std"))]
 mod wasm_handlers {
     #[panic_handler]
     #[no_mangle]
@@ -20,7 +20,7 @@ mod wasm_handlers {
         log::error!("Runtime memory exhausted. Aborting");
         ::core::arch::wasm32::unreachable();
     }
-}*/
+}
 
 // Make the WASM_BINARY available, but hide WASM_BINARY_BLOATY.
 #[cfg(feature = "std")]
