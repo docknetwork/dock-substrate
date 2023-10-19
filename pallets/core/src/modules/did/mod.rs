@@ -363,10 +363,14 @@ pub mod pallet {
             Self::new_did_method_key_(did_key).map_err(Into::into)
         }
 
-        /// Adds `StateChange` to the metadata.
+        /// Adds `StateChange` and `AggregatedDidDetailsResponse` to the metadata.
         #[doc(hidden)]
         #[pallet::weight(<T as frame_system::Config>::DbWeight::get().writes(10))]
-        pub fn noop(_o: OriginFor<T>, _s: common::StateChange<'static, T>) -> DispatchResult {
+        pub fn noop(
+            _o: OriginFor<T>,
+            _s: common::StateChange<'static, T>,
+            _d: AggregatedDidDetailsResponse<T>,
+        ) -> DispatchResult {
             Err(DispatchError::BadOrigin)
         }
     }

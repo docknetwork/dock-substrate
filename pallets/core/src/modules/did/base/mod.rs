@@ -61,7 +61,7 @@ impl TryFrom<DidOrDidMethodKey> for DidMethodKey {
     }
 }
 
-/// The type of the Dock DID.
+/// The type of the Dock `DID`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -102,7 +102,7 @@ impl Index<RangeFull> for Did {
 }
 
 /// Contains underlying DID describing its storage type.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
+#[derive(Encode, Decode, DebugNoBound, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
@@ -118,7 +118,7 @@ pub enum StoredDidDetails<T: TypesAndLimits> {
     OnChain(StoredOnChainDidDetails<T>),
 }
 
-impl<T: Config> StoredDidDetails<T> {
+impl<T: TypesAndLimits> StoredDidDetails<T> {
     pub fn is_onchain(&self) -> bool {
         matches!(self, StoredDidDetails::OnChain(_))
     }

@@ -26,7 +26,6 @@ crate::impl_wrapper!(AccumulatorId([u8; 32]), with tests as acc_tests);
 /// Accumulator owner - DID with the ability to control given accumulator keys, params, etc.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorOwner(pub DidOrDidMethodKey);
@@ -47,6 +46,7 @@ impl AuthorizeAction<(), DidMethodKey> for AccumulatorOwner {}
     MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -71,6 +71,7 @@ pub struct AccumulatorParameters<T: Limits> {
     MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -88,6 +89,7 @@ pub struct AccumulatorPublicKey<T: Limits> {
     Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -110,6 +112,7 @@ pub enum Accumulator<T: Limits> {
     MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -132,6 +135,7 @@ pub struct AccumulatorCommon<T: Limits> {
     MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -185,6 +189,7 @@ impl<T: Limits> Accumulator<T> {
     scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug, Default, MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(omit_prefix)]
 pub struct StoredAccumulatorOwnerCounters {
     pub params_counter: IncId,
@@ -195,6 +200,7 @@ pub struct StoredAccumulatorOwnerCounters {
     scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))

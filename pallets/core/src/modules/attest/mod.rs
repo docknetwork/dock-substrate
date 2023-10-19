@@ -53,6 +53,7 @@ crate::impl_wrapper!(Attester(DidOrDidMethodKey));
     MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -70,6 +71,7 @@ pub struct Attestation<T: Limits> {
     Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, DebugNoBound, Default,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))

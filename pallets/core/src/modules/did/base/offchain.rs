@@ -5,7 +5,7 @@ use crate::{common::TypesAndLimits, deposit_indexed_event};
 /// Off-chain DID has no need of nonce as the signature is made on the whole transaction by
 /// the caller account and Substrate takes care of replay protection. Thus it stores the data
 /// about off-chain DID Doc (hash, URI or any other reference) and the account that owns it.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
+#[derive(Encode, Decode, DebugNoBound, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
@@ -20,13 +20,13 @@ pub struct OffChainDidDetails<T: TypesAndLimits> {
     pub doc_ref: OffChainDidDocRef<T>,
 }
 
-impl<T: Config> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
+impl<T: TypesAndLimits> From<OffChainDidDetails<T>> for StoredDidDetails<T> {
     fn from(details: OffChainDidDetails<T>) -> Self {
         Self::OffChain(details)
     }
 }
 
-impl<T: Config> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
+impl<T: TypesAndLimits> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
     type Error = Error<T>;
 
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
@@ -36,7 +36,7 @@ impl<T: Config> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
     }
 }
 
-impl<T: Config> OffChainDidDetails<T> {
+impl<T: TypesAndLimits> OffChainDidDetails<T> {
     /// Constructs new off-chain DID details using supplied params.
     pub fn new(account_id: T::AccountId, doc_ref: OffChainDidDocRef<T>) -> Self {
         Self {
@@ -71,7 +71,7 @@ pub enum OffChainDidDocRef<T: Limits> {
     Custom(BoundedBytes<T::MaxDidDocRefSize>),
 }
 
-impl<T: Config> OffChainDidDocRef<T> {
+impl<T: Limits> OffChainDidDocRef<T> {
     pub fn len(&self) -> u32 {
         match self {
             OffChainDidDocRef::CID(v) => v.len() as u32,

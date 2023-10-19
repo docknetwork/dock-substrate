@@ -9,6 +9,7 @@ use crate::common::Types;
 /// Initial nonce will be equal to the current block number provided by the system.
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, Clone, Eq, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(

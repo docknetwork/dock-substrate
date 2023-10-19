@@ -49,6 +49,7 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 /// When a new blob is being registered, the following object is sent.
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, DebugNoBound, EqNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -63,6 +64,7 @@ pub struct Blob<T: Limits> {
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))

@@ -6,7 +6,7 @@ use crate::{
 };
 
 /// Aggregated details for the given DID.
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, DebugNoBound, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
@@ -14,6 +14,7 @@ use crate::{
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
 #[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct AggregatedDidDetailsResponse<T: TypesAndLimits> {
     did: Did,
@@ -39,13 +40,14 @@ pub struct DidKeyWithId {
 }
 
 /// `ServiceEndpoint` with its identifier.
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, Debug, Clone, PartialEq, Eq)]
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
+#[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct ServiceEndpointWithId<T: Limits> {
     id: ServiceEndpointId<T>,

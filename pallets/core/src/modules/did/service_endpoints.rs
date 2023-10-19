@@ -72,7 +72,7 @@ bitflags::bitflags! {
 impl_bits_conversion! { ServiceEndpointType from u16 }
 impl_wrapper_type_info! { ServiceEndpointType(u16) }
 
-impl<T: Config> ServiceEndpoint<T> {
+impl<T: Limits> ServiceEndpoint<T> {
     pub fn is_valid(&self) -> bool {
         !self.types.is_empty()
             && !self.origins.is_empty()

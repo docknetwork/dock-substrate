@@ -19,6 +19,7 @@ macro_rules! def_signature_scheme_key_and_params {
         $(#[$key_meta])*
         #[derive(scale_info_derive::TypeInfo, Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
         #[cfg_attr(
             feature = "serde",
             serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -116,6 +117,7 @@ macro_rules! def_signature_scheme_key_and_params {
         $(#[$params_meta])*
         #[derive(scale_info_derive::TypeInfo, Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen)]
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
         #[cfg_attr(
             feature = "serde",
             serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))

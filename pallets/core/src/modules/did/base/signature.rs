@@ -42,6 +42,7 @@ pub trait AuthorizeSigned<Key, Target>: Signed {
     ) -> Result<Option<Authorization<Self::Signer, Key>>, Error<T>>;
 }
 
+/// `DID`'s signature along with the used `DID`s key reference.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]

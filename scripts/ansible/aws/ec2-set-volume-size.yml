@@ -3,6 +3,7 @@
   gather_facts: False
   vars:
     instance_name: "{{ name }} (created by ansible)"
+    volume_type_default: "{{ volume_type | default('io1') }}"
   tasks:
 
   - name: Get EC2 instance state
@@ -23,6 +24,8 @@
       instance: "{{ instances['instances'][0].instance_id }}"
       id: "{{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}"
       volume_size: "{{ volume_size }}"
+      volume_type: "{{ volume_type_default }}"
+      iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
       modify_volume: true
 
   - name: Add a host
