@@ -1,4 +1,7 @@
-use crate::did::*;
+use crate::{
+    did::*,
+    util::{StorageMapRef, WithNonce},
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Index, RangeFull};
 use frame_support::ensure;
@@ -19,6 +22,12 @@ impl From<sp_core::ed25519::Public> for DidMethodKey {
     fn from(key: sp_core::ed25519::Public) -> Self {
         Self::Ed25519(key.0.into())
     }
+}
+
+impl<T: crate::did::Config> StorageMapRef<T, WithNonce<T, ()>> for DidMethodKey {
+    type Key = Self;
+    type Value = WithNonce<T, ()>;
+    type Storage = DidMethodKeys<T>;
 }
 
 impl<Target> AuthorizeAction<Target, Self> for DidMethodKey {}

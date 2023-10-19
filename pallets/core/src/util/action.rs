@@ -2,10 +2,7 @@ use codec::FullCodec;
 use frame_support::{ensure, StorageMap};
 use sp_runtime::DispatchError;
 
-use crate::{
-    common::Types,
-    did::{Did, DidMethodKey, DidMethodKeys, Dids, StoredDidDetails, StoredOnChainDidDetails},
-};
+use crate::common::Types;
 
 use super::{NonceError, WithNonce};
 
@@ -96,16 +93,4 @@ pub trait StorageMapRef<T: Types, V>: Sized {
     type Key: From<Self> + FullCodec;
     type Value: From<V> + TryInto<V> + FullCodec;
     type Storage: StorageMap<Self::Key, Self::Value>;
-}
-
-impl<T: crate::did::Config> StorageMapRef<T, StoredOnChainDidDetails<T>> for Did {
-    type Key = Self;
-    type Value = StoredDidDetails<T>;
-    type Storage = Dids<T>;
-}
-
-impl<T: crate::did::Config> StorageMapRef<T, WithNonce<T, ()>> for DidMethodKey {
-    type Key = Self;
-    type Value = WithNonce<T, ()>;
-    type Storage = DidMethodKeys<T>;
 }
