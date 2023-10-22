@@ -156,8 +156,8 @@ pub mod pallet {
             WrappedActionWithNonce::new(params.nonce(), signature.signer(), params)
                 .signed(signature)
                 .execute(
-                    |WrappedActionWithNonce { action, .. }, accumulator, accumulator_owner| {
-                        Self::add_params_(action, accumulator, accumulator_owner)
+                    |WrappedActionWithNonce { action, .. }, counters, accumulator_owner| {
+                        Self::add_params_(action, counters, accumulator_owner)
                     },
                 )
         }
@@ -173,8 +173,8 @@ pub mod pallet {
             WrappedActionWithNonce::new(public_key.nonce(), signature.signer(), public_key)
                 .signed(signature)
                 .execute(
-                    |WrappedActionWithNonce { action, .. }, accumulator, accumulator_owner| {
-                        Self::add_public_key_(action, accumulator, accumulator_owner)
+                    |WrappedActionWithNonce { action, .. }, counters, accumulator_owner| {
+                        Self::add_public_key_(action, counters, accumulator_owner)
                     },
                 )
         }
@@ -187,13 +187,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(remove.nonce(), signature.signer(), remove)
+            remove
                 .signed(signature)
-                .execute(
-                    |WrappedActionWithNonce { action, .. }, accumulator, accumulator_owner| {
-                        Self::remove_params_(action, accumulator, accumulator_owner)
-                    },
-                )
+                .execute_readonly(Self::remove_params_)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
@@ -204,13 +200,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(remove.nonce(), signature.signer(), remove)
+            remove
                 .signed(signature)
-                .execute(
-                    |WrappedActionWithNonce { action, .. }, accumulator, accumulator_owner| {
-                        Self::remove_public_key_(action, accumulator, accumulator_owner)
-                    },
-                )
+                .execute_readonly(Self::remove_public_key_)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it

@@ -59,6 +59,22 @@ impl<T: Config> StorageRef<T> for DidOrDidMethodKey {
             Self::DidMethodKey(did_method_key) => did_method_key.try_mutate_associated(f),
         }
     }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<Self::Value>) -> R,
+    {
+        match self {
+            Self::Did(did) => did.view_associated(|details_opt| {
+                f(details_opt.and_then(|v| v.try_into().ok()).map(
+                    |details: StoredOnChainDidDetails<T>| {
+                        WithNonce::<T, _>::new_with_nonce((), details.nonce)
+                    },
+                ))
+            }),
+            Self::DidMethodKey(did_method_key) => did_method_key.view_associated(f),
+        }
+    }
 }
 
 impl From<Did> for DidOrDidMethodKey {

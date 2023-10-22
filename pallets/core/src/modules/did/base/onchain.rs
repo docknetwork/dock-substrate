@@ -43,13 +43,20 @@ impl<T: Config> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
 }
 
 impl<T: Config> StorageRef<T> for Did {
-    type Value = StoredOnChainDidDetails<T>;
+    type Value = StoredDidDetails<T>;
 
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
-        F: FnOnce(&mut Option<StoredOnChainDidDetails<T>>) -> Result<R, E>,
+        F: FnOnce(&mut Option<StoredDidDetails<T>>) -> Result<R, E>,
     {
         Dids::<T>::try_mutate_exists(self, |details| details.update_with(f))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<StoredDidDetails<T>>) -> R,
+    {
+        f(Dids::<T>::get(self))
     }
 }
 

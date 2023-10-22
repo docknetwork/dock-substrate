@@ -104,14 +104,14 @@ pub struct UpdateDelegatedIssuers<T: TypesAndLimits> {
 
 impl_action_with_nonce!(
     for ():
-        InitTrustRegistry with 1 as len, () as target
+        InitTrustRegistry with 1 as len, () as target,
+        UpdateDelegatedIssuers with delegated.len() as len, () as target
 );
 
 impl_action_with_nonce!(
     for TrustRegistryId:
         AddSchemaMetadata with schemas.len() as len, registry_id as target,
         UpdateSchemaMetadata with schemas.len() as len, registry_id as target,
-        UpdateDelegatedIssuers with delegated.len() as len, registry_id as target,
         SuspendIssuers with issuers.len() as len, registry_id as target,
         UnsuspendIssuers with issuers.len() as len, registry_id as target
 );

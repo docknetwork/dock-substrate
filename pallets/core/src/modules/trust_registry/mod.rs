@@ -186,7 +186,7 @@ pub mod pallet {
 
             add_schema_metadata
                 .signed(sig)
-                .execute(Self::add_schema_metadata_)
+                .execute_readonly(Self::add_schema_metadata_)
         }
 
         /// Updates the schema metadata entry (entries) with the supplied identifier(s).
@@ -203,7 +203,7 @@ pub mod pallet {
 
             let (ver, iss, schem) = update_schema_metadata
                 .signed(sig.clone())
-                .execute(Self::update_schema_metadata_)?;
+                .execute_readonly(Self::update_schema_metadata_)?;
 
             let actual_weight = sig.weight_for_sig_type::<T>(
                 || SubstrateWeight::<T>::update_schema_metadata_sr25519(iss, ver, schem),
@@ -228,7 +228,7 @@ pub mod pallet {
 
             update_delegated_issuers
                 .signed(sig)
-                .execute(Self::update_delegated_issuers_)
+                .execute_readonly(Self::update_delegated_issuers_)
         }
 
         /// Suspends given `Issuer`s.
@@ -240,7 +240,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            suspend_issuers.signed(sig).execute(Self::suspend_issuers_)
+            suspend_issuers
+                .signed(sig)
+                .execute_readonly(Self::suspend_issuers_)
         }
 
         /// Unsuspends given `Issuer`s.
@@ -254,7 +256,7 @@ pub mod pallet {
 
             unsuspend_issuers
                 .signed(sig)
-                .execute(Self::unsuspend_issuers_)
+                .execute_readonly(Self::unsuspend_issuers_)
         }
     }
 }

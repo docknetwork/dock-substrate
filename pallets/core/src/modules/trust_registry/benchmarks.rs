@@ -75,7 +75,7 @@ crate::bench_with_all_pairs! {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
-        }).execute::<T, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        }).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let schemas: BTreeMap<_, _> = (0..s)
             .map(|idx|
@@ -133,7 +133,7 @@ crate::bench_with_all_pairs! {
             nonce: 1u32.into(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let mut schemas: BTreeMap<_, _> = (0..s)
             .map(|idx|
@@ -233,7 +233,7 @@ crate::bench_with_all_pairs! {
             nonce: 1u32.into(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let delegated = DelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).try_collect().unwrap());
 
@@ -281,7 +281,7 @@ crate::bench_with_all_pairs! {
             nonce: 1u32.into(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
 
@@ -326,7 +326,7 @@ crate::bench_with_all_pairs! {
             nonce: 1u32.into(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
 

@@ -23,9 +23,11 @@ pub trait Action: Sized {
     }
 
     /// Executes an action providing a mutable reference to the option containing a value associated with the target.
-    fn execute<T: Types, F, R, E>(self, f: F) -> Result<R, E>
+    fn execute<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
-        F: FnOnce(Self, &mut <Self::Target as StorageRef<T>>::Value) -> Result<R, E>,
+        F: FnOnce(Self, &mut S) -> Result<R, E>,
+        <Self::Target as StorageRef<T>>::Value: TryInto<S>,
+        S: Into<<Self::Target as StorageRef<T>>::Value>,
         E: From<ActionExecutionError> + From<NonceError>,
         Self::Target: StorageRef<T>,
     {
@@ -42,10 +44,33 @@ pub trait Action: Sized {
         })
     }
 
-    /// Executes an action providing a mutable reference to the value associated with the target.
-    fn execute_removable<T: Types, F, R, E>(self, f: F) -> Result<R, E>
+    /// Executes an action providing a reference to the option containing a value associated with the target.
+    fn execute_readonly<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
-        F: FnOnce(Self, &mut Option<<Self::Target as StorageRef<T>>::Value>) -> Result<R, E>,
+        F: FnOnce(Self, S) -> Result<R, E>,
+        <Self::Target as StorageRef<T>>::Value: TryInto<S>,
+        S: Into<<Self::Target as StorageRef<T>>::Value>,
+        E: From<ActionExecutionError> + From<NonceError>,
+        Self::Target: StorageRef<T>,
+    {
+        ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
+
+        self.target().view_associated(|data_opt| {
+            let data = data_opt
+                .ok_or(ActionExecutionError::NoEntity)?
+                .try_into()
+                .map_err(|_| ActionExecutionError::ConversionError)?;
+
+            f(self, data)
+        })
+    }
+
+    /// Executes an action providing a mutable reference to the value associated with the target.
+    fn execute_removable<T, S, F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
+        <Self::Target as StorageRef<T>>::Value: TryInto<S>,
+        S: Into<<Self::Target as StorageRef<T>>::Value>,
         E: From<ActionExecutionError> + From<NonceError>,
         Self::Target: StorageRef<T>,
     {
@@ -74,7 +99,9 @@ pub trait ActionWithNonce<T: Types>: Action {
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
         E: From<ActionExecutionError> + From<NonceError>,
-        Self::Target: StorageRef<T, Value = WithNonce<T, S>>,
+        Self::Target: StorageRef<T>,
+        <Self::Target as StorageRef<T>>::Value: TryInto<WithNonce<T, S>>,
+        WithNonce<T, S>: Into<<Self::Target as StorageRef<T>>::Value>,
     {
         ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
 
@@ -83,6 +110,10 @@ pub trait ActionWithNonce<T: Types>: Action {
 
             details_opt
                 .update_with(|opt| {
+                    if opt.is_none() {
+                        return Some(Err(ActionExecutionError::ConversionError.into()));
+                    }
+
                     WithNonce::try_update_opt_with(opt, self.nonce(), |data_opt| f(self, data_opt))
                 })
                 .ok_or(ActionExecutionError::ConversionError)?
@@ -97,7 +128,9 @@ pub trait ActionWithNonce<T: Types>: Action {
         E: From<ActionExecutionError>,
         WithNonce<T, S>: TryFrom<<Self::Target as StorageRef<T>>::Value>
             + Into<<Self::Target as StorageRef<T>>::Value>,
-        Self::Target: StorageRef<T, Value = WithNonce<T, S>>,
+        Self::Target: StorageRef<T>,
+        <Self::Target as StorageRef<T>>::Value: TryInto<WithNonce<T, S>>,
+        WithNonce<T, S>: Into<<Self::Target as StorageRef<T>>::Value>,
     {
         ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
 
@@ -106,6 +139,10 @@ pub trait ActionWithNonce<T: Types>: Action {
 
             details_opt
                 .update_with(|opt| {
+                    if opt.is_none() {
+                        return Some(Err(ActionExecutionError::ConversionError.into()));
+                    }
+
                     WithNonce::try_update_opt_without_increasing_nonce_with(opt, |data_opt| {
                         f(self, data_opt)
                     })
@@ -164,6 +201,10 @@ pub trait StorageRef<T>: Sized {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<Self::Value>) -> Result<R, E>;
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<Self::Value>) -> R;
 }
 
 impl<T> StorageRef<T> for () {
@@ -174,5 +215,12 @@ impl<T> StorageRef<T> for () {
         F: FnOnce(&mut Option<()>) -> Result<R, E>,
     {
         f(&mut Some(()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<()>) -> R,
+    {
+        f(Some(()))
     }
 }

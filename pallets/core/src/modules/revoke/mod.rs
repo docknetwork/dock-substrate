@@ -50,6 +50,13 @@ impl<T: Config> StorageRef<T> for RevocationRegistryId {
     {
         Registries::<T>::try_mutate_exists(self, f)
     }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<RevocationRegistry<T>>) -> R,
+    {
+        f(Registries::<T>::get(self))
+    }
 }
 
 crate::impl_wrapper!(RevocationRegistryId([u8; 32]));
@@ -221,7 +228,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            revoke.execute(|action, registry| registry.execute(Self::revoke_, action, proof))
+            revoke.execute_readonly(|action, registry: RevocationRegistry<T>| {
+                registry.execute_readonly(Self::revoke_, action, proof)
+            })
         }
 
         /// Delete some revocations according to the `unrevoke` command.
@@ -243,7 +252,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            unrevoke.execute(|action, registry| registry.execute(Self::unrevoke_, action, proof))
+            unrevoke.execute_readonly(|action, registry: RevocationRegistry<T>| {
+                registry.execute_readonly(Self::unrevoke_, action, proof)
+            })
         }
 
         /// Delete an entire registry. Deletes all revocations within the registry, as well as

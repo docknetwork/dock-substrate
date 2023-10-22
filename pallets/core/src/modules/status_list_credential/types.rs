@@ -139,4 +139,11 @@ impl<T: Config> StorageRef<T> for StatusListCredentialId {
     {
         StatusListCredentials::<T>::try_mutate_exists(self, f)
     }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<StatusListCredentialWithPolicy<T>>) -> R,
+    {
+        f(StatusListCredentials::<T>::get(self))
+    }
 }

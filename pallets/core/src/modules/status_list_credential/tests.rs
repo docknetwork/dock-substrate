@@ -112,9 +112,11 @@ fn ensure_auth() {
             };
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = command.clone().execute(|action, reg| {
-                reg.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
-            });
+            let res = command.clone().execute(
+                |action, cred: &mut StatusListCredentialWithPolicy<Test>| {
+                    cred.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
+                },
+            );
             assert_eq!(res.is_ok(), expect_success);
             if expect_success {
                 check_nonce_increase(old_nonces, signers);
@@ -127,9 +129,11 @@ fn ensure_auth() {
 
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = command.clone().execute(|action, reg| {
-                reg.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
-            });
+            let res = command.clone().execute(
+                |action, cred: &mut StatusListCredentialWithPolicy<Test>| {
+                    cred.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
+                },
+            );
             assert_eq!(res.is_ok(), expect_success);
 
             if expect_success {

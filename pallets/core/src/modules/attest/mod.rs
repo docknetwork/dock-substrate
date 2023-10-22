@@ -73,6 +73,13 @@ impl<T: Config> StorageRef<T> for Attester {
     {
         Attestations::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
     }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<Attestation<T>>) -> R,
+    {
+        f(Some(Attestations::<T>::get(self)))
+    }
 }
 
 #[derive(

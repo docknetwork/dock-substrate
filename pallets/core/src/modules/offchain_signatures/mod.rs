@@ -162,11 +162,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(remove.nonce(), signature.signer(), remove)
+            remove
                 .signed(signature)
-                .execute(|WrappedActionWithNonce { action, .. }, counter, actor| {
-                    Self::remove_params_(action, counter, actor)
-                })
+                .execute_readonly(Self::remove_params_)
         }
 
         /// Remove existing offchain signature public key. Only the DID controller can remove key and it should use the nonce from the DID module.

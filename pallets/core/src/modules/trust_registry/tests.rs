@@ -141,7 +141,7 @@ crate::did_or_did_method_key! {
             };
             let alice = 1u64;
 
-            WrappedActionWithNonce::<Test, _, _>::new(2, Convener(convener.into()), init_trust_registry.clone()).execute::<Test, _, _, _>(|action, set| Mod::init_trust_registry_(action.action, set, Convener(convener.into()))).unwrap();
+            WrappedActionWithNonce::<Test, _, _>::new(2, Convener(convener.into()), init_trust_registry.clone()).execute::<Test, _, _, _, _>(|action, set| Mod::init_trust_registry_(action.action, set, Convener(convener.into()))).unwrap();
 
             let schemas: BTreeMap<_, _> = [(
                 TrustRegistrySchemaId(rand::random()),
@@ -183,7 +183,7 @@ crate::did_or_did_method_key! {
                 nonce: 3,
             };
 
-            add_schema_metadata.execute(|action, reg| Mod::add_schema_metadata_(action, reg, Convener(convener.into()))).unwrap();
+            add_schema_metadata.execute_readonly(|action, reg| Mod::add_schema_metadata_(action, reg, Convener(convener.into()))).unwrap();
 
             let suspend_issuers = SuspendIssuers {
                 issuers: schemas
@@ -277,7 +277,7 @@ crate::did_or_did_method_key! {
                 init_trust_registry.nonce(),
                 Convener(convener.into()),
                 init_trust_registry.clone(),
-            ).execute::<Test, _, _, _>(|action, reg| Mod::init_trust_registry_(action.action, reg, Convener(convener.into()))).unwrap();
+            ).execute::<Test, _, _, _, _>(|action, reg| Mod::init_trust_registry_(action.action, reg, Convener(convener.into()))).unwrap();
 
             let delegated = DelegatedIssuers(
                 (0..10)
@@ -584,13 +584,13 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )),
                                 UpdateError::InvalidActor
                             );
 
-                            assert_ok!(update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                            assert_ok!(update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
 
                                 ConvenerOrIssuerOrVerifier(issuer.into())
                             )));
@@ -636,13 +636,13 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )),
                                 UpdateError::InvalidActor
                             );
                             assert_noop!(
-                                update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )),
                                 UpdateError::InvalidActor
@@ -674,13 +674,13 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )),
                                 UpdateError::InvalidActor
                             );
                             assert_noop!(
-                                update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )),
                                 UpdateError::InvalidActor
@@ -725,7 +725,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaId,
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
-                            assert_ok!(update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                            assert_ok!(update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
 
                                 ConvenerOrIssuerOrVerifier(convener.into())
                             )),);
@@ -763,13 +763,13 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(random_did.into())
                                 )),
                                 UpdateError::InvalidActor
                             );
                             assert_noop!(
-                                update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
                                 )),
                                 UpdateError::DoesntExist
@@ -826,7 +826,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )),
                                 UpdateError::InvalidActor
@@ -839,13 +839,13 @@ crate::did_or_did_method_key! {
                                 .unwrap())
                                 .into();
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(issuer_3)
                                 )),
                                 UpdateError::InvalidActor
                             );
 
-                            assert_ok!(update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                            assert_ok!(update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
 
                                 ConvenerOrIssuerOrVerifier(convener.into())
                             )),);
@@ -893,13 +893,13 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )),
                                 UpdateError::InvalidActor
                             );
                             assert_noop!(
-                                update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )),
                                 UpdateError::InvalidActor
@@ -931,7 +931,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )),
                                 UpdateError::CapacityOverflow
@@ -965,7 +965,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
                                 )),
                                 UpdateError::CapacityOverflow
@@ -997,7 +997,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_ok!(
-                                update.execute(
+                                update.execute_readonly(
                                     |action, registry| Mod::update_schema_metadata_(action, registry, ConvenerOrIssuerOrVerifier(issuer.into()))
                                 )
                             );
@@ -1035,12 +1035,12 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )),
                                 UpdateError::InvalidActor
                             );
-                            assert_ok!(update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                            assert_ok!(update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
 
                                 ConvenerOrIssuerOrVerifier(verifier.into())
                             )));
@@ -1068,12 +1068,12 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )),
                                 UpdateError::InvalidActor
                             );
-                            assert_ok!(update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                            assert_ok!(update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
 
                                 ConvenerOrIssuerOrVerifier(convener.into())
                             )));
@@ -1100,12 +1100,12 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaMetadata<Test>,
                         >| {
                             assert_noop!(
-                                update.clone().execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                                update.clone().execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )),
                                 UpdateError::InvalidActor
                             );
-                            assert_ok!(update.execute(|action, reg| Mod::update_schema_metadata_(action, reg,
+                            assert_ok!(update.execute_readonly(|action, reg| Mod::update_schema_metadata_(action, reg,
 
                                 ConvenerOrIssuerOrVerifier(convener.into())
                             )));

@@ -33,6 +33,13 @@ impl<T: Config> StorageRef<T> for Convener {
     {
         ConvenerTrustRegistries::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
     }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryIdSet<T>>) -> R,
+    {
+        f(Some(ConvenerTrustRegistries::<T>::get(self)))
+    }
 }
 
 impl AuthorizeTarget<Self, DidKey> for Convener {}
@@ -73,6 +80,8 @@ impl_wrapper!(Issuer(DidOrDidMethodKey));
 
 impl AuthorizeTarget<TrustRegistryId, DidKey> for Issuer {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Issuer {}
+impl AuthorizeTarget<(), DidKey> for Issuer {}
+impl AuthorizeTarget<(), DidMethodKey> for Issuer {}
 
 /// Trust registry `Verifier`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -481,6 +490,13 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
         F: FnOnce(&mut Option<TrustRegistryInfo<T>>) -> Result<R, E>,
     {
         TrustRegistriesInfo::<T>::try_mutate_exists(self, f)
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryInfo<T>>) -> R,
+    {
+        f(TrustRegistriesInfo::<T>::get(self))
     }
 }
 

@@ -99,8 +99,11 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            update_credential
-                .execute(|action, credential| credential.execute(Self::update_, action, proof))
+            update_credential.execute(
+                |action, credential: &mut StatusListCredentialWithPolicy<T>| {
+                    credential.execute(Self::update_, action, proof)
+                },
+            )
         }
 
         /// Removes `StatusListCredential` associated with the supplied identifier.
@@ -112,9 +115,11 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            remove_credential.execute_removable(|action, credential| {
-                HasPolicy::execute_removable(credential, Self::remove_, action, proof)
-            })
+            remove_credential.execute_removable(
+                |action, credential: &mut Option<StatusListCredentialWithPolicy<T>>| {
+                    HasPolicy::execute_removable(credential, Self::remove_, action, proof)
+                },
+            )
         }
     }
 

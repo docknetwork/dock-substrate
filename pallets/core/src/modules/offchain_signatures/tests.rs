@@ -1074,7 +1074,7 @@ with_each_scheme! {
             WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author.into()),  AddOffchainSignatureParams {
                 params: params_1.clone().into(),
                 nonce: did_detail.next_nonce().unwrap()
-            }).execute::<Test, _, _, _>(
+            }).execute::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author.into()))
             )
             .unwrap();
@@ -1228,21 +1228,21 @@ with_each_scheme! {
             WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author.into()), AddOffchainSignatureParams {
                 params: params.clone().into(),
                 nonce: 0, // Doesn't matter
-            }).execute::<Test, _, _, _>(
+            }).execute::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author.into()))
             )
             .unwrap();
             WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
                 params: params_1.clone().into(),
                 nonce: 0, // Doesn't matter
-            }).execute::<Test, _, _, _>(
+            }).execute::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author_1.into()))
             ).unwrap();
 
             WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
                 params: params_2.clone().into(),
                 nonce: 0, // Doesn't matter
-            }).execute::<Test, _, _, _>(
+            }).execute::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author_1.into()))
             ).unwrap();
 

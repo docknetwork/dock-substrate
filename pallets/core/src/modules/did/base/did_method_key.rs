@@ -34,6 +34,13 @@ impl<T: Config> StorageRef<T> for DidMethodKey {
     {
         DidMethodKeys::<T>::try_mutate_exists(self, f)
     }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<WithNonce<T, ()>>) -> R,
+    {
+        f(DidMethodKeys::<T>::get(self))
+    }
 }
 
 impl<Target> AuthorizeTarget<Target, Self> for DidMethodKey {}

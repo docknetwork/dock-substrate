@@ -22,7 +22,7 @@ impl<T: Config> Pallet<T> {
             revoke_ids,
             ..
         }: RevokeRaw<T>,
-        _: &mut RevocationRegistry<T>,
+        _: RevocationRegistry<T>,
     ) -> DispatchResult {
         // execute
         for cred_id in &revoke_ids {
@@ -39,7 +39,7 @@ impl<T: Config> Pallet<T> {
             registry_id,
             ..
         }: UnRevokeRaw<T>,
-        registry: &mut RevocationRegistry<T>,
+        registry: RevocationRegistry<T>,
     ) -> DispatchResult {
         ensure!(!registry.add_only, Error::<T>::AddOnly);
 

@@ -71,7 +71,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-        ).execute::<T, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
+        ).execute::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         let rem_params = RemoveOffchainSignatureParams {
             params_ref: (SignatureParamsOwner(did.into()), 1u8.into()),
@@ -111,7 +111,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-        ).execute::<T, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
+        ).execute::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         let key: OffchainPublicKey<T> = BBSPlusPublicKey::new(
             BoundedBytes::try_from(vec![0; b as usize]).unwrap(),
@@ -154,7 +154,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-        ).execute::<T, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
+        ).execute::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         Pallet::<T>::add_public_key_(
             AddOffchainSignaturePublicKey {

@@ -11,6 +11,31 @@ where
     Sig: AuthorizeSignedAction<A>,
     Sig::Signer: AuthorizeTarget<A::Target, Sig::Key> + Deref,
 {
+    /// Verifies signer's signature and nonce, then executes given action providing a reference to the
+    /// value associated with the target.
+    /// In case of a successful result, increases the signer's nonce.
+    pub fn execute_readonly<F, S, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(A, <A::Target as StorageRef<T>>::Value, Sig::Signer) -> Result<R, E>,
+        E: From<ActionExecutionError> + From<NonceError> + From<Error<T>>,
+        A::Target: StorageRef<T>,
+        <Sig::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, S>> + Clone,
+    {
+        let SignedActionWithNonce {
+            action, signature, ..
+        } = self;
+
+        let Authorization { signer, .. } = signature
+            .authorizes_signed_action(&action)?
+            .ok_or(Error::<T>::InvalidSignature)?;
+
+        WrappedActionWithNonce::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
+            .execute_and_increase_nonce(|WrappedActionWithNonce { action, .. }, _| {
+                action.execute_readonly(|action, target_data| f(action, target_data, signer))
+            })
+            .map_err(Into::into)
+    }
+
     /// Verifies signer's signature and nonce, then executes given action providing a mutable reference to the
     /// value associated with the target.
     /// In case of a successful result, commits all storage changes and increases the signer's nonce.

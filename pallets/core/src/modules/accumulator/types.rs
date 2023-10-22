@@ -41,6 +41,13 @@ impl<T: Config> StorageRef<T> for AccumulatorId {
     {
         Accumulators::<T>::try_mutate_exists(self, f)
     }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<AccumulatorWithUpdateInfo<T>>) -> R,
+    {
+        f(Accumulators::<T>::get(self))
+    }
 }
 
 impl AuthorizeTarget<AccumulatorId, DidKey> for AccumulatorOwner {}
@@ -58,6 +65,13 @@ impl<T: Config> StorageRef<T> for AccumulatorOwner {
         F: FnOnce(&mut Option<StoredAccumulatorOwnerCounters>) -> Result<R, E>,
     {
         AccumulatorOwnerCounters::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<StoredAccumulatorOwnerCounters>) -> R,
+    {
+        f(Some(AccumulatorOwnerCounters::<T>::get(self)))
     }
 }
 

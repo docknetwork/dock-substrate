@@ -26,6 +26,8 @@ crate::impl_wrapper!(SignatureParamsOwner(DidOrDidMethodKey));
 
 impl AuthorizeTarget<Self, DidKey> for SignatureParamsOwner {}
 impl AuthorizeTarget<Self, DidMethodKey> for SignatureParamsOwner {}
+impl AuthorizeTarget<(), DidKey> for SignatureParamsOwner {}
+impl AuthorizeTarget<(), DidMethodKey> for SignatureParamsOwner {}
 
 impl<T: Config> StorageRef<T> for SignatureParamsOwner {
     type Value = IncId;
@@ -35,6 +37,13 @@ impl<T: Config> StorageRef<T> for SignatureParamsOwner {
         F: FnOnce(&mut Option<IncId>) -> Result<R, E>,
     {
         ParamsCounter::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<IncId>) -> R,
+    {
+        f(Some(ParamsCounter::<T>::get(self)))
     }
 }
 
@@ -115,7 +124,7 @@ impl<T: Config> Pallet<T> {
             params_ref: (did, counter),
             ..
         }: RemoveOffchainSignatureParams<T>,
-        _: &mut IncId,
+        _: (),
         owner: SignatureParamsOwner,
     ) -> DispatchResult {
         // Only the DID that added the param can it
