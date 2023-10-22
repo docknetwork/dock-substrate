@@ -1,6 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::{traits::CheckedAdd, DispatchError};
-use sp_std::{convert::TryInto, fmt::Debug};
+use sp_std::fmt::Debug;
 
 use crate::common::Types;
 
@@ -105,18 +105,16 @@ impl<T: Types, D> WithNonce<T, D> {
 
     /// If supplied value is `Some(_)`, attempts to increase current nonce - succeeds if provided nonce is equal to
     /// current nonce plus 1, otherwise returns an error. If value is `None`, `None` will be returned.
-    pub fn try_update_opt_with<S, F, E, R>(
-        this_opt: &mut Option<S>,
+    pub fn try_update_opt_with<F, E, R>(
+        this_opt: &mut Option<Self>,
         nonce: T::BlockNumber,
         f: F,
     ) -> Option<Result<R, E>>
     where
         F: FnOnce(&mut Option<D>) -> Result<R, E>,
         E: From<NonceError>,
-        S: TryInto<Self>,
-        Self: Into<S>,
     {
-        let mut mapped_opt = match this_opt.take()?.try_into().ok().map(|mut this| {
+        let mut mapped_opt = match this_opt.take().map(|mut this| {
             this.try_update(nonce)
                 .map(drop)
                 .map(|()| this)
@@ -126,29 +124,26 @@ impl<T: Types, D> WithNonce<T, D> {
             Ok(this) => Some(this),
         };
 
-        let res =
-            Self::try_update_opt_without_increasing_nonce_with::<Self, _, _, _>(&mut mapped_opt, f);
-        *this_opt = mapped_opt.map(Into::into);
+        let res = Self::try_update_opt_without_increasing_nonce_with(&mut mapped_opt, f);
+        *this_opt = mapped_opt;
 
         res
     }
 
     /// If supplied value is `Some(_)`, will update given entity without increasing nonce.
-    pub fn try_update_opt_without_increasing_nonce_with<S, F, E, R>(
-        this_opt: &mut Option<S>,
+    pub fn try_update_opt_without_increasing_nonce_with<F, E, R>(
+        this_opt: &mut Option<Self>,
         f: F,
     ) -> Option<Result<R, E>>
     where
         F: FnOnce(&mut Option<D>) -> Result<R, E>,
-        S: TryInto<Self>,
-        Self: Into<S>,
     {
-        let this = this_opt.take()?.try_into().ok()?;
+        let this = this_opt.take()?;
 
         let Self { data, nonce } = this;
         let mut data_opt = Some(data);
-        let res = (f)(&mut data_opt).map_err(Into::into);
-        *this_opt = data_opt.map(|data| Self { data, nonce }.into());
+        let res: Result<R, E> = (f)(&mut data_opt).map_err(Into::into);
+        *this_opt = data_opt.map(|data| Self { data, nonce });
 
         Some(res)
     }

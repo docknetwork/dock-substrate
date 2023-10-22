@@ -1,5 +1,5 @@
 use super::*;
-use crate::{deposit_indexed_event, impl_wrapper};
+use crate::{common::AuthorizeTarget, deposit_indexed_event, impl_wrapper};
 
 /// `DID`'s controller.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]

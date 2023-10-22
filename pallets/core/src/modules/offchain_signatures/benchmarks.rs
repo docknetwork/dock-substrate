@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     common::{CurveType, ToStateChange},
     did::{Did, DidSignature, UncheckedDidKey},
-    util::{BoundedBytes, IncId},
+    util::{Action, BoundedBytes, IncId},
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
@@ -60,7 +60,9 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Pallet::<T>::add_params_(
+        WrappedActionWithNonce::<T, _, _>::new(
+            1u8.into(),
+            SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
                 params: BBSPlusParameters::new(
                     BoundedBytes::try_from(vec![1; MAX_LABEL as usize]).unwrap(),
@@ -69,8 +71,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-            SignatureParamsOwner(did.into())
-        ).unwrap();
+        ).execute::<T, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         let rem_params = RemoveOffchainSignatureParams {
             params_ref: (SignatureParamsOwner(did.into()), 1u8.into()),
@@ -99,7 +100,9 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Pallet::<T>::add_params_(
+        WrappedActionWithNonce::<T, _, _>::new(
+            1u8.into(),
+            SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
                 params: BBSPlusParameters::new(
                     BoundedBytes::try_from(vec![1; MAX_LABEL as usize]).unwrap(),
@@ -108,8 +111,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-            SignatureParamsOwner(did.into())
-        ).unwrap();
+        ).execute::<T, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         let key: OffchainPublicKey<T> = BBSPlusPublicKey::new(
             BoundedBytes::try_from(vec![0; b as usize]).unwrap(),
@@ -141,7 +143,9 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Pallet::<T>::add_params_(
+        WrappedActionWithNonce::<T, _, _>::new(
+            1u8.into(),
+            SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
                 params: BBSPlusParameters::new(
                     BoundedBytes::try_from(vec![1; MAX_LABEL as usize]).unwrap(),
@@ -150,8 +154,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-            SignatureParamsOwner(did.into())
-        ).unwrap();
+        ).execute::<T, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         Pallet::<T>::add_public_key_(
             AddOffchainSignaturePublicKey {

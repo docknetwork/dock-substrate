@@ -1,5 +1,5 @@
 use super::*;
-use crate::tests::common::*;
+use crate::{tests::common::*, util::ActionExecutionError};
 use frame_support::assert_err;
 use sp_core::{Hasher, H256};
 
@@ -146,7 +146,7 @@ crate::did_or_did_method_key! {
             let sig = did_sig(&update_accum, &author_kp, author, 1);
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                Error::<Test>::AccumulatorDoesntExist
+                ActionExecutionError::NoEntity
             );
 
             update_accum.id = id;

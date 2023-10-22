@@ -2,11 +2,9 @@
 //! - [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
 //! - [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential).
 use crate::{
-    common::{
-        signatures::ForSigType, DidSignatureWithNonce, Policy, PolicyExecutionError, ToStateChange,
-    },
+    common::{signatures::ForSigType, DidSignatureWithNonce, HasPolicy},
     deposit_indexed_event, did,
-    util::{Action, NonceError, WithNonce},
+    util::Action,
 };
 use alloc::vec::*;
 use frame_support::pallet_prelude::*;
@@ -101,11 +99,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_status_list_credential(
-                Self::update_,
-                update_credential,
-                proof,
-            )
+            update_credential
+                .execute(|action, credential| credential.execute(Self::update_, action, proof))
         }
 
         /// Removes `StatusListCredential` associated with the supplied identifier.
@@ -117,11 +112,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_removable_action_over_status_list_credential(
-                Self::remove_,
-                remove_credential,
-                proof,
-            )
+            remove_credential.execute_removable(|action, credential| {
+                HasPolicy::execute_removable(credential, Self::remove_, action, proof)
+            })
         }
     }
 

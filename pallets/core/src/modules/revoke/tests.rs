@@ -56,7 +56,10 @@ pub fn check_nonce_increase(old_nonces: BTreeMap<Did, u64>, signers: &[(Did, &sr
 /// Tests in this module are named after the errors they check.
 /// For example, `#[test] fn invalidpolicy` exercises the Error::InvalidPolicy.
 mod errors {
-    use crate::common::{PolicyExecutionError, PolicyValidationError};
+    use crate::{
+        common::{PolicyExecutionError, PolicyValidationError},
+        util::ActionExecutionError,
+    };
 
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
@@ -256,7 +259,7 @@ mod errors {
 
         let registry_id = RGA;
 
-        let noreg: Result<(), DispatchError> = Err(PolicyExecutionError::NoEntity.into());
+        let noreg: Result<(), DispatchError> = Err(ActionExecutionError::NoEntity.into());
 
         assert_eq!(
             RevoMod::revoke(
@@ -753,11 +756,10 @@ mod test {
             let old_nonces = get_nonces(signers);
             let command = &rev;
             let proof = get_pauth(command, signers);
-            let res = RevoMod::try_exec_action_over_registry(
-                |_, _| Ok::<_, DispatchError>(()),
-                command.clone(),
-                proof,
-            );
+
+            let res = command.clone().execute(|action, registry| {
+                registry.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
+            });
             assert_eq!(res.is_ok(), *expect_success);
 
             if *expect_success {

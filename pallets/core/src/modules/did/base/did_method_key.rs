@@ -1,6 +1,7 @@
 use crate::{
+    common::AuthorizeTarget,
     did::*,
-    util::{StorageMapRef, WithNonce},
+    util::{StorageRef, WithNonce},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Index, RangeFull};
@@ -24,10 +25,15 @@ impl From<sp_core::ed25519::Public> for DidMethodKey {
     }
 }
 
-impl<T: crate::did::Config> StorageMapRef<T, WithNonce<T, ()>> for DidMethodKey {
-    type Key = Self;
+impl<T: Config> StorageRef<T> for DidMethodKey {
     type Value = WithNonce<T, ()>;
-    type Storage = DidMethodKeys<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<WithNonce<T, ()>>) -> Result<R, E>,
+    {
+        DidMethodKeys::<T>::try_mutate_exists(self, f)
+    }
 }
 
 impl<Target> AuthorizeTarget<Target, Self> for DidMethodKey {}

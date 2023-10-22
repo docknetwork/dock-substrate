@@ -1,11 +1,11 @@
-use super::{Config, Error};
+use super::{Config, ConvenerTrustRegistries, Error, TrustRegistriesInfo};
 #[cfg(feature = "serde")]
 use crate::util::{btree_map, btree_set, hex};
 use crate::{
-    common::Limits,
-    did::{AuthorizeTarget, DidKey, DidMethodKey, DidOrDidMethodKey},
+    common::{AuthorizeTarget, Limits},
+    did::{DidKey, DidMethodKey, DidOrDidMethodKey},
     impl_wrapper,
-    util::{batch_update::*, BoundedKeyValue},
+    util::{batch_update::*, BoundedKeyValue, OptionExt, StorageRef},
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -13,8 +13,6 @@ use core::fmt::Debug;
 use frame_support::*;
 use sp_std::prelude::*;
 use utils::BoundedString;
-
-use super::TrustRegistriesInfo;
 
 /// Trust registry `Convener`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -26,9 +24,20 @@ pub struct Convener(pub DidOrDidMethodKey);
 
 impl_wrapper!(Convener(DidOrDidMethodKey));
 
-impl AuthorizeTarget<(), DidKey> for Convener {}
+impl<T: Config> StorageRef<T> for Convener {
+    type Value = TrustRegistryIdSet<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryIdSet<T>>) -> Result<R, E>,
+    {
+        ConvenerTrustRegistries::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+}
+
+impl AuthorizeTarget<Self, DidKey> for Convener {}
 impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
-impl AuthorizeTarget<(), DidMethodKey> for Convener {}
+impl AuthorizeTarget<Self, DidMethodKey> for Convener {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 
 /// Maybe an `Issuer` or `Verifier` but definitely not a `Convener`.
@@ -42,18 +51,11 @@ pub struct MaybeIssuerOrVerifier(pub DidOrDidMethodKey);
 impl_wrapper!(MaybeIssuerOrVerifier(DidOrDidMethodKey));
 
 impl Convener {
-    pub fn is_convener_for<T: Config>(&self, registry_id: TrustRegistryId) -> bool {
-        TrustRegistriesInfo::<T>::get(registry_id)
-            .map_or(false, |TrustRegistryInfo { convener, .. }| {
-                &convener == self
-            })
-    }
-
-    pub fn ensure_controls<T: Config>(&self, registry_id: TrustRegistryId) -> Result<(), Error<T>> {
-        ensure!(
-            self.is_convener_for::<T>(registry_id),
-            Error::<T>::NotAConvener
-        );
+    pub fn ensure_controls<T: Config>(
+        &self,
+        TrustRegistryInfo { convener, .. }: &TrustRegistryInfo<T>,
+    ) -> Result<(), Error<T>> {
+        ensure!(convener == self, Error::<T>::NotAConvener);
 
         Ok(())
     }
@@ -470,6 +472,17 @@ pub struct TrustRegistrySchemaMetadataUpdate<T: Limits> {
 pub struct TrustRegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
 
 crate::impl_wrapper!(TrustRegistryId([u8; 32]));
+
+impl<T: Config> StorageRef<T> for TrustRegistryId {
+    type Value = TrustRegistryInfo<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryInfo<T>>) -> Result<R, E>,
+    {
+        TrustRegistriesInfo::<T>::try_mutate_exists(self, f)
+    }
+}
 
 /// Unique identifier for the `Trust Registry`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]

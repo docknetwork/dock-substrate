@@ -1,5 +1,8 @@
 use super::*;
-use crate::{common::state_change::ToStateChange, did::UncheckedDidKey};
+use crate::{
+    common::state_change::ToStateChange,
+    did::{DidSignature, UncheckedDidKey},
+};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use sp_runtime::traits::TryCollect;

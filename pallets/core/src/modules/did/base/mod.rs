@@ -1,4 +1,7 @@
-use crate::{common::TypesAndLimits, impl_wrapper};
+use crate::{
+    common::{AuthorizeTarget, TypesAndLimits},
+    impl_wrapper,
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_std::{
     fmt::Debug,
@@ -27,6 +30,37 @@ pub enum DidOrDidMethodKey {
     DidMethodKey(DidMethodKey),
 }
 
+impl<T: Config> StorageRef<T> for DidOrDidMethodKey {
+    type Value = WithNonce<T, ()>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<WithNonce<T, ()>>) -> Result<R, E>,
+    {
+        match self {
+            Self::Did(did) => did.try_mutate_associated(|details| {
+                details.update_with(|onchain_details: &mut Option<StoredOnChainDidDetails<T>>| {
+                    let mut with_nonce = onchain_details
+                        .as_ref()
+                        .map(|details| WithNonce::new_with_nonce((), details.nonce));
+
+                    let res = f(&mut with_nonce);
+
+                    *onchain_details =
+                        with_nonce
+                            .zip(onchain_details.take())
+                            .map(|(with_nonce, details)| {
+                                WithNonce::new_with_nonce(details.into_data(), with_nonce.nonce)
+                            });
+
+                    res
+                })
+            }),
+            Self::DidMethodKey(did_method_key) => did_method_key.try_mutate_associated(f),
+        }
+    }
+}
+
 impl From<Did> for DidOrDidMethodKey {
     fn from(did: Did) -> Self {
         Self::Did(did)
@@ -39,11 +73,33 @@ impl From<DidMethodKey> for DidOrDidMethodKey {
     }
 }
 
+impl TryFrom<DidKeyOrDidMethodKey> for DidKey {
+    type Error = DidMethodKey;
+
+    fn try_from(did_key_or_did_method_key: DidKeyOrDidMethodKey) -> Result<Self, Self::Error> {
+        match did_key_or_did_method_key {
+            DidKeyOrDidMethodKey::DidKey(did_key) => Ok(did_key),
+            DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => Err(did_method_key),
+        }
+    }
+}
+
+impl TryFrom<DidKeyOrDidMethodKey> for DidMethodKey {
+    type Error = DidKey;
+
+    fn try_from(did_key_or_did_method_key: DidKeyOrDidMethodKey) -> Result<Self, Self::Error> {
+        match did_key_or_did_method_key {
+            DidKeyOrDidMethodKey::DidKey(did_key) => Err(did_key),
+            DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => Ok(did_method_key),
+        }
+    }
+}
+
 impl TryFrom<DidOrDidMethodKey> for Did {
     type Error = DidMethodKey;
 
-    fn try_from(did_or_did_key: DidOrDidMethodKey) -> Result<Self, Self::Error> {
-        match did_or_did_key {
+    fn try_from(did_or_did_method_key: DidOrDidMethodKey) -> Result<Self, Self::Error> {
+        match did_or_did_method_key {
             DidOrDidMethodKey::Did(did) => Ok(did),
             DidOrDidMethodKey::DidMethodKey(did_key) => Err(did_key),
         }

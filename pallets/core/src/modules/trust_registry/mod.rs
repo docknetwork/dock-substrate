@@ -1,10 +1,10 @@
 //! Dock Trust Registry.
 
 use crate::{
-    common::ForSigType,
+    common::{ForSigType, Signature},
     deposit_indexed_event,
-    did::{self, DidOrDidMethodKeySignature, SignedActionWithNonce},
-    util::{BoundedKeyValue, SetOrModify},
+    did::{self, DidOrDidMethodKeySignature},
+    util::{ActionWithNonce, BoundedKeyValue, SetOrModify, WrappedActionWithNonce},
 };
 use frame_support::{pallet_prelude::*, weights::PostDispatchInfo};
 
@@ -161,7 +161,17 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(init_trust_registry, sig).execute(Self::init_trust_registry_)
+            WrappedActionWithNonce::new(
+                init_trust_registry.nonce(),
+                sig.signer(),
+                init_trust_registry,
+            )
+            .signed(sig)
+            .execute(
+                |WrappedActionWithNonce { action, .. }, registries, convener| {
+                    Self::init_trust_registry_(action, registries, convener)
+                },
+            )
         }
 
         /// Adds a new schema metadata entry (entries).
@@ -174,7 +184,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(add_schema_metadata, sig).execute(Self::add_schema_metadata_)
+            add_schema_metadata
+                .signed(sig)
+                .execute(Self::add_schema_metadata_)
         }
 
         /// Updates the schema metadata entry (entries) with the supplied identifier(s).
@@ -189,7 +201,8 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
-            let (ver, iss, schem) = SignedActionWithNonce::new(update_schema_metadata, sig.clone())
+            let (ver, iss, schem) = update_schema_metadata
+                .signed(sig.clone())
                 .execute(Self::update_schema_metadata_)?;
 
             let actual_weight = sig.weight_for_sig_type::<T>(
@@ -213,7 +226,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(update_delegated_issuers, sig)
+            update_delegated_issuers
+                .signed(sig)
                 .execute(Self::update_delegated_issuers_)
         }
 
@@ -226,7 +240,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(suspend_issuers, sig).execute(Self::suspend_issuers_)
+            suspend_issuers.signed(sig).execute(Self::suspend_issuers_)
         }
 
         /// Unsuspends given `Issuer`s.
@@ -238,7 +252,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(unsuspend_issuers, sig).execute(Self::unsuspend_issuers_)
+            unsuspend_issuers
+                .signed(sig)
+                .execute(Self::unsuspend_issuers_)
         }
     }
 }

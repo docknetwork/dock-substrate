@@ -2,10 +2,10 @@
 //! Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 
 use crate::{
-    common::{self, signatures::ForSigType},
+    common::{self, signatures::ForSigType, Signature},
     did,
-    did::{Controller, Did, DidOrDidMethodKeySignature, OnDidRemoval, SignedActionWithNonce},
-    util::IncId,
+    did::{Controller, Did, DidOrDidMethodKeySignature, OnDidRemoval},
+    util::{ActionWithNonce, IncId, WrappedActionWithNonce},
 };
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
@@ -72,9 +72,8 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
-    /// Pair of counters where each is used to assign unique id to parameters and public keys
-    /// respectively. On adding new params or keys, corresponding counter is increased by 1 but
-    /// the counters don't decrease on removal
+    /// On adding new params, corresponding counter is increased by 1 but
+    /// the counters don't decrease on removal.
     #[pallet::storage]
     #[pallet::getter(fn did_params_counter)]
     pub type ParamsCounter<T> =
@@ -133,7 +132,11 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(params, signature).execute(Self::add_params_)
+            WrappedActionWithNonce::new(params.nonce(), signature.signer(), params)
+                .signed(signature)
+                .execute(|WrappedActionWithNonce { action, .. }, counter, actor| {
+                    Self::add_params_(action, counter, actor)
+                })
         }
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.
@@ -146,7 +149,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(public_key, signature)
+            public_key
+                .signed(signature)
                 .execute_from_controller(Self::add_public_key_)
         }
 
@@ -158,7 +162,11 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(remove, signature).execute(Self::remove_params_)
+            WrappedActionWithNonce::new(remove.nonce(), signature.signer(), remove)
+                .signed(signature)
+                .execute(|WrappedActionWithNonce { action, .. }, counter, actor| {
+                    Self::remove_params_(action, counter, actor)
+                })
         }
 
         /// Remove existing offchain signature public key. Only the DID controller can remove key and it should use the nonce from the DID module.
@@ -171,7 +179,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(remove, signature)
+            remove
+                .signed(signature)
                 .execute_from_controller(Self::remove_public_key_)
         }
     }

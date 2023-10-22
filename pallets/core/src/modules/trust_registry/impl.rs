@@ -12,6 +12,7 @@ impl<T: Config> Pallet<T> {
         InitTrustRegistry {
             registry_id, name, ..
         }: InitTrustRegistry<T>,
+        registries: &mut TrustRegistryIdSet<T>,
         convener: Convener,
     ) -> DispatchResult {
         TrustRegistriesInfo::<T>::try_mutate(registry_id, |info| {
@@ -21,12 +22,10 @@ impl<T: Config> Pallet<T> {
                 }
             }
 
-            ConvenerTrustRegistries::<T>::try_mutate(convener, |registry| {
-                registry
-                    .try_insert(registry_id)
-                    .map(drop)
-                    .map_err(|_| Error::<T>::TooManyRegistries)
-            })
+            registries
+                .try_insert(registry_id)
+                .map(drop)
+                .map_err(|_| Error::<T>::TooManyRegistries)
         })?;
 
         deposit_indexed_event!(TrustRegistryInitialized(registry_id));
@@ -39,9 +38,10 @@ impl<T: Config> Pallet<T> {
             schemas,
             ..
         }: AddSchemaMetadata<T>,
+        registry_info: &mut TrustRegistryInfo<T>,
         convener: Convener,
     ) -> DispatchResult {
-        convener.ensure_controls::<T>(registry_id)?;
+        convener.ensure_controls::<T>(registry_info)?;
 
         for schema_id in schemas.keys() {
             ensure!(
@@ -84,6 +84,7 @@ impl<T: Config> Pallet<T> {
             schemas,
             ..
         }: UpdateSchemaMetadata<T>,
+        registry_info: &mut TrustRegistryInfo<T>,
         actor: ConvenerOrIssuerOrVerifier,
     ) -> Result<(u32, u32, u32), DispatchError> {
         let (verifiers_len, issuers_len) =
@@ -93,7 +94,7 @@ impl<T: Config> Pallet<T> {
                         TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)
                             .ok_or(Error::<T>::SchemaMetadataDoesntExist)?;
 
-                    if Convener(*actor).is_convener_for::<T>(registry_id) {
+                    if Convener(*actor).ensure_controls::<T>(registry_info).is_ok() {
                         update.ensure_valid(&Convener(*actor), &schema_metadata)?;
                     } else {
                         update.ensure_valid(&MaybeIssuerOrVerifier(*actor), &schema_metadata)?;
@@ -148,6 +149,7 @@ impl<T: Config> Pallet<T> {
             delegated,
             ..
         }: UpdateDelegatedIssuers<T>,
+        _: &mut TrustRegistryInfo<T>,
         issuer: Issuer,
     ) -> DispatchResult {
         ensure!(
@@ -171,9 +173,10 @@ impl<T: Config> Pallet<T> {
             issuers,
             ..
         }: SuspendIssuers<T>,
-        actor: Convener,
+        registry_info: &mut TrustRegistryInfo<T>,
+        convener: Convener,
     ) -> DispatchResult {
-        actor.ensure_controls::<T>(registry_id)?;
+        convener.ensure_controls::<T>(registry_info)?;
 
         for issuer in &issuers {
             ensure!(
@@ -203,9 +206,10 @@ impl<T: Config> Pallet<T> {
             issuers,
             ..
         }: UnsuspendIssuers<T>,
-        actor: Convener,
+        registry_info: &mut TrustRegistryInfo<T>,
+        convener: Convener,
     ) -> DispatchResult {
-        actor.ensure_controls::<T>(registry_id)?;
+        convener.ensure_controls::<T>(registry_info)?;
 
         for issuer in &issuers {
             ensure!(

@@ -2,7 +2,7 @@ use super::super::*;
 use crate::{
     common::TypesAndLimits,
     deposit_indexed_event,
-    util::{StorageMapRef, WithNonce},
+    util::{StorageRef, WithNonce},
 };
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
@@ -42,10 +42,15 @@ impl<T: Config> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
     }
 }
 
-impl<T: crate::did::Config> StorageMapRef<T, StoredOnChainDidDetails<T>> for Did {
-    type Key = Self;
-    type Value = StoredDidDetails<T>;
-    type Storage = Dids<T>;
+impl<T: Config> StorageRef<T> for Did {
+    type Value = StoredOnChainDidDetails<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<StoredOnChainDidDetails<T>>) -> Result<R, E>,
+    {
+        Dids::<T>::try_mutate_exists(self, |details| details.update_with(f))
+    }
 }
 
 impl OnChainDidDetails {

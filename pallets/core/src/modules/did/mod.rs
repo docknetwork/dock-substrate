@@ -111,10 +111,12 @@ pub mod pallet {
         ServiceEndpointDoesNotExist,
         KeyAgreementCantBeUsedForSigning,
         SigningKeyCantBeUsedForKeyAgreement,
+        ExpectedDid,
+        ExpectedDidMethodKey,
     }
 
     impl<T: Config> From<VerificationError> for Error<T> {
-        fn from(VerificationError::IncompatibleKey(_): VerificationError) -> Self {
+        fn from(VerificationError::IncompatibleKey: VerificationError) -> Self {
             Self::IncompatSigPubkey
         }
     }
@@ -257,7 +259,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(keys, sig)
+            keys.signed(sig)
                 .execute_from_controller(Self::add_keys_)
                 .map_err(Into::into)
         }
@@ -272,7 +274,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(keys, sig)
+            keys.signed(sig)
                 .execute_from_controller(Self::remove_keys_)
                 .map_err(Into::into)
         }
@@ -289,7 +291,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(controllers, sig)
+            controllers
+                .signed(sig)
                 .execute_from_controller(Self::add_controllers_)
                 .map_err(Into::into)
         }
@@ -305,7 +308,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(controllers, sig)
+            controllers
+                .signed(sig)
                 .execute_from_controller(Self::remove_controllers_)
                 .map_err(Into::into)
         }
@@ -319,7 +323,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(service_endpoint, sig)
+            service_endpoint
+                .signed(sig)
                 .execute_from_controller(Self::add_service_endpoint_)
                 .map_err(Into::into)
         }
@@ -333,7 +338,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(service_endpoint, sig)
+            service_endpoint
+                .signed(sig)
                 .execute_from_controller(Self::remove_service_endpoint_)
                 .map_err(Into::into)
         }
@@ -349,7 +355,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(removal, sig)
+            removal
+                .signed(sig)
                 .execute_removable_from_controller(Self::remove_onchain_did_)
                 .map_err(Into::into)
         }

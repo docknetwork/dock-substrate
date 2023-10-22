@@ -2,14 +2,14 @@
 use crate::util::hex;
 use crate::{
     common::{HasPolicy, Limits, Policy},
-    util::BoundedBytes,
+    util::{BoundedBytes, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::{traits::Get, DebugNoBound, *};
 use sp_runtime::DispatchResult;
 
-use super::{Config, Error};
+use super::{Config, Error, StatusListCredentials};
 
 /// Either [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
 /// or [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential).
@@ -129,3 +129,14 @@ impl<T: Limits> From<StatusListCredentialWithPolicy<T>> for StatusListCredential
 pub struct StatusListCredentialId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
 
 crate::impl_wrapper!(StatusListCredentialId([u8; 32]));
+
+impl<T: Config> StorageRef<T> for StatusListCredentialId {
+    type Value = StatusListCredentialWithPolicy<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<StatusListCredentialWithPolicy<T>>) -> Result<R, E>,
+    {
+        StatusListCredentials::<T>::try_mutate_exists(self, f)
+    }
+}

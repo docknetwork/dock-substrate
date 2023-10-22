@@ -8,6 +8,8 @@ pub mod bytes;
 pub mod hex;
 pub mod inc_id;
 pub mod macros;
+pub mod option_ext;
+pub mod types;
 pub mod with_nonce;
 pub mod wrapped_action_with_nonce;
 
@@ -21,5 +23,7 @@ pub use bytes::*;
 pub use hex::*;
 pub use inc_id::*;
 pub use macros::*;
+pub use option_ext::*;
+pub use types::*;
 pub use with_nonce::*;
 pub use wrapped_action_with_nonce::*;

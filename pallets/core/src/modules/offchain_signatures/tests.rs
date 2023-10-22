@@ -4,7 +4,7 @@ use crate::{
     did::{base::*, tests::check_did_detail, AddControllers},
     offchain_signatures,
     tests::common::*,
-    util::{ActionWithNonce, BoundedBytes},
+    util::{Action, ActionWithNonce, BoundedBytes},
 };
 use alloc::collections::BTreeMap;
 use frame_support::assert_err;
@@ -980,14 +980,15 @@ with_each_scheme! {
 
             run_to_block(35);
 
-            assert!(SignatureMod::add_params_(
+            ParamsCounter::<Test>::mutate(SignatureParamsOwner(author.into()), |counter| assert!(SignatureMod::add_params_(
                 AddOffchainSignatureParams {
                     params: params.clone().into(),
                     nonce: next_nonce
                 },
+                counter,
                 SignatureParamsOwner(author.into())
             )
-            .is_ok());
+            .is_ok()));
             assert_eq!(
                 ParamsCounter::<Test>::get(SignatureParamsOwner(author.into())),
                 IncId::from(1u8)
@@ -1007,7 +1008,7 @@ with_each_scheme! {
                 nonce: did_detail.next_nonce().unwrap(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(ak.execute(
+            assert!(ak.execute_and_increase_nonce(
                 |action, details| SignatureMod::add_public_key_(action, details.as_mut().unwrap())
             )
             .is_ok());
@@ -1026,7 +1027,7 @@ with_each_scheme! {
                 nonce: did_detail.next_nonce().unwrap(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(ak.execute(
+            assert!(ak.execute_and_increase_nonce(
                 |action, details| SignatureMod::add_public_key_(action, details.as_mut().unwrap()),
 
             )
@@ -1049,7 +1050,7 @@ with_each_scheme! {
                 nonce: did_detail.next_nonce().unwrap(),
             };
             assert_eq!(did_detail.nonce + 1, ak.nonce);
-            assert!(ak.execute(
+            assert!(ak.execute_and_increase_nonce(
                 |action, details| SignatureMod::add_public_key_(action, details.as_mut().unwrap()),
 
             )
@@ -1070,14 +1071,13 @@ with_each_scheme! {
             run_to_block(70);
 
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
-            assert!(SignatureMod::add_params_(
-                AddOffchainSignatureParams {
-                    params: params_1.clone().into(),
-                    nonce: did_detail.next_nonce().unwrap()
-                },
-                SignatureParamsOwner(author.into())
+            WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author.into()),  AddOffchainSignatureParams {
+                params: params_1.clone().into(),
+                nonce: did_detail.next_nonce().unwrap()
+            }).execute::<Test, _, _, _>(
+                |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author.into()))
             )
-            .is_ok());
+            .unwrap();
             assert_eq!(
                 ParamsCounter::<Test>::get(SignatureParamsOwner(author.into())),
                 IncId::from(2u8)
@@ -1121,7 +1121,7 @@ with_each_scheme! {
                 nonce: did_detail_1.next_nonce().unwrap(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-            assert!(ak.execute(
+            assert!(ak.execute_and_increase_nonce(
                 |action, details| SignatureMod::add_public_key_(action, details.as_mut().unwrap()),
 
             )
@@ -1134,14 +1134,15 @@ with_each_scheme! {
             run_to_block(90);
 
             let did_detail_1 = DIDModule::onchain_did_details(&author_1).unwrap();
-            assert!(SignatureMod::add_params_(
+            ParamsCounter::<Test>::mutate(SignatureParamsOwner(author_1.into()), |counter| assert!(SignatureMod::add_params_(
                 AddOffchainSignatureParams {
                     params: params.clone().into(),
                     nonce: did_detail_1.next_nonce().unwrap()
                 },
+                counter,
                 SignatureParamsOwner(author_1.into())
             )
-            .is_ok());
+            .is_ok()));
             assert_eq!(
                 ParamsCounter::<Test>::get(SignatureParamsOwner(author_1.into())),
                 IncId::from(1u8)
@@ -1164,7 +1165,7 @@ with_each_scheme! {
                 nonce: did_detail_1.next_nonce().unwrap(),
             };
             assert_eq!(did_detail_1.nonce + 1, ak.nonce);
-            assert!(ak.execute(
+            assert!(ak.execute_and_increase_nonce(
                 |action, details| SignatureMod::add_public_key_(action, details.as_mut().unwrap()),
 
             )
@@ -1224,30 +1225,26 @@ with_each_scheme! {
                 None
             );
 
-            SignatureMod::add_params_(
-                AddOffchainSignatureParams {
-                    params: params.clone().into(),
-                    nonce: 0, // Doesn't matter
-                },
-                SignatureParamsOwner(author.into()),
+            WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author.into()), AddOffchainSignatureParams {
+                params: params.clone().into(),
+                nonce: 0, // Doesn't matter
+            }).execute::<Test, _, _, _>(
+                |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author.into()))
             )
             .unwrap();
-            SignatureMod::add_params_(
-                AddOffchainSignatureParams {
-                    params: params_1.clone().into(),
-                    nonce: 0, // Doesn't matter
-                },
-                SignatureParamsOwner(author_1.into()),
-            )
-            .unwrap();
-            SignatureMod::add_params_(
-                AddOffchainSignatureParams {
-                    params: params_2.clone().into(),
-                    nonce: 0, // Doesn't matter
-                },
-                SignatureParamsOwner(author_1.into()),
-            )
-            .unwrap();
+            WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
+                params: params_1.clone().into(),
+                nonce: 0, // Doesn't matter
+            }).execute::<Test, _, _, _>(
+                |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author_1.into()))
+            ).unwrap();
+
+            WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
+                params: params_2.clone().into(),
+                nonce: 0, // Doesn't matter
+            }).execute::<Test, _, _, _>(
+                |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author_1.into()))
+            ).unwrap();
 
             assert_eq!(
                 SignatureMod::did_params(&SignatureParamsOwner(author.into())).collect::<BTreeMap<_, _>>(),
@@ -1274,7 +1271,7 @@ with_each_scheme! {
                 did: author,
                 nonce: did_detail.next_nonce().unwrap(),
             };
-            assert!(ak.execute(
+            assert!(ak.execute_and_increase_nonce(
                 |action, details| SignatureMod::add_public_key_(action, details.as_mut().unwrap()),
 
             )
@@ -1292,7 +1289,7 @@ with_each_scheme! {
                 did: author_1,
                 nonce: did_detail_1.next_nonce().unwrap(),
             };
-            assert!(ak.execute(
+            assert!(ak.execute_and_increase_nonce(
                 |action, details| SignatureMod::add_public_key_(action, details.as_mut().unwrap()),
 
             )
@@ -1310,7 +1307,7 @@ with_each_scheme! {
                 did: author,
                 nonce: did_detail.next_nonce().unwrap(),
             };
-            assert!(ak.execute(
+            assert!(ak.execute_and_increase_nonce(
                 |action, details| SignatureMod::add_public_key_(action, details.as_mut().unwrap()),
 
             )

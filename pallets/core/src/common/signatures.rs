@@ -10,6 +10,18 @@ use sp_core::{ed25519, sr25519, Pair};
 use sp_runtime::traits::Verify;
 use sp_std::{borrow::Borrow, convert::TryInto};
 
+/// Signature entity.
+pub trait Signature: Sized {
+    type Signer: Clone;
+    type Key;
+
+    fn signer(&self) -> Self::Signer;
+
+    fn key<T: crate::did::Config>(&self) -> Option<Self::Key>;
+
+    fn verify_raw_bytes(&self, message: &[u8], key: &Self::Key) -> Result<bool, VerificationError>;
+}
+
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
 pub struct SigTypes<V> {
     sr: V,
@@ -125,7 +137,7 @@ impl DidMethodKeySigValue {
                 let p = libsecp256k1::PublicKey::parse_compressed(pk_bytes).unwrap();
                 libsecp256k1::verify(&m, &sig, &p)
             }
-            _ => todo!(), //Err(VerificationError::IncompatibleKey(public_key.clone()))?,
+            _ => Err(VerificationError::IncompatibleKey)?,
         };
 
         Ok(result)
@@ -166,7 +178,7 @@ pub enum SigValue {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum VerificationError {
-    IncompatibleKey(PublicKey),
+    IncompatibleKey,
 }
 
 impl SigValue {
@@ -223,7 +235,7 @@ impl SigValue {
                 let p = libsecp256k1::PublicKey::parse_compressed(pk_bytes).unwrap();
                 libsecp256k1::verify(&m, &sig, &p)
             }
-            _ => Err(VerificationError::IncompatibleKey(*public_key))?,
+            _ => Err(VerificationError::IncompatibleKey)?,
         };
 
         Ok(result)

@@ -1,12 +1,9 @@
 #[cfg(feature = "serde")]
 use crate::util::hex;
 use crate::{
-    common::{
-        self, signatures::ForSigType, DidSignatureWithNonce, HasPolicy, Limits, Policy,
-        ToStateChange,
-    },
+    common::{self, signatures::ForSigType, DidSignatureWithNonce, HasPolicy, Limits, Policy},
     did::{self},
-    util::{Action, NonceError, WithNonce},
+    util::{Action, NonceError, StorageRef, WithNonce},
 };
 use alloc::collections::BTreeSet;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -41,6 +38,17 @@ impl Index<RangeFull> for RevocationRegistryId {
 
     fn index(&self, _: RangeFull) -> &Self::Output {
         &self.0
+    }
+}
+
+impl<T: Config> StorageRef<T> for RevocationRegistryId {
+    type Value = RevocationRegistry<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<RevocationRegistry<T>>) -> Result<R, E>,
+    {
+        Registries::<T>::try_mutate_exists(self, f)
     }
 }
 
@@ -213,7 +221,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_registry(Self::revoke_, revoke, proof)
+            revoke.execute(|action, registry| registry.execute(Self::revoke_, action, proof))
         }
 
         /// Delete some revocations according to the `unrevoke` command.
@@ -235,7 +243,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_registry(Self::unrevoke_, unrevoke, proof)
+            unrevoke.execute(|action, registry| registry.execute(Self::unrevoke_, action, proof))
         }
 
         /// Delete an entire registry. Deletes all revocations within the registry, as well as
@@ -259,7 +267,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_removable_action_over_registry(Self::remove_registry_, removal, proof)
+            removal.execute_removable(|action, registry| {
+                HasPolicy::execute_removable(registry, Self::remove_registry_, action, proof)
+            })
         }
     }
 

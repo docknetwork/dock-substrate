@@ -3,12 +3,9 @@
 //! method by specifying an Iri.
 
 use crate::{
-    common::{signatures::ForSigType, Limits, TypesAndLimits},
-    did::{
-        self, AuthorizeTarget, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
-        SignedActionWithNonce,
-    },
-    util::BoundedBytes,
+    common::{signatures::ForSigType, AuthorizeTarget, Limits, Signature, TypesAndLimits},
+    did::{self, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    util::{ActionWithNonce, BoundedBytes, OptionExt, StorageRef, WrappedActionWithNonce},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -37,8 +34,8 @@ pub type Iri<T> = BoundedBytes<<T as Limits>::MaxIriSize>;
 #[scale_info(omit_prefix)]
 pub struct Attester(pub DidOrDidMethodKey);
 
-impl AuthorizeTarget<(), DidKey> for Attester {}
-impl AuthorizeTarget<(), DidMethodKey> for Attester {}
+impl AuthorizeTarget<Self, DidKey> for Attester {}
+impl AuthorizeTarget<Self, DidMethodKey> for Attester {}
 
 crate::impl_wrapper!(Attester(DidOrDidMethodKey));
 
@@ -65,6 +62,17 @@ pub struct Attestation<T: Limits> {
     #[codec(compact)]
     pub priority: u64,
     pub iri: Option<Iri<T>>,
+}
+
+impl<T: Config> StorageRef<T> for Attester {
+    type Value = Attestation<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<Attestation<T>>) -> Result<R, E>,
+    {
+        Attestations::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
 }
 
 #[derive(
@@ -149,20 +157,29 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(attests, signature).execute(Self::set_claim_)
+            let attester_action =
+                WrappedActionWithNonce::new(attests.nonce(), signature.signer(), attests);
+            attester_action.signed(signature).execute(
+                |WrappedActionWithNonce { action, .. }, attest, attester| {
+                    Self::set_claim_(action, attest, attester)
+                },
+            )
         }
     }
 
     impl<T: Config> Pallet<T> {
         fn set_claim_(
             SetAttestationClaim { attest, .. }: SetAttestationClaim<T>,
-            attester: Attester,
+            current_attest: &mut Attestation<T>,
+            _attester: Attester,
         ) -> DispatchResult {
-            let prev = Attestations::<T>::get(attester);
-            ensure!(prev.priority < attest.priority, Error::<T>::PriorityTooLow);
+            ensure!(
+                current_attest.priority < attest.priority,
+                Error::<T>::PriorityTooLow
+            );
 
             // execute
-            Attestations::insert(attester, &attest);
+            *current_attest = attest;
 
             Ok(())
         }

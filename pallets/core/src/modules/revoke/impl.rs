@@ -1,9 +1,5 @@
 use super::*;
-use crate::{
-    common::{DidSignatureWithNonce, PolicyExecutionError},
-    deposit_indexed_event,
-    util::{ActionWithNonce, UpdateWithNonceError},
-};
+use crate::deposit_indexed_event;
 
 impl<T: Config> Pallet<T> {
     pub(super) fn new_registry_(
@@ -69,67 +65,5 @@ impl<T: Config> Pallet<T> {
 
         deposit_indexed_event!(RegistryRemoved(registry_id));
         Ok(())
-    }
-
-    /// Executes action over target registry providing a mutable reference if all checks succeed.
-    ///
-    /// Checks:
-    /// 1. Ensure that the `StatusListCredential` exists.
-    /// 2. Verify that `proof` authorizes `action` according to `policy`.
-    /// 3. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
-    ///
-    /// Returns a mutable reference to the underlying registry if the command is authorized, otherwise returns Err.
-    pub(crate) fn try_exec_action_over_registry<A, F, R, E>(
-        f: F,
-        action: A,
-        proof: Vec<DidSignatureWithNonce<T>>,
-    ) -> Result<R, E>
-    where
-        F: FnOnce(A, &mut RevocationRegistry<T>) -> Result<R, E>,
-        A: Action<Target = RevocationRegistryId>,
-        WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
-        E: From<Error<T>>
-            + From<PolicyExecutionError>
-            + From<did::Error<T>>
-            + From<NonceError>
-            + From<UpdateWithNonceError>,
-    {
-        Self::try_exec_removable_action_over_registry(
-            |action, reg| f(action, reg.as_mut().unwrap()),
-            action,
-            proof,
-        )
-    }
-
-    /// Executes action over target registry providing a mutable reference if all checks succeed.
-    ///
-    /// Unlike `try_exec_action_over_registry`, this action may result in a removal of a Registry, if the value under option
-    /// will be taken.
-    ///
-    /// Checks:
-    /// 1. Ensure that the `Registry` exists.
-    /// 2. Verify that `proof` authorizes `action` according to `policy`.
-    /// 3. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
-    ///
-    /// Returns a mutable reference to the underlying registry wrapped into an option if the command is authorized,
-    /// otherwise returns Err.
-    pub(crate) fn try_exec_removable_action_over_registry<A, F, R, E>(
-        f: F,
-        action: A,
-        proof: Vec<DidSignatureWithNonce<T>>,
-    ) -> Result<R, E>
-    where
-        F: FnOnce(A, &mut Option<RevocationRegistry<T>>) -> Result<R, E>,
-        A: Action<Target = RevocationRegistryId>,
-        WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
-        E: From<Error<T>>
-            + From<PolicyExecutionError>
-            + From<did::Error<T>>
-            + From<NonceError>
-            + From<UpdateWithNonceError>,
-    {
-        Registries::try_mutate_exists(action.target(), |registry| {
-            Policy::try_exec_removable_action(registry, f, action, proof)
-        })
     }
 }

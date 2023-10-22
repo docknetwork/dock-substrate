@@ -1,8 +1,8 @@
-use codec::FullCodec;
-use frame_support::{ensure, StorageMap};
+use core::marker::PhantomData;
+use frame_support::ensure;
 use sp_runtime::DispatchError;
 
-use crate::common::Types;
+use crate::{common::Types, util::OptionExt};
 
 use super::{NonceError, WithNonce};
 
@@ -21,6 +21,46 @@ pub trait Action: Sized {
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+
+    /// Executes an action providing a mutable reference to the option containing a value associated with the target.
+    fn execute<T: Types, F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(Self, &mut <Self::Target as StorageRef<T>>::Value) -> Result<R, E>,
+        E: From<ActionExecutionError> + From<NonceError>,
+        Self::Target: StorageRef<T>,
+    {
+        ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
+
+        self.target().try_mutate_associated(|data_opt| {
+            ensure!(data_opt.is_some(), ActionExecutionError::NoEntity);
+
+            data_opt.update_with(|opt| {
+                ensure!(opt.is_some(), ActionExecutionError::ConversionError);
+
+                f(self, opt.as_mut().unwrap())
+            })
+        })
+    }
+
+    /// Executes an action providing a mutable reference to the value associated with the target.
+    fn execute_removable<T: Types, F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(Self, &mut Option<<Self::Target as StorageRef<T>>::Value>) -> Result<R, E>,
+        E: From<ActionExecutionError> + From<NonceError>,
+        Self::Target: StorageRef<T>,
+    {
+        ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
+
+        self.target().try_mutate_associated(|data_opt| {
+            ensure!(data_opt.is_some(), ActionExecutionError::NoEntity);
+
+            data_opt.update_with(|opt| {
+                ensure!(opt.is_some(), ActionExecutionError::ConversionError);
+
+                f(self, opt)
+            })
+        })
+    }
 }
 
 /// Describes an action fpwith nonce which can be performed on some `Target`
@@ -28,69 +68,111 @@ pub trait ActionWithNonce<T: Types>: Action {
     /// Returns action's nonce.
     fn nonce(&self) -> T::BlockNumber;
 
-    fn execute<F, S, R, E>(self, f: F) -> Result<R, E>
+    /// Executes an action providing a mutable reference to the option containing a value associated with the target.
+    /// In case of a successful result, the nonce will be increased.
+    fn execute_and_increase_nonce<F, S, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
-        E: From<UpdateWithNonceError> + From<NonceError>,
-        WithNonce<T, S>: TryFrom<<Self::Target as StorageMapRef<T, WithNonce<T, S>>>::Value>
-            + Into<<Self::Target as StorageMapRef<T, WithNonce<T, S>>>::Value>,
-        Self::Target: StorageMapRef<T, WithNonce<T, S>>,
+        E: From<ActionExecutionError> + From<NonceError>,
+        Self::Target: StorageRef<T, Value = WithNonce<T, S>>,
     {
-        ensure!(!self.is_empty(), UpdateWithNonceError::EmptyPayload);
+        ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
 
-        let key: <Self::Target as StorageMapRef<T, WithNonce<T, S>>>::Key = self.target().into();
+        self.target().try_mutate_associated(|details_opt| {
+            ensure!(details_opt.is_some(), ActionExecutionError::NoEntity);
 
-        <Self::Target as StorageMapRef<T, WithNonce<T, S>>>::Storage::try_mutate_exists(
-            key,
-            |details_opt| {
-                WithNonce::try_update_opt_with(details_opt, self.nonce(), |data_opt| {
-                    f(self, data_opt)
+            details_opt
+                .update_with(|opt| {
+                    WithNonce::try_update_opt_with(opt, self.nonce(), |data_opt| f(self, data_opt))
                 })
-                .ok_or(UpdateWithNonceError::EntityDoesntExist)?
-            },
-        )
+                .ok_or(ActionExecutionError::ConversionError)?
+        })
     }
 
+    /// Executes an action providing a mutable reference to the value associated with the target.
+    /// In case of a successful result, the nonce will be increased.
     fn execute_without_increasing_nonce<F, R, S, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
-        E: From<UpdateWithNonceError>,
-        WithNonce<T, S>: TryFrom<<Self::Target as StorageMapRef<T, WithNonce<T, S>>>::Value>
-            + Into<<Self::Target as StorageMapRef<T, WithNonce<T, S>>>::Value>,
-        Self::Target: StorageMapRef<T, WithNonce<T, S>>,
+        E: From<ActionExecutionError>,
+        WithNonce<T, S>: TryFrom<<Self::Target as StorageRef<T>>::Value>
+            + Into<<Self::Target as StorageRef<T>>::Value>,
+        Self::Target: StorageRef<T, Value = WithNonce<T, S>>,
     {
-        ensure!(!self.is_empty(), UpdateWithNonceError::EmptyPayload);
+        ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
 
-        let key: <Self::Target as StorageMapRef<T, WithNonce<T, S>>>::Key = self.target().into();
+        self.target().try_mutate_associated(|details_opt| {
+            ensure!(details_opt.is_some(), ActionExecutionError::NoEntity);
 
-        <Self::Target as StorageMapRef<T, WithNonce<T, S>>>::Storage::try_mutate_exists(
-            key,
-            |details_opt| {
-                WithNonce::try_update_opt_without_increasing_nonce_with(details_opt, |data_opt| {
-                    f(self, data_opt)
+            details_opt
+                .update_with(|opt| {
+                    WithNonce::try_update_opt_without_increasing_nonce_with(opt, |data_opt| {
+                        f(self, data_opt)
+                    })
                 })
-                .ok_or(UpdateWithNonceError::EntityDoesntExist)?
-            },
-        )
+                .ok_or(ActionExecutionError::ConversionError)?
+        })
+    }
+
+    fn signed<S>(self, signature: S) -> SignedActionWithNonce<T, Self, S> {
+        SignedActionWithNonce::new(self, signature)
     }
 }
 
-pub enum UpdateWithNonceError {
-    EntityDoesntExist,
+pub enum ActionExecutionError {
+    NoEntity,
     EmptyPayload,
+    ConversionError,
 }
 
-impl From<UpdateWithNonceError> for DispatchError {
-    fn from(error: UpdateWithNonceError) -> Self {
+impl From<ActionExecutionError> for DispatchError {
+    fn from(error: ActionExecutionError) -> Self {
         match error {
-            UpdateWithNonceError::EntityDoesntExist => DispatchError::Other("Entity doesn't exist"),
-            UpdateWithNonceError::EmptyPayload => DispatchError::Other("Payload is empty"),
+            ActionExecutionError::NoEntity => DispatchError::Other("Entity doesn't exist"),
+            ActionExecutionError::EmptyPayload => DispatchError::Other("Payload is empty"),
+            ActionExecutionError::ConversionError => DispatchError::Other("Conversion failed"),
         }
     }
 }
 
-pub trait StorageMapRef<T: Types, V>: Sized {
-    type Key: From<Self> + FullCodec;
-    type Value: From<V> + TryInto<V> + FullCodec;
-    type Storage: StorageMap<Self::Key, Self::Value>;
+pub struct SignedActionWithNonce<T: Types, A, S>
+where
+    A: ActionWithNonce<T>,
+{
+    pub action: A,
+    pub signature: S,
+    _marker: PhantomData<T>,
+}
+
+impl<T: Types, A, S> SignedActionWithNonce<T, A, S>
+where
+    A: ActionWithNonce<T>,
+{
+    pub fn new(action: A, signature: S) -> Self {
+        Self {
+            action,
+            signature,
+            _marker: PhantomData,
+        }
+    }
+}
+
+/// Allows mutating a value associated with `Self`.
+pub trait StorageRef<T>: Sized {
+    type Value;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<Self::Value>) -> Result<R, E>;
+}
+
+impl<T> StorageRef<T> for () {
+    type Value = ();
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<()>) -> Result<R, E>,
+    {
+        f(&mut Some(()))
+    }
 }

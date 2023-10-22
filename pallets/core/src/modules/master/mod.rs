@@ -60,8 +60,8 @@
 #[cfg(feature = "serde")]
 use crate::util::btree_set;
 use crate::{
-    common::{signatures::ForSigType, Limits, Types},
-    did::{self, Authorization, AuthorizeSignedAction, Did, DidSignature},
+    common::{signatures::ForSigType, Authorization, AuthorizeSignedAction, Limits, Types},
+    did::{self, Did, DidSignature},
     util::WithNonce,
 };
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};

@@ -1,8 +1,8 @@
 use crate::{
-    common::{self, signatures::ForSigType, CurveType},
+    common::{self, signatures::ForSigType, CurveType, Signature},
     did,
-    did::{Did, DidOrDidMethodKeySignature, SignedActionWithNonce},
-    util::{Bytes, IncId},
+    did::{Did, DidOrDidMethodKeySignature},
+    util::{ActionWithNonce, Bytes, IncId, WrappedActionWithNonce},
 };
 pub use actions::*;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -58,7 +58,6 @@ pub mod pallet {
         ParamsDontExist,
         PublicKeyDoesntExist,
         AccumulatedTooBig,
-        AccumulatorDoesntExist,
         AccumulatorAlreadyExists,
         NotPublicKeyOwner,
         NotAccumulatorOwner,
@@ -154,7 +153,13 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(params, signature).execute(Self::add_params_)
+            WrappedActionWithNonce::new(params.nonce(), signature.signer(), params)
+                .signed(signature)
+                .execute(
+                    |WrappedActionWithNonce { action, .. }, accumulator, accumulator_owner| {
+                        Self::add_params_(action, accumulator, accumulator_owner)
+                    },
+                )
         }
 
         #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
@@ -165,7 +170,13 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(public_key, signature).execute(Self::add_public_key_)
+            WrappedActionWithNonce::new(public_key.nonce(), signature.signer(), public_key)
+                .signed(signature)
+                .execute(
+                    |WrappedActionWithNonce { action, .. }, accumulator, accumulator_owner| {
+                        Self::add_public_key_(action, accumulator, accumulator_owner)
+                    },
+                )
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
@@ -176,7 +187,13 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(remove, signature).execute(Self::remove_params_)
+            WrappedActionWithNonce::new(remove.nonce(), signature.signer(), remove)
+                .signed(signature)
+                .execute(
+                    |WrappedActionWithNonce { action, .. }, accumulator, accumulator_owner| {
+                        Self::remove_params_(action, accumulator, accumulator_owner)
+                    },
+                )
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
@@ -187,7 +204,13 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(remove, signature).execute(Self::remove_public_key_)
+            WrappedActionWithNonce::new(remove.nonce(), signature.signer(), remove)
+                .signed(signature)
+                .execute(
+                    |WrappedActionWithNonce { action, .. }, accumulator, accumulator_owner| {
+                        Self::remove_public_key_(action, accumulator, accumulator_owner)
+                    },
+                )
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -203,7 +226,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(add_accumulator, signature).execute(Self::add_accumulator_)
+            add_accumulator
+                .signed(signature)
+                .execute(Self::add_accumulator_)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -219,7 +244,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(update, signature).execute(Self::update_accumulator_)
+            update.signed(signature).execute(Self::update_accumulator_)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_accumulator(remove, signature))]
@@ -230,7 +255,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(remove, signature).execute(Self::remove_accumulator_)
+            remove
+                .signed(signature)
+                .execute_removable(Self::remove_accumulator_)
         }
     }
 

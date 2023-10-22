@@ -1,13 +1,9 @@
 //! Generic immutable single-owner storage.
 
 use crate::{
-    common::{signatures::ForSigType, Limits, TypesAndLimits},
-    did,
-    did::{
-        AuthorizeTarget, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature,
-        SignedActionWithNonce,
-    },
-    util::BoundedBytes,
+    common::{signatures::ForSigType, AuthorizeTarget, Limits, TypesAndLimits},
+    did::{self, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    util::{ActionWithNonce, BoundedBytes},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_std::fmt::Debug;
@@ -118,12 +114,16 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            SignedActionWithNonce::new(add_blob, signature).execute(Self::new_)
+            add_blob.signed(signature).execute(Self::new_)
         }
     }
 
     impl<T: Config> Pallet<T> {
-        fn new_(AddBlob { blob, .. }: AddBlob<T>, signer: BlobOwner) -> DispatchResult {
+        fn new_(
+            AddBlob { blob, .. }: AddBlob<T>,
+            (): &mut (),
+            signer: BlobOwner,
+        ) -> DispatchResult {
             // check
             ensure!(
                 !Blobs::<T>::contains_key(blob.id),
