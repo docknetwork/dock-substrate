@@ -46,9 +46,9 @@ impl<T: Limits> ApplyUpdate<TrustRegistrySchemaMetadata<T>>
 impl<A, T: Limits> ValidateUpdate<A, TrustRegistrySchemaMetadata<T>>
     for TrustRegistrySchemaMetadataUpdate<T>
 where
-    A: CanUpdateAndKeyed<SchemaIssuers<T>>
-        + CanUpdateAndKeyed<SchemaVerifiers<T>>
-        + CanUpdateAndKeyed<VerificationPrices<T>>
+    A: CanUpdateAndCanUpdateKeyed<SchemaIssuers<T>>
+        + CanUpdateAndCanUpdateKeyed<SchemaVerifiers<T>>
+        + CanUpdateAndCanUpdateKeyed<VerificationPrices<T>>
         + CanUpdate<Price>,
 {
     fn ensure_valid(

@@ -36,13 +36,13 @@ where
 }
 
 /// Checks whether an actor can either update a whole entity or some of its keys.
-pub trait CanUpdateAndKeyed<Entity>: CanUpdateKeyed<Entity> + CanUpdate<Entity>
+pub trait CanUpdateAndCanUpdateKeyed<Entity>: CanUpdateKeyed<Entity> + CanUpdate<Entity>
 where
     Entity: core::ops::Deref,
     Entity::Target: BoundedKeyValue,
 {
 }
-impl<Entity, T: CanUpdateKeyed<Entity> + CanUpdate<Entity>> CanUpdateAndKeyed<Entity> for T
+impl<Entity, T: CanUpdateKeyed<Entity> + CanUpdate<Entity>> CanUpdateAndCanUpdateKeyed<Entity> for T
 where
     Entity: core::ops::Deref,
     Entity::Target: BoundedKeyValue,
