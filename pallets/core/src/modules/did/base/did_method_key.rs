@@ -7,7 +7,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Index, RangeFull};
 use frame_support::ensure;
 
-/// The type of the `did:key:`.
+/// The `public_key` in `did:key:<public_key>`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]

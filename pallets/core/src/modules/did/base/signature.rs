@@ -32,6 +32,7 @@ where
                     .map_err(|_| Error::<T>::ExpectedDid)?;
 
                 self_did.ensure_authorizes_target(did_key, action)?;
+                // Question: Does self.ensure_authorizes_target need to be called?
                 self.ensure_authorizes_target(did_key, action)
             }
             DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => {

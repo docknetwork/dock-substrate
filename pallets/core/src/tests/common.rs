@@ -272,12 +272,12 @@ impl crate::common::Limits for Test {
     type MaxPolicyControllers = MaxPolicyControllers;
 
     type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
-    type MaxIssuersPerSchemaSize = ConstU32<20>;
-    type MaxVerifiersPerSchemaSize = ConstU32<20>;
-    type MaxIssuerPricesSize = ConstU32<20>;
+    type MaxIssuersPerSchema = ConstU32<20>;
+    type MaxVerifiersPerSchema = ConstU32<20>;
+    type MaxPriceCurrencies = ConstU32<20>;
     type MaxTrustRegistryNameSize = ConstU32<100>;
     type MaxConvenerRegistries = ConstU32<5>;
-    type MaxDelegatedIssuersSize = ConstU32<20>;
+    type MaxDelegatedIssuers = ConstU32<20>;
     type MaxSchemasPerIssuer = ConstU32<100>;
     type MaxSchemasPerVerifier = ConstU32<100>;
 }

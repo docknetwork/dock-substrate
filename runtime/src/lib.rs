@@ -1099,12 +1099,12 @@ impl common::Limits for Runtime {
     type MaxMasterMembers = MaxMasterMembers;
 
     type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
-    type MaxIssuersPerSchemaSize = ConstU32<50>;
-    type MaxVerifiersPerSchemaSize = ConstU32<50>;
-    type MaxIssuerPricesSize = ConstU32<25>;
+    type MaxIssuersPerSchema = ConstU32<100>;
+    type MaxVerifiersPerSchema = ConstU32<100000>;
+    type MaxPriceCurrencies = ConstU32<25>;
     type MaxTrustRegistryNameSize = ConstU32<50>;
-    type MaxConvenerRegistries = ConstU32<10>;
-    type MaxDelegatedIssuersSize = ConstU32<10>;
+    type MaxConvenerRegistries = ConstU32<1000>;
+    type MaxDelegatedIssuers = ConstU32<10>;
     type MaxSchemasPerIssuer = ConstU32<100>;
     type MaxSchemasPerVerifier = ConstU32<100>;
 }

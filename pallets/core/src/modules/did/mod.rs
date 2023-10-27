@@ -137,7 +137,7 @@ pub mod pallet {
     #[pallet::getter(fn did)]
     pub type Dids<T> = StorageMap<_, Blake2_128Concat, Did, StoredDidDetails<T>>;
 
-    /// Stores details of the DID keys.
+    /// Stores nonce for `did:key` DIDs.
     #[pallet::storage]
     #[pallet::getter(fn did_method_key)]
     pub type DidMethodKeys<T> = StorageMap<_, Blake2_128Concat, DidMethodKey, WithNonce<T, ()>>;

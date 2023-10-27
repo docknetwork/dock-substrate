@@ -18,7 +18,7 @@ impl<T: Config> Pallet<T> {
         TrustRegistriesInfo::<T>::try_mutate(registry_id, |info| {
             if let Some(existing) = info.replace(TrustRegistryInfo { convener, name }) {
                 if existing.convener != convener {
-                    Err(Error::<T>::NotAConvener)?
+                    Err(Error::<T>::NotTheConvener)?
                 }
             }
 
@@ -52,12 +52,14 @@ impl<T: Config> Pallet<T> {
 
         Self::try_update_verifiers_and_issuers_with(registry_id, |verifiers, issuers| {
             for (schema_id, schema_metadata) in &schemas {
+                // `issuers` would be a map as `issuer_id` -> `schema_id`s
                 for issuer in schema_metadata.issuers.keys() {
                     issuers
                         .entry(*issuer)
                         .or_default()
                         .insert(*schema_id, AddOrRemoveOrModify::Add(()));
                 }
+                // `verifiers` would be a map as `verifier_id` -> `schema_id`s
                 for verifier in schema_metadata.verifiers.iter() {
                     verifiers
                         .entry(*verifier)
@@ -100,7 +102,7 @@ impl<T: Config> Pallet<T> {
                     {
                         update.ensure_valid(&Convener(*actor), &schema_metadata)?;
                     } else {
-                        update.ensure_valid(&MaybeIssuerOrVerifier(*actor), &schema_metadata)?;
+                        update.ensure_valid(&IssuerOrVerifier(*actor), &schema_metadata)?;
                     }
 
                     if let Some(verifiers_update) = update
@@ -253,6 +255,8 @@ impl<T: Config> Pallet<T> {
         })
     }
 
+    /// Set `schema_id`s corresponding to each issuer and verifier of trust registry with given id.
+    /// Will check that updates are valid and then update storage in `TrustRegistryVerifierSchemas` and `TrustRegistryIssuerSchemas`
     fn try_update_verifiers_and_issuers_with<R, F>(
         registry_id: TrustRegistryId,
         f: F,

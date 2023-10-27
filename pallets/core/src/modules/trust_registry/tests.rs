@@ -96,7 +96,7 @@ crate::did_or_did_method_key! {
                     init_trust_registry_already_exists,
                     other_did_sig
                 ),
-                Error::<Test>::NotAConvener
+                Error::<Test>::NotTheConvener
             );
 
             let reinit_trust_registry = InitTrustRegistry::<Test> {
@@ -221,7 +221,7 @@ crate::did_or_did_method_key! {
 
             assert_noop!(
                 Pallet::<Test>::suspend_issuers(Origin::signed(alice), suspend_issuers, sig),
-                Error::<Test>::NotAConvener
+                Error::<Test>::NotTheConvener
             );
 
             let suspend_issuers = SuspendIssuers {
@@ -431,7 +431,7 @@ crate::did_or_did_method_key! {
                     add_other_schema_metadata,
                     other_sig
                 ),
-                Error::<Test>::NotAConvener
+                Error::<Test>::NotTheConvener
             );
 
             let add_other_schema_metadata = AddSchemaMetadata {

@@ -81,7 +81,7 @@ impl CanUpdate<Price> for Convener {
     }
 }
 
-impl CanUpdate<Price> for MaybeIssuerOrVerifier {
+impl CanUpdate<Price> for IssuerOrVerifier {
     fn can_add(&self, _entity: &Price) -> bool {
         true
     }
@@ -95,10 +95,10 @@ impl CanUpdate<Price> for MaybeIssuerOrVerifier {
     }
 }
 
-impl<T: Limits> CanUpdate<SchemaIssuers<T>> for MaybeIssuerOrVerifier {}
-impl<T: Limits> CanUpdate<SchemaVerifiers<T>> for MaybeIssuerOrVerifier {}
+impl<T: Limits> CanUpdate<SchemaIssuers<T>> for IssuerOrVerifier {}
+impl<T: Limits> CanUpdate<SchemaVerifiers<T>> for IssuerOrVerifier {}
 
-impl<T: Limits> CanUpdateKeyed<SchemaIssuers<T>> for MaybeIssuerOrVerifier {
+impl<T: Limits> CanUpdateKeyed<SchemaIssuers<T>> for IssuerOrVerifier {
     fn can_update_keyed<U: KeyedUpdate<SchemaIssuers<T>>>(
         &self,
         entity: &SchemaIssuers<T>,
@@ -108,7 +108,7 @@ impl<T: Limits> CanUpdateKeyed<SchemaIssuers<T>> for MaybeIssuerOrVerifier {
     }
 }
 
-impl<T: Limits> CanUpdateKeyed<SchemaVerifiers<T>> for MaybeIssuerOrVerifier {
+impl<T: Limits> CanUpdateKeyed<SchemaVerifiers<T>> for IssuerOrVerifier {
     fn can_update_keyed<U: KeyedUpdate<SchemaVerifiers<T>>>(
         &self,
         entity: &SchemaVerifiers<T>,
@@ -118,7 +118,7 @@ impl<T: Limits> CanUpdateKeyed<SchemaVerifiers<T>> for MaybeIssuerOrVerifier {
     }
 }
 
-impl<T: Limits> CanUpdateKeyed<VerificationPrices<T>> for MaybeIssuerOrVerifier {
+impl<T: Limits> CanUpdateKeyed<VerificationPrices<T>> for IssuerOrVerifier {
     fn can_update_keyed<U: KeyedUpdate<VerificationPrices<T>>>(
         &self,
         _entity: &VerificationPrices<T>,
@@ -202,7 +202,7 @@ impl<T: Limits> CanUpdate<VerificationPrices<T>> for Convener {
     }
 }
 
-impl<T: Limits> CanUpdate<VerificationPrices<T>> for MaybeIssuerOrVerifier {
+impl<T: Limits> CanUpdate<VerificationPrices<T>> for IssuerOrVerifier {
     fn can_add(&self, _entity: &VerificationPrices<T>) -> bool {
         true
     }

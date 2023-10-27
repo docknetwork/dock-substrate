@@ -88,7 +88,7 @@ pub trait Action: Sized {
     }
 }
 
-/// Describes an action fpwith nonce which can be performed on some `Target`
+/// Describes an action with nonce which can be performed on some `Target`
 pub trait ActionWithNonce<T: Types>: Action {
     /// Returns action's nonce.
     fn nonce(&self) -> T::BlockNumber;
@@ -121,7 +121,7 @@ pub trait ActionWithNonce<T: Types>: Action {
     }
 
     /// Executes an action providing a mutable reference to the value associated with the target.
-    /// In case of a successful result, the nonce will be increased.
+    /// Even in case of a successful result, the nonce won't be increased.
     fn execute_without_increasing_nonce<F, R, S, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
