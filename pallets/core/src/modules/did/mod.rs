@@ -95,14 +95,14 @@ pub mod pallet {
         NoControllerProvided,
         /// The provided key type is not comptaible with the provided verification relationship
         IncompatibleVerificationRelation,
-        CannotGetDetailForOffChainDid,
-        CannotGetDetailForOnChainDid,
+        ExpectedOffChainDid,
+        ExpectedOnChainDid,
         InvalidSignature,
         /// Only controller of a DID can update the DID Doc
         OnlyControllerCanUpdate,
         NoKeyForDid,
         NoControllerForDid,
-        IncompatSigPubkey,
+        IncompatibleSignaturePublicKey,
         /// The key does not have the required verification relationship
         InsufficientVerificationRelationship,
         ControllerIsAlreadyAdded,
@@ -113,11 +113,18 @@ pub mod pallet {
         SigningKeyCantBeUsedForKeyAgreement,
         ExpectedDid,
         ExpectedDidMethodKey,
+        InvalidNonce,
+    }
+
+    impl<T: Config> From<NonceError> for Error<T> {
+        fn from(NonceError::IncorrectNonce: NonceError) -> Self {
+            Self::InvalidNonce
+        }
     }
 
     impl<T: Config> From<VerificationError> for Error<T> {
         fn from(VerificationError::IncompatibleKey: VerificationError) -> Self {
-            Self::IncompatSigPubkey
+            Self::IncompatibleSignaturePublicKey
         }
     }
 

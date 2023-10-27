@@ -6,22 +6,21 @@ use super::ToStateChange;
 /// Authorizes action performed by `Self` over supplied target using given key.
 pub trait AuthorizeTarget<Target, Key> {
     /// `Self` can perform supplied action over `target` using the provided key.
-    fn ensure_authorizes_target<T: crate::did::Config, A>(
+    fn ensure_authorizes_target<T, A>(
         &self,
         _: &Key,
         _: &A,
-    ) -> Result<(), crate::did::Error<T>>
+    ) -> Result<(), did::Error<T>>
     where
+        T: did::Config,
         A: Action<Target = Target>,
     {
         Ok(())
     }
 }
 
-type AuthorizationResult<T, S> = Result<
-    Option<Authorization<<S as Signature>::Signer, <S as Signature>::Key>>,
-    crate::did::Error<T>,
->;
+type AuthorizationResult<T, S> =
+    Result<Option<Authorization<<S as Signature>::Signer, <S as Signature>::Key>>, did::Error<T>>;
 
 /// Signature that can authorize a signed action.
 pub trait AuthorizeSignedAction<A: Action>: Signature
@@ -29,10 +28,7 @@ where
     Self::Signer: AuthorizeTarget<A::Target, Self::Key>,
 {
     /// This signature allows `Self::Signer` to perform the supplied action.
-    fn authorizes_signed_action<T: crate::did::Config>(
-        &self,
-        action: &A,
-    ) -> AuthorizationResult<T, Self>
+    fn authorizes_signed_action<T: did::Config>(&self, action: &A) -> AuthorizationResult<T, Self>
     where
         A: ToStateChange<T>,
     {

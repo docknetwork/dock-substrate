@@ -36,9 +36,7 @@ impl<T: Config> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
     type Error = Error<T>;
 
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
-        details
-            .into_onchain()
-            .ok_or(Error::<T>::CannotGetDetailForOnChainDid)
+        details.into_onchain().ok_or(Error::<T>::ExpectedOnChainDid)
     }
 }
 

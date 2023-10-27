@@ -14,12 +14,13 @@ where
         + Into<DidOrDidMethodKey>
         + Clone,
 {
-    fn ensure_authorizes_target<T: Config, A>(
+    fn ensure_authorizes_target<T, A>(
         &self,
         key: &DidKeyOrDidMethodKey,
         action: &A,
     ) -> Result<(), Error<T>>
     where
+        T: Config,
         A: Action<Target = Target>,
     {
         match key {
@@ -273,7 +274,7 @@ impl<D: Into<Did>> DidSignature<D> {
     }
 }
 
-impl<T: crate::did::Config, A> SignedActionWithNonce<T, A, DidOrDidMethodKeySignature<Controller>>
+impl<T: Config, A> SignedActionWithNonce<T, A, DidOrDidMethodKeySignature<Controller>>
 where
     A: ActionWithNonce<T, Target = Did> + ToStateChange<T>,
     DidOrDidMethodKeySignature<Controller>:

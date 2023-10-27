@@ -3,7 +3,7 @@ pub trait OptionExt<V> {
     where
         F: FnOnce(&mut Option<S>) -> R,
         V: TryInto<S>,
-        S: Into<V>;
+        S: TryInto<V>;
 
     fn initialized(&mut self) -> &mut Self
     where
@@ -15,13 +15,13 @@ impl<V> OptionExt<V> for Option<V> {
     where
         F: FnOnce(&mut Option<S>) -> R,
         V: TryInto<S>,
-        S: Into<V>,
+        S: TryInto<V>,
     {
-        let mut entity = self.take().and_then(|opt| opt.try_into().ok());
+        let mut entity = self.take().map(TryInto::try_into).and_then(Result::ok);
 
         let res = f(&mut entity);
 
-        *self = entity.map(Into::into);
+        *self = entity.map(TryInto::try_into).and_then(Result::ok);
 
         res
     }

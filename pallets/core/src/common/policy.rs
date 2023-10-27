@@ -8,8 +8,7 @@ use crate::util::btree_set;
 
 use crate::{
     common::{AuthorizeTarget, Signature},
-    did,
-    did::{Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    did::{self, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
     util::{Action, ActionExecutionError, ActionWithNonce, NonceError, StorageRef, WithNonce},
 };
 use alloc::vec::Vec;
@@ -178,7 +177,7 @@ pub trait HasPolicy<T: Limits>: Sized {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        T: crate::did::Config,
+        T: did::Config,
         F: FnOnce(A, Self) -> Result<R, E>,
         WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
         <WithNonce<T, A> as Action>::Target: StorageRef<T>,
@@ -215,7 +214,7 @@ pub trait HasPolicy<T: Limits>: Sized {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        T: crate::did::Config,
+        T: did::Config,
         F: FnOnce(A, &mut Self) -> Result<R, E>,
         WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
         <WithNonce<T, A> as Action>::Target: StorageRef<T>,
@@ -255,7 +254,7 @@ pub trait HasPolicy<T: Limits>: Sized {
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        T: crate::did::Config,
+        T: did::Config,
         F: FnOnce(A, &mut Option<Self>) -> Result<R, E>,
         WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
         <WithNonce<T, A> as Action>::Target: StorageRef<T>,

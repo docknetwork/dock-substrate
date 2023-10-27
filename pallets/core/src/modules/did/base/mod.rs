@@ -30,53 +30,6 @@ pub enum DidOrDidMethodKey {
     DidMethodKey(DidMethodKey),
 }
 
-impl<T: Config> StorageRef<T> for DidOrDidMethodKey {
-    type Value = WithNonce<T, ()>;
-
-    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
-    where
-        F: FnOnce(&mut Option<WithNonce<T, ()>>) -> Result<R, E>,
-    {
-        match self {
-            Self::Did(did) => did.try_mutate_associated(|details| {
-                details.update_with(|onchain_details: &mut Option<StoredOnChainDidDetails<T>>| {
-                    let mut with_nonce = onchain_details
-                        .as_ref()
-                        .map(|details| WithNonce::new_with_nonce((), details.nonce));
-
-                    let res = f(&mut with_nonce);
-
-                    *onchain_details =
-                        with_nonce
-                            .zip(onchain_details.take())
-                            .map(|(with_nonce, details)| {
-                                WithNonce::new_with_nonce(details.into_data(), with_nonce.nonce)
-                            });
-
-                    res
-                })
-            }),
-            Self::DidMethodKey(did_method_key) => did_method_key.try_mutate_associated(f),
-        }
-    }
-
-    fn view_associated<F, R>(self, f: F) -> R
-    where
-        F: FnOnce(Option<Self::Value>) -> R,
-    {
-        match self {
-            Self::Did(did) => did.view_associated(|details_opt| {
-                f(details_opt.and_then(|v| v.try_into().ok()).map(
-                    |details: StoredOnChainDidDetails<T>| {
-                        WithNonce::<T, _>::new_with_nonce((), details.nonce)
-                    },
-                ))
-            }),
-            Self::DidMethodKey(did_method_key) => did_method_key.view_associated(f),
-        }
-    }
-}
-
 impl From<Did> for DidOrDidMethodKey {
     fn from(did: Did) -> Self {
         Self::Did(did)
@@ -213,6 +166,20 @@ impl<T: TypesAndLimits> StoredDidDetails<T> {
         }
     }
 
+    pub fn to_offchain(&self) -> Option<&OffChainDidDetails<T>> {
+        match self {
+            StoredDidDetails::OffChain(details) => Some(details),
+            _ => None,
+        }
+    }
+
+    pub fn to_onchain(&self) -> Option<&StoredOnChainDidDetails<T>> {
+        match self {
+            StoredDidDetails::OnChain(details) => Some(details),
+            _ => None,
+        }
+    }
+
     pub fn to_offchain_mut(&mut self) -> Option<&mut OffChainDidDetails<T>> {
         match self {
             StoredDidDetails::OffChain(details) => Some(details),
@@ -224,6 +191,150 @@ impl<T: TypesAndLimits> StoredDidDetails<T> {
         match self {
             StoredDidDetails::OnChain(details) => Some(details),
             _ => None,
+        }
+    }
+
+    pub fn nonce(&self) -> Option<T::BlockNumber> {
+        self.to_onchain().map(|with_nonce| with_nonce.nonce)
+    }
+
+    pub fn try_update_onchain(
+        &mut self,
+        nonce: <T as Types>::BlockNumber,
+    ) -> Result<&mut OnChainDidDetails, Error<T>>
+    where
+        T: Config,
+    {
+        self.to_onchain_mut()
+            .ok_or(Error::<T>::ExpectedOnChainDid)?
+            .try_update(nonce)
+            .map_err(Into::into)
+    }
+}
+
+impl<T: Config> From<StoredDidDetails<T>> for WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>> {
+    fn from(details: StoredDidDetails<T>) -> Self {
+        let nonce = details.nonce().unwrap_or_default();
+
+        WithNonce::new_with_nonce(DidDetailsOrDidMethodKeyDetails::DidDetails(details), nonce)
+    }
+}
+
+impl<T: Config> TryFrom<StoredOnChainDidDetails<T>>
+    for WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>
+{
+    type Error = Error<T>;
+
+    fn try_from(details: StoredOnChainDidDetails<T>) -> Result<Self, Self::Error> {
+        let nonce = details.nonce;
+
+        Ok(WithNonce::new_with_nonce(
+            DidDetailsOrDidMethodKeyDetails::DidDetails(details.into()),
+            nonce,
+        ))
+    }
+}
+
+impl<T: Config> From<WithNonce<T, ()>> for WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>> {
+    fn from(this: WithNonce<T, ()>) -> Self {
+        WithNonce::new_with_nonce(
+            DidDetailsOrDidMethodKeyDetails::DidMethodKeyDetails,
+            this.nonce,
+        )
+    }
+}
+
+impl<T: Config> TryFrom<WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>> for WithNonce<T, ()> {
+    type Error = Error<T>;
+
+    fn try_from(
+        details: WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>,
+    ) -> Result<Self, Self::Error> {
+        let nonce = details.nonce;
+
+        match details.into_data() {
+            DidDetailsOrDidMethodKeyDetails::DidMethodKeyDetails => {
+                Ok(WithNonce::new_with_nonce((), nonce))
+            }
+            _ => Err(Error::<T>::ExpectedDidMethodKey),
+        }
+    }
+}
+
+impl<T: Config> TryFrom<WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>> for StoredDidDetails<T> {
+    type Error = Error<T>;
+
+    fn try_from(
+        details: WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>,
+    ) -> Result<Self, Self::Error> {
+        let nonce = details.nonce;
+
+        match details.into_data() {
+            DidDetailsOrDidMethodKeyDetails::DidDetails(mut details) => {
+                details.try_update_onchain(nonce)?;
+
+                Ok(details)
+            }
+            _ => Err(Error::<T>::ExpectedDid),
+        }
+    }
+}
+
+impl<T: Config> TryFrom<WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>>
+    for StoredOnChainDidDetails<T>
+{
+    type Error = Error<T>;
+
+    fn try_from(
+        details: WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>,
+    ) -> Result<Self, Self::Error> {
+        let nonce = details.nonce;
+
+        match details.into_data() {
+            DidDetailsOrDidMethodKeyDetails::DidDetails(details) => {
+                let onchain_details: StoredOnChainDidDetails<T> = details.try_into()?;
+                if onchain_details.nonce != nonce {
+                    Err(NonceError::IncorrectNonce)?
+                }
+
+                Ok(onchain_details)
+            }
+            _ => Err(Error::<T>::ExpectedDid),
+        }
+    }
+}
+
+pub enum DidDetailsOrDidMethodKeyDetails<T: TypesAndLimits> {
+    DidDetails(StoredDidDetails<T>),
+    DidMethodKeyDetails,
+}
+
+impl<T: Config> StorageRef<T> for DidOrDidMethodKey {
+    type Value = WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<Self::Value>) -> Result<R, E>,
+    {
+        match self {
+            Self::Did(did) => did.try_mutate_associated(|details| details.update_with(f)),
+            Self::DidMethodKey(did_method_key) => {
+                did_method_key.try_mutate_associated(|details| details.update_with(f))
+            }
+        }
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<Self::Value>) -> R,
+    {
+        match self {
+            Self::Did(did) => did.view_associated(|details_opt| {
+                f(details_opt.map(TryInto::try_into).and_then(Result::ok))
+            }),
+            Self::DidMethodKey(did_method_key) => {
+                did_method_key.view_associated(|details| f(details.map(Into::into)))
+            }
         }
     }
 }
