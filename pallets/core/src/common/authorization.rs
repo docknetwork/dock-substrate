@@ -6,11 +6,7 @@ use super::ToStateChange;
 /// Authorizes action performed by `Self` over supplied target using given key.
 pub trait AuthorizeTarget<Target, Key> {
     /// `Self` can perform supplied action over `target` using the provided key.
-    fn ensure_authorizes_target<T, A>(
-        &self,
-        _: &Key,
-        _: &A,
-    ) -> Result<(), did::Error<T>>
+    fn ensure_authorizes_target<T, A>(&self, _: &Key, _: &A) -> Result<(), did::Error<T>>
     where
         T: did::Config,
         A: Action<Target = Target>,
