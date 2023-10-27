@@ -59,7 +59,7 @@ where
             DidOrDidMethodKey::DidMethodKey(did_method_key) => {
                 did_method_key.ensure_authorizes_target(key, action)
             }
-            _ => Err(Error::<T>::ExpectedDid),
+            _ => Err(Error::<T>::ExpectedDidMethodKey),
         }
     }
 }

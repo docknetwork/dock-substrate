@@ -53,13 +53,19 @@ pub trait Limits: Clone + Eq {
     type MaxPolicyControllers: Size;
 
     type MaxIssuerPriceCurrencySymbolSize: Size;
-    type MaxIssuersPerSchemaSize: Size;
-    type MaxVerifiersPerSchemaSize: Size;
-    type MaxIssuerPricesSize: Size;
+    /// Max no of issuers that can issue for a particular schema
+    type MaxIssuersPerSchema: Size;
+    /// Max no of verifiers that can verify (credential) for a particular schema
+    type MaxVerifiersPerSchema: Size;
+    /// Max no of currencies an issuer can set the price in for a particular schema
+    type MaxPriceCurrencies: Size;
     type MaxTrustRegistryNameSize: Size;
     type MaxConvenerRegistries: Size;
-    type MaxDelegatedIssuersSize: Size;
+    /// Max no of delegated issuers a particular issuer can have
+    type MaxDelegatedIssuers: Size;
+    /// Max no of schemas that a particular issuer can issue for
     type MaxSchemasPerIssuer: Size;
+    /// Max no of schemas that a particular verifier can verify (credential) for
     type MaxSchemasPerVerifier: Size;
 }
 
@@ -96,12 +102,12 @@ impl Limits for () {
     type MaxPolicyControllers = NoLimit;
 
     type MaxIssuerPriceCurrencySymbolSize = NoLimit;
-    type MaxIssuersPerSchemaSize = NoLimit;
-    type MaxVerifiersPerSchemaSize = NoLimit;
-    type MaxIssuerPricesSize = NoLimit;
+    type MaxIssuersPerSchema = NoLimit;
+    type MaxVerifiersPerSchema = NoLimit;
+    type MaxPriceCurrencies = NoLimit;
     type MaxTrustRegistryNameSize = NoLimit;
     type MaxConvenerRegistries = NoLimit;
-    type MaxDelegatedIssuersSize = NoLimit;
+    type MaxDelegatedIssuers = NoLimit;
     type MaxSchemasPerIssuer = NoLimit;
     type MaxSchemasPerVerifier = NoLimit;
 }

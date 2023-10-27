@@ -1,5 +1,5 @@
 use super::*;
-use crate::{common::AuthorizeTarget, deposit_indexed_event, did, impl_wrapper};
+use crate::{common::AuthorizeTarget, deposit_indexed_event, impl_wrapper};
 
 /// `DID`'s controller.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -25,7 +25,7 @@ impl Controller {
 impl AuthorizeTarget<Did, DidKey> for Controller {
     fn ensure_authorizes_target<T, A>(&self, key: &DidKey, action: &A) -> Result<(), Error<T>>
     where
-        T: did::Config,
+        T: Config,
         A: Action<Target = Did>,
     {
         ensure!(
@@ -41,7 +41,7 @@ impl AuthorizeTarget<Did, DidKey> for Controller {
 impl AuthorizeTarget<Did, DidMethodKey> for Controller {
     fn ensure_authorizes_target<T, A>(&self, _: &DidMethodKey, action: &A) -> Result<(), Error<T>>
     where
-        T: did::Config,
+        T: Config,
         A: Action<Target = Did>,
     {
         self.ensure_controller_for::<T>(&action.target())?;

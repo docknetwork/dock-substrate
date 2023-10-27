@@ -215,8 +215,6 @@ pub mod pallet {
         ///
         /// # Errors
         ///
-        /// Returns an error if `revoke.last_modified` does not match the block number when the
-        /// registry referenced by `revoke.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `revoke.registry_id`.
@@ -239,8 +237,6 @@ pub mod pallet {
         ///
         /// Returns an error if the registry referenced by `revoke.registry_id` is `add_only`.
         ///
-        /// Returns an error if `unrevoke.last_modified` does not match the block number when the
-        /// registry referenced by `revoke.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `unrevoke.registry_id`.
@@ -265,8 +261,6 @@ pub mod pallet {
         ///
         /// Returns an error if the registry referenced by `revoke.registry_id` is `add_only`.
         ///
-        /// Returns an error if `removal.last_modified` does not match the block number when the
-        /// registry referenced by `removal.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `removal.registry_id`.

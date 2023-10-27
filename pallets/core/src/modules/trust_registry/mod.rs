@@ -37,8 +37,8 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         TooManyRegistries,
-        /// Not a `TrustRegistry`'s `Convener`.
-        NotAConvener,
+        /// Not the `TrustRegistry`'s `Convener`.
+        NotTheConvener,
         NoSuchIssuer,
         SchemaMetadataAlreadyExists,
         SchemaMetadataDoesntExist,
@@ -80,7 +80,7 @@ pub mod pallet {
     pub type TrustRegistriesInfo<T: Config> =
         StorageMap<_, Blake2_128Concat, TrustRegistryId, TrustRegistryInfo<T>>;
 
-    /// Schema metadata stored in all trust registries.
+    /// Schema metadata stored in all trust registries. Mapping of the form (schema_id, registry_id) -> schema_metadata
     #[pallet::storage]
     #[pallet::getter(fn schema_metadata)]
     pub type TrustRegistrySchemasMetadata<T: Config> = StorageDoubleMap<
@@ -92,7 +92,7 @@ pub mod pallet {
         TrustRegistrySchemaMetadata<T>,
     >;
 
-    /// Schema metadata stored in all trust registries.
+    /// Schema ids corresponding to trust registries. Mapping of registry_id -> schema_id
     #[pallet::storage]
     #[pallet::getter(fn registry_schema)]
     pub type TrustRegistryStoredSchemas<T: Config> = StorageDoubleMap<
@@ -104,7 +104,7 @@ pub mod pallet {
         (),
     >;
 
-    /// Stores `TrustRegistry`s along with
+    /// Stores `TrustRegistry`s owned by conveners as a mapping of the form convener_id -> Set<registry_id>
     #[pallet::storage]
     #[pallet::getter(fn convener_trust_registries)]
     pub type ConvenerTrustRegistries<T> =
@@ -152,7 +152,7 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Creates a new `Trust Registry` with the provided identifier.
-        /// The DID signature signer must be a registered `Convener` and will be set as a `Trust Registry` owner.
+        /// The DID signature signer will be set as a `Trust Registry` owner.
         #[pallet::weight(SubstrateWeight::<T>::init_trust_registry(init_trust_registry, sig))]
         pub fn init_trust_registry(
             origin: OriginFor<T>,
@@ -175,7 +175,7 @@ pub mod pallet {
         }
 
         /// Adds a new schema metadata entry (entries).
-        /// The DID signature signer must be a registered `Convener` owning this Trust Registry.
+        /// The DID signature signer must be the `Convener` owning this Trust Registry.
         #[pallet::weight(SubstrateWeight::<T>::add_schema_metadata(add_schema_metadata, sig))]
         pub fn add_schema_metadata(
             origin: OriginFor<T>,
@@ -190,7 +190,7 @@ pub mod pallet {
         }
 
         /// Updates the schema metadata entry (entries) with the supplied identifier(s).
-        /// - Registered `Convener` DID owning registry with the provided identifier can make any modifications.
+        /// - `Convener` DID owning registry with the provided identifier can make any modifications.
         /// - `Issuer` DID can only modify his verification prices and remove himself from the `issuers` map.
         /// - `Verifier` DID can only remove himself from the `verifiers` set.
         #[pallet::weight(SubstrateWeight::<T>::update_schema_metadata(update_schema_metadata, sig))]

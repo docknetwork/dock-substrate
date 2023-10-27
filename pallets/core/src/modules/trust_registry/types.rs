@@ -53,16 +53,16 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct MaybeIssuerOrVerifier(pub DidOrDidMethodKey);
+pub struct IssuerOrVerifier(pub DidOrDidMethodKey);
 
-impl_wrapper!(MaybeIssuerOrVerifier(DidOrDidMethodKey));
+impl_wrapper!(IssuerOrVerifier(DidOrDidMethodKey));
 
 impl Convener {
     pub fn ensure_controls<T: Config>(
         &self,
         TrustRegistryInfo { convener, .. }: &TrustRegistryInfo<T>,
     ) -> Result<(), Error<T>> {
-        ensure!(convener == self, Error::<T>::NotAConvener);
+        ensure!(convener == self, Error::<T>::NotTheConvener);
 
         Ok(())
     }
@@ -106,7 +106,7 @@ impl_wrapper!(ConvenerOrIssuerOrVerifier(DidOrDidMethodKey));
 impl AuthorizeTarget<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
 
-/// Trust registry `Convener`/`Issuer`/`Verifier`'s `DID`.
+/// Price to verify a credential. Lowest denomination should be used
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -114,6 +114,7 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifi
 #[scale_info(omit_prefix)]
 pub struct Price(#[codec(compact)] pub u128);
 
+/// Price of verifying a credential as per different currencies
 #[derive(
     Encode,
     Decode,
@@ -137,11 +138,11 @@ pub struct VerificationPrices<T: Limits>(
     pub  BoundedBTreeMap<
         BoundedString<T::MaxIssuerPriceCurrencySymbolSize>,
         Price,
-        T::MaxIssuerPricesSize,
+        T::MaxPriceCurrencies,
     >,
 );
 
-crate::impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedString<T::MaxIssuerPriceCurrencySymbolSize>, Price, T::MaxIssuerPricesSize>));
+impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedString<T::MaxIssuerPriceCurrencySymbolSize>, Price, T::MaxPriceCurrencies>));
 
 #[derive(
     Encode,
@@ -184,10 +185,10 @@ pub struct AggregatedIssuerInfo<T: Limits> {
 #[scale_info(omit_prefix)]
 pub struct IssuersWith<T: Limits, Entry: Eq + Clone + Debug>(
     #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
-    pub  BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchemaSize>,
+    pub  BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>,
 );
 
-crate::impl_wrapper!(IssuersWith<T, Entry> where T: Limits, Entry: Eq, Entry: Clone, Entry: Debug => (BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchemaSize>));
+impl_wrapper!(IssuersWith<T, Entry> where T: Limits, Entry: Eq, Entry: Clone, Entry: Debug => (BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>));
 
 /// Schema `Issuer`s (`Issuer` => verification prices).
 pub type SchemaIssuers<T> = IssuersWith<T, VerificationPrices<T>>;
@@ -208,10 +209,10 @@ pub type AggregatedSchemaIssuers<T> = IssuersWith<T, AggregatedIssuerInfo<T>>;
 #[scale_info(omit_prefix)]
 pub struct SchemaVerifiers<T: Limits>(
     #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
-    pub  BoundedBTreeSet<Verifier, T::MaxVerifiersPerSchemaSize>,
+    pub  BoundedBTreeSet<Verifier, T::MaxVerifiersPerSchema>,
 );
 
-crate::impl_wrapper!(SchemaVerifiers<T> where T: Limits => (BoundedBTreeSet<Verifier, T::MaxVerifiersPerSchemaSize>));
+impl_wrapper!(SchemaVerifiers<T> where T: Limits => (BoundedBTreeSet<Verifier, T::MaxVerifiersPerSchema>));
 
 /// Delegated `Issuer`s.
 #[derive(
@@ -234,10 +235,10 @@ crate::impl_wrapper!(SchemaVerifiers<T> where T: Limits => (BoundedBTreeSet<Veri
 #[scale_info(omit_prefix)]
 pub struct DelegatedIssuers<T: Limits>(
     #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
-    pub  BoundedBTreeSet<Issuer, T::MaxDelegatedIssuersSize>,
+    pub  BoundedBTreeSet<Issuer, T::MaxDelegatedIssuers>,
 );
 
-crate::impl_wrapper!(DelegatedIssuers<T> where T: Limits => (BoundedBTreeSet<Issuer, T::MaxDelegatedIssuersSize>));
+impl_wrapper!(DelegatedIssuers<T> where T: Limits => (BoundedBTreeSet<Issuer, T::MaxDelegatedIssuers>));
 
 pub type DelegatedUpdate<T> =
     SetOrModify<DelegatedIssuers<T>, MultiTargetUpdate<Issuer, AddOrRemoveOrModify<()>>>;
@@ -348,7 +349,7 @@ impl<T: Config> TrustRegistrySchemaMetadata<T> {
     }
 }
 
-/// `Trust Registry` schema metadata.
+/// Set of schemas corresponding to a verifier
 #[derive(
     Encode,
     Decode,
@@ -372,9 +373,9 @@ pub struct VerifierSchemas<T: Limits>(
     pub  BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerVerifier>,
 );
 
-crate::impl_wrapper!(VerifierSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerVerifier>));
+impl_wrapper!(VerifierSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerVerifier>));
 
-/// `Trust Registry` schema metadata.
+/// Set of schemas corresponding to a issuer
 #[derive(
     Encode,
     Decode,
@@ -398,7 +399,7 @@ pub struct IssuerSchemas<T: Limits>(
     pub  BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerIssuer>,
 );
 
-crate::impl_wrapper!(IssuerSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerIssuer>));
+impl_wrapper!(IssuerSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerIssuer>));
 
 #[derive(
     Encode,
@@ -423,7 +424,7 @@ pub struct TrustRegistryIdSet<T: Limits>(
     pub  BoundedBTreeSet<TrustRegistryId, T::MaxConvenerRegistries>,
 );
 
-crate::impl_wrapper!(TrustRegistryIdSet<T> where T: Limits => (BoundedBTreeSet<TrustRegistryId, T::MaxConvenerRegistries>));
+impl_wrapper!(TrustRegistryIdSet<T> where T: Limits => (BoundedBTreeSet<TrustRegistryId, T::MaxConvenerRegistries>));
 
 #[derive(
     Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
@@ -480,7 +481,7 @@ pub struct TrustRegistrySchemaMetadataUpdate<T: Limits> {
 #[scale_info(omit_prefix)]
 pub struct TrustRegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
 
-crate::impl_wrapper!(TrustRegistryId([u8; 32]));
+impl_wrapper!(TrustRegistryId([u8; 32]));
 
 impl<T: Config> StorageRef<T> for TrustRegistryId {
     type Value = TrustRegistryInfo<T>;
@@ -507,4 +508,4 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
 #[scale_info(omit_prefix)]
 pub struct TrustRegistrySchemaId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
 
-crate::impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
+impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
