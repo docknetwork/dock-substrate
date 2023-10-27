@@ -7,51 +7,54 @@ use crate::common::{
 };
 use frame_support::traits::Get;
 
+/// Either `DidKey` or `DidMethodKey`.
+pub enum DidKeyOrDidMethodKey {
+    DidKey(DidKey),
+    DidMethodKey(DidMethodKey),
+}
+
+impl TryFrom<DidKeyOrDidMethodKey> for DidKey {
+    type Error = DidMethodKey;
+
+    fn try_from(did_key_or_did_method_key: DidKeyOrDidMethodKey) -> Result<Self, Self::Error> {
+        match did_key_or_did_method_key {
+            DidKeyOrDidMethodKey::DidKey(did_key) => Ok(did_key),
+            DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => Err(did_method_key),
+        }
+    }
+}
+
+impl TryFrom<DidKeyOrDidMethodKey> for DidMethodKey {
+    type Error = DidKey;
+
+    fn try_from(did_key_or_did_method_key: DidKeyOrDidMethodKey) -> Result<Self, Self::Error> {
+        match did_key_or_did_method_key {
+            DidKeyOrDidMethodKey::DidKey(did_key) => Err(did_key),
+            DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => Ok(did_method_key),
+        }
+    }
+}
+
 impl<Target, Authorizer> AuthorizeTarget<Target, DidKeyOrDidMethodKey> for Authorizer
 where
-    Authorizer: AuthorizeTarget<Target, DidKey>
-        + AuthorizeTarget<Target, DidMethodKey>
-        + Into<DidOrDidMethodKey>
-        + Clone,
+    Authorizer: AuthorizeTarget<Target, DidKey> + AuthorizeTarget<Target, DidMethodKey>,
 {
     fn ensure_authorizes_target<T, A>(
         &self,
         key: &DidKeyOrDidMethodKey,
         action: &A,
-    ) -> Result<(), Error<T>>
+    ) -> Result<(), super::Error<T>>
     where
-        T: Config,
+        T: super::Config,
         A: Action<Target = Target>,
     {
         match key {
-            DidKeyOrDidMethodKey::DidKey(did_key) => {
-                let self_did: Did = self
-                    .clone()
-                    .into()
-                    .try_into()
-                    .map_err(|_| Error::<T>::ExpectedDid)?;
-
-                self_did.ensure_authorizes_target(did_key, action)?;
-                self.ensure_authorizes_target(did_key, action)
-            }
+            DidKeyOrDidMethodKey::DidKey(did_key) => self.ensure_authorizes_target(did_key, action),
             DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => {
-                let self_did_method_key: DidMethodKey = self
-                    .clone()
-                    .into()
-                    .try_into()
-                    .map_err(|_| Error::<T>::ExpectedDidMethodKey)?;
-
-                self_did_method_key.ensure_authorizes_target(did_method_key, action)?;
                 self.ensure_authorizes_target(did_method_key, action)
             }
         }
     }
-}
-
-/// Either `DidKey` or `DidMethodKey`.
-pub enum DidKeyOrDidMethodKey {
-    DidKey(DidKey),
-    DidMethodKey(DidMethodKey),
 }
 
 /// `DID`'s signature along with the used `DID`s key reference.

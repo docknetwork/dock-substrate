@@ -178,7 +178,7 @@ pub fn development_config() -> ChainSpec {
                         b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .map(|d| Did(**d))
+                    .map(|d| Did(**d).into())
                     .collect::<BTreeSet<_>>()
                     .try_into()
                     .unwrap(),
@@ -257,7 +257,7 @@ pub fn local_testnet_config() -> ChainSpec {
                         b"Charlie\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .map(|d| Did(**d))
+                    .map(|d| Did(**d).into())
                     .collect::<BTreeSet<_>>()
                     .try_into()
                     .unwrap(),
@@ -352,7 +352,7 @@ pub fn pos_testnet_config() -> ChainSpec {
                         b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .map(|d| Did(**d))
+                    .map(|d| Did(**d).into())
                     .collect::<BTreeSet<_>>()
                     .try_into()
                     .unwrap(),
@@ -516,7 +516,7 @@ pub fn pos_devnet_config() -> ChainSpec {
                         b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .map(|d| Did(**d))
+                    .map(|d| Did(**d).into())
                     .collect::<BTreeSet<_>>()
                     .try_into()
                     .unwrap(),
@@ -720,7 +720,7 @@ pub fn pos_mainnet_config() -> ChainSpec {
                         b"ec\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0",
                     ]
                     .iter()
-                    .map(|d| Did(**d))
+                    .map(|d| Did(**d).into())
                     .collect::<BTreeSet<_>>()
                     .try_into()
                     .unwrap(),
@@ -931,7 +931,7 @@ impl GenesisBuilder {
     fn validate(&self) -> Result<(), String> {
         // Every DID in master must be pre-declared
         for did in self.master.members.iter() {
-            if !self.dids.iter().any(|(k, _v)| k == did) {
+            if !self.dids.iter().any(|(k, _v)| k == &**did) {
                 return Err(format!(
                     "Master contains DID {:x?}.. that is not pre-declared",
                     did,

@@ -30,6 +30,40 @@ pub enum DidOrDidMethodKey {
     DidMethodKey(DidMethodKey),
 }
 
+impl<Target> AuthorizeTarget<Target, DidKey> for DidOrDidMethodKey
+where
+    Did: AuthorizeTarget<Target, DidKey>,
+{
+    fn ensure_authorizes_target<T, A>(&self, key: &DidKey, action: &A) -> Result<(), Error<T>>
+    where
+        T: crate::did::Config,
+        A: Action<Target = Target>,
+    {
+        match self {
+            DidOrDidMethodKey::Did(did) => did.ensure_authorizes_target(key, action),
+            _ => Err(Error::<T>::ExpectedDid),
+        }
+    }
+}
+
+impl<Target> AuthorizeTarget<Target, DidMethodKey> for DidOrDidMethodKey
+where
+    DidMethodKey: AuthorizeTarget<Target, DidMethodKey>,
+{
+    fn ensure_authorizes_target<T, A>(&self, key: &DidMethodKey, action: &A) -> Result<(), Error<T>>
+    where
+        T: crate::did::Config,
+        A: Action<Target = Target>,
+    {
+        match self {
+            DidOrDidMethodKey::DidMethodKey(did_method_key) => {
+                did_method_key.ensure_authorizes_target(key, action)
+            }
+            _ => Err(Error::<T>::ExpectedDid),
+        }
+    }
+}
+
 impl From<Did> for DidOrDidMethodKey {
     fn from(did: Did) -> Self {
         Self::Did(did)
@@ -41,29 +75,6 @@ impl From<DidMethodKey> for DidOrDidMethodKey {
         Self::DidMethodKey(did)
     }
 }
-
-impl TryFrom<DidKeyOrDidMethodKey> for DidKey {
-    type Error = DidMethodKey;
-
-    fn try_from(did_key_or_did_method_key: DidKeyOrDidMethodKey) -> Result<Self, Self::Error> {
-        match did_key_or_did_method_key {
-            DidKeyOrDidMethodKey::DidKey(did_key) => Ok(did_key),
-            DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => Err(did_method_key),
-        }
-    }
-}
-
-impl TryFrom<DidKeyOrDidMethodKey> for DidMethodKey {
-    type Error = DidKey;
-
-    fn try_from(did_key_or_did_method_key: DidKeyOrDidMethodKey) -> Result<Self, Self::Error> {
-        match did_key_or_did_method_key {
-            DidKeyOrDidMethodKey::DidKey(did_key) => Err(did_key),
-            DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => Ok(did_method_key),
-        }
-    }
-}
-
 impl TryFrom<DidOrDidMethodKey> for Did {
     type Error = DidMethodKey;
 

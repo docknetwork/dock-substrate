@@ -60,8 +60,11 @@
 #[cfg(feature = "serde")]
 use crate::util::btree_set;
 use crate::{
-    common::{signatures::ForSigType, Authorization, AuthorizeSignedAction, Limits, Types},
-    did::{self, Did, DidSignature},
+    common::{
+        signatures::ForSigType, Authorization, AuthorizeSignedAction, AuthorizeTarget, Limits,
+        Types,
+    },
+    did::{self, Did, DidKey, DidSignature},
     util::WithNonce,
 };
 use alloc::{boxed::Box, collections::BTreeMap, vec::Vec};
@@ -101,9 +104,21 @@ mod tests;
 #[scale_info(omit_prefix)]
 pub struct Membership<T: Limits> {
     #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
-    pub members: BoundedBTreeSet<Did, T::MaxMasterMembers>,
+    pub members: BoundedBTreeSet<Master, T::MaxMasterMembers>,
     pub vote_requirement: u64,
 }
+
+/// Master `DID`.
+#[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct Master(pub Did);
+
+crate::impl_wrapper!(Master(Did));
+
+impl AuthorizeTarget<(), DidKey> for Master {}
 
 impl<T: Limits> Default for Membership<T> {
     fn default() -> Self {
@@ -151,7 +166,7 @@ const MIN_WEIGHT: Weight = Weight::from_ref_time(10_000);
 
 /// Minimum weight for master's extrinsics. Considers cost of signature verification and update to round no
 fn get_min_weight_for_execute<T: Types>(
-    auth: &[WithNonce<T, DidSignature<Did>>],
+    auth: &[WithNonce<T, DidSignature<Master>>],
     db_weights: RuntimeDbWeight,
 ) -> Weight {
     MIN_WEIGHT
@@ -186,11 +201,11 @@ pub mod pallet {
     pub enum Event<T: Config> {
         /// A proposal succeeded and was executed. The dids listed are the members whose votes were
         /// used as proof of authorization. The executed call is provided.
-        Executed(Vec<Did>, Box<<T as Config>::Call>),
+        Executed(Vec<Master>, Box<<T as Config>::Call>),
         /// The membership of Master has changed.
         UnderNewOwnership,
         /// A proposal failed to execute
-        ExecutionFailed(Vec<Did>, Box<<T as Config>::Call>, DispatchError),
+        ExecutionFailed(Vec<Master>, Box<<T as Config>::Call>, DispatchError),
     }
 
     #[pallet::config]
@@ -236,7 +251,7 @@ pub mod pallet {
         pub fn execute(
             origin: OriginFor<T>,
             proposal: Box<<T as Config>::Call>,
-            auth: Vec<WithNonce<T, DidSignature<Did>>>,
+            auth: Vec<WithNonce<T, DidSignature<Master>>>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
@@ -258,7 +273,7 @@ pub mod pallet {
         pub fn execute_unchecked_weight(
             origin: OriginFor<T>,
             proposal: Box<<T as Config>::Call>,
-            auth: Vec<WithNonce<T, DidSignature<Did>>>,
+            auth: Vec<WithNonce<T, DidSignature<Master>>>,
             _weight: Weight,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
@@ -326,7 +341,7 @@ pub mod pallet {
         /// in this case
         fn execute_(
             proposal: Box<<T as Config>::Call>,
-            auth: Vec<WithNonce<T, DidSignature<Did>>>,
+            auth: Vec<WithNonce<T, DidSignature<Master>>>,
             given_weight: Option<Weight>,
         ) -> DispatchResultWithPostInfo {
             // check
@@ -380,7 +395,7 @@ pub mod pallet {
 
             // The nonce of each DID must be updated
             for (signer, did_details) in new_did_details {
-                did::Pallet::<T>::insert_did_details(signer, did_details);
+                did::Pallet::<T>::insert_did_details(*signer, did_details);
             }
 
             // Weight from dispatch's declaration. If dispatch does not return a weight in `PostDispatchInfo`,

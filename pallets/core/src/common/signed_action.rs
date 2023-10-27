@@ -10,6 +10,7 @@ where
     A: ActionWithNonce<T> + ToStateChange<T>,
     Sig: AuthorizeSignedAction<A>,
     Sig::Signer: AuthorizeTarget<A::Target, Sig::Key> + Deref,
+    <Sig::Signer as Deref>::Target: AuthorizeTarget<A::Target, Sig::Key>,
 {
     /// Verifies signer's signature and nonce, then executes given action providing a reference to the
     /// value associated with the target.

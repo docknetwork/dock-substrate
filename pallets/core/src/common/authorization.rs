@@ -1,5 +1,6 @@
 use crate::{common::Signature, did, util::Action};
 use codec::Encode;
+use core::ops::Deref;
 
 use super::ToStateChange;
 
@@ -21,7 +22,8 @@ type AuthorizationResult<T, S> =
 /// Signature that can authorize a signed action.
 pub trait AuthorizeSignedAction<A: Action>: Signature
 where
-    Self::Signer: AuthorizeTarget<A::Target, Self::Key>,
+    Self::Signer: AuthorizeTarget<A::Target, Self::Key> + Deref,
+    <Self::Signer as Deref>::Target: AuthorizeTarget<A::Target, Self::Key>,
 {
     /// This signature allows `Self::Signer` to perform the supplied action.
     fn authorizes_signed_action<T: did::Config>(&self, action: &A) -> AuthorizationResult<T, Self>
@@ -31,24 +33,24 @@ where
         let signer_pubkey = self.key::<T>().ok_or(did::Error::<T>::NoKeyForDid)?;
         let encoded_state_change = action.to_state_change().encode();
 
+        (*self.signer()).ensure_authorizes_target(&signer_pubkey, action)?;
         self.signer()
             .ensure_authorizes_target(&signer_pubkey, action)?;
 
-        self.verify_raw_bytes(&encoded_state_change, &signer_pubkey)
-            .map_err(Into::into)
-            .map(|yes| {
-                yes.then(|| Authorization {
-                    signer: self.signer(),
-                    key: signer_pubkey,
-                })
-            })
+        let ok = self.verify_raw_bytes(&encoded_state_change, &signer_pubkey)?;
+
+        Ok(ok.then(|| Authorization {
+            signer: self.signer(),
+            key: signer_pubkey,
+        }))
     }
 }
 
 impl<A: Action, S> AuthorizeSignedAction<A> for S
 where
     S: Signature,
-    S::Signer: AuthorizeTarget<A::Target, S::Key>,
+    S::Signer: AuthorizeTarget<A::Target, S::Key> + Deref,
+    <S::Signer as Deref>::Target: AuthorizeTarget<A::Target, S::Key>,
 {
 }
 
