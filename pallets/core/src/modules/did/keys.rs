@@ -4,7 +4,7 @@ use super::*;
 use crate::{deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info};
 
 /// Valid did key with correct verification relationships.
-#[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd, Copy, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]

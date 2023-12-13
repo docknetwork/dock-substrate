@@ -11,22 +11,29 @@ pub trait BoundedKeyValue: Sized {
         Self: 'keys,
         Self::Key: 'keys;
 
+    /// Container capacity.
     fn capacity(&self) -> u32;
+    /// Amount of the contained items.
     fn len(&self) -> u32;
+    /// Returns `true` if the underlying container is empty.
     fn is_empty(&self) -> bool {
         self.len() == 0
     }
+    /// Returns `true` if the underlying container has given the key.
     fn contains_key<K: Borrow<Self::Key>>(&self, key: K) -> bool {
         self.get(key).is_some()
     }
+    /// Returns value asssociated with the given key.
     fn get<K: Borrow<Self::Key>>(&self, key: K) -> Option<&Self::Value>;
+    /// Takes value asssociated with the given key.
     fn take<K: Borrow<Self::Key>>(&mut self, key: K) -> Option<Self::Value>;
+    /// Attempts to insert item in the underlying container.
     fn try_insert(
         &mut self,
         key: Self::Key,
         value: Self::Value,
     ) -> Result<(), (Self::Key, Self::Value)>;
-
+    /// Produces an iterator emitting underlying keys.
     fn keys(&self) -> Self::Keys<'_>;
 }
 

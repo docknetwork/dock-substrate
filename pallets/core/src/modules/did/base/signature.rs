@@ -8,6 +8,11 @@ use crate::common::{
 use frame_support::traits::Get;
 
 /// Either `DidKey` or `DidMethodKey`.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
 pub enum DidKeyOrDidMethodKey {
     DidKey(DidKey),
     DidMethodKey(DidMethodKey),

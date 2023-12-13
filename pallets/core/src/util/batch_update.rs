@@ -55,12 +55,15 @@ pub trait ApplyUpdate<Entity> {
     where
         Entity: 'output;
 
+    /// Applies update contained in `self` to the supplied entity.
     fn apply_update(self, entity: &mut Entity) -> Self::Output<'_>;
 
+    /// Returns the underlying update's kind.
     fn kind(&self, entity: &Entity) -> UpdateKind;
 }
 
 pub trait ValidateUpdate<Actor, Entity>: ApplyUpdate<Entity> {
+    /// Ensures that the underlying update is valid.
     fn ensure_valid(&self, actor: &Actor, entity: &Entity) -> Result<(), UpdateError>;
 }
 

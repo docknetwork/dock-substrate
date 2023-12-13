@@ -164,13 +164,11 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            let attester_action =
-                WrappedActionWithNonce::new(attests.nonce(), signature.signer(), attests);
-            attester_action.signed(signature).execute(
-                |WrappedActionWithNonce { action, .. }, attest, attester| {
+            WrappedActionWithNonce::new(attests.nonce(), signature.signer(), attests)
+                .signed(signature)
+                .execute(|WrappedActionWithNonce { action, .. }, attest, attester| {
                     Self::set_claim_(action, attest, attester)
-                },
-            )
+                })
         }
     }
 
