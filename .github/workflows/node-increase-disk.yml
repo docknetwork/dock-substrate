@@ -29,4 +29,4 @@ jobs:
       # Optional, additional flags to pass to ansible-playbook
       options: |
         --inventory .hosts
-        --extra-vars aws_region="${{github.event.inputs.aws_region}}" aws_secret_key="${{github.env.secret.AWS_SECRET_KEY}}" aws_key_id="${{github.env.secret.AWS_ACCESS_KEY_ID}}" name="${{github.event.inputs.instance_name}}" volume_size="${{github.event.inputs.disk_size}}"
+        --extra-vars aws_region="${{github.event.inputs.aws_region}}" aws_secret_key="${{github.env.secret.AWS_SECRET_KEY}}" aws_access_key_id="${{github.env.secret.AWS_ACCESS_KEY_ID}}" name="${{github.event.inputs.instance_name}}" volume_size="${{github.event.inputs.disk_size}}"
