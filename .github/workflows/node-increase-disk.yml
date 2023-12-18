@@ -20,13 +20,19 @@ on:
 
 jobs:
   increase-disk:
-    uses: dawidd6/action-ansible-playbook@v2
-    with:
-      # Required, playbook filepath
-      playbook: ec2-set-volume-size.yml
-      # Optional, directory where playbooks live
-      directory: ./scripts/ansible/aws
-      # Optional, additional flags to pass to ansible-playbook
-      options: |
-        --inventory .hosts
-        --extra-vars aws_region="${{github.event.inputs.aws_region}}" aws_secret_key="${{github.env.secret.AWS_SECRET_KEY}}" aws_access_key_id="${{github.env.secret.AWS_ACCESS_KEY_ID}}" name="${{github.event.inputs.instance_name}}" volume_size="${{github.event.inputs.disk_size}}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v3
+
+      - name: run playbook
+        uses: dawidd6/action-ansible-playbook@v2.6.1
+        with:
+          # Required, playbook filepath
+          playbook: ec2-set-volume-size.yml
+          # Optional, directory where playbooks live
+          directory: ./scripts/ansible/aws
+          # Optional, additional flags to pass to ansible-playbook
+          options: |
+            --inventory .hosts
+            --extra-vars aws_region="${{github.event.inputs.aws_region}}" aws_secret_key="${{github.env.secret.AWS_SECRET_KEY}}" aws_access_key_id="${{github.env.secret.AWS_ACCESS_KEY_ID}}" name="${{github.event.inputs.instance_name}}" volume_size="${{github.event.inputs.disk_size}}"
