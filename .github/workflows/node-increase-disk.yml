@@ -22,10 +22,21 @@ jobs:
   increase-disk:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v3
 
-      - name: run playbook
+      - name: Get Hosts Config
+        id: get-hosts
+        uses: keithweaver/aws-s3-github-action@v1.0.0
+        with:
+          command: cp
+          source: ${{env.S3_ANSIBLE_HOST_FILE}}
+          destination: ./ansible-hosts
+          aws_access_key_id: ${{ github.env.secret.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ github.env.secret.AWS_SECRET_KEY }}
+          aws_region: ${{env.S3_REGION}}
+
+      - name: Run playbook
         uses: dawidd6/action-ansible-playbook@v2.6.1
         with:
           # Required, playbook filepath
@@ -34,5 +45,5 @@ jobs:
           directory: ./scripts/ansible/aws
           # Optional, additional flags to pass to ansible-playbook
           options: |
-            --inventory .hosts
+            --inventory ./ansible-hosts
             --extra-vars aws_region="${{github.event.inputs.aws_region}}" aws_secret_key="${{github.env.secret.AWS_SECRET_KEY}}" aws_access_key_id="${{github.env.secret.AWS_ACCESS_KEY_ID}}" name="${{github.event.inputs.instance_name}}" volume_size="${{github.event.inputs.disk_size}}"
