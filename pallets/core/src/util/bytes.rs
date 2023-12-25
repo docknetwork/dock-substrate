@@ -43,6 +43,14 @@ impl<MaxSize: Get<u32>> TryFrom<Vec<u8>> for BoundedBytes<MaxSize> {
     }
 }
 
+impl<MaxSize: Get<u32>> TryFrom<Bytes> for BoundedBytes<MaxSize> {
+    type Error = ();
+
+    fn try_from(Bytes(bytes): Bytes) -> Result<Self, ()> {
+        bytes.try_into().map(Self)
+    }
+}
+
 /// Wrapper around raw bytes vector providing the ability to encode/decode in `hex` format.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

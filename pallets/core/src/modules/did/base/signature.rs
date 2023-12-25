@@ -96,12 +96,13 @@ impl<D: Into<Did>> ForSigType for DidSignature<D> {
         for_sr25519: impl FnOnce() -> R,
         for_ed25519: impl FnOnce() -> R,
         for_secp256k1: impl FnOnce() -> R,
-    ) -> R {
+    ) -> Option<R> {
         match self.sig {
             SigValue::Ed25519(_) => for_ed25519(),
             SigValue::Sr25519(_) => for_sr25519(),
             SigValue::Secp256k1(_) => for_secp256k1(),
         }
+        .into()
     }
 }
 
@@ -111,11 +112,12 @@ impl<D: Into<DidMethodKey>> ForSigType for DidKeySignature<D> {
         _for_sr25519: impl FnOnce() -> R,
         for_ed25519: impl FnOnce() -> R,
         for_secp256k1: impl FnOnce() -> R,
-    ) -> R {
+    ) -> Option<R> {
         match self.sig {
             DidMethodKeySigValue::Ed25519(_) => for_ed25519(),
             DidMethodKeySigValue::Secp256k1(_) => for_secp256k1(),
         }
+        .into()
     }
 }
 
@@ -133,7 +135,7 @@ impl<D: Into<DidOrDidMethodKey>> ForSigType for DidOrDidMethodKeySignature<D> {
             Self::DidMethodKeySignature(sig) => sig
                 .weight_for_sig_type::<T>(for_sr25519, for_ed25519, for_secp256k1)
                 .saturating_sub(T::DbWeight::get().reads(1)),
-            _ => unreachable!(),
+            _ => Default::default(),
         }
     }
 
@@ -142,13 +144,13 @@ impl<D: Into<DidOrDidMethodKey>> ForSigType for DidOrDidMethodKeySignature<D> {
         for_sr25519: impl FnOnce() -> R,
         for_ed25519: impl FnOnce() -> R,
         for_secp256k1: impl FnOnce() -> R,
-    ) -> R {
+    ) -> Option<R> {
         match self {
             Self::DidSignature(sig) => sig.for_sig_type(for_sr25519, for_ed25519, for_secp256k1),
             Self::DidMethodKeySignature(sig) => {
                 sig.for_sig_type(for_sr25519, for_ed25519, for_secp256k1)
             }
-            _ => unreachable!(),
+            _ => None,
         }
     }
 }
@@ -183,20 +185,19 @@ impl<D: Into<Did> + Clone> Signature for DidSignature<D> {
     type Signer = D;
     type Key = DidKey;
 
-    fn signer(&self) -> D {
-        self.did.clone()
+    fn signer(&self) -> Option<D> {
+        Some(self.did.clone())
     }
 
     fn key<T: Config>(&self) -> Option<Self::Key> {
         super::Pallet::<T>::did_key(self.did.clone().into(), self.key_id)
     }
 
-    fn verify_raw_bytes(
-        &self,
-        message: &[u8],
-        public_key: &Self::Key,
-    ) -> Result<bool, VerificationError> {
-        self.sig.verify(message, public_key.public_key())
+    fn verify_bytes<M>(&self, message: M, public_key: &Self::Key) -> Result<bool, VerificationError>
+    where
+        M: AsRef<[u8]>,
+    {
+        self.sig.verify(message.as_ref(), public_key.public_key())
     }
 }
 
@@ -207,20 +208,19 @@ impl<DK: Into<DidMethodKey> + Clone> Signature for DidKeySignature<DK> {
     type Signer = DK;
     type Key = DidMethodKey;
 
-    fn signer(&self) -> DK {
-        self.did_key.clone()
+    fn signer(&self) -> Option<DK> {
+        Some(self.did_key.clone())
     }
 
     fn key<T: Config>(&self) -> Option<Self::Key> {
         Some(self.did_key.clone().into())
     }
 
-    fn verify_raw_bytes(
-        &self,
-        message: &[u8],
-        public_key: &Self::Key,
-    ) -> Result<bool, VerificationError> {
-        self.sig.verify(message, public_key)
+    fn verify_bytes<M>(&self, message: M, public_key: &Self::Key) -> Result<bool, VerificationError>
+    where
+        M: AsRef<[u8]>,
+    {
+        self.sig.verify(message.as_ref(), public_key)
     }
 }
 
@@ -231,38 +231,40 @@ where
     type Signer = D;
     type Key = DidKeyOrDidMethodKey;
 
-    fn signer(&self) -> Self::Signer {
-        match self {
+    fn signer(&self) -> Option<Self::Signer> {
+        Some(match self {
             Self::DidMethodKeySignature(sig) => {
-                DidOrDidMethodKey::DidMethodKey(sig.signer()).into()
+                DidOrDidMethodKey::DidMethodKey(sig.signer()?).into()
             }
-            Self::DidSignature(sig) => DidOrDidMethodKey::Did(sig.signer()).into(),
-            Self::__Marker(_) => unreachable!(),
-        }
+            Self::DidSignature(sig) => DidOrDidMethodKey::Did(sig.signer()?).into(),
+            Self::__Marker(_) => None::<Self::Signer>?,
+        })
     }
 
     fn key<T: Config>(&self) -> Option<Self::Key> {
-        match self {
+        Some(match self {
             Self::DidMethodKeySignature(sig) => DidKeyOrDidMethodKey::DidMethodKey(sig.key::<T>()?),
             Self::DidSignature(sig) => DidKeyOrDidMethodKey::DidKey(sig.key::<T>()?),
-            Self::__Marker(_) => unreachable!(),
-        }
-        .into()
+            Self::__Marker(_) => None::<Self::Key>?,
+        })
     }
 
-    fn verify_raw_bytes(&self, message: &[u8], key: &Self::Key) -> Result<bool, VerificationError> {
+    fn verify_bytes<M>(&self, message: M, key: &Self::Key) -> Result<bool, VerificationError>
+    where
+        M: AsRef<[u8]>,
+    {
         match self {
             Self::DidSignature(sig) => match key {
-                DidKeyOrDidMethodKey::DidKey(did_key) => sig.verify_raw_bytes(message, did_key),
+                DidKeyOrDidMethodKey::DidKey(did_key) => sig.verify_bytes(message, did_key),
                 _ => Err(VerificationError::IncompatibleKey),
             },
             Self::DidMethodKeySignature(sig) => match key {
                 DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => {
-                    sig.verify_raw_bytes(message, did_method_key)
+                    sig.verify_bytes(message, did_method_key)
                 }
                 _ => Err(VerificationError::IncompatibleKey),
             },
-            Self::__Marker(_) => unreachable!(),
+            Self::__Marker(_) => Err(VerificationError::IncompatibleKey),
         }
     }
 }

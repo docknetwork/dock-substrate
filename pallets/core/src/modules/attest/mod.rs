@@ -164,11 +164,15 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(attests.nonce(), signature.signer(), attests)
-                .signed(signature)
-                .execute(|WrappedActionWithNonce { action, .. }, attest, attester| {
-                    Self::set_claim_(action, attest, attester)
-                })
+            WrappedActionWithNonce::new(
+                attests.nonce(),
+                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
+                attests,
+            )
+            .signed(signature)
+            .execute(|WrappedActionWithNonce { action, .. }, attest, attester| {
+                Self::set_claim_(action, attest, attester)
+            })
         }
     }
 

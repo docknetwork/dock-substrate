@@ -132,11 +132,15 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(params.nonce(), signature.signer(), params)
-                .signed(signature)
-                .execute(|WrappedActionWithNonce { action, .. }, counter, actor| {
-                    Self::add_params_(action, counter, actor)
-                })
+            WrappedActionWithNonce::new(
+                params.nonce(),
+                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
+                params,
+            )
+            .signed(signature)
+            .execute(|WrappedActionWithNonce { action, .. }, counter, actor| {
+                Self::add_params_(action, counter, actor)
+            })
         }
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.

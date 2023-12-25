@@ -65,6 +65,7 @@ pub enum PolicyExecutionError {
     IncorrectNonce,
     NoEntity,
     NotAuthorized,
+    InvalidSigner,
 }
 
 impl From<PolicyExecutionError> for DispatchError {
@@ -73,6 +74,7 @@ impl From<PolicyExecutionError> for DispatchError {
             PolicyExecutionError::IncorrectNonce => "Incorrect nonce",
             PolicyExecutionError::NoEntity => "Entity not found",
             PolicyExecutionError::NotAuthorized => "Provided DID is not authorized",
+            PolicyExecutionError::InvalidSigner => "Invalid signer",
         };
 
         DispatchError::Other(raw)
@@ -190,7 +192,13 @@ pub trait HasPolicy<T: Limits>: Sized {
         match self.policy() {
             Policy::OneOf(controllers) => {
                 ensure!(
-                    proof.len() == 1 && controllers.contains(&proof[0].data().signer()),
+                    proof.len() == 1
+                        && controllers.contains(
+                            &*proof[0]
+                                .data()
+                                .signer()
+                                .ok_or(PolicyExecutionError::InvalidSigner)?
+                        ),
                     PolicyExecutionError::NotAuthorized
                 );
             }
@@ -227,7 +235,13 @@ pub trait HasPolicy<T: Limits>: Sized {
         match self.policy() {
             Policy::OneOf(controllers) => {
                 ensure!(
-                    proof.len() == 1 && controllers.contains(&proof[0].data().signer()),
+                    proof.len() == 1
+                        && controllers.contains(
+                            &*proof[0]
+                                .data()
+                                .signer()
+                                .ok_or(PolicyExecutionError::InvalidSigner)?
+                        ),
                     PolicyExecutionError::NotAuthorized
                 );
             }
@@ -271,7 +285,13 @@ pub trait HasPolicy<T: Limits>: Sized {
         {
             Policy::OneOf(controllers) => {
                 ensure!(
-                    proof.len() == 1 && controllers.contains(&proof[0].data().signer()),
+                    proof.len() == 1
+                        && controllers.contains(
+                            &*proof[0]
+                                .data()
+                                .signer()
+                                .ok_or(PolicyExecutionError::InvalidSigner)?
+                        ),
                     PolicyExecutionError::NotAuthorized
                 );
             }

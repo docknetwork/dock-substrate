@@ -1,9 +1,9 @@
 //! Generic immutable single-owner storage.
 
 use crate::{
-    common::{signatures::ForSigType, AuthorizeTarget, Limits, TypesAndLimits},
+    common::{signatures::ForSigType, AuthorizeTarget, Types},
     did::{self, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, BoundedBytes},
+    util::{ActionWithNonce, BoundedBytes, Bytes},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_std::fmt::Debug;
@@ -46,6 +46,16 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, DebugNoBound, EqNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct Blob {
+    pub id: BlobId,
+    pub blob: Bytes,
+}
+
+#[derive(Encode, Decode, DebugNoBound, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -53,22 +63,8 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct Blob<T: Limits> {
-    pub id: BlobId,
-    pub blob: BoundedBytes<T::MaxBlobSize>,
-}
-
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
-pub struct AddBlob<T: TypesAndLimits> {
-    pub blob: Blob<T>,
+pub struct AddBlob<T: Types> {
+    pub blob: Blob,
     pub nonce: T::BlockNumber,
 }
 
@@ -92,6 +88,7 @@ pub mod pallet {
         BlobAlreadyExists,
         /// There is no such DID registered
         DidDoesNotExist,
+        TooBig,
     }
 
     #[pallet::pallet]
@@ -130,8 +127,11 @@ pub mod pallet {
                 Error::<T>::BlobAlreadyExists
             );
 
+            let blob_bytes: BoundedBytes<_> =
+                blob.blob.try_into().map_err(|_| Error::<T>::TooBig)?;
+
             // execute
-            Blobs::<T>::insert(blob.id, (signer, blob.blob));
+            Blobs::<T>::insert(blob.id, (signer, blob_bytes));
 
             Ok(())
         }

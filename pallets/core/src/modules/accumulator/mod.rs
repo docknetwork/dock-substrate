@@ -153,13 +153,17 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(params.nonce(), signature.signer(), params)
-                .signed(signature)
-                .execute(
-                    |WrappedActionWithNonce { action, .. }, counters, accumulator_owner| {
-                        Self::add_params_(action, counters, accumulator_owner)
-                    },
-                )
+            WrappedActionWithNonce::new(
+                params.nonce(),
+                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
+                params,
+            )
+            .signed(signature)
+            .execute(
+                |WrappedActionWithNonce { action, .. }, counters, accumulator_owner| {
+                    Self::add_params_(action, counters, accumulator_owner)
+                },
+            )
         }
 
         #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
@@ -170,13 +174,17 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(public_key.nonce(), signature.signer(), public_key)
-                .signed(signature)
-                .execute(
-                    |WrappedActionWithNonce { action, .. }, counters, accumulator_owner| {
-                        Self::add_public_key_(action, counters, accumulator_owner)
-                    },
-                )
+            WrappedActionWithNonce::new(
+                public_key.nonce(),
+                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
+                public_key,
+            )
+            .signed(signature)
+            .execute(
+                |WrappedActionWithNonce { action, .. }, counters, accumulator_owner| {
+                    Self::add_public_key_(action, counters, accumulator_owner)
+                },
+            )
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]

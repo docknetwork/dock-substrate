@@ -1,6 +1,6 @@
 use super::keys::PublicKey;
 use crate::{
-    did::DidMethodKey,
+    did::{self, DidMethodKey},
     util::{Bytes64, Bytes65},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -15,11 +15,13 @@ pub trait Signature: Sized {
     type Signer: Clone;
     type Key;
 
-    fn signer(&self) -> Self::Signer;
+    fn signer(&self) -> Option<Self::Signer>;
 
-    fn key<T: crate::did::Config>(&self) -> Option<Self::Key>;
+    fn key<T: did::Config>(&self) -> Option<Self::Key>;
 
-    fn verify_raw_bytes(&self, message: &[u8], key: &Self::Key) -> Result<bool, VerificationError>;
+    fn verify_bytes<M>(&self, message: M, key: &Self::Key) -> Result<bool, VerificationError>
+    where
+        M: AsRef<[u8]>;
 }
 
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
@@ -37,6 +39,7 @@ pub trait ForSigType: Sized {
         for_secp256k1: impl FnOnce() -> Weight,
     ) -> Weight {
         self.for_sig_type(for_sr25519, for_ed25519, for_secp256k1)
+            .unwrap_or_default()
     }
 
     fn for_sig_type<R>(
@@ -44,7 +47,7 @@ pub trait ForSigType: Sized {
         for_sr25519: impl FnOnce() -> R,
         for_ed25519: impl FnOnce() -> R,
         for_secp256k1: impl FnOnce() -> R,
-    ) -> R;
+    ) -> Option<R>;
 
     /// Return counts of different signature types in given `DidSignatureWithNonce` as 3-Tuple as (no. of Sr22519 sigs,
     /// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
@@ -53,11 +56,13 @@ pub trait ForSigType: Sized {
         let mut counts = SigTypes::default();
 
         for auth in auths {
-            *auth.borrow().for_sig_type(
+            if let Some(ptr) = auth.borrow().for_sig_type(
                 || &mut counts.sr,
                 || &mut counts.ed,
                 || &mut counts.secp,
-            ) += 1;
+            ) {
+                *ptr += 1;
+            }
         }
 
         counts

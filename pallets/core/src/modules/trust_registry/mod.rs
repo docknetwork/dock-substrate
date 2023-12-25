@@ -163,7 +163,7 @@ pub mod pallet {
 
             WrappedActionWithNonce::new(
                 init_trust_registry.nonce(),
-                sig.signer(),
+                sig.signer().ok_or(did::Error::<T>::InvalidSigner)?,
                 init_trust_registry,
             )
             .signed(sig)

@@ -33,14 +33,14 @@ where
         let signer_pubkey = self.key::<T>().ok_or(did::Error::<T>::NoKeyForDid)?;
         let encoded_state_change = action.to_state_change().encode();
 
-        (*self.signer()).ensure_authorizes_target(&signer_pubkey, action)?;
-        self.signer()
-            .ensure_authorizes_target(&signer_pubkey, action)?;
+        let signer = self.signer().ok_or(did::Error::<T>::InvalidSigner)?;
+        (*signer).ensure_authorizes_target(&signer_pubkey, action)?;
+        signer.ensure_authorizes_target(&signer_pubkey, action)?;
 
-        let ok = self.verify_raw_bytes(&encoded_state_change, &signer_pubkey)?;
+        let ok = self.verify_bytes(encoded_state_change, &signer_pubkey)?;
 
         Ok(ok.then(|| Authorization {
-            signer: self.signer(),
+            signer,
             key: signer_pubkey,
         }))
     }

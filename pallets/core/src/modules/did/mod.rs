@@ -102,6 +102,7 @@ pub mod pallet {
         OnlyControllerCanUpdate,
         NoKeyForDid,
         NoControllerForDid,
+        InvalidSigner,
         IncompatibleSignaturePublicKey,
         /// The key does not have the required verification relationship
         InsufficientVerificationRelationship,
