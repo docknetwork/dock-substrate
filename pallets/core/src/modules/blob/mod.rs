@@ -121,14 +121,14 @@ pub mod pallet {
             (): &mut (),
             signer: BlobOwner,
         ) -> DispatchResult {
+            let blob_bytes: BoundedBytes<T::MaxBlobSize> =
+                blob.blob.try_into().map_err(|_| Error::<T>::TooBig)?;
+
             // check
             ensure!(
                 !Blobs::<T>::contains_key(blob.id),
                 Error::<T>::BlobAlreadyExists
             );
-
-            let blob_bytes: BoundedBytes<_> =
-                blob.blob.try_into().map_err(|_| Error::<T>::TooBig)?;
 
             // execute
             Blobs::<T>::insert(blob.id, (signer, blob_bytes));

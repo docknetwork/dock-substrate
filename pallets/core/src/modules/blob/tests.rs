@@ -4,6 +4,7 @@ use crate::{
     common::{Limits, SigValue},
     did::Did,
     tests::common::*,
+    util::Bytes,
 };
 use sp_core::Pair;
 
@@ -13,14 +14,14 @@ fn create_blob<P>(
     author: BlobOwner,
     author_kp: P,
     nonce: u64,
-) -> Option<DispatchResult>
+) -> DispatchResult
 where
     P: Pair,
     P::Signature: Into<SigValue>,
 {
-    let bl = Blob {
+    let blob: Blob = Blob {
         id,
-        blob: content.clone().try_into().ok()?,
+        blob: Bytes(content.clone()),
     };
     println!("did: {:?}", author);
     println!("id: {:?}", id);
@@ -29,12 +30,11 @@ where
     BlobMod::new(
         Origin::signed(ABBA),
         AddBlob {
-            blob: bl.clone(),
+            blob: blob.clone(),
             nonce,
         },
-        did_sig::<Test, _, _, _>(&AddBlob { blob: bl, nonce }, &author_kp, author, 1),
+        did_sig::<Test, _, _, _>(&AddBlob { blob, nonce }, &author_kp, author, 1),
     )
-    .into()
 }
 
 fn get_max_blob_size() -> usize {
@@ -60,7 +60,6 @@ crate::did_or_did_method_key! {
                 author_kp,
                 block_no + 1,
             )
-            .unwrap()
             .unwrap();
             // Can retrieve a valid blob and the blob contents and author match the given ones.
             assert_eq!(
@@ -91,7 +90,7 @@ crate::did_or_did_method_key! {
             assert_eq!(Blobs::<Test>::get(id), None);
             check_nonce(&author, block_no);
             assert!(
-                create_blob(id, noise, BlobOwner(author.into()), author_kp, block_no + 1).is_none()
+                create_blob(id, noise, BlobOwner(author.into()), author_kp, block_no + 1).is_err()
             );
             check_nonce(&author, block_no);
         }
@@ -119,7 +118,6 @@ crate::did_or_did_method_key! {
                 author_kp.clone(),
                 10 + 1,
             )
-            .unwrap()
             .unwrap();
             check_nonce(&author, 10 + 1);
             let err = create_blob(
@@ -129,7 +127,6 @@ crate::did_or_did_method_key! {
                 author_kp,
                 11 + 1,
             )
-            .unwrap()
             .unwrap_err();
             assert_eq!(err, Error::<Test>::BlobAlreadyExists.into());
             check_nonce(&author, 10 + 1);
@@ -145,7 +142,6 @@ crate::did_or_did_method_key! {
             let author = BlobOwner(Did(rand::random()).into());
             let author_kp = gen_kp();
             let err = create_blob(rand::random(), random_bytes(10), author, author_kp, 10 + 1)
-                .unwrap()
                 .unwrap_err();
             assert_eq!(err, did::Error::<Test>::NoKeyForDid.into());
         });

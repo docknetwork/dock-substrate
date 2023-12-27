@@ -39,7 +39,7 @@ where
 
         let ok = self.verify_bytes(encoded_state_change, &signer_pubkey)?;
 
-        Ok(ok.then(|| Authorization {
+        Ok(ok.then_some(Authorization {
             signer,
             key: signer_pubkey,
         }))
