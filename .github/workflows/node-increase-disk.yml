@@ -43,4 +43,4 @@ jobs:
           # Required, playbook filepath
           playbook: ./scripts/ansible/aws/ec2-set-volume-size.yml
           inventory: ./ansible-hosts
-          extra_vars: aws_region=${{github.event.inputs.aws_region}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} name='${{github.event.inputs.instance_name}}' volume_size=${{github.event.inputs.disk_size}}"
+          extra_vars: "aws_region=${{github.event.inputs.aws_region}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} name='${{github.event.inputs.instance_name}}' volume_size=${{github.event.inputs.disk_size}}"
