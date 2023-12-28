@@ -96,6 +96,7 @@ impl<T> CanUpdate<()> for T {
     }
 }
 
+/// Series of updates applied over some targets.
 pub trait KeyedUpdate<Entity: core::ops::Deref>
 where
     Entity::Target: BoundedKeyValue,
@@ -114,6 +115,7 @@ where
     ) -> MultiTargetUpdate<<Entity::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>>;
 }
 
+/// Map representing keyed updates applied over dictionary over given keys.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, DefaultNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
