@@ -1107,6 +1107,7 @@ impl common::Limits for Runtime {
     type MaxDelegatedIssuers = ConstU32<10>;
     type MaxSchemasPerIssuer = ConstU32<100>;
     type MaxSchemasPerVerifier = ConstU32<100>;
+    type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
 }
 
 impl status_list_credential::Config for Runtime {

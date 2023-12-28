@@ -153,23 +153,23 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Creates a new `Trust Registry` with the provided identifier.
         /// The DID signature signer will be set as a `Trust Registry` owner.
-        #[pallet::weight(SubstrateWeight::<T>::init_trust_registry(init_trust_registry, sig))]
-        pub fn init_trust_registry(
+        #[pallet::weight(SubstrateWeight::<T>::init_or_update_trust_registry(init_or_update_trust_registry, sig))]
+        pub fn init_or_update_trust_registry(
             origin: OriginFor<T>,
-            init_trust_registry: InitTrustRegistry<T>,
+            init_or_update_trust_registry: InitOrUpdateTrustRegistry<T>,
             sig: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             WrappedActionWithNonce::new(
-                init_trust_registry.nonce(),
+                init_or_update_trust_registry.nonce(),
                 sig.signer().ok_or(did::Error::<T>::InvalidSigner)?,
-                init_trust_registry,
+                init_or_update_trust_registry,
             )
             .signed(sig)
             .execute(
                 |WrappedActionWithNonce { action, .. }, registries, convener| {
-                    Self::init_trust_registry_(action, registries, convener)
+                    Self::init_or_update_trust_registry_(action, registries, convener)
                 },
             )
         }
@@ -262,14 +262,14 @@ pub mod pallet {
 }
 
 impl<T: Config> SubstrateWeight<T> {
-    fn init_trust_registry(
-        InitTrustRegistry { name, .. }: &InitTrustRegistry<T>,
+    fn init_or_update_trust_registry(
+        InitOrUpdateTrustRegistry { name, .. }: &InitOrUpdateTrustRegistry<T>,
         sig: &DidOrDidMethodKeySignature<Convener>,
     ) -> Weight {
         sig.weight_for_sig_type::<T>(
-            || Self::init_trust_registry_sr25519(name.len() as u32),
-            || Self::init_trust_registry_ed25519(name.len() as u32),
-            || Self::init_trust_registry_secp256k1(name.len() as u32),
+            || Self::init_or_update_trust_registry_sr25519(name.len() as u32),
+            || Self::init_or_update_trust_registry_ed25519(name.len() as u32),
+            || Self::init_or_update_trust_registry_secp256k1(name.len() as u32),
         )
     }
 

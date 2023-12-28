@@ -67,6 +67,7 @@ pub trait Limits: Clone + Eq {
     type MaxSchemasPerIssuer: Size;
     /// Max no of schemas that a particular verifier can verify (credential) for
     type MaxSchemasPerVerifier: Size;
+    type MaxTrustRegistryGovFrameworkSize: Size;
 }
 
 type NoLimit = ConstU32<{ u32::MAX }>;
@@ -110,4 +111,5 @@ impl Limits for () {
     type MaxDelegatedIssuers = NoLimit;
     type MaxSchemasPerIssuer = NoLimit;
     type MaxSchemasPerVerifier = NoLimit;
+    type MaxTrustRegistryGovFrameworkSize = NoLimit;
 }

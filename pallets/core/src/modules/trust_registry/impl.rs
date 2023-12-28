@@ -8,15 +8,22 @@ use crate::util::{
 use super::*;
 
 impl<T: Config> Pallet<T> {
-    pub(super) fn init_trust_registry_(
-        InitTrustRegistry {
-            registry_id, name, ..
-        }: InitTrustRegistry<T>,
+    pub(super) fn init_or_update_trust_registry_(
+        InitOrUpdateTrustRegistry {
+            registry_id,
+            name,
+            gov_framework,
+            ..
+        }: InitOrUpdateTrustRegistry<T>,
         registries: &mut TrustRegistryIdSet<T>,
         convener: Convener,
     ) -> DispatchResult {
         TrustRegistriesInfo::<T>::try_mutate(registry_id, |info| {
-            if let Some(existing) = info.replace(TrustRegistryInfo { convener, name }) {
+            if let Some(existing) = info.replace(TrustRegistryInfo {
+                convener,
+                name,
+                gov_framework,
+            }) {
                 if existing.convener != convener {
                     Err(Error::<T>::NotTheConvener)?
                 }

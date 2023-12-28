@@ -280,6 +280,7 @@ impl crate::common::Limits for Test {
     type MaxDelegatedIssuers = ConstU32<20>;
     type MaxSchemasPerIssuer = ConstU32<100>;
     type MaxSchemasPerVerifier = ConstU32<100>;
+    type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
 }
 
 impl crate::did::Config for Test {

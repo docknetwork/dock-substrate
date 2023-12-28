@@ -28,9 +28,9 @@ use sp_std::marker::PhantomData;
 
 /// Weight functions needed for trust_registry.
 pub trait WeightInfo {
-    fn init_trust_registry_sr25519(n: u32) -> Weight;
-    fn init_trust_registry_ed25519(n: u32) -> Weight;
-    fn init_trust_registry_secp256k1(n: u32) -> Weight;
+    fn init_or_update_trust_registry_sr25519(n: u32) -> Weight;
+    fn init_or_update_trust_registry_ed25519(n: u32) -> Weight;
+    fn init_or_update_trust_registry_secp256k1(n: u32) -> Weight;
     fn add_schema_metadata_sr25519(i: u32, v: u32, s: u32) -> Weight;
     fn add_schema_metadata_ed25519(i: u32, v: u32, s: u32) -> Weight;
     fn add_schema_metadata_secp256k1(i: u32, v: u32, s: u32) -> Weight;
@@ -51,18 +51,18 @@ pub trait WeightInfo {
 /// Weights for trust_registry using the Substrate node and recommended hardware.
 pub struct SubstrateWeight<T>(PhantomData<T>);
 impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
-    fn init_trust_registry_sr25519(n: u32) -> Weight {
+    fn init_or_update_trust_registry_sr25519(n: u32) -> Weight {
         Weight::from_ref_time(67_521_000) // Standard Error: 9_000
             .saturating_add(Weight::from_ref_time(29_000).saturating_mul(n as u64))
             .saturating_add(T::DbWeight::get().reads(5))
             .saturating_add(T::DbWeight::get().writes(4))
     }
-    fn init_trust_registry_ed25519(_n: u32) -> Weight {
+    fn init_or_update_trust_registry_ed25519(_n: u32) -> Weight {
         Weight::from_ref_time(67_974_000)
             .saturating_add(T::DbWeight::get().reads(5))
             .saturating_add(T::DbWeight::get().writes(4))
     }
-    fn init_trust_registry_secp256k1(_n: u32) -> Weight {
+    fn init_or_update_trust_registry_secp256k1(_n: u32) -> Weight {
         Weight::from_ref_time(160_766_000)
             .saturating_add(T::DbWeight::get().reads(5))
             .saturating_add(T::DbWeight::get().writes(4))
@@ -218,18 +218,18 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
 
 // For backwards compatibility and tests
 impl WeightInfo for () {
-    fn init_trust_registry_sr25519(n: u32) -> Weight {
+    fn init_or_update_trust_registry_sr25519(n: u32) -> Weight {
         Weight::from_ref_time(67_521_000) // Standard Error: 9_000
             .saturating_add(Weight::from_ref_time(29_000).saturating_mul(n as u64))
             .saturating_add(RocksDbWeight::get().reads(5))
             .saturating_add(RocksDbWeight::get().writes(4))
     }
-    fn init_trust_registry_ed25519(_n: u32) -> Weight {
+    fn init_or_update_trust_registry_ed25519(_n: u32) -> Weight {
         Weight::from_ref_time(67_974_000)
             .saturating_add(RocksDbWeight::get().reads(5))
             .saturating_add(RocksDbWeight::get().writes(4))
     }
-    fn init_trust_registry_secp256k1(_n: u32) -> Weight {
+    fn init_or_update_trust_registry_secp256k1(_n: u32) -> Weight {
         Weight::from_ref_time(160_766_000)
             .saturating_add(RocksDbWeight::get().reads(5))
             .saturating_add(RocksDbWeight::get().writes(4))

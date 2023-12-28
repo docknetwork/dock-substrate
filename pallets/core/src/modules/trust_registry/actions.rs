@@ -1,5 +1,5 @@
 use super::*;
-use crate::{common::TypesAndLimits, impl_action_with_nonce};
+use crate::{common::TypesAndLimits, impl_action_with_nonce, util::BoundedBytes};
 use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use utils::BoundedString;
@@ -21,9 +21,10 @@ use utils::BoundedString;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct InitTrustRegistry<T: TypesAndLimits> {
+pub struct InitOrUpdateTrustRegistry<T: TypesAndLimits> {
     pub registry_id: TrustRegistryId,
     pub name: BoundedString<T::MaxTrustRegistryNameSize>,
+    pub gov_framework: BoundedBytes<T::MaxTrustRegistryGovFrameworkSize>,
     pub nonce: T::BlockNumber,
 }
 
@@ -104,7 +105,7 @@ pub struct UpdateDelegatedIssuers<T: TypesAndLimits> {
 
 impl_action_with_nonce!(
     for ():
-        InitTrustRegistry with 1 as len, () as target,
+        InitOrUpdateTrustRegistry with 1 as len, () as target,
         UpdateDelegatedIssuers with delegated.len() as len, () as target
 );
 

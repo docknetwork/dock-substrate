@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     common::state_change::ToStateChange,
     did::{Did, DidSignature, UncheckedDidKey},
-    util::{batch_update::*, Action, WrappedActionWithNonce},
+    util::{batch_update::*, Action, Bytes, WrappedActionWithNonce},
 };
 use alloc::collections::BTreeMap;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
@@ -22,7 +22,7 @@ const DELEGATED_ISSUERS: u32 = 10;
 
 crate::bench_with_all_pairs! {
     with_pairs:
-    init_trust_registry_sr25519 for sr25519, init_trust_registry_ed25519 for ed25519, init_trust_registry_secp256k1 for secp256k1 {
+    init_or_update_trust_registry_sr25519 for sr25519, init_or_update_trust_registry_ed25519 for ed25519, init_or_update_trust_registry_secp256k1 for secp256k1 {
         {
             let n in 1 .. TRUST_REGISTRY_MAX_NAME as u32;
         }
@@ -38,18 +38,20 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let id = [1u8; 32].into();
-        let init_trust_registry = InitTrustRegistry {
+        let init_or_update_trust_registry = InitOrUpdateTrustRegistry {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
+            gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..n).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        let sig = pair.sign(&init_trust_registry.to_state_change().encode());
+        let sig = pair.sign(&init_or_update_trust_registry.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
-    }: init_trust_registry(RawOrigin::Signed(caller), init_trust_registry.clone(), signature)
+    }: init_or_update_trust_registry(RawOrigin::Signed(caller), init_or_update_trust_registry.clone(), signature)
     verify {
-        assert_eq!(TrustRegistriesInfo::<T>::get(init_trust_registry.registry_id).unwrap(), TrustRegistryInfo {
+        assert_eq!(TrustRegistriesInfo::<T>::get(init_or_update_trust_registry.registry_id).unwrap(), TrustRegistryInfo {
             convener: Convener(did.into()),
-            name: init_trust_registry.name,
+            name: init_or_update_trust_registry.name,
+            gov_framework: init_or_update_trust_registry.gov_framework
         });
     }
 
@@ -71,11 +73,12 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let id = [1u8; 32].into();
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), InitTrustRegistry {
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), InitOrUpdateTrustRegistry {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
+            gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
-        }).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        }).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let schemas: BTreeMap<_, _> = (0..s)
             .map(|idx|
@@ -128,12 +131,13 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let id = [1u8; 32].into();
-        let init_trust_registry = InitTrustRegistry {
+        let init_or_update_trust_registry = InitOrUpdateTrustRegistry {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
+            gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let mut schemas: BTreeMap<_, _> = (0..s)
             .map(|idx|
@@ -160,7 +164,7 @@ crate::bench_with_all_pairs! {
             registry_id: TrustRegistryId(id),
             schemas: schemas.clone(),
             nonce: 2u32.into()
-        }.execute(|action, set| Pallet::<T>::add_schema_metadata_(action, set, Convener(did.into()))).unwrap();
+        }.execute_readonly(|action, set| Pallet::<T>::add_schema_metadata_(action, set, Convener(did.into()))).unwrap();
 
         let update_issuers = schemas.keys().map(
             |schema_id| {
@@ -228,17 +232,18 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let id = [1u8; 32].into();
-        let init_trust_registry = InitTrustRegistry {
+        let init_or_update_trust_registry = InitOrUpdateTrustRegistry {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
+            gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let delegated = DelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).try_collect().unwrap());
 
         for issuer in &delegated.0 {
-            TrustRegistryIssuerSchemas::<T>::insert(init_trust_registry.registry_id, Issuer(did.into()), IssuerSchemas(Default::default()));
+            TrustRegistryIssuerSchemas::<T>::insert(init_or_update_trust_registry.registry_id, Issuer(did.into()), IssuerSchemas(Default::default()));
         }
 
         let update_delegated_issuers = UpdateDelegatedIssuers {
@@ -252,7 +257,7 @@ crate::bench_with_all_pairs! {
     verify {
         assert_eq!(
             TrustRegistryIssuerConfigurations::<T>::get(
-                init_trust_registry.registry_id,
+                init_or_update_trust_registry.registry_id,
                 Issuer(did.into())
             )
             .delegated,
@@ -276,17 +281,18 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let id = [1u8; 32].into();
-        let init_trust_registry = InitTrustRegistry {
+        let init_or_update_trust_registry = InitOrUpdateTrustRegistry {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
+            gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
 
         for issuer in &issuers {
-            TrustRegistryIssuerSchemas::<T>::insert(init_trust_registry.registry_id, issuer, IssuerSchemas(Default::default()));
+            TrustRegistryIssuerSchemas::<T>::insert(init_or_update_trust_registry.registry_id, issuer, IssuerSchemas(Default::default()));
         }
 
         let suspend_issuers = SuspendIssuers {
@@ -321,17 +327,18 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let id = [1u8; 32].into();
-        let init_trust_registry = InitTrustRegistry {
+        let init_or_update_trust_registry = InitOrUpdateTrustRegistry {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
+            gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
 
         for issuer in &issuers {
-            TrustRegistryIssuerSchemas::<T>::insert(init_trust_registry.registry_id, issuer, IssuerSchemas(Default::default()));
+            TrustRegistryIssuerSchemas::<T>::insert(init_or_update_trust_registry.registry_id, issuer, IssuerSchemas(Default::default()));
         }
 
         let unsuspend_issuers = UnsuspendIssuers {

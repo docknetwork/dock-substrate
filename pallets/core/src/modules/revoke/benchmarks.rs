@@ -87,7 +87,7 @@ crate::bench_with_all_pairs! {
                revoke_ids: revoke_ids.clone(),
                _marker: PhantomData
             },
-            &mut dummy_registry()
+            dummy_registry()
         ).unwrap();
 
         let unrevoke_raw = UnRevokeRaw {
@@ -139,7 +139,7 @@ crate::bench_with_all_pairs! {
                revoke_ids: revoke_ids.clone(),
                _marker: PhantomData
             },
-            &mut dummy_registry()
+            dummy_registry()
         ).unwrap();
 
         let rem_reg_raw = RemoveRegistryRaw {

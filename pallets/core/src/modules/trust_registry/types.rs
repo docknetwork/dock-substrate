@@ -5,7 +5,7 @@ use crate::{
     common::{AuthorizeTarget, Limits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
     impl_wrapper,
-    util::{batch_update::*, BoundedKeyValue, OptionExt, StorageRef},
+    util::{batch_update::*, BoundedBytes, BoundedKeyValue, OptionExt, StorageRef},
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -436,6 +436,7 @@ impl_wrapper!(TrustRegistryIdSet<T> where T: Limits => (BoundedBTreeSet<TrustReg
 pub struct TrustRegistryInfo<T: Limits> {
     pub convener: Convener,
     pub name: BoundedString<T::MaxTrustRegistryNameSize>,
+    pub gov_framework: BoundedBytes<T::MaxTrustRegistryGovFrameworkSize>,
 }
 
 pub type VerifiersUpdate<T> =

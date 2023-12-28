@@ -5,7 +5,6 @@ use crate::{
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
-use sp_runtime::traits::TryCollect;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 
@@ -28,7 +27,7 @@ crate::bench_with_all_pairs! {
 
         let blob = Blob {
             id,
-            blob: BoundedBytes((0..s).map(|i| i as u8).try_collect().unwrap()),
+            blob: Bytes((0..s).map(|i| i as u8).collect()),
         };
         let add_blob = AddBlob {
             blob,

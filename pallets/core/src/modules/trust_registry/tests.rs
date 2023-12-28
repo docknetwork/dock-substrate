@@ -5,7 +5,8 @@ use crate::{
     did::base::*,
     tests::common::*,
     util::{
-        Action, AddOrRemoveOrModify, MultiTargetUpdate, OnlyExistent, SetOrModify, UpdateError,
+        Action, AddOrRemoveOrModify, Bytes, MultiTargetUpdate, OnlyExistent, SetOrModify,
+        UpdateError,
     },
 };
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -20,103 +21,106 @@ crate::did_or_did_method_key! {
     newdid =>
 
     #[test]
-    fn init_trust_registry() {
+    fn init_or_update_trust_registry() {
         ext().execute_with(|| {
             let mut rng = rand::thread_rng();
 
             let (convener, convener_kp) = newdid();
             let (other, other_kp) = newdid();
 
-            let init_trust_registry = InitTrustRegistry::<Test> {
+            let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
                 registry_id: TrustRegistryId(rand::random()),
                 name: (0..25)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect::<String>()
                     .try_into()
                     .unwrap(),
+                gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
                 nonce: 2,
             };
             let alice = 1u64;
 
             let sig = did_sig(
-                &init_trust_registry,
+                &init_or_update_trust_registry,
                 &convener_kp,
                 Convener(convener.into()),
                 1,
             );
             let other_did_sig = did_sig(
-                &init_trust_registry,
+                &init_or_update_trust_registry,
                 &convener_kp,
                 Convener(other.into()),
                 1,
             );
             let other_kp_sig = did_sig(
-                &init_trust_registry,
+                &init_or_update_trust_registry,
                 &other_kp,
                 Convener(convener.into()),
                 1,
             );
 
             assert_noop!(
-                Mod::init_trust_registry(
+                Mod::init_or_update_trust_registry(
                     Origin::signed(alice),
-                    init_trust_registry.clone(),
+                    init_or_update_trust_registry.clone(),
                     other_did_sig
                 ),
                 did::Error::<Test>::InvalidSignature
             );
             assert_noop!(
-                Mod::init_trust_registry(
+                Mod::init_or_update_trust_registry(
                     Origin::signed(alice),
-                    init_trust_registry.clone(),
+                    init_or_update_trust_registry.clone(),
                     other_kp_sig
                 ),
                 did::Error::<Test>::InvalidSignature
             );
-            Mod::init_trust_registry(Origin::signed(alice), init_trust_registry.clone(), sig).unwrap();
+            Mod::init_or_update_trust_registry(Origin::signed(alice), init_or_update_trust_registry.clone(), sig).unwrap();
 
-            let init_trust_registry_already_exists = InitTrustRegistry::<Test> {
-                registry_id: init_trust_registry.registry_id,
+            let init_or_update_trust_registry_already_exists = InitOrUpdateTrustRegistry::<Test> {
+                registry_id: init_or_update_trust_registry.registry_id,
                 name: (0..10)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect::<String>()
                     .try_into()
                     .unwrap(),
+                gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
                 nonce: 2,
             };
             let other_did_sig = did_sig(
-                &init_trust_registry_already_exists,
+                &init_or_update_trust_registry_already_exists,
                 &other_kp,
                 Convener(other.into()),
                 1,
             );
             assert_noop!(
-                Mod::init_trust_registry(
+                Mod::init_or_update_trust_registry(
                     Origin::signed(alice),
-                    init_trust_registry_already_exists,
+                    init_or_update_trust_registry_already_exists,
                     other_did_sig
                 ),
                 Error::<Test>::NotTheConvener
             );
 
-            let reinit_trust_registry = InitTrustRegistry::<Test> {
-                registry_id: init_trust_registry.registry_id,
+            let reinit_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
+                registry_id: init_or_update_trust_registry.registry_id,
                 name: (0..10)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect::<String>()
                     .try_into()
                     .unwrap(),
+                gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
                 nonce: 3,
             };
             let sig = did_sig(
-                &reinit_trust_registry,
+                &reinit_or_update_trust_registry,
                 &convener_kp,
                 Convener(convener.into()),
                 1,
             );
-            assert_ok!(Mod::init_trust_registry(
+            assert_ok!(Mod::init_or_update_trust_registry(
                 Origin::signed(alice),
-                reinit_trust_registry,
+                reinit_or_update_trust_registry,
                 sig
             ));
         })
@@ -130,18 +134,19 @@ crate::did_or_did_method_key! {
             let (convener, convener_kp) = newdid();
             let (other, other_kp) = newdid();
 
-            let init_trust_registry = InitTrustRegistry::<Test> {
+            let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
                 registry_id: TrustRegistryId(rand::random()),
                 name: (0..25)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect::<String>()
                     .try_into()
                     .unwrap(),
+                gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
                 nonce: 2,
             };
             let alice = 1u64;
 
-            WrappedActionWithNonce::<Test, _, _>::new(2, Convener(convener.into()), init_trust_registry.clone()).execute::<Test, _, _, _, _>(|action, set| Mod::init_trust_registry_(action.action, set, Convener(convener.into()))).unwrap();
+            WrappedActionWithNonce::<Test, _, _>::new(2, Convener(convener.into()), init_or_update_trust_registry.clone()).execute::<Test, _, _, _, _>(|action, set| Mod::init_or_update_trust_registry_(action.action, set, Convener(convener.into()))).unwrap();
 
             let schemas: BTreeMap<_, _> = [(
                 TrustRegistrySchemaId(rand::random()),
@@ -178,7 +183,7 @@ crate::did_or_did_method_key! {
             .collect();
 
             let add_schema_metadata = AddSchemaMetadata {
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 schemas: schemas.clone(),
                 nonce: 3,
             };
@@ -195,7 +200,7 @@ crate::did_or_did_method_key! {
                     .copied()
                     .chain(once(Issuer(Did(rand::random()).into())))
                     .collect(),
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 nonce: 2u32.into(),
             };
             let sig = did_sig(&suspend_issuers, &convener_kp, convener, 1u32);
@@ -214,7 +219,7 @@ crate::did_or_did_method_key! {
                     .keys()
                     .copied()
                     .collect(),
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 nonce: 2u32.into(),
             };
             let sig = did_sig(&suspend_issuers, &other_kp, other, 1u32);
@@ -233,7 +238,7 @@ crate::did_or_did_method_key! {
                     .keys()
                     .copied()
                     .collect(),
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 nonce: 2u32.into(),
             };
             let sig = did_sig(&suspend_issuers, &convener_kp, convener, 1u32);
@@ -262,22 +267,23 @@ crate::did_or_did_method_key! {
             let (convener, _convener_kp) = newdid();
             let (other, other_kp) = newdid();
 
-            let init_trust_registry = InitTrustRegistry::<Test> {
+            let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
                 registry_id: TrustRegistryId(rand::random()),
                 name: (0..25)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect::<String>()
                     .try_into()
                     .unwrap(),
+                gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
                 nonce: 2,
             };
             let alice = 1u64;
 
             WrappedActionWithNonce::<Test, _, _>::new(
-                init_trust_registry.nonce(),
+                init_or_update_trust_registry.nonce(),
                 Convener(convener.into()),
-                init_trust_registry.clone(),
-            ).execute::<Test, _, _, _, _>(|action, reg| Mod::init_trust_registry_(action.action, reg, Convener(convener.into()))).unwrap();
+                init_or_update_trust_registry.clone(),
+            ).execute::<Test, _, _, _, _>(|action, reg| Mod::init_or_update_trust_registry_(action.action, reg, Convener(convener.into()))).unwrap();
 
             let delegated = DelegatedIssuers(
                 (0..10)
@@ -287,14 +293,14 @@ crate::did_or_did_method_key! {
             );
             let update_delegated = UpdateDelegatedIssuers {
                 delegated: SetOrModify::Set(delegated.clone()),
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 nonce: 2u32.into(),
             };
             let sig = did_sig(&update_delegated, &other_kp, other, 1u32);
 
             assert_eq!(
                 TrustRegistryIssuerConfigurations::<Test>::get(
-                    init_trust_registry.registry_id,
+                    init_or_update_trust_registry.registry_id,
                     Issuer(other.into())
                 )
                 .delegated,
@@ -307,7 +313,7 @@ crate::did_or_did_method_key! {
             );
 
             TrustRegistryIssuerSchemas::<Test>::insert(
-                init_trust_registry.registry_id,
+                init_or_update_trust_registry.registry_id,
                 Issuer(other.into()),
                 IssuerSchemas(Default::default()),
             );
@@ -320,7 +326,7 @@ crate::did_or_did_method_key! {
 
             assert_eq!(
                 TrustRegistryIssuerConfigurations::<Test>::get(
-                    init_trust_registry.registry_id,
+                    init_or_update_trust_registry.registry_id,
                     Issuer(other.into())
                 )
                 .delegated,
@@ -337,24 +343,25 @@ crate::did_or_did_method_key! {
             let (convener, convener_kp) = newdid();
             let (other, other_kp) = newdid();
 
-            let init_trust_registry = InitTrustRegistry::<Test> {
+            let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
                 registry_id: TrustRegistryId(rand::random()),
                 name: (0..25)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect::<String>()
                     .try_into()
                     .unwrap(),
+                gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
                 nonce: 2,
             };
             let sig = did_sig(
-                &init_trust_registry,
+                &init_or_update_trust_registry,
                 &convener_kp,
                 Convener(convener.into()),
                 1,
             );
             let alice = 1u64;
 
-            Mod::init_trust_registry(Origin::signed(alice), init_trust_registry.clone(), sig).unwrap();
+            Mod::init_or_update_trust_registry(Origin::signed(alice), init_or_update_trust_registry.clone(), sig).unwrap();
 
             let schemas = [(
                 TrustRegistrySchemaId(rand::random()),
@@ -391,7 +398,7 @@ crate::did_or_did_method_key! {
             .collect();
 
             let add_schema_metadata = AddSchemaMetadata {
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 schemas,
                 nonce: 3,
             };
@@ -407,13 +414,13 @@ crate::did_or_did_method_key! {
             assert_eq!(
                 TrustRegistrySchemasMetadata::get(
                     add_schema_metadata.schemas.keys().next().unwrap(),
-                    init_trust_registry.registry_id
+                    init_or_update_trust_registry.registry_id
                 ),
                 add_schema_metadata.schemas.values().next().cloned()
             );
 
             let add_other_schema_metadata = AddSchemaMetadata {
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 schemas: add_schema_metadata.schemas.clone(),
                 nonce: 2,
             };
@@ -435,7 +442,7 @@ crate::did_or_did_method_key! {
             );
 
             let add_other_schema_metadata = AddSchemaMetadata {
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 schemas: add_schema_metadata.schemas,
                 nonce: 4,
             };
@@ -467,24 +474,25 @@ crate::did_or_did_method_key! {
             let (verifier, _) = newdid();
             let (issuer, _) = newdid();
 
-            let init_trust_registry = InitTrustRegistry::<Test> {
+            let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
                 registry_id: TrustRegistryId(rand::random()),
                 name: (0..25)
                     .map(|_| rng.sample(Alphanumeric) as char)
                     .collect::<String>()
                     .try_into()
                     .unwrap(),
+                gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
                 nonce: 2,
             };
             let sig = did_sig(
-                &init_trust_registry,
+                &init_or_update_trust_registry,
                 &convener_kp,
                 Convener(convener.into()),
                 1,
             );
             let alice = 1u64;
 
-            Mod::init_trust_registry(Origin::signed(alice), init_trust_registry.clone(), sig).unwrap();
+            Mod::init_or_update_trust_registry(Origin::signed(alice), init_or_update_trust_registry.clone(), sig).unwrap();
 
             let build_initial_prices = || {
                 VerificationPrices(
@@ -531,7 +539,7 @@ crate::did_or_did_method_key! {
                 .collect();
 
             let add_schema_metadata = AddSchemaMetadata {
-                registry_id: init_trust_registry.registry_id,
+                registry_id: init_or_update_trust_registry.registry_id,
                 schemas: schemas.clone(),
                 nonce: 3,
             };
@@ -1119,7 +1127,7 @@ crate::did_or_did_method_key! {
 
             for (line, updates, mut execute) in cases {
                 let update = UpdateSchemaMetadata {
-                    registry_id: init_trust_registry.registry_id,
+                    registry_id: init_or_update_trust_registry.registry_id,
                     schemas: updates
                         .into_iter()
                         .map(|(schema_id, issuers, verifiers)| {
