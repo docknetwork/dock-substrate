@@ -38,13 +38,14 @@ jobs:
           aws_region: ${{vars.S3_REGION}}
 
       - name: Run playbook
-        uses: dawidd6/action-ansible-playbook@v2.6.1
+        uses: arillso/action.playbook@master
         with:
           # Required, playbook filepath
-          playbook: ec2-set-volume-size.yml
-          # Optional, directory where playbooks live
-          directory: ./scripts/ansible/aws
-          # Optional, additional flags to pass to ansible-playbook
-          options: |
-            --inventory ./ansible-hosts
-            --extra-vars 'aws_region="${{github.event.inputs.aws_region}}" aws_secret_key="${{secrets.AWS_SECRET_KEY}}" aws_access_key_id="${{secrets.AWS_ACCESS_KEY_ID}}" name=\""${{github.event.inputs.instance_name}}"\" volume_size="${{github.event.inputs.disk_size}}"'
+          playbook: ./scripts/ansible/aws/ec2-set-volume-size.yml
+          inventory: ./ansible-hosts
+          extra_vars:
+            - "aws_region="${{github.event.inputs.aws_region}}""
+            - "aws_secret_key="${{secrets.AWS_SECRET_KEY}}""
+            - "aws_access_key_id="${{secrets.AWS_ACCESS_KEY_ID}}""
+            - "name=\""${{github.event.inputs.instance_name}}"\""
+            - "volume_size="${{github.event.inputs.disk_size}}""
