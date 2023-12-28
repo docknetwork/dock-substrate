@@ -20,6 +20,7 @@ on:
 
 jobs:
   increase-disk:
+    environment: ${{inputs.network}}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
