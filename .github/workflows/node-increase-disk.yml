@@ -31,11 +31,11 @@ jobs:
         uses: keithweaver/aws-s3-github-action@v1.0.0
         with:
           command: cp
-          source: ${{env.S3_ANSIBLE_HOST_FILE}}
+          source: ${{vars.S3_ANSIBLE_HOST_FILE}}
           destination: ./ansible-hosts
-          aws_access_key_id: ${{ github.env.secret.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ github.env.secret.AWS_SECRET_KEY }}
-          aws_region: ${{env.S3_REGION}}
+          aws_access_key_id: ${{ vars.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ vars.AWS_SECRET_KEY }}
+          aws_region: ${{vars.S3_REGION}}
 
       - name: Run playbook
         uses: dawidd6/action-ansible-playbook@v2.6.1
