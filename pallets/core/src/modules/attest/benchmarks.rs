@@ -39,9 +39,9 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let sig = pair.sign(&set_attest.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: set_claim(RawOrigin::Signed(caller), set_attest.clone(), signature)
     verify {
-        assert_eq!(Attestations::get(Attester(did)), set_attest.attest);
+        assert_eq!(Attestations::get(Attester(did.into())), set_attest.attest);
     }
 }

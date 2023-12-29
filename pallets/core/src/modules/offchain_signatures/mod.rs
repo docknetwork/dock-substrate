@@ -2,16 +2,17 @@
 //! Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 
 use crate::{
-    common::{self, SigValue},
+    common::{self, signatures::ForSigType, Signature},
     did,
-    did::{Controller, Did, DidSignature, OnDidRemoval},
-    util::IncId,
+    did::{Controller, Did, DidOrDidMethodKeySignature, OnDidRemoval},
+    util::{ActionWithNonce, IncId, WrappedActionWithNonce},
 };
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
 
 use frame_support::{
     dispatch::{DispatchResult, Weight},
+    storage_alias,
     traits::Get,
 };
 use frame_system::ensure_signed;
@@ -35,6 +36,7 @@ mod weights;
 
 #[frame_support::pallet]
 pub mod pallet {
+
     use super::*;
     use frame_support::{pallet_prelude::*, Blake2_128Concat};
     use frame_system::pallet_prelude::*;
@@ -70,9 +72,8 @@ pub mod pallet {
     #[pallet::generate_store(pub(super) trait Store)]
     pub struct Pallet<T>(_);
 
-    /// Pair of counters where each is used to assign unique id to parameters and public keys
-    /// respectively. On adding new params or keys, corresponding counter is increased by 1 but
-    /// the counters don't decrease on removal
+    /// On adding new params, corresponding counter is increased by 1 but
+    /// the counters don't decrease on removal.
     #[pallet::storage]
     #[pallet::getter(fn did_params_counter)]
     pub type ParamsCounter<T> =
@@ -127,15 +128,19 @@ pub mod pallet {
         pub fn add_params(
             origin: OriginFor<T>,
             params: AddOffchainSignatureParams<T>,
-            signature: DidSignature<SignatureParamsOwner>,
+            signature: DidOrDidMethodKeySignature<SignatureParamsOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::add_params_,
+            WrappedActionWithNonce::new(
+                params.nonce(),
+                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
                 params,
-                signature,
             )
+            .signed(signature)
+            .execute(|WrappedActionWithNonce { action, .. }, counter, actor| {
+                Self::add_params_(action, counter, actor)
+            })
         }
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.
@@ -144,30 +149,26 @@ pub mod pallet {
         pub fn add_public_key(
             origin: OriginFor<T>,
             public_key: AddOffchainSignaturePublicKey<T>,
-            signature: DidSignature<Controller>,
+            signature: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_controller(
-                Self::add_public_key_,
-                public_key,
-                signature,
-            )
+            public_key
+                .signed(signature)
+                .execute_from_controller(Self::add_public_key_)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
         pub fn remove_params(
             origin: OriginFor<T>,
             remove: RemoveOffchainSignatureParams<T>,
-            signature: DidSignature<SignatureParamsOwner>,
+            signature: DidOrDidMethodKeySignature<SignatureParamsOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::remove_params_,
-                remove,
-                signature,
-            )
+            remove
+                .signed(signature)
+                .execute_readonly(Self::remove_params_)
         }
 
         /// Remove existing offchain signature public key. Only the DID controller can remove key and it should use the nonce from the DID module.
@@ -176,15 +177,60 @@ pub mod pallet {
         pub fn remove_public_key(
             origin: OriginFor<T>,
             remove: RemoveOffchainSignaturePublicKey<T>,
-            signature: DidSignature<Controller>,
+            signature: DidOrDidMethodKeySignature<Controller>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_controller(
-                Self::remove_public_key_,
-                remove,
-                signature,
-            )
+            remove
+                .signed(signature)
+                .execute_from_controller(Self::remove_public_key_)
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let mut reads_writes = 0;
+
+            let params: Vec<_> = {
+                #[storage_alias]
+                pub type SignatureParams<T: Config> = StorageDoubleMap<
+                    Pallet<T>,
+                    Blake2_128Concat,
+                    Did,
+                    Identity,
+                    IncId,
+                    OffchainSignatureParams<T>,
+                >;
+
+                SignatureParams::<T>::drain()
+                    .map(|(did, id, params): (Did, _, _)| {
+                        (SignatureParamsOwner(did.into()), id, params)
+                    })
+                    .collect()
+            };
+
+            reads_writes += params.len() as u64;
+            for (owner, id, params) in params {
+                SignatureParams::<T>::insert(owner, id, params);
+            }
+
+            let params_counters: Vec<_> = {
+                #[storage_alias]
+                pub type ParamsCounter<T: Config> =
+                    StorageMap<Pallet<T>, Blake2_128Concat, Did, IncId, ValueQuery>;
+
+                ParamsCounter::<T>::drain()
+                    .map(|(did, counter): (Did, _)| (SignatureParamsOwner(did.into()), counter))
+                    .collect()
+            };
+
+            reads_writes += params_counters.len() as u64;
+            for (did, counter) in params_counters {
+                ParamsCounter::<T>::insert(did, counter);
+            }
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }
@@ -203,48 +249,50 @@ impl<T: Config> OnDidRemoval for Pallet<T> {
 impl<T: Config> SubstrateWeight<T> {
     fn add_params(
         add_params: &AddOffchainSignatureParams<T>,
-        DidSignature { sig, .. }: &DidSignature<SignatureParamsOwner>,
+        sig: &DidOrDidMethodKeySignature<SignatureParamsOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::add_params_sr25519,
-            SigValue::Ed25519(_) => Self::add_params_ed25519,
-            SigValue::Secp256k1(_) => Self::add_params_secp256k1,
-        }(
-            add_params.params.bytes().len() as u32,
-            add_params.params.label().map_or(0, |v| v.len()) as u32,
-        ))
+        let bytes_len = add_params.params.bytes().len() as u32;
+        let label_len = add_params.params.label().map_or(0, |v| v.len()) as u32;
+
+        sig.weight_for_sig_type::<T>(
+            || Self::add_params_sr25519(bytes_len, label_len),
+            || Self::add_params_ed25519(bytes_len, label_len),
+            || Self::add_params_secp256k1(bytes_len, label_len),
+        )
     }
 
     fn add_public(
         public_key: &AddOffchainSignaturePublicKey<T>,
-        DidSignature { sig, .. }: &DidSignature<Controller>,
+        sig: &DidOrDidMethodKeySignature<Controller>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::add_public_sr25519,
-            SigValue::Ed25519(_) => Self::add_public_ed25519,
-            SigValue::Secp256k1(_) => Self::add_public_secp256k1,
-        }(public_key.key.bytes().len() as u32))
+        let len = public_key.key.bytes().len() as u32;
+
+        sig.weight_for_sig_type::<T>(
+            || Self::add_public_sr25519(len),
+            || Self::add_public_ed25519(len),
+            || Self::add_public_secp256k1(len),
+        )
     }
 
     fn remove_params(
         _: &RemoveOffchainSignatureParams<T>,
-        DidSignature { sig, .. }: &DidSignature<SignatureParamsOwner>,
+        sig: &DidOrDidMethodKeySignature<SignatureParamsOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_params_sr25519,
-            SigValue::Ed25519(_) => Self::remove_params_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_params_secp256k1,
-        }())
+        sig.weight_for_sig_type::<T>(
+            Self::remove_params_sr25519,
+            Self::remove_params_ed25519,
+            Self::remove_params_secp256k1,
+        )
     }
 
     fn remove_public(
         _: &RemoveOffchainSignaturePublicKey<T>,
-        DidSignature { sig, .. }: &DidSignature<Controller>,
+        sig: &DidOrDidMethodKeySignature<Controller>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::remove_public_sr25519,
-            SigValue::Ed25519(_) => Self::remove_public_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_public_secp256k1,
-        }())
+        sig.weight_for_sig_type::<T>(
+            Self::remove_public_sr25519,
+            Self::remove_public_ed25519,
+            Self::remove_public_secp256k1,
+        )
     }
 }

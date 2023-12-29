@@ -3,9 +3,9 @@
 //! method by specifying an Iri.
 
 use crate::{
-    common::{Limits, SigValue, TypesAndLimits},
-    did::{self, Did, DidSignature},
-    util::BoundedBytes,
+    common::{signatures::ForSigType, AuthorizeTarget, Limits, Signature, TypesAndLimits},
+    did::{self, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    util::{ActionWithNonce, BoundedBytes, OptionExt, StorageRef, WrappedActionWithNonce},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -32,9 +32,12 @@ pub type Iri<T> = BoundedBytes<<T as Limits>::MaxIriSize>;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Attester(pub Did);
+pub struct Attester(pub DidOrDidMethodKey);
 
-crate::impl_wrapper!(Attester(Did), for rand use Did(rand::random()), with tests as attester_tests);
+impl AuthorizeTarget<Self, DidKey> for Attester {}
+impl AuthorizeTarget<Self, DidMethodKey> for Attester {}
+
+crate::impl_wrapper!(Attester(DidOrDidMethodKey));
 
 #[derive(
     Encode,
@@ -61,6 +64,24 @@ pub struct Attestation<T: Limits> {
     pub iri: Option<Iri<T>>,
 }
 
+impl<T: Config> StorageRef<T> for Attester {
+    type Value = Attestation<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<Attestation<T>>) -> Result<R, E>,
+    {
+        Attestations::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<Attestation<T>>) -> R,
+    {
+        f(Some(Attestations::<T>::get(self)))
+    }
+}
+
 #[derive(
     Encode, Decode, scale_info_derive::TypeInfo, Clone, PartialEq, Eq, DebugNoBound, Default,
 )]
@@ -81,6 +102,8 @@ crate::impl_action_with_nonce! { for (): SetAttestationClaim with 1 as len, () a
 
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::did::DidOrDidMethodKeySignature;
+
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
@@ -92,8 +115,8 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + did::Config {}
 
-    #[pallet::error]
     /// Error for the attest module.
+    #[pallet::error]
     pub enum Error<T> {
         /// The Attestation was not posted because its priority was less than or equal to that of
         /// an attestation previously posted by the same entity.
@@ -137,30 +160,64 @@ pub mod pallet {
         pub fn set_claim(
             origin: OriginFor<T>,
             attests: SetAttestationClaim<T>,
-            signature: DidSignature<Attester>,
+            signature: DidOrDidMethodKeySignature<Attester>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(
-                Self::set_claim_,
+            WrappedActionWithNonce::new(
+                attests.nonce(),
+                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
                 attests,
-                signature,
             )
+            .signed(signature)
+            .execute(|WrappedActionWithNonce { action, .. }, attest, attester| {
+                Self::set_claim_(action, attest, attester)
+            })
         }
     }
 
     impl<T: Config> Pallet<T> {
         fn set_claim_(
             SetAttestationClaim { attest, .. }: SetAttestationClaim<T>,
-            attester: Attester,
+            current_attest: &mut Attestation<T>,
+            _attester: Attester,
         ) -> DispatchResult {
-            let prev = Attestations::<T>::get(attester);
-            ensure!(prev.priority < attest.priority, Error::<T>::PriorityTooLow);
+            ensure!(
+                current_attest.priority < attest.priority,
+                Error::<T>::PriorityTooLow
+            );
 
             // execute
-            Attestations::insert(attester, &attest);
+            *current_attest = attest;
 
             Ok(())
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            use did::Did;
+            use frame_support::storage_alias;
+
+            let mut reads_writes = 0;
+
+            let attestations: Vec<_> = {
+                #[storage_alias]
+                pub type Attestations<T: Config> =
+                    StorageMap<Pallet<T>, Blake2_128Concat, Did, Attestation<T>, ValueQuery>;
+
+                Attestations::<T>::drain()
+                    .map(|(did, attest): (Did, _)| (Attester(did.into()), attest))
+                    .collect()
+            };
+
+            reads_writes += attestations.len() as u64;
+            for (did, attest) in attestations {
+                Attestations::<T>::insert(did, attest);
+            }
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }
@@ -168,12 +225,14 @@ pub mod pallet {
 impl<T: Config> SubstrateWeight<T> {
     fn set_claim(
         SetAttestationClaim { attest, .. }: &SetAttestationClaim<T>,
-        DidSignature { sig, .. }: &DidSignature<Attester>,
+        sig: &DidOrDidMethodKeySignature<Attester>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::set_claim_sr25519,
-            SigValue::Ed25519(_) => Self::set_claim_ed25519,
-            SigValue::Secp256k1(_) => Self::set_claim_secp256k1,
-        }(attest.iri.as_ref().map_or(0, |v| v.len()) as u32))
+        let len = attest.iri.as_ref().map_or(0, |v| v.len()) as u32;
+
+        sig.weight_for_sig_type::<T>(
+            || Self::set_claim_sr25519(len),
+            || Self::set_claim_ed25519(len),
+            || Self::set_claim_secp256k1(len),
+        )
     }
 }

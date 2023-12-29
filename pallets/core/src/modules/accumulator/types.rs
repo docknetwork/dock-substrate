@@ -2,8 +2,9 @@ use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 
 use super::*;
 use crate::{
-    common::{Limits, TypesAndLimits},
-    util::BoundedBytes,
+    common::{AuthorizeTarget, Limits, TypesAndLimits},
+    did::{DidKey, DidMethodKey, DidOrDidMethodKey},
+    util::{BoundedBytes, OptionExt, StorageRef},
 };
 
 pub type AccumParametersStorageKey = (AccumulatorOwner, IncId);
@@ -27,9 +28,52 @@ crate::impl_wrapper!(AccumulatorId([u8; 32]), with tests as acc_tests);
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct AccumulatorOwner(pub Did);
+pub struct AccumulatorOwner(pub DidOrDidMethodKey);
 
-crate::impl_wrapper!(AccumulatorOwner(Did), for rand use Did(rand::random()), with tests as acc_owner_tests);
+crate::impl_wrapper!(AccumulatorOwner(DidOrDidMethodKey));
+
+impl<T: Config> StorageRef<T> for AccumulatorId {
+    type Value = AccumulatorWithUpdateInfo<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<AccumulatorWithUpdateInfo<T>>) -> Result<R, E>,
+    {
+        Accumulators::<T>::try_mutate_exists(self, f)
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<AccumulatorWithUpdateInfo<T>>) -> R,
+    {
+        f(Accumulators::<T>::get(self))
+    }
+}
+
+impl AuthorizeTarget<AccumulatorId, DidKey> for AccumulatorOwner {}
+impl AuthorizeTarget<AccumulatorId, DidMethodKey> for AccumulatorOwner {}
+impl AuthorizeTarget<Self, DidKey> for AccumulatorOwner {}
+impl AuthorizeTarget<Self, DidMethodKey> for AccumulatorOwner {}
+impl AuthorizeTarget<(), DidKey> for AccumulatorOwner {}
+impl AuthorizeTarget<(), DidMethodKey> for AccumulatorOwner {}
+
+impl<T: Config> StorageRef<T> for AccumulatorOwner {
+    type Value = StoredAccumulatorOwnerCounters;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<StoredAccumulatorOwnerCounters>) -> Result<R, E>,
+    {
+        AccumulatorOwnerCounters::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<StoredAccumulatorOwnerCounters>) -> R,
+    {
+        f(Some(AccumulatorOwnerCounters::<T>::get(self)))
+    }
+}
 
 #[derive(
     scale_info_derive::TypeInfo,

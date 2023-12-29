@@ -1,5 +1,5 @@
 use super::*;
-use crate::{deposit_indexed_event, impl_wrapper};
+use crate::{common::AuthorizeTarget, deposit_indexed_event, impl_wrapper};
 
 /// `DID`'s controller.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -7,9 +7,48 @@ use crate::{deposit_indexed_event, impl_wrapper};
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Controller(pub Did);
+pub struct Controller(pub DidOrDidMethodKey);
 
-impl_wrapper!(Controller(Did), for rand use Did(rand::random()), with tests as controller_tests);
+impl_wrapper!(Controller(DidOrDidMethodKey));
+
+impl Controller {
+    fn ensure_controller_for<T: Config>(&self, controlled: &Did) -> Result<(), Error<T>> {
+        ensure!(
+            Pallet::<T>::is_controller(controlled, self),
+            Error::<T>::OnlyControllerCanUpdate
+        );
+
+        Ok(())
+    }
+}
+
+impl AuthorizeTarget<Did, DidKey> for Controller {
+    fn ensure_authorizes_target<T, A>(&self, key: &DidKey, action: &A) -> Result<(), Error<T>>
+    where
+        T: Config,
+        A: Action<Target = Did>,
+    {
+        ensure!(
+            key.can_control(),
+            Error::<T>::InsufficientVerificationRelationship
+        );
+        self.ensure_controller_for::<T>(&action.target())?;
+
+        Ok(())
+    }
+}
+
+impl AuthorizeTarget<Did, DidMethodKey> for Controller {
+    fn ensure_authorizes_target<T, A>(&self, _: &DidMethodKey, action: &A) -> Result<(), Error<T>>
+    where
+        T: Config,
+        A: Action<Target = Did>,
+    {
+        self.ensure_controller_for::<T>(&action.target())?;
+
+        Ok(())
+    }
+}
 
 impl<T: Config> Pallet<T> {
     pub(crate) fn add_controllers_(
@@ -77,6 +116,6 @@ impl<T: Config> Pallet<T> {
 
     /// Returns true if DID controls itself, else false.
     pub fn is_self_controlled(did: &Did) -> bool {
-        Self::is_controller(did, &Controller(*did))
+        Self::is_controller(did, &Controller((*did).into()))
     }
 }

@@ -2,16 +2,41 @@ use codec::Encode;
 use sp_runtime::{traits::Get, BoundedBTreeSet};
 // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
 use super::{
-    Call as MasterCall, Error, Event, MasterVoteRaw, Members, Membership, PhantomData, Round,
+    Call as MasterCall, Error, Event, Master, MasterVoteRaw, Members, Membership, PhantomData,
+    Round,
 };
 use crate::{
-    revoke::tests::{check_nonce_increase, get_nonces, get_pauth},
+    common::ToStateChange,
+    did::{Did, DidSignature},
+    revoke::tests::{check_nonce_increase, get_nonces},
     tests::common::*,
+    util::{Action, WithNonce},
 };
+use sp_core::sr25519;
 
 use frame_support::weights::Weight;
 use frame_system;
 use sp_core::H256;
+
+pub fn get_pauth<A: Action + Clone>(
+    action: &A,
+    signers: &[(Did, &sr25519::Pair)],
+) -> Vec<WithNonce<Test, DidSignature<Master>>>
+where
+    WithNonce<Test, A>: ToStateChange<Test>,
+{
+    signers
+        .iter()
+        .map(|(did, kp)| {
+            let did_detail = DIDModule::onchain_did_details(did).unwrap();
+            let next_nonce = did_detail.next_nonce().unwrap();
+            let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
+            let sig = did_sig_on_bytes(&sp.to_state_change().encode(), kp, Master(*did), 1);
+
+            WithNonce::new_with_nonce(sig, next_nonce)
+        })
+        .collect()
+}
 
 // XXX: To check both `execute` and `execute_unchecked_weight`, we can simply test `execute_` but
 // thats less future proof in theory
@@ -22,11 +47,11 @@ use sp_core::H256;
 fn execute_set_members() {
     ext().execute_with(|| {
         Members::<Test>::set(Membership {
-            members: set(&[]),
+            members: master_set(&[]),
             vote_requirement: 0,
         });
         let new_members = Membership {
-            members: set(&[newdid().0]),
+            members: master_set(&[newdid().0]),
             vote_requirement: 1,
         };
         let call = Call::MasterMod(MasterCall::set_members {
@@ -44,7 +69,7 @@ fn execute_set_members() {
 fn round_inc() {
     ext().execute_with(|| {
         Members::<Test>::set(Membership {
-            members: set(&[]),
+            members: master_set(&[]),
             vote_requirement: 0,
         });
         let call = Call::System(frame_system::Call::<Test>::set_storage { items: vec![] });
@@ -84,7 +109,7 @@ fn test_events() {
         MasterMod::set_members(
             frame_system::RawOrigin::Root.into(),
             Membership {
-                members: set(&[newdid().0]),
+                members: master_set(&[newdid().0]),
                 vote_requirement: 1,
             },
         )
@@ -95,7 +120,7 @@ fn test_events() {
     ext().execute_with(|| {
         let call = Call::System(frame_system::Call::<Test>::set_storage { items: vec![] });
         Members::<Test>::set(Membership {
-            members: set(&[]),
+            members: master_set(&[]),
             vote_requirement: 0,
         });
         MasterMod::execute(Origin::signed(0), Box::new(call.clone()), vec![]).unwrap();
@@ -113,7 +138,7 @@ fn test_events() {
         let (didc, didck) = newdid();
 
         Members::<Test>::set(Membership {
-            members: set(&[dida, didb, didc]),
+            members: master_set(&[dida, didb, didc]),
             vote_requirement: 2,
         });
 
@@ -136,7 +161,7 @@ fn test_events() {
         assert_eq!(
             master_events(),
             vec![Event::<Test>::Executed(
-                sorted(vec![dida, didc]),
+                sorted_masters(vec![dida, didc]),
                 Box::new(call)
             )]
         );
@@ -144,12 +169,12 @@ fn test_events() {
 
     ext().execute_with(|| {
         Members::<Test>::set(Membership {
-            members: set(&[]),
+            members: master_set(&[]),
             vote_requirement: 0,
         });
         let call = Call::MasterMod(MasterCall::set_members {
             membership: Membership {
-                members: set(&[newdid().0]),
+                members: master_set(&[newdid().0]),
                 vote_requirement: 1,
             },
         });
@@ -197,7 +222,7 @@ fn no_members() {
             round_no: Round::<Test>::get(),
         };
         Members::<Test>::set(Membership {
-            members: set(&[]),
+            members: master_set(&[]),
             vote_requirement: 1,
         });
 
@@ -224,7 +249,7 @@ fn valid_call() {
             round_no: Round::<Test>::get(),
         };
         Members::<Test>::set(Membership {
-            members: set(&[dida, didb, didc]),
+            members: master_set(&[dida, didb, didc]),
             vote_requirement: 2,
         });
 
@@ -262,7 +287,7 @@ fn all_members_vote() {
             round_no: Round::<Test>::get(),
         };
         Members::<Test>::set(Membership {
-            members: set(&[dida, didb, didc]),
+            members: master_set(&[dida, didb, didc]),
             vote_requirement: 3,
         });
 
@@ -285,7 +310,7 @@ fn two_successful_rounds_of_voting() {
         let (didb, didbk) = newdid();
         let (didc, didck) = newdid();
         Members::<Test>::set(Membership {
-            members: set(&[dida, didb, didc]),
+            members: master_set(&[dida, didb, didc]),
             vote_requirement: 2,
         });
 
@@ -344,7 +369,7 @@ fn err_bad_sig() {
         let (didb, _didbk) = newdid();
         let (didc, didck) = newdid();
         Members::<Test>::set(Membership {
-            members: set(&[dida, didb]),
+            members: master_set(&[dida, didb]),
             vote_requirement: 1,
         });
         let call = Box::new(Call::System(frame_system::Call::<Test>::set_storage {
@@ -389,7 +414,7 @@ fn err_not_member() {
         let (dida, _didak) = newdid();
         let (didc, didck) = newdid();
         Members::<Test>::set(Membership {
-            members: set(&[dida]),
+            members: master_set(&[dida]),
             vote_requirement: 1,
         });
         let call = Box::new(Call::System(frame_system::Call::<Test>::set_storage {
@@ -411,7 +436,7 @@ fn replay_protec() {
     ext().execute_with(|| {
         let (dida, didak) = newdid();
         Members::<Test>::set(Membership {
-            members: set(&[dida]),
+            members: master_set(&[dida]),
             vote_requirement: 1,
         });
         let call = Call::System(frame_system::Call::<Test>::set_storage { items: vec![] });
@@ -442,7 +467,7 @@ fn err_insufficient_votes() {
             round_no: Round::<Test>::get(),
         };
         Members::<Test>::set(Membership {
-            members: set(&[dida, didb]),
+            members: master_set(&[dida, didb]),
             vote_requirement: 2,
         });
 
@@ -457,11 +482,11 @@ fn err_zero_vote_requirement() {
     ext().execute_with(|| {
         for m in [
             Membership {
-                members: set(&[]),
+                members: master_set(&[]),
                 vote_requirement: 0,
             },
             Membership {
-                members: set(&[newdid().0]),
+                members: master_set(&[newdid().0]),
                 vote_requirement: 0,
             },
         ]
@@ -479,19 +504,19 @@ fn err_vote_requirement_to_high() {
     ext().execute_with(|| {
         for m in [
             Membership {
-                members: set(&[]),
+                members: master_set(&[]),
                 vote_requirement: 1,
             },
             Membership {
-                members: set(&[newdid().0]),
+                members: master_set(&[newdid().0]),
                 vote_requirement: 2,
             },
             Membership {
-                members: set(&[newdid().0]),
+                members: master_set(&[newdid().0]),
                 vote_requirement: 3,
             },
             Membership {
-                members: set(&[newdid().0]),
+                members: master_set(&[newdid().0]),
                 vote_requirement: u64::MAX,
             },
         ]
@@ -522,12 +547,12 @@ fn master_events() -> Vec<Event<Test>> {
         .collect()
 }
 
-fn set<E: Clone + Ord, Size: Get<u32>>(slice: &[E]) -> BoundedBTreeSet<E, Size> {
+fn master_set<Size: Get<u32>>(slice: &[Did]) -> BoundedBTreeSet<Master, Size> {
     use sp_runtime::traits::TryCollect;
-    slice.iter().cloned().try_collect().unwrap()
+    slice.iter().cloned().map(Into::into).try_collect().unwrap()
 }
 
-fn sorted<T: Ord>(mut inp: Vec<T>) -> Vec<T> {
+fn sorted_masters(mut inp: Vec<Did>) -> Vec<Master> {
     inp.sort();
-    inp
+    inp.into_iter().map(Into::into).collect()
 }

@@ -1,5 +1,7 @@
 use core::{fmt::Debug, marker::PhantomData};
-use dock_core::{accumulator, common::TypesAndLimits, offchain_signatures, util::IncId};
+use dock_core::{
+    accumulator, common::TypesAndLimits, offchain_signatures, trust_registry::*, util::IncId,
+};
 pub use dock_core::{
     did::{self, Config},
     runtime_api::CoreModsApi as CoreModsRuntimeApi,
@@ -28,9 +30,9 @@ impl<T: Config> ConfigWrapper for SerializableConfigWrapper<T> {
 }
 
 #[rpc(server, client)]
-pub trait CoreModsApi<BlockHash, Config>
+pub trait CoreModsApi<BlockHash, T>
 where
-    Config: ConfigWrapper,
+    T: ConfigWrapper,
 {
     #[method(name = "core_mods_didDetails")]
     async fn did_details(
@@ -38,7 +40,7 @@ where
         did: did::Did,
         params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<did::AggregatedDidDetailsResponse<Config::T>>>;
+    ) -> RpcResult<Option<did::AggregatedDidDetailsResponse<T::T>>>;
 
     #[method(name = "core_mods_didListDetails")]
     async fn did_list_details(
@@ -46,89 +48,150 @@ where
         dids: Vec<did::Did>,
         params: Option<did::AggregatedDidDetailsRequestParams>,
         at: Option<BlockHash>,
-    ) -> RpcResult<Vec<Option<did::AggregatedDidDetailsResponse<Config::T>>>>;
+    ) -> RpcResult<Vec<Option<did::AggregatedDidDetailsResponse<T::T>>>>;
 
     #[method(name = "core_mods_bbsPublicKeyWithParams")]
     async fn bbs_public_key_with_params(
         &self,
         id: offchain_signatures::SignaturePublicKeyStorageKey,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<offchain_signatures::BBSPublicKeyWithParams<Config::T>>>;
+    ) -> RpcResult<Option<offchain_signatures::BBSPublicKeyWithParams<T::T>>>;
 
     #[method(name = "core_mods_bbsParamsByDid")]
     async fn bbs_params_by_did(
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSParameters<Config::T>>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSParameters<T::T>>>;
 
     #[method(name = "core_mods_bbsPublicKeysByDid")]
     async fn bbs_public_keys_by_did(
         &self,
         did: did::Did,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPublicKeyWithParams<Config::T>>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPublicKeyWithParams<T::T>>>;
 
     #[method(name = "core_mods_bbsPlusPublicKeyWithParams")]
     async fn bbs_plus_public_key_with_params(
         &self,
         id: offchain_signatures::SignaturePublicKeyStorageKey,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<offchain_signatures::BBSPlusPublicKeyWithParams<Config::T>>>;
+    ) -> RpcResult<Option<offchain_signatures::BBSPlusPublicKeyWithParams<T::T>>>;
 
     #[method(name = "core_mods_bbsPlusParamsByDid")]
     async fn bbs_plus_params_by_did(
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusParameters<Config::T>>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusParameters<T::T>>>;
 
     #[method(name = "core_mods_bbsPlusPublicKeysByDid")]
     async fn bbs_plus_public_keys_by_did(
         &self,
         did: did::Did,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams<Config::T>>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBSPlusPublicKeyWithParams<T::T>>>;
 
     #[method(name = "core_mods_psPublicKeyWithParams")]
     async fn ps_public_key_with_params(
         &self,
         id: offchain_signatures::SignaturePublicKeyStorageKey,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<offchain_signatures::PSPublicKeyWithParams<Config::T>>>;
+    ) -> RpcResult<Option<offchain_signatures::PSPublicKeyWithParams<T::T>>>;
 
     #[method(name = "core_mods_psParamsByDid")]
     async fn ps_params_by_did(
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParameters<Config::T>>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSParameters<T::T>>>;
 
     #[method(name = "core_mods_psPublicKeysByDid")]
     async fn ps_public_keys_by_did(
         &self,
         did: did::Did,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSPublicKeyWithParams<Config::T>>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::PSPublicKeyWithParams<T::T>>>;
 
     #[method(name = "core_mods_accumulatorPublicKeyWithParams")]
     async fn accumulator_public_key_with_params(
         &self,
         id: accumulator::AccumPublicKeyStorageKey,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<accumulator::AccumPublicKeyWithParams<Config::T>>>;
+    ) -> RpcResult<Option<accumulator::AccumPublicKeyWithParams<T::T>>>;
 
     #[method(name = "core_mods_accumulatorWithPublicKeyAndParams")]
     async fn accumulator_with_public_key_and_params(
         &self,
         id: accumulator::AccumulatorId,
         at: Option<BlockHash>,
-    ) -> RpcResult<
-        Option<(
-            Vec<u8>,
-            Option<accumulator::AccumPublicKeyWithParams<Config::T>>,
-        )>,
-    >;
+    ) -> RpcResult<Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams<T::T>>)>>;
+
+    #[method(name = "core_trustRegistrySchemaMetadata")]
+    async fn schema_metadata(
+        &self,
+        id: TrustRegistrySchemaId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedTrustRegistrySchemaMetadata<T::T>>>;
+
+    #[method(name = "core_trustRegistrySchemaIssuers")]
+    async fn schema_issuers(
+        &self,
+        id: TrustRegistrySchemaId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedSchemaIssuers<T::T>>>;
+
+    #[method(name = "core_trustRegistrySchemaVerifiers")]
+    async fn schema_verifiers(
+        &self,
+        id: TrustRegistrySchemaId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<TrustRegistryId, SchemaVerifiers<T::T>>>;
+
+    #[method(name = "core_trustRegistrySchemaMetadataInRegistry")]
+    async fn schema_metadata_in_registry(
+        &self,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Option<AggregatedTrustRegistrySchemaMetadata<T::T>>>;
+
+    #[method(name = "core_trustRegistrySchemaIssuersInRegistry")]
+    async fn schema_issuers_in_registry(
+        &self,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Option<AggregatedSchemaIssuers<T::T>>>;
+
+    #[method(name = "core_trustRegistrySchemaVerifiersInRegistry")]
+    async fn schema_verifiers_in_registry(
+        &self,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Option<SchemaVerifiers<T::T>>>;
+
+    #[method(name = "core_allTrustRegistrySchemaMetadata")]
+    async fn all_registry_schema_metadata(
+        &self,
+        registry_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata<T::T>>>;
+
+    #[method(name = "coreallTtrustRegistrySchemaIssuers")]
+    async fn all_registry_schema_issuers(
+        &self,
+        registry_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedSchemaIssuers<T::T>>>;
+
+    #[method(name = "core_tallTustRegistrySchemaVerifiers")]
+    async fn all_registry_schema_verifiers(
+        &self,
+        registry_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, SchemaVerifiers<T::T>>>;
 }
 
 /// A struct that implements the [`CoreModsApi`].
@@ -352,6 +415,136 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.accumulator_with_public_key_and_params(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn schema_metadata(
+        &self,
+        id: TrustRegistrySchemaId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedTrustRegistrySchemaMetadata<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.schema_metadata(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn schema_issuers(
+        &self,
+        id: TrustRegistrySchemaId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedSchemaIssuers<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.schema_issuers(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn schema_verifiers(
+        &self,
+        id: TrustRegistrySchemaId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<TrustRegistryId, SchemaVerifiers<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.schema_verifiers(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn schema_metadata_in_registry(
+        &self,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Option<AggregatedTrustRegistrySchemaMetadata<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.schema_metadata_in_registry(&at, id, registry_id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn schema_issuers_in_registry(
+        &self,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Option<AggregatedSchemaIssuers<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.schema_issuers_in_registry(&at, id, registry_id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn schema_verifiers_in_registry(
+        &self,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Option<SchemaVerifiers<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.schema_verifiers_in_registry(&at, id, registry_id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn all_registry_schema_metadata(
+        &self,
+        id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata<T::T>>>
+    {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.all_registry_schema_metadata(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn all_registry_schema_issuers(
+        &self,
+        id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedSchemaIssuers<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.all_registry_schema_issuers(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn all_registry_schema_verifiers(
+        &self,
+        id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, SchemaVerifiers<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.all_registry_schema_verifiers(&at, id)
             .map_err(Error)
             .map_err(Into::into)
     }

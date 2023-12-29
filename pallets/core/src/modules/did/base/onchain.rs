@@ -1,8 +1,8 @@
 use super::super::*;
 use crate::{
-    common::{ToStateChange, TypesAndLimits},
+    common::TypesAndLimits,
     deposit_indexed_event,
-    util::WrappedActionWithNonce,
+    util::{StorageRef, WithNonce},
 };
 
 /// Each on-chain DID is associated with a nonce that is incremented each time the DID does a
@@ -32,13 +32,29 @@ impl<T: TypesAndLimits> From<StoredOnChainDidDetails<T>> for StoredDidDetails<T>
     }
 }
 
-impl<T: TypesAndLimits> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
+impl<T: Config> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
     type Error = Error<T>;
 
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
-        details
-            .into_onchain()
-            .ok_or(Error::<T>::CannotGetDetailForOnChainDid)
+        details.into_onchain().ok_or(Error::<T>::ExpectedOnChainDid)
+    }
+}
+
+impl<T: Config> StorageRef<T> for Did {
+    type Value = StoredDidDetails<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<StoredDidDetails<T>>) -> Result<R, E>,
+    {
+        Dids::<T>::try_mutate_exists(self, |details| details.update_with(f))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<StoredDidDetails<T>>) -> R,
+    {
+        f(Dids::<T>::get(self))
     }
 }
 
@@ -75,7 +91,7 @@ impl<T: Config> Pallet<T> {
         let controller_keys_count = keys.iter().filter(|key| key.can_control()).count() as u32;
         // Make self controlled if needed
         if controller_keys_count > 0 {
-            controllers.insert(Controller(did));
+            controllers.insert(Controller(did.into()));
         }
         ensure!(!controllers.is_empty(), Error::<T>::NoControllerProvided);
 
@@ -118,139 +134,6 @@ impl<T: Config> Pallet<T> {
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())
-    }
-
-    /// Try executing an action by a DID. Each action of a DID is supposed to have a nonce which should
-    /// be one more than the current one. This function will check that payload has correct nonce and
-    /// will then execute the given function `f` on the action and if `f` executes successfully, it will increment
-    /// the DID's nonce by 1.
-    pub(crate) fn try_exec_signed_action_from_onchain_did<A, F, S, R, E>(
-        f: F,
-        action: A,
-        signature: DidSignature<S>,
-    ) -> Result<R, E>
-    where
-        F: FnOnce(A, S) -> Result<R, E>,
-        A: ActionWithNonce<T> + ToStateChange<T>,
-        S: Into<Did> + Copy,
-        E: From<Error<T>> + From<NonceError>,
-    {
-        ensure!(
-            Self::verify_sig_from_auth_or_control_key(&action, &signature)?,
-            Error::<T>::InvalidSignature
-        );
-
-        Self::try_exec_action_over_onchain_did(
-            |WrappedActionWithNonce { action, target, .. }, _| f(action, target),
-            WrappedActionWithNonce::new(action.nonce(), signature.did, action),
-        )
-    }
-
-    /// Attempts to execute an action signed by a DID that controls (possibly) another DID.
-    /// This means nonce of signing DID must be checked and increased if the action is successful.
-    /// The DID details of the controlled DID can be changed.
-    pub(crate) fn try_exec_signed_action_from_controller<A, F, R, E>(
-        f: F,
-        action: A,
-        signature: DidSignature<Controller>,
-    ) -> Result<R, E>
-    where
-        F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
-        A: ActionWithNonce<T, Target = Did> + ToStateChange<T>,
-        A::Target: Into<Did>,
-        E: From<Error<T>> + From<NonceError>,
-    {
-        Self::try_exec_signed_removable_action_from_controller(
-            |action, details_opt| f(action, details_opt.as_mut().unwrap()),
-            action,
-            signature,
-        )
-    }
-
-    /// Attempts to execute an action signed by a DID that controls (possibly) another DID.
-    /// This means nonce of signing DID must be checked and increased if the action is successful.
-    /// The DID details of the controlled DID can be changed.
-    /// Unlike `try_exec_action_over_onchain_did`, this action may result in a removal of a DID,
-    /// if the value under option will be taken.
-    pub(crate) fn try_exec_signed_removable_action_from_controller<A, F, R, E>(
-        f: F,
-        action: A,
-        signature: DidSignature<Controller>,
-    ) -> Result<R, E>
-    where
-        F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
-        A: ActionWithNonce<T, Target = Did> + ToStateChange<T>,
-        E: From<Error<T>> + From<NonceError>,
-    {
-        ensure!(
-            Self::verify_sig_from_controller(&action, &signature)?,
-            Error::<T>::InvalidSignature
-        );
-
-        if action.target() != *signature.did {
-            let wrapped_action = WrappedActionWithNonce::new(action.nonce(), signature.did, action);
-
-            // Target DID and acting (signer) DID are different and thus both DID's details must be modified
-            Self::try_exec_removable_action_over_onchain_did(
-                |WrappedActionWithNonce { action, .. }, _| {
-                    Dids::<T>::try_mutate_exists(action.target(), |details_opt| {
-                        WithNonce::try_update_opt_without_increasing_nonce_with(
-                            details_opt,
-                            |data_opt| f(action, data_opt),
-                        )
-                        .ok_or(Error::<T>::DidDoesNotExist)?
-                    })
-                },
-                wrapped_action,
-            )
-        } else {
-            // Target DID and acting (signer) DID are the same
-            Self::try_exec_removable_action_over_onchain_did(f, action)
-        }
-    }
-
-    crate::pub_for_test! {
-        /// Executes action over target on-chain DID providing a mutable reference if the given
-        /// nonce is correct, i.e. 1 more than the current nonce.
-        fn try_exec_action_over_onchain_did<A, F, R, E>(f: F, action: A) -> Result<R, E>
-        where
-            F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
-            A: ActionWithNonce<T>,
-            A::Target: Into<Did>,
-            E: From<Error<T>> + From<NonceError>,
-
-        {
-            Self::try_exec_removable_action_over_onchain_did(|action, details_opt| {
-                f(action, details_opt.as_mut().unwrap())
-            }, action)
-        }
-    }
-
-    crate::pub_for_test! {
-        /// Executes action over target on-chain DID providing a mutable reference if the given
-        /// nonce is correct, i.e. 1 more than the current nonce.
-        /// Unlike `try_exec_action_over_onchain_did`, this action may result in a removal of a DID,
-        /// if the value under option will be taken.
-        fn try_exec_removable_action_over_onchain_did<A, F, R, E>(
-            f: F,
-            action: A,
-        ) -> Result<R, E>
-        where
-            F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
-            A: ActionWithNonce<T>,
-            A::Target: Into<Did>,
-            E: From<Error<T>> + From<NonceError>,
-
-        {
-            ensure!(!action.is_empty(), Error::<T>::EmptyPayload);
-
-            Dids::<T>::try_mutate_exists(action.target().into(), |cnt_details_opt| {
-                WithNonce::try_update_opt_with(cnt_details_opt, action.nonce(), |data_opt| {
-                    f(action, data_opt)
-                })
-                .ok_or(Error::<T>::DidDoesNotExist)?
-            })
-        }
     }
 
     pub fn is_onchain_did(did: &Did) -> Result<bool, Error<T>> {

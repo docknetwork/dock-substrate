@@ -3,13 +3,16 @@
 use crate::{
     accumulator, anchor, attest, blob,
     common::{self, StateChange, ToStateChange},
-    did::{self, Did, DidKey, DidSignature},
-    master, offchain_signatures, revoke, status_list_credential,
+    did::{
+        self, Did, DidKey, DidKeySignature, DidOrDidMethodKey, DidOrDidMethodKeySignature,
+        DidSignature,
+    },
+    master, offchain_signatures, revoke, status_list_credential, trust_registry,
 };
 
 use crate::{
     common::SigValue,
-    revoke::{RegistryId, RevokeId},
+    revoke::{RevocationRegistryId, RevokeId},
 };
 use codec::{Decode, Encode};
 use frame_support::{
@@ -48,6 +51,7 @@ frame_support::construct_runtime!(
         SignatureMod: offchain_signatures::{Pallet, Call, Storage, Event},
         AccumMod: accumulator::{Pallet, Call, Storage, Event},
         StatusListCredentialMod: status_list_credential::{Pallet, Call, Storage, Event},
+        TrustRegistryMod: trust_registry::{Pallet, Call, Storage, Event},
         EVM: pallet_evm::{Pallet, Config, Call, Storage, Event<T>},
     }
 );
@@ -62,6 +66,7 @@ pub enum TestEvent {
     OffchainSignature(offchain_signatures::Event),
     Accum(accumulator::Event),
     StatusListCredential(status_list_credential::Event),
+    TrustRegistry(trust_registry::Event),
 }
 
 impl From<frame_system::Event<Test>> for TestEvent {
@@ -115,6 +120,12 @@ impl From<crate::master::Event<Test>> for TestEvent {
 impl From<crate::status_list_credential::Event> for TestEvent {
     fn from(other: crate::status_list_credential::Event) -> Self {
         Self::StatusListCredential(other)
+    }
+}
+
+impl From<crate::trust_registry::Event> for TestEvent {
+    fn from(other: crate::trust_registry::Event) -> Self {
+        Self::TrustRegistry(other)
     }
 }
 
@@ -259,6 +270,17 @@ impl crate::common::Limits for Test {
 
     type MaxMasterMembers = MaxMasterMembers;
     type MaxPolicyControllers = MaxPolicyControllers;
+
+    type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
+    type MaxIssuersPerSchema = ConstU32<20>;
+    type MaxVerifiersPerSchema = ConstU32<20>;
+    type MaxPriceCurrencies = ConstU32<20>;
+    type MaxTrustRegistryNameSize = ConstU32<100>;
+    type MaxConvenerRegistries = ConstU32<5>;
+    type MaxDelegatedIssuers = ConstU32<20>;
+    type MaxSchemasPerIssuer = ConstU32<100>;
+    type MaxSchemasPerVerifier = ConstU32<100>;
+    type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
 }
 
 impl crate::did::Config for Test {
@@ -270,6 +292,9 @@ impl crate::revoke::Config for Test {
     type Event = TestEvent;
 }
 impl crate::status_list_credential::Config for Test {
+    type Event = TestEvent;
+}
+impl crate::trust_registry::Config for Test {
     type Event = TestEvent;
 }
 impl crate::blob::Config for Test {}
@@ -310,7 +335,7 @@ pub const ABBA: u64 = 0;
 pub const DIDA: Did = Did([0u8; 32]);
 pub const DIDB: Did = Did([1u8; 32]);
 pub const DIDC: Did = Did([2u8; 32]);
-pub const RGA: RegistryId = RegistryId([0u8; 32]);
+pub const RGA: RevocationRegistryId = RevocationRegistryId([0u8; 32]);
 pub const RA: RevokeId = RevokeId([0u8; 32]);
 pub const RB: RevokeId = RevokeId([1u8; 32]);
 pub const RC: RevokeId = RevokeId([2u8; 32]);
@@ -371,21 +396,80 @@ pub fn newdid() -> (Did, sr25519::Pair) {
     (d, create_did(d))
 }
 
-pub fn sign<T: crate::did::Config>(payload: &StateChange<T>, keypair: &sr25519::Pair) -> SigValue {
-    SigValue::Sr25519(keypair.sign(&payload.encode()).0.into())
+pub fn sign<T: crate::did::Config, P>(payload: &StateChange<T>, keypair: &P) -> SigValue
+where
+    P: Pair,
+    P::Signature: Into<SigValue>,
+{
+    keypair.sign(&payload.encode()).into()
 }
 
-pub fn did_sig<T: crate::did::Config, A: ToStateChange<T>, D: Into<Did>>(
+#[macro_export]
+macro_rules! did_or_did_method_key {
+    ($newdid: ident => $($tt: tt)+) => {
+        mod onchain_did {
+            use super::*;
+            use $crate::did::Did;
+
+            /// create a did with a random id and random signing key
+            pub fn $newdid() -> (Did, sp_core::sr25519::Pair) {
+                let d: Did = Did(rand::random());
+                (d, create_did(d))
+            }
+
+            $($tt)+
+        }
+
+        mod did_method_key {
+            use super::*;
+            use $crate::did::DidMethodKey;
+
+            /// create a did with a random id and random signing key
+            pub fn $newdid() -> (DidMethodKey, sp_core::ed25519::Pair) {
+                use sp_core::Pair;
+
+                let kp = sp_core::ed25519::Pair::generate_with_phrase(None).0;
+                let did_method_key = kp.public().into();
+
+                did::Pallet::<Test>::new_did_method_key_(
+                    did_method_key,
+                )
+                .unwrap();
+
+                (did_method_key, kp)
+            }
+
+            $($tt)+
+        }
+    }
+}
+
+pub fn did_sig<T: crate::did::Config, A: ToStateChange<T>, D: Into<DidOrDidMethodKey>, P: Pair>(
     change: &A,
-    keypair: &sr25519::Pair,
-    did: D,
+    keypair: &P,
+    did: impl Into<DidOrDidMethodKey>,
     key_id: u32,
-) -> DidSignature<D> {
-    let sig = sign(&change.to_state_change(), keypair);
-    DidSignature {
-        did,
-        key_id: key_id.into(),
-        sig,
+) -> DidOrDidMethodKeySignature<D>
+where
+    P::Signature: Into<SigValue>,
+{
+    let did = did.into();
+
+    match did {
+        DidOrDidMethodKey::Did(did) => DidSignature {
+            did,
+            key_id: key_id.into(),
+            sig: sign(&change.to_state_change(), keypair),
+        }
+        .into(),
+        DidOrDidMethodKey::DidMethodKey(did_key) => DidKeySignature {
+            did_key,
+            sig: match sign(&change.to_state_change(), keypair) {
+                SigValue::Ed25519(sig) => common::DidMethodKeySigValue::Ed25519(sig),
+                _ => panic!(),
+            },
+        }
+        .into(),
     }
 }
 
@@ -395,12 +479,10 @@ pub fn did_sig_on_bytes<D: Into<Did>>(
     did: D,
     key_id: u32,
 ) -> DidSignature<D> {
-    let sig = SigValue::Sr25519(keypair.sign(msg_bytes).0.into());
-
     DidSignature {
         did,
         key_id: key_id.into(),
-        sig,
+        sig: SigValue::Sr25519(keypair.sign(msg_bytes).0.into()),
     }
 }
 
@@ -420,9 +502,18 @@ pub fn run_to_block(n: u64) {
     }
 }
 
-pub fn check_nonce(d: &Did, nonce: u64) {
-    let did_detail = DIDModule::onchain_did_details(d).unwrap();
-    assert_eq!(did_detail.nonce, nonce);
+pub fn check_nonce(d: &(impl Into<DidOrDidMethodKey> + Clone), nonce: u64) {
+    match d.clone().into() {
+        DidOrDidMethodKey::Did(did) => {
+            let did_detail = DIDModule::onchain_did_details(&did).unwrap();
+            assert_eq!(did_detail.nonce, nonce);
+        }
+        DidOrDidMethodKey::DidMethodKey(did_method_key) => {
+            let did_detail: crate::util::WithNonce<Test, ()> =
+                DIDModule::did_method_key(did_method_key).unwrap();
+            assert_eq!(did_detail.nonce, nonce);
+        }
+    }
 }
 
 pub fn inc_nonce(d: &Did) {

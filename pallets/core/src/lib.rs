@@ -10,7 +10,7 @@ pub mod util;
 
 pub use modules::{
     accumulator, anchor, attest, blob, did, master, offchain_signatures, revoke,
-    status_list_credential,
+    status_list_credential, trust_registry,
 };
 
 #[cfg(test)]

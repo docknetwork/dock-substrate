@@ -32,7 +32,7 @@ impl<T: TypesAndLimits> TryFrom<StoredDidDetails<T>> for OffChainDidDetails<T> {
     fn try_from(details: StoredDidDetails<T>) -> Result<Self, Self::Error> {
         details
             .into_offchain()
-            .ok_or(Error::<T>::CannotGetDetailForOffChainDid)
+            .ok_or(Error::<T>::ExpectedOffChainDid)
     }
 }
 

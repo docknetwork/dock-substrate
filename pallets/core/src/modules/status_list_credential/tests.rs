@@ -5,7 +5,7 @@ use crate::{
     common::{Policy, PolicyValidationError, ToStateChange},
     did::Did,
     tests::common::*,
-    util::{Action, BoundedBytes, WithNonce},
+    util::{Action, ActionExecutionError, BoundedBytes, WithNonce},
 };
 use alloc::collections::BTreeMap;
 use frame_support::{assert_noop, assert_ok};
@@ -30,12 +30,9 @@ where
             let action_with_nonce =
                 WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
             let state_change = action_with_nonce.to_state_change().encode();
-            let sig = did_sig_on_bytes(&state_change, kp, *did, 1);
+            let sig = did_sig_on_bytes(&state_change, kp, *did, 1).into();
 
-            DidSignatureWithNonce {
-                sig,
-                nonce: next_nonce,
-            }
+            WithNonce::new_with_nonce(sig, next_nonce)
         })
         .collect()
 }
@@ -115,10 +112,10 @@ fn ensure_auth() {
             };
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = Mod::try_exec_action_over_status_list_credential(
-                |_, _| Ok::<_, DispatchError>(()),
-                command.clone(),
-                proof,
+            let res = command.clone().execute(
+                |action, cred: &mut StatusListCredentialWithPolicy<Test>| {
+                    cred.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
+                },
             );
             assert_eq!(res.is_ok(), expect_success);
             if expect_success {
@@ -132,10 +129,10 @@ fn ensure_auth() {
 
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = Mod::try_exec_action_over_status_list_credential(
-                |_, _| Ok::<_, DispatchError>(()),
-                command.clone(),
-                proof,
+            let res = command.clone().execute(
+                |action, cred: &mut StatusListCredentialWithPolicy<Test>| {
+                    cred.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
+                },
             );
             assert_eq!(res.is_ok(), expect_success);
 
@@ -336,7 +333,7 @@ fn remove_status_list_credential() {
         let auth = get_pauth(&remove, &[(did, &keypair)][..]);
         assert_noop!(
             Mod::remove(Origin::signed(ABBA), remove, auth),
-            PolicyExecutionError::NoEntity
+            ActionExecutionError::NoEntity
         );
     });
 }

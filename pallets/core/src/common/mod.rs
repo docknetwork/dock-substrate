@@ -1,17 +1,21 @@
 use core::marker::PhantomData;
 
+pub mod authorization;
 pub mod keys;
 pub mod limits;
 pub mod policy;
 pub mod signatures;
+pub mod signed_action;
 pub mod state_change;
 pub mod storage_version;
 pub mod types;
 
+pub use authorization::*;
 pub use keys::*;
 pub use limits::*;
 pub use policy::*;
 pub use signatures::*;
+pub use signed_action::*;
 pub use state_change::*;
 pub use storage_version::*;
 pub use types::*;
@@ -57,4 +61,15 @@ impl<T: Types, L: Limits> Limits for CombineTypesAndLimits<T, L> {
 
     type MaxMasterMembers = L::MaxMasterMembers;
     type MaxPolicyControllers = L::MaxPolicyControllers;
+
+    type MaxIssuerPriceCurrencySymbolSize = L::MaxMasterMembers;
+    type MaxIssuersPerSchema = L::MaxIssuersPerSchema;
+    type MaxVerifiersPerSchema = L::MaxVerifiersPerSchema;
+    type MaxPriceCurrencies = L::MaxPriceCurrencies;
+    type MaxTrustRegistryNameSize = L::MaxTrustRegistryNameSize;
+    type MaxConvenerRegistries = L::MaxConvenerRegistries;
+    type MaxDelegatedIssuers = L::MaxDelegatedIssuers;
+    type MaxSchemasPerIssuer = L::MaxSchemasPerIssuer;
+    type MaxSchemasPerVerifier = L::MaxSchemasPerVerifier;
+    type MaxTrustRegistryGovFrameworkSize = L::MaxTrustRegistryGovFrameworkSize;
 }

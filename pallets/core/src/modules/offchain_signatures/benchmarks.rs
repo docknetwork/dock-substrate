@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     common::{CurveType, ToStateChange},
     did::{Did, DidSignature, UncheckedDidKey},
-    util::{BoundedBytes, IncId},
+    util::{Action, BoundedBytes, IncId},
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
@@ -42,10 +42,10 @@ crate::bench_with_all_pairs! {
         };
 
         let sig = pair.sign(&new_params.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: add_params(RawOrigin::Signed(caller), new_params, signature)
     verify {
-        assert_eq!(SignatureParams::<T>::get(SignatureParamsOwner(did), IncId::from(1u8)).unwrap(), params.clone().into());
+        assert_eq!(SignatureParams::<T>::get(SignatureParamsOwner(did.into()), IncId::from(1u8)).unwrap(), params.clone().into());
     }
 
     remove_params_sr25519 for sr25519, remove_params_ed25519 for ed25519, remove_params_secp256k1 for secp256k1 {
@@ -60,7 +60,9 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Pallet::<T>::add_params_(
+        WrappedActionWithNonce::<T, _, _>::new(
+            1u8.into(),
+            SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
                 params: BBSPlusParameters::new(
                     BoundedBytes::try_from(vec![1; MAX_LABEL as usize]).unwrap(),
@@ -69,20 +71,18 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-            SignatureParamsOwner(did)
-        ).unwrap();
+        ).execute::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         let rem_params = RemoveOffchainSignatureParams {
-            params_ref: (SignatureParamsOwner(did), 1u8.into()),
+            params_ref: (SignatureParamsOwner(did.into()), 1u8.into()),
             nonce: 1u8.into()
         };
 
         let sig = pair.sign(&rem_params.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
-
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: remove_params(RawOrigin::Signed(caller), rem_params, signature)
     verify {
-        assert!(SignatureParams::<T>::get(SignatureParamsOwner(did), IncId::from(1u8)).is_none());
+        assert!(SignatureParams::<T>::get(SignatureParamsOwner(did.into()), IncId::from(1u8)).is_none());
     }
 
     add_public_sr25519 for sr25519, add_public_ed25519 for ed25519, add_public_secp256k1 for secp256k1 {
@@ -100,7 +100,9 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Pallet::<T>::add_params_(
+        WrappedActionWithNonce::<T, _, _>::new(
+            1u8.into(),
+            SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
                 params: BBSPlusParameters::new(
                     BoundedBytes::try_from(vec![1; MAX_LABEL as usize]).unwrap(),
@@ -109,12 +111,11 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-            SignatureParamsOwner(did)
-        ).unwrap();
+        ).execute::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         let key: OffchainPublicKey<T> = BBSPlusPublicKey::new(
             BoundedBytes::try_from(vec![0; b as usize]).unwrap(),
-            (SignatureParamsOwner(did), IncId::from(1u8)),
+            (SignatureParamsOwner(did.into()), IncId::from(1u8)),
             CurveType::Bls12381,
         ).into();
         let add_key = AddOffchainSignaturePublicKey {
@@ -124,8 +125,7 @@ crate::bench_with_all_pairs! {
         };
 
         let sig = pair.sign(&add_key.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
-
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: add_public_key(RawOrigin::Signed(caller), add_key, signature)
     verify {
         assert_eq!(PublicKeys::get(did, IncId::from(2u8)).unwrap(), key);
@@ -143,7 +143,9 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        Pallet::<T>::add_params_(
+        WrappedActionWithNonce::<T, _, _>::new(
+            1u8.into(),
+            SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
                 params: BBSPlusParameters::new(
                     BoundedBytes::try_from(vec![1; MAX_LABEL as usize]).unwrap(),
@@ -152,15 +154,14 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-            SignatureParamsOwner(did)
-        ).unwrap();
+        ).execute::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
 
         Pallet::<T>::add_public_key_(
             AddOffchainSignaturePublicKey {
                 did: did,
                 key: BBSPlusPublicKey::new(
                     BoundedBytes::try_from(vec![0; MAX_KEY as usize]).unwrap(),
-                    (SignatureParamsOwner(did), IncId::from(1u8)),
+                    (SignatureParamsOwner(did.into()), IncId::from(1u8)),
                     CurveType::Bls12381,
                 ).into(),
                 nonce: 2u8.into()
@@ -175,7 +176,7 @@ crate::bench_with_all_pairs! {
         };
 
         let sig = pair.sign(&rem_key.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
     }: remove_public_key(RawOrigin::Signed(caller), rem_key, signature)
     verify {
         assert!(PublicKeys::<T>::get(did, IncId::from(2u8)).is_none());

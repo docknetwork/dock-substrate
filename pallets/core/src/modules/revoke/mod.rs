@@ -1,9 +1,9 @@
 #[cfg(feature = "serde")]
 use crate::util::hex;
 use crate::{
-    common::{self, DidSignatureWithNonce, HasPolicy, Limits, Policy, SigValue, ToStateChange},
+    common::{self, signatures::ForSigType, DidSignatureWithNonce, HasPolicy, Limits, Policy},
     did::{self},
-    util::{Action, NonceError, WithNonce},
+    util::{Action, NonceError, StorageRef, WithNonce},
 };
 use alloc::collections::BTreeSet;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -31,9 +31,9 @@ mod weights;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct RegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct RevocationRegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
 
-impl Index<RangeFull> for RegistryId {
+impl Index<RangeFull> for RevocationRegistryId {
     type Output = [u8; 32];
 
     fn index(&self, _: RangeFull) -> &Self::Output {
@@ -41,7 +41,25 @@ impl Index<RangeFull> for RegistryId {
     }
 }
 
-crate::impl_wrapper!(RegistryId([u8; 32]));
+impl<T: Config> StorageRef<T> for RevocationRegistryId {
+    type Value = RevocationRegistry<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<RevocationRegistry<T>>) -> Result<R, E>,
+    {
+        Registries::<T>::try_mutate_exists(self, f)
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<RevocationRegistry<T>>) -> R,
+    {
+        f(Registries::<T>::get(self))
+    }
+}
+
+crate::impl_wrapper!(RevocationRegistryId([u8; 32]));
 
 /// Points to a revocation which may or may not exist in a registry.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -72,7 +90,7 @@ crate::impl_wrapper!(RevokeId([u8; 32]));
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct Registry<T: Limits> {
+pub struct RevocationRegistry<T: Limits> {
     /// Who is allowed to update this registry.
     pub policy: Policy<T>,
     /// true: credentials can be revoked, but not un-revoked and the registry can't be removed either
@@ -80,7 +98,7 @@ pub struct Registry<T: Limits> {
     pub add_only: bool,
 }
 
-impl<T: Limits> HasPolicy<T> for Registry<T> {
+impl<T: Limits> HasPolicy<T> for RevocationRegistry<T> {
     fn policy(&self) -> &Policy<T> {
         &self.policy
     }
@@ -107,13 +125,13 @@ pub mod pallet {
     #[pallet::event]
     pub enum Event {
         /// Registry with given id created
-        RegistryAdded(RegistryId),
+        RegistryAdded(RevocationRegistryId),
         /// Some items were revoked from given registry id
-        RevokedInRegistry(RegistryId),
+        RevokedInRegistry(RevocationRegistryId),
         /// Some items were un-revoked from given registry id
-        UnrevokedInRegistry(RegistryId),
+        UnrevokedInRegistry(RevocationRegistryId),
         /// Registry with given id removed
-        RegistryRemoved(RegistryId),
+        RegistryRemoved(RevocationRegistryId),
     }
 
     /// Revocation Error
@@ -141,7 +159,8 @@ pub mod pallet {
     /// Registry metadata
     #[pallet::storage]
     #[pallet::getter(fn get_revocation_registry)]
-    pub type Registries<T: Config> = StorageMap<_, Blake2_128Concat, RegistryId, Registry<T>>;
+    pub type Registries<T: Config> =
+        StorageMap<_, Blake2_128Concat, RevocationRegistryId, RevocationRegistry<T>>;
 
     /// The single global revocation set
     // double_map requires and explicit hasher specification for the second key. blake2_256 is
@@ -149,7 +168,7 @@ pub mod pallet {
     #[pallet::storage]
     #[pallet::getter(fn get_revocation_status)]
     pub type Revocations<T> =
-        StorageDoubleMap<_, Blake2_128Concat, RegistryId, Blake2_256, RevokeId, ()>;
+        StorageDoubleMap<_, Blake2_128Concat, RevocationRegistryId, Blake2_256, RevokeId, ()>;
 
     #[pallet::storage]
     #[pallet::getter(fn version)]
@@ -189,20 +208,17 @@ pub mod pallet {
         pub fn new_registry(origin: OriginFor<T>, add_registry: AddRegistry<T>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::new_registry_(add_registry)?;
-            Ok(())
+            Self::new_registry_(add_registry)
         }
 
         /// Create some revocations according to the `revoke` command.
         ///
         /// # Errors
         ///
-        /// Returns an error if `revoke.last_modified` does not match the block number when the
-        /// registry referenced by `revoke.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `revoke.registry_id`.
-        #[pallet::weight(SubstrateWeight::<T>::revoke(&proof[0])(revoke.len()))]
+        #[pallet::weight(SubstrateWeight::<T>::revoke(revoke, &proof[0]))]
         pub fn revoke(
             origin: OriginFor<T>,
             revoke: RevokeRaw<T>,
@@ -210,8 +226,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_registry(Self::revoke_, revoke, proof)?;
-            Ok(())
+            revoke.execute_readonly(|action, registry: RevocationRegistry<T>| {
+                registry.execute_readonly(Self::revoke_, action, proof)
+            })
         }
 
         /// Delete some revocations according to the `unrevoke` command.
@@ -220,12 +237,10 @@ pub mod pallet {
         ///
         /// Returns an error if the registry referenced by `revoke.registry_id` is `add_only`.
         ///
-        /// Returns an error if `unrevoke.last_modified` does not match the block number when the
-        /// registry referenced by `revoke.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `unrevoke.registry_id`.
-        #[pallet::weight(SubstrateWeight::<T>::unrevoke(&proof[0])(unrevoke.len()))]
+        #[pallet::weight(SubstrateWeight::<T>::unrevoke(unrevoke, &proof[0]))]
         pub fn unrevoke(
             origin: OriginFor<T>,
             unrevoke: UnRevokeRaw<T>,
@@ -233,8 +248,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_registry(Self::unrevoke_, unrevoke, proof)?;
-            Ok(())
+            unrevoke.execute_readonly(|action, registry: RevocationRegistry<T>| {
+                registry.execute_readonly(Self::unrevoke_, action, proof)
+            })
         }
 
         /// Delete an entire registry. Deletes all revocations within the registry, as well as
@@ -245,8 +261,6 @@ pub mod pallet {
         ///
         /// Returns an error if the registry referenced by `revoke.registry_id` is `add_only`.
         ///
-        /// Returns an error if `removal.last_modified` does not match the block number when the
-        /// registry referenced by `removal.registry_id` was last modified.
         ///
         /// Returns an error if `proof` does not satisfy the policy requirements of the registry
         /// referenced by `removal.registry_id`.
@@ -258,34 +272,68 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_removable_action_over_registry(Self::remove_registry_, removal, proof)?;
-            Ok(())
+            removal.execute_removable(|action, registry| {
+                HasPolicy::execute_removable(registry, Self::remove_registry_, action, proof)
+            })
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            use crate::common::{Limits, OldPolicy};
+            /// `StatusListCredential` combined with `Policy`.
+            #[derive(Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen)]
+            struct OldRevocationRegistry<T: Limits> {
+                pub policy: OldPolicy<T>,
+                pub add_only: bool,
+            }
+
+            let mut reads_writes = 0;
+
+            Registries::<T>::translate_values(
+                |OldRevocationRegistry { add_only, policy }: OldRevocationRegistry<T>| {
+                    reads_writes += 1;
+
+                    RevocationRegistry {
+                        policy: policy.into(),
+                        add_only,
+                    }
+                    .into()
+                },
+            );
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }
 
 impl<T: Config> SubstrateWeight<T> {
-    fn revoke(DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>) -> fn(u32) -> Weight {
-        match sig.sig {
-            SigValue::Sr25519(_) => Self::revoke_sr25519,
-            SigValue::Ed25519(_) => Self::revoke_ed25519,
-            SigValue::Secp256k1(_) => Self::revoke_secp256k1,
-        }
+    fn revoke(revoke: &RevokeRaw<T>, sig: &DidSignatureWithNonce<T>) -> Weight {
+        let len = revoke.len();
+
+        sig.data().weight_for_sig_type::<T>(
+            || Self::revoke_sr25519(len),
+            || Self::revoke_ed25519(len),
+            || Self::revoke_secp256k1(len),
+        )
     }
 
-    fn unrevoke(DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>) -> fn(u32) -> Weight {
-        match sig.sig {
-            SigValue::Sr25519(_) => Self::unrevoke_sr25519,
-            SigValue::Ed25519(_) => Self::unrevoke_ed25519,
-            SigValue::Secp256k1(_) => Self::unrevoke_secp256k1,
-        }
+    fn unrevoke(unrevoke: &UnRevokeRaw<T>, sig: &DidSignatureWithNonce<T>) -> Weight {
+        let len = unrevoke.len();
+
+        sig.data().weight_for_sig_type::<T>(
+            || Self::unrevoke_sr25519(len),
+            || Self::unrevoke_ed25519(len),
+            || Self::unrevoke_secp256k1(len),
+        )
     }
 
-    fn remove_registry(DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>) -> Weight {
-        (match sig.sig {
-            SigValue::Sr25519(_) => Self::remove_registry_sr25519,
-            SigValue::Ed25519(_) => Self::remove_registry_ed25519,
-            SigValue::Secp256k1(_) => Self::remove_registry_secp256k1,
-        }())
+    fn remove_registry(sig: &DidSignatureWithNonce<T>) -> Weight {
+        sig.data().weight_for_sig_type::<T>(
+            Self::remove_registry_sr25519,
+            Self::remove_registry_ed25519,
+            Self::remove_registry_secp256k1,
+        )
     }
 }

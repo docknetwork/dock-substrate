@@ -1,4 +1,9 @@
-use crate::{common::Limits, did::Did, offchain_signatures::schemes::*, util::IncId};
+use crate::{
+    common::{AuthorizeTarget, Limits},
+    did::{DidKey, DidMethodKey, DidOrDidMethodKey},
+    offchain_signatures::schemes::*,
+    util::{IncId, OptionExt, StorageRef},
+};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{ensure, DebugNoBound};
 use sp_runtime::DispatchResult;
@@ -15,9 +20,32 @@ use super::{
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct SignatureParamsOwner(pub Did);
+pub struct SignatureParamsOwner(pub DidOrDidMethodKey);
 
-crate::impl_wrapper!(SignatureParamsOwner(Did), for rand use Did(rand::random()), with tests as bbs_plus_params_owner_tests);
+crate::impl_wrapper!(SignatureParamsOwner(DidOrDidMethodKey));
+
+impl AuthorizeTarget<Self, DidKey> for SignatureParamsOwner {}
+impl AuthorizeTarget<Self, DidMethodKey> for SignatureParamsOwner {}
+impl AuthorizeTarget<(), DidKey> for SignatureParamsOwner {}
+impl AuthorizeTarget<(), DidMethodKey> for SignatureParamsOwner {}
+
+impl<T: Config> StorageRef<T> for SignatureParamsOwner {
+    type Value = IncId;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<IncId>) -> Result<R, E>,
+    {
+        ParamsCounter::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<IncId>) -> R,
+    {
+        f(Some(ParamsCounter::<T>::get(self)))
+    }
+}
 
 pub type SignatureParamsStorageKey = (SignatureParamsOwner, IncId);
 pub type BBSPublicKeyWithParams<T> = (BBSPublicKey<T>, Option<BBSParameters<T>>);
@@ -82,12 +110,12 @@ impl<T: Limits> OffchainSignatureParams<T> {
 impl<T: Config> Pallet<T> {
     pub(super) fn add_params_(
         AddOffchainSignatureParams { params, .. }: AddOffchainSignatureParams<T>,
+        params_counter: &mut IncId,
         signer: SignatureParamsOwner,
     ) -> DispatchResult {
-        let params_count = ParamsCounter::<T>::mutate(signer, |counter| *counter.inc());
-        SignatureParams::<T>::insert(signer, params_count, params);
+        SignatureParams::<T>::insert(signer, params_counter.inc(), params);
 
-        Self::deposit_event(Event::ParamsAdded(signer, params_count));
+        Self::deposit_event(Event::ParamsAdded(signer, *params_counter));
         Ok(())
     }
 
@@ -96,6 +124,7 @@ impl<T: Config> Pallet<T> {
             params_ref: (did, counter),
             ..
         }: RemoveOffchainSignatureParams<T>,
+        _: (),
         owner: SignatureParamsOwner,
     ) -> DispatchResult {
         // Only the DID that added the param can it

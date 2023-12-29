@@ -43,7 +43,7 @@ extern crate static_assertions;
 pub use dock_core::{
     accumulator, anchor, attest, blob, common, did, master,
     offchain_signatures::{self, BBSPlusPublicKey, OffchainPublicKey, PSPublicKey},
-    revoke, status_list_credential,
+    revoke, status_list_credential, trust_registry,
 };
 use dock_price_feed::{CurrencySymbolPair, PriceProvider, PriceRecord};
 pub mod precompiles;
@@ -1062,6 +1062,10 @@ impl did::Config for Runtime {
     type OnDidRemoval = OffchainSignatures;
 }
 
+impl trust_registry::Config for Runtime {
+    type Event = Event;
+}
+
 impl revoke::Config for Runtime {
     type Event = Event;
 }
@@ -1093,6 +1097,17 @@ impl common::Limits for Runtime {
     type MaxIriSize = MaxIriSize;
 
     type MaxMasterMembers = MaxMasterMembers;
+
+    type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
+    type MaxIssuersPerSchema = ConstU32<100>;
+    type MaxVerifiersPerSchema = ConstU32<100000>;
+    type MaxPriceCurrencies = ConstU32<25>;
+    type MaxTrustRegistryNameSize = ConstU32<50>;
+    type MaxConvenerRegistries = ConstU32<1000>;
+    type MaxDelegatedIssuers = ConstU32<10>;
+    type MaxSchemasPerIssuer = ConstU32<100>;
+    type MaxSchemasPerVerifier = ConstU32<100>;
+    type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
 }
 
 impl status_list_credential::Config for Runtime {
@@ -1768,7 +1783,8 @@ pallet_evm_precompile_storage_reader::impl_pallet_storage_metadata_provider! {
         "Identity" => Identity,
         "Accumulator" => Accumulator,
         "BaseFee" => BaseFee,
-        "StatusListCredential" => StatusListCredential
+        "StatusListCredential" => StatusListCredential,
+        "TrustRegistry" => TrustRegistry
 }
 
 impl pallet_evm::Config for Runtime {
@@ -1864,7 +1880,8 @@ construct_runtime!(
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 39,
         Accumulator: accumulator::{Pallet, Call, Storage, Event} = 40,
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
-        StatusListCredential: status_list_credential::{Pallet, Call, Storage, Event} = 42
+        StatusListCredential: status_list_credential::{Pallet, Call, Storage, Event} = 42,
+        TrustRegistry: trust_registry::{Pallet, Call, Storage, Event} = 43
     }
 );
 
@@ -2469,6 +2486,63 @@ impl_runtime_apis! {
         fn accumulator_with_public_key_and_params(id: accumulator::AccumulatorId) -> Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams<Runtime>>)> {
             Accumulator::get_accumulator_with_public_key_and_params(&id)
         }
+
+        fn schema_metadata(
+            id: trust_registry::TrustRegistrySchemaId
+        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::AggregatedTrustRegistrySchemaMetadata<Runtime>> {
+            TrustRegistry::schema_metadata_by_schema_id(id).map(|(registry_id, schema_metadata)| (registry_id, schema_metadata.aggregate(registry_id))).collect()
+        }
+
+        fn schema_issuers(
+            id: trust_registry::TrustRegistrySchemaId
+        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::AggregatedSchemaIssuers<Runtime>> {
+            TrustRegistry::schema_metadata_by_schema_id(id).map(|(registry_id, schema_metadata)| (registry_id, schema_metadata.aggregate(registry_id).issuers)).collect()
+        }
+
+        fn schema_verifiers(
+            id: trust_registry::TrustRegistrySchemaId
+        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::SchemaVerifiers<Runtime>> {
+            TrustRegistry::schema_metadata_by_schema_id(id).map(|(registry_id, schema_metadata)| (registry_id, schema_metadata.verifiers)).collect()
+        }
+
+        fn schema_metadata_in_registry(
+            id: trust_registry::TrustRegistrySchemaId,
+            registry_id: trust_registry::TrustRegistryId
+        ) -> Option<trust_registry::AggregatedTrustRegistrySchemaMetadata<Runtime>> {
+            TrustRegistry::schema_metadata(id, registry_id).map(|schema_metadata| schema_metadata.aggregate(registry_id))
+        }
+
+        fn schema_issuers_in_registry(
+            id: trust_registry::TrustRegistrySchemaId,
+            registry_id: trust_registry::TrustRegistryId
+        ) -> Option<trust_registry::AggregatedSchemaIssuers<Runtime>> {
+            TrustRegistry::schema_metadata(id, registry_id).map(|schema_metadata| schema_metadata.aggregate(registry_id).issuers)
+        }
+
+        fn schema_verifiers_in_registry(
+            id: trust_registry::TrustRegistrySchemaId,
+            registry_id: trust_registry::TrustRegistryId
+        ) -> Option<trust_registry::SchemaVerifiers<Runtime>> {
+            TrustRegistry::schema_metadata(id, registry_id).map(|schema_metadata| schema_metadata.verifiers)
+        }
+
+        fn all_registry_schema_metadata(
+            registry_id: trust_registry::TrustRegistryId
+        ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::AggregatedTrustRegistrySchemaMetadata<Runtime>> {
+            TrustRegistry::schema_metadata_by_registry_id(registry_id).map(|(schema_id, schema_metadata)| (schema_id, schema_metadata.aggregate(registry_id))).collect()
+        }
+
+        fn all_registry_schema_issuers(
+            registry_id: trust_registry::TrustRegistryId
+        ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::AggregatedSchemaIssuers<Runtime>> {
+            TrustRegistry::schema_metadata_by_registry_id(registry_id).map(|(schema_id, schema_metadata)| (schema_id, schema_metadata.aggregate(registry_id).issuers)).collect()
+        }
+
+        fn all_registry_schema_verifiers(
+            registry_id: trust_registry::TrustRegistryId
+        ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::SchemaVerifiers<Runtime>> {
+            TrustRegistry::schema_metadata_by_registry_id(registry_id).map(|(schema_id, schema_metadata)| (schema_id, schema_metadata.verifiers)).collect()
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -2485,6 +2559,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, did, DIDModule);
             list_benchmark!(list, extra, revoke, Revoke);
             list_benchmark!(list, extra, status_list_credential, StatusListCredential);
+            list_benchmark!(list, extra, trust_registry, TrustRegistry);
             list_benchmark!(list, extra, blob, BlobStore);
             list_benchmark!(list, extra, balances, Balances);
             list_benchmark!(list, extra, dock_token_migration, MigrationModule);
@@ -2539,7 +2614,8 @@ impl_runtime_apis! {
                 OffchainSignatures,
                 Accumulator,
                 BaseFee,
-                StatusListCredential
+                StatusListCredential,
+                TrustRegistry
             );
             //list_benchmark!(list, extra, pallet_democracy, Democracy);
             //list_benchmark!(list, extra, pallet_scheduler, Scheduler);
@@ -2587,6 +2663,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, did, DIDModule);
             add_benchmark!(params, batches, revoke, Revoke);
             add_benchmark!(params, batches, status_list_credential, StatusListCredential);
+            add_benchmark!(params, batches, trust_registry, TrustRegistry);
             add_benchmark!(params, batches, blob, BlobStore);
             add_benchmark!(params, batches, balances, Balances);
             add_benchmark!(params, batches, pallet_staking, Staking);

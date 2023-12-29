@@ -4,18 +4,18 @@ use crate::deposit_indexed_event;
 impl<T: Config> Pallet<T> {
     pub(super) fn add_params_(
         AddAccumulatorParams { params, .. }: AddAccumulatorParams<T>,
+        StoredAccumulatorOwnerCounters { params_counter, .. }: &mut StoredAccumulatorOwnerCounters,
         owner: AccumulatorOwner,
     ) -> DispatchResult {
-        let params_counter =
-            AccumulatorOwnerCounters::<T>::mutate(owner, |counters| *counters.params_counter.inc());
-        AccumulatorParams::<T>::insert(owner, params_counter, params);
+        AccumulatorParams::<T>::insert(owner, params_counter.inc(), params);
 
-        Self::deposit_event(Event::ParamsAdded(owner, params_counter));
+        Self::deposit_event(Event::ParamsAdded(owner, *params_counter));
         Ok(())
     }
 
     pub(super) fn add_public_key_(
         AddAccumulatorPublicKey { public_key, .. }: AddAccumulatorPublicKey<T>,
+        StoredAccumulatorOwnerCounters { key_counter, .. }: &mut StoredAccumulatorOwnerCounters,
         owner: AccumulatorOwner,
     ) -> DispatchResult {
         if let Some((acc_owner, params_id)) = public_key.params_ref {
@@ -25,11 +25,9 @@ impl<T: Config> Pallet<T> {
             );
         }
 
-        let keys_counter =
-            AccumulatorOwnerCounters::<T>::mutate(owner, |counters| *counters.key_counter.inc());
-        AccumulatorKeys::insert(owner, keys_counter, public_key);
+        AccumulatorKeys::insert(owner, key_counter.inc(), public_key);
 
-        Self::deposit_event(Event::KeyAdded(owner, keys_counter));
+        Self::deposit_event(Event::KeyAdded(owner, *key_counter));
         Ok(())
     }
 
@@ -38,6 +36,7 @@ impl<T: Config> Pallet<T> {
             params_ref: (did, counter),
             ..
         }: RemoveAccumulatorParams<T>,
+        _: (),
         owner: AccumulatorOwner,
     ) -> DispatchResult {
         // Only the DID that added the param can remove it
@@ -58,6 +57,7 @@ impl<T: Config> Pallet<T> {
             key_ref: (did, counter),
             ..
         }: RemoveAccumulatorPublicKey<T>,
+        _: (),
         owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(did == owner, Error::<T>::NotAccumulatorOwner);
@@ -76,6 +76,7 @@ impl<T: Config> Pallet<T> {
         AddAccumulator {
             id, accumulator, ..
         }: AddAccumulator<T>,
+        (): &mut (),
         owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(
@@ -108,27 +109,20 @@ impl<T: Config> Pallet<T> {
             new_accumulated,
             ..
         }: UpdateAccumulator<T>,
+        accumulator: &mut AccumulatorWithUpdateInfo<T>,
         owner: AccumulatorOwner,
     ) -> DispatchResult {
-        Accumulators::<T>::try_mutate(id, |accumulator| -> DispatchResult {
-            let accumulator = accumulator
-                .as_mut()
-                .ok_or(Error::<T>::AccumulatorDoesntExist)?;
+        // Only the DID that added the accumulator can update it
+        ensure!(
+            *accumulator.accumulator.owner_did() == owner,
+            Error::<T>::NotAccumulatorOwner
+        );
 
-            // Only the DID that added the accumulator can update it
-            ensure!(
-                *accumulator.accumulator.owner_did() == owner,
-                Error::<T>::NotAccumulatorOwner
-            );
-
-            accumulator
-                .accumulator
-                .set_new_accumulated(new_accumulated.clone().0)
-                .map_err(|_| Error::<T>::AccumulatedTooBig)?;
-            accumulator.last_updated_at = <frame_system::Pallet<T>>::block_number();
-
-            Ok(())
-        })?;
+        accumulator
+            .accumulator
+            .set_new_accumulated(new_accumulated.clone().0)
+            .map_err(|_| Error::<T>::AccumulatedTooBig)?;
+        accumulator.last_updated_at = <frame_system::Pallet<T>>::block_number();
 
         // The event stores only the accumulated value which can be used by the verifier.
         // For witness update, that information is retrieved by looking at the block and parsing the extrinsic.
@@ -138,9 +132,10 @@ impl<T: Config> Pallet<T> {
 
     pub(super) fn remove_accumulator_(
         RemoveAccumulator { id, .. }: RemoveAccumulator<T>,
+        accumulator: &mut Option<AccumulatorWithUpdateInfo<T>>,
         signer: AccumulatorOwner,
     ) -> DispatchResult {
-        let accumulator = Accumulators::<T>::get(id).ok_or(Error::<T>::AccumulatorDoesntExist)?;
+        let accumulator = accumulator.take().unwrap();
 
         // Only the DID that added the accumulator can remove it
         ensure!(

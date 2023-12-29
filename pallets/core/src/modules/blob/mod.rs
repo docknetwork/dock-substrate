@@ -1,10 +1,9 @@
 //! Generic immutable single-owner storage.
 
 use crate::{
-    common::{Limits, SigValue, TypesAndLimits},
-    did,
-    did::{Did, DidSignature},
-    util::BoundedBytes,
+    common::{signatures::ForSigType, AuthorizeTarget, Types},
+    did::{self, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    util::{ActionWithNonce, BoundedBytes, Bytes},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_std::fmt::Debug;
@@ -30,9 +29,12 @@ mod weights;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct BlobOwner(pub Did);
+pub struct BlobOwner(pub DidOrDidMethodKey);
 
-crate::impl_wrapper!(BlobOwner(Did), for rand use Did(rand::random()), with tests as blob_owner_tests);
+impl AuthorizeTarget<(), DidKey> for BlobOwner {}
+impl AuthorizeTarget<(), DidMethodKey> for BlobOwner {}
+
+crate::impl_wrapper!(BlobOwner(DidOrDidMethodKey));
 
 /// Size of the blob id in bytes
 pub const ID_BYTE_SIZE: usize = 32;
@@ -44,6 +46,16 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, DebugNoBound, EqNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct Blob {
+    pub id: BlobId,
+    pub blob: Bytes,
+}
+
+#[derive(Encode, Decode, DebugNoBound, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -51,22 +63,8 @@ pub type BlobId = [u8; ID_BYTE_SIZE];
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct Blob<T: Limits> {
-    pub id: BlobId,
-    pub blob: BoundedBytes<T::MaxBlobSize>,
-}
-
-#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
-pub struct AddBlob<T: TypesAndLimits> {
-    pub blob: Blob<T>,
+pub struct AddBlob<T: Types> {
+    pub blob: Blob,
     pub nonce: T::BlockNumber,
 }
 
@@ -90,6 +88,7 @@ pub mod pallet {
         BlobAlreadyExists,
         /// There is no such DID registered
         DidDoesNotExist,
+        TooBig,
     }
 
     #[pallet::pallet]
@@ -104,20 +103,27 @@ pub mod pallet {
     #[pallet::call]
     impl<T: Config> Pallet<T> {
         /// Create a new immutable blob.
-        #[pallet::weight(SubstrateWeight::<T>::new(blob, signature))]
+        #[pallet::weight(SubstrateWeight::<T>::new(add_blob, signature))]
         pub fn new(
             origin: OriginFor<T>,
-            blob: AddBlob<T>,
-            signature: DidSignature<BlobOwner>,
+            add_blob: AddBlob<T>,
+            signature: DidOrDidMethodKeySignature<BlobOwner>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            did::Pallet::<T>::try_exec_signed_action_from_onchain_did(Self::new_, blob, signature)
+            add_blob.signed(signature).execute(Self::new_)
         }
     }
 
     impl<T: Config> Pallet<T> {
-        fn new_(AddBlob { blob, .. }: AddBlob<T>, signer: BlobOwner) -> DispatchResult {
+        fn new_(
+            AddBlob { blob, .. }: AddBlob<T>,
+            (): &mut (),
+            signer: BlobOwner,
+        ) -> DispatchResult {
+            let blob_bytes: BoundedBytes<T::MaxBlobSize> =
+                blob.blob.try_into().map_err(|_| Error::<T>::TooBig)?;
+
             // check
             ensure!(
                 !Blobs::<T>::contains_key(blob.id),
@@ -125,9 +131,24 @@ pub mod pallet {
             );
 
             // execute
-            Blobs::<T>::insert(blob.id, (signer, blob.blob));
+            Blobs::<T>::insert(blob.id, (signer, blob_bytes));
 
             Ok(())
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            let mut reads_writes = 0;
+
+            Blobs::<T>::translate_values(|(did, blob): (Did, BoundedBytes<T::MaxBlobSize>)| {
+                reads_writes += 1;
+
+                Some((BlobOwner(did.into()), blob))
+            });
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }
@@ -136,12 +157,12 @@ impl<T: Config> SubstrateWeight<T> {
     #[allow(clippy::new_ret_no_self)]
     fn new(
         AddBlob { blob, .. }: &AddBlob<T>,
-        DidSignature { sig, .. }: &DidSignature<BlobOwner>,
+        sig: &DidOrDidMethodKeySignature<BlobOwner>,
     ) -> Weight {
-        (match sig {
-            SigValue::Sr25519(_) => Self::new_sr25519,
-            SigValue::Ed25519(_) => Self::new_ed25519,
-            SigValue::Secp256k1(_) => Self::new_secp256k1,
-        }(blob.blob.len() as u32))
+        sig.weight_for_sig_type::<T>(
+            || Self::new_sr25519(blob.blob.len() as u32),
+            || Self::new_ed25519(blob.blob.len() as u32),
+            || Self::new_secp256k1(blob.blob.len() as u32),
+        )
     }
 }

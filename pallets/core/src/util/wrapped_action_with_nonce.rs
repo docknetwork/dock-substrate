@@ -1,4 +1,4 @@
-use crate::common::Types;
+use crate::common::{ToStateChange, Types, TypesAndLimits};
 
 use super::{Action, ActionWithNonce};
 use codec::{Decode, Encode};
@@ -38,5 +38,14 @@ impl<T: Types, A: Action, Ta: Clone> Action for WrappedActionWithNonce<T, A, Ta>
 impl<T: Types, A: Action, Ta: Clone> ActionWithNonce<T> for WrappedActionWithNonce<T, A, Ta> {
     fn nonce(&self) -> T::BlockNumber {
         self.nonce
+    }
+}
+
+impl<T: TypesAndLimits, A: Action, Ta: Clone> ToStateChange<T> for WrappedActionWithNonce<T, A, Ta>
+where
+    A: ToStateChange<T>,
+{
+    fn to_state_change(&self) -> crate::common::StateChange<'_, T> {
+        self.action.to_state_change()
     }
 }

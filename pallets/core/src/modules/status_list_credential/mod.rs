@@ -2,9 +2,9 @@
 //! - [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
 //! - [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential).
 use crate::{
-    common::{DidSignatureWithNonce, Policy, PolicyExecutionError, SigValue, ToStateChange},
+    common::{signatures::ForSigType, DidSignatureWithNonce, HasPolicy},
     deposit_indexed_event, did,
-    util::{Action, NonceError, WithNonce},
+    util::Action,
 };
 use alloc::vec::*;
 use frame_support::pallet_prelude::*;
@@ -99,10 +99,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_action_over_status_list_credential(
-                Self::update_,
-                update_credential,
-                proof,
+            update_credential.execute(
+                |action, credential: &mut StatusListCredentialWithPolicy<T>| {
+                    credential.execute(Self::update_, action, proof)
+                },
             )
         }
 
@@ -115,11 +115,45 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::try_exec_removable_action_over_status_list_credential(
-                Self::remove_,
-                remove_credential,
-                proof,
+            remove_credential.execute_removable(
+                |action, credential: &mut Option<StatusListCredentialWithPolicy<T>>| {
+                    HasPolicy::execute_removable(credential, Self::remove_, action, proof)
+                },
             )
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            use crate::common::{Limits, OldPolicy};
+            let mut reads_writes = 0;
+
+            /// `StatusListCredential` combined with `Policy`.
+            #[derive(Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen)]
+            struct OldStatusListCredentialWithPolicy<T: Limits> {
+                pub status_list_credential: StatusListCredential<T>,
+                pub policy: OldPolicy<T>,
+            }
+
+            StatusListCredentials::<T>::translate_values(
+                |OldStatusListCredentialWithPolicy {
+                     status_list_credential,
+                     policy,
+                 }: OldStatusListCredentialWithPolicy<T>| {
+                    reads_writes += 1;
+
+                    {
+                        StatusListCredentialWithPolicy {
+                            status_list_credential,
+                            policy: policy.into(),
+                        }
+                        .into()
+                    }
+                },
+            );
+
+            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }
@@ -135,21 +169,21 @@ impl<T: Config> SubstrateWeight<T> {
     }
 
     fn update(
-        DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>,
+        sig: &DidSignatureWithNonce<T>,
         UpdateStatusListCredentialRaw { credential, .. }: &UpdateStatusListCredentialRaw<T>,
     ) -> Weight {
-        match sig.sig {
-            SigValue::Sr25519(_) => Self::update_sr25519(credential.len()),
-            SigValue::Ed25519(_) => Self::update_ed25519(credential.len()),
-            SigValue::Secp256k1(_) => Self::update_secp256k1(credential.len()),
-        }
+        sig.data().weight_for_sig_type::<T>(
+            || Self::update_sr25519(credential.len()),
+            || Self::update_ed25519(credential.len()),
+            || Self::update_secp256k1(credential.len()),
+        )
     }
 
-    fn remove(DidSignatureWithNonce { sig, .. }: &DidSignatureWithNonce<T>) -> Weight {
-        match sig.sig {
-            SigValue::Sr25519(_) => Self::remove_sr25519(),
-            SigValue::Ed25519(_) => Self::remove_ed25519(),
-            SigValue::Secp256k1(_) => Self::remove_secp256k1(),
-        }
+    fn remove(sig: &DidSignatureWithNonce<T>) -> Weight {
+        sig.data().weight_for_sig_type::<T>(
+            Self::remove_sr25519,
+            Self::remove_ed25519,
+            Self::remove_secp256k1,
+        )
     }
 }

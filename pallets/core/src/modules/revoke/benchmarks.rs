@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     common::state_change::ToStateChange,
-    did::{Did, DidSignature, UncheckedDidKey},
+    did::{Did, DidOrDidMethodKey, DidSignature, UncheckedDidKey},
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
@@ -13,8 +13,8 @@ use sp_std::prelude::*;
 const MAX_REVOCATIONS: u32 = 1000;
 const MAX_CONTROLLERS: u32 = 15;
 
-fn dummy_registry<T: Limits>() -> Registry<T> {
-    Registry {
+fn dummy_registry<T: Limits>() -> RevocationRegistry<T> {
+    RevocationRegistry {
         policy: Policy::one_of(once(Did([3; 32]))).unwrap(),
         add_only: false,
     }
@@ -37,7 +37,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        let reg_id = RegistryId([1u8; 32]);
+        let reg_id = RevocationRegistryId([1u8; 32]);
         let revoke_ids: BTreeSet<_> = (0..r).map(|i| U256::from(i).into()).map(RevokeId).collect();
         let revoke_raw = RevokeRaw {
              /// The registry on which to operate
@@ -49,10 +49,10 @@ crate::bench_with_all_pairs! {
 
         let revoke = Revoke::new_with_nonce(revoke_raw.clone(), 1u32.into());
         let sig = pair.sign(&revoke.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
+        let signature = DidSignature::new(did, 1u32, sig).into();
 
-        super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: Registry { policy: Policy::one_of(&[did]).unwrap(), add_only: false } }).unwrap();
-    }: revoke(RawOrigin::Signed(caller), revoke_raw, vec![DidSignatureWithNonce { sig: signature, nonce: 1u32.into() }])
+        super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: RevocationRegistry { policy: Policy::one_of([DidOrDidMethodKey::from(did)]).unwrap(), add_only: false } }).unwrap();
+    }: revoke(RawOrigin::Signed(caller), revoke_raw, vec![DidSignatureWithNonce::new_with_nonce(signature, 1u32.into())])
     verify {
         assert!(revoke_ids
             .iter()
@@ -74,10 +74,10 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        let reg_id = RegistryId([2u8; 32]);
+        let reg_id = RevocationRegistryId([2u8; 32]);
         let revoke_ids: BTreeSet<_> = (0..r).map(|i| U256::from(i).into()).map(RevokeId).collect();
 
-        super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: Registry { policy: Policy::one_of(&[did]).unwrap(), add_only: false } }).unwrap();
+        super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: RevocationRegistry { policy: Policy::one_of([DidOrDidMethodKey::from(did)]).unwrap(), add_only: false } }).unwrap();
 
         crate::revoke::Pallet::<T>::revoke_(
             RevokeRaw {
@@ -87,7 +87,7 @@ crate::bench_with_all_pairs! {
                revoke_ids: revoke_ids.clone(),
                _marker: PhantomData
             },
-            &mut dummy_registry()
+            dummy_registry()
         ).unwrap();
 
         let unrevoke_raw = UnRevokeRaw {
@@ -100,9 +100,8 @@ crate::bench_with_all_pairs! {
 
         let unrevoke = UnRevoke::new_with_nonce(unrevoke_raw.clone(), 1u32.into());
         let sig = pair.sign(&unrevoke.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
-
-    }: unrevoke(RawOrigin::Signed(caller), unrevoke_raw, vec![DidSignatureWithNonce { sig: signature, nonce: 1u32.into() }])
+        let signature = DidSignature::new(did, 1u32, sig).into();
+    }: unrevoke(RawOrigin::Signed(caller), unrevoke_raw, vec![DidSignatureWithNonce::new_with_nonce(signature, 1u32.into())])
     verify {
         assert!(revoke_ids
             .iter()
@@ -114,8 +113,8 @@ crate::bench_with_all_pairs! {
         let caller = whitelisted_caller();
         let public = pair.public();
         let did = Did([3 as u8; Did::BYTE_SIZE]);
-        let reg_id = RegistryId([4 as u8; 32]);
-        let reg = Registry {
+        let reg_id = RevocationRegistryId([4 as u8; 32]);
+        let reg = RevocationRegistry {
             policy: Policy::one_of(once(did).chain((1..MAX_CONTROLLERS).map(U256::from).map(Into::into).map(Did)).collect::<Vec<_>>()).unwrap(),
             add_only: false,
         };
@@ -140,7 +139,7 @@ crate::bench_with_all_pairs! {
                revoke_ids: revoke_ids.clone(),
                _marker: PhantomData
             },
-            &mut dummy_registry()
+            dummy_registry()
         ).unwrap();
 
         let rem_reg_raw = RemoveRegistryRaw {
@@ -149,8 +148,8 @@ crate::bench_with_all_pairs! {
         };
         let rem_reg = RemoveRegistry::new_with_nonce(rem_reg_raw.clone(), 1u32.into());
         let sig = pair.sign(&rem_reg.to_state_change().encode());
-        let signature = DidSignature::new(did, 1u32, sig);
-    }: remove_registry(RawOrigin::Signed(caller), rem_reg_raw, vec![DidSignatureWithNonce { sig: signature, nonce: 1u32.into() }])
+        let signature = DidSignature::new(did, 1u32, sig).into();
+    }: remove_registry(RawOrigin::Signed(caller), rem_reg_raw, vec![DidSignatureWithNonce::new_with_nonce(signature, 1u32.into())])
     verify {
         assert!(Registries::<T>::get(reg_id).is_none());
     };
@@ -161,8 +160,8 @@ crate::bench_with_all_pairs! {
 
         let caller = whitelisted_caller();
         let did = Did([3 as u8; Did::BYTE_SIZE]);
-        let reg_id = RegistryId([4 as u8; 32]);
-        let reg = Registry {
+        let reg_id = RevocationRegistryId([4 as u8; 32]);
+        let reg = RevocationRegistry {
             policy: Policy::one_of(once(did).chain((1..c).map(U256::from).map(Into::into).map(Did)).collect::<Vec<_>>()).unwrap(),
             add_only: false,
         };

@@ -6,7 +6,7 @@ use super::signatures::{sign_with_secp256k1, SigValue};
 
 /// An abstraction for a public key. Abstracts the type and value of the public key where the value is a
 /// byte array
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, PartialOrd, Ord, MaxEncodedLen)]
+#[derive(Encode, Decode, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]

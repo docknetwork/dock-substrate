@@ -1,6 +1,6 @@
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_runtime::{traits::CheckedAdd, DispatchError};
-use sp_std::{convert::TryInto, fmt::Debug};
+use sp_std::fmt::Debug;
 
 use crate::common::Types;
 
@@ -105,59 +105,45 @@ impl<T: Types, D> WithNonce<T, D> {
 
     /// If supplied value is `Some(_)`, attempts to increase current nonce - succeeds if provided nonce is equal to
     /// current nonce plus 1, otherwise returns an error. If value is `None`, `None` will be returned.
-    pub fn try_update_opt_with<S, F, E, R>(
-        this_opt: &mut Option<S>,
+    pub fn try_update_opt_with<F, E, R>(
+        this_opt: &mut Option<Self>,
         nonce: T::BlockNumber,
         f: F,
     ) -> Option<Result<R, E>>
     where
         F: FnOnce(&mut Option<D>) -> Result<R, E>,
-        E: From<NonceError> + From<S::Error>,
-        S: TryInto<Self>,
-        Self: Into<S>,
+        E: From<NonceError>,
     {
-        let this = match this_opt
-            .take()?
-            .try_into()
-            .map_err(E::from)
-            .and_then(|mut this| {
-                this.try_update(nonce)
-                    .map(drop)
-                    .map(|()| this)
-                    .map_err(E::from)
-            }) {
+        let mut mapped_opt = match this_opt.take().map(|mut this| {
+            this.try_update(nonce)
+                .map(drop)
+                .map(|()| this)
+                .map_err(E::from)
+        })? {
             err @ Err(_) => return Some(err.map(|_| unreachable!())),
-            Ok(this) => this,
+            Ok(this) => Some(this),
         };
 
-        let Self { data, nonce } = this;
-        let mut data_opt = Some(data);
-        let res = (f)(&mut data_opt).map_err(Into::into);
-        *this_opt = data_opt.map(|data| Self { data, nonce }.into());
+        let res = Self::try_update_opt_without_increasing_nonce_with(&mut mapped_opt, f);
+        *this_opt = mapped_opt;
 
-        Some(res)
+        res
     }
 
     /// If supplied value is `Some(_)`, will update given entity without increasing nonce.
-    pub fn try_update_opt_without_increasing_nonce_with<S, F, E, R>(
-        this_opt: &mut Option<S>,
+    pub fn try_update_opt_without_increasing_nonce_with<F, E, R>(
+        this_opt: &mut Option<Self>,
         f: F,
     ) -> Option<Result<R, E>>
     where
         F: FnOnce(&mut Option<D>) -> Result<R, E>,
-        E: From<NonceError> + From<S::Error>,
-        S: TryInto<Self>,
-        Self: Into<S>,
     {
-        let this = match this_opt.take()?.try_into().map_err(E::from) {
-            err @ Err(_) => return Some(err.map(|_| unreachable!())),
-            Ok(this) => this,
-        };
+        let this = this_opt.take()?;
 
         let Self { data, nonce } = this;
         let mut data_opt = Some(data);
-        let res = (f)(&mut data_opt).map_err(Into::into);
-        *this_opt = data_opt.map(|data| Self { data, nonce }.into());
+        let res: Result<R, E> = (f)(&mut data_opt).map_err(Into::into);
+        *this_opt = data_opt.map(|data| Self { data, nonce });
 
         Some(res)
     }

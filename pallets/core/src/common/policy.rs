@@ -1,22 +1,19 @@
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
-use sp_std::{borrow::Borrow, fmt::Debug};
+use sp_std::fmt::Debug;
 
-use super::{Limits, SigValue, ToStateChange, ED25519_WEIGHT, SECP256K1_WEIGHT, SR25519_WEIGHT};
+use super::{Limits, ToStateChange};
+
 #[cfg(feature = "serde")]
 use crate::util::btree_set;
+
 use crate::{
-    common::Types,
-    did,
-    did::{Did, DidSignature},
-    util::{NonceError, WithNonce},
+    common::{AuthorizeTarget, Signature},
+    did::{self, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    util::{Action, ActionExecutionError, ActionWithNonce, NonceError, StorageRef, WithNonce},
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-    ensure,
-    weights::{RuntimeDbWeight, Weight},
-    BoundedBTreeSet,
-};
+use frame_support::{ensure, BoundedBTreeSet};
 use sp_runtime::{traits::TryCollect, DispatchError};
 
 /// Authorization logic containing rules to modify some data entity.
@@ -42,7 +39,7 @@ pub enum Policy<T: Limits> {
     /// Set of `DID`s allowed to modify the entity.
     OneOf(
         #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
-        BoundedBTreeSet<Did, T::MaxPolicyControllers>,
+        BoundedBTreeSet<DidOrDidMethodKey, T::MaxPolicyControllers>,
     ),
 }
 
@@ -50,13 +47,13 @@ impl<T: Limits> Policy<T> {
     /// Instantiates `Policy::OneOf` from the given iterator of controllers.
     pub fn one_of(
         controllers: impl IntoIterator<
-            IntoIter = impl ExactSizeIterator<Item = impl Borrow<Did>>,
-            Item = impl Borrow<Did>,
+            IntoIter = impl ExactSizeIterator<Item = impl Into<DidOrDidMethodKey>>,
+            Item = impl Into<DidOrDidMethodKey>,
         >,
     ) -> Result<Self, PolicyValidationError> {
         controllers
             .into_iter()
-            .map(|did| *did.borrow())
+            .map(Into::into)
             .try_collect()
             .map_err(|_| PolicyValidationError::TooManyControllers)
             .map(Self::OneOf)
@@ -68,6 +65,7 @@ pub enum PolicyExecutionError {
     IncorrectNonce,
     NoEntity,
     NotAuthorized,
+    InvalidSigner,
 }
 
 impl From<PolicyExecutionError> for DispatchError {
@@ -76,6 +74,7 @@ impl From<PolicyExecutionError> for DispatchError {
             PolicyExecutionError::IncorrectNonce => "Incorrect nonce",
             PolicyExecutionError::NoEntity => "Entity not found",
             PolicyExecutionError::NotAuthorized => "Provided DID is not authorized",
+            PolicyExecutionError::InvalidSigner => "Invalid signer",
         };
 
         DispatchError::Other(raw)
@@ -121,10 +120,139 @@ impl<T: Limits> Policy<T> {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
+}
+
+fn rec_update<T: did::Config, A, R, E, D>(
+    action: A,
+    data: D,
+    f: impl FnOnce(A, D) -> Result<R, E>,
+    proof: &mut impl Iterator<Item = DidSignatureWithNonce<T>>,
+) -> Result<R, E>
+where
+    E: From<ActionExecutionError> + From<NonceError> + From<did::Error<T>>,
+    WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
+    <WithNonce<T, A> as Action>::Target: StorageRef<T>,
+{
+    if let Some(sig_with_nonce) = proof.next() {
+        let action_with_nonce = WithNonce::new_with_nonce(action, sig_with_nonce.nonce);
+        let signed_action = action_with_nonce.signed(sig_with_nonce.into_data());
+
+        signed_action.execute(|action, _, _| rec_update(action.into_data(), data, f, proof))
+    } else {
+        f(action, data)
+    }
+}
+
+/// `DID`'s controller.
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct PolicyExecutor(pub DidOrDidMethodKey);
+
+crate::impl_wrapper!(PolicyExecutor(DidOrDidMethodKey));
+
+impl<T> AuthorizeTarget<T, DidKey> for PolicyExecutor {}
+impl<T> AuthorizeTarget<T, DidMethodKey> for PolicyExecutor {}
+
+/// `DID`s signature along with the nonce.
+pub type DidSignatureWithNonce<T> = WithNonce<T, DidOrDidMethodKeySignature<PolicyExecutor>>;
+
+/// Denotes an entity which has an associated `Policy`.
+pub trait HasPolicy<T: Limits>: Sized {
+    /// Returns underlying `Policy`.
+    fn policy(&self) -> &Policy<T>;
 
     /// Executes action over target data providing a mutable reference if all checks succeed.
     ///
-    /// Unlike `try_exec_action_over_data`, this action may result in a removal of a data, if the value under option
+    /// Checks:
+    /// 1. Verify that `proof` authorizes `action` according to `policy`.
+    /// 2. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
+    ///
+    /// Returns a mutable reference to the underlying data wrapped into an option if the command is authorized,
+    /// otherwise returns Err.
+    fn execute_readonly<A, F, R, E>(
+        self,
+        f: F,
+        action: A,
+        proof: Vec<DidSignatureWithNonce<T>>,
+    ) -> Result<R, E>
+    where
+        T: did::Config,
+        F: FnOnce(A, Self) -> Result<R, E>,
+        WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
+        <WithNonce<T, A> as Action>::Target: StorageRef<T>,
+        E: From<PolicyExecutionError>
+            + From<did::Error<T>>
+            + From<NonceError>
+            + From<ActionExecutionError>,
+    {
+        // check the signer set satisfies policy
+        match self.policy() {
+            Policy::OneOf(controllers) => {
+                ensure!(
+                    proof.len() == 1
+                        && controllers.contains(
+                            &*proof[0]
+                                .data()
+                                .signer()
+                                .ok_or(PolicyExecutionError::InvalidSigner)?
+                        ),
+                    PolicyExecutionError::NotAuthorized
+                );
+            }
+        }
+
+        rec_update(action, self, f, &mut proof.into_iter())
+    }
+
+    /// Executes action over target data providing a mutable reference if all checks succeed.
+    ///
+    /// Checks:
+    /// 1. Verify that `proof` authorizes `action` according to `policy`.
+    /// 2. Verify that the action is not a replayed payload by ensuring each provided controller nonce equals the last nonce plus 1.
+    ///
+    /// Returns a mutable reference to the underlying data wrapped into an option if the command is authorized,
+    /// otherwise returns Err.
+    fn execute<A, F, R, E>(
+        &mut self,
+        f: F,
+        action: A,
+        proof: Vec<DidSignatureWithNonce<T>>,
+    ) -> Result<R, E>
+    where
+        T: did::Config,
+        F: FnOnce(A, &mut Self) -> Result<R, E>,
+        WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
+        <WithNonce<T, A> as Action>::Target: StorageRef<T>,
+        E: From<PolicyExecutionError>
+            + From<did::Error<T>>
+            + From<NonceError>
+            + From<ActionExecutionError>,
+    {
+        // check the signer set satisfies policy
+        match self.policy() {
+            Policy::OneOf(controllers) => {
+                ensure!(
+                    proof.len() == 1
+                        && controllers.contains(
+                            &*proof[0]
+                                .data()
+                                .signer()
+                                .ok_or(PolicyExecutionError::InvalidSigner)?
+                        ),
+                    PolicyExecutionError::NotAuthorized
+                );
+            }
+        }
+
+        rec_update(action, self, f, &mut proof.into_iter())
+    }
+
+    /// Executes action over target data providing a mutable reference if all checks succeed.
+    ///
+    /// Unlike `execute`, this action may result in a removal of a data, if the value under option
     /// will be taken.
     ///
     /// Checks:
@@ -133,132 +261,70 @@ impl<T: Limits> Policy<T> {
     ///
     /// Returns a mutable reference to the underlying data wrapped into an option if the command is authorized,
     /// otherwise returns Err.
-    pub fn try_exec_removable_action<V, S, F, R, E>(
-        entity: &mut Option<V>,
+    fn execute_removable<A, F, R, E>(
+        this_opt: &mut Option<Self>,
         f: F,
-        mut action: S,
+        action: A,
         proof: Vec<DidSignatureWithNonce<T>>,
     ) -> Result<R, E>
     where
-        T: crate::did::Config,
-        V: HasPolicy<T>,
-        F: FnOnce(S, &mut Option<V>) -> Result<R, E>,
-        WithNonce<T, S>: ToStateChange<T>,
-        E: From<PolicyExecutionError> + From<did::Error<T>> + From<NonceError>,
+        T: did::Config,
+        F: FnOnce(A, &mut Option<Self>) -> Result<R, E>,
+        WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
+        <WithNonce<T, A> as Action>::Target: StorageRef<T>,
+        E: From<PolicyExecutionError>
+            + From<did::Error<T>>
+            + From<NonceError>
+            + From<ActionExecutionError>,
     {
-        let data = entity.take().ok_or(PolicyExecutionError::NoEntity)?;
         // check the signer set satisfies policy
-        match &data.policy() {
+        match this_opt
+            .as_ref()
+            .ok_or(PolicyExecutionError::NoEntity)?
+            .policy()
+        {
             Policy::OneOf(controllers) => {
                 ensure!(
-                    proof.len() == 1 && controllers.contains(&proof[0].sig.did),
+                    proof.len() == 1
+                        && controllers.contains(
+                            &*proof[0]
+                                .data()
+                                .signer()
+                                .ok_or(PolicyExecutionError::InvalidSigner)?
+                        ),
                     PolicyExecutionError::NotAuthorized
                 );
             }
         }
 
-        let mut new_did_details = Vec::with_capacity(proof.len());
-        // check each signature is valid over payload and signed by the claimed signer
-        for DidSignatureWithNonce { sig, nonce } in proof {
-            let signer = sig.did;
-
-            // Check if nonce is valid and increase it
-            let mut did_detail = did::Pallet::<T>::onchain_did_details(&signer)?;
-            did_detail
-                .try_update(nonce)
-                .map_err(|_| PolicyExecutionError::IncorrectNonce)?;
-
-            let action_with_nonce = WithNonce::new_with_nonce(action, nonce);
-            // Verify signature
-            let valid =
-                did::Pallet::<T>::verify_sig_from_auth_or_control_key(&action_with_nonce, &sig)?;
-            action = action_with_nonce.into_data();
-
-            ensure!(valid, PolicyExecutionError::NotAuthorized);
-            new_did_details.push((signer, did_detail));
-        }
-
-        let mut owned_data_opt = Some(data);
-        let res = f(action, &mut owned_data_opt)?;
-        *entity = owned_data_opt;
-
-        // The nonce of each DID must be updated
-        for (signer, did_details) in new_did_details {
-            did::Pallet::<T>::insert_did_details(signer, did_details);
-        }
-
-        Ok(res)
+        rec_update(action, this_opt, f, &mut proof.into_iter())
     }
 }
 
-/// Collection of signatures sent by different DIDs.
-#[derive(PartialEq, Eq, Encode, Decode, Clone, DebugNoBound, MaxEncodedLen)]
+/// Authorization logic containing rules to modify some data entity.
+#[derive(
+    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
-pub struct DidSignatureWithNonce<T>
-where
-    T: Types,
-{
-    /// `DID`'s signature
-    pub sig: DidSignature<Did>,
-    /// Nonce used to make the above signature
-    pub nonce: T::BlockNumber,
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+pub enum OldPolicy<T: Limits> {
+    /// Set of `DID`s allowed to modify the entity.
+    OneOf(
+        #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
+        BoundedBTreeSet<Did, T::MaxPolicyControllers>,
+    ),
 }
 
-#[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
-struct SigTypes<V> {
-    sr: V,
-    ed: V,
-    secp: V,
-}
-
-impl<T: Types> DidSignatureWithNonce<T> {
-    /// Return counts of different signature types in given `DidSignatureWithNonce` as 3-Tuple as (no. of Sr22519 sigs,
-    /// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
-    /// type is in `Weight` but realistically, it should fit in a u8
-    fn count_sig_types(
-        auths: impl IntoIterator<Item = impl Borrow<DidSignatureWithNonce<T>>>,
-    ) -> SigTypes<u64> {
-        let mut counts = SigTypes::default();
-
-        for auth in auths {
-            let counter = match auth.borrow().sig.sig {
-                SigValue::Sr25519(_) => &mut counts.sr,
-                SigValue::Ed25519(_) => &mut counts.ed,
-                SigValue::Secp256k1(_) => &mut counts.secp,
-            };
-
-            *counter += 1;
+impl<T: Limits> From<OldPolicy<T>> for Policy<T> {
+    fn from(old_policy: OldPolicy<T>) -> Self {
+        match old_policy {
+            OldPolicy::OneOf(set) => {
+                Self::OneOf(set.into_iter().map(Into::into).try_collect().unwrap())
+            }
         }
-
-        counts
     }
-
-    /// Computes weight of the given `DidSignatureWithNonce`. Considers the no. and types of signatures and no. of reads. Disregards
-    /// message size as messages are hashed giving the same output size and hashing itself is very cheap.
-    /// The extrinsic using it might decide to consider adding some weight proportional to the message size.
-    pub fn auth_weight(
-        auths: impl IntoIterator<Item = impl Borrow<DidSignatureWithNonce<T>>>,
-        db_weights: RuntimeDbWeight,
-    ) -> Weight {
-        let SigTypes { sr, ed, secp } = Self::count_sig_types(auths);
-
-        db_weights
-            .reads(sr + ed + secp)
-            .saturating_add(SR25519_WEIGHT.saturating_mul(sr))
-            .saturating_add(ED25519_WEIGHT.saturating_mul(ed))
-            .saturating_add(SECP256K1_WEIGHT.saturating_mul(secp))
-    }
-}
-
-/// Denotes an entity which has an associated `Policy`.
-pub trait HasPolicy<T: Limits> {
-    /// Returns underlying `Policy`.
-    fn policy(&self) -> &Policy<T>;
 }

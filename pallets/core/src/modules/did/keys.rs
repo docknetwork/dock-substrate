@@ -1,8 +1,10 @@
+use sp_runtime::DispatchError;
+
 use super::*;
 use crate::{deposit_indexed_event, impl_bits_conversion, impl_wrapper_type_info};
 
 /// Valid did key with correct verification relationships.
-#[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Clone, Debug, PartialEq, Eq, PartialOrd, Copy, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -78,6 +80,12 @@ impl From<DidKeyError> for &'static str {
                 "Signing key can't be used for Key Agreement"
             }
         }
+    }
+}
+
+impl From<DidKeyError> for DispatchError {
+    fn from(err: DidKeyError) -> DispatchError {
+        DispatchError::Other(err.into())
     }
 }
 
@@ -228,8 +236,7 @@ impl<T: Config> Pallet<T> {
         let keys: Vec<_> = keys
             .into_iter()
             .map(DidKey::try_from)
-            .collect::<Result<_, _>>()
-            .map_err(Error::<T>::from)?;
+            .collect::<Result<_, _>>()?;
 
         // If DID was not self controlled first, check if it can become by looking over new keys
         let controller_keys_count = keys.iter().filter(|key| key.can_control()).count() as u32;
@@ -238,7 +245,7 @@ impl<T: Config> Pallet<T> {
         // Make self controlled if needed
         let add_self_controlled = controller_keys_count > 0 && !Self::is_self_controlled(&did);
         if add_self_controlled {
-            DidControllers::<T>::insert(did, Controller(did), ());
+            DidControllers::<T>::insert(did, Controller(did.into()), ());
             *active_controllers += 1;
         }
 
@@ -273,34 +280,12 @@ impl<T: Config> Pallet<T> {
         // If no self-control keys exist for the given DID, remove self-control
         let remove_self_controlled = *active_controller_keys == 0 && Self::is_self_controlled(&did);
         if remove_self_controlled {
-            DidControllers::<T>::remove(did, Controller(did));
+            DidControllers::<T>::remove(did, Controller(did.into()));
             *active_controllers -= 1;
         }
 
         deposit_indexed_event!(DidKeysRemoved(did));
         Ok(())
-    }
-
-    /// Return `did`'s key with id `key_id` only if has control capability, otherwise returns an error.
-    pub fn control_key(&did: &Controller, key_id: IncId) -> Result<PublicKey, Error<T>> {
-        let did_key = DidKeys::<T>::get(*did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
-
-        if did_key.can_control() {
-            Ok(did_key.public_key)
-        } else {
-            Err(Error::<T>::InsufficientVerificationRelationship)
-        }
-    }
-
-    /// Return `did`'s key with id `key_id` only if it can authenticate or control otherwise returns an error
-    pub fn auth_or_control_key(did: &Did, key_id: IncId) -> Result<PublicKey, Error<T>> {
-        let did_key = DidKeys::<T>::get(did, key_id).ok_or(Error::<T>::NoKeyForDid)?;
-
-        if did_key.can_authenticate_or_control() {
-            Ok(did_key.public_key)
-        } else {
-            Err(Error::<T>::InsufficientVerificationRelationship)
-        }
     }
 }
 
