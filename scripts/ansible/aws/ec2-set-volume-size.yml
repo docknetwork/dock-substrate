@@ -8,7 +8,7 @@
 
   - name: Get EC2 instance state
     amazon.aws.ec2_instance:
-      aws_access_key_id: "{{ aws_key_id }}"
+      aws_access_key_id: "{{ aws_access_key_id }}"
       aws_access_key: "{{ aws_secret_key }}"
       region: "{{ aws_region }}"
       name: "{{ instance_name }}"
@@ -20,7 +20,7 @@
 
   - name: Modify the volume
     amazon.aws.ec2_vol:
-      aws_access_key_id: "{{ aws_key_id }}"
+      aws_access_key_id: "{{ aws_acess_key_id }}"
       aws_access_key: "{{ aws_secret_key }}"
       region: "{{ aws_region }}"
       instance: "{{ instances['instances'][0].instance_id }}"
