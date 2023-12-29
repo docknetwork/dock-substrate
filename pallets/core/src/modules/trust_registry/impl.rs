@@ -1,11 +1,12 @@
-use alloc::collections::BTreeMap;
-
 use crate::util::{
     AddOrRemoveOrModify, ApplyUpdate, BoundedKeyValue, KeyedUpdate, MultiTargetUpdate,
     ValidateUpdate,
 };
 
 use super::*;
+
+type MultiSchemaUpdate<Key> =
+    MultiTargetUpdate<Key, MultiTargetUpdate<TrustRegistrySchemaId, AddOrRemoveOrModify<()>>>;
 
 impl<T: Config> Pallet<T> {
     pub(super) fn init_or_update_trust_registry_(
@@ -103,39 +104,26 @@ impl<T: Config> Pallet<T> {
                         TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)
                             .ok_or(Error::<T>::SchemaMetadataDoesntExist)?;
 
-                    if Convener(*actor)
-                        .ensure_controls::<T>(&registry_info)
-                        .is_ok()
-                    {
+                    if let Ok(_) = Convener(*actor).ensure_controls(&registry_info) {
                         update.ensure_valid(&Convener(*actor), &schema_metadata)?;
                     } else {
                         update.ensure_valid(&IssuerOrVerifier(*actor), &schema_metadata)?;
                     }
 
-                    if let Some(verifiers_update) = update
-                        .verifiers
-                        .as_ref()
-                        .map(|update| update.key_diff(&schema_metadata.verifiers))
-                    {
-                        for (verifier, update) in verifiers_update.0 {
-                            verifiers
-                                .entry(verifier)
-                                .or_default()
-                                .insert(*schema_id, update);
-                        }
+                    if let Some(verifiers_update) = update.verifiers.as_ref() {
+                        verifiers_update.record_inner_targets_diff(
+                            &schema_metadata.verifiers,
+                            *schema_id,
+                            verifiers,
+                        )
                     }
 
-                    if let Some(issuers_update) = update
-                        .issuers
-                        .as_ref()
-                        .map(|update| update.key_diff(&schema_metadata.issuers))
-                    {
-                        for (issuer, update) in issuers_update.0 {
-                            issuers
-                                .entry(issuer)
-                                .or_default()
-                                .insert(*schema_id, update);
-                        }
+                    if let Some(issuers_update) = update.issuers.as_ref() {
+                        issuers_update.record_inner_targets_diff(
+                            &schema_metadata.issuers,
+                            *schema_id,
+                            issuers,
+                        )
                     }
                 }
 
@@ -270,34 +258,31 @@ impl<T: Config> Pallet<T> {
     ) -> Result<R, DispatchError>
     where
         F: FnOnce(
-            &mut BTreeMap<
-                Verifier,
-                MultiTargetUpdate<TrustRegistrySchemaId, AddOrRemoveOrModify<()>>,
-            >,
-            &mut BTreeMap<Issuer, MultiTargetUpdate<TrustRegistrySchemaId, AddOrRemoveOrModify<()>>>,
+            &mut MultiSchemaUpdate<Verifier>,
+            &mut MultiSchemaUpdate<Issuer>,
         ) -> Result<R, DispatchError>,
     {
         let (mut verifiers, mut issuers) = Default::default();
 
         let res = f(&mut verifiers, &mut issuers)?;
 
-        for (issuer, update) in &issuers {
+        for (issuer, update) in &issuers.0 {
             let schemas = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
             update.ensure_valid(issuer, &schemas)?;
         }
 
-        for (verifier, update) in &verifiers {
+        for (verifier, update) in &verifiers.0 {
             let schemas = TrustRegistryVerifierSchemas::<T>::get(registry_id, verifier);
             update.ensure_valid(verifier, &schemas)?;
         }
 
-        for (verifier, update) in verifiers {
+        for (verifier, update) in verifiers.0 {
             TrustRegistryVerifierSchemas::<T>::mutate(registry_id, verifier, |schemas| {
                 update.apply_update(schemas)
             })
         }
 
-        for (issuer, update) in issuers {
+        for (issuer, update) in issuers.0 {
             TrustRegistryIssuerSchemas::<T>::mutate(registry_id, issuer, |schemas| {
                 update.apply_update(schemas)
             })

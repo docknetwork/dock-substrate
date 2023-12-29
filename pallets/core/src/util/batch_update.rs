@@ -1,22 +1,25 @@
 use super::BoundedKeyValue;
 use alloc::collections::{BTreeMap, BTreeSet};
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::ops::DerefMut;
+use core::ops::{Deref, DerefMut};
 use frame_support::*;
 use sp_runtime::{DispatchError, Either};
 
 /// Checks whether an actor can update an entity.
 pub trait CanUpdate<Entity>: Sized {
+    /// Checks whether underlying keyed update can be applied, i.e. all associated updates are valid.
     #[must_use]
     fn can_add(&self, _new: &Entity) -> bool {
         false
     }
 
+    /// Checks whether underlying keyed update can be applied, i.e. all associated updates are valid.
     #[must_use]
     fn can_replace(&self, _new: &Entity, _current: &Entity) -> bool {
         false
     }
 
+    /// Checks whether underlying keyed update can be applied, i.e. all associated updates are valid.
     #[must_use]
     fn can_remove(&self, _entity: &Entity) -> bool {
         false
@@ -26,9 +29,10 @@ pub trait CanUpdate<Entity>: Sized {
 /// Checks whether an actor can update an entity over some keys.
 pub trait CanUpdateKeyed<Entity>
 where
-    Entity: core::ops::Deref,
+    Entity: Deref,
     Entity::Target: BoundedKeyValue,
 {
+    /// Checks whether underlying keyed update can be applied, i.e. all associated updates are valid.
     #[must_use]
     fn can_update_keyed<U: KeyedUpdate<Entity>>(&self, _entity: &Entity, _update: &U) -> bool {
         false
@@ -38,13 +42,14 @@ where
 /// Checks whether an actor can either update a whole entity or some of its keys.
 pub trait CanUpdateAndCanUpdateKeyed<Entity>: CanUpdateKeyed<Entity> + CanUpdate<Entity>
 where
-    Entity: core::ops::Deref,
+    Entity: Deref,
     Entity::Target: BoundedKeyValue,
 {
 }
+
 impl<Entity, T: CanUpdateKeyed<Entity> + CanUpdate<Entity>> CanUpdateAndCanUpdateKeyed<Entity> for T
 where
-    Entity: core::ops::Deref,
+    Entity: Deref,
     Entity::Target: BoundedKeyValue,
 {
 }
@@ -62,6 +67,7 @@ pub trait ApplyUpdate<Entity> {
     fn kind(&self, entity: &Entity) -> UpdateKind;
 }
 
+/// Validates underlying update, so it can be safely applied to the supplied entity.
 pub trait ValidateUpdate<Actor, Entity>: ApplyUpdate<Entity> {
     /// Ensures that the underlying update is valid.
     fn ensure_valid(&self, actor: &Actor, entity: &Entity) -> Result<(), UpdateError>;
@@ -97,7 +103,7 @@ impl<T> CanUpdate<()> for T {
 }
 
 /// Series of updates applied over some targets.
-pub trait KeyedUpdate<Entity: core::ops::Deref>
+pub trait KeyedUpdate<Entity: Deref>
 where
     Entity::Target: BoundedKeyValue,
 {
@@ -109,10 +115,26 @@ where
 
     fn targets<'targets>(&'targets self, entity: &'targets Entity) -> Self::Targets<'targets>;
 
-    fn key_diff(
+    fn targets_diff(
         &self,
         entity: &Entity,
     ) -> MultiTargetUpdate<<Entity::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>>;
+
+    fn record_inner_targets_diff<K: Ord + Clone>(
+        &self,
+        entity: &Entity,
+        inner_key: K,
+        map: &mut MultiTargetUpdate<
+            <Entity::Target as BoundedKeyValue>::Key,
+            MultiTargetUpdate<K, AddOrRemoveOrModify<()>>,
+        >,
+    ) {
+        for (key, update) in self.targets_diff(entity).0 {
+            map.entry(key)
+                .or_default()
+                .insert(inner_key.clone(), update);
+        }
+    }
 }
 
 /// Map representing keyed updates applied over dictionary over given keys.
@@ -450,7 +472,7 @@ where
         self.keys()
     }
 
-    fn key_diff(
+    fn targets_diff(
         &self,
         entity: &C,
     ) -> MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>> {
@@ -492,7 +514,7 @@ where
         }
     }
 
-    fn key_diff(
+    fn targets_diff(
         &self,
         entity: &C,
     ) -> MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>> {
@@ -511,7 +533,7 @@ where
                     )
                     .collect()
             }
-            Self::Modify(update) => update.key_diff(entity),
+            Self::Modify(update) => update.targets_diff(entity),
         }
     }
 }
