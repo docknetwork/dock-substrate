@@ -43,7 +43,7 @@ jobs:
       - name: Install dependencies
         run: |
           which python
-          python3 -m pip install --upgrade pip
+          python3.11 -m pip install --upgrade pip
           pip install --user boto3
 
       - name: Run playbook
