@@ -8,13 +8,13 @@ on:
         description: "Whether updating a testnet or mainnet node"
         required: true
       aws_region:
-        description: "Location of EC2 instance to modify"
+        description: "AWS region of EC2 instance to modify"
         required: true
       instance_name:
         description: "The name of the EC2 instance"
         required: true
       disk_size:
-        description: "The total size of the disk desired"
+        description: "The total size of the disk desired (GB)"
         required: true
 
 
@@ -55,4 +55,4 @@ jobs:
           playbook: ./scripts/ansible/aws/ec2-set-volume-size.yml
           inventory: ./ansible-hosts
           galaxy_file: ./scripts/ansible/aws/requirements.yml
-          extra_vars: "aws_region=${{github.event.inputs.aws_region}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} name='${{github.event.inputs.instance_name}}' volume_size=${{github.event.inputs.disk_size}}"
+          extra_vars: "aws_region=${{github.event.inputs.aws_region}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} name='${{github.event.inputs.instance_name}}' volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/opt/hostedtoolcache/Python/3.11.7/x64/bin/python3'"
