@@ -1,3 +1,7 @@
 collections:
+<<<<<<< HEAD
   - name: amazon.aws
   - name: community.general
+=======
+  - name: amazon.aws
+>>>>>>> add requirements file for Ansible dependency
