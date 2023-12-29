@@ -153,20 +153,20 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Creates a new `Trust Registry` with the provided identifier.
         /// The DID signature signer will be set as a `Trust Registry` owner.
-        #[pallet::weight(SubstrateWeight::<T>::init_or_update_trust_registry(init_or_update_trust_registry, sig))]
+        #[pallet::weight(SubstrateWeight::<T>::init_or_update_trust_registry(init_or_update_trust_registry, signed))]
         pub fn init_or_update_trust_registry(
             origin: OriginFor<T>,
             init_or_update_trust_registry: InitOrUpdateTrustRegistry<T>,
-            sig: DidOrDidMethodKeySignature<Convener>,
+            signed: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             WrappedActionWithNonce::new(
                 init_or_update_trust_registry.nonce(),
-                sig.signer().ok_or(did::Error::<T>::InvalidSigner)?,
+                signed.signer().ok_or(did::Error::<T>::InvalidSigner)?,
                 init_or_update_trust_registry,
             )
-            .signed(sig)
+            .signed(signed)
             .execute(
                 |WrappedActionWithNonce { action, .. }, registries, convener| {
                     Self::init_or_update_trust_registry_(action, registries, convener)
@@ -176,16 +176,16 @@ pub mod pallet {
 
         /// Adds a new schema metadata entry (entries).
         /// The DID signature signer must be the `Convener` owning this Trust Registry.
-        #[pallet::weight(SubstrateWeight::<T>::add_schema_metadata(add_schema_metadata, sig))]
+        #[pallet::weight(SubstrateWeight::<T>::add_schema_metadata(add_schema_metadata, signed))]
         pub fn add_schema_metadata(
             origin: OriginFor<T>,
             add_schema_metadata: AddSchemaMetadata<T>,
-            sig: DidOrDidMethodKeySignature<Convener>,
+            signed: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             add_schema_metadata
-                .signed(sig)
+                .signed(signed)
                 .execute_readonly(Self::add_schema_metadata_)
         }
 
@@ -193,19 +193,19 @@ pub mod pallet {
         /// - `Convener` DID owning registry with the provided identifier can make any modifications.
         /// - `Issuer` DID can only modify his verification prices and remove himself from the `issuers` map.
         /// - `Verifier` DID can only remove himself from the `verifiers` set.
-        #[pallet::weight(SubstrateWeight::<T>::update_schema_metadata(update_schema_metadata, sig))]
+        #[pallet::weight(SubstrateWeight::<T>::update_schema_metadata(update_schema_metadata, signed))]
         pub fn update_schema_metadata(
             origin: OriginFor<T>,
             update_schema_metadata: UpdateSchemaMetadata<T>,
-            sig: DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+            signed: DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
             let (ver, iss, schem) = update_schema_metadata
-                .signed(sig.clone())
+                .signed(signed.clone())
                 .execute_readonly(Self::update_schema_metadata_)?;
 
-            let actual_weight = sig.weight_for_sig_type::<T>(
+            let actual_weight = signed.weight_for_sig_type::<T>(
                 || SubstrateWeight::<T>::update_schema_metadata_sr25519(iss, ver, schem),
                 || SubstrateWeight::<T>::update_schema_metadata_ed25519(iss, ver, schem),
                 || SubstrateWeight::<T>::update_schema_metadata_secp256k1(iss, ver, schem),
@@ -218,44 +218,44 @@ pub mod pallet {
         }
 
         /// Update delegated `Issuer`s of the given `Issuer`.
-        #[pallet::weight(SubstrateWeight::<T>::update_delegated_issuers(update_delegated_issuers, sig))]
+        #[pallet::weight(SubstrateWeight::<T>::update_delegated_issuers(update_delegated_issuers, signed))]
         pub fn update_delegated_issuers(
             origin: OriginFor<T>,
             update_delegated_issuers: UpdateDelegatedIssuers<T>,
-            sig: DidOrDidMethodKeySignature<Issuer>,
+            signed: DidOrDidMethodKeySignature<Issuer>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             update_delegated_issuers
-                .signed(sig)
+                .signed(signed)
                 .execute_readonly(Self::update_delegated_issuers_)
         }
 
         /// Suspends given `Issuer`s.
-        #[pallet::weight(SubstrateWeight::<T>::suspend_issuers(suspend_issuers, sig))]
+        #[pallet::weight(SubstrateWeight::<T>::suspend_issuers(suspend_issuers, signed))]
         pub fn suspend_issuers(
             origin: OriginFor<T>,
             suspend_issuers: SuspendIssuers<T>,
-            sig: DidOrDidMethodKeySignature<Convener>,
+            signed: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             suspend_issuers
-                .signed(sig)
+                .signed(signed)
                 .execute_readonly(Self::suspend_issuers_)
         }
 
         /// Unsuspends given `Issuer`s.
-        #[pallet::weight(SubstrateWeight::<T>::unsuspend_issuers(unsuspend_issuers, sig))]
+        #[pallet::weight(SubstrateWeight::<T>::unsuspend_issuers(unsuspend_issuers, signed))]
         pub fn unsuspend_issuers(
             origin: OriginFor<T>,
             unsuspend_issuers: UnsuspendIssuers<T>,
-            sig: DidOrDidMethodKeySignature<Convener>,
+            signed: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             unsuspend_issuers
-                .signed(sig)
+                .signed(signed)
                 .execute_readonly(Self::unsuspend_issuers_)
         }
     }
@@ -264,9 +264,9 @@ pub mod pallet {
 impl<T: Config> SubstrateWeight<T> {
     fn init_or_update_trust_registry(
         InitOrUpdateTrustRegistry { name, .. }: &InitOrUpdateTrustRegistry<T>,
-        sig: &DidOrDidMethodKeySignature<Convener>,
+        signed: &DidOrDidMethodKeySignature<Convener>,
     ) -> Weight {
-        sig.weight_for_sig_type::<T>(
+        signed.weight_for_sig_type::<T>(
             || Self::init_or_update_trust_registry_sr25519(name.len() as u32),
             || Self::init_or_update_trust_registry_ed25519(name.len() as u32),
             || Self::init_or_update_trust_registry_secp256k1(name.len() as u32),
@@ -275,13 +275,13 @@ impl<T: Config> SubstrateWeight<T> {
 
     fn add_schema_metadata(
         AddSchemaMetadata { schemas, .. }: &AddSchemaMetadata<T>,
-        sig: &DidOrDidMethodKeySignature<Convener>,
+        signed: &DidOrDidMethodKeySignature<Convener>,
     ) -> Weight {
         let issuers_len = schemas.values().map(|schema| schema.issuers.len()).sum();
         let verifiers_len = schemas.values().map(|schema| schema.verifiers.len()).sum();
         let schemas_len = schemas.len() as u32;
 
-        sig.weight_for_sig_type::<T>(
+        signed.weight_for_sig_type::<T>(
             || Self::add_schema_metadata_sr25519(issuers_len, verifiers_len, schemas_len),
             || Self::add_schema_metadata_ed25519(issuers_len, verifiers_len, schemas_len),
             || Self::add_schema_metadata_secp256k1(issuers_len, verifiers_len, schemas_len),
@@ -290,7 +290,7 @@ impl<T: Config> SubstrateWeight<T> {
 
     fn update_schema_metadata(
         UpdateSchemaMetadata { schemas, .. }: &UpdateSchemaMetadata<T>,
-        sig: &DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+        signed: &DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
     ) -> Weight {
         let issuers_len = schemas
             .values()
@@ -312,7 +312,7 @@ impl<T: Config> SubstrateWeight<T> {
             .sum();
         let schemas_len = schemas.len() as u32;
 
-        sig.weight_for_sig_type::<T>(
+        signed.weight_for_sig_type::<T>(
             || Self::update_schema_metadata_sr25519(issuers_len, verifiers_len, schemas_len),
             || Self::update_schema_metadata_ed25519(issuers_len, verifiers_len, schemas_len),
             || Self::update_schema_metadata_secp256k1(issuers_len, verifiers_len, schemas_len),
@@ -321,11 +321,11 @@ impl<T: Config> SubstrateWeight<T> {
 
     fn update_delegated_issuers(
         UpdateDelegatedIssuers { delegated, .. }: &UpdateDelegatedIssuers<T>,
-        sig: &DidOrDidMethodKeySignature<Issuer>,
+        signed: &DidOrDidMethodKeySignature<Issuer>,
     ) -> Weight {
         let issuers_len = delegated.len();
 
-        sig.weight_for_sig_type::<T>(
+        signed.weight_for_sig_type::<T>(
             || Self::update_delegated_issuers_sr25519(issuers_len),
             || Self::update_delegated_issuers_ed25519(issuers_len),
             || Self::update_delegated_issuers_secp256k1(issuers_len),
@@ -334,11 +334,11 @@ impl<T: Config> SubstrateWeight<T> {
 
     fn suspend_issuers(
         SuspendIssuers { issuers, .. }: &SuspendIssuers<T>,
-        sig: &DidOrDidMethodKeySignature<Convener>,
+        signed: &DidOrDidMethodKeySignature<Convener>,
     ) -> Weight {
         let issuers_len = issuers.len() as u32;
 
-        sig.weight_for_sig_type::<T>(
+        signed.weight_for_sig_type::<T>(
             || Self::suspend_issuers_sr25519(issuers_len),
             || Self::suspend_issuers_ed25519(issuers_len),
             || Self::suspend_issuers_secp256k1(issuers_len),
@@ -347,11 +347,11 @@ impl<T: Config> SubstrateWeight<T> {
 
     fn unsuspend_issuers(
         UnsuspendIssuers { issuers, .. }: &UnsuspendIssuers<T>,
-        sig: &DidOrDidMethodKeySignature<Convener>,
+        signed: &DidOrDidMethodKeySignature<Convener>,
     ) -> Weight {
         let issuers_len = issuers.len() as u32;
 
-        sig.weight_for_sig_type::<T>(
+        signed.weight_for_sig_type::<T>(
             || Self::unsuspend_issuers_sr25519(issuers_len),
             || Self::unsuspend_issuers_ed25519(issuers_len),
             || Self::unsuspend_issuers_secp256k1(issuers_len),

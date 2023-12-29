@@ -217,7 +217,7 @@ impl<T: Config> Pallet<T> {
                 Error::<T>::NoSuchIssuer
             );
             ensure!(
-                !TrustRegistryIssuerConfigurations::<T>::get(registry_id, issuer).suspended,
+                TrustRegistryIssuerConfigurations::<T>::get(registry_id, issuer).suspended,
                 Error::<T>::NotSuspended
             );
         }
