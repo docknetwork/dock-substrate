@@ -37,16 +37,6 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_KEY }}
           aws_region: ${{vars.S3_REGION}}
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: 3.11
-
-      - name: Install dependencies
-        run: |
-          /usr/bin/python3 -m pip install --upgrade pip
-          pip install --user boto3
-
       - name: Run playbook
         uses: arillso/action.playbook@master
         with:
@@ -55,4 +45,4 @@ jobs:
           inventory: ./ansible-hosts
           galaxy_file: ./scripts/ansible/aws/requirements.yml
           verbose: 3
-          extra_vars: "aws_region=${{github.event.inputs.aws_region}} aws_secret_access_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} name='${{github.event.inputs.instance_name}}' volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
+          extra_vars: "aws_region=${{github.event.inputs.aws_region}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} name='${{github.event.inputs.instance_name}}' volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
