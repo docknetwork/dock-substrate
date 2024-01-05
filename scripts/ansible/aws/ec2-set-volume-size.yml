@@ -4,11 +4,11 @@
   vars:
     instance_name: "{{ name }} (created by ansible)"
     volume_type_default: "{{ volume_type | default('io1') }}"
-  pre-tasks:
+
+  pre_tasks:
   - name: Install dependencies
-   pip:
-    name: "{{ item }}"
-  with_items:
+    pip: name={{ item }}
+    with_items:
     - boto3
     - botocore
 
