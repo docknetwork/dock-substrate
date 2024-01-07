@@ -149,7 +149,7 @@ impl<T: Config> Pallet<T> {
             delegated,
             ..
         }: UpdateDelegatedIssuers<T>,
-        _: (),
+        (): (),
         issuer: Issuer,
     ) -> DispatchResult {
         ensure!(

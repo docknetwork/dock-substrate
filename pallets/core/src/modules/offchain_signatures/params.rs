@@ -124,7 +124,7 @@ impl<T: Config> Pallet<T> {
             params_ref: (did, counter),
             ..
         }: RemoveOffchainSignatureParams<T>,
-        _: (),
+        (): (),
         owner: SignatureParamsOwner,
     ) -> DispatchResult {
         // Only the DID that added the param can it

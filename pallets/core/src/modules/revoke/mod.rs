@@ -312,7 +312,7 @@ impl<T: Config> SubstrateWeight<T> {
     fn revoke(revoke: &RevokeRaw<T>, sig: &DidSignatureWithNonce<T>) -> Weight {
         let len = revoke.len();
 
-        sig.data().weight_for_sig_type::<T>(
+        sig.weight_for_sig_type::<T>(
             || Self::revoke_sr25519(len),
             || Self::revoke_ed25519(len),
             || Self::revoke_secp256k1(len),
@@ -322,7 +322,7 @@ impl<T: Config> SubstrateWeight<T> {
     fn unrevoke(unrevoke: &UnRevokeRaw<T>, sig: &DidSignatureWithNonce<T>) -> Weight {
         let len = unrevoke.len();
 
-        sig.data().weight_for_sig_type::<T>(
+        sig.weight_for_sig_type::<T>(
             || Self::unrevoke_sr25519(len),
             || Self::unrevoke_ed25519(len),
             || Self::unrevoke_secp256k1(len),
@@ -330,7 +330,7 @@ impl<T: Config> SubstrateWeight<T> {
     }
 
     fn remove_registry(sig: &DidSignatureWithNonce<T>) -> Weight {
-        sig.data().weight_for_sig_type::<T>(
+        sig.weight_for_sig_type::<T>(
             Self::remove_registry_sr25519,
             Self::remove_registry_ed25519,
             Self::remove_registry_secp256k1,

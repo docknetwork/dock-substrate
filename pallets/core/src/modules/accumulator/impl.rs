@@ -36,7 +36,7 @@ impl<T: Config> Pallet<T> {
             params_ref: (did, counter),
             ..
         }: RemoveAccumulatorParams<T>,
-        _: (),
+        (): (),
         owner: AccumulatorOwner,
     ) -> DispatchResult {
         // Only the DID that added the param can remove it
@@ -57,7 +57,7 @@ impl<T: Config> Pallet<T> {
             key_ref: (did, counter),
             ..
         }: RemoveAccumulatorPublicKey<T>,
-        _: (),
+        (): (),
         owner: AccumulatorOwner,
     ) -> DispatchResult {
         ensure!(did == owner, Error::<T>::NotAccumulatorOwner);

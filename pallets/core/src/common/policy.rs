@@ -7,9 +7,11 @@ use super::{Limits, ToStateChange};
 use crate::util::btree_set;
 
 use crate::{
-    common::{AuthorizeTarget, Signature},
+    common::{AuthorizeTarget, ForSigType, Signature},
     did::{self, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::{Action, ActionExecutionError, ActionWithNonce, NonceError, StorageRef, WithNonce},
+    util::{
+        Action, ActionExecutionError, ActionWithNonce, NonceError, StorageRef, Types, WithNonce,
+    },
 };
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -157,7 +159,43 @@ impl<T> AuthorizeTarget<T, DidKey> for PolicyExecutor {}
 impl<T> AuthorizeTarget<T, DidMethodKey> for PolicyExecutor {}
 
 /// `DID`s signature along with the nonce.
-pub type DidSignatureWithNonce<T> = WithNonce<T, DidOrDidMethodKeySignature<PolicyExecutor>>;
+#[derive(
+    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct DidSignatureWithNonce<T: Types> {
+    sig: DidOrDidMethodKeySignature<PolicyExecutor>,
+    nonce: T::BlockNumber,
+}
+
+impl<T: Types> DidSignatureWithNonce<T> {
+    pub fn new(sig: DidOrDidMethodKeySignature<PolicyExecutor>, nonce: T::BlockNumber) -> Self {
+        Self { sig, nonce }
+    }
+
+    pub fn into_data(self) -> DidOrDidMethodKeySignature<PolicyExecutor> {
+        self.sig
+    }
+}
+
+impl<T: Types> ForSigType for DidSignatureWithNonce<T> {
+    fn for_sig_type<R>(
+        &self,
+        for_sr25519: impl FnOnce() -> R,
+        for_ed25519: impl FnOnce() -> R,
+        for_secp256k1: impl FnOnce() -> R,
+    ) -> Option<R> {
+        self.sig
+            .for_sig_type(for_sr25519, for_ed25519, for_secp256k1)
+    }
+}
 
 /// Denotes an entity which has an associated `Policy`.
 pub trait HasPolicy<T: Limits>: Sized {
@@ -195,7 +233,7 @@ pub trait HasPolicy<T: Limits>: Sized {
                     proof.len() == 1
                         && controllers.contains(
                             &*proof[0]
-                                .data()
+                                .sig
                                 .signer()
                                 .ok_or(PolicyExecutionError::InvalidSigner)?
                         ),
@@ -238,7 +276,7 @@ pub trait HasPolicy<T: Limits>: Sized {
                     proof.len() == 1
                         && controllers.contains(
                             &*proof[0]
-                                .data()
+                                .sig
                                 .signer()
                                 .ok_or(PolicyExecutionError::InvalidSigner)?
                         ),
@@ -288,7 +326,7 @@ pub trait HasPolicy<T: Limits>: Sized {
                     proof.len() == 1
                         && controllers.contains(
                             &*proof[0]
-                                .data()
+                                .sig
                                 .signer()
                                 .ok_or(PolicyExecutionError::InvalidSigner)?
                         ),

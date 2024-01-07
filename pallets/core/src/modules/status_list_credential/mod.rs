@@ -172,7 +172,7 @@ impl<T: Config> SubstrateWeight<T> {
         sig: &DidSignatureWithNonce<T>,
         UpdateStatusListCredentialRaw { credential, .. }: &UpdateStatusListCredentialRaw<T>,
     ) -> Weight {
-        sig.data().weight_for_sig_type::<T>(
+        sig.weight_for_sig_type::<T>(
             || Self::update_sr25519(credential.len()),
             || Self::update_ed25519(credential.len()),
             || Self::update_secp256k1(credential.len()),
@@ -180,7 +180,7 @@ impl<T: Config> SubstrateWeight<T> {
     }
 
     fn remove(sig: &DidSignatureWithNonce<T>) -> Weight {
-        sig.data().weight_for_sig_type::<T>(
+        sig.weight_for_sig_type::<T>(
             Self::remove_sr25519,
             Self::remove_ed25519,
             Self::remove_secp256k1,

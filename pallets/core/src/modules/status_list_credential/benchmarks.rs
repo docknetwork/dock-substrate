@@ -51,7 +51,7 @@ crate::bench_with_all_pairs! {
 
         let sig = pair.sign(&update.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
-    }: update(RawOrigin::Signed(caller), update.into_data(), vec![DidSignatureWithNonce::new_with_nonce(signature, 1u32.into())])
+    }: update(RawOrigin::Signed(caller), update.into_data(), vec![DidSignatureWithNonce::new(signature, 1u32.into())])
     verify {
         assert_eq!(StatusListCredentials::get(id).unwrap(), StatusListCredentialWithPolicy {
             status_list_credential: StatusListCredential::<T>::StatusList2021Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap())),
@@ -87,7 +87,7 @@ crate::bench_with_all_pairs! {
 
         let sig = pair.sign(&remove.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
-    }: remove(RawOrigin::Signed(caller), remove.into_data(), vec![DidSignatureWithNonce::new_with_nonce(signature, 1u32.into())])
+    }: remove(RawOrigin::Signed(caller), remove.into_data(), vec![DidSignatureWithNonce::new(signature, 1u32.into())])
     verify {
         assert_eq!(StatusListCredentials::<T>::get(id), None);
     };

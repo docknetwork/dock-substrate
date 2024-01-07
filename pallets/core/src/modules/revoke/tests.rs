@@ -27,7 +27,7 @@ where
             let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
             let sig = did_sig_on_bytes(&sp.to_state_change().encode(), kp, *did, 1).into();
 
-            WithNonce::new_with_nonce(sig, next_nonce)
+            DidSignatureWithNonce::new(sig, next_nonce)
         })
         .collect()
 }

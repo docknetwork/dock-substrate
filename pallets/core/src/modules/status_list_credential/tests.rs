@@ -32,7 +32,7 @@ where
             let state_change = action_with_nonce.to_state_change().encode();
             let sig = did_sig_on_bytes(&state_change, kp, *did, 1).into();
 
-            WithNonce::new_with_nonce(sig, next_nonce)
+            DidSignatureWithNonce::new(sig, next_nonce)
         })
         .collect()
 }

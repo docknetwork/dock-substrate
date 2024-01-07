@@ -5,7 +5,6 @@ use crate::common::{
     Authorization, AuthorizeSignedAction, AuthorizeTarget, DidMethodKeySigValue, ForSigType,
     SigValue, Signature, ToStateChange,
 };
-use frame_support::traits::Get;
 
 /// Either `DidKey` or `DidMethodKey`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, MaxEncodedLen)]
@@ -122,23 +121,6 @@ impl<D: Into<DidMethodKey>> ForSigType for DidKeySignature<D> {
 }
 
 impl<D: Into<DidOrDidMethodKey>> ForSigType for DidOrDidMethodKeySignature<D> {
-    fn weight_for_sig_type<T: frame_system::Config>(
-        &self,
-        for_sr25519: impl FnOnce() -> Weight,
-        for_ed25519: impl FnOnce() -> Weight,
-        for_secp256k1: impl FnOnce() -> Weight,
-    ) -> Weight {
-        match self {
-            Self::DidSignature(sig) => {
-                sig.weight_for_sig_type::<T>(for_sr25519, for_ed25519, for_secp256k1)
-            }
-            Self::DidMethodKeySignature(sig) => sig
-                .weight_for_sig_type::<T>(for_sr25519, for_ed25519, for_secp256k1)
-                .saturating_sub(T::DbWeight::get().reads(1)),
-            _ => Default::default(),
-        }
-    }
-
     fn for_sig_type<R>(
         &self,
         for_sr25519: impl FnOnce() -> R,
