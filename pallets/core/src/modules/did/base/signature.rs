@@ -69,7 +69,7 @@ where
 #[scale_info(omit_prefix)]
 pub enum DidOrDidMethodKeySignature<D: Into<DidOrDidMethodKey>> {
     DidSignature(DidSignature<Did>),
-    DidMethodKeySignature(DidKeySignature<DidMethodKey>),
+    DidMethodKeySignature(DidMethodKeySignature<DidMethodKey>),
     #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     __Marker(PhantomData<D>),
@@ -81,10 +81,10 @@ impl<D: Into<DidOrDidMethodKey>> From<DidSignature<Did>> for DidOrDidMethodKeySi
     }
 }
 
-impl<D: Into<DidOrDidMethodKey>> From<DidKeySignature<DidMethodKey>>
+impl<D: Into<DidOrDidMethodKey>> From<DidMethodKeySignature<DidMethodKey>>
     for DidOrDidMethodKeySignature<D>
 {
-    fn from(sig: DidKeySignature<DidMethodKey>) -> Self {
+    fn from(sig: DidMethodKeySignature<DidMethodKey>) -> Self {
         Self::DidMethodKeySignature(sig)
     }
 }
@@ -105,7 +105,7 @@ impl<D: Into<Did>> ForSigType for DidSignature<D> {
     }
 }
 
-impl<D: Into<DidMethodKey>> ForSigType for DidKeySignature<D> {
+impl<D: Into<DidMethodKey>> ForSigType for DidMethodKeySignature<D> {
     fn for_sig_type<R>(
         &self,
         _for_sr25519: impl FnOnce() -> R,
@@ -158,8 +158,8 @@ pub struct DidSignature<D: Into<Did>> {
 #[derive(scale_info_derive::TypeInfo)]
 #[codec(encode_bound(D: Encode + MaxEncodedLen))]
 #[scale_info(omit_prefix)]
-pub struct DidKeySignature<D: Into<DidMethodKey>> {
-    pub did_key: D,
+pub struct DidMethodKeySignature<D: Into<DidMethodKey>> {
+    pub did_method_key: D,
     pub sig: DidMethodKeySigValue,
 }
 
@@ -186,16 +186,16 @@ impl<D: Into<Did> + Clone> Signature for DidSignature<D> {
 /// Verifies that `did`'s key with id `key_id` can either authenticate or control otherwise returns an error.
 /// Then provided signature will be verified against the supplied public key and `true` returned for a valid signature.
 
-impl<DK: Into<DidMethodKey> + Clone> Signature for DidKeySignature<DK> {
+impl<DK: Into<DidMethodKey> + Clone> Signature for DidMethodKeySignature<DK> {
     type Signer = DK;
     type Key = DidMethodKey;
 
     fn signer(&self) -> Option<DK> {
-        Some(self.did_key.clone())
+        Some(self.did_method_key.clone())
     }
 
     fn key<T: Config>(&self) -> Option<Self::Key> {
-        Some(self.did_key.clone().into())
+        Some(self.did_method_key.clone().into())
     }
 
     fn verify_bytes<M>(&self, message: M, public_key: &Self::Key) -> Result<bool, VerificationError>

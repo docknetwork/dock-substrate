@@ -4,7 +4,7 @@ use crate::{
     accumulator, anchor, attest, blob,
     common::{self, StateChange, ToStateChange},
     did::{
-        self, Did, DidKey, DidKeySignature, DidOrDidMethodKey, DidOrDidMethodKeySignature,
+        self, Did, DidKey, DidMethodKeySignature, DidOrDidMethodKey, DidOrDidMethodKeySignature,
         DidSignature,
     },
     master, offchain_signatures, revoke, status_list_credential, trust_registry,
@@ -462,8 +462,8 @@ where
             sig: sign(&change.to_state_change(), keypair),
         }
         .into(),
-        DidOrDidMethodKey::DidMethodKey(did_key) => DidKeySignature {
-            did_key,
+        DidOrDidMethodKey::DidMethodKey(did_method_key) => DidMethodKeySignature {
+            did_method_key,
             sig: match sign(&change.to_state_change(), keypair) {
                 SigValue::Ed25519(sig) => common::DidMethodKeySigValue::Ed25519(sig),
                 _ => panic!(),
