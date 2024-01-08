@@ -10,9 +10,6 @@ on:
       aws_region:
         description: "AWS region of EC2 instance to modify"
         required: true
-      instance_name:
-        description: "The name of the EC2 instance"
-        required: true
       instance_id:
         description: "The EC2 instance id"
         required: true
@@ -48,4 +45,4 @@ jobs:
           inventory: ./ansible-hosts
           galaxy_file: ./scripts/ansible/aws/requirements.yml
           verbose: 3
-          extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} name='${{github.event.inputs.instance_name}}' volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
+          extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
