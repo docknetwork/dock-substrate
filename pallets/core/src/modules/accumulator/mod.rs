@@ -7,6 +7,7 @@ use crate::{
 pub use actions::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
+    traits::Get,
     dispatch::{DispatchResult, Weight},
     ensure, storage_alias,
 };
@@ -264,75 +265,87 @@ pub mod pallet {
     #[pallet::hooks]
     impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
         fn on_runtime_upgrade() -> Weight {
-            let mut reads_writes = 0;
-
-            let counters: Vec<_> = {
-                #[storage_alias]
-                pub type AccumulatorOwnerCounters<T: Config> = StorageMap<
-                    Pallet<T>,
-                    Blake2_128Concat,
-                    Did,
-                    StoredAccumulatorOwnerCounters,
-                    ValueQuery,
-                >;
-
-                AccumulatorOwnerCounters::<T>::drain()
-                    .map(|(did, counters): (Did, _)| (AccumulatorOwner(did.into()), counters))
-                    .collect()
-            };
-
-            reads_writes += counters.len() as u64;
-            for (did, counters) in counters {
-                AccumulatorOwnerCounters::<T>::insert(did, counters);
-            }
-
-            let params: Vec<_> = {
-                #[storage_alias]
-                pub type AccumulatorParams<T: Config> = StorageDoubleMap<
-                    Pallet<T>,
-                    Blake2_128Concat,
-                    Did,
-                    Identity,
-                    IncId,
-                    AccumulatorParameters<T>,
-                >;
-
-                AccumulatorParams::<T>::drain()
-                    .map(|(did, id, params): (Did, _, _)| {
-                        (AccumulatorOwner(did.into()), id, params)
-                    })
-                    .collect()
-            };
-
-            reads_writes += params.len() as u64;
-            for (did, id, params) in params {
-                AccumulatorParams::<T>::insert(did, id, params);
-            }
-
-            let keys: Vec<_> = {
-                #[storage_alias]
-                pub type AccumulatorKeys<T: Config> = StorageDoubleMap<
-                    Pallet<T>,
-                    Blake2_128Concat,
-                    Did,
-                    Identity,
-                    IncId,
-                    AccumulatorPublicKey<T>,
-                >;
-
-                AccumulatorKeys::<T>::drain()
-                    .map(|(did, id, key): (Did, _, _)| (AccumulatorOwner(did.into()), id, key))
-                    .collect()
-            };
-
-            reads_writes += keys.len() as u64;
-            for (did, id, params) in keys {
-                AccumulatorKeys::<T>::insert(did, id, params);
-            }
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
+            migration::migrate::<T>()
         }
     }
+}
+
+mod migration {
+    use super::*;
+    use frame_support::pallet_prelude::*;
+
+    #[storage_alias]
+    pub type AccumulatorOwnerCounters<T: Config> = StorageMap<
+        Pallet<T>,
+        Blake2_128Concat,
+        Did,
+        StoredAccumulatorOwnerCounters,
+        ValueQuery,
+    >;
+
+    #[storage_alias]
+    pub type AccumulatorParams<T: Config> = StorageDoubleMap<
+        Pallet<T>,
+        Blake2_128Concat,
+        Did,
+        Identity,
+        IncId,
+        AccumulatorParameters<T>,
+    >;
+
+    #[storage_alias]
+    pub type AccumulatorKeys<T: Config> = StorageDoubleMap<
+        Pallet<T>,
+        Blake2_128Concat,
+        Did,
+        Identity,
+        IncId,
+        AccumulatorPublicKey<T>,
+    >;
+
+    pub fn migrate<T: Config>() -> Weight {
+        let mut reads_writes = 0;
+
+        let counters: Vec<_> = {
+            AccumulatorOwnerCounters::<T>::drain()
+                .map(|(did, counters): (Did, _)| (AccumulatorOwner(did.into()), counters))
+                .collect()
+        };
+
+        reads_writes += counters.len() as u64;
+        frame_support::log::info!("Migrated {} accumulator counters", counters.len());
+        for (did, counters) in counters {
+            super::pallet::AccumulatorOwnerCounters::<T>::insert(did, counters);
+        }
+
+        let params: Vec<_> = {
+            AccumulatorParams::<T>::drain()
+                .map(|(did, id, params): (Did, _, _)| {
+                    (AccumulatorOwner(did.into()), id, params)
+                })
+                .collect()
+        };
+
+        reads_writes += params.len() as u64;
+        frame_support::log::info!("Migrated {} accumulator params", params.len());
+        for (did, id, params) in params {
+            super::pallet::AccumulatorParams::<T>::insert(did, id, params);
+        }
+
+        let keys: Vec<_> = {
+            AccumulatorKeys::<T>::drain()
+                .map(|(did, id, key): (Did, _, _)| (AccumulatorOwner(did.into()), id, key))
+                .collect()
+        };
+
+        reads_writes += keys.len() as u64;
+        frame_support::log::info!("Migrated {} accumulator keys", keys.len());
+        for (did, id, params) in keys {
+            super::pallet::AccumulatorKeys::<T>::insert(did, id, params);
+        }
+
+        T::DbWeight::get().reads_writes(reads_writes, reads_writes)
+	}
 }
 
 impl<T: Config> SubstrateWeight<T> {

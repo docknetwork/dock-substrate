@@ -148,6 +148,8 @@ pub mod pallet {
                 Some((BlobOwner(did.into()), blob))
             });
 
+            frame_support::log::info!("Translated {} blobs", reads_writes);
+
             T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }

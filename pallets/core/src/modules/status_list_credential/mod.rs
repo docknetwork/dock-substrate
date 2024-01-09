@@ -153,6 +153,8 @@ pub mod pallet {
                 },
             );
 
+            frame_support::log::info!("Translated {} StatusListCredentials", reads_writes);
+
             T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
