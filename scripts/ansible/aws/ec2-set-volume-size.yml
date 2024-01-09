@@ -41,7 +41,7 @@
   - name: Add a host
     ansible.builtin.add_host:
       hostname: "{{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
-      groups: "{{ instance_host }}"
+      groups: "{{ instance_id }}"
 
 - name: Open SSH port
   ansible.builtin.import_playbook: ./ec2-enable-ssh.yml
