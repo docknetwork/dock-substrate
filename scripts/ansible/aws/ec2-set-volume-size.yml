@@ -41,7 +41,6 @@
   - name: Add a host
     ansible.builtin.add_host:
       hostname: "{{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
-      inventory_dir: "{{ inventory_dir }}"
       groups: "{{ instance_host }}"
 
 - name: Open SSH port
