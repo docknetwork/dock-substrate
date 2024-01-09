@@ -1,14 +1,13 @@
 - hosts: localhost
   connection: local
   gather_facts: False
-  vars:
-    instance_name: "{{ name }} (created by ansible)"
   tasks:
 
   - name: Create SSH access security group
     amazon.aws.ec2_security_group:
       region: "{{ aws_region }}"
-      profile: "{{ aws_profile }}"
+      aws_access_key_id: "{{ aws_access_key_id }}"
+      aws_secret_access_key: "{{ aws_secret_key }}"
       name: SSH port open (created by ansible)
       description: Allows connecting to node directly via SSH (created by ansible)
       rules:
@@ -19,9 +18,10 @@
 
   - name: Get EC2 instance state
     amazon.aws.ec2_instance:
-      profile: "{{ aws_profile }}"
+      aws_access_key_id: "{{ aws_access_key_id }}"
+      aws_secret_access_key: "{{ aws_secret_key }}"
       region: "{{ aws_region }}"
-      name: "{{ instance_name }}"
+      instance: "{{ instance_id }}"
     register: instances
 
   - name: EC2 instance info
@@ -30,7 +30,8 @@
 
   - name: Add SSH open port group to the EC2 instance
     amazon.aws.ec2_instance:
-      profile: "{{ aws_profile }}"
+      aws_access_key_id: "{{ aws_access_key_id }}"
+      aws_secret_access_key: "{{ aws_secret_key }}"
       region: "{{ aws_region }}"
-      name: "{{ instance_name }}"
+      instance: "{{ instance_id }}"
       security_groups: "{{ instances['instances'][0] | json_query('security_groups[*].group_id') + ['SSH port open (created by ansible)'] }}"
