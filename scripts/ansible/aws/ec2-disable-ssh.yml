@@ -8,7 +8,7 @@
       aws_access_key_id: "{{ aws_access_key_id }}"
       aws_secret_access_key: "{{ aws_secret_key }}"
       region: "{{ aws_region }}"
-      instance: "{{ instance_id }}"
+      instance_ids: [ "{{instance_id}}" ]
     register: instances
 
   - name: EC2 instance info
@@ -20,5 +20,5 @@
       aws_access_key_id: "{{ aws_access_key_id }}"
       aws_secret_access_key: "{{ aws_secret_key }}"
       region: "{{ aws_region }}"
-      instance: "{{ instance_id }}"
+      instance_ids: [ "{{instance_id}}" ]
       security_groups: "{{ instances['instances'][0] | json_query('security_groups[*].group_name') | difference(['SSH port open (created by ansible)']) }}"
