@@ -47,34 +47,25 @@ jobs:
           verbose: 3
           extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
 
-      - name: AWS SSM Send-Command
-        uses: peterkimzz/aws-ssm-send-command@master
-        id: extend-partition
-        with:
-          aws-region: ${{ inputs.aws_region }}
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-          instance-ids: ${{ inputs.instance_id }}
-
-          working-directory: /home/ubuntu/application
-          command: sudo growpart /dev/nvme0n1 1
-          comment: Partition increased by Github Action
-
-      # Catch SSM outputs
-      - name: Get the outputs
-        if: steps.extend-partition.outcome == 'success'
-        run: echo "The Command id is ${{ steps.extend-partition.outputs.command-id }}"
-
-      - name: AWS SSM Send-Command
-        uses: peterkimzz/aws-ssm-send-command@master
+      - name: Extend file system
         id: extend-file-system
-        if: steps.extend-partition.outcome == 'success'
+        uses: nohmad/aws-ssm-send-command-action@master
         with:
           aws-region: ${{ inputs.aws_region }}
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-          instance-ids: ${{ inputs.instance_id }}
+          targets: |
+            [{"Key":"InstanceIds","Values":[${{ inputs.instance_id }}]}]
+          document-name: AWS-RunShellScript
+          parameters: |
+            {"commands":["sudo growpart /dev/nvme0n1 1", "sudo resize2fs /dev/nvme0n1p1"]}
 
-          working-directory: /home/ubuntu/application
-          command: sudo resize2fs /dev/nvme0n1p1
-          comment: File system increased by Github Action
+      - name: Check SSM output
+        if: steps.extend-file-system.outcome == 'success'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ inputs.aws_region }}
+        run: |
+          aws ssm list-command-invocations --details
+
