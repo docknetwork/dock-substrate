@@ -38,30 +38,3 @@
       iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
       modify_volume: true
 
-  - name: Add a host
-    ansible.builtin.add_host:
-      hostname: "{{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
-      groups: "{{ instance_id }}"
-
-- name: Open SSH port
-  ansible.builtin.import_playbook: ./ec2-enable-ssh.yml
-
-- hosts: "{{ hostvars['localhost']['instances']['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
-  tasks:
-  - name: Show partitions
-    become: yes
-    become_method: sudo
-    ansible.builtin.command: lsblk
-
-  - name: Extend partitions
-    become: yes
-    become_method: sudo
-    ansible.builtin.command: growpart /dev/nvme0n1 1
-
-  - name: Extend file system
-    become: yes
-    become_method: sudo
-    ansible.builtin.command: resize2fs /dev/nvme0n1p1
-
-- name: Close SSH port
-  ansible.builtin.import_playbook: ./ec2-disable-ssh.yml
