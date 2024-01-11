@@ -4,22 +4,13 @@
   vars:
     instance_name: "{{ name }} (created by ansible)"
     volume_type_default: "{{ volume_type | default('io1') }}"
-
-  pre_tasks:
-  - name: Install dependencies
-    pip: name={{ item }}
-    with_items:
-    - boto3
-    - botocore
-
   tasks:
 
   - name: Get EC2 instance state
     amazon.aws.ec2_instance:
-      aws_access_key_id: "{{ aws_access_key_id }}"
-      aws_secret_access_key: "{{ aws_secret_key }}"
+      profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
-      instance_ids: [ "{{instance_id}}" ]
+      name: "{{ instance_name }}"
     register: instances
 
   - name: EC2 instance info
@@ -28,13 +19,40 @@
 
   - name: Modify the volume
     amazon.aws.ec2_vol:
-      aws_access_key_id: "{{ aws_access_key_id }}"
-      aws_secret_access_key: "{{ aws_secret_key }}"
+      profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
-      instance: "{{ instance_id }}"
+      name: "{{ instance_name }}"
       id: "{{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}"
       volume_size: "{{ volume_size }}"
       volume_type: "{{ volume_type_default }}"
       iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
       modify_volume: true
 
+  - name: Add a host
+    ansible.builtin.add_host:
+      hostname: "{{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
+      inventory_dir: "{{ inventory_dir }}"
+      groups: "{{ instance_host }}"
+
+- name: Open SSH port
+  ansible.builtin.import_playbook: ./ec2-enable-ssh.yml
+
+- hosts: "{{ hostvars['localhost']['instances']['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
+  tasks:
+  - name: Show partitions
+    become: yes
+    become_method: sudo
+    ansible.builtin.command: lsblk
+
+  - name: Extend partitions
+    become: yes
+    become_method: sudo
+    ansible.builtin.command: growpart /dev/nvme0n1 1
+
+  - name: Extend file system
+    become: yes
+    become_method: sudo
+    ansible.builtin.command: resize2fs /dev/nvme0n1p1
+
+- name: Close SSH port
+  ansible.builtin.import_playbook: ./ec2-disable-ssh.yml
