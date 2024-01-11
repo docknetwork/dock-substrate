@@ -67,5 +67,5 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
           AWS_DEFAULT_REGION: ${{ inputs.aws_region }}
         run: |
-          aws ssm list-command-invocations --command-id ${{ steps.extend-file-systen.command-id }} --details
+          aws ssm list-command-invocations --command-id ${{ steps.extend-file-system.command-id }} --details
 
