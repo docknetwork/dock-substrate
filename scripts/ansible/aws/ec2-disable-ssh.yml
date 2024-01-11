@@ -1,14 +1,15 @@
 - hosts: localhost
   connection: local
   gather_facts: False
+  vars:
+    instance_name: "{{ name }} (created by ansible)"
   tasks:
 
   - name: Get EC2 instance state
     amazon.aws.ec2_instance:
-      aws_access_key_id: "{{ aws_access_key_id }}"
-      aws_secret_access_key: "{{ aws_secret_key }}"
+      profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
-      instance_ids: [ "{{instance_id}}" ]
+      name: "{{ instance_name }}"
     register: instances
 
   - name: EC2 instance info
@@ -17,8 +18,7 @@
 
   - name: Remove SSH access group from the EC2 instance
     amazon.aws.ec2_instance:
-      aws_access_key_id: "{{ aws_access_key_id }}"
-      aws_secret_access_key: "{{ aws_secret_key }}"
+      profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
-      instance_ids: [ "{{instance_id}}" ]
+      name: "{{ instance_name }}"
       security_groups: "{{ instances['instances'][0] | json_query('security_groups[*].group_name') | difference(['SSH port open (created by ansible)']) }}"
