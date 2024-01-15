@@ -26,6 +26,20 @@
     ansible.builtin.debug:
       msg: Instance ID {{ instances['instances'][0].instance_id }}, root volume {{ instances['instances'][0].block_device_mappings[0].ebs }}
 
+  - name: Get current volume info
+    amazon.aws.ec2_vol:
+      aws_access_key_id: "{{ aws_access_key_id }}"
+      aws_secret_access_key: "{{ aws_secret_key }}"
+      region: "{{ aws_region }}"
+      instance: "{{ instance_id }}"
+      id: "{{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}"
+      modify_volume: false
+    register: volume_info
+
+  - name: EC2 volume info
+    ansible.builtin.debug:
+      msg: Volume ID {{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}, volume {{ volume_info }}
+
   - name: Modify the volume
     amazon.aws.ec2_vol:
       aws_access_key_id: "{{ aws_access_key_id }}"
