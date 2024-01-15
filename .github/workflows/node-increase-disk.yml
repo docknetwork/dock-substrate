@@ -8,42 +8,64 @@ on:
         description: "Whether updating a testnet or mainnet node"
         required: true
       aws_region:
-        description: "Location of EC2 instance to modify"
+        description: "AWS region of EC2 instance to modify"
         required: true
-      instance_name:
-        description: "The name of the EC2 instance"
+      instance_id:
+        description: "The EC2 instance id"
         required: true
       disk_size:
-        description: "The total size of the disk desired"
+        description: "The total size of the disk desired (GB)"
         required: true
 
 
 jobs:
   increase-disk:
+    environment: ${{inputs.network}}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Get Hosts Config
         id: get-hosts
         uses: keithweaver/aws-s3-github-action@v1.0.0
         with:
           command: cp
-          source: ${{env.S3_ANSIBLE_HOST_FILE}}
+          source: ${{vars.S3_ANSIBLE_HOST_FILE}}
           destination: ./ansible-hosts
-          aws_access_key_id: ${{ github.env.secret.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ github.env.secret.AWS_SECRET_KEY }}
-          aws_region: ${{env.S3_REGION}}
+          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws_secret_access_key: ${{ secrets.AWS_SECRET_KEY }}
+          aws_region: ${{vars.S3_REGION}}
 
       - name: Run playbook
-        uses: dawidd6/action-ansible-playbook@v2.6.1
+        uses: arillso/action.playbook@master
         with:
           # Required, playbook filepath
-          playbook: ec2-set-volume-size.yml
-          # Optional, directory where playbooks live
-          directory: ./scripts/ansible/aws
-          # Optional, additional flags to pass to ansible-playbook
-          options: |
-            --inventory ./ansible-hosts
-            --extra-vars aws_region="${{github.event.inputs.aws_region}}" aws_secret_key="${{github.env.secret.AWS_SECRET_KEY}}" aws_access_key_id="${{github.env.secret.AWS_ACCESS_KEY_ID}}" name="${{github.event.inputs.instance_name}}" volume_size="${{github.event.inputs.disk_size}}"
+          playbook: ./scripts/ansible/aws/ec2-modify-volume-size.yml
+          inventory: ./ansible-hosts
+          galaxy_file: ./scripts/ansible/aws/requirements.yml
+          verbose: 3
+          extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
+
+      - name: Extend file system
+        id: extend-file-system
+        uses: nohmad/aws-ssm-send-command-action@master
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          targets: |
+            [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
+          document-name: AWS-RunShellScript
+          parameters: |
+            {"commands":["sudo growpart /dev/nvme0n1 1", "sudo resize2fs /dev/nvme0n1p1"]}
+
+      - name: Check SSM output
+        if: steps.extend-file-system.outcome == 'success'
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ inputs.aws_region }}
+        run: |
+          aws ssm list-command-invocations --command-id "${{ steps.extend-file-system.outputs.command-id }}" --details
+
