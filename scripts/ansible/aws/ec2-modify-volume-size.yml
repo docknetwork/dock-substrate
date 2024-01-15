@@ -38,8 +38,7 @@
 
   - name: EC2 volume info
     ansible.builtin.debug:
-      msg: Volume ID {{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}, volume {{ volume_info }}, desired size {{ volume_info.volume.size + volume_size}}
-
+      msg: Volume ID {{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}, volume {{ volume_info }}, desired size {{ volume_info.volume.size|int + volume_size|int }}
   - name: Modify the volume
     amazon.aws.ec2_vol:
       aws_access_key_id: "{{ aws_access_key_id }}"
