@@ -122,9 +122,9 @@ This script will modify the AWS volume, but does NOT connect to the EC2 instance
 Variables:
 1. `aws_access_key_id` - AWS access key to be used
 2. `aws_secret_key` - AWS secret to be used
-2. `aws_region` - AWS region where the EC2 instance is running
-3. `instance_id` - the AWS instance id for the EC2 instance to be modified
-4. `volume_size` - new size to be set for the volume
+3. `aws_region` - AWS region where the EC2 instance is running
+4. `instance_id` - the AWS instance id for the EC2 instance to be modified
+5. `volume_size` - the amount of disk (in GB) to add to the volume
 
 Resize the volume:
 
