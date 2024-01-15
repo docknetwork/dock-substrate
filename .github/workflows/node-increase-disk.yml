@@ -14,7 +14,8 @@ on:
         description: "The EC2 instance id"
         required: true
       disk_size:
-        description: "The total size of the disk desired (GB)"
+        description: "The amount of diskspace to add (GB)"
+        default: "50"
         required: true
 
 

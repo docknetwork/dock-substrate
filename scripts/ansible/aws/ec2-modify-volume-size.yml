@@ -46,7 +46,7 @@
       region: "{{ aws_region }}"
       instance: "{{ instance_id }}"
       id: "{{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}"
-      volume_size: "{{ volume_size }}"
+      volume_size: "{{ volume_info.volume.size|int + volume_size|int }}"
       volume_type: "{{ volume_type_default }}"
       iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
       modify_volume: true
