@@ -6,6 +6,7 @@ on:
       network:
         type: environment
         description: "Whether updating a testnet or mainnet node"
+        default: "mainnet"
         required: true
       aws_region:
         description: "AWS region of EC2 instance to modify"
