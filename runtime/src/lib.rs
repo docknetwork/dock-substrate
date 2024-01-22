@@ -1650,20 +1650,12 @@ pallet_staking_reward_curve::build! {
     );
 }
 
-/// Pay high-rate rewards for 3 months (in eras) after the upgrade.
-const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
-    DurationInEras::new_non_zero((90 * DAY / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
-
-#[cfg(not(feature = "small_durations"))]
-// 1 era lasts for 12h.
-const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 90 * 2);
-
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const HighRateRewardDecayPct: Percent = Percent::from_percent(50);
     pub const LowRateRewardDecayPct: Percent = Percent::from_percent(25);
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
-    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = Some(POST_UPGRADE_HIGH_RATE_DURATION);
+    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = None;
 }
 
 impl dock_staking_rewards::Config for Runtime {

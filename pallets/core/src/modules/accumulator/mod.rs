@@ -7,9 +7,9 @@ use crate::{
 pub use actions::*;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    traits::Get,
     dispatch::{DispatchResult, Weight},
     ensure, storage_alias,
+    traits::Get,
 };
 use sp_std::{fmt::Debug, prelude::*};
 use utils::CheckedDivCeil;
@@ -275,13 +275,8 @@ mod migration {
     use frame_support::pallet_prelude::*;
 
     #[storage_alias]
-    pub type AccumulatorOwnerCounters<T: Config> = StorageMap<
-        Pallet<T>,
-        Blake2_128Concat,
-        Did,
-        StoredAccumulatorOwnerCounters,
-        ValueQuery,
-    >;
+    pub type AccumulatorOwnerCounters<T: Config> =
+        StorageMap<Pallet<T>, Blake2_128Concat, Did, StoredAccumulatorOwnerCounters, ValueQuery>;
 
     #[storage_alias]
     pub type AccumulatorParams<T: Config> = StorageDoubleMap<
@@ -320,9 +315,7 @@ mod migration {
 
         let params: Vec<_> = {
             AccumulatorParams::<T>::drain()
-                .map(|(did, id, params): (Did, _, _)| {
-                    (AccumulatorOwner(did.into()), id, params)
-                })
+                .map(|(did, id, params): (Did, _, _)| (AccumulatorOwner(did.into()), id, params))
                 .collect()
         };
 
@@ -345,7 +338,7 @@ mod migration {
         }
 
         T::DbWeight::get().reads_writes(reads_writes, reads_writes)
-	}
+    }
 }
 
 impl<T: Config> SubstrateWeight<T> {

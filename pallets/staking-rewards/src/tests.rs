@@ -44,7 +44,7 @@ parameter_types! {
     pub const SS58Prefix: u8 = 21;
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(60);
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
-    pub PostUpgradeHighRateDuration: Option<DurationInEras> = Some(DurationInEras::new_non_zero(10));
+    pub PostUpgradeHighRateDuration: Option<DurationInEras> = None;
 }
 
 // For testing, setting `LowRateRewardDecayPct` this way so it can be changed during tests
