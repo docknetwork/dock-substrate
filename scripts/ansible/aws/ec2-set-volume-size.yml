@@ -19,10 +19,9 @@
 
   - name: Modify the volume
     amazon.aws.ec2_vol:
-      aws_access_key_id: "{{ aws_key_id }}"
-      aws_access_key: "{{ aws_secret_key }}"
+      profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
-      instance: "{{ instances['instances'][0].instance_id }}"
+      name: "{{ instance_name }}"
       id: "{{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}"
       volume_size: "{{ volume_size }}"
       volume_type: "{{ volume_type_default }}"

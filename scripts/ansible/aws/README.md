@@ -35,7 +35,7 @@ Variables ([`instance_host`:vars]):
 9. its reserved nodes as an array `reserved_nodes`, defaults to empty array
 10. if the node should use bootnodes or not as an array `bootnodes`, defaults to empty array
 11. what telemetry url it should use as `telemetry_url`, default to no telemetry
-12. if session key should be rotated, as `rotate_session_key`, defaults to false. If true, session key will be stored 
+12. if session key should be rotated, as `rotate_session_key`, defaults to false. If true, session key will be stored
 in a file called session_key.txt on the host.
 13. pruning mode for the node, as `pruning`, this can be either `archive` or a positive integer.
 14. chain spec file name present in `cspec` directory of this repo's root as `chain_spec_file`
@@ -99,7 +99,9 @@ Close SSH port:
 ansible-playbook -i <hosts file> ec2-disable-ssh.yml --extra-vars "host=Mainnet"
 ```
 
-## Ansible playbook to set new volume size for the AWS ec2 instance with a dock-node.
+## Ansible playbook to extend the disk size for an AWS ec2 instance with a dock-node.
+
+This script will modify the AWS volume, and connect to the EC2 instance to extend the partition and the file system using SSH.
 
 Variables:
 1. `aws_profile` - AWS profile to be used
@@ -113,6 +115,22 @@ Resize the volume:
 ansible-playbook -i <hosts file> ec2-set-volume-size.yml --extra-vars "host=Mainnet"
 ```
 
+## Ansible playbook to set new volume size for an AWS ec2 instance
+
+This script will modify the AWS volume, but does NOT connect to the EC2 instance to extend the partition and the file system
+
+Variables:
+1. `aws_access_key_id` - AWS access key to be used
+2. `aws_secret_key` - AWS secret to be used
+3. `aws_region` - AWS region where the EC2 instance is running
+4. `instance_id` - the AWS instance id for the EC2 instance to be modified
+5. `volume_size` - the amount of disk (in GB) to add to the volume
+
+Resize the volume:
+
+```
+ansible-playbook -i <hosts file> ec2-set-volume-size.yml --extra-vars "aws_region=${{aws_region}} instance_id=${{instance_id}} aws_secret_key=$AWS_SECRET_KEY aws_access_key_id=$AWS_ACCESS_KEY_ID volume_size=${{disk_size}}"
+```
 
 ## Ansible playbook to setup a gateway from the AWS ec2 instance with a dock-node.
 

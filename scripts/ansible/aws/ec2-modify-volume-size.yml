@@ -1,0 +1,54 @@
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    instance_name: "{{ name }} (created by ansible)"
+    volume_type_default: "{{ volume_type | default('io1') }}"
+
+  pre_tasks:
+  - name: Install dependencies
+    pip: name={{ item }}
+    with_items:
+    - boto3
+    - botocore
+
+  tasks:
+
+  - name: Get EC2 instance state
+    amazon.aws.ec2_instance:
+      aws_access_key_id: "{{ aws_access_key_id }}"
+      aws_secret_access_key: "{{ aws_secret_key }}"
+      region: "{{ aws_region }}"
+      instance_ids: [ "{{instance_id}}" ]
+    register: instances
+
+  - name: EC2 instance info
+    ansible.builtin.debug:
+      msg: Instance ID {{ instances['instances'][0].instance_id }}, root volume {{ instances['instances'][0].block_device_mappings[0].ebs }}
+
+  - name: Get current volume info
+    amazon.aws.ec2_vol:
+      aws_access_key_id: "{{ aws_access_key_id }}"
+      aws_secret_access_key: "{{ aws_secret_key }}"
+      region: "{{ aws_region }}"
+      instance: "{{ instance_id }}"
+      id: "{{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}"
+      modify_volume: false
+    register: volume_info
+
+  - name: EC2 volume info
+    ansible.builtin.debug:
+      msg: Volume ID {{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}, Old size {{ volume_info.volume.size }}, New size {{ volume_info.volume.size|int + volume_size|int }}
+
+  - name: Modify the volume
+    amazon.aws.ec2_vol:
+      aws_access_key_id: "{{ aws_access_key_id }}"
+      aws_secret_access_key: "{{ aws_secret_key }}"
+      region: "{{ aws_region }}"
+      instance: "{{ instance_id }}"
+      id: "{{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}"
+      volume_size: "{{ volume_info.volume.size|int + volume_size|int }}"
+      volume_type: "{{ volume_type_default }}"
+      iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
+      modify_volume: true
+
