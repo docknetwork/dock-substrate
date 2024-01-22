@@ -86,7 +86,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Enable/disable emission rewards by calling this function with true or false respectively.
+        /// Enable/disable emission rewards by calling this function true or false respectively.
         #[pallet::weight(T::DbWeight::get().writes(1))]
         pub fn set_emission_status(
             origin: OriginFor<T>,

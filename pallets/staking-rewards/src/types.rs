@@ -123,7 +123,10 @@ impl HighRateRewardsState {
     /// HighRateRewardsState::None.inc_duration_or_init(TWO_ERAS), /* => */ HighRateRewardsState::StartingInNextEra { duration: TWO_ERAS }
     /// # );
     /// ```
-    pub fn inc_duration_or_init(&mut self, inc_duration: DurationInEras) -> Self {
+    pub fn inc_duration_or_init(
+        &mut self,
+        inc_duration @ DurationInEras(increment): DurationInEras,
+    ) -> Self {
         match self {
             HighRateRewardsState::StartingInNextEra {
                 duration: DurationInEras(duration),
@@ -131,7 +134,6 @@ impl HighRateRewardsState {
             | HighRateRewardsState::Active {
                 ends_after: DurationInEras(duration),
             } => {
-                let DurationInEras(increment) = inc_duration;
                 *duration = duration.saturating_add(increment.get());
             }
             HighRateRewardsState::None => {
