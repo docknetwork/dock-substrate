@@ -211,6 +211,7 @@ pub mod pallet {
             };
 
             reads_writes += params.len() as u64;
+            frame_support::log::info!("Migrated {} offchain signature params", params.len());
             for (owner, id, params) in params {
                 SignatureParams::<T>::insert(owner, id, params);
             }
@@ -226,9 +227,22 @@ pub mod pallet {
             };
 
             reads_writes += params_counters.len() as u64;
+            frame_support::log::info!(
+                "Migrated {} offchain signature params counters",
+                params_counters.len()
+            );
             for (did, counter) in params_counters {
                 ParamsCounter::<T>::insert(did, counter);
             }
+
+            let mut pks = 0;
+            PublicKeys::<T>::translate_values(|key: super::public_key::OldOffchainPublicKey<T>| {
+                pks += 1;
+
+                Some(key.into())
+            });
+            frame_support::log::info!("Migrated {} offchain signature public keys", pks);
+            reads_writes += pks;
 
             T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
