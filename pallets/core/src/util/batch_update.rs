@@ -7,19 +7,19 @@ use sp_runtime::{DispatchError, Either};
 
 /// Checks whether an actor can update an entity.
 pub trait CanUpdate<Entity>: Sized {
-    /// Checks whether underlying keyed update can be applied, i.e. all associated updates are valid.
+    /// Checks whether the new entity can be added.
     #[must_use]
     fn can_add(&self, _new: &Entity) -> bool {
         false
     }
 
-    /// Checks whether underlying keyed update can be applied, i.e. all associated updates are valid.
+    /// Checks whether the provided entity can replace the existing one.
     #[must_use]
     fn can_replace(&self, _new: &Entity, _current: &Entity) -> bool {
         false
     }
 
-    /// Checks whether underlying keyed update can be applied, i.e. all associated updates are valid.
+    /// Checks whether the existing entity can be removed.
     #[must_use]
     fn can_remove(&self, _entity: &Entity) -> bool {
         false
@@ -32,7 +32,7 @@ where
     Entity: Deref,
     Entity::Target: BoundedKeyValue,
 {
-    /// Checks whether underlying keyed update can be applied, i.e. all associated updates are valid.
+    /// Checks whether the underlying keyed update can be applied, i.e. all associated updates are valid.
     #[must_use]
     fn can_update_keyed<U: KeyedUpdate<Entity>>(&self, _entity: &Entity, _update: &U) -> bool {
         false
