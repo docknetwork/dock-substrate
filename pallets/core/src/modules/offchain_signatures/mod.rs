@@ -2,10 +2,10 @@
 //! Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 
 use crate::{
-    common::{self, signatures::ForSigType, Signature},
+    common::{self, signatures::ForSigType},
     did,
     did::{Controller, Did, DidOrDidMethodKeySignature, OnDidRemoval},
-    util::{ActionWithNonce, IncId, WrappedActionWithNonce},
+    util::{ActionWithNonce, ActionWrapper, IncId},
 };
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
@@ -132,15 +132,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(
-                params.nonce(),
-                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
-                params,
-            )
-            .signed(signature)
-            .execute(|WrappedActionWithNonce { action, .. }, counter, actor| {
-                Self::add_params_(action, counter, actor)
-            })
+            params
+                .signed_with_signer_target(signature)?
+                .execute(ActionWrapper::wrap_fn(Self::add_params_))
         }
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.

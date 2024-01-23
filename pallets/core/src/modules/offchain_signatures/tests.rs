@@ -1071,7 +1071,7 @@ with_each_scheme! {
             run_to_block(70);
 
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
-            WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author.into()),  AddOffchainSignatureParams {
+            ActionWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author.into()),  AddOffchainSignatureParams {
                 params: params_1.clone().into(),
                 nonce: did_detail.next_nonce().unwrap()
             }).execute::<Test, _, _, _, _>(
@@ -1225,21 +1225,21 @@ with_each_scheme! {
                 None
             );
 
-            WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author.into()), AddOffchainSignatureParams {
+            ActionWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author.into()), AddOffchainSignatureParams {
                 params: params.clone().into(),
                 nonce: 0, // Doesn't matter
             }).execute::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author.into()))
             )
             .unwrap();
-            WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
+            ActionWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
                 params: params_1.clone().into(),
                 nonce: 0, // Doesn't matter
             }).execute::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author_1.into()))
             ).unwrap();
 
-            WrappedActionWithNonce::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
+            ActionWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
                 params: params_2.clone().into(),
                 nonce: 0, // Doesn't matter
             }).execute::<Test, _, _, _, _>(

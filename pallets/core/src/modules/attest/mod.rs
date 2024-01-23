@@ -3,9 +3,9 @@
 //! method by specifying an Iri.
 
 use crate::{
-    common::{signatures::ForSigType, AuthorizeTarget, Limits, Signature, TypesAndLimits},
+    common::{signatures::ForSigType, AuthorizeTarget, Limits, TypesAndLimits},
     did::{self, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, BoundedBytes, OptionExt, StorageRef, WrappedActionWithNonce},
+    util::{ActionWithNonce, ActionWrapper, BoundedBytes, OptionExt, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -164,15 +164,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(
-                attests.nonce(),
-                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
-                attests,
-            )
-            .signed(signature)
-            .execute(|WrappedActionWithNonce { action, .. }, attest, attester| {
-                Self::set_claim_(action, attest, attester)
-            })
+            attests
+                .signed_with_signer_target(signature)?
+                .execute(ActionWrapper::wrap_fn(Self::set_claim_))
         }
     }
 

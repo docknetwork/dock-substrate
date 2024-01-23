@@ -1,6 +1,6 @@
 use super::keys::PublicKey;
 use crate::{
-    did::{self, DidMethodKey},
+    did::DidMethodKey,
     util::{Bytes64, Bytes65},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -10,18 +10,12 @@ use sp_core::{ed25519, sr25519, Pair};
 use sp_runtime::traits::Verify;
 use sp_std::{borrow::Borrow, convert::TryInto};
 
-/// Signature entity.
-pub trait Signature: Sized {
-    type Signer: Clone;
-    type Key;
+pub use crate::util::signature::*;
 
-    fn signer(&self) -> Option<Self::Signer>;
-
-    fn key<T: did::Config>(&self) -> Option<Self::Key>;
-
-    fn verify_bytes<M>(&self, message: M, key: &Self::Key) -> Result<bool, VerificationError>
-    where
-        M: AsRef<[u8]>;
+/// Attempts to retrieve a key associated with the given entity.
+pub trait GetKey<K> {
+    /// Attempts to get an associated key.
+    fn key<T: crate::did::Config>(&self) -> Option<K>;
 }
 
 #[derive(PartialEq, Eq, Encode, Decode, Clone, Debug, Default)]
@@ -179,11 +173,6 @@ pub enum SigValue {
     Ed25519(Bytes64),
     /// Signature for Secp256k1 is 65 bytes
     Secp256k1(Bytes65),
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum VerificationError {
-    IncompatibleKey,
 }
 
 impl SigValue {

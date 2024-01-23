@@ -3,7 +3,7 @@ use core::marker::PhantomData;
 use super::super::*;
 use crate::common::{
     Authorization, AuthorizeSignedAction, AuthorizeTarget, DidMethodKeySigValue, ForSigType,
-    SigValue, Signature, ToStateChange,
+    GetKey, SigValue, Signature, ToStateChange,
 };
 
 /// Either `DidKey` or `DidMethodKey`.
@@ -171,15 +171,17 @@ impl<D: Into<Did> + Clone> Signature for DidSignature<D> {
         Some(self.did.clone())
     }
 
-    fn key<T: Config>(&self) -> Option<Self::Key> {
-        super::Pallet::<T>::did_key(self.did.clone().into(), self.key_id)
-    }
-
     fn verify_bytes<M>(&self, message: M, public_key: &Self::Key) -> Result<bool, VerificationError>
     where
         M: AsRef<[u8]>,
     {
         self.sig.verify(message.as_ref(), public_key.public_key())
+    }
+}
+
+impl<D: Into<Did> + Clone> GetKey<DidKey> for DidSignature<D> {
+    fn key<T: Config>(&self) -> Option<DidKey> {
+        super::Pallet::<T>::did_key(self.did.clone().into(), self.key_id)
     }
 }
 
@@ -194,15 +196,17 @@ impl<DK: Into<DidMethodKey> + Clone> Signature for DidMethodKeySignature<DK> {
         Some(self.did_method_key.clone())
     }
 
-    fn key<T: Config>(&self) -> Option<Self::Key> {
-        Some(self.did_method_key.clone().into())
-    }
-
     fn verify_bytes<M>(&self, message: M, public_key: &Self::Key) -> Result<bool, VerificationError>
     where
         M: AsRef<[u8]>,
     {
         self.sig.verify(message.as_ref(), public_key)
+    }
+}
+
+impl<D: Into<DidMethodKey> + Clone> GetKey<DidMethodKey> for DidMethodKeySignature<D> {
+    fn key<T: Config>(&self) -> Option<DidMethodKey> {
+        Some(self.did_method_key.clone().into())
     }
 }
 
@@ -223,14 +227,6 @@ where
         })
     }
 
-    fn key<T: Config>(&self) -> Option<Self::Key> {
-        Some(match self {
-            Self::DidMethodKeySignature(sig) => DidKeyOrDidMethodKey::DidMethodKey(sig.key::<T>()?),
-            Self::DidSignature(sig) => DidKeyOrDidMethodKey::DidKey(sig.key::<T>()?),
-            Self::__Marker(_) => None::<Self::Key>?,
-        })
-    }
-
     fn verify_bytes<M>(&self, message: M, key: &Self::Key) -> Result<bool, VerificationError>
     where
         M: AsRef<[u8]>,
@@ -248,6 +244,19 @@ where
             },
             Self::__Marker(_) => Err(VerificationError::IncompatibleKey),
         }
+    }
+}
+
+impl<D> GetKey<DidKeyOrDidMethodKey> for DidOrDidMethodKeySignature<D>
+where
+    D: Into<DidOrDidMethodKey> + From<DidOrDidMethodKey> + Clone,
+{
+    fn key<T: Config>(&self) -> Option<DidKeyOrDidMethodKey> {
+        Some(match self {
+            Self::DidMethodKeySignature(sig) => DidKeyOrDidMethodKey::DidMethodKey(sig.key::<T>()?),
+            Self::DidSignature(sig) => DidKeyOrDidMethodKey::DidKey(sig.key::<T>()?),
+            Self::__Marker(_) => None::<DidKeyOrDidMethodKey>?,
+        })
     }
 }
 
@@ -298,14 +307,14 @@ where
         match signer.into() {
             DidOrDidMethodKey::Did(controller) => {
                 if controller == action.target() {
-                    WrappedActionWithNonce::<T, A, Did>::new(action.nonce(), controller, action)
-                        .execute_and_increase_nonce(
-                            |WrappedActionWithNonce { action, .. }, reference| f(action, reference),
-                        )
+                    ActionWrapper::<T, A, Did>::new(action.nonce(), controller, action)
+                        .execute_and_increase_nonce(|ActionWrapper { action, .. }, reference| {
+                            f(action, reference)
+                        })
                         .map_err(Into::into)
                 } else {
-                    WrappedActionWithNonce::<T, A, Did>::new(action.nonce(), controller, action)
-                        .execute_and_increase_nonce(|WrappedActionWithNonce { action, .. }, _| {
+                    ActionWrapper::<T, A, Did>::new(action.nonce(), controller, action)
+                        .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
                             action.execute_without_increasing_nonce(|action, reference| {
                                 f(action, reference)
                             })
@@ -313,17 +322,15 @@ where
                         .map_err(Into::into)
                 }
             }
-            DidOrDidMethodKey::DidMethodKey(controller) => WrappedActionWithNonce::<
-                T,
-                A,
-                DidMethodKey,
-            >::new(
-                action.nonce(), controller, action
-            )
-            .execute_and_increase_nonce(|WrappedActionWithNonce { action, .. }, _| {
-                action.execute_without_increasing_nonce(|action, reference| f(action, reference))
-            })
-            .map_err(Into::into),
+            DidOrDidMethodKey::DidMethodKey(controller) => {
+                ActionWrapper::<T, A, DidMethodKey>::new(action.nonce(), controller, action)
+                    .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
+                        action.execute_without_increasing_nonce(|action, reference| {
+                            f(action, reference)
+                        })
+                    })
+                    .map_err(Into::into)
+            }
         }
     }
 }

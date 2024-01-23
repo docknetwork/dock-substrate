@@ -1,7 +1,7 @@
 use crate::{
     common::{Authorization, AuthorizeSignedAction, AuthorizeTarget, ToStateChange},
     did::*,
-    util::{action::*, with_nonce::*, WrappedActionWithNonce},
+    util::{action::*, with_nonce::*, ActionWrapper},
 };
 use core::ops::Deref;
 
@@ -30,8 +30,8 @@ where
             .authorizes_signed_action(&action)?
             .ok_or(Error::<T>::InvalidSignature)?;
 
-        WrappedActionWithNonce::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
-            .execute_and_increase_nonce(|WrappedActionWithNonce { action, .. }, _| {
+        ActionWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
+            .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
                 action.execute_readonly(|action, target_data| f(action, target_data, signer))
             })
             .map_err(Into::into)
@@ -68,8 +68,8 @@ where
             .authorizes_signed_action(&action)?
             .ok_or(Error::<T>::InvalidSignature)?;
 
-        WrappedActionWithNonce::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
-            .execute_and_increase_nonce(|WrappedActionWithNonce { action, .. }, _| {
+        ActionWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
+            .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
                 action.execute_removable(|action, target_data| f(action, target_data, signer))
             })
             .map_err(Into::into)

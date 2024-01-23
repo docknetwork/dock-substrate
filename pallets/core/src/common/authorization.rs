@@ -2,7 +2,7 @@ use crate::{common::Signature, did, util::Action};
 use codec::Encode;
 use core::ops::Deref;
 
-use super::ToStateChange;
+use super::{GetKey, ToStateChange};
 
 /// Authorizes action performed by `Self` over supplied target using given key.
 pub trait AuthorizeTarget<Target, Key> {
@@ -20,7 +20,7 @@ type AuthorizationResult<T, S> =
     Result<Option<Authorization<<S as Signature>::Signer, <S as Signature>::Key>>, did::Error<T>>;
 
 /// Signature that can authorize a signed action.
-pub trait AuthorizeSignedAction<A: Action>: Signature
+pub trait AuthorizeSignedAction<A: Action>: Signature + GetKey<Self::Key>
 where
     Self::Signer: AuthorizeTarget<A::Target, Self::Key> + Deref,
     <Self::Signer as Deref>::Target: AuthorizeTarget<A::Target, Self::Key>,
@@ -48,7 +48,7 @@ where
 
 impl<A: Action, S> AuthorizeSignedAction<A> for S
 where
-    S: Signature,
+    S: Signature + GetKey<S::Key>,
     S::Signer: AuthorizeTarget<A::Target, S::Key> + Deref,
     <S::Signer as Deref>::Target: AuthorizeTarget<A::Target, S::Key>,
 {

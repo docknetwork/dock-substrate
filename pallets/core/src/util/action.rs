@@ -2,7 +2,7 @@ use core::marker::PhantomData;
 use frame_support::ensure;
 use sp_runtime::DispatchError;
 
-use crate::{common::Types, util::OptionExt};
+use crate::util::{ActionWrapper, OptionExt, Signature, Types};
 
 use super::{NonceError, WithNonce};
 
@@ -22,7 +22,7 @@ pub trait Action: Sized {
         self.len() == 0
     }
 
-    /// Executes an action providing a mutable reference to the option containing a value associated with the target.
+    /// Executes an action providing a mutable reference to the value associated with the target.
     fn execute<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut S) -> Result<R, E>,
@@ -44,7 +44,7 @@ pub trait Action: Sized {
         })
     }
 
-    /// Executes an action providing a reference to the option containing a value associated with the target.
+    /// Executes an action providing a value associated with the target.
     fn execute_readonly<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, S) -> Result<R, E>,
@@ -65,7 +65,7 @@ pub trait Action: Sized {
         })
     }
 
-    /// Executes an action providing a mutable reference to the value associated with the target.
+    /// Executes an action providing a mutable reference to the option containing a value associated with the target.
     fn execute_removable<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
@@ -151,8 +151,31 @@ pub trait ActionWithNonce<T: Types>: Action {
         })
     }
 
+    /// Combines underlying action with the provided signature.
     fn signed<S>(self, signature: S) -> SignedActionWithNonce<T, Self, S> {
         SignedActionWithNonce::new(self, signature)
+    }
+
+    // Wraps underlying action into an action targeting signer then combines result with the provided signature.
+    fn signed_with_signer_target<S>(
+        self,
+        signature: S,
+    ) -> Result<SignedActionWithNonce<T, ActionWrapper<T, Self, S::Signer>, S>, InvalidSigner>
+    where
+        S: Signature,
+    {
+        let wrapped =
+            ActionWrapper::new(self.nonce(), signature.signer().ok_or(InvalidSigner)?, self);
+
+        Ok(wrapped.signed(signature))
+    }
+}
+
+pub struct InvalidSigner;
+
+impl From<InvalidSigner> for DispatchError {
+    fn from(InvalidSigner: InvalidSigner) -> Self {
+        DispatchError::Other("Invalid signer")
     }
 }
 

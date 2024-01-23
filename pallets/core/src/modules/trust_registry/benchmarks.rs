@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     common::state_change::ToStateChange,
     did::{Did, DidSignature, UncheckedDidKey},
-    util::{batch_update::*, Action, Bytes, WrappedActionWithNonce},
+    util::{batch_update::*, Action, ActionWrapper, Bytes},
 };
 use alloc::collections::BTreeMap;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
@@ -73,7 +73,7 @@ crate::bench_with_all_pairs! {
         ).unwrap();
 
         let id = [1u8; 32].into();
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), InitOrUpdateTrustRegistry {
+        ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), InitOrUpdateTrustRegistry {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
@@ -137,7 +137,7 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let mut schemas: BTreeMap<_, _> = (0..s)
             .map(|idx|
@@ -238,7 +238,7 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let delegated = DelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).try_collect().unwrap());
 
@@ -287,7 +287,7 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
 
@@ -333,7 +333,7 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        WrappedActionWithNonce::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
 

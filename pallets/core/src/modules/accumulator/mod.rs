@@ -1,8 +1,8 @@
 use crate::{
-    common::{self, signatures::ForSigType, CurveType, Signature},
+    common::{self, signatures::ForSigType, CurveType},
     did,
     did::{Did, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, Bytes, IncId, WrappedActionWithNonce},
+    util::{ActionWithNonce, ActionWrapper, Bytes, IncId},
 };
 pub use actions::*;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -154,17 +154,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(
-                params.nonce(),
-                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
-                params,
-            )
-            .signed(signature)
-            .execute(
-                |WrappedActionWithNonce { action, .. }, counters, accumulator_owner| {
-                    Self::add_params_(action, counters, accumulator_owner)
-                },
-            )
+            params
+                .signed_with_signer_target(signature)?
+                .execute(ActionWrapper::wrap_fn(Self::add_params_))
         }
 
         #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
@@ -175,17 +167,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(
-                public_key.nonce(),
-                signature.signer().ok_or(did::Error::<T>::InvalidSigner)?,
-                public_key,
-            )
-            .signed(signature)
-            .execute(
-                |WrappedActionWithNonce { action, .. }, counters, accumulator_owner| {
-                    Self::add_public_key_(action, counters, accumulator_owner)
-                },
-            )
+            public_key
+                .signed_with_signer_target(signature)?
+                .execute(ActionWrapper::wrap_fn(Self::add_public_key_))
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]

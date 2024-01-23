@@ -1,10 +1,10 @@
 //! Dock Trust Registry.
 
 use crate::{
-    common::{ForSigType, Signature},
+    common::ForSigType,
     deposit_indexed_event,
     did::{self, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, BoundedKeyValue, SetOrModify, WrappedActionWithNonce},
+    util::{ActionWithNonce, ActionWrapper, BoundedKeyValue, SetOrModify},
 };
 use frame_support::{pallet_prelude::*, weights::PostDispatchInfo};
 
@@ -153,39 +153,31 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Creates a new `Trust Registry` with the provided identifier.
         /// The DID signature signer will be set as a `Trust Registry` owner.
-        #[pallet::weight(SubstrateWeight::<T>::init_or_update_trust_registry(init_or_update_trust_registry, signed))]
+        #[pallet::weight(SubstrateWeight::<T>::init_or_update_trust_registry(init_or_update_trust_registry, signature))]
         pub fn init_or_update_trust_registry(
             origin: OriginFor<T>,
             init_or_update_trust_registry: InitOrUpdateTrustRegistry<T>,
-            signed: DidOrDidMethodKeySignature<Convener>,
+            signature: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            WrappedActionWithNonce::new(
-                init_or_update_trust_registry.nonce(),
-                signed.signer().ok_or(did::Error::<T>::InvalidSigner)?,
-                init_or_update_trust_registry,
-            )
-            .signed(signed)
-            .execute(
-                |WrappedActionWithNonce { action, .. }, registries, convener| {
-                    Self::init_or_update_trust_registry_(action, registries, convener)
-                },
-            )
+            init_or_update_trust_registry
+                .signed_with_signer_target(signature)?
+                .execute(ActionWrapper::wrap_fn(Self::init_or_update_trust_registry_))
         }
 
         /// Adds a new schema metadata entry (entries).
         /// The DID signature signer must be the `Convener` owning this Trust Registry.
-        #[pallet::weight(SubstrateWeight::<T>::add_schema_metadata(add_schema_metadata, signed))]
+        #[pallet::weight(SubstrateWeight::<T>::add_schema_metadata(add_schema_metadata, signature))]
         pub fn add_schema_metadata(
             origin: OriginFor<T>,
             add_schema_metadata: AddSchemaMetadata<T>,
-            signed: DidOrDidMethodKeySignature<Convener>,
+            signature: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             add_schema_metadata
-                .signed(signed)
+                .signed(signature)
                 .execute_readonly(Self::add_schema_metadata_)
         }
 
@@ -193,19 +185,19 @@ pub mod pallet {
         /// - `Convener` DID owning registry with the provided identifier can make any modifications.
         /// - `Issuer` DID can only modify his verification prices and remove himself from the `issuers` map.
         /// - `Verifier` DID can only remove himself from the `verifiers` set.
-        #[pallet::weight(SubstrateWeight::<T>::update_schema_metadata(update_schema_metadata, signed))]
+        #[pallet::weight(SubstrateWeight::<T>::update_schema_metadata(update_schema_metadata, signature))]
         pub fn update_schema_metadata(
             origin: OriginFor<T>,
             update_schema_metadata: UpdateSchemaMetadata<T>,
-            signed: DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+            signature: DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
             let (ver, iss, schem) = update_schema_metadata
-                .signed(signed.clone())
+                .signed(signature.clone())
                 .execute_readonly(Self::update_schema_metadata_)?;
 
-            let actual_weight = signed.weight_for_sig_type::<T>(
+            let actual_weight = signature.weight_for_sig_type::<T>(
                 || SubstrateWeight::<T>::update_schema_metadata_sr25519(iss, ver, schem),
                 || SubstrateWeight::<T>::update_schema_metadata_ed25519(iss, ver, schem),
                 || SubstrateWeight::<T>::update_schema_metadata_secp256k1(iss, ver, schem),
@@ -218,44 +210,44 @@ pub mod pallet {
         }
 
         /// Update delegated `Issuer`s of the given `Issuer`.
-        #[pallet::weight(SubstrateWeight::<T>::update_delegated_issuers(update_delegated_issuers, signed))]
+        #[pallet::weight(SubstrateWeight::<T>::update_delegated_issuers(update_delegated_issuers, signature))]
         pub fn update_delegated_issuers(
             origin: OriginFor<T>,
             update_delegated_issuers: UpdateDelegatedIssuers<T>,
-            signed: DidOrDidMethodKeySignature<Issuer>,
+            signature: DidOrDidMethodKeySignature<Issuer>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             update_delegated_issuers
-                .signed(signed)
+                .signed(signature)
                 .execute_readonly(Self::update_delegated_issuers_)
         }
 
         /// Suspends given `Issuer`s.
-        #[pallet::weight(SubstrateWeight::<T>::suspend_issuers(suspend_issuers, signed))]
+        #[pallet::weight(SubstrateWeight::<T>::suspend_issuers(suspend_issuers, signature))]
         pub fn suspend_issuers(
             origin: OriginFor<T>,
             suspend_issuers: SuspendIssuers<T>,
-            signed: DidOrDidMethodKeySignature<Convener>,
+            signature: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             suspend_issuers
-                .signed(signed)
+                .signed(signature)
                 .execute_readonly(Self::suspend_issuers_)
         }
 
         /// Unsuspends given `Issuer`s.
-        #[pallet::weight(SubstrateWeight::<T>::unsuspend_issuers(unsuspend_issuers, signed))]
+        #[pallet::weight(SubstrateWeight::<T>::unsuspend_issuers(unsuspend_issuers, signature))]
         pub fn unsuspend_issuers(
             origin: OriginFor<T>,
             unsuspend_issuers: UnsuspendIssuers<T>,
-            signed: DidOrDidMethodKeySignature<Convener>,
+            signature: DidOrDidMethodKeySignature<Convener>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             unsuspend_issuers
-                .signed(signed)
+                .signed(signature)
                 .execute_readonly(Self::unsuspend_issuers_)
         }
     }

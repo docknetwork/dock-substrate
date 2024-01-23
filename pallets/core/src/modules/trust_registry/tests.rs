@@ -146,7 +146,7 @@ crate::did_or_did_method_key! {
             };
             let alice = 1u64;
 
-            WrappedActionWithNonce::<Test, _, _>::new(2, Convener(convener.into()), init_or_update_trust_registry.clone()).execute::<Test, _, _, _, _>(|action, set| Mod::init_or_update_trust_registry_(action.action, set, Convener(convener.into()))).unwrap();
+            ActionWrapper::<Test, _, _>::new(2, Convener(convener.into()), init_or_update_trust_registry.clone()).execute::<Test, _, _, _, _>(|action, set| Mod::init_or_update_trust_registry_(action.action, set, Convener(convener.into()))).unwrap();
 
             let schemas: BTreeMap<_, _> = [(
                 TrustRegistrySchemaId(rand::random()),
@@ -279,7 +279,7 @@ crate::did_or_did_method_key! {
             };
             let alice = 1u64;
 
-            WrappedActionWithNonce::<Test, _, _>::new(
+            ActionWrapper::<Test, _, _>::new(
                 init_or_update_trust_registry.nonce(),
                 Convener(convener.into()),
                 init_or_update_trust_registry.clone(),

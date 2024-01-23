@@ -60,7 +60,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        WrappedActionWithNonce::<T, _, _>::new(
+        ActionWrapper::<T, _, _>::new(
             1u8.into(),
             SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
@@ -100,7 +100,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        WrappedActionWithNonce::<T, _, _>::new(
+        ActionWrapper::<T, _, _>::new(
             1u8.into(),
             SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
@@ -143,7 +143,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        WrappedActionWithNonce::<T, _, _>::new(
+        ActionWrapper::<T, _, _>::new(
             1u8.into(),
             SignatureParamsOwner(did.into()),
             AddOffchainSignatureParams {
