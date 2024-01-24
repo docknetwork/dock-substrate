@@ -179,10 +179,6 @@ impl<T: Limits> CanUpdateKeyed<DelegatedIssuers<T>> for Issuer {
 }
 
 impl<T: Limits> CanUpdate<DelegatedIssuers<T>> for Issuer {
-    fn can_add(&self, _entity: &DelegatedIssuers<T>) -> bool {
-        true
-    }
-
     fn can_replace(&self, _new: &DelegatedIssuers<T>, _entity: &DelegatedIssuers<T>) -> bool {
         true
     }

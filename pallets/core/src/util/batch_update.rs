@@ -115,12 +115,12 @@ where
 
     fn targets<'targets>(&'targets self, entity: &'targets Entity) -> Self::Targets<'targets>;
 
-    fn targets_diff(
+    fn keys_diff(
         &self,
         entity: &Entity,
     ) -> MultiTargetUpdate<<Entity::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>>;
 
-    fn record_inner_targets_diff<K: Ord + Clone>(
+    fn record_inner_keys_diff<K: Ord + Clone>(
         &self,
         entity: &Entity,
         inner_key: K,
@@ -129,7 +129,7 @@ where
             MultiTargetUpdate<K, AddOrRemoveOrModify<()>>,
         >,
     ) {
-        for (key, update) in self.targets_diff(entity).0 {
+        for (key, update) in self.keys_diff(entity).0 {
             map.entry(key)
                 .or_default()
                 .insert(inner_key.clone(), update);
@@ -231,10 +231,12 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModif
     fn apply_update(self, entity: &mut Option<V>) {
         match self {
             AddOrRemoveOrModify::Add(value) => {
-                entity.replace(value);
+                if entity.replace(value).is_some() {
+                    panic!("Entity already exists");
+                }
             }
             AddOrRemoveOrModify::Remove => {
-                entity.take();
+                entity.take().expect("Can't remove non-existing entity");
             }
             AddOrRemoveOrModify::Modify(update) => {
                 update.apply_update(entity);
@@ -362,6 +364,7 @@ impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, V>> ValidateUpdate<A, V> for SetOr
     }
 }
 
+#[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum UpdateError {
     DoesntExist,
     AlreadyExists,
@@ -472,7 +475,7 @@ where
         self.keys()
     }
 
-    fn targets_diff(
+    fn keys_diff(
         &self,
         entity: &C,
     ) -> MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>> {
@@ -514,7 +517,7 @@ where
         }
     }
 
-    fn targets_diff(
+    fn keys_diff(
         &self,
         entity: &C,
     ) -> MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>> {
@@ -533,7 +536,86 @@ where
                     )
                     .collect()
             }
-            Self::Modify(update) => update.targets_diff(entity),
+            Self::Modify(update) => update.keys_diff(entity),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use sp_runtime::{traits::ConstU32, BoundedBTreeMap};
+
+    use crate::util::{ApplyUpdate, CanUpdate, CanUpdateKeyed, KeyedUpdate, UpdateError};
+
+    use super::{AddOrRemoveOrModify, MultiTargetUpdate, ValidateUpdate};
+
+    #[test]
+    fn nested_update() {
+        let update = MultiTargetUpdate::from_iter([
+            ("1".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
+            ("2".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
+        ]);
+
+        #[derive(Clone, PartialEq, Eq, Debug)]
+        struct S(BoundedBTreeMap<String, u8, ConstU32<5>>);
+
+        crate::impl_wrapper!(S(BoundedBTreeMap<String, u8, ConstU32<5>>));
+
+        let mut entity = S(BoundedBTreeMap::new());
+        entity.try_insert("3".to_string(), 4).unwrap();
+
+        struct A;
+        impl CanUpdateKeyed<S> for A {
+            fn can_update_keyed<U: crate::util::KeyedUpdate<S>>(
+                &self,
+                _entity: &S,
+                _update: &U,
+            ) -> bool {
+                true
+            }
+        }
+
+        impl CanUpdate<u8> for A {
+            fn can_add(&self, _new: &u8) -> bool {
+                true
+            }
+
+            fn can_remove(&self, _entity: &u8) -> bool {
+                false
+            }
+
+            fn can_replace(&self, _new: &u8, _current: &u8) -> bool {
+                true
+            }
+        }
+
+        assert_eq!(
+            update.targets(&entity).collect::<Vec<_>>(),
+            vec![&"1".to_string(), &"2".to_string()]
+        );
+        assert_eq!(update.keys_diff(&entity), Default::default());
+
+        assert_eq!(
+            update.ensure_valid(&A, &entity),
+            Err(UpdateError::DoesntExist)
+        );
+
+        let update =
+            MultiTargetUpdate::from_iter([("3".to_string(), AddOrRemoveOrModify::Remove::<_, ()>)]);
+
+        assert_eq!(
+            update.ensure_valid(&A, &entity),
+            Err(UpdateError::InvalidActor)
+        );
+
+        let update =
+            MultiTargetUpdate::from_iter([("2".to_string(), AddOrRemoveOrModify::Add::<_, ()>(1))]);
+
+        let mut cloned_entity = entity.clone();
+        update.apply_update(&mut cloned_entity);
+
+        entity.try_insert("2".to_string(), 1).unwrap();
+
+        assert_eq!(cloned_entity, entity);
     }
 }

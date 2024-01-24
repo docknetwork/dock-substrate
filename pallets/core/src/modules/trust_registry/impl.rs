@@ -111,7 +111,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     if let Some(verifiers_update) = update.verifiers.as_ref() {
-                        verifiers_update.record_inner_targets_diff(
+                        verifiers_update.record_inner_keys_diff(
                             &schema_metadata.verifiers,
                             *schema_id,
                             verifiers,
@@ -119,7 +119,7 @@ impl<T: Config> Pallet<T> {
                     }
 
                     if let Some(issuers_update) = update.issuers.as_ref() {
-                        issuers_update.record_inner_targets_diff(
+                        issuers_update.record_inner_keys_diff(
                             &schema_metadata.issuers,
                             *schema_id,
                             issuers,
