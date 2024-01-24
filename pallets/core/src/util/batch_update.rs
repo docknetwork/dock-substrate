@@ -545,49 +545,76 @@ where
 mod tests {
     use sp_runtime::{traits::ConstU32, BoundedBTreeMap};
 
-    use crate::util::{ApplyUpdate, CanUpdate, CanUpdateKeyed, KeyedUpdate, UpdateError};
+    use crate::util::{
+        ApplyUpdate, BoundedKeyValue, CanUpdate, CanUpdateKeyed, KeyedUpdate, UpdateError,
+    };
 
     use super::{AddOrRemoveOrModify, MultiTargetUpdate, ValidateUpdate};
 
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    struct S(BoundedBTreeMap<String, u8, ConstU32<5>>);
+
+    crate::impl_wrapper!(S(BoundedBTreeMap<String, u8, ConstU32<5>>));
+
+    struct CanAddAndReplace;
+    impl CanUpdateKeyed<S> for CanAddAndReplace {
+        fn can_update_keyed<U: crate::util::KeyedUpdate<S>>(
+            &self,
+            _entity: &S,
+            _update: &U,
+        ) -> bool {
+            true
+        }
+    }
+
+    impl CanUpdate<u8> for CanAddAndReplace {
+        fn can_add(&self, _new: &u8) -> bool {
+            true
+        }
+
+        fn can_remove(&self, _entity: &u8) -> bool {
+            false
+        }
+
+        fn can_replace(&self, _new: &u8, _current: &u8) -> bool {
+            true
+        }
+    }
+
+    struct CanDoEverything;
+    impl CanUpdateKeyed<S> for CanDoEverything {
+        fn can_update_keyed<U: crate::util::KeyedUpdate<S>>(
+            &self,
+            _entity: &S,
+            _update: &U,
+        ) -> bool {
+            true
+        }
+    }
+
+    impl CanUpdate<u8> for CanDoEverything {
+        fn can_add(&self, _new: &u8) -> bool {
+            true
+        }
+
+        fn can_remove(&self, _entity: &u8) -> bool {
+            true
+        }
+
+        fn can_replace(&self, _new: &u8, _current: &u8) -> bool {
+            true
+        }
+    }
+
     #[test]
-    fn nested_update() {
+    fn trivial_nested_update() {
         let update = MultiTargetUpdate::from_iter([
             ("1".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
             ("2".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
         ]);
 
-        #[derive(Clone, PartialEq, Eq, Debug)]
-        struct S(BoundedBTreeMap<String, u8, ConstU32<5>>);
-
-        crate::impl_wrapper!(S(BoundedBTreeMap<String, u8, ConstU32<5>>));
-
         let mut entity = S(BoundedBTreeMap::new());
         entity.try_insert("3".to_string(), 4).unwrap();
-
-        struct A;
-        impl CanUpdateKeyed<S> for A {
-            fn can_update_keyed<U: crate::util::KeyedUpdate<S>>(
-                &self,
-                _entity: &S,
-                _update: &U,
-            ) -> bool {
-                true
-            }
-        }
-
-        impl CanUpdate<u8> for A {
-            fn can_add(&self, _new: &u8) -> bool {
-                true
-            }
-
-            fn can_remove(&self, _entity: &u8) -> bool {
-                false
-            }
-
-            fn can_replace(&self, _new: &u8, _current: &u8) -> bool {
-                true
-            }
-        }
 
         assert_eq!(
             update.targets(&entity).collect::<Vec<_>>(),
@@ -596,7 +623,7 @@ mod tests {
         assert_eq!(update.keys_diff(&entity), Default::default());
 
         assert_eq!(
-            update.ensure_valid(&A, &entity),
+            update.ensure_valid(&CanAddAndReplace, &entity),
             Err(UpdateError::DoesntExist)
         );
 
@@ -604,7 +631,7 @@ mod tests {
             MultiTargetUpdate::from_iter([("3".to_string(), AddOrRemoveOrModify::Remove::<_, ()>)]);
 
         assert_eq!(
-            update.ensure_valid(&A, &entity),
+            update.ensure_valid(&CanAddAndReplace, &entity),
             Err(UpdateError::InvalidActor)
         );
 
@@ -617,5 +644,50 @@ mod tests {
         entity.try_insert("2".to_string(), 1).unwrap();
 
         assert_eq!(cloned_entity, entity);
+    }
+
+    #[test]
+    fn update_exceeding_capacity() {
+        let update: MultiTargetUpdate<String, AddOrRemoveOrModify<u8>> =
+            MultiTargetUpdate::from_iter([
+                ("2".to_string(), AddOrRemoveOrModify::Add(2)),
+                ("4".to_string(), AddOrRemoveOrModify::Add(4)),
+                ("6".to_string(), AddOrRemoveOrModify::Add(6)),
+                ("8".to_string(), AddOrRemoveOrModify::Add(8)),
+                ("10".to_string(), AddOrRemoveOrModify::Add(10)),
+                ("1".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
+                ("3".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
+                ("5".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
+                ("7".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
+            ]);
+
+        let mut entity = S(BoundedBTreeMap::new());
+        entity.try_insert("1".to_string(), 1).unwrap();
+        entity.try_insert("3".to_string(), 3).unwrap();
+        entity.try_insert("5".to_string(), 5).unwrap();
+        entity.try_insert("7".to_string(), 7).unwrap();
+
+        entity.try_insert("11".to_string(), 11).unwrap();
+        entity.try_insert("9".to_string(), 9).unwrap_err();
+
+        assert_eq!(
+            update.ensure_valid(&CanDoEverything, &entity),
+            Err(UpdateError::CapacityOverflow)
+        );
+
+        entity.take("11".to_string()).unwrap();
+
+        assert_eq!(update.ensure_valid(&CanDoEverything, &entity), Ok(()));
+
+        update.apply_update(&mut entity);
+
+        let mut new_entity = S(BoundedBTreeMap::new());
+        new_entity.try_insert("2".to_string(), 2).unwrap();
+        new_entity.try_insert("4".to_string(), 4).unwrap();
+        new_entity.try_insert("6".to_string(), 6).unwrap();
+        new_entity.try_insert("8".to_string(), 8).unwrap();
+        new_entity.try_insert("10".to_string(), 10).unwrap();
+
+        assert_eq!(new_entity, entity);
     }
 }
