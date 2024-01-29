@@ -46,7 +46,6 @@ pub mod tests;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
-    use alloc::collections::BTreeMap;
     use frame_support::{pallet_prelude::*, Blake2_128Concat, Identity};
     use frame_system::pallet_prelude::*;
 
@@ -172,7 +171,7 @@ pub mod pallet {
 
     #[pallet::genesis_config]
     pub struct GenesisConfig<T: Config> {
-        pub dids: BTreeMap<Did, DidKey>,
+        pub dids: Vec<(Did, DidKey)>,
         pub _marker: PhantomData<T>,
     }
 
@@ -190,7 +189,7 @@ pub mod pallet {
     impl<T: Config> GenesisBuild<T> for GenesisConfig<T> {
         fn build(&self) {
             debug_assert!({
-                let dedup: BTreeSet<&Did> = self.dids.keys().collect();
+                let dedup: BTreeSet<&Did> = self.dids.iter().map(|(did, _)| did).collect();
                 self.dids.len() == dedup.len()
             });
             debug_assert!({ self.dids.iter().all(|(_, key)| key.can_control()) });

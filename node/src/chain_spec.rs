@@ -810,7 +810,7 @@ struct GenesisBuilder {
     )>,
     endowed_accounts: Vec<AccountId>,
     master: Membership<()>,
-    dids: BTreeMap<Did, DidKey>,
+    dids: Vec<(Did, DidKey)>,
     sudo: AccountId,
     council_members: Vec<AccountId>,
     technical_committee_members: Vec<AccountId>,
