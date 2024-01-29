@@ -46,6 +46,7 @@ pub mod pallet {
         /// High rate percentage by which remaining emission supply decreases. Only used during `PostUpgradeHighRateDuration`.
         type HighRateRewardDecayPct: Get<Percent>;
         /// The percentage of rewards going to treasury
+        #[pallet::constant]
         type TreasuryRewardsPct: Get<Percent>;
         /// The NPoS reward curve where the first 2 points (of `points` field) correspond to the lowest
         ///and highest inflation and the subsequent points correspond to decreasing inflation
@@ -86,7 +87,7 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
-        /// Enable/disable emission rewards by calling this function true or false respectively.
+        /// Enable/disable emission rewards by calling this function with true or false respectively.
         #[pallet::weight(T::DbWeight::get().writes(1))]
         pub fn set_emission_status(
             origin: OriginFor<T>,
