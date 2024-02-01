@@ -54,7 +54,7 @@ pub struct AddSchemaMetadata<T: TypesAndLimits> {
 #[scale_info(omit_prefix)]
 pub struct UpdateSchemaMetadata<T: TypesAndLimits> {
     pub registry_id: TrustRegistryId,
-    pub schemas: BTreeMap<TrustRegistrySchemaId, TrustRegistrySchemaMetadataUpdate<T>>,
+    pub schemas: BTreeMap<TrustRegistrySchemaId, SchemaMetadataModification<T>>,
     pub nonce: T::BlockNumber,
 }
 

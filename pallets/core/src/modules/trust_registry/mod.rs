@@ -4,7 +4,7 @@ use crate::{
     common::ForSigType,
     deposit_indexed_event,
     did::{self, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, ActionWrapper, BoundedKeyValue, SetOrModify},
+    util::{ActionWithNonce, ActionWrapper, AddOrRemoveOrModify, BoundedKeyValue, SetOrModify, OnlyExistent},
 };
 use frame_support::{pallet_prelude::*, weights::PostDispatchInfo};
 
@@ -166,21 +166,6 @@ pub mod pallet {
                 .execute(ActionWrapper::wrap_fn(Self::init_or_update_trust_registry_))
         }
 
-        /// Adds a new schema metadata entry (entries).
-        /// The DID signature signer must be the `Convener` owning this Trust Registry.
-        #[pallet::weight(SubstrateWeight::<T>::add_schema_metadata(add_schema_metadata, signature))]
-        pub fn add_schema_metadata(
-            origin: OriginFor<T>,
-            add_schema_metadata: AddSchemaMetadata<T>,
-            signature: DidOrDidMethodKeySignature<Convener>,
-        ) -> DispatchResult {
-            ensure_signed(origin)?;
-
-            add_schema_metadata
-                .signed(signature)
-                .execute_readonly(Self::add_schema_metadata_)
-        }
-
         /// Updates the schema metadata entry (entries) with the supplied identifier(s).
         /// - `Convener` DID owning registry with the provided identifier can make any modifications.
         /// - `Issuer` DID can only modify his verification prices and remove himself from the `issuers` map.
@@ -286,20 +271,28 @@ impl<T: Config> SubstrateWeight<T> {
     ) -> Weight {
         let issuers_len = schemas
             .values()
-            .map(|schema| {
-                schema.issuers.as_ref().map_or(0, |v| match v {
-                    SetOrModify::Set(v) => v.capacity(),
-                    SetOrModify::Modify(map) => map.len() as u32,
-                })
+            .map(|schema_update| match schema_update {
+                AddOrRemoveOrModify::Add(schema) => schema.issuers.len() as u32,
+                AddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
+                    update.issuers.as_ref().map_or(0, |v| match v {
+                        SetOrModify::Set(v) => v.capacity(), // TODO: fix
+                        SetOrModify::Modify(map) => map.len() as u32,
+                    })
+                }
+                AddOrRemoveOrModify::Remove => Default::default(),
             })
             .sum();
         let verifiers_len = schemas
             .values()
-            .map(|schema| {
-                schema.verifiers.as_ref().map_or(0, |v| match v {
-                    SetOrModify::Set(v) => v.capacity(),
-                    SetOrModify::Modify(map) => map.len() as u32,
-                })
+            .map(|schema_update| match schema_update {
+                AddOrRemoveOrModify::Add(schema) => schema.verifiers.len() as u32,
+                AddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
+                    update.verifiers.as_ref().map_or(0, |v| match v {
+                        SetOrModify::Set(v) => v.capacity(), // TODO: fix
+                        SetOrModify::Modify(map) => map.len() as u32,
+                    })
+                }
+                AddOrRemoveOrModify::Remove => Default::default(),
             })
             .sum();
         let schemas_len = schemas.len() as u32;

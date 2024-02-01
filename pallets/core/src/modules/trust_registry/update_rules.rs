@@ -269,3 +269,19 @@ impl<T: Limits> CanUpdate<SchemaVerifiers<T>> for Convener {
         true
     }
 }
+
+impl<T: Limits> CanUpdate<TrustRegistrySchemaMetadata<T>> for Convener {
+    fn can_add(&self, _entity: &TrustRegistrySchemaMetadata<T>) -> bool {
+        true
+    }
+
+    fn can_remove(&self, _entity: &TrustRegistrySchemaMetadata<T>) -> bool {
+        true
+    }
+
+    fn can_replace(&self, _new: &TrustRegistrySchemaMetadata<T>, _entity: &TrustRegistrySchemaMetadata<T>) -> bool {
+        true
+    }
+}
+
+impl<T: Limits> CanUpdate<TrustRegistrySchemaMetadata<T>> for IssuerOrVerifier {}

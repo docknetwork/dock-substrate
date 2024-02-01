@@ -9,7 +9,7 @@ use crate::{
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::fmt::Debug;
+use core::{fmt::Debug, ops::Add};
 use frame_support::*;
 use sp_std::prelude::*;
 use utils::BoundedString;
@@ -296,6 +296,33 @@ pub struct TrustRegistrySchemaMetadata<T: Limits> {
     pub verifiers: SchemaVerifiers<T>,
 }
 
+pub type MultiSchemaUpdate<Key, Update = AddOrRemoveOrModify<()>> =
+    MultiTargetUpdate<Key, MultiTargetUpdate<TrustRegistrySchemaId, Update>>;
+
+impl<T: Limits> TrustRegistrySchemaMetadata<T> {
+    fn record_inner_issuers_and_verifiers_diff<V: Clone>(
+        &self,
+        schema_id: TrustRegistrySchemaId,
+        issuers: &mut MultiTargetUpdate<Issuer, MultiTargetUpdate<TrustRegistrySchemaId, V>>,
+        verifiers: &mut MultiTargetUpdate<Verifier, MultiTargetUpdate<TrustRegistrySchemaId, V>>,
+        value: V,
+    ) {
+        for issuer in self.issuers.keys().cloned() {
+            issuers
+                .entry(issuer)
+                .or_default()
+                .insert(schema_id.clone(), value.clone());
+        }
+
+        for verifier in self.verifiers.iter().cloned() {
+            verifiers
+                .entry(verifier)
+                .or_default()
+                .insert(schema_id.clone(), value.clone());
+        }
+    }
+}
+
 /// `Trust Registry` schema metadata.
 #[derive(
     Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
@@ -473,6 +500,63 @@ pub type IssuersUpdate<T> = SetOrModify<
 pub struct TrustRegistrySchemaMetadataUpdate<T: Limits> {
     pub issuers: Option<IssuersUpdate<T>>,
     pub verifiers: Option<VerifiersUpdate<T>>,
+}
+
+impl<T: Limits> TrustRegistrySchemaMetadataUpdate<T> {
+    fn record_inner_issuers_and_verifiers_diff(
+        &self,
+        entity: &TrustRegistrySchemaMetadata<T>,
+        schema_id: TrustRegistrySchemaId,
+        issuers: &mut MultiSchemaUpdate<Issuer>,
+        verifiers: &mut MultiSchemaUpdate<Verifier>,
+    ) {
+        if let Some(verifiers_update) = self.verifiers.as_ref() {
+            verifiers_update.record_inner_keys_diff(&entity.verifiers, schema_id, verifiers)
+        }
+
+        if let Some(issuers_update) = self.issuers.as_ref() {
+            issuers_update.record_inner_keys_diff(&entity.issuers, schema_id, issuers)
+        }
+    }
+}
+
+pub type SchemaMetadataModification<T> = AddOrRemoveOrModify<
+    TrustRegistrySchemaMetadata<T>,
+    OnlyExistent<TrustRegistrySchemaMetadataUpdate<T>>,
+>;
+
+impl<T: Limits> SchemaMetadataModification<T> {
+    pub(super) fn record_inner_issuers_and_verifiers_diff(
+        &self,
+        entity: &Option<TrustRegistrySchemaMetadata<T>>,
+        schema_id: TrustRegistrySchemaId,
+        issuers: &mut MultiSchemaUpdate<Issuer>,
+        verifiers: &mut MultiSchemaUpdate<Verifier>,
+    ) {
+        match self {
+            Self::Add(new) => new.record_inner_issuers_and_verifiers_diff(
+                schema_id,
+                issuers,
+                verifiers,
+                AddOrRemoveOrModify::Add(()),
+            ),
+            Self::Remove => entity
+                .as_ref()
+                .expect("An entity expected")
+                .record_inner_issuers_and_verifiers_diff(
+                    schema_id,
+                    issuers,
+                    verifiers,
+                    AddOrRemoveOrModify::Remove,
+                ),
+            Self::Modify(update) => update.0.record_inner_issuers_and_verifiers_diff(
+                entity.as_ref().expect("An entity expected"),
+                schema_id,
+                issuers,
+                verifiers,
+            ),
+        }
+    }
 }
 
 /// Unique identifier for the `Trust Registry`.

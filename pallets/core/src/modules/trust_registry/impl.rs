@@ -5,9 +5,6 @@ use crate::util::{
 
 use super::*;
 
-type MultiSchemaUpdate<Key> =
-    MultiTargetUpdate<Key, MultiTargetUpdate<TrustRegistrySchemaId, AddOrRemoveOrModify<()>>>;
-
 impl<T: Config> Pallet<T> {
     pub(super) fn init_or_update_trust_registry_(
         InitOrUpdateTrustRegistry {
@@ -40,54 +37,6 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
-    pub(super) fn add_schema_metadata_(
-        AddSchemaMetadata {
-            registry_id,
-            schemas,
-            ..
-        }: AddSchemaMetadata<T>,
-        registry_info: TrustRegistryInfo<T>,
-        convener: Convener,
-    ) -> DispatchResult {
-        convener.ensure_controls::<T>(&registry_info)?;
-
-        for schema_id in schemas.keys() {
-            ensure!(
-                !TrustRegistrySchemasMetadata::<T>::contains_key(schema_id, registry_id),
-                Error::<T>::SchemaMetadataAlreadyExists
-            );
-        }
-
-        Self::try_update_verifiers_and_issuers_with(registry_id, |verifiers, issuers| {
-            for (schema_id, schema_metadata) in &schemas {
-                // `issuers` would be a map as `issuer_id` -> `schema_id`s
-                for issuer in schema_metadata.issuers.keys() {
-                    issuers
-                        .entry(*issuer)
-                        .or_default()
-                        .insert(*schema_id, AddOrRemoveOrModify::Add(()));
-                }
-                // `verifiers` would be a map as `verifier_id` -> `schema_id`s
-                for verifier in schema_metadata.verifiers.iter() {
-                    verifiers
-                        .entry(*verifier)
-                        .or_default()
-                        .insert(*schema_id, AddOrRemoveOrModify::Add(()));
-                }
-            }
-            Ok(())
-        })?;
-
-        for (schema_id, schema_metadata) in schemas {
-            Self::deposit_event(Event::SchemaMetadataAdded(registry_id, schema_id));
-
-            TrustRegistrySchemasMetadata::<T>::insert(schema_id, registry_id, schema_metadata);
-            TrustRegistryStoredSchemas::<T>::insert(registry_id, schema_id, ());
-        }
-
-        Ok(())
-    }
-
     pub(super) fn update_schema_metadata_(
         UpdateSchemaMetadata {
             registry_id,
@@ -101,8 +50,7 @@ impl<T: Config> Pallet<T> {
             Self::try_update_verifiers_and_issuers_with(registry_id, |verifiers, issuers| {
                 for (schema_id, update) in &schemas {
                     let schema_metadata =
-                        TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)
-                            .ok_or(Error::<T>::SchemaMetadataDoesntExist)?;
+                        TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id);
 
                     if let Ok(_) = Convener(*actor).ensure_controls(&registry_info) {
                         update.ensure_valid(&Convener(*actor), &schema_metadata)?;
@@ -110,21 +58,12 @@ impl<T: Config> Pallet<T> {
                         update.ensure_valid(&IssuerOrVerifier(*actor), &schema_metadata)?;
                     }
 
-                    if let Some(verifiers_update) = update.verifiers.as_ref() {
-                        verifiers_update.record_inner_keys_diff(
-                            &schema_metadata.verifiers,
-                            *schema_id,
-                            verifiers,
-                        )
-                    }
-
-                    if let Some(issuers_update) = update.issuers.as_ref() {
-                        issuers_update.record_inner_keys_diff(
-                            &schema_metadata.issuers,
-                            *schema_id,
-                            issuers,
-                        )
-                    }
+                    update.record_inner_issuers_and_verifiers_diff(
+                        &schema_metadata,
+                        *schema_id,
+                        issuers,
+                        verifiers,
+                    )
                 }
 
                 Ok((verifiers.len(), issuers.len()))
@@ -133,11 +72,19 @@ impl<T: Config> Pallet<T> {
         let schemas_len = schemas.len();
 
         for (schema_id, update) in schemas {
-            Self::deposit_event(Event::SchemaMetadataUpdated(registry_id, schema_id));
+            TrustRegistrySchemasMetadata::<T>::mutate_exists(
+                schema_id,
+                registry_id,
+                |schema_metadata| {
+                    if schema_metadata.is_some() {
+                        Self::deposit_event(Event::SchemaMetadataUpdated(registry_id, schema_id));
+                    } else {
+                        Self::deposit_event(Event::SchemaMetadataAdded(registry_id, schema_id));
+                    }
 
-            TrustRegistrySchemasMetadata::<T>::mutate(schema_id, registry_id, |schema_metadata| {
-                update.apply_update(schema_metadata.as_mut().unwrap())
-            });
+                    update.apply_update(schema_metadata)
+                },
+            );
         }
 
         Ok((verifiers_len as u32, issuers_len as u32, schemas_len as u32))
@@ -242,12 +189,15 @@ impl<T: Config> Pallet<T> {
     pub fn schema_metadata_by_registry_id(
         registry_id: TrustRegistryId,
     ) -> impl Iterator<Item = (TrustRegistrySchemaId, TrustRegistrySchemaMetadata<T>)> {
-        TrustRegistryStoredSchemas::<T>::iter_prefix(registry_id).map(move |(schema_id, ())| {
-            (
-                schema_id,
-                TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id).unwrap(),
-            )
-        })
+        TrustRegistryStoredSchemas::<T>::iter_prefix(registry_id).filter_map(
+            move |(schema_id, ())| {
+                (
+                    schema_id,
+                    TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)?,
+                )
+                    .into()
+            },
+        )
     }
 
     /// Set `schema_id`s corresponding to each issuer and verifier of trust registry with given id.
