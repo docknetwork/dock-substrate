@@ -9,7 +9,7 @@ use crate::{
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::{fmt::Debug, ops::Add};
+use core::fmt::Debug;
 use frame_support::*;
 use sp_std::prelude::*;
 use utils::BoundedString;
@@ -473,15 +473,12 @@ pub type IssuersUpdate<T> = SetOrModify<
     SchemaIssuers<T>,
     MultiTargetUpdate<
         Issuer,
-        SetOrModify<
+        SetOrAddOrRemoveOrModify<
             VerificationPrices<T>,
-            AddOrRemoveOrModify<
-                VerificationPrices<T>,
-                OnlyExistent<
-                    MultiTargetUpdate<
-                        BoundedString<<T as Limits>::MaxIssuerPriceCurrencySymbolSize>,
-                        SetOrModify<Price, AddOrRemoveOrModify<Price>>,
-                    >,
+            OnlyExistent<
+                MultiTargetUpdate<
+                    BoundedString<<T as Limits>::MaxIssuerPriceCurrencySymbolSize>,
+                    SetOrAddOrRemoveOrModify<Price>,
                 >,
             >,
         >,
@@ -520,7 +517,7 @@ impl<T: Limits> TrustRegistrySchemaMetadataUpdate<T> {
     }
 }
 
-pub type SchemaMetadataModification<T> = AddOrRemoveOrModify<
+pub type SchemaMetadataModification<T> = SetOrAddOrRemoveOrModify<
     TrustRegistrySchemaMetadata<T>,
     OnlyExistent<TrustRegistrySchemaMetadataUpdate<T>>,
 >;
@@ -549,7 +546,24 @@ impl<T: Limits> SchemaMetadataModification<T> {
                     verifiers,
                     AddOrRemoveOrModify::Remove,
                 ),
-            Self::Modify(update) => update.0.record_inner_issuers_and_verifiers_diff(
+            Self::Set(new) => {
+                new.record_inner_issuers_and_verifiers_diff(
+                    schema_id,
+                    issuers,
+                    verifiers,
+                    AddOrRemoveOrModify::Add(()),
+                );
+
+                if let Some(old) = entity {
+                    old.record_inner_issuers_and_verifiers_diff(
+                        schema_id,
+                        issuers,
+                        verifiers,
+                        AddOrRemoveOrModify::Remove,
+                    );
+                }
+            }
+            Self::Modify(OnlyExistent(update)) => update.record_inner_issuers_and_verifiers_diff(
                 entity.as_ref().expect("An entity expected"),
                 schema_id,
                 issuers,

@@ -34,9 +34,9 @@ pub trait WeightInfo {
     fn add_schema_metadata_sr25519(i: u32, v: u32, s: u32) -> Weight;
     fn add_schema_metadata_ed25519(i: u32, v: u32, s: u32) -> Weight;
     fn add_schema_metadata_secp256k1(i: u32, v: u32, s: u32) -> Weight;
-    fn update_schema_metadata_sr25519(i: u32, v: u32, s: u32) -> Weight;
-    fn update_schema_metadata_ed25519(i: u32, v: u32, s: u32) -> Weight;
-    fn update_schema_metadata_secp256k1(i: u32, v: u32, s: u32) -> Weight;
+    fn set_schemas_metadata_sr25519(i: u32, v: u32, s: u32) -> Weight;
+    fn set_schemas_metadata_ed25519(i: u32, v: u32, s: u32) -> Weight;
+    fn set_schemas_metadata_secp256k1(i: u32, v: u32, s: u32) -> Weight;
     fn update_delegated_issuers_sr25519(i: u32) -> Weight;
     fn update_delegated_issuers_ed25519(i: u32) -> Weight;
     fn update_delegated_issuers_secp256k1(i: u32) -> Weight;
@@ -109,7 +109,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
             .saturating_add(T::DbWeight::get().writes(1_u64.saturating_mul(v as u64)))
             .saturating_add(T::DbWeight::get().writes(2_u64.saturating_mul(s as u64)))
     }
-    fn update_schema_metadata_sr25519(i: u32, v: u32, s: u32) -> Weight {
+    fn set_schemas_metadata_sr25519(i: u32, v: u32, s: u32) -> Weight {
         Weight::from_ref_time(487_656_000) // Standard Error: 98_000
             .saturating_add(Weight::from_ref_time(5_448_000).saturating_mul(v as u64)) // Standard Error: 513_000
             .saturating_add(Weight::from_ref_time(301_780_000).saturating_mul(s as u64))
@@ -122,7 +122,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
             .saturating_add(T::DbWeight::get().writes(1_u64.saturating_mul(v as u64)))
             .saturating_add(T::DbWeight::get().writes(1_u64.saturating_mul(s as u64)))
     }
-    fn update_schema_metadata_ed25519(i: u32, v: u32, s: u32) -> Weight {
+    fn set_schemas_metadata_ed25519(i: u32, v: u32, s: u32) -> Weight {
         Weight::from_ref_time(754_704_000) // Standard Error: 196_000
             .saturating_add(Weight::from_ref_time(4_864_000).saturating_mul(v as u64)) // Standard Error: 1_027_000
             .saturating_add(Weight::from_ref_time(286_870_000).saturating_mul(s as u64))
@@ -135,7 +135,7 @@ impl<T: frame_system::Config> WeightInfo for SubstrateWeight<T> {
             .saturating_add(T::DbWeight::get().writes(1_u64.saturating_mul(v as u64)))
             .saturating_add(T::DbWeight::get().writes(1_u64.saturating_mul(s as u64)))
     }
-    fn update_schema_metadata_secp256k1(i: u32, v: u32, s: u32) -> Weight {
+    fn set_schemas_metadata_secp256k1(i: u32, v: u32, s: u32) -> Weight {
         Weight::from_ref_time(492_705_000) // Standard Error: 230_000
             .saturating_add(Weight::from_ref_time(8_280_000).saturating_mul(v as u64)) // Standard Error: 1_206_000
             .saturating_add(Weight::from_ref_time(298_766_000).saturating_mul(s as u64))
@@ -276,7 +276,7 @@ impl WeightInfo for () {
             .saturating_add(RocksDbWeight::get().writes(1_u64.saturating_mul(v as u64)))
             .saturating_add(RocksDbWeight::get().writes(2_u64.saturating_mul(s as u64)))
     }
-    fn update_schema_metadata_sr25519(i: u32, v: u32, s: u32) -> Weight {
+    fn set_schemas_metadata_sr25519(i: u32, v: u32, s: u32) -> Weight {
         Weight::from_ref_time(487_656_000) // Standard Error: 98_000
             .saturating_add(Weight::from_ref_time(5_448_000).saturating_mul(v as u64)) // Standard Error: 513_000
             .saturating_add(Weight::from_ref_time(301_780_000).saturating_mul(s as u64))
@@ -289,7 +289,7 @@ impl WeightInfo for () {
             .saturating_add(RocksDbWeight::get().writes(1_u64.saturating_mul(v as u64)))
             .saturating_add(RocksDbWeight::get().writes(1_u64.saturating_mul(s as u64)))
     }
-    fn update_schema_metadata_ed25519(i: u32, v: u32, s: u32) -> Weight {
+    fn set_schemas_metadata_ed25519(i: u32, v: u32, s: u32) -> Weight {
         Weight::from_ref_time(754_704_000) // Standard Error: 196_000
             .saturating_add(Weight::from_ref_time(4_864_000).saturating_mul(v as u64)) // Standard Error: 1_027_000
             .saturating_add(Weight::from_ref_time(286_870_000).saturating_mul(s as u64))
@@ -302,7 +302,7 @@ impl WeightInfo for () {
             .saturating_add(RocksDbWeight::get().writes(1_u64.saturating_mul(v as u64)))
             .saturating_add(RocksDbWeight::get().writes(1_u64.saturating_mul(s as u64)))
     }
-    fn update_schema_metadata_secp256k1(i: u32, v: u32, s: u32) -> Weight {
+    fn set_schemas_metadata_secp256k1(i: u32, v: u32, s: u32) -> Weight {
         Weight::from_ref_time(492_705_000) // Standard Error: 230_000
             .saturating_add(Weight::from_ref_time(8_280_000).saturating_mul(v as u64)) // Standard Error: 1_206_000
             .saturating_add(Weight::from_ref_time(298_766_000).saturating_mul(s as u64))

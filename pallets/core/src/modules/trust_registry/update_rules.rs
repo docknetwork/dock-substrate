@@ -4,12 +4,10 @@ use crate::{common::Limits, util::batch_update::*};
 impl<T: Limits> ApplyUpdate<TrustRegistrySchemaMetadata<T>>
     for TrustRegistrySchemaMetadataUpdate<T>
 {
-    type Output<'output> = () where TrustRegistrySchemaMetadata<T>: 'output;
-
     fn apply_update(
         self,
         TrustRegistrySchemaMetadata { issuers, verifiers }: &mut TrustRegistrySchemaMetadata<T>,
-    ) -> Self::Output<'_> {
+    ) {
         let Self {
             issuers: issuers_update,
             verifiers: verifiers_update,
@@ -279,7 +277,11 @@ impl<T: Limits> CanUpdate<TrustRegistrySchemaMetadata<T>> for Convener {
         true
     }
 
-    fn can_replace(&self, _new: &TrustRegistrySchemaMetadata<T>, _entity: &TrustRegistrySchemaMetadata<T>) -> bool {
+    fn can_replace(
+        &self,
+        _new: &TrustRegistrySchemaMetadata<T>,
+        _entity: &TrustRegistrySchemaMetadata<T>,
+    ) -> bool {
         true
     }
 }

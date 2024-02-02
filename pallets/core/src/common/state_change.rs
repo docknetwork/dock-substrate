@@ -37,8 +37,7 @@ crate::def_state_change! {
         status_list_credential::UpdateStatusListCredential,
         status_list_credential::RemoveStatusListCredential,
         trust_registry::InitOrUpdateTrustRegistry,
-        trust_registry::AddSchemaMetadata,
-        trust_registry::UpdateSchemaMetadata,
+        trust_registry::SetSchemasMetadata,
         trust_registry::UpdateDelegatedIssuers,
         trust_registry::SuspendIssuers,
         trust_registry::UnsuspendIssuers
