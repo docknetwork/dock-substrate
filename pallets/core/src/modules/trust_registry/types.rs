@@ -300,26 +300,24 @@ pub type MultiSchemaUpdate<Key, Update = AddOrRemoveOrModify<()>> =
     MultiTargetUpdate<Key, MultiTargetUpdate<TrustRegistrySchemaId, Update>>;
 
 impl<T: Limits> TrustRegistrySchemaMetadata<T> {
-    fn record_inner_issuers_and_verifiers_diff<V: Clone>(
+    fn record_inner_issuers_and_verifiers_diff<F, U>(
         &self,
-        schema_id: TrustRegistrySchemaId,
-        issuers: &mut MultiTargetUpdate<Issuer, MultiTargetUpdate<TrustRegistrySchemaId, V>>,
-        verifiers: &mut MultiTargetUpdate<Verifier, MultiTargetUpdate<TrustRegistrySchemaId, V>>,
-        value: V,
-    ) {
+        issuers: &mut MultiSchemaUpdate<Issuer, U>,
+        verifiers: &mut MultiSchemaUpdate<Verifier, U>,
+        mut record_update: F,
+    ) -> Result<(), DuplicateKey>
+    where
+        F: FnMut(&mut MultiTargetUpdate<TrustRegistrySchemaId, U>) -> Result<(), DuplicateKey>,
+    {
         for issuer in self.issuers.keys().cloned() {
-            issuers
-                .entry(issuer)
-                .or_default()
-                .insert(schema_id.clone(), value.clone());
+            record_update(issuers.entry(issuer).or_default())?;
         }
 
         for verifier in self.verifiers.iter().cloned() {
-            verifiers
-                .entry(verifier)
-                .or_default()
-                .insert(schema_id.clone(), value.clone());
+            record_update(verifiers.entry(verifier).or_default())?;
         }
+
+        Ok(())
     }
 }
 
@@ -506,14 +504,16 @@ impl<T: Limits> TrustRegistrySchemaMetadataUpdate<T> {
         schema_id: TrustRegistrySchemaId,
         issuers: &mut MultiSchemaUpdate<Issuer>,
         verifiers: &mut MultiSchemaUpdate<Verifier>,
-    ) {
+    ) -> Result<(), DuplicateKey> {
         if let Some(verifiers_update) = self.verifiers.as_ref() {
-            verifiers_update.record_inner_keys_diff(&entity.verifiers, schema_id, verifiers)
+            verifiers_update.record_inner_keys_diff(&entity.verifiers, schema_id, verifiers)?
         }
 
         if let Some(issuers_update) = self.issuers.as_ref() {
-            issuers_update.record_inner_keys_diff(&entity.issuers, schema_id, issuers)
+            issuers_update.record_inner_keys_diff(&entity.issuers, schema_id, issuers)?
         }
+
+        Ok(())
     }
 }
 
@@ -529,39 +529,51 @@ impl<T: Limits> SchemaMetadataModification<T> {
         schema_id: TrustRegistrySchemaId,
         issuers: &mut MultiSchemaUpdate<Issuer>,
         verifiers: &mut MultiSchemaUpdate<Verifier>,
-    ) {
+    ) -> Result<(), DuplicateKey> {
         match self {
             Self::Add(new) => new.record_inner_issuers_and_verifiers_diff(
-                schema_id,
                 issuers,
                 verifiers,
-                AddOrRemoveOrModify::Add(()),
+                MultiTargetUpdate::bind_modifier(
+                    MultiTargetUpdate::insert_update,
+                    schema_id,
+                    AddOrRemoveOrModify::Add(()),
+                ),
             ),
             Self::Remove => entity
                 .as_ref()
                 .expect("An entity expected")
                 .record_inner_issuers_and_verifiers_diff(
-                    schema_id,
                     issuers,
                     verifiers,
-                    AddOrRemoveOrModify::Remove,
+                    MultiTargetUpdate::bind_modifier(
+                        MultiTargetUpdate::insert_update,
+                        schema_id,
+                        AddOrRemoveOrModify::Remove,
+                    ),
                 ),
             Self::Set(new) => {
-                new.record_inner_issuers_and_verifiers_diff(
-                    schema_id,
-                    issuers,
-                    verifiers,
-                    AddOrRemoveOrModify::Add(()),
-                );
-
                 if let Some(old) = entity {
                     old.record_inner_issuers_and_verifiers_diff(
-                        schema_id,
                         issuers,
                         verifiers,
-                        AddOrRemoveOrModify::Remove,
-                    );
+                        MultiTargetUpdate::bind_modifier(
+                            MultiTargetUpdate::insert_update,
+                            schema_id,
+                            AddOrRemoveOrModify::Remove,
+                        ),
+                    )?;
                 }
+
+                new.record_inner_issuers_and_verifiers_diff(
+                    issuers,
+                    verifiers,
+                    MultiTargetUpdate::bind_modifier(
+                        MultiTargetUpdate::insert_update_or_remove_duplicate,
+                        schema_id,
+                        AddOrRemoveOrModify::Add(()),
+                    ),
+                )
             }
             Self::Modify(OnlyExistent(update)) => update.record_inner_issuers_and_verifiers_diff(
                 entity.as_ref().expect("An entity expected"),

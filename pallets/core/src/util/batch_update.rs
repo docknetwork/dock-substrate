@@ -124,12 +124,22 @@ where
             <Entity::Target as BoundedKeyValue>::Key,
             MultiTargetUpdate<K, AddOrRemoveOrModify<()>>,
         >,
-    ) {
+    ) -> Result<(), DuplicateKey> {
         for (key, update) in self.keys_diff(entity).0 {
             map.entry(key)
                 .or_default()
-                .insert(inner_key.clone(), update);
+                .insert_update(inner_key.clone(), update)?;
         }
+
+        Ok(())
+    }
+}
+
+pub struct DuplicateKey;
+
+impl From<DuplicateKey> for DispatchError {
+    fn from(DuplicateKey: DuplicateKey) -> Self {
+        Self::Other("Duplicate key")
     }
 }
 
@@ -146,6 +156,50 @@ where
 {
     fn from_iter<I: IntoIterator<Item = (K, U)>>(iter: I) -> Self {
         Self(FromIterator::from_iter(iter))
+    }
+}
+
+impl<K: Ord, U> MultiTargetUpdate<K, U> {
+    pub fn insert_update(&mut self, key: K, value: U) -> Result<(), DuplicateKey> {
+        match self.entry(key) {
+            btree_map::Entry::Occupied(_) => {
+                Err(DuplicateKey)?;
+            }
+            btree_map::Entry::Vacant(vacant) => {
+                vacant.insert(value);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn insert_update_or_remove_duplicate(
+        &mut self,
+        key: K,
+        value: U,
+    ) -> Result<(), DuplicateKey> {
+        match self.entry(key) {
+            btree_map::Entry::Occupied(entry) => {
+                entry.remove();
+            }
+            btree_map::Entry::Vacant(vacant) => {
+                vacant.insert(value);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn bind_modifier(
+        mut f: impl FnMut(&mut Self, K, U) -> Result<(), DuplicateKey>,
+        key: K,
+        value: U,
+    ) -> impl FnMut(&mut Self) -> Result<(), DuplicateKey>
+    where
+        K: Clone,
+        U: Clone,
+    {
+        move |map| f(map, key.clone(), value.clone())
     }
 }
 

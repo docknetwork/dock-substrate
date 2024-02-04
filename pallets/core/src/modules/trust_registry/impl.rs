@@ -62,7 +62,7 @@ impl<T: Config> Pallet<T> {
                         *schema_id,
                         issuers,
                         verifiers,
-                    )
+                    )?;
                 }
 
                 Ok((verifiers.len(), issuers.len()))
