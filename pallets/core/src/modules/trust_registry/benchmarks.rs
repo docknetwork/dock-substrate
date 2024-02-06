@@ -98,7 +98,7 @@ crate::bench_with_all_pairs! {
                                                 .map(|idx| (98 + idx + p_idx) as u8 as char)
                                                 .collect::<String>()
                                                 .try_into().unwrap(),
-                                            Price(1000)
+                                            VerificationPrice(1000)
                                         ))
                                         .collect::<BTreeMap<_, _>>()
                                         .try_into()
@@ -129,7 +129,7 @@ crate::bench_with_all_pairs! {
                                         .collect::<String>()
                                         .try_into()
                                         .unwrap(),
-                                    Price(1000)
+                                    VerificationPrice(1000)
                                 ))
                                 .collect::<BTreeMap<_, _>>()
                                 .try_into()
@@ -304,11 +304,18 @@ crate::bench_with_all_pairs! {
             TrustRegistryIssuerSchemas::<T>::insert(init_or_update_trust_registry.registry_id, issuer, IssuerSchemas(Default::default()));
         }
 
+        SuspendIssuers {
+            registry_id: TrustRegistryId(id),
+            issuers: issuers.clone().into_iter().collect(),
+            nonce: 1u32.into()
+        }.execute_readonly::<T, _, _, _, _>(|action, reg_info| Pallet::<T>::suspend_issuers_(action, reg_info, Convener(did.into()))).unwrap();
+
         let unsuspend_issuers = UnsuspendIssuers {
             registry_id: TrustRegistryId(id),
             issuers: issuers.into_iter().collect(),
             nonce: 1u32.into()
         };
+
         let sig = pair.sign(&unsuspend_issuers.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
     }: unsuspend_issuers(RawOrigin::Signed(caller), unsuspend_issuers.clone(), signature)
