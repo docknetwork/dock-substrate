@@ -242,13 +242,32 @@ pub mod pallet {
 
 impl<T: Config> SubstrateWeight<T> {
     fn init_or_update_trust_registry(
-        InitOrUpdateTrustRegistry { name, gov_framework, .. }: &InitOrUpdateTrustRegistry<T>,
+        InitOrUpdateTrustRegistry {
+            name,
+            gov_framework,
+            ..
+        }: &InitOrUpdateTrustRegistry<T>,
         signed: &DidOrDidMethodKeySignature<Convener>,
     ) -> Weight {
         signed.weight_for_sig_type::<T>(
-            || Self::init_or_update_trust_registry_sr25519(name.len() as u32, gov_framework.len() as u32),
-            || Self::init_or_update_trust_registry_ed25519(name.len() as u32, gov_framework.len() as u32),
-            || Self::init_or_update_trust_registry_secp256k1(name.len() as u32, gov_framework.len() as u32),
+            || {
+                Self::init_or_update_trust_registry_sr25519(
+                    name.len() as u32,
+                    gov_framework.len() as u32,
+                )
+            },
+            || {
+                Self::init_or_update_trust_registry_ed25519(
+                    name.len() as u32,
+                    gov_framework.len() as u32,
+                )
+            },
+            || {
+                Self::init_or_update_trust_registry_secp256k1(
+                    name.len() as u32,
+                    gov_framework.len() as u32,
+                )
+            },
         )
     }
 
