@@ -612,7 +612,7 @@ newdid =>
                     line!(),
                     vec![(
                         schema_ids[0],
-                        SchemaMetadataModification::Modify(OnlyExistent(
+                        TrustRegistrySchemaMetadataModification::Modify(OnlyExistent(
                             TrustRegistrySchemaMetadataUpdate {
                                 issuers: Some(IssuersUpdate::<Test>::Modify(
                                     MultiTargetUpdate::from_iter([(

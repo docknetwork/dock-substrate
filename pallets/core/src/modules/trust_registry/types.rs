@@ -531,12 +531,12 @@ impl<T: Limits> TrustRegistrySchemaMetadataUpdate<T> {
     }
 }
 
-pub type SchemaMetadataModification<T> = SetOrAddOrRemoveOrModify<
+pub type TrustRegistrySchemaMetadataModification<T> = SetOrAddOrRemoveOrModify<
     TrustRegistrySchemaMetadata<T>,
     OnlyExistent<TrustRegistrySchemaMetadataUpdate<T>>,
 >;
 
-impl<T: Limits> SchemaMetadataModification<T> {
+impl<T: Limits> TrustRegistrySchemaMetadataModification<T> {
     pub(super) fn record_inner_issuers_and_verifiers_diff(
         &self,
         entity: &Option<TrustRegistrySchemaMetadata<T>>,

@@ -43,7 +43,8 @@ pub struct InitOrUpdateTrustRegistry<T: TypesAndLimits> {
 #[scale_info(omit_prefix)]
 pub struct SetSchemasMetadata<T: TypesAndLimits> {
     pub registry_id: TrustRegistryId,
-    pub schemas: MultiTargetUpdate<TrustRegistrySchemaId, SchemaMetadataModification<T>>,
+    pub schemas:
+        MultiTargetUpdate<TrustRegistrySchemaId, TrustRegistrySchemaMetadataModification<T>>,
     pub nonce: T::BlockNumber,
 }
 
