@@ -147,7 +147,7 @@ pub mod pallet {
         TrustRegistryId,
         Blake2_128Concat,
         Issuer,
-        TrustRegistryIssuerConfig<T>,
+        TrustRegistryIssuerConfiguration<T>,
         ValueQuery,
     >;
 

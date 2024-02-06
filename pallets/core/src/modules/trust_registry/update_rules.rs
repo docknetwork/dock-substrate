@@ -47,7 +47,7 @@ where
     A: CanUpdateAndCanUpdateKeyed<SchemaIssuers<T>>
         + CanUpdateAndCanUpdateKeyed<SchemaVerifiers<T>>
         + CanUpdateAndCanUpdateKeyed<VerificationPrices<T>>
-        + CanUpdate<Price>,
+        + CanUpdate<VerificationPrice>,
 {
     fn ensure_valid(
         &self,
@@ -65,30 +65,30 @@ where
     }
 }
 
-impl CanUpdate<Price> for Convener {
-    fn can_add(&self, _entity: &Price) -> bool {
+impl CanUpdate<VerificationPrice> for Convener {
+    fn can_add(&self, _entity: &VerificationPrice) -> bool {
         true
     }
 
-    fn can_remove(&self, _entity: &Price) -> bool {
+    fn can_remove(&self, _entity: &VerificationPrice) -> bool {
         true
     }
 
-    fn can_replace(&self, _new: &Price, _entity: &Price) -> bool {
+    fn can_replace(&self, _new: &VerificationPrice, _entity: &VerificationPrice) -> bool {
         true
     }
 }
 
-impl CanUpdate<Price> for IssuerOrVerifier {
-    fn can_add(&self, _entity: &Price) -> bool {
+impl CanUpdate<VerificationPrice> for IssuerOrVerifier {
+    fn can_add(&self, _entity: &VerificationPrice) -> bool {
         true
     }
 
-    fn can_remove(&self, _entity: &Price) -> bool {
+    fn can_remove(&self, _entity: &VerificationPrice) -> bool {
         true
     }
 
-    fn can_replace(&self, _new: &Price, _entity: &Price) -> bool {
+    fn can_replace(&self, _new: &VerificationPrice, _entity: &VerificationPrice) -> bool {
         true
     }
 }

@@ -106,13 +106,13 @@ impl_wrapper!(ConvenerOrIssuerOrVerifier(DidOrDidMethodKey));
 impl AuthorizeTarget<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
 
-/// Price to verify a credential. Lowest denomination should be used
+/// Price to verify a credential. Lowest denomination should be used.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Price(#[codec(compact)] pub u128);
+pub struct VerificationPrice(#[codec(compact)] pub u128);
 
 /// Price of verifying a credential as per different currencies
 #[derive(
@@ -137,12 +137,12 @@ pub struct VerificationPrices<T: Limits>(
     #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
     pub  BoundedBTreeMap<
         BoundedString<T::MaxIssuerPriceCurrencySymbolSize>,
-        Price,
+        VerificationPrice,
         T::MaxPriceCurrencies,
     >,
 );
 
-impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedString<T::MaxIssuerPriceCurrencySymbolSize>, Price, T::MaxPriceCurrencies>));
+impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedString<T::MaxIssuerPriceCurrencySymbolSize>, VerificationPrice, T::MaxPriceCurrencies>));
 
 #[derive(
     Encode,
@@ -170,7 +170,14 @@ pub struct AggregatedIssuerInfo<T: Limits> {
 
 /// A map from `Issuer` to some value.
 #[derive(
-    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -197,7 +204,14 @@ pub type AggregatedSchemaIssuers<T> = IssuersWith<T, AggregatedIssuerInfo<T>>;
 
 /// Schema `Verifier`s.
 #[derive(
-    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -274,7 +288,7 @@ impl<T: Limits> DelegatedUpdate<T> {
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct TrustRegistryIssuerConfig<T: Limits> {
+pub struct TrustRegistryIssuerConfiguration<T: Limits> {
     pub suspended: bool,
     pub delegated: DelegatedIssuers<T>,
 }
@@ -351,7 +365,7 @@ impl<T: Config> TrustRegistrySchemaMetadata<T> {
                     .0
                     .into_iter()
                     .map(|(issuer, verification_prices)| {
-                        let TrustRegistryIssuerConfig {
+                        let TrustRegistryIssuerConfiguration {
                             suspended,
                             delegated,
                         } = super::TrustRegistryIssuerConfigurations::<T>::get(registry_id, issuer);
@@ -476,7 +490,7 @@ pub type IssuersUpdate<T> = SetOrModify<
             OnlyExistent<
                 MultiTargetUpdate<
                     BoundedString<<T as Limits>::MaxIssuerPriceCurrencySymbolSize>,
-                    SetOrAddOrRemoveOrModify<Price>,
+                    SetOrAddOrRemoveOrModify<VerificationPrice>,
                 >,
             >,
         >,

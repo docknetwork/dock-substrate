@@ -645,7 +645,7 @@ mod tests {
         ApplyUpdate, BoundedKeyValue, CanUpdate, CanUpdateKeyed, KeyedUpdate, UpdateError,
     };
 
-    use super::{AddOrRemoveOrModify, MultiTargetUpdate, ValidateUpdate};
+    use super::*;
 
     #[derive(Clone, PartialEq, Eq, Debug)]
     struct S(BoundedBTreeMap<String, u8, ConstU32<5>>);
@@ -672,6 +672,27 @@ mod tests {
             false
         }
 
+        fn can_replace(&self, _new: &u8, _current: &u8) -> bool {
+            true
+        }
+    }
+
+    struct CanAdd;
+    impl CanUpdate<u8> for CanAdd {
+        fn can_add(&self, _new: &u8) -> bool {
+            true
+        }
+    }
+
+    struct CanRemove;
+    impl CanUpdate<u8> for CanRemove {
+        fn can_remove(&self, _entity: &u8) -> bool {
+            true
+        }
+    }
+
+    struct CanReplace;
+    impl CanUpdate<u8> for CanReplace {
         fn can_replace(&self, _new: &u8, _current: &u8) -> bool {
             true
         }
@@ -785,5 +806,203 @@ mod tests {
         new_entity.try_insert("10".to_string(), 10).unwrap();
 
         assert_eq!(new_entity, entity);
+    }
+
+    #[test]
+    fn set_or_add_or_remove_or_modify() {
+        let mut value = Some(0);
+
+        let set = SetOrAddOrRemoveOrModify::<u8, ()>::Set(10);
+
+        assert_eq!(
+            set.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            set.ensure_valid(&CanRemove, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(set.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            set.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(set.ensure_valid(&CanAdd, &None), Ok(()));
+
+        set.apply_update(&mut value);
+        assert_eq!(value, Some(10));
+
+        let remove = SetOrAddOrRemoveOrModify::<u8, ()>::Remove;
+
+        assert_eq!(
+            remove.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            remove.ensure_valid(&CanReplace, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(remove.ensure_valid(&CanRemove, &value), Ok(()));
+        assert_eq!(
+            remove.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::DoesntExist)
+        );
+        assert_eq!(
+            remove.ensure_valid(&CanRemove, &None),
+            Err(UpdateError::DoesntExist)
+        );
+
+        remove.apply_update(&mut value);
+        assert_eq!(value, None);
+
+        let add = AddOrRemoveOrModify::<u8, ()>::Add(10);
+
+        assert_eq!(
+            add.ensure_valid(&CanAdd, &Some(5)),
+            Err(UpdateError::AlreadyExists)
+        );
+        assert_eq!(
+            add.ensure_valid(&CanReplace, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(add.ensure_valid(&CanAdd, &value), Ok(()));
+        assert_eq!(
+            add.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::InvalidActor)
+        );
+
+        add.apply_update(&mut value);
+        assert_eq!(value, Some(10));
+
+        let modify =
+            SetOrAddOrRemoveOrModify::<u8, _>::Modify(OnlyExistent(SetOrModify::<u8, ()>::Set(30)));
+
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &Some(5)),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(modify.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            modify.ensure_valid(&CanRemove, &None),
+            Err(UpdateError::DoesntExist)
+        );
+
+        modify.apply_update(&mut value);
+        assert_eq!(value, Some(30));
+    }
+
+    #[test]
+    fn add_or_remove_or_modify() {
+        let mut value = Some(0);
+
+        let remove = AddOrRemoveOrModify::<u8, ()>::Remove;
+
+        assert_eq!(
+            remove.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            remove.ensure_valid(&CanReplace, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(remove.ensure_valid(&CanRemove, &value), Ok(()));
+        assert_eq!(
+            remove.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::DoesntExist)
+        );
+        assert_eq!(
+            remove.ensure_valid(&CanRemove, &None),
+            Err(UpdateError::DoesntExist)
+        );
+
+        remove.apply_update(&mut value);
+        assert_eq!(value, None);
+
+        let add = AddOrRemoveOrModify::<u8, ()>::Add(10);
+
+        assert_eq!(
+            add.ensure_valid(&CanAdd, &Some(5)),
+            Err(UpdateError::AlreadyExists)
+        );
+        assert_eq!(
+            add.ensure_valid(&CanReplace, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(add.ensure_valid(&CanAdd, &value), Ok(()));
+        assert_eq!(
+            add.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::InvalidActor)
+        );
+
+        add.apply_update(&mut value);
+        assert_eq!(value, Some(10));
+
+        let modify =
+            SetOrAddOrRemoveOrModify::<u8, _>::Modify(OnlyExistent(SetOrModify::<u8, ()>::Set(30)));
+
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &Some(5)),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(modify.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            modify.ensure_valid(&CanRemove, &None),
+            Err(UpdateError::DoesntExist)
+        );
+
+        modify.apply_update(&mut value);
+        assert_eq!(value, Some(30));
+    }
+
+    #[test]
+    fn set_or_modify() {
+        let mut value = 0;
+
+        let set = SetOrModify::<u8, ()>::Set(10);
+
+        assert_eq!(
+            set.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            set.ensure_valid(&CanRemove, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(set.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(set.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            set.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+
+        set.apply_update(&mut value);
+        assert_eq!(value, 10);
+
+        let modify = SetOrModify::<u8, _>::Modify(SetOrModify::<u8, ()>::Set(30));
+
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(modify.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            modify.ensure_valid(&CanRemove, &value),
+            Err(UpdateError::InvalidActor)
+        );
+
+        modify.apply_update(&mut value);
+        assert_eq!(value, 30);
     }
 }
