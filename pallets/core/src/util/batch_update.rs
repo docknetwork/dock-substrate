@@ -143,7 +143,7 @@ impl From<DuplicateKey> for DispatchError {
     }
 }
 
-/// Map representing keyed updates applied over dictionary over given keys.
+/// Map representing keyed updates applied over given keys.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, DefaultNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]

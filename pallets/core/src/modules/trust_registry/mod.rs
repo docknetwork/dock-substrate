@@ -170,9 +170,12 @@ pub mod pallet {
                 .execute(ActionWrapper::wrap_fn(Self::init_or_update_trust_registry_))
         }
 
-        /// Updates the schema metadata entry (entries) with the supplied identifier(s).
+        /// Sets the schema metadata entry (entries) with the supplied identifier(s).
+        ///
         /// - `Convener` DID owning registry with the provided identifier can make any modifications.
+        ///
         /// - `Issuer` DID can only modify his verification prices and remove himself from the `issuers` map.
+        ///
         /// - `Verifier` DID can only remove himself from the `verifiers` set.
         #[pallet::weight(SubstrateWeight::<T>::set_schemas_metadata(set_schemas_metadata, signature))]
         pub fn set_schemas_metadata(
