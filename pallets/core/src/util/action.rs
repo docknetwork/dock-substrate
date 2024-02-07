@@ -217,14 +217,19 @@ where
     }
 }
 
-/// Allows mutating a value associated with `Self`.
+/// Allows to view and mutate a value associated with `Self`.
 pub trait StorageRef<T>: Sized {
+    /// Some value type associated with `Self`.
     type Value;
 
+    /// Attempts to mutate a value associated with `Self`.
+    /// If the value under the option is taken, the associated value will be removed.
+    /// All updates will be applied only in case of a successful result.
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<Self::Value>) -> Result<R, E>;
 
+    /// Calls provided function with an associated value as an argument.
     fn view_associated<F, R>(self, f: F) -> R
     where
         F: FnOnce(Option<Self::Value>) -> R;

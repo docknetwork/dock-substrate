@@ -1,5 +1,5 @@
 use super::BoundedKeyValue;
-use alloc::collections::{BTreeMap, BTreeSet};
+use alloc::collections::{btree_map, BTreeMap, BTreeSet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Deref, DerefMut};
 use frame_support::*;
@@ -56,12 +56,8 @@ where
 
 /// Applies an update to the entity.
 pub trait ApplyUpdate<Entity> {
-    type Output<'output>
-    where
-        Entity: 'output;
-
     /// Applies update contained in `self` to the supplied entity.
-    fn apply_update(self, entity: &mut Entity) -> Self::Output<'_>;
+    fn apply_update(self, entity: &mut Entity);
 
     /// Returns the underlying update's kind.
     fn kind(&self, entity: &Entity) -> UpdateKind;
@@ -128,16 +124,26 @@ where
             <Entity::Target as BoundedKeyValue>::Key,
             MultiTargetUpdate<K, AddOrRemoveOrModify<()>>,
         >,
-    ) {
+    ) -> Result<(), DuplicateKey> {
         for (key, update) in self.keys_diff(entity).0 {
             map.entry(key)
                 .or_default()
-                .insert(inner_key.clone(), update);
+                .insert_update(inner_key.clone(), update)?;
         }
+
+        Ok(())
     }
 }
 
-/// Map representing keyed updates applied over dictionary over given keys.
+pub struct DuplicateKey;
+
+impl From<DuplicateKey> for DispatchError {
+    fn from(DuplicateKey: DuplicateKey) -> Self {
+        Self::Other("Duplicate key")
+    }
+}
+
+/// Map representing keyed updates applied over given keys.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, DefaultNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -153,7 +159,75 @@ where
     }
 }
 
+impl<K: Ord, U> MultiTargetUpdate<K, U> {
+    pub fn insert_update(&mut self, key: K, value: U) -> Result<(), DuplicateKey> {
+        match self.entry(key) {
+            btree_map::Entry::Occupied(_) => {
+                Err(DuplicateKey)?;
+            }
+            btree_map::Entry::Vacant(vacant) => {
+                vacant.insert(value);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn insert_update_or_remove_duplicate(
+        &mut self,
+        key: K,
+        value: U,
+    ) -> Result<(), DuplicateKey> {
+        match self.entry(key) {
+            btree_map::Entry::Occupied(entry) => {
+                entry.remove();
+            }
+            btree_map::Entry::Vacant(vacant) => {
+                vacant.insert(value);
+            }
+        }
+
+        Ok(())
+    }
+
+    pub fn bind_modifier(
+        mut f: impl FnMut(&mut Self, K, U) -> Result<(), DuplicateKey>,
+        key: K,
+        value: U,
+    ) -> impl FnMut(&mut Self) -> Result<(), DuplicateKey>
+    where
+        K: Clone,
+        U: Clone,
+    {
+        move |map| f(map, key.clone(), value.clone())
+    }
+}
+
+impl<K, U> IntoIterator for MultiTargetUpdate<K, U>
+where
+    K: Ord,
+{
+    type Item = (K, U);
+    type IntoIter = btree_map::IntoIter<K, U>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 crate::impl_wrapper!(MultiTargetUpdate<K, U> where K: Ord => (BTreeMap<K, U>));
+
+/// Set/add/remove a value or apply a nested update.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub enum SetOrAddOrRemoveOrModify<V, U = ()> {
+    Set(V),
+    Add(V),
+    Remove,
+    Modify(U),
+}
 
 /// Add/remove a value or apply a nested update.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
@@ -184,8 +258,6 @@ pub enum SetOrModify<V, U = ()> {
 pub struct OnlyExistent<U>(pub U);
 
 impl<V> ApplyUpdate<V> for () {
-    type Output<'output> = () where V: 'output;
-
     fn apply_update(self, _: &mut V) {}
 
     fn kind(&self, _: &V) -> UpdateKind {
@@ -203,9 +275,7 @@ impl<V, U> ApplyUpdate<Option<V>> for OnlyExistent<U>
 where
     U: ApplyUpdate<V>,
 {
-    type Output<'output> = U::Output<'output> where Option<V>: 'output;
-
-    fn apply_update(self, entity: &mut Option<V>) -> Self::Output<'_> {
+    fn apply_update(self, entity: &mut Option<V>) {
         self.0
             .apply_update(entity.as_mut().expect("`OnlyExistent` update failed"))
     }
@@ -225,20 +295,21 @@ impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, V>> ValidateUpdate<A, Option<V>> f
     }
 }
 
-impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModify<V, U> {
-    type Output<'output> = () where Option<V>: 'output;
-
+impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for SetOrAddOrRemoveOrModify<V, U> {
     fn apply_update(self, entity: &mut Option<V>) {
         match self {
-            AddOrRemoveOrModify::Add(value) => {
+            Self::Set(value) => {
+                entity.replace(value);
+            }
+            Self::Add(value) => {
                 if entity.replace(value).is_some() {
                     panic!("Entity already exists");
                 }
             }
-            AddOrRemoveOrModify::Remove => {
+            Self::Remove => {
                 entity.take().expect("Can't remove non-existing entity");
             }
-            AddOrRemoveOrModify::Modify(update) => {
+            Self::Modify(update) => {
                 update.apply_update(entity);
             }
         }
@@ -246,22 +317,58 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModif
 
     fn kind(&self, entity: &Option<V>) -> UpdateKind {
         match self {
-            AddOrRemoveOrModify::Add(_) => {
+            Self::Set(_) => {
                 if entity.is_none() {
                     UpdateKind::Add
                 } else {
                     UpdateKind::Replace
                 }
             }
-            AddOrRemoveOrModify::Remove => {
+            Self::Add(_) => {
+                if entity.is_none() {
+                    UpdateKind::Add
+                } else {
+                    UpdateKind::None
+                }
+            }
+            Self::Remove => {
                 if entity.is_some() {
                     UpdateKind::Remove
                 } else {
                     UpdateKind::None
                 }
             }
-            AddOrRemoveOrModify::Modify(update) => update.kind(entity),
+            Self::Modify(update) => update.kind(entity),
         }
+    }
+}
+
+impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
+    for SetOrAddOrRemoveOrModify<V, U>
+{
+    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
+        match self {
+            Self::Set(new) => {
+                let cond = match entity {
+                    Some(current) => actor.can_replace(new, current),
+                    None => actor.can_add(new),
+                };
+
+                ensure!(cond, UpdateError::InvalidActor);
+            }
+            Self::Add(value) => {
+                ensure!(actor.can_add(value), UpdateError::InvalidActor);
+                ensure!(entity.is_none(), UpdateError::AlreadyExists);
+            }
+            Self::Remove => {
+                let existing = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
+
+                ensure!(actor.can_remove(existing), UpdateError::InvalidActor);
+            }
+            Self::Modify(update) => return update.ensure_valid(actor, entity),
+        };
+
+        Ok(())
     }
 }
 
@@ -270,76 +377,67 @@ impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Opti
 {
     fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
         match self {
-            AddOrRemoveOrModify::Add(value) => {
-                ensure!(entity.is_none(), UpdateError::AlreadyExists);
+            Self::Add(value) => {
                 ensure!(actor.can_add(value), UpdateError::InvalidActor);
+                ensure!(entity.is_none(), UpdateError::AlreadyExists);
             }
-            AddOrRemoveOrModify::Remove => {
+            Self::Remove => {
                 let existing = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
 
                 ensure!(actor.can_remove(existing), UpdateError::InvalidActor);
             }
-            AddOrRemoveOrModify::Modify(update) => return update.ensure_valid(actor, entity),
-        };
+            Self::Modify(update) => return update.ensure_valid(actor, entity),
+        }
 
         Ok(())
     }
 }
 
-impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for SetOrModify<V, U> {
-    type Output<'output> = Option<U::Output<'output>> where Option<V>: 'output;
-
-    fn apply_update(self, entity: &mut Option<V>) -> Self::Output<'_> {
+impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModify<V, U> {
+    fn apply_update(self, entity: &mut Option<V>) {
         match self {
-            SetOrModify::Set(value) => {
-                entity.replace(value);
-                None
+            Self::Add(value) => {
+                if entity.replace(value).is_some() {
+                    panic!("Entity already exists");
+                }
             }
-            SetOrModify::Modify(update) => Some(update.apply_update(entity)),
+            Self::Remove => {
+                entity.take().expect("Can't remove non-existing entity");
+            }
+            Self::Modify(update) => {
+                update.apply_update(entity);
+            }
         }
     }
 
     fn kind(&self, entity: &Option<V>) -> UpdateKind {
         match self {
-            SetOrModify::Set(_) => match entity {
-                Some(_) => UpdateKind::Replace,
-                None => UpdateKind::Add,
-            },
-            SetOrModify::Modify(update) => update.kind(entity),
-        }
-    }
-}
-
-impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
-    for SetOrModify<V, U>
-{
-    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
-        match self {
-            SetOrModify::Set(new) => {
-                let cond = match entity {
-                    Some(current) => actor.can_replace(new, current),
-                    None => actor.can_add(new),
-                };
-
-                ensure!(cond, UpdateError::InvalidActor);
-
-                Ok(())
+            Self::Add(_) => {
+                if entity.is_none() {
+                    UpdateKind::Add
+                } else {
+                    UpdateKind::None
+                }
             }
-            SetOrModify::Modify(update) => update.ensure_valid(actor, entity),
+            Self::Remove => {
+                if entity.is_some() {
+                    UpdateKind::Remove
+                } else {
+                    UpdateKind::None
+                }
+            }
+            Self::Modify(update) => update.kind(entity),
         }
     }
 }
 
 impl<V, U: ApplyUpdate<V>> ApplyUpdate<V> for SetOrModify<V, U> {
-    type Output<'output> = Option<U::Output<'output>> where V: 'output;
-
-    fn apply_update(self, entity: &mut V) -> Self::Output<'_> {
+    fn apply_update(self, entity: &mut V) {
         match self {
             SetOrModify::Set(value) => {
                 *entity = value;
-                None
             }
-            SetOrModify::Modify(update) => Some(update.apply_update(entity)),
+            SetOrModify::Modify(update) => update.apply_update(entity),
         }
     }
 
@@ -391,9 +489,7 @@ where
     C::Target: BoundedKeyValue,
     U: ApplyUpdate<Option<<C::Target as BoundedKeyValue>::Value>>,
 {
-    type Output<'output> = () where C: 'output;
-
-    fn apply_update(self, entity: &mut C) -> Self::Output<'_> {
+    fn apply_update(self, entity: &mut C) {
         #[cfg(not(feature = "std"))]
         use alloc::vec::Vec;
 
@@ -549,7 +645,7 @@ mod tests {
         ApplyUpdate, BoundedKeyValue, CanUpdate, CanUpdateKeyed, KeyedUpdate, UpdateError,
     };
 
-    use super::{AddOrRemoveOrModify, MultiTargetUpdate, ValidateUpdate};
+    use super::*;
 
     #[derive(Clone, PartialEq, Eq, Debug)]
     struct S(BoundedBTreeMap<String, u8, ConstU32<5>>);
@@ -576,6 +672,27 @@ mod tests {
             false
         }
 
+        fn can_replace(&self, _new: &u8, _current: &u8) -> bool {
+            true
+        }
+    }
+
+    struct CanAdd;
+    impl CanUpdate<u8> for CanAdd {
+        fn can_add(&self, _new: &u8) -> bool {
+            true
+        }
+    }
+
+    struct CanRemove;
+    impl CanUpdate<u8> for CanRemove {
+        fn can_remove(&self, _entity: &u8) -> bool {
+            true
+        }
+    }
+
+    struct CanReplace;
+    impl CanUpdate<u8> for CanReplace {
         fn can_replace(&self, _new: &u8, _current: &u8) -> bool {
             true
         }
@@ -639,6 +756,8 @@ mod tests {
             MultiTargetUpdate::from_iter([("2".to_string(), AddOrRemoveOrModify::Add::<_, ()>(1))]);
 
         let mut cloned_entity = entity.clone();
+        assert_eq!(update.kind(&cloned_entity), UpdateKind::Replace);
+
         update.apply_update(&mut cloned_entity);
 
         entity.try_insert("2".to_string(), 1).unwrap();
@@ -678,6 +797,7 @@ mod tests {
         entity.take("11".to_string()).unwrap();
 
         assert_eq!(update.ensure_valid(&CanDoEverything, &entity), Ok(()));
+        assert_eq!(update.kind(&entity), UpdateKind::Replace);
 
         update.apply_update(&mut entity);
 
@@ -689,5 +809,228 @@ mod tests {
         new_entity.try_insert("10".to_string(), 10).unwrap();
 
         assert_eq!(new_entity, entity);
+    }
+
+    #[test]
+    fn set_or_add_or_remove_or_modify() {
+        let mut value = Some(0);
+
+        let set = SetOrAddOrRemoveOrModify::<u8, ()>::Set(10);
+
+        assert_eq!(
+            set.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            set.ensure_valid(&CanRemove, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(set.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            set.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(set.ensure_valid(&CanAdd, &None), Ok(()));
+
+        assert_eq!(set.kind(&value), UpdateKind::Replace);
+        assert_eq!(set.kind(&None), UpdateKind::Add);
+
+        set.apply_update(&mut value);
+        assert_eq!(value, Some(10));
+
+        let remove = SetOrAddOrRemoveOrModify::<u8, ()>::Remove;
+
+        assert_eq!(
+            remove.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            remove.ensure_valid(&CanReplace, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(remove.ensure_valid(&CanRemove, &value), Ok(()));
+        assert_eq!(
+            remove.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::DoesntExist)
+        );
+        assert_eq!(
+            remove.ensure_valid(&CanRemove, &None),
+            Err(UpdateError::DoesntExist)
+        );
+
+        assert_eq!(remove.kind(&value), UpdateKind::Remove);
+        assert_eq!(remove.kind(&None), UpdateKind::None);
+
+        remove.apply_update(&mut value);
+        assert_eq!(value, None);
+
+        let add = AddOrRemoveOrModify::<u8, ()>::Add(10);
+
+        assert_eq!(
+            add.ensure_valid(&CanAdd, &Some(5)),
+            Err(UpdateError::AlreadyExists)
+        );
+        assert_eq!(
+            add.ensure_valid(&CanReplace, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(add.ensure_valid(&CanAdd, &value), Ok(()));
+        assert_eq!(
+            add.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::InvalidActor)
+        );
+
+        assert_eq!(add.kind(&value), UpdateKind::Add);
+        assert_eq!(add.kind(&Some(1)), UpdateKind::None);
+
+        add.apply_update(&mut value);
+        assert_eq!(value, Some(10));
+
+        let modify =
+            SetOrAddOrRemoveOrModify::<u8, _>::Modify(OnlyExistent(SetOrModify::<u8, ()>::Set(30)));
+
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &Some(5)),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(modify.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            modify.ensure_valid(&CanRemove, &None),
+            Err(UpdateError::DoesntExist)
+        );
+
+        assert_eq!(modify.kind(&value), UpdateKind::Replace);
+        assert_eq!(modify.kind(&None), UpdateKind::None);
+
+        modify.apply_update(&mut value);
+        assert_eq!(value, Some(30));
+    }
+
+    #[test]
+    fn add_or_remove_or_modify() {
+        let mut value = Some(0);
+
+        let remove = AddOrRemoveOrModify::<u8, ()>::Remove;
+
+        assert_eq!(
+            remove.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            remove.ensure_valid(&CanReplace, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(remove.ensure_valid(&CanRemove, &value), Ok(()));
+        assert_eq!(
+            remove.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::DoesntExist)
+        );
+        assert_eq!(
+            remove.ensure_valid(&CanRemove, &None),
+            Err(UpdateError::DoesntExist)
+        );
+
+        assert_eq!(remove.kind(&value), UpdateKind::Remove);
+        assert_eq!(remove.kind(&None), UpdateKind::None);
+
+        remove.apply_update(&mut value);
+        assert_eq!(value, None);
+
+        let add = AddOrRemoveOrModify::<u8, ()>::Add(10);
+
+        assert_eq!(
+            add.ensure_valid(&CanAdd, &Some(5)),
+            Err(UpdateError::AlreadyExists)
+        );
+        assert_eq!(
+            add.ensure_valid(&CanReplace, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(add.ensure_valid(&CanAdd, &value), Ok(()));
+        assert_eq!(
+            add.ensure_valid(&CanReplace, &None),
+            Err(UpdateError::InvalidActor)
+        );
+
+        assert_eq!(add.kind(&value), UpdateKind::Add);
+        assert_eq!(add.kind(&Some(1)), UpdateKind::None);
+
+        add.apply_update(&mut value);
+        assert_eq!(value, Some(10));
+
+        let modify =
+            SetOrAddOrRemoveOrModify::<u8, _>::Modify(OnlyExistent(SetOrModify::<u8, ()>::Set(30)));
+
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &Some(5)),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(modify.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            modify.ensure_valid(&CanRemove, &None),
+            Err(UpdateError::DoesntExist)
+        );
+
+        assert_eq!(modify.kind(&value), UpdateKind::Replace);
+        assert_eq!(modify.kind(&None), UpdateKind::None);
+
+        modify.apply_update(&mut value);
+        assert_eq!(value, Some(30));
+    }
+
+    #[test]
+    fn set_or_modify() {
+        let mut value = 0;
+
+        let set = SetOrModify::<u8, ()>::Set(10);
+
+        assert_eq!(
+            set.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            set.ensure_valid(&CanRemove, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(set.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(set.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            set.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+
+        assert_eq!(set.kind(&value), UpdateKind::Replace);
+
+        set.apply_update(&mut value);
+        assert_eq!(value, 10);
+
+        let modify = SetOrModify::<u8, _>::Modify(SetOrModify::<u8, ()>::Set(30));
+
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(
+            modify.ensure_valid(&CanAdd, &value),
+            Err(UpdateError::InvalidActor)
+        );
+        assert_eq!(modify.ensure_valid(&CanReplace, &value), Ok(()));
+        assert_eq!(
+            modify.ensure_valid(&CanRemove, &value),
+            Err(UpdateError::InvalidActor)
+        );
+
+        assert_eq!(modify.kind(&value), UpdateKind::Replace);
+
+        modify.apply_update(&mut value);
+        assert_eq!(value, 30);
     }
 }

@@ -4,7 +4,10 @@ use crate::{
     common::ForSigType,
     deposit_indexed_event,
     did::{self, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, ActionWrapper, BoundedKeyValue, SetOrModify},
+    util::{
+        ActionWithNonce, ActionWrapper, BoundedKeyValue, OnlyExistent, SetOrAddOrRemoveOrModify,
+        SetOrModify,
+    },
 };
 use frame_support::{pallet_prelude::*, weights::PostDispatchInfo};
 
@@ -40,7 +43,6 @@ pub mod pallet {
         /// Not the `TrustRegistry`'s `Convener`.
         NotTheConvener,
         NoSuchIssuer,
-        SchemaMetadataAlreadyExists,
         SchemaMetadataDoesntExist,
         AlreadySuspended,
         NotSuspended,
@@ -55,6 +57,8 @@ pub mod pallet {
         SchemaMetadataAdded(TrustRegistryId, TrustRegistrySchemaId),
         /// Schema metadata was updated in the `TrustRegistry` with the given id.
         SchemaMetadataUpdated(TrustRegistryId, TrustRegistrySchemaId),
+        /// Schema metadata was removed from the `TrustRegistry` with the given id.
+        SchemaMetadataRemoved(TrustRegistryId, TrustRegistrySchemaId),
         /// `TrustRegistry`'s `Issuer` was suspended.
         IssuerSuspended(TrustRegistryId, Issuer),
         /// `TrustRegistry`'s `Issuer` was unsuspended.
@@ -145,7 +149,7 @@ pub mod pallet {
         TrustRegistryId,
         Blake2_128Concat,
         Issuer,
-        TrustRegistryIssuerConfig<T>,
+        TrustRegistryIssuerConfiguration<T>,
         ValueQuery,
     >;
 
@@ -166,41 +170,29 @@ pub mod pallet {
                 .execute(ActionWrapper::wrap_fn(Self::init_or_update_trust_registry_))
         }
 
-        /// Adds a new schema metadata entry (entries).
-        /// The DID signature signer must be the `Convener` owning this Trust Registry.
-        #[pallet::weight(SubstrateWeight::<T>::add_schema_metadata(add_schema_metadata, signature))]
-        pub fn add_schema_metadata(
-            origin: OriginFor<T>,
-            add_schema_metadata: AddSchemaMetadata<T>,
-            signature: DidOrDidMethodKeySignature<Convener>,
-        ) -> DispatchResult {
-            ensure_signed(origin)?;
-
-            add_schema_metadata
-                .signed(signature)
-                .execute_readonly(Self::add_schema_metadata_)
-        }
-
-        /// Updates the schema metadata entry (entries) with the supplied identifier(s).
+        /// Sets the schema metadata entry (entries) with the supplied identifier(s).
+        ///
         /// - `Convener` DID owning registry with the provided identifier can make any modifications.
+        ///
         /// - `Issuer` DID can only modify his verification prices and remove himself from the `issuers` map.
+        ///
         /// - `Verifier` DID can only remove himself from the `verifiers` set.
-        #[pallet::weight(SubstrateWeight::<T>::update_schema_metadata(update_schema_metadata, signature))]
-        pub fn update_schema_metadata(
+        #[pallet::weight(SubstrateWeight::<T>::set_schemas_metadata(set_schemas_metadata, signature))]
+        pub fn set_schemas_metadata(
             origin: OriginFor<T>,
-            update_schema_metadata: UpdateSchemaMetadata<T>,
+            set_schemas_metadata: SetSchemasMetadata<T>,
             signature: DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
-            let (ver, iss, schem) = update_schema_metadata
+            let (ver, iss, schem) = set_schemas_metadata
                 .signed(signature.clone())
-                .execute_readonly(Self::update_schema_metadata_)?;
+                .execute_readonly(Self::set_schemas_metadata_)?;
 
             let actual_weight = signature.weight_for_sig_type::<T>(
-                || SubstrateWeight::<T>::update_schema_metadata_sr25519(iss, ver, schem),
-                || SubstrateWeight::<T>::update_schema_metadata_ed25519(iss, ver, schem),
-                || SubstrateWeight::<T>::update_schema_metadata_secp256k1(iss, ver, schem),
+                || SubstrateWeight::<T>::set_schemas_metadata_sr25519(iss, ver, schem),
+                || SubstrateWeight::<T>::set_schemas_metadata_ed25519(iss, ver, schem),
+                || SubstrateWeight::<T>::set_schemas_metadata_secp256k1(iss, ver, schem),
             );
 
             Ok(PostDispatchInfo {
@@ -255,59 +247,75 @@ pub mod pallet {
 
 impl<T: Config> SubstrateWeight<T> {
     fn init_or_update_trust_registry(
-        InitOrUpdateTrustRegistry { name, .. }: &InitOrUpdateTrustRegistry<T>,
+        InitOrUpdateTrustRegistry {
+            name,
+            gov_framework,
+            ..
+        }: &InitOrUpdateTrustRegistry<T>,
         signed: &DidOrDidMethodKeySignature<Convener>,
     ) -> Weight {
         signed.weight_for_sig_type::<T>(
-            || Self::init_or_update_trust_registry_sr25519(name.len() as u32),
-            || Self::init_or_update_trust_registry_ed25519(name.len() as u32),
-            || Self::init_or_update_trust_registry_secp256k1(name.len() as u32),
+            || {
+                Self::init_or_update_trust_registry_sr25519(
+                    name.len() as u32,
+                    gov_framework.len() as u32,
+                )
+            },
+            || {
+                Self::init_or_update_trust_registry_ed25519(
+                    name.len() as u32,
+                    gov_framework.len() as u32,
+                )
+            },
+            || {
+                Self::init_or_update_trust_registry_secp256k1(
+                    name.len() as u32,
+                    gov_framework.len() as u32,
+                )
+            },
         )
     }
 
-    fn add_schema_metadata(
-        AddSchemaMetadata { schemas, .. }: &AddSchemaMetadata<T>,
-        signed: &DidOrDidMethodKeySignature<Convener>,
-    ) -> Weight {
-        let issuers_len = schemas.values().map(|schema| schema.issuers.len()).sum();
-        let verifiers_len = schemas.values().map(|schema| schema.verifiers.len()).sum();
-        let schemas_len = schemas.len() as u32;
-
-        signed.weight_for_sig_type::<T>(
-            || Self::add_schema_metadata_sr25519(issuers_len, verifiers_len, schemas_len),
-            || Self::add_schema_metadata_ed25519(issuers_len, verifiers_len, schemas_len),
-            || Self::add_schema_metadata_secp256k1(issuers_len, verifiers_len, schemas_len),
-        )
-    }
-
-    fn update_schema_metadata(
-        UpdateSchemaMetadata { schemas, .. }: &UpdateSchemaMetadata<T>,
+    fn set_schemas_metadata(
+        SetSchemasMetadata { schemas, .. }: &SetSchemasMetadata<T>,
         signed: &DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
     ) -> Weight {
         let issuers_len = schemas
             .values()
-            .map(|schema| {
-                schema.issuers.as_ref().map_or(0, |v| match v {
-                    SetOrModify::Set(v) => v.capacity(),
-                    SetOrModify::Modify(map) => map.len() as u32,
-                })
+            .map(|schema_update| match schema_update {
+                SetOrAddOrRemoveOrModify::Add(schema) | SetOrAddOrRemoveOrModify::Set(schema) => {
+                    schema.issuers.len() as u32
+                }
+                SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
+                    update.issuers.as_ref().map_or(0, |v| match v {
+                        SetOrModify::Set(issuers) => issuers.capacity(),
+                        SetOrModify::Modify(map) => map.len() as u32,
+                    })
+                }
+                SetOrAddOrRemoveOrModify::Remove => Default::default(),
             })
             .sum();
         let verifiers_len = schemas
             .values()
-            .map(|schema| {
-                schema.verifiers.as_ref().map_or(0, |v| match v {
-                    SetOrModify::Set(v) => v.capacity(),
-                    SetOrModify::Modify(map) => map.len() as u32,
-                })
+            .map(|schema_update| match schema_update {
+                SetOrAddOrRemoveOrModify::Add(schema) | SetOrAddOrRemoveOrModify::Set(schema) => {
+                    schema.verifiers.len() as u32
+                }
+                SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
+                    update.verifiers.as_ref().map_or(0, |v| match v {
+                        SetOrModify::Set(verifiers) => verifiers.capacity(),
+                        SetOrModify::Modify(map) => map.len() as u32,
+                    })
+                }
+                SetOrAddOrRemoveOrModify::Remove => Default::default(),
             })
             .sum();
         let schemas_len = schemas.len() as u32;
 
         signed.weight_for_sig_type::<T>(
-            || Self::update_schema_metadata_sr25519(issuers_len, verifiers_len, schemas_len),
-            || Self::update_schema_metadata_ed25519(issuers_len, verifiers_len, schemas_len),
-            || Self::update_schema_metadata_secp256k1(issuers_len, verifiers_len, schemas_len),
+            || Self::set_schemas_metadata_sr25519(issuers_len, verifiers_len, schemas_len),
+            || Self::set_schemas_metadata_ed25519(issuers_len, verifiers_len, schemas_len),
+            || Self::set_schemas_metadata_secp256k1(issuers_len, verifiers_len, schemas_len),
         )
     }
 

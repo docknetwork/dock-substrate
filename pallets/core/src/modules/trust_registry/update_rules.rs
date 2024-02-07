@@ -4,12 +4,10 @@ use crate::{common::Limits, util::batch_update::*};
 impl<T: Limits> ApplyUpdate<TrustRegistrySchemaMetadata<T>>
     for TrustRegistrySchemaMetadataUpdate<T>
 {
-    type Output<'output> = () where TrustRegistrySchemaMetadata<T>: 'output;
-
     fn apply_update(
         self,
         TrustRegistrySchemaMetadata { issuers, verifiers }: &mut TrustRegistrySchemaMetadata<T>,
-    ) -> Self::Output<'_> {
+    ) {
         let Self {
             issuers: issuers_update,
             verifiers: verifiers_update,
@@ -49,7 +47,7 @@ where
     A: CanUpdateAndCanUpdateKeyed<SchemaIssuers<T>>
         + CanUpdateAndCanUpdateKeyed<SchemaVerifiers<T>>
         + CanUpdateAndCanUpdateKeyed<VerificationPrices<T>>
-        + CanUpdate<Price>,
+        + CanUpdate<VerificationPrice>,
 {
     fn ensure_valid(
         &self,
@@ -67,30 +65,30 @@ where
     }
 }
 
-impl CanUpdate<Price> for Convener {
-    fn can_add(&self, _entity: &Price) -> bool {
+impl CanUpdate<VerificationPrice> for Convener {
+    fn can_add(&self, _entity: &VerificationPrice) -> bool {
         true
     }
 
-    fn can_remove(&self, _entity: &Price) -> bool {
+    fn can_remove(&self, _entity: &VerificationPrice) -> bool {
         true
     }
 
-    fn can_replace(&self, _new: &Price, _entity: &Price) -> bool {
+    fn can_replace(&self, _new: &VerificationPrice, _entity: &VerificationPrice) -> bool {
         true
     }
 }
 
-impl CanUpdate<Price> for IssuerOrVerifier {
-    fn can_add(&self, _entity: &Price) -> bool {
+impl CanUpdate<VerificationPrice> for IssuerOrVerifier {
+    fn can_add(&self, _entity: &VerificationPrice) -> bool {
         true
     }
 
-    fn can_remove(&self, _entity: &Price) -> bool {
+    fn can_remove(&self, _entity: &VerificationPrice) -> bool {
         true
     }
 
-    fn can_replace(&self, _new: &Price, _entity: &Price) -> bool {
+    fn can_replace(&self, _new: &VerificationPrice, _entity: &VerificationPrice) -> bool {
         true
     }
 }
@@ -269,3 +267,23 @@ impl<T: Limits> CanUpdate<SchemaVerifiers<T>> for Convener {
         true
     }
 }
+
+impl<T: Limits> CanUpdate<TrustRegistrySchemaMetadata<T>> for Convener {
+    fn can_add(&self, _entity: &TrustRegistrySchemaMetadata<T>) -> bool {
+        true
+    }
+
+    fn can_remove(&self, _entity: &TrustRegistrySchemaMetadata<T>) -> bool {
+        true
+    }
+
+    fn can_replace(
+        &self,
+        _new: &TrustRegistrySchemaMetadata<T>,
+        _entity: &TrustRegistrySchemaMetadata<T>,
+    ) -> bool {
+        true
+    }
+}
+
+impl<T: Limits> CanUpdate<TrustRegistrySchemaMetadata<T>> for IssuerOrVerifier {}

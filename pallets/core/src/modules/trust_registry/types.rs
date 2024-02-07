@@ -106,13 +106,13 @@ impl_wrapper!(ConvenerOrIssuerOrVerifier(DidOrDidMethodKey));
 impl AuthorizeTarget<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
 
-/// Price to verify a credential. Lowest denomination should be used
+/// Price to verify a credential. Lowest denomination should be used.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Price(#[codec(compact)] pub u128);
+pub struct VerificationPrice(#[codec(compact)] pub u128);
 
 /// Price of verifying a credential as per different currencies
 #[derive(
@@ -137,12 +137,12 @@ pub struct VerificationPrices<T: Limits>(
     #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
     pub  BoundedBTreeMap<
         BoundedString<T::MaxIssuerPriceCurrencySymbolSize>,
-        Price,
+        VerificationPrice,
         T::MaxPriceCurrencies,
     >,
 );
 
-impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedString<T::MaxIssuerPriceCurrencySymbolSize>, Price, T::MaxPriceCurrencies>));
+impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedString<T::MaxIssuerPriceCurrencySymbolSize>, VerificationPrice, T::MaxPriceCurrencies>));
 
 #[derive(
     Encode,
@@ -170,7 +170,14 @@ pub struct AggregatedIssuerInfo<T: Limits> {
 
 /// A map from `Issuer` to some value.
 #[derive(
-    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -197,7 +204,14 @@ pub type AggregatedSchemaIssuers<T> = IssuersWith<T, AggregatedIssuerInfo<T>>;
 
 /// Schema `Verifier`s.
 #[derive(
-    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -274,7 +288,7 @@ impl<T: Limits> DelegatedUpdate<T> {
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct TrustRegistryIssuerConfig<T: Limits> {
+pub struct TrustRegistryIssuerConfiguration<T: Limits> {
     pub suspended: bool,
     pub delegated: DelegatedIssuers<T>,
 }
@@ -294,6 +308,31 @@ pub struct TrustRegistryIssuerConfig<T: Limits> {
 pub struct TrustRegistrySchemaMetadata<T: Limits> {
     pub issuers: SchemaIssuers<T>,
     pub verifiers: SchemaVerifiers<T>,
+}
+
+pub type MultiSchemaUpdate<Key, Update = AddOrRemoveOrModify<()>> =
+    MultiTargetUpdate<Key, MultiTargetUpdate<TrustRegistrySchemaId, Update>>;
+
+impl<T: Limits> TrustRegistrySchemaMetadata<T> {
+    fn record_inner_issuers_and_verifiers_diff<F, U>(
+        &self,
+        issuers: &mut MultiSchemaUpdate<Issuer, U>,
+        verifiers: &mut MultiSchemaUpdate<Verifier, U>,
+        mut record_update: F,
+    ) -> Result<(), DuplicateKey>
+    where
+        F: FnMut(&mut MultiTargetUpdate<TrustRegistrySchemaId, U>) -> Result<(), DuplicateKey>,
+    {
+        for issuer in self.issuers.keys().cloned() {
+            record_update(issuers.entry(issuer).or_default())?;
+        }
+
+        for verifier in self.verifiers.iter().cloned() {
+            record_update(verifiers.entry(verifier).or_default())?;
+        }
+
+        Ok(())
+    }
 }
 
 /// `Trust Registry` schema metadata.
@@ -326,7 +365,7 @@ impl<T: Config> TrustRegistrySchemaMetadata<T> {
                     .0
                     .into_iter()
                     .map(|(issuer, verification_prices)| {
-                        let TrustRegistryIssuerConfig {
+                        let TrustRegistryIssuerConfiguration {
                             suspended,
                             delegated,
                         } = super::TrustRegistryIssuerConfigurations::<T>::get(registry_id, issuer);
@@ -446,15 +485,12 @@ pub type IssuersUpdate<T> = SetOrModify<
     SchemaIssuers<T>,
     MultiTargetUpdate<
         Issuer,
-        SetOrModify<
+        SetOrAddOrRemoveOrModify<
             VerificationPrices<T>,
-            AddOrRemoveOrModify<
-                VerificationPrices<T>,
-                OnlyExistent<
-                    MultiTargetUpdate<
-                        BoundedString<<T as Limits>::MaxIssuerPriceCurrencySymbolSize>,
-                        SetOrModify<Price, AddOrRemoveOrModify<Price>>,
-                    >,
+            OnlyExistent<
+                MultiTargetUpdate<
+                    BoundedString<<T as Limits>::MaxIssuerPriceCurrencySymbolSize>,
+                    SetOrAddOrRemoveOrModify<VerificationPrice>,
                 >,
             >,
         >,
@@ -473,6 +509,94 @@ pub type IssuersUpdate<T> = SetOrModify<
 pub struct TrustRegistrySchemaMetadataUpdate<T: Limits> {
     pub issuers: Option<IssuersUpdate<T>>,
     pub verifiers: Option<VerifiersUpdate<T>>,
+}
+
+impl<T: Limits> TrustRegistrySchemaMetadataUpdate<T> {
+    fn record_inner_issuers_and_verifiers_diff(
+        &self,
+        entity: &TrustRegistrySchemaMetadata<T>,
+        schema_id: TrustRegistrySchemaId,
+        issuers: &mut MultiSchemaUpdate<Issuer>,
+        verifiers: &mut MultiSchemaUpdate<Verifier>,
+    ) -> Result<(), DuplicateKey> {
+        if let Some(verifiers_update) = self.verifiers.as_ref() {
+            verifiers_update.record_inner_keys_diff(&entity.verifiers, schema_id, verifiers)?
+        }
+
+        if let Some(issuers_update) = self.issuers.as_ref() {
+            issuers_update.record_inner_keys_diff(&entity.issuers, schema_id, issuers)?
+        }
+
+        Ok(())
+    }
+}
+
+pub type TrustRegistrySchemaMetadataModification<T> = SetOrAddOrRemoveOrModify<
+    TrustRegistrySchemaMetadata<T>,
+    OnlyExistent<TrustRegistrySchemaMetadataUpdate<T>>,
+>;
+
+impl<T: Limits> TrustRegistrySchemaMetadataModification<T> {
+    pub(super) fn record_inner_issuers_and_verifiers_diff(
+        &self,
+        entity: &Option<TrustRegistrySchemaMetadata<T>>,
+        schema_id: TrustRegistrySchemaId,
+        issuers: &mut MultiSchemaUpdate<Issuer>,
+        verifiers: &mut MultiSchemaUpdate<Verifier>,
+    ) -> Result<(), DuplicateKey> {
+        match self {
+            Self::Add(new) => new.record_inner_issuers_and_verifiers_diff(
+                issuers,
+                verifiers,
+                MultiTargetUpdate::bind_modifier(
+                    MultiTargetUpdate::insert_update,
+                    schema_id,
+                    AddOrRemoveOrModify::Add(()),
+                ),
+            ),
+            Self::Remove => entity
+                .as_ref()
+                .expect("An entity expected")
+                .record_inner_issuers_and_verifiers_diff(
+                    issuers,
+                    verifiers,
+                    MultiTargetUpdate::bind_modifier(
+                        MultiTargetUpdate::insert_update,
+                        schema_id,
+                        AddOrRemoveOrModify::Remove,
+                    ),
+                ),
+            Self::Set(new) => {
+                if let Some(old) = entity {
+                    old.record_inner_issuers_and_verifiers_diff(
+                        issuers,
+                        verifiers,
+                        MultiTargetUpdate::bind_modifier(
+                            MultiTargetUpdate::insert_update,
+                            schema_id,
+                            AddOrRemoveOrModify::Remove,
+                        ),
+                    )?;
+                }
+
+                new.record_inner_issuers_and_verifiers_diff(
+                    issuers,
+                    verifiers,
+                    MultiTargetUpdate::bind_modifier(
+                        MultiTargetUpdate::insert_update_or_remove_duplicate,
+                        schema_id,
+                        AddOrRemoveOrModify::Add(()),
+                    ),
+                )
+            }
+            Self::Modify(OnlyExistent(update)) => update.record_inner_issuers_and_verifiers_diff(
+                entity.as_ref().expect("An entity expected"),
+                schema_id,
+                issuers,
+                verifiers,
+            ),
+        }
+    }
 }
 
 /// Unique identifier for the `Trust Registry`.
