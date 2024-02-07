@@ -21,7 +21,7 @@ jobs:
       - name: Ensure docs are buildable
         run: cargo doc --no-deps
       - name: Run tests
-        run: cargo test --all
+        run: cargo test --release --all
 
   integration-tests:
     runs-on: ubuntu-latest
