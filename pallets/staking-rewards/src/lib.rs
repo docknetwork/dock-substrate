@@ -99,21 +99,6 @@ pub mod pallet {
             Ok(Pays::No.into())
         }
     }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            if let Some(duration) = T::PostUpgradeHighRateDuration::get() {
-                HighRateRewards::<T>::mutate(|rewards_state| {
-                    rewards_state.inc_duration_or_init(duration)
-                });
-
-                T::DbWeight::get().reads_writes(1, 1)
-            } else {
-                Weight::zero()
-            }
-        }
-    }
 }
 
 impl<T: Config> Pallet<T> {
