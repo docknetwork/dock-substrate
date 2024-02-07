@@ -57,6 +57,8 @@ pub mod pallet {
         SchemaMetadataAdded(TrustRegistryId, TrustRegistrySchemaId),
         /// Schema metadata was updated in the `TrustRegistry` with the given id.
         SchemaMetadataUpdated(TrustRegistryId, TrustRegistrySchemaId),
+        /// Schema metadata was removed from the `TrustRegistry` with the given id.
+        SchemaMetadataRemoved(TrustRegistryId, TrustRegistrySchemaId),
         /// `TrustRegistry`'s `Issuer` was suspended.
         IssuerSuspended(TrustRegistryId, Issuer),
         /// `TrustRegistry`'s `Issuer` was unsuspended.

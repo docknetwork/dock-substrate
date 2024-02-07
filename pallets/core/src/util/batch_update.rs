@@ -328,7 +328,7 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for SetOrAddOrRemoveOr
                 if entity.is_none() {
                     UpdateKind::Add
                 } else {
-                    UpdateKind::Replace
+                    UpdateKind::None
                 }
             }
             Self::Remove => {
@@ -416,7 +416,7 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModif
                 if entity.is_none() {
                     UpdateKind::Add
                 } else {
-                    UpdateKind::Replace
+                    UpdateKind::None
                 }
             }
             Self::Remove => {
@@ -756,6 +756,8 @@ mod tests {
             MultiTargetUpdate::from_iter([("2".to_string(), AddOrRemoveOrModify::Add::<_, ()>(1))]);
 
         let mut cloned_entity = entity.clone();
+        assert_eq!(update.kind(&cloned_entity), UpdateKind::Replace);
+
         update.apply_update(&mut cloned_entity);
 
         entity.try_insert("2".to_string(), 1).unwrap();
@@ -795,6 +797,7 @@ mod tests {
         entity.take("11".to_string()).unwrap();
 
         assert_eq!(update.ensure_valid(&CanDoEverything, &entity), Ok(()));
+        assert_eq!(update.kind(&entity), UpdateKind::Replace);
 
         update.apply_update(&mut entity);
 
@@ -829,6 +832,9 @@ mod tests {
         );
         assert_eq!(set.ensure_valid(&CanAdd, &None), Ok(()));
 
+        assert_eq!(set.kind(&value), UpdateKind::Replace);
+        assert_eq!(set.kind(&None), UpdateKind::Add);
+
         set.apply_update(&mut value);
         assert_eq!(value, Some(10));
 
@@ -852,6 +858,9 @@ mod tests {
             Err(UpdateError::DoesntExist)
         );
 
+        assert_eq!(remove.kind(&value), UpdateKind::Remove);
+        assert_eq!(remove.kind(&None), UpdateKind::None);
+
         remove.apply_update(&mut value);
         assert_eq!(value, None);
 
@@ -870,6 +879,9 @@ mod tests {
             add.ensure_valid(&CanReplace, &None),
             Err(UpdateError::InvalidActor)
         );
+
+        assert_eq!(add.kind(&value), UpdateKind::Add);
+        assert_eq!(add.kind(&Some(1)), UpdateKind::None);
 
         add.apply_update(&mut value);
         assert_eq!(value, Some(10));
@@ -890,6 +902,9 @@ mod tests {
             modify.ensure_valid(&CanRemove, &None),
             Err(UpdateError::DoesntExist)
         );
+
+        assert_eq!(modify.kind(&value), UpdateKind::Replace);
+        assert_eq!(modify.kind(&None), UpdateKind::None);
 
         modify.apply_update(&mut value);
         assert_eq!(value, Some(30));
@@ -919,6 +934,9 @@ mod tests {
             Err(UpdateError::DoesntExist)
         );
 
+        assert_eq!(remove.kind(&value), UpdateKind::Remove);
+        assert_eq!(remove.kind(&None), UpdateKind::None);
+
         remove.apply_update(&mut value);
         assert_eq!(value, None);
 
@@ -937,6 +955,9 @@ mod tests {
             add.ensure_valid(&CanReplace, &None),
             Err(UpdateError::InvalidActor)
         );
+
+        assert_eq!(add.kind(&value), UpdateKind::Add);
+        assert_eq!(add.kind(&Some(1)), UpdateKind::None);
 
         add.apply_update(&mut value);
         assert_eq!(value, Some(10));
@@ -957,6 +978,9 @@ mod tests {
             modify.ensure_valid(&CanRemove, &None),
             Err(UpdateError::DoesntExist)
         );
+
+        assert_eq!(modify.kind(&value), UpdateKind::Replace);
+        assert_eq!(modify.kind(&None), UpdateKind::None);
 
         modify.apply_update(&mut value);
         assert_eq!(value, Some(30));
@@ -983,6 +1007,8 @@ mod tests {
             Err(UpdateError::InvalidActor)
         );
 
+        assert_eq!(set.kind(&value), UpdateKind::Replace);
+
         set.apply_update(&mut value);
         assert_eq!(value, 10);
 
@@ -1001,6 +1027,8 @@ mod tests {
             modify.ensure_valid(&CanRemove, &value),
             Err(UpdateError::InvalidActor)
         );
+
+        assert_eq!(modify.kind(&value), UpdateKind::Replace);
 
         modify.apply_update(&mut value);
         assert_eq!(value, 30);

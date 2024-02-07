@@ -1,4 +1,4 @@
-use crate::util::{ApplyUpdate, ValidateUpdate};
+use crate::util::{ApplyUpdate, UpdateKind, ValidateUpdate};
 
 use super::*;
 
@@ -75,13 +75,16 @@ impl<T: Config> Pallet<T> {
                 schema_id,
                 registry_id,
                 |schema_metadata| {
-                    if schema_metadata.is_some() {
-                        Self::deposit_event(Event::SchemaMetadataUpdated(registry_id, schema_id));
-                    } else {
-                        Self::deposit_event(Event::SchemaMetadataAdded(registry_id, schema_id));
-                    }
+                    let event = match update.kind(&*schema_metadata) {
+                        UpdateKind::Add => Event::SchemaMetadataAdded(registry_id, schema_id),
+                        UpdateKind::Remove => Event::SchemaMetadataRemoved(registry_id, schema_id),
+                        UpdateKind::Replace => Event::SchemaMetadataUpdated(registry_id, schema_id),
+                        UpdateKind::None => return,
+                    };
 
-                    update.apply_update(schema_metadata)
+                    Self::deposit_event(event);
+
+                    update.apply_update(schema_metadata);
                 },
             );
         }
