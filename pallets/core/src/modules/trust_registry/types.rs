@@ -10,7 +10,7 @@ use crate::{
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Debug;
-use frame_support::*;
+use frame_support::{storage::bounded_btree_map, *};
 use sp_std::prelude::*;
 use utils::BoundedString;
 
@@ -114,7 +114,7 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifi
 #[scale_info(omit_prefix)]
 pub struct VerificationPrice(#[codec(compact)] pub u128);
 
-/// Price of verifying a credential as per different currencies
+/// Prices of verifying a credential corresponding to the specific schema metadata per different currencies.
 #[derive(
     Encode,
     Decode,
@@ -199,8 +199,6 @@ impl_wrapper!(IssuersWith<T, Entry> where T: Limits, Entry: Eq, Entry: Clone, En
 
 /// Schema `Issuer`s (`Issuer` => verification prices).
 pub type SchemaIssuers<T> = IssuersWith<T, VerificationPrices<T>>;
-
-pub type AggregatedSchemaIssuers<T> = IssuersWith<T, AggregatedIssuerInfo<T>>;
 
 /// Schema `Verifier`s.
 #[derive(
@@ -334,6 +332,8 @@ impl<T: Limits> TrustRegistrySchemaMetadata<T> {
         Ok(())
     }
 }
+
+pub type AggregatedSchemaIssuers<T> = IssuersWith<T, AggregatedIssuerInfo<T>>;
 
 /// `Trust Registry` schema metadata.
 #[derive(
@@ -478,24 +478,90 @@ pub struct TrustRegistryInfo<T: Limits> {
     pub gov_framework: BoundedBytes<T::MaxTrustRegistryGovFrameworkSize>,
 }
 
+pub type UnboundedSchemaIssuers = BTreeMap<Issuer, UnboundedVerificationPrices>;
+pub type UnboundedSchemaVerifiers = BTreeSet<Verifier>;
+pub type UnboundedVerificationPrices = BTreeMap<String, VerificationPrice>;
+
+pub type UnboundedVerifiersUpdate =
+    SetOrModify<UnboundedSchemaVerifiers, MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>>;
+pub type UnboundedVerificationPricesUpdate =
+    OnlyExistent<MultiTargetUpdate<String, SetOrAddOrRemoveOrModify<VerificationPrice>>>;
+pub type UnboundedIssuerUpdate =
+    SetOrAddOrRemoveOrModify<UnboundedVerificationPrices, UnboundedVerificationPricesUpdate>;
+pub type UnboundedIssuersUpdate =
+    SetOrModify<SchemaIssuers, MultiTargetUpdate<Issuer, UnboundedIssuerUpdate>>;
+
+impl<T: Config> TryFrom<UnboundedVerifiersUpdate> for VerifiersUpdate<T> {
+    type Error = Error<T>;
+
+    fn try_from(update: UnboundedVerifiersUpdate) -> Result<Self, Self::Error> {
+        update
+            .convert()
+            .map_err(|_| Error::<T>::VerifiersSizeExceeded)
+    }
+}
+
+impl<T: Config> TryFrom<UnboundedVerificationPricesUpdate> for VerificationPricesUpdate<T> {
+    type Error = Error<T>;
+
+    fn try_from(OnlyExistent(update): UnboundedVerificationPricesUpdate) -> Result<Self, Self::Error> {
+        update
+            .convert()
+            .map_err(|_| Error::<T>::VerificationPricesSizeExceeded)
+    }
+}
+
+impl<T: Config> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
+    type Error = Error<T>;
+
+    fn try_from(prices: UnboundedVerificationPrices) -> Result<Self, Self::Error> {
+        let prices: BTreeMap<_, _> = prices
+            .into_iter()
+            .map(|(cur, value)| {
+                cur.try_into()
+                    .map_err(|_| Error::<T>::PriceCurrencySizeExceeded)
+                    .map(|cur| (cur, value))
+            })
+            .collect()?;
+
+        prices
+            .try_into()
+            .map_err(|_| Error::<T>::VerificationPricesSizeExceeded)
+    }
+}
+
 pub type VerifiersUpdate<T> =
     SetOrModify<SchemaVerifiers<T>, MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>>;
 
-pub type IssuersUpdate<T> = SetOrModify<
-    SchemaIssuers<T>,
+pub type VerificationPricesUpdate<T> = OnlyExistent<
     MultiTargetUpdate<
-        Issuer,
-        SetOrAddOrRemoveOrModify<
-            VerificationPrices<T>,
-            OnlyExistent<
-                MultiTargetUpdate<
-                    BoundedString<<T as Limits>::MaxIssuerPriceCurrencySymbolSize>,
-                    SetOrAddOrRemoveOrModify<VerificationPrice>,
-                >,
-            >,
-        >,
+        BoundedString<<T as Limits>::MaxIssuerPriceCurrencySymbolSize>,
+        SetOrAddOrRemoveOrModify<VerificationPrice>,
     >,
 >;
+
+impl<T: Limits> TryFrom<UnboundedIssuerUpdate> for IssuerUpdate<T> {
+    fn try_from(update: UnboundedIssuerUpdate) -> Result<Self, Self::Error> {
+        update.convert()
+    }
+}
+
+pub type IssuersUpdate<T> = SetOrModify<
+    SchemaIssuers<T>,
+    MultiTargetUpdate<Issuer, SetOrAddOrRemoveOrModify<VerificationPrices<T>, IssuerUpdate<T>>>,
+>;
+
+impl<T: Config> TryFrom<UnboundedIssuersUpdate> for IssuersUpdate<T> {
+    type Error = Error<T>;
+
+    fn try_from(update: UnboundedIssuersUpdate) -> Result<Self, Self::Error> {
+        update.convert().map_err(|err| match err {
+            err @ Error::<T>::PriceCurrencySizeExceeded
+            | Error::<T>::VerificationPricesSizeExceeded => err,
+            _ => Error::<T>::IssuersSizeExceeded,
+        })
+    }
+}
 
 #[derive(Encode, Decode, Clone, PartialEqNoBound, EqNoBound, DebugNoBound, DefaultNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -506,13 +572,13 @@ pub type IssuersUpdate<T> = SetOrModify<
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct TrustRegistrySchemaMetadataUpdate<T: Limits> {
-    pub issuers: Option<IssuersUpdate<T>>,
-    pub verifiers: Option<VerifiersUpdate<T>>,
+pub struct TrustRegistrySchemaMetadataUpdate {
+    pub issuers: Option<IssuersUpdate>,
+    pub verifiers: Option<VerifiersUpdate>,
 }
 
-impl<T: Limits> TrustRegistrySchemaMetadataUpdate<T> {
-    fn record_inner_issuers_and_verifiers_diff(
+impl TrustRegistrySchemaMetadataUpdate {
+    fn record_inner_issuers_and_verifiers_diff<T: Limits>(
         &self,
         entity: &TrustRegistrySchemaMetadata<T>,
         schema_id: TrustRegistrySchemaId,

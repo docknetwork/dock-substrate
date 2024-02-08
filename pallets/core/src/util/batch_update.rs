@@ -63,6 +63,13 @@ pub trait ApplyUpdate<Entity> {
     fn kind(&self, entity: &Entity) -> UpdateKind;
 }
 
+pub trait Convert<V, U, VV, UU> where V: TryInto<VV>, U: Convert<UU, Error = V::Error> {
+    type Output;
+    type Error;
+    
+    fn convert(self) -> Result<Self::Output, V::Error>;
+}
+
 /// Validates underlying update, so it can be safely applied to the supplied entity.
 pub trait ValidateUpdate<Actor, Entity>: ApplyUpdate<Entity> {
     /// Ensures that the underlying update is valid.
@@ -229,6 +236,23 @@ pub enum SetOrAddOrRemoveOrModify<V, U = ()> {
     Modify(U),
 }
 
+impl<V, U> Convert<V, U> for SetOrAddOrRemoveOrModify<V, U> {
+    type Output = SetOrAddOrRemoveOrModify<VV, UU>;
+
+    pub fn convert<VV, UU>(self) -> Result<Self::Output, V::Error>
+    where
+        V: TryInto<VV>,
+        U: TryInto<UU, Error = V::Error>,
+    {
+        match self {
+            Self::Set(value) => value.try_into().map(SetOrAddOrRemoveOrModify::Set),
+            Self::Add(value) => value.try_into().map(SetOrAddOrRemoveOrModify::Add),
+            Self::Remove => Ok(SetOrAddOrRemoveOrModify::Remove),
+            Self::Modify(update) => update.try_into().map(SetOrAddOrRemoveOrModify::Modify),
+        }
+    }
+}
+
 /// Add/remove a value or apply a nested update.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -250,12 +274,41 @@ pub enum SetOrModify<V, U = ()> {
     Modify(U),
 }
 
+impl<V, U> Convert<V, U> for SetOrModify<V, U> {
+    type Output = SetOrModify<VV, UU>;
+
+    pub fn convert<VV, UU>(self) -> Result<Self::Output, V::Error>
+    where
+        V: TryInto<VV>,
+        U: TryInto<UU, Error = V::Error>,
+    {
+        match self {
+            Self::Set(value) => value.try_into().map(SetOrModify::Set),
+            Self::Modify(update) => update.try_into().map(SetOrModify::Modify),
+        }
+    }
+}
+
 /// Apply an update to the existing entity.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct OnlyExistent<U>(pub U);
+
+impl<U> Convert<(), U> for OnlyExistent<U> {
+    type Output = OnlyExistent<UU>;
+
+    pub fn convert<VV, UU>(self) -> Result<OnlyExistent<UU>, U::Error>
+    where
+        V: TryInto<()>,
+        U: TryInto<UU>,
+    {
+        match self {
+            OnlyExistent(update) => update.try_into().map(OnlyExistent),
+        }
+    }
+}
 
 impl<V> ApplyUpdate<V> for () {
     fn apply_update(self, _: &mut V) {}
