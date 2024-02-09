@@ -42,7 +42,7 @@ impl<T: Limits> ApplyUpdate<TrustRegistrySchemaMetadata<T>>
 }
 
 impl<A, T: Limits> ValidateUpdate<A, TrustRegistrySchemaMetadata<T>>
-    for TrustRegistrySchemaMetadataUpdate
+    for TrustRegistrySchemaMetadataUpdate<T>
 where
     A: CanUpdateAndCanUpdateKeyed<SchemaIssuers<T>>
         + CanUpdateAndCanUpdateKeyed<SchemaVerifiers<T>>

@@ -2,7 +2,7 @@ use super::*;
 use crate::{
     common::TypesAndLimits,
     impl_action_with_nonce,
-    util::{BoundedBytes, MultiTargetUpdate},
+    util::{BoundedBytes, MultiTargetUpdate, Types},
 };
 use alloc::collections::BTreeSet;
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
@@ -41,10 +41,10 @@ pub struct InitOrUpdateTrustRegistry<T: TypesAndLimits> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct SetSchemasMetadata<T: TypesAndLimits> {
+pub struct SetSchemasMetadata<T: Types> {
     pub registry_id: TrustRegistryId,
     pub schemas:
-        MultiTargetUpdate<TrustRegistrySchemaId, TrustRegistrySchemaMetadataModification<T>>,
+        MultiTargetUpdate<TrustRegistrySchemaId, UnboundedTrustRegistrySchemaMetadataModification>,
     pub nonce: T::BlockNumber,
 }
 

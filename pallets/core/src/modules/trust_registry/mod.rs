@@ -9,6 +9,7 @@ use crate::{
         SetOrModify,
     },
 };
+use core::convert::Infallible;
 use frame_support::{pallet_prelude::*, weights::PostDispatchInfo};
 
 use frame_system::ensure_signed;
@@ -35,6 +36,21 @@ use weights::*;
 pub mod pallet {
     use super::*;
     use frame_system::pallet_prelude::*;
+    use utils::BoundedStringConversionError;
+
+    impl<T> From<Infallible> for Error<T> {
+        fn from(_: Infallible) -> Self {
+            unreachable!()
+        }
+    }
+
+    impl<T> From<BoundedStringConversionError> for Error<T> {
+        fn from(
+            BoundedStringConversionError::InvalidStringByteLen: BoundedStringConversionError,
+        ) -> Self {
+            Self::PriceCurrencySizeExceeded
+        }
+    }
 
     /// Error for the TrustRegistry module.
     #[pallet::error]
@@ -46,6 +62,10 @@ pub mod pallet {
         SchemaMetadataDoesntExist,
         AlreadySuspended,
         NotSuspended,
+        IssuersSizeExceeded,
+        VerifiersSizeExceeded,
+        VerificationPricesSizeExceeded,
+        PriceCurrencySizeExceeded,
     }
 
     #[pallet::event]
@@ -288,11 +308,11 @@ impl<T: Config> SubstrateWeight<T> {
                 }
                 SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
                     update.issuers.as_ref().map_or(0, |v| match v {
-                        SetOrModify::Set(issuers) => issuers.capacity(),
+                        SetOrModify::Set(_) => T::MaxIssuersPerSchema::get(),
                         SetOrModify::Modify(map) => map.len() as u32,
                     })
                 }
-                SetOrAddOrRemoveOrModify::Remove => Default::default(),
+                SetOrAddOrRemoveOrModify::Remove => T::MaxIssuersPerSchema::get(),
             })
             .sum();
         let verifiers_len = schemas
@@ -303,11 +323,11 @@ impl<T: Config> SubstrateWeight<T> {
                 }
                 SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
                     update.verifiers.as_ref().map_or(0, |v| match v {
-                        SetOrModify::Set(verifiers) => verifiers.capacity(),
+                        SetOrModify::Set(_) => T::MaxVerifiersPerSchema::get(),
                         SetOrModify::Modify(map) => map.len() as u32,
                     })
                 }
-                SetOrAddOrRemoveOrModify::Remove => Default::default(),
+                SetOrAddOrRemoveOrModify::Remove => T::MaxVerifiersPerSchema::get(),
             })
             .sum();
         let schemas_len = schemas.len() as u32;
