@@ -63,6 +63,18 @@ pub trait ApplyUpdate<Entity> {
     fn kind(&self, entity: &Entity) -> UpdateKind;
 }
 
+pub trait Convert<V, U, VV, UU>
+where
+    V: TryInto<VV>,
+    U: TryInto<UU>,
+{
+    type Output;
+
+    fn convert<E>(self) -> Result<Self::Output, E>
+    where
+        E: From<V::Error> + From<U::Error>;
+}
+
 /// Validates underlying update, so it can be safely applied to the supplied entity.
 pub trait ValidateUpdate<Actor, Entity>: ApplyUpdate<Entity> {
     /// Ensures that the underlying update is valid.
@@ -150,6 +162,25 @@ impl From<DuplicateKey> for DispatchError {
 #[scale_info(omit_prefix)]
 pub struct MultiTargetUpdate<K: Ord, U>(pub BTreeMap<K, U>);
 
+impl<K, U, KK, UU> Convert<K, U, KK, UU> for MultiTargetUpdate<K, U>
+where
+    K: TryInto<KK> + Ord,
+    U: TryInto<UU>,
+    KK: Ord,
+{
+    type Output = MultiTargetUpdate<KK, UU>;
+
+    fn convert<E>(self) -> Result<Self::Output, E>
+    where
+        E: From<K::Error> + From<U::Error>,
+    {
+        self.0
+            .into_iter()
+            .map(|(key, value)| Ok((key.try_into()?, value.try_into()?)))
+            .collect()
+    }
+}
+
 impl<K, U> FromIterator<(K, U)> for MultiTargetUpdate<K, U>
 where
     K: Ord,
@@ -229,6 +260,35 @@ pub enum SetOrAddOrRemoveOrModify<V, U = ()> {
     Modify(U),
 }
 
+impl<V, U, VV, UU> Convert<V, U, VV, UU> for SetOrAddOrRemoveOrModify<V, U>
+where
+    V: TryInto<VV>,
+    U: TryInto<UU>,
+{
+    type Output = SetOrAddOrRemoveOrModify<VV, UU>;
+
+    fn convert<E>(self) -> Result<Self::Output, E>
+    where
+        E: From<V::Error> + From<U::Error>,
+    {
+        match self {
+            Self::Set(value) => value
+                .try_into()
+                .map_err(Into::into)
+                .map(SetOrAddOrRemoveOrModify::Set),
+            Self::Add(value) => value
+                .try_into()
+                .map_err(Into::into)
+                .map(SetOrAddOrRemoveOrModify::Add),
+            Self::Remove => Ok(SetOrAddOrRemoveOrModify::Remove),
+            Self::Modify(update) => update
+                .try_into()
+                .map_err(Into::into)
+                .map(SetOrAddOrRemoveOrModify::Modify),
+        }
+    }
+}
+
 /// Add/remove a value or apply a nested update.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -250,12 +310,51 @@ pub enum SetOrModify<V, U = ()> {
     Modify(U),
 }
 
+impl<V, U, VV, UU> Convert<V, U, VV, UU> for SetOrModify<V, U>
+where
+    V: TryInto<VV>,
+    U: TryInto<UU>,
+{
+    type Output = SetOrModify<VV, UU>;
+
+    fn convert<E>(self) -> Result<Self::Output, E>
+    where
+        E: From<V::Error> + From<U::Error>,
+    {
+        match self {
+            Self::Set(value) => value.try_into().map_err(Into::into).map(SetOrModify::Set),
+            Self::Modify(update) => update
+                .try_into()
+                .map_err(Into::into)
+                .map(SetOrModify::Modify),
+        }
+    }
+}
+
 /// Apply an update to the existing entity.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct OnlyExistent<U>(pub U);
+
+impl<V, U, VV, UU, IU> Convert<V, U, VV, UU> for OnlyExistent<IU>
+where
+    IU: Convert<V, U, VV, UU>,
+    V: TryInto<VV>,
+    U: TryInto<UU>,
+{
+    type Output = OnlyExistent<<IU as Convert<V, U, VV, UU>>::Output>;
+
+    fn convert<E>(self) -> Result<Self::Output, E>
+    where
+        E: From<V::Error> + From<U::Error>,
+    {
+        match self {
+            OnlyExistent(update) => update.convert().map(OnlyExistent),
+        }
+    }
+}
 
 impl<V> ApplyUpdate<V> for () {
     fn apply_update(self, _: &mut V) {}

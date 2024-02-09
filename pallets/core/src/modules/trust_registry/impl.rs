@@ -1,4 +1,4 @@
-use crate::util::{ApplyUpdate, UpdateKind, ValidateUpdate};
+use crate::util::{ApplyUpdate, Convert, MultiTargetUpdate, UpdateKind, ValidateUpdate};
 
 use super::*;
 
@@ -43,6 +43,9 @@ impl<T: Config> Pallet<T> {
         registry_info: TrustRegistryInfo<T>,
         actor: ConvenerOrIssuerOrVerifier,
     ) -> Result<(u32, u32, u32), DispatchError> {
+        let schemas: MultiTargetUpdate<_, TrustRegistrySchemaMetadataModification<T>> =
+            schemas.convert::<Error<T>>()?;
+
         let (verifiers_len, issuers_len) =
             Self::try_update_issuers_and_verifiers_with(registry_id, |issuers, verifiers| {
                 let is_convener = Convener(*actor).ensure_controls(&registry_info).is_ok();
