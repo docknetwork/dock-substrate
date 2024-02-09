@@ -1,6 +1,6 @@
 #![allow(clippy::type_complexity)]
 
-use super::*;
+use super::{types::*, *};
 use crate::{
     did::base::*,
     tests::common::*,
@@ -18,7 +18,7 @@ use utils::BoundedString;
 type Mod = super::Pallet<Test>;
 
 crate::did_or_did_method_key! {
-newdid =>
+    newdid =>
 
     #[test]
     fn init_or_update_trust_registry() {
@@ -167,7 +167,7 @@ newdid =>
                     issuers: IssuersWith(
                         [(
                             Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))),
-                            VerificationPrices(
+                            VerificationPrices::<Test>(
                                 (0..5)
                                     .map(|_| {
                                         let s = (0..10)
@@ -201,7 +201,7 @@ newdid =>
                     .clone()
                     .into_iter()
                     .map(|(schema_id, schema_metadata)| {
-                        (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata))
+                        (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata.into()))
                     })
                     .collect(),
                 nonce: 3,
@@ -405,7 +405,7 @@ newdid =>
                     issuers: IssuersWith(
                         [(
                             Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))),
-                            VerificationPrices(
+                            VerificationPrices::<Test>(
                                 (0..5)
                                     .map(|_| {
                                         let s = (0..10)
@@ -439,7 +439,7 @@ newdid =>
                     .clone()
                     .into_iter()
                     .map(|(schema_id, schema_metadata)| {
-                        (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata))
+                        (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata.into()))
                     })
                     .collect(),
                 nonce: 3,
@@ -462,11 +462,10 @@ newdid =>
                     .schemas
                     .values()
                     .map(|value| match value {
-                        SetOrAddOrRemoveOrModify::Add(value) => value,
+                        SetOrAddOrRemoveOrModify::Add(value) => TrustRegistrySchemaMetadata::<Test>::try_from(value.clone()).unwrap(),
                         _ => unreachable!(),
                     })
                     .next()
-                    .cloned()
             );
 
             let add_other_schema_metadata = SetSchemasMetadata {
@@ -592,7 +591,7 @@ newdid =>
                     .clone()
                     .into_iter()
                     .map(|(schema_id, schema_metadata)| {
-                        (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata))
+                        (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata.into()))
                     })
                     .collect(),
                 nonce: 3,
@@ -612,27 +611,27 @@ newdid =>
                     line!(),
                     vec![(
                         schema_ids[0],
-                        TrustRegistrySchemaMetadataModification::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                        UnboundedTrustRegistrySchemaMetadataModification::Modify(OnlyExistent(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(issuer.into()),
                                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                                             MultiTargetUpdate::from_iter([
                                                 (
-                                                    BoundedString::new("W".to_string()).unwrap(),
+                                                    "W".to_string(),
                                                     SetOrAddOrRemoveOrModify::Add(VerificationPrice(100)),
                                                 ),
                                                 (
-                                                    BoundedString::new("A".to_string()).unwrap(),
+                                                    "A".to_string(),
                                                     SetOrAddOrRemoveOrModify::Remove,
                                                 ),
                                                 (
-                                                    BoundedString::new("C".to_string()).unwrap(),
+                                                    "C".to_string(),
                                                     SetOrAddOrRemoveOrModify::Set(VerificationPrice(400)),
                                                 ),
                                                 (
-                                                    BoundedString::new("EF".to_string()).unwrap(),
+                                                    "EF".to_string(),
                                                     SetOrAddOrRemoveOrModify::Set(VerificationPrice(500)),
                                                 ),
                                             ]),
@@ -690,13 +689,13 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(Did(rand::random()).into()),
                                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                                             MultiTargetUpdate::from_iter([(
-                                                BoundedString::new("W".to_string()).unwrap(),
+                                                "W".to_string(),
                                                 SetOrAddOrRemoveOrModify::Add(VerificationPrice(100)),
                                             )]),
                                         )),
@@ -738,19 +737,19 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(Did(rand::random()).into()),
-                                        SetOrAddOrRemoveOrModify::Set(VerificationPrices(
+                                        SetOrAddOrRemoveOrModify::Set(
                                             [(
-                                                BoundedString::new("W".to_string()).unwrap(),
+                                                "W".to_string(),
                                                 VerificationPrice(100),
                                             )]
                                             .into_iter()
-                                            .try_collect()
-                                            .unwrap(),
-                                        )),
+                                            .collect()
+
+                                        ),
                                     )]),
                                 )),
                                 verifiers: None,
@@ -795,8 +794,8 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(
                                             (*schemas
@@ -810,7 +809,7 @@ newdid =>
                                         ),
                                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                                             MultiTargetUpdate::from_iter([(
-                                                BoundedString::new("EC".to_string()).unwrap(),
+                                                "EC".to_string(),
                                                 SetOrAddOrRemoveOrModify::Add(VerificationPrice(600)),
                                             )]),
                                         )),
@@ -848,13 +847,13 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(random_did.into()),
                                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                                             MultiTargetUpdate::from_iter([(
-                                                BoundedString::new("W".to_string()).unwrap(),
+                                                "W".to_string(),
                                                 SetOrAddOrRemoveOrModify::Add(VerificationPrice(100)),
                                             )]),
                                         )),
@@ -897,19 +896,19 @@ newdid =>
                         (
                             schema_ids[0],
                             SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                                TrustRegistrySchemaMetadataUpdate {
-                                    issuers: Some(IssuersUpdate::<Test>::Modify(
+                                UnboundedTrustRegistrySchemaMetadataUpdate {
+                                    issuers: Some(UnboundedIssuersUpdate::Modify(
                                         MultiTargetUpdate::from_iter([(
                                             Issuer(issuer.into()),
-                                            SetOrAddOrRemoveOrModify::Set(VerificationPrices(
+                                            SetOrAddOrRemoveOrModify::Set(
                                                 [(
-                                                    BoundedString::new("A".to_string()).unwrap(),
+                                                    "A".to_string(),
                                                     VerificationPrice(800),
                                                 )]
                                                 .into_iter()
-                                                .try_collect()
-                                                .unwrap(),
-                                            )),
+                                                .collect()
+
+                                            ),
                                         )]),
                                     )),
                                     verifiers: None,
@@ -919,8 +918,8 @@ newdid =>
                         (
                             schema_ids[1],
                             SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                                TrustRegistrySchemaMetadataUpdate {
-                                    issuers: Some(IssuersUpdate::<Test>::Modify(
+                                UnboundedTrustRegistrySchemaMetadataUpdate {
+                                    issuers: Some(UnboundedIssuersUpdate::Modify(
                                         MultiTargetUpdate::from_iter([(
                                             Issuer(
                                                 (*schemas
@@ -934,7 +933,7 @@ newdid =>
                                             ),
                                             SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                                                 MultiTargetUpdate::from_iter([(
-                                                    BoundedString::new("W".to_string()).unwrap(),
+                                                    "W".to_string(),
                                                     SetOrAddOrRemoveOrModify::Add(VerificationPrice(100)),
                                                 )]),
                                             )),
@@ -1007,13 +1006,13 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(Did(rand::random()).into()),
                                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                                             MultiTargetUpdate::from_iter([(
-                                                BoundedString::new("W".to_string()).unwrap(),
+                                                "W".to_string(),
                                                 SetOrAddOrRemoveOrModify::Add(VerificationPrice(100)),
                                             )]),
                                         )),
@@ -1055,14 +1054,14 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(issuer.into()),
                                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                                             MultiTargetUpdate::from_iter((0..20).map(|idx| {
                                                 (
-                                                    BoundedString::new(idx.to_string()).unwrap(),
+                                                    idx.to_string(),
                                                     SetOrAddOrRemoveOrModify::Add(VerificationPrice(100)),
                                                 )
                                             })),
@@ -1095,12 +1094,12 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter((0..50).map(|idx| {
                                         (
                                             Issuer(Did([idx as u8; 32]).into()),
-                                            SetOrAddOrRemoveOrModify::Set(VerificationPrices(
+                                            SetOrAddOrRemoveOrModify::Set(
                                                 (0..15)
                                                     .map(|p_idx| {
                                                         (
@@ -1117,7 +1116,7 @@ newdid =>
                                                     .collect::<BTreeMap<_, _>>()
                                                     .try_into()
                                                     .unwrap(),
-                                            )),
+                                            ),
                                         )
                                     })),
                                 )),
@@ -1147,14 +1146,14 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
-                                issuers: Some(IssuersUpdate::<Test>::Modify(
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
+                                issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(issuer.into()),
                                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                                             MultiTargetUpdate::from_iter((0..19).map(|idx| {
                                                 (
-                                                    BoundedString::new(idx.to_string()).unwrap(),
+                                                    idx.to_string(),
                                                     SetOrAddOrRemoveOrModify::Add(VerificationPrice(100)),
                                                 )
                                             })),
@@ -1196,9 +1195,9 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
                                 issuers: None,
-                                verifiers: VerifiersUpdate::<Test>::Modify(
+                                verifiers: UnboundedVerifiersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Verifier(verifier.into()),
                                         AddOrRemoveOrModify::Remove,
@@ -1242,9 +1241,9 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
                                 issuers: None,
-                                verifiers: VerifiersUpdate::<Test>::Modify(
+                                verifiers: UnboundedVerifiersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Verifier(issuer.into()),
                                         AddOrRemoveOrModify::Add(()),
@@ -1291,11 +1290,11 @@ newdid =>
                     vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
-                            TrustRegistrySchemaMetadataUpdate {
+                            UnboundedTrustRegistrySchemaMetadataUpdate {
                                 issuers: None,
-                                verifiers: VerifiersUpdate::<Test>::Set(SchemaVerifiers(
+                                verifiers: UnboundedVerifiersUpdate::Set(
                                     Default::default(),
-                                ))
+                                )
                                 .into(),
                             },
                         )),
@@ -1333,7 +1332,7 @@ newdid =>
                     line!(),
                     vec![(
                         schema_ids[0],
-                        SetOrAddOrRemoveOrModify::Add(TrustRegistrySchemaMetadata {
+                        SetOrAddOrRemoveOrModify::Add(UnboundedTrustRegistrySchemaMetadata {
                             issuers: Default::default(),
                             verifiers: Default::default(),
                         }),
@@ -1364,7 +1363,7 @@ newdid =>
                         (
                             new_schema_id,
                             SetOrAddOrRemoveOrModify::Add(
-                                schemas.get(&schema_ids[3]).cloned().unwrap(),
+                                schemas.get(&schema_ids[3]).cloned().unwrap().into(),
                             ),
                         ),
                     ],
@@ -1425,7 +1424,7 @@ newdid =>
                     line!(),
                     vec![(
                         schema_ids[0],
-                        SetOrAddOrRemoveOrModify::Add(schemas.get(&schema_ids[2]).cloned().unwrap()),
+                        SetOrAddOrRemoveOrModify::Add(schemas.get(&schema_ids[2]).cloned().unwrap().into()),
                     )],
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
