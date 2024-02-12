@@ -12,6 +12,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Debug;
 use frame_support::*;
 use scale_info::prelude::string::String;
+use sp_runtime::DispatchError;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 use utils::BoundedString;
 
@@ -572,35 +573,6 @@ impl<T: Limits> TryFrom<UnboundedSchemaVerifiers> for SchemaVerifiers<T> {
     }
 }
 
-pub type UnboundedVerifiersUpdate =
-    SetOrModify<UnboundedSchemaVerifiers, MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>>;
-pub type UnboundedVerificationPricesUpdate =
-    OnlyExistent<MultiTargetUpdate<String, SetOrAddOrRemoveOrModify<VerificationPrice>>>;
-pub type UnboundedIssuerUpdate =
-    SetOrAddOrRemoveOrModify<UnboundedVerificationPrices, UnboundedVerificationPricesUpdate>;
-pub type UnboundedIssuersUpdate =
-    SetOrModify<UnboundedSchemaIssuers, MultiTargetUpdate<Issuer, UnboundedIssuerUpdate>>;
-
-impl<T: Limits> TryFrom<MultiTargetUpdate<Issuer, UnboundedIssuerUpdate>>
-    for MultiTargetUpdate<Issuer, IssuerUpdate<T>>
-{
-    type Error = Error<T>;
-
-    fn try_from(
-        update: MultiTargetUpdate<Issuer, UnboundedIssuerUpdate>,
-    ) -> Result<Self, Self::Error> {
-        update.convert()
-    }
-}
-
-impl<T: Limits> TryFrom<UnboundedVerifiersUpdate> for VerifiersUpdate<T> {
-    type Error = Error<T>;
-
-    fn try_from(update: UnboundedVerifiersUpdate) -> Result<Self, Self::Error> {
-        update.convert()
-    }
-}
-
 impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
     type Error = Error<T>;
 
@@ -621,6 +593,15 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
     }
 }
 
+pub type UnboundedVerifiersUpdate =
+    SetOrModify<UnboundedSchemaVerifiers, MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>>;
+pub type UnboundedVerificationPricesUpdate =
+    OnlyExistent<MultiTargetUpdate<String, SetOrAddOrRemoveOrModify<VerificationPrice>>>;
+pub type UnboundedIssuerUpdate =
+    SetOrAddOrRemoveOrModify<UnboundedVerificationPrices, UnboundedVerificationPricesUpdate>;
+pub type UnboundedIssuersUpdate =
+    SetOrModify<UnboundedSchemaIssuers, MultiTargetUpdate<Issuer, UnboundedIssuerUpdate>>;
+
 pub type VerifiersUpdate<T> =
     SetOrModify<SchemaVerifiers<T>, MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>>;
 pub type VerificationPricesUpdate<T> = OnlyExistent<
@@ -633,27 +614,6 @@ pub type IssuerUpdate<T> =
     SetOrAddOrRemoveOrModify<VerificationPrices<T>, VerificationPricesUpdate<T>>;
 pub type IssuersUpdate<T> =
     SetOrModify<SchemaIssuers<T>, MultiTargetUpdate<Issuer, IssuerUpdate<T>>>;
-
-impl<T: Limits> TryFrom<UnboundedIssuerUpdate> for IssuerUpdate<T> {
-    type Error = Error<T>;
-
-    fn try_from(update: UnboundedIssuerUpdate) -> Result<Self, Self::Error> {
-        match update {
-            SetOrAddOrRemoveOrModify::Add(prices) => prices.try_into().map(Self::Add),
-            SetOrAddOrRemoveOrModify::Set(prices) => prices.try_into().map(Self::Set),
-            SetOrAddOrRemoveOrModify::Remove => Ok(Self::Remove),
-            SetOrAddOrRemoveOrModify::Modify(update) => update.convert().map(Self::Modify),
-        }
-    }
-}
-
-impl<T: Limits> TryFrom<UnboundedIssuersUpdate> for IssuersUpdate<T> {
-    type Error = Error<T>;
-
-    fn try_from(update: UnboundedIssuersUpdate) -> Result<Self, Self::Error> {
-        update.convert()
-    }
-}
 
 #[derive(Encode, Decode, Clone, PartialEqNoBound, EqNoBound, DebugNoBound, DefaultNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -678,22 +638,24 @@ pub struct UnboundedTrustRegistrySchemaMetadataUpdate {
     pub verifiers: Option<UnboundedVerifiersUpdate>,
 }
 
-impl<T: Limits> TryFrom<OnlyExistent<UnboundedTrustRegistrySchemaMetadataUpdate>>
-    for OnlyExistent<TrustRegistrySchemaMetadataUpdate<T>>
+impl<T: Limits> Convert<TrustRegistrySchemaMetadataUpdate<T>>
+    for UnboundedTrustRegistrySchemaMetadataUpdate
 {
-    type Error = Error<T>;
+    type Error = DispatchError;
 
-    fn try_from(
-        OnlyExistent(UnboundedTrustRegistrySchemaMetadataUpdate { issuers, verifiers }): OnlyExistent<UnboundedTrustRegistrySchemaMetadataUpdate>,
-    ) -> Result<Self, Self::Error> {
-        Ok(OnlyExistent(TrustRegistrySchemaMetadataUpdate {
+    fn convert(self) -> Result<TrustRegistrySchemaMetadataUpdate<T>, Self::Error> {
+        let UnboundedTrustRegistrySchemaMetadataUpdate { issuers, verifiers } = self;
+
+        Ok(TrustRegistrySchemaMetadataUpdate {
             issuers: issuers
-                .map(|issuers| issuers.convert::<Self::Error>())
-                .transpose()?,
+                .map(|issuers| issuers.convert())
+                .transpose()
+                .map_err(Into::<DispatchError>::into)?,
             verifiers: verifiers
-                .map(|verifiers| verifiers.convert::<Self::Error>())
-                .transpose()?,
-        }))
+                .map(|verifiers| verifiers.convert())
+                .transpose()
+                .map_err(Into::<DispatchError>::into)?,
+        })
     }
 }
 
@@ -721,18 +683,6 @@ pub type UnboundedTrustRegistrySchemaMetadataModification = SetOrAddOrRemoveOrMo
     UnboundedTrustRegistrySchemaMetadata,
     OnlyExistent<UnboundedTrustRegistrySchemaMetadataUpdate>,
 >;
-
-impl<T: Limits> TryFrom<UnboundedTrustRegistrySchemaMetadataModification>
-    for TrustRegistrySchemaMetadataModification<T>
-{
-    type Error = Error<T>;
-
-    fn try_from(
-        update: UnboundedTrustRegistrySchemaMetadataModification,
-    ) -> Result<Self, Self::Error> {
-        update.convert()
-    }
-}
 
 pub type TrustRegistrySchemaMetadataModification<T> = SetOrAddOrRemoveOrModify<
     TrustRegistrySchemaMetadata<T>,

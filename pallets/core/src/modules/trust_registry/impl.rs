@@ -44,7 +44,7 @@ impl<T: Config> Pallet<T> {
         actor: ConvenerOrIssuerOrVerifier,
     ) -> Result<(u32, u32, u32), DispatchError> {
         let schemas: MultiTargetUpdate<_, TrustRegistrySchemaMetadataModification<T>> =
-            schemas.convert::<Error<T>>()?;
+            schemas.convert().map_err(Into::<DispatchError>::into)?;
 
         let (verifiers_len, issuers_len) =
             Self::try_update_issuers_and_verifiers_with(registry_id, |issuers, verifiers| {

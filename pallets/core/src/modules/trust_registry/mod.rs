@@ -5,8 +5,8 @@ use crate::{
     deposit_indexed_event,
     did::{self, DidOrDidMethodKeySignature},
     util::{
-        ActionWithNonce, ActionWrapper, BoundedKeyValue, OnlyExistent, SetOrAddOrRemoveOrModify,
-        SetOrModify,
+        ActionWithNonce, ActionWrapper, BoundedKeyValue, ConversionError, OnlyExistent,
+        SetOrAddOrRemoveOrModify, SetOrModify,
     },
 };
 use core::convert::Infallible;
@@ -41,6 +41,24 @@ pub mod pallet {
     impl<T> From<Infallible> for Error<T> {
         fn from(_: Infallible) -> Self {
             unreachable!()
+        }
+    }
+
+    pub trait ToModuleError<T> {
+        fn to_module_error() -> Error<T>;
+    }
+
+    impl<V, U> Into<DispatchError> for ConversionError<V, U> {
+        fn into(self) -> DispatchError {
+            match self {
+                ConversionError::Value(value_err) => {
+                    DispatchError::Other("Failed to convert a value")
+                }
+                ConversionError::Update(update_err) => {
+                    DispatchError::Other("Failed to convert an update")
+                }
+                ConversionError::__Marker(_) => unreachable!(),
+            }
         }
     }
 
