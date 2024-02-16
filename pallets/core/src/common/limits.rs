@@ -59,7 +59,9 @@ pub trait Limits: Clone + Eq {
     type MaxVerifiersPerSchema: Size;
     /// Max no of currencies an issuer can set the price in for a particular schema
     type MaxPriceCurrencies: Size;
+    /// Max size of the trust registry name.
     type MaxTrustRegistryNameSize: Size;
+    /// Max no of the trust registries per a single convener.
     type MaxConvenerRegistries: Size;
     /// Max no of delegated issuers a particular issuer can have
     type MaxDelegatedIssuers: Size;
@@ -67,7 +69,14 @@ pub trait Limits: Clone + Eq {
     type MaxSchemasPerIssuer: Size;
     /// Max no of schemas that a particular verifier can verify (credential) for
     type MaxSchemasPerVerifier: Size;
+    /// Max no of registries per a single issuer.
+    type MaxRegistriesPerIssuer: Size;
+    /// Max no of registries per a single verifier.
+    type MaxRegistriesPerVerifier: Size;
+    /// Max government framework size for the trust registry.
     type MaxTrustRegistryGovFrameworkSize: Size;
+    /// Max no of schemas per registry.
+    type MaxSchemasPerRegistry: Size;
 }
 
 type NoLimit = ConstU32<{ u32::MAX }>;
@@ -112,4 +121,7 @@ impl Limits for () {
     type MaxSchemasPerIssuer = NoLimit;
     type MaxSchemasPerVerifier = NoLimit;
     type MaxTrustRegistryGovFrameworkSize = NoLimit;
+    type MaxRegistriesPerIssuer = NoLimit;
+    type MaxRegistriesPerVerifier = NoLimit;
+    type MaxSchemasPerRegistry = NoLimit;
 }

@@ -71,5 +71,8 @@ impl<T: Types, L: Limits> Limits for CombineTypesAndLimits<T, L> {
     type MaxDelegatedIssuers = L::MaxDelegatedIssuers;
     type MaxSchemasPerIssuer = L::MaxSchemasPerIssuer;
     type MaxSchemasPerVerifier = L::MaxSchemasPerVerifier;
+    type MaxSchemasPerRegistry = L::MaxSchemasPerRegistry;
+    type MaxRegistriesPerIssuer = L::MaxRegistriesPerIssuer;
+    type MaxRegistriesPerVerifier = L::MaxRegistriesPerVerifier;
     type MaxTrustRegistryGovFrameworkSize = L::MaxTrustRegistryGovFrameworkSize;
 }

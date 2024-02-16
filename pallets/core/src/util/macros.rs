@@ -172,18 +172,29 @@ macro_rules! impl_action_with_nonce {
 /// Implements given trait for the tuple type.
 #[macro_export]
 macro_rules! impl_tuple {
-    (@ $method: ident$(<$($gen: ident),+>)?($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident) => { $main::$method::<$($($gen),+)*>($($arg),*) };
-    (@ $method: ident$(<$($gen: ident),+>)?($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident $($ty: ident)+) => {
-        $main::$method::<$($($gen),+)*>($($arg),*).$combine($crate::impl_tuple!(@ $method$(<$($gen),+>)*($($arg: $arg_ty),*) => using $combine for $($ty)*))
+    (
+        @ $method: ident$(<$($gen: ident),+>)?
+            ($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident)
+                => { $main::$method::<$($($gen),+)*>($($arg),*)
     };
-    ($trait: ident$(<$($trait_gen: ident),+>)?::$method: ident$(<$($gen: ident),+>)?($($arg: ident: $arg_ty: ty),*) -> $ret_ty: ty => using $combine: ident for $($ty: ident)* $(=> where $($where_tt: tt)+)?) => {
-        impl<$($ty),+ $(,$($trait_gen),+)*> $trait$(<$($trait_gen),+>)* for ($($ty),+)
-            where $($ty: $trait),+
-        {
-            fn $method<$($($gen),+)*>($($arg: $arg_ty),*) -> $ret_ty $(where $($where_tt)+)* {
-                $crate::impl_tuple!(@ $method($($arg: $arg_ty),*) => using $combine for $($ty)*)
-            }
-        }
+    (
+        @ $method: ident$(<$($gen: ident),+>)?
+            ($($arg: ident: $arg_ty: ty),*) => using $combine: ident for $main: ident $($ty: ident)+) => {
+                $main::$method::<$($($gen),+)*>($($arg),*).$combine($crate::impl_tuple!(@ $method$(<$($gen),+>)*($($arg: $arg_ty),*) => using $combine for $($ty)*))
+    };
+    (
+        $trait: ident$(<$($trait_gen: ident),+>)?
+            ::$method: ident$(<$($gen: ident),+>)?
+            ($($arg: ident: $arg_ty: ty),*) -> $ret_ty: ty => using $combine: ident for $($ty: ident)*
+                $(=> where $($where_tt: tt)+)?
+            ) => {
+                impl<$($ty),+ $(,$($trait_gen),+)*> $trait$(<$($trait_gen),+>)* for ($($ty),+)
+                    where $($ty: $trait),+
+                {
+                    fn $method<$($($gen),+)*>($($arg: $arg_ty),*) -> $ret_ty $(where $($where_tt)+)* {
+                        $crate::impl_tuple!(@ $method($($arg: $arg_ty),*) => using $combine for $($ty)*)
+                    }
+                }
     }
 }
 
@@ -415,7 +426,9 @@ macro_rules! bench_with_all_pairs {
                     $({ $($init: tt)* })?
                     let $pair: ident as Pair;
                     $($body: tt)+
-                }: $call_tt: tt($($call_e: expr),+)
+                }:
+                $($call: block)?
+                $($dispatch: ident($($dispatch_arg: expr),+))?
                 verify { $($verification: tt)* }
             )+
         $(;
@@ -433,7 +446,7 @@ macro_rules! bench_with_all_pairs {
                     use sp_core::Pair;
                     let $pair = $crate::def_test_pair!(sr25519, &[4; 32]);
                     $($body)+
-                }: $call_tt($($call_e),+) verify { $($verification)* }
+                }: $({ $call })* $($dispatch($($dispatch_arg),+))* verify { $($verification)* }
 
                 $bench_name_ed25519 {
                     $($($init)*)*
@@ -441,7 +454,7 @@ macro_rules! bench_with_all_pairs {
                     use sp_core::Pair;
                     let $pair = $crate::def_test_pair!(ed25519, &[3; 32]);
                     $($body)+
-                }: $call_tt($($call_e),+) verify { $($verification)* }
+                }: $({ $call })* $($dispatch($($dispatch_arg),+))* verify { $($verification)* }
 
                 $bench_name_secp256k1 {
                     $($($init)*)*
@@ -449,7 +462,7 @@ macro_rules! bench_with_all_pairs {
                     use sp_core::Pair;
                     let $pair = $crate::def_test_pair!(secp256k1, &[2; 32]);
                     $($body)+
-                }: $call_tt($($call_e),+) verify { $($verification)* }
+                }: $({ $call })* $($dispatch($($dispatch_arg),+))* verify { $($verification)* }
             )+
 
             $($($other)*)?

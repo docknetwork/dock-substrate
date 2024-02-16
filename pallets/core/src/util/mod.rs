@@ -1,12 +1,12 @@
 pub mod action;
 pub mod batch_update;
-pub mod bounded_key_value;
 #[cfg(feature = "serde")]
 pub mod btree;
 pub mod bytes;
 #[cfg(feature = "serde")]
 pub mod hex;
 pub mod inc_id;
+pub mod key_value;
 pub mod macros;
 pub mod option_ext;
 pub mod signature;
@@ -16,13 +16,13 @@ pub mod wrapped_action_with_nonce;
 
 pub use action::*;
 pub use batch_update::*;
-pub use bounded_key_value::*;
 #[cfg(feature = "serde")]
 pub use btree::*;
 pub use bytes::*;
 #[cfg(feature = "serde")]
 pub use hex::*;
 pub use inc_id::*;
+pub use key_value::*;
 pub use macros::*;
 pub use option_ext::*;
 pub use signature::*;

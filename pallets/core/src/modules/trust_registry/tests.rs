@@ -12,8 +12,6 @@ use crate::{
 use alloc::collections::{BTreeMap, BTreeSet};
 use frame_support::{assert_noop, assert_ok};
 use rand::{distributions::Alphanumeric, Rng};
-use sp_runtime::traits::TryCollect;
-use utils::BoundedString;
 
 type Mod = super::Pallet<Test>;
 
@@ -163,32 +161,29 @@ crate::did_or_did_method_key! {
 
             let schemas: BTreeMap<_, _> = [(
                 TrustRegistrySchemaId(rand::random()),
-                TrustRegistrySchemaMetadata {
-                    issuers: IssuersWith(
+                UnboundedTrustRegistrySchemaMetadata {
+                    issuers: UnboundedIssuersWith(
                         [(
                             Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))),
-                            VerificationPrices::<Test>(
+                            UnboundedVerificationPrices(
                                 (0..5)
                                     .map(|_| {
                                         let s = (0..10)
                                             .map(|_| rng.sample(Alphanumeric) as char)
                                             .collect::<String>();
 
-                                        (s.try_into().unwrap(), VerificationPrice(random()))
+                                        (s, VerificationPrice(random()))
                                     })
-                                    .try_collect()
-                                    .unwrap(),
+                                    .collect()
                             ),
                         )]
                         .into_iter()
-                        .try_collect()
-                        .unwrap(),
+                        .collect(),
                     ),
-                    verifiers: SchemaVerifiers(
+                    verifiers: UnboundedSchemaVerifiers(
                         (0..5)
                             .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
-                            .try_collect()
-                            .unwrap(),
+                            .collect()
                     ),
                 },
             )]
@@ -197,13 +192,13 @@ crate::did_or_did_method_key! {
 
             let add_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
-                schemas: schemas
+                schemas: SetOrModify::Modify(schemas
                     .clone()
                     .into_iter()
                     .map(|(schema_id, schema_metadata)| {
                         (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata.into()))
                     })
-                    .collect(),
+                    .collect()),
                 nonce: 3,
             };
 
@@ -312,11 +307,10 @@ crate::did_or_did_method_key! {
             })
             .unwrap();
 
-            let delegated = DelegatedIssuers(
+            let delegated = UnboundedDelegatedIssuers(
                 (0..10)
                     .map(|idx| Issuer(Did([idx; 32]).into()))
-                    .try_collect()
-                    .unwrap(),
+                    .collect()
             );
             let update_delegated = UpdateDelegatedIssuers {
                 delegated: SetOrModify::Set(delegated.clone()),
@@ -361,13 +355,13 @@ crate::did_or_did_method_key! {
                     Issuer(other.into())
                 )
                 .delegated,
-                delegated
+                delegated.try_into().unwrap()
             );
         })
     }
 
     #[test]
-    fn add_metadata() {
+    fn add_schemas_metadata() {
         ext().execute_with(|| {
             let mut rng = rand::thread_rng();
 
@@ -401,32 +395,29 @@ crate::did_or_did_method_key! {
 
             let schemas: BTreeMap<_, _> = [(
                 TrustRegistrySchemaId(rand::random()),
-                TrustRegistrySchemaMetadata {
-                    issuers: IssuersWith(
+                UnboundedTrustRegistrySchemaMetadata {
+                    issuers: UnboundedIssuersWith(
                         [(
                             Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))),
-                            VerificationPrices::<Test>(
+                            UnboundedVerificationPrices(
                                 (0..5)
                                     .map(|_| {
                                         let s = (0..10)
                                             .map(|_| rng.sample(Alphanumeric) as char)
                                             .collect::<String>();
 
-                                        (s.try_into().unwrap(), VerificationPrice(random()))
+                                        (s, VerificationPrice(random()))
                                     })
-                                    .try_collect()
-                                    .unwrap(),
+                                    .collect()
                             ),
                         )]
                         .into_iter()
-                        .try_collect()
-                        .unwrap(),
+                        .collect()
                     ),
-                    verifiers: SchemaVerifiers(
+                    verifiers: UnboundedSchemaVerifiers(
                         (0..5)
                             .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
-                            .try_collect()
-                            .unwrap(),
+                            .collect()
                     ),
                 },
             )]
@@ -435,13 +426,13 @@ crate::did_or_did_method_key! {
 
             let add_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
-                schemas: schemas
+                schemas: SetOrModify::Modify(schemas
                     .clone()
                     .into_iter()
                     .map(|(schema_id, schema_metadata)| {
                         (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata.into()))
                     })
-                    .collect(),
+                    .collect()),
                 nonce: 3,
             };
             let sig = did_sig(
@@ -455,11 +446,13 @@ crate::did_or_did_method_key! {
 
             assert_eq!(
                 TrustRegistrySchemasMetadata::get(
-                    add_schema_metadata.schemas.keys().next().unwrap(),
+                    add_schema_metadata.schemas.clone().unwrap_modify().keys().next().unwrap(),
                     init_or_update_trust_registry.registry_id
                 ),
                 add_schema_metadata
                     .schemas
+                    .clone()
+                    .unwrap_modify()
                     .values()
                     .map(|value| match value {
                         SetOrAddOrRemoveOrModify::Add(value) => TrustRegistrySchemaMetadata::<Test>::try_from(value.clone()).unwrap(),
@@ -482,7 +475,7 @@ crate::did_or_did_method_key! {
             );
 
             assert_noop!(
-                Mod::set_schemas_metadata(Origin::signed(alice), add_other_schema_metadata, other_sig),
+                Mod::set_schemas_metadata(Origin::signed(alice), add_other_schema_metadata, other_sig).map_err(|e| e.error),
                 UpdateError::InvalidActor
             );
 
@@ -500,14 +493,14 @@ crate::did_or_did_method_key! {
             );
 
             assert_noop!(
-                Mod::set_schemas_metadata(Origin::signed(alice), add_other_schema_metadata, sig),
+                Mod::set_schemas_metadata(Origin::signed(alice), add_other_schema_metadata, sig).map_err(|e| e.error),
                 UpdateError::AlreadyExists
             );
         })
     }
 
     #[test]
-    fn update_metadata() {
+    fn set_schemas_metadata() {
         ext().execute_with(|| {
             let mut rng = rand::thread_rng();
 
@@ -541,14 +534,12 @@ crate::did_or_did_method_key! {
             .unwrap();
 
             let build_initial_prices = || {
-                VerificationPrices(
+                UnboundedVerificationPrices(
                     (0..5)
                         .map(|_| (0..5).map(|_| random::<u8>() as char).collect::<String>())
                         .chain(vec!["A", "B", "C", "D"].into_iter().map(|v| v.to_string()))
-                        .map(|symbol| (symbol.try_into().unwrap(), VerificationPrice(random())))
+                        .map(|symbol| (symbol, VerificationPrice(random())))
                         .collect::<BTreeMap<_, _>>()
-                        .try_into()
-                        .unwrap(),
                 )
             };
 
@@ -562,38 +553,36 @@ crate::did_or_did_method_key! {
                 .copied()
                 .zip(0..)
                 .map(|(id, idx)| {
-                    let issuers = IssuersWith(
+                    let issuers = UnboundedIssuersWith(
                         (0..5)
                             .map(|_| Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))))
                             .chain((idx == 0).then_some(Issuer(issuer.into())))
                             .map(|issuer| (issuer, build_initial_prices()))
                             .collect::<BTreeMap<_, _>>()
-                            .try_into()
-                            .unwrap(),
                     );
-                    let verifiers = SchemaVerifiers(
+                    let verifiers = UnboundedSchemaVerifiers(
                         (0..5)
                             .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
                             .chain((idx == 0).then_some(Verifier(verifier.into())))
                             .collect::<BTreeSet<_>>()
-                            .try_into()
-                            .unwrap(),
                     );
 
-                    (id, TrustRegistrySchemaMetadata { issuers, verifiers })
+                    (id, UnboundedTrustRegistrySchemaMetadata { issuers, verifiers })
                 })
                 .collect();
-            let new_schema_id = TrustRegistrySchemaId([123; 32]);
+
+            let initial_schemas = schemas.clone();
+            let second_fourth_schemas = BTreeMap::from_iter([(schema_ids[2], schemas.get(&schema_ids[2]).cloned().unwrap()), (schema_ids[4], schemas.get(&schema_ids[4]).cloned().unwrap())]);
 
             let add_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
-                schemas: schemas
+                schemas: SetOrModify::Modify(schemas
                     .clone()
                     .into_iter()
                     .map(|(schema_id, schema_metadata)| {
                         (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata.into()))
                     })
-                    .collect(),
+                    .collect()),
                 nonce: 3,
             };
             let sig = did_sig(
@@ -603,13 +592,14 @@ crate::did_or_did_method_key! {
                 1,
             );
             let random_did = Did(rand::random());
+            let new_schema_id = TrustRegistrySchemaId([123; 32]);
 
             Mod::set_schemas_metadata(Origin::signed(alice), add_schema_metadata, sig).unwrap();
 
             let cases = [
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         UnboundedTrustRegistrySchemaMetadataModification::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -641,12 +631,12 @@ crate::did_or_did_method_key! {
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -655,7 +645,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(verifier.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
 
@@ -670,23 +660,23 @@ crate::did_or_did_method_key! {
                             let schema = schemas.get_mut(&schema_ids[0]).unwrap();
                             let issuer = schema.issuers.get_mut(&Issuer(issuer.into())).unwrap();
                             issuer
-                                .try_insert(BoundedString::new("W".to_string()).unwrap(), VerificationPrice(100))
+                                .try_add("W".to_string(), VerificationPrice(100))
                                 .unwrap();
                             issuer
-                                .remove(&BoundedString::new("A".to_string()).unwrap())
+                                .remove(&"A".to_string())
                                 .unwrap();
                             issuer
-                                .try_insert(BoundedString::new("C".to_string()).unwrap(), VerificationPrice(400))
+                                .try_add("C".to_string(), VerificationPrice(400))
                                 .unwrap();
                             issuer
-                                .try_insert(BoundedString::new("EF".to_string()).unwrap(), VerificationPrice(500))
+                                .try_add("EF".to_string(), VerificationPrice(500))
                                 .unwrap();
                         },
                     ) as _,
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -704,12 +694,12 @@ crate::did_or_did_method_key! {
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         _schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -718,7 +708,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                             assert_noop!(
@@ -726,7 +716,7 @@ crate::did_or_did_method_key! {
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
-                                )),
+                                )).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                         },
@@ -734,33 +724,32 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
                                 issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
                                         Issuer(Did(rand::random()).into()),
-                                        SetOrAddOrRemoveOrModify::Set(
+                                        SetOrAddOrRemoveOrModify::Set(UnboundedVerificationPrices(
                                             [(
                                                 "W".to_string(),
                                                 VerificationPrice(100),
                                             )]
                                             .into_iter()
                                             .collect()
-
-                                        ),
+                                        )),
                                     )]),
                                 )),
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         _schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -769,7 +758,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                             assert_noop!(
@@ -777,21 +766,21 @@ crate::did_or_did_method_key! {
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
-                                )),
+                                )).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                         },
                     )
                         as Box<
-                            dyn FnMut(
+                            dyn FnOnce(
                                 SetSchemasMetadata<Test>,
-                                &mut BTreeMap<TrustRegistrySchemaId, TrustRegistrySchemaMetadata<Test>>,
+                                &mut BTreeMap<TrustRegistrySchemaId, UnboundedTrustRegistrySchemaMetadata>,
                             ),
                         >,
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -818,12 +807,12 @@ crate::did_or_did_method_key! {
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_ok!(update.execute_readonly(|action, reg| {
                                 Mod::set_schemas_metadata_(
@@ -837,14 +826,14 @@ crate::did_or_did_method_key! {
                             let key = *schema.issuers.keys().nth(2).unwrap();
                             let issuer = schema.issuers.get_mut(&key).unwrap();
                             issuer
-                                .try_insert(BoundedString::new("EC".to_string()).unwrap(), VerificationPrice(600))
+                                .try_add("EC".to_string(), VerificationPrice(600))
                                 .unwrap();
                         },
                     ) as _,
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -862,12 +851,12 @@ crate::did_or_did_method_key! {
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         _schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -876,7 +865,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(random_did.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                             assert_noop!(
@@ -884,7 +873,7 @@ crate::did_or_did_method_key! {
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
-                                )),
+                                )).map_err(DispatchError::from),
                                 UpdateError::DoesntExist
                             );
                         },
@@ -892,7 +881,7 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![
                         (
                             schema_ids[0],
                             SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
@@ -900,7 +889,7 @@ crate::did_or_did_method_key! {
                                     issuers: Some(UnboundedIssuersUpdate::Modify(
                                         MultiTargetUpdate::from_iter([(
                                             Issuer(issuer.into()),
-                                            SetOrAddOrRemoveOrModify::Set(
+                                            SetOrAddOrRemoveOrModify::Set(UnboundedVerificationPrices(
                                                 [(
                                                     "A".to_string(),
                                                     VerificationPrice(800),
@@ -908,7 +897,7 @@ crate::did_or_did_method_key! {
                                                 .into_iter()
                                                 .collect()
 
-                                            ),
+                                            )),
                                         )]),
                                     )),
                                     verifiers: None,
@@ -943,12 +932,12 @@ crate::did_or_did_method_key! {
                                 },
                             )),
                         ),
-                    ],
+                    ])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -957,7 +946,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
 
@@ -970,7 +959,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer_3),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
 
@@ -986,24 +975,24 @@ crate::did_or_did_method_key! {
                                 .issuers
                                 .get_mut(&Issuer(issuer_3))
                                 .unwrap()
-                                .try_insert(BoundedString::new("W".to_string()).unwrap(), VerificationPrice(100))
+                                .try_add("W".to_string(), VerificationPrice(100))
                                 .unwrap();
 
                             let _ = schema_1;
 
                             let schema_0 = schemas.get_mut(&schema_ids[0]).unwrap();
-                            let issuer: &mut VerificationPrices<Test> =
+                            let issuer =
                                 schema_0.issuers.get_mut(&Issuer(issuer.into())).unwrap();
                             *issuer = Default::default();
                             issuer
-                                .try_insert(BoundedString::new("A".to_string()).unwrap(), VerificationPrice(800))
+                                .try_add("A".to_string(), VerificationPrice(800))
                                 .unwrap();
                         },
                     ) as _,
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -1021,12 +1010,12 @@ crate::did_or_did_method_key! {
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         _schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -1035,7 +1024,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                             assert_noop!(
@@ -1043,7 +1032,7 @@ crate::did_or_did_method_key! {
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
-                                )),
+                                )).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                         },
@@ -1051,7 +1040,7 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -1071,19 +1060,19 @@ crate::did_or_did_method_key! {
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         _schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.execute_readonly(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
-                                )),
+                                )).map_err(DispatchError::from),
                                 UpdateError::CapacityOverflow
                             );
                         },
@@ -1091,7 +1080,7 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -1123,19 +1112,19 @@ crate::did_or_did_method_key! {
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         _schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.execute_readonly(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
-                                )),
+                                )).map_err(DispatchError::from),
                                 UpdateError::CapacityOverflow
                             );
                         },
@@ -1143,7 +1132,7 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -1163,12 +1152,12 @@ crate::did_or_did_method_key! {
                                 verifiers: None,
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_ok!(update.execute_readonly(|action, registry| {
                                 Mod::set_schemas_metadata_(
@@ -1179,20 +1168,20 @@ crate::did_or_did_method_key! {
                             }));
 
                             let schema_0 = schemas.get_mut(&schema_ids[0]).unwrap();
-                            let issuer: &mut VerificationPrices<Test> =
+                            let issuer =
                                 schema_0.issuers.get_mut(&Issuer(issuer.into())).unwrap();
 
                             for (key, price) in (0..19)
-                                .map(|idx| (BoundedString::new(idx.to_string()).unwrap(), VerificationPrice(100)))
+                                .map(|idx| (idx.to_string(), VerificationPrice(100)))
                             {
-                                issuer.try_insert(key, price).unwrap();
+                                issuer.try_add(key, price).unwrap();
                             }
                         },
                     ) as _,
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -1206,12 +1195,12 @@ crate::did_or_did_method_key! {
                                 .into(),
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -1220,7 +1209,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                             assert_ok!(update.execute_readonly(|action, reg| {
@@ -1238,7 +1227,7 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -1252,12 +1241,12 @@ crate::did_or_did_method_key! {
                                 .into(),
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -1266,7 +1255,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(verifier.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                             assert_ok!(update.execute_readonly(|action, reg| {
@@ -1280,14 +1269,14 @@ crate::did_or_did_method_key! {
                             let schema = schemas.get_mut(&schema_ids[0]).unwrap();
                             schema
                                 .verifiers
-                                .try_insert(Verifier(issuer.into()))
+                                .try_add(Verifier(issuer.into()), ())
                                 .unwrap();
                         },
                     ) as _,
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
@@ -1298,12 +1287,12 @@ crate::did_or_did_method_key! {
                                 .into(),
                             },
                         )),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -1312,7 +1301,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
                             assert_ok!(update.execute_readonly(|action, reg| {
@@ -1330,18 +1319,18 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Add(UnboundedTrustRegistrySchemaMetadata {
                             issuers: Default::default(),
                             verifiers: Default::default(),
                         }),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         _schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -1350,7 +1339,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(convener.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::AlreadyExists
                             );
                         },
@@ -1358,7 +1347,7 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![
                         (schema_ids[4], SetOrAddOrRemoveOrModify::Remove),
                         (
                             new_schema_id,
@@ -1366,12 +1355,12 @@ crate::did_or_did_method_key! {
                                 schemas.get(&schema_ids[3]).cloned().unwrap().into(),
                             ),
                         ),
-                    ],
+                    ])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_ok!(update.execute_readonly(|action, reg| {
                                 Mod::set_schemas_metadata_(
@@ -1390,12 +1379,12 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![(schema_ids[0], SetOrAddOrRemoveOrModify::Remove)],
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(schema_ids[0], SetOrAddOrRemoveOrModify::Remove)])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -1404,7 +1393,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
 
@@ -1422,15 +1411,15 @@ crate::did_or_did_method_key! {
                 ),
                 (
                     line!(),
-                    vec![(
+                    SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
                         SetOrAddOrRemoveOrModify::Add(schemas.get(&schema_ids[2]).cloned().unwrap().into()),
-                    )],
+                    )])),
                     Box::new(
                         |update: SetSchemasMetadata<Test>,
                         schemas: &mut BTreeMap<
                             TrustRegistrySchemaId,
-                            TrustRegistrySchemaMetadata<Test>,
+                            UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
                                 update.clone().execute_readonly(|action, reg| {
@@ -1439,7 +1428,7 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
-                                }),
+                                }).map_err(DispatchError::from),
                                 UpdateError::InvalidActor
                             );
 
@@ -1457,22 +1446,128 @@ crate::did_or_did_method_key! {
                         },
                     ) as _,
                 ),
+                (
+                    line!(),
+                    SetOrModify::Set(UnboundedSchemas(second_fourth_schemas.clone())),
+                    Box::new(
+                        |update: SetSchemasMetadata<Test>,
+                        schemas: &mut BTreeMap<
+                            TrustRegistrySchemaId,
+                            UnboundedTrustRegistrySchemaMetadata,
+                        >| {
+                            assert_noop!(
+                                update.clone().execute_readonly(|action, reg| {
+                                    Mod::set_schemas_metadata_(
+                                        action,
+                                        reg,
+                                        ConvenerOrIssuerOrVerifier(issuer.into()),
+                                    )
+                                }).map_err(DispatchError::from),
+                                Error::<Test>::NotTheConvener
+                            );
+
+                            assert_ok!(update.execute_readonly(|action, reg| {
+                                Mod::set_schemas_metadata_(
+                                    action,
+                                    reg,
+                                    ConvenerOrIssuerOrVerifier(convener.into()),
+                                )
+                            }));
+
+                            *schemas = second_fourth_schemas;
+                        },
+                    ) as _,
+                ),
+                (
+                    line!(),
+                    SetOrModify::Set(UnboundedSchemas(Default::default())),
+                    Box::new(
+                        |update: SetSchemasMetadata<Test>,
+                        schemas: &mut BTreeMap<
+                            TrustRegistrySchemaId,
+                            UnboundedTrustRegistrySchemaMetadata,
+                        >| {
+                            assert_noop!(
+                                update.clone().execute_readonly(|action, reg| {
+                                    Mod::set_schemas_metadata_(
+                                        action,
+                                        reg,
+                                        ConvenerOrIssuerOrVerifier(issuer.into()),
+                                    )
+                                }).map_err(DispatchError::from),
+                                Error::<Test>::NotTheConvener
+                            );
+
+                            assert_ok!(update.execute_readonly(|action, reg| {
+                                Mod::set_schemas_metadata_(
+                                    action,
+                                    reg,
+                                    ConvenerOrIssuerOrVerifier(convener.into()),
+                                )
+                            }));
+
+                            *schemas = Default::default();
+                        },
+                    ) as _,
+                ),
+                (
+                    line!(),
+                    SetOrModify::Set(UnboundedSchemas(initial_schemas.clone())),
+                    Box::new(
+                        |update: SetSchemasMetadata<Test>,
+                        schemas: &mut BTreeMap<
+                            TrustRegistrySchemaId,
+                            UnboundedTrustRegistrySchemaMetadata,
+                        >| {
+                            assert_noop!(
+                                update.clone().execute_readonly(|action, reg| {
+                                    Mod::set_schemas_metadata_(
+                                        action,
+                                        reg,
+                                        ConvenerOrIssuerOrVerifier(issuer.into()),
+                                    )
+                                }).map_err(DispatchError::from),
+                                Error::<Test>::NotTheConvener
+                            );
+
+                            assert_ok!(update.execute_readonly(|action, reg| {
+                                Mod::set_schemas_metadata_(
+                                    action,
+                                    reg,
+                                    ConvenerOrIssuerOrVerifier(convener.into()),
+                                )
+                            }));
+
+                            *schemas = initial_schemas.clone();
+                        },
+                    ) as _,
+                ),
             ];
 
-            for (line, updates, mut execute) in cases {
+            for (line, updates, execute) in cases {
                 let update = SetSchemasMetadata {
                     registry_id: init_or_update_trust_registry.registry_id,
-                    schemas: FromIterator::from_iter(updates),
+                    schemas: updates,
                     nonce: 2,
                 };
 
                 execute(update, &mut schemas);
 
                 assert_eq!(
-                    schemas,
-                    TrustRegistrySchemasMetadata::iter()
-                        .map(|(schema_id, _, value)| (schema_id, value))
-                        .collect(),
+                    Schemas::<Test>::try_from(UnboundedSchemas(schemas.clone())).unwrap(),
+                    Schemas::<Test>(
+                        TrustRegistrySchemasMetadata::iter()
+                            .map(|(schema_id, _, value)| (schema_id, value))
+                            .collect::<BTreeMap<_, _>>()
+                            .try_into()
+                            .unwrap()
+                    ),
+                    "Failed test on line {:?}",
+                    line
+                );
+                assert_eq!(
+                    schemas.keys().cloned().collect::<BTreeSet<_>>(),
+                    TrustRegistriesStoredSchemas::<Test>::get(init_or_update_trust_registry.registry_id).0.into(),
                     "Failed test on line {:?}",
                     line
                 );
@@ -1508,6 +1603,40 @@ crate::did_or_did_method_key! {
                             .0
                             .into_iter()
                             .map(move |schema_id| (schema_id, issuer)))
+                        .collect(),
+                    "Failed test on line {:?}",
+                    line
+                );
+                assert_eq!(
+                    schemas
+                        .iter()
+                        .flat_map(|(_id, schema)|
+                            schema
+                                .issuers
+                                .keys()
+                                .copied()
+                        )
+                        .collect::<BTreeSet<_>>(),
+                    IssuersTrustRegistries::<Test>::iter()
+                        .filter(|(_, set)| !set.is_empty())
+                        .map(|(issuer, _)| issuer)
+                        .collect(),
+                    "Failed test on line {:?}",
+                    line
+                );
+                assert_eq!(
+                    schemas
+                        .iter()
+                        .flat_map(|(_id, schema)|
+                            schema
+                                .verifiers
+                                .keys()
+                                .copied()
+                        )
+                        .collect::<BTreeSet<_>>(),
+                    VerifiersTrustRegistries::<Test>::iter()
+                        .filter(|(_, set)| !set.is_empty())
+                        .map(|(verifier, _)| verifier)
                         .collect(),
                     "Failed test on line {:?}",
                     line

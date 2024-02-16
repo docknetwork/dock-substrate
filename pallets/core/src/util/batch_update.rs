@@ -1,4 +1,4 @@
-use super::BoundedKeyValue;
+use super::KeyValue;
 use alloc::collections::{btree_map, BTreeMap, BTreeSet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{
@@ -33,7 +33,7 @@ pub trait CanUpdate<Entity>: Sized {
 pub trait CanUpdateKeyed<Entity>
 where
     Entity: Deref,
-    Entity::Target: BoundedKeyValue,
+    Entity::Target: KeyValue,
 {
     /// Checks whether the underlying keyed update can be applied, i.e. all associated updates are valid.
     #[must_use]
@@ -46,14 +46,14 @@ where
 pub trait CanUpdateAndCanUpdateKeyed<Entity>: CanUpdateKeyed<Entity> + CanUpdate<Entity>
 where
     Entity: Deref,
-    Entity::Target: BoundedKeyValue,
+    Entity::Target: KeyValue,
 {
 }
 
 impl<Entity, T: CanUpdateKeyed<Entity> + CanUpdate<Entity>> CanUpdateAndCanUpdateKeyed<Entity> for T
 where
     Entity: Deref,
-    Entity::Target: BoundedKeyValue,
+    Entity::Target: KeyValue,
 {
 }
 
@@ -66,16 +66,19 @@ pub trait ApplyUpdate<Entity> {
     fn kind(&self, entity: &Entity) -> UpdateKind;
 }
 
-pub enum ConversionError<V, U, I = ()> {
-    Value(V),
-    Update(U),
-    __Marker(I),
-}
-
-pub trait Convert<Output>: Sized {
+/// Attempts to translate underlying update to the `ToUpdate`.
+pub trait TranslateUpdate<ToUpdate>: Sized {
+    /// Update translation error.
     type Error;
 
-    fn convert(self) -> Result<Output, Self::Error>;
+    /// Attempts to translate underlying update to the `ToUpdate`.
+    fn translate_update(self) -> Result<ToUpdate, Self::Error>;
+}
+
+/// An error that occured during update translation.
+pub enum UpdateTranslationError<V, U> {
+    Value(V),
+    Update(U),
 }
 
 /// Validates underlying update, so it can be safely applied to the supplied entity.
@@ -116,31 +119,33 @@ impl<T> CanUpdate<()> for T {
 /// Series of updates applied over some targets.
 pub trait KeyedUpdate<Entity: Deref>
 where
-    Entity::Target: BoundedKeyValue,
+    Entity::Target: KeyValue,
 {
-    type Targets<'a>: Iterator<Item = &'a <Entity::Target as BoundedKeyValue>::Key> + 'a
+    type Targets<'targets>: Iterator<Item = &'targets <Entity::Target as KeyValue>::Key> + 'targets
     where
-        Self: 'a,
-        <Entity::Target as BoundedKeyValue>::Key: 'a,
-        Entity: 'a;
+        Self: 'targets,
+        <Entity::Target as KeyValue>::Key: 'targets,
+        Entity: 'targets;
+
+    fn size(&self) -> u32;
 
     fn targets<'targets>(&'targets self, entity: &'targets Entity) -> Self::Targets<'targets>;
 
     fn keys_diff(
         &self,
         entity: &Entity,
-    ) -> MultiTargetUpdate<<Entity::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>>;
+    ) -> MultiTargetUpdate<<Entity::Target as KeyValue>::Key, AddOrRemoveOrModify<()>>;
 
     fn record_inner_keys_diff<K: Ord + Clone>(
         &self,
         entity: &Entity,
         inner_key: K,
         map: &mut MultiTargetUpdate<
-            <Entity::Target as BoundedKeyValue>::Key,
+            <Entity::Target as KeyValue>::Key,
             MultiTargetUpdate<K, AddOrRemoveOrModify<()>>,
         >,
     ) -> Result<(), DuplicateKey> {
-        for (key, update) in self.keys_diff(entity).0 {
+        for (key, update) in self.keys_diff(entity) {
             map.entry(key)
                 .or_default()
                 .insert_update(inner_key.clone(), update)?;
@@ -165,21 +170,22 @@ impl From<DuplicateKey> for DispatchError {
 #[scale_info(omit_prefix)]
 pub struct MultiTargetUpdate<K: Ord, U>(pub BTreeMap<K, U>);
 
-impl<K, U, KK, UU> Convert<MultiTargetUpdate<KK, UU>> for MultiTargetUpdate<K, U>
+impl<K, U, KK, UU> TranslateUpdate<MultiTargetUpdate<KK, UU>> for MultiTargetUpdate<K, U>
 where
     K: TryInto<KK> + Ord,
-    //K::Error: From<U::Error>,
-    U: Convert<UU>,
+    U: TranslateUpdate<UU>,
     KK: Ord,
 {
-    type Error = ConversionError<K::Error, U::Error>;
+    type Error = UpdateTranslationError<K::Error, U::Error>;
 
-    fn convert(self) -> Result<MultiTargetUpdate<KK, UU>, Self::Error> {
+    fn translate_update(self) -> Result<MultiTargetUpdate<KK, UU>, Self::Error> {
         self.into_iter()
             .map(|(key, update)| {
                 Ok((
-                    key.try_into().map_err(ConversionError::Value)?,
-                    update.convert().map_err(ConversionError::Update)?,
+                    key.try_into().map_err(UpdateTranslationError::Value)?,
+                    update
+                        .translate_update()
+                        .map_err(UpdateTranslationError::Update)?,
                 ))
             })
             .collect()
@@ -209,14 +215,22 @@ impl<K: Ord, U> MultiTargetUpdate<K, U> {
         Ok(())
     }
 
-    pub fn insert_update_or_remove_duplicate(
+    pub fn insert_update_or_remove_duplicate_if(
         &mut self,
         key: K,
         value: U,
-    ) -> Result<(), DuplicateKey> {
+        mut remove_if: impl FnMut(&U) -> bool,
+    ) -> Result<(), DuplicateKey>
+    where
+        U:,
+    {
         match self.entry(key) {
             btree_map::Entry::Occupied(entry) => {
-                entry.remove();
+                if (remove_if)(entry.get()) {
+                    entry.remove();
+                } else {
+                    Err(DuplicateKey)?
+                }
             }
             btree_map::Entry::Vacant(vacant) => {
                 vacant.insert(value);
@@ -265,28 +279,28 @@ pub enum SetOrAddOrRemoveOrModify<V, U = ()> {
     Modify(U),
 }
 
-impl<V, U, VV, UU> Convert<SetOrAddOrRemoveOrModify<VV, UU>> for SetOrAddOrRemoveOrModify<V, U>
+impl<V, U, VV, UU> TranslateUpdate<SetOrAddOrRemoveOrModify<VV, UU>>
+    for SetOrAddOrRemoveOrModify<V, U>
 where
     V: TryInto<VV>,
-    // V::Error: From<U::Error>,
-    U: Convert<UU>,
+    U: TranslateUpdate<UU>,
 {
-    type Error = ConversionError<V::Error, U::Error>;
+    type Error = UpdateTranslationError<V::Error, U::Error>;
 
-    fn convert(self) -> Result<SetOrAddOrRemoveOrModify<VV, UU>, Self::Error> {
+    fn translate_update(self) -> Result<SetOrAddOrRemoveOrModify<VV, UU>, Self::Error> {
         match self {
-            SetOrAddOrRemoveOrModify::Set(value) => value
+            Self::Set(value) => value
                 .try_into()
-                .map_err(ConversionError::Value)
+                .map_err(UpdateTranslationError::Value)
                 .map(SetOrAddOrRemoveOrModify::Set),
-            SetOrAddOrRemoveOrModify::Add(value) => value
+            Self::Add(value) => value
                 .try_into()
-                .map_err(ConversionError::Value)
+                .map_err(UpdateTranslationError::Value)
                 .map(SetOrAddOrRemoveOrModify::Add),
-            SetOrAddOrRemoveOrModify::Remove => Ok(SetOrAddOrRemoveOrModify::Remove),
-            SetOrAddOrRemoveOrModify::Modify(update) => update
-                .convert()
-                .map_err(ConversionError::Update)
+            Self::Remove => Ok(SetOrAddOrRemoveOrModify::Remove),
+            Self::Modify(update) => update
+                .translate_update()
+                .map_err(UpdateTranslationError::Update)
                 .map(SetOrAddOrRemoveOrModify::Modify),
         }
     }
@@ -303,24 +317,23 @@ pub enum AddOrRemoveOrModify<V, U = ()> {
     Modify(U),
 }
 
-impl<V, U, VV, UU> Convert<AddOrRemoveOrModify<VV, UU>> for AddOrRemoveOrModify<V, U>
+impl<V, U, VV, UU> TranslateUpdate<AddOrRemoveOrModify<VV, UU>> for AddOrRemoveOrModify<V, U>
 where
     V: TryInto<VV>,
-    // V::Error: From<U::Error>,
-    U: Convert<UU>,
+    U: TranslateUpdate<UU>,
 {
-    type Error = ConversionError<V::Error, U::Error>;
+    type Error = UpdateTranslationError<V::Error, U::Error>;
 
-    fn convert(self) -> Result<AddOrRemoveOrModify<VV, UU>, Self::Error> {
+    fn translate_update(self) -> Result<AddOrRemoveOrModify<VV, UU>, Self::Error> {
         match self {
-            AddOrRemoveOrModify::Add(value) => value
+            Self::Add(value) => value
                 .try_into()
-                .map_err(ConversionError::Value)
+                .map_err(UpdateTranslationError::Value)
                 .map(AddOrRemoveOrModify::Add),
-            AddOrRemoveOrModify::Remove => Ok(AddOrRemoveOrModify::Remove),
-            AddOrRemoveOrModify::Modify(update) => update
-                .convert()
-                .map_err(ConversionError::Update)
+            Self::Remove => Ok(AddOrRemoveOrModify::Remove),
+            Self::Modify(update) => update
+                .translate_update()
+                .map_err(UpdateTranslationError::Update)
                 .map(AddOrRemoveOrModify::Modify),
         }
     }
@@ -336,23 +349,31 @@ pub enum SetOrModify<V, U = ()> {
     Modify(U),
 }
 
-impl<V, U, VV, UU> Convert<SetOrModify<VV, UU>> for SetOrModify<V, U>
+impl<V, U> SetOrModify<V, U> {
+    pub fn unwrap_modify(self) -> U {
+        match self {
+            Self::Modify(update) => update,
+            Self::Set(_) => panic!("Panic on `SetOrModify::Set`"),
+        }
+    }
+}
+
+impl<V, U, VV, UU> TranslateUpdate<SetOrModify<VV, UU>> for SetOrModify<V, U>
 where
     V: TryInto<VV>,
-    // V::Error: From<U::Error>,
-    U: Convert<UU>,
+    U: TranslateUpdate<UU>,
 {
-    type Error = ConversionError<V::Error, U::Error>;
+    type Error = UpdateTranslationError<V::Error, U::Error>;
 
-    fn convert(self) -> Result<SetOrModify<VV, UU>, Self::Error> {
+    fn translate_update(self) -> Result<SetOrModify<VV, UU>, Self::Error> {
         match self {
             SetOrModify::Set(value) => value
                 .try_into()
-                .map_err(ConversionError::Value)
+                .map_err(UpdateTranslationError::Value)
                 .map(SetOrModify::Set),
             SetOrModify::Modify(update) => update
-                .convert()
-                .map_err(ConversionError::Update)
+                .translate_update()
+                .map_err(UpdateTranslationError::Update)
                 .map(SetOrModify::Modify),
         }
     }
@@ -365,23 +386,23 @@ where
 #[scale_info(omit_prefix)]
 pub struct OnlyExistent<U>(pub U);
 
-impl<U, UU> Convert<OnlyExistent<UU>> for OnlyExistent<U>
+impl<U, UU> TranslateUpdate<OnlyExistent<UU>> for OnlyExistent<U>
 where
-    U: Convert<UU>,
+    U: TranslateUpdate<UU>,
 {
     type Error = U::Error;
 
-    fn convert(self) -> Result<OnlyExistent<UU>, Self::Error> {
+    fn translate_update(self) -> Result<OnlyExistent<UU>, Self::Error> {
         match self {
-            OnlyExistent(update) => update.convert().map(OnlyExistent),
+            OnlyExistent(update) => update.translate_update().map(OnlyExistent),
         }
     }
 }
 
-impl Convert<()> for () {
+impl TranslateUpdate<()> for () {
     type Error = Infallible;
 
-    fn convert(self) -> Result<(), Self::Error> {
+    fn translate_update(self) -> Result<(), Self::Error> {
         Ok(())
     }
 }
@@ -424,7 +445,9 @@ impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, V>> ValidateUpdate<A, Option<V>> f
     }
 }
 
-impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for SetOrAddOrRemoveOrModify<V, U> {
+impl<V: PartialEq, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>>
+    for SetOrAddOrRemoveOrModify<V, U>
+{
     fn apply_update(self, entity: &mut Option<V>) {
         match self {
             Self::Set(value) => {
@@ -446,9 +469,11 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for SetOrAddOrRemoveOr
 
     fn kind(&self, entity: &Option<V>) -> UpdateKind {
         match self {
-            Self::Set(_) => {
+            Self::Set(new_value) => {
                 if entity.is_none() {
                     UpdateKind::Add
+                } else if entity.as_ref().map_or(false, |value| new_value == value) {
+                    UpdateKind::None
                 } else {
                     UpdateKind::Replace
                 }
@@ -472,7 +497,7 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for SetOrAddOrRemoveOr
     }
 }
 
-impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
+impl<A: CanUpdate<V>, V: PartialEq, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
     for SetOrAddOrRemoveOrModify<V, U>
 {
     fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
@@ -560,7 +585,7 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModif
     }
 }
 
-impl<V, U: ApplyUpdate<V>> ApplyUpdate<V> for SetOrModify<V, U> {
+impl<V: PartialEq, U: ApplyUpdate<V>> ApplyUpdate<V> for SetOrModify<V, U> {
     fn apply_update(self, entity: &mut V) {
         match self {
             SetOrModify::Set(value) => {
@@ -572,13 +597,21 @@ impl<V, U: ApplyUpdate<V>> ApplyUpdate<V> for SetOrModify<V, U> {
 
     fn kind(&self, entity: &V) -> UpdateKind {
         match self {
-            SetOrModify::Set(_) => UpdateKind::Replace,
+            SetOrModify::Set(new_value) => {
+                if new_value == entity {
+                    UpdateKind::None
+                } else {
+                    UpdateKind::Replace
+                }
+            }
             SetOrModify::Modify(update) => update.kind(entity),
         }
     }
 }
 
-impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, V>> ValidateUpdate<A, V> for SetOrModify<V, U> {
+impl<A: CanUpdate<V>, V: PartialEq, U: ValidateUpdate<A, V>> ValidateUpdate<A, V>
+    for SetOrModify<V, U>
+{
     fn ensure_valid(&self, actor: &A, entity: &V) -> Result<(), UpdateError> {
         match self {
             SetOrModify::Set(new) => {
@@ -612,11 +645,11 @@ impl From<UpdateError> for DispatchError {
     }
 }
 
-impl<U, C> ApplyUpdate<C> for MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, U>
+impl<U, C> ApplyUpdate<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
 where
     C: DerefMut,
-    C::Target: BoundedKeyValue,
-    U: ApplyUpdate<Option<<C::Target as BoundedKeyValue>::Value>>,
+    C::Target: KeyValue,
+    U: ApplyUpdate<Option<<C::Target as KeyValue>::Value>>,
 {
     fn apply_update(self, entity: &mut C) {
         #[cfg(not(feature = "std"))]
@@ -632,7 +665,7 @@ where
 
             if let Some(new_value) = opt {
                 entity
-                    .try_insert(key, new_value)
+                    .try_add(key, new_value)
                     .ok()
                     .expect("`MultiTargetUpdate` update failed");
             }
@@ -647,12 +680,12 @@ where
     }
 }
 
-impl<A, U, C> ValidateUpdate<A, C> for MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, U>
+impl<A, U, C> ValidateUpdate<A, C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
 where
     C: DerefMut,
-    C::Target: BoundedKeyValue,
+    C::Target: KeyValue,
     A: CanUpdateKeyed<C>,
-    U: ValidateUpdate<A, Option<<C::Target as BoundedKeyValue>::Value>>,
+    U: ValidateUpdate<A, Option<<C::Target as KeyValue>::Value>>,
 {
     fn ensure_valid(&self, actor: &A, entity: &C) -> Result<(), UpdateError> {
         ensure!(
@@ -677,7 +710,7 @@ where
 
         if new_len < 0 {
             Err(UpdateError::ValidationFailed)
-        } else if new_len as u32 <= entity.capacity() {
+        } else if entity.capacity().map_or(true, |cap| new_len as u32 <= cap) {
             Ok(())
         } else {
             Err(UpdateError::CapacityOverflow)
@@ -685,25 +718,29 @@ where
     }
 }
 
-impl<U, C> KeyedUpdate<C> for MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, U>
+impl<U, C> KeyedUpdate<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
 where
     C: DerefMut,
-    U: ApplyUpdate<Option<<C::Target as BoundedKeyValue>::Value>>,
-    C::Target: BoundedKeyValue,
+    U: ApplyUpdate<Option<<C::Target as KeyValue>::Value>>,
+    C::Target: KeyValue,
 {
-    type Targets<'a> = alloc::collections::btree_map::Keys<'a, <C::Target as BoundedKeyValue>::Key, U>  where
+    type Targets<'a> = alloc::collections::btree_map::Keys<'a, <C::Target as KeyValue>::Key, U>  where
     Self: 'a,
-    <C::Target as BoundedKeyValue>::Key: 'a,
+    <C::Target as KeyValue>::Key: 'a,
     C: 'a;
 
     fn targets<'targets>(&'targets self, _entity: &'targets C) -> Self::Targets<'targets> {
         self.keys()
     }
 
+    fn size(&self) -> u32 {
+        self.0.len() as u32
+    }
+
     fn keys_diff(
         &self,
         entity: &C,
-    ) -> MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>> {
+    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
         self.iter()
             .filter_map(|(key, update)| {
                 let update = match update.kind(&entity.get(key).cloned()) {
@@ -721,18 +758,18 @@ where
 impl<U, C> KeyedUpdate<C> for SetOrModify<C, U>
 where
     C: DerefMut,
-    C::Target: BoundedKeyValue,
+    C::Target: KeyValue,
     U: KeyedUpdate<C>,
 {
     type Targets<'a> = Either<
         core::iter::Chain<
-            <C::Target as BoundedKeyValue>::Keys<'a>,
-            <C::Target as BoundedKeyValue>::Keys<'a>,
+            <C::Target as KeyValue>::Keys<'a>,
+            <C::Target as KeyValue>::Keys<'a>,
         >,
         U::Targets<'a>
     >  where
     Self: 'a,
-    <C::Target as BoundedKeyValue>::Key: 'a,
+    <C::Target as KeyValue>::Key: 'a,
     C: 'a;
 
     fn targets<'targets>(&'targets self, entity: &'targets C) -> Self::Targets<'targets> {
@@ -745,7 +782,7 @@ where
     fn keys_diff(
         &self,
         entity: &C,
-    ) -> MultiTargetUpdate<<C::Target as BoundedKeyValue>::Key, AddOrRemoveOrModify<()>> {
+    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
         match self {
             Self::Set(item) => {
                 let after: BTreeSet<_> = item.keys().collect();
@@ -764,15 +801,20 @@ where
             Self::Modify(update) => update.keys_diff(entity),
         }
     }
+
+    fn size(&self) -> u32 {
+        match self {
+            Self::Set(item) => item.len(),
+            Self::Modify(update) => update.size(),
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use sp_runtime::{traits::ConstU32, BoundedBTreeMap};
 
-    use crate::util::{
-        ApplyUpdate, BoundedKeyValue, CanUpdate, CanUpdateKeyed, KeyedUpdate, UpdateError,
-    };
+    use crate::util::{ApplyUpdate, CanUpdate, CanUpdateKeyed, KeyValue, KeyedUpdate, UpdateError};
 
     use super::*;
 
