@@ -156,7 +156,8 @@ pub trait ActionWithNonce<T: Types>: Action {
         SignedActionWithNonce::new(self, signature)
     }
 
-    // Wraps underlying action into an action targeting signer then combines result with the provided signature.
+    /// Wraps underlying action into an action targeting signer then combines result with the provided signature.
+    #[allow(clippy::type_complexity)]
     fn signed_with_signer_target<S>(
         self,
         signature: S,

@@ -5,12 +5,15 @@ use crate::{
     deposit_indexed_event,
     did::{self, DidOrDidMethodKeySignature},
     util::{
-        ActionWithNonce, ActionWrapper, BoundedKeyValue, OnlyExistent, SetOrAddOrRemoveOrModify,
-        SetOrModify,
+        ActionWithNonce, ActionWrapper, KeyValue, KeyedUpdate, OnlyExistent,
+        SetOrAddOrRemoveOrModify, SetOrModify, UpdateTranslationError,
     },
 };
 use core::convert::Infallible;
-use frame_support::{pallet_prelude::*, weights::PostDispatchInfo};
+use frame_support::{
+    dispatch::DispatchErrorWithPostInfo, pallet_prelude::*, weights::PostDispatchInfo,
+};
+use r#impl::StepError;
 
 use frame_system::ensure_signed;
 
@@ -38,17 +41,38 @@ pub mod pallet {
     use frame_system::pallet_prelude::*;
     use utils::BoundedStringConversionError;
 
-    impl<T> From<Infallible> for Error<T> {
-        fn from(_: Infallible) -> Self {
+    pub trait IntoModuleError<T> {
+        fn into_module_error(self) -> Error<T>;
+    }
+
+    impl<T> IntoModuleError<T> for Error<T> {
+        fn into_module_error(self) -> Error<T> {
+            self
+        }
+    }
+
+    impl<T> IntoModuleError<T> for Infallible {
+        fn into_module_error(self) -> Error<T> {
             unreachable!()
         }
     }
 
-    impl<T> From<BoundedStringConversionError> for Error<T> {
-        fn from(
-            BoundedStringConversionError::InvalidStringByteLen: BoundedStringConversionError,
-        ) -> Self {
-            Self::PriceCurrencySizeExceeded
+    impl<T, V, U> IntoModuleError<T> for UpdateTranslationError<V, U>
+    where
+        V: IntoModuleError<T>,
+        U: IntoModuleError<T>,
+    {
+        fn into_module_error(self) -> Error<T> {
+            match self {
+                UpdateTranslationError::Value(value_err) => value_err.into_module_error(),
+                UpdateTranslationError::Update(update_err) => update_err.into_module_error(),
+            }
+        }
+    }
+
+    impl<T> IntoModuleError<T> for BoundedStringConversionError {
+        fn into_module_error(self) -> Error<T> {
+            Error::<T>::PriceCurrencySymbolSizeExceeded
         }
     }
 
@@ -58,14 +82,28 @@ pub mod pallet {
         TooManyRegistries,
         /// Not the `TrustRegistry`'s `Convener`.
         NotTheConvener,
+        /// Supplied `Issuer` doesn't exist.
         NoSuchIssuer,
-        SchemaMetadataDoesntExist,
+        /// At least one of the supplied `Issuers` was suspended already.
         AlreadySuspended,
+        /// At least one of the supplied `Issuers` wasn't suspended.
         NotSuspended,
+        /// Trust registry name length exceeds its bound.
+        TrustRegistryNameSizeExceeded,
+        /// Trust registry gov framework size exceeds its bound.
+        GovFrameworkSizeExceeded,
+        /// Supplied delegated `Issuer`s amount exceeds max allowed bound.
+        DelegatedIssuersSizeExceeded,
+        /// Supplied `Issuer`s amount exceeds max allowed bound.
         IssuersSizeExceeded,
+        /// Supplied `Verifier`s amount exceeds max allowed bound.
         VerifiersSizeExceeded,
+        /// Supplied `VerificatinPrice`s amount exceeds max allowed bound.
         VerificationPricesSizeExceeded,
-        PriceCurrencySizeExceeded,
+        /// One of the verification prices symbols exceeds its max length bound.
+        PriceCurrencySymbolSizeExceeded,
+        /// Too many schemas per a single Trust Registry.
+        SchemasPerRegistrySizeExceeded,
     }
 
     #[pallet::event]
@@ -119,14 +157,8 @@ pub mod pallet {
     /// Schema ids corresponding to trust registries. Mapping of registry_id -> schema_id
     #[pallet::storage]
     #[pallet::getter(fn registry_schema)]
-    pub type TrustRegistryStoredSchemas<T: Config> = StorageDoubleMap<
-        _,
-        Blake2_128Concat,
-        TrustRegistryId,
-        Blake2_128Concat,
-        TrustRegistrySchemaId,
-        (),
-    >;
+    pub type TrustRegistriesStoredSchemas<T: Config> =
+        StorageMap<_, Blake2_128Concat, TrustRegistryId, TrustRegistryStoredSchemas<T>, ValueQuery>;
 
     /// Stores `TrustRegistry`s owned by conveners as a mapping of the form convener_id -> Set<registry_id>
     #[pallet::storage]
@@ -159,6 +191,18 @@ pub mod pallet {
         IssuerSchemas<T>,
         ValueQuery,
     >;
+
+    /// Stores a set of `Verifier`s Trust Registries.
+    #[pallet::storage]
+    #[pallet::getter(fn verifier_trust_registries)]
+    pub type VerifiersTrustRegistries<T: Config> =
+        StorageMap<_, Blake2_128Concat, Verifier, VerifierTrustRegistries<T>, ValueQuery>;
+
+    /// Stores a set of `Issuer`s Trust Registries.
+    #[pallet::storage]
+    #[pallet::getter(fn issuer_trust_registries)]
+    pub type IssuersTrustRegistries<T: Config> =
+        StorageMap<_, Blake2_128Concat, Issuer, IssuerTrustRegistries<T>, ValueQuery>;
 
     /// Stores `Trust Registry`'s `Issuer`s configurations.
     #[pallet::storage]
@@ -205,20 +249,41 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
-            let (ver, iss, schem) = set_schemas_metadata
+            let actual_weight = |(iss, ver, schem)| {
+                Some(signature.weight_for_sig_type::<T>(
+                    || SubstrateWeight::<T>::set_schemas_metadata_sr25519(iss, ver, schem),
+                    || SubstrateWeight::<T>::set_schemas_metadata_ed25519(iss, ver, schem),
+                    || SubstrateWeight::<T>::set_schemas_metadata_secp256k1(iss, ver, schem),
+                ))
+            };
+
+            match set_schemas_metadata
                 .signed(signature.clone())
-                .execute_readonly(Self::set_schemas_metadata_)?;
-
-            let actual_weight = signature.weight_for_sig_type::<T>(
-                || SubstrateWeight::<T>::set_schemas_metadata_sr25519(iss, ver, schem),
-                || SubstrateWeight::<T>::set_schemas_metadata_ed25519(iss, ver, schem),
-                || SubstrateWeight::<T>::set_schemas_metadata_secp256k1(iss, ver, schem),
-            );
-
-            Ok(PostDispatchInfo {
-                actual_weight: Some(actual_weight),
-                pays_fee: Pays::Yes,
-            })
+                .execute_readonly(Self::set_schemas_metadata_)
+            {
+                Ok(sizes) => Ok(PostDispatchInfo {
+                    actual_weight: actual_weight(sizes),
+                    pays_fee: Pays::Yes,
+                }),
+                Err(StepError::Conversion(error)) => Err(DispatchErrorWithPostInfo {
+                    post_info: PostDispatchInfo {
+                        actual_weight: actual_weight(Default::default()),
+                        pays_fee: Pays::Yes,
+                    },
+                    error,
+                }),
+                Err(StepError::Validation(error, sizes)) => Err(DispatchErrorWithPostInfo {
+                    post_info: PostDispatchInfo {
+                        actual_weight: actual_weight(sizes).map(|weight| {
+                            weight.saturating_sub(
+                                T::DbWeight::get().writes((sizes.0 + sizes.1 + sizes.2) as u64),
+                            )
+                        }),
+                        pays_fee: Pays::Yes,
+                    },
+                    error,
+                }),
+            }
         }
 
         /// Update delegated `Issuer`s of the given `Issuer`.
@@ -300,37 +365,44 @@ impl<T: Config> SubstrateWeight<T> {
         SetSchemasMetadata { schemas, .. }: &SetSchemasMetadata<T>,
         signed: &DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
     ) -> Weight {
-        let issuers_len = schemas
-            .values()
-            .map(|schema_update| match schema_update {
-                SetOrAddOrRemoveOrModify::Add(schema) | SetOrAddOrRemoveOrModify::Set(schema) => {
-                    schema.issuers.len() as u32
-                }
-                SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
-                    update.issuers.as_ref().map_or(0, |v| match v {
-                        SetOrModify::Set(_) => T::MaxIssuersPerSchema::get(),
-                        SetOrModify::Modify(map) => map.len() as u32,
-                    })
-                }
-                SetOrAddOrRemoveOrModify::Remove => T::MaxIssuersPerSchema::get(),
-            })
-            .sum();
-        let verifiers_len = schemas
-            .values()
-            .map(|schema_update| match schema_update {
-                SetOrAddOrRemoveOrModify::Add(schema) | SetOrAddOrRemoveOrModify::Set(schema) => {
-                    schema.verifiers.len() as u32
-                }
-                SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
-                    update.verifiers.as_ref().map_or(0, |v| match v {
-                        SetOrModify::Set(_) => T::MaxVerifiersPerSchema::get(),
-                        SetOrModify::Modify(map) => map.len() as u32,
-                    })
-                }
-                SetOrAddOrRemoveOrModify::Remove => T::MaxVerifiersPerSchema::get(),
-            })
-            .sum();
-        let schemas_len = schemas.len() as u32;
+        let issuers_len = match schemas {
+            SetOrModify::Modify(update) => update
+                .values()
+                .map(|schema_update| match schema_update {
+                    SetOrAddOrRemoveOrModify::Add(schema)
+                    | SetOrAddOrRemoveOrModify::Set(schema) => schema.issuers.len() as u32,
+                    SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
+                        update.issuers.as_ref().map_or(0, |v| match v {
+                            SetOrModify::Set(_) => T::MaxIssuersPerSchema::get(),
+                            SetOrModify::Modify(map) => map.len() as u32,
+                        })
+                    }
+                    SetOrAddOrRemoveOrModify::Remove => T::MaxIssuersPerSchema::get(),
+                })
+                .sum(),
+            SetOrModify::Set(_) => T::MaxIssuersPerSchema::get(),
+        };
+        let verifiers_len = match schemas {
+            SetOrModify::Modify(update) => update
+                .values()
+                .map(|schema_update| match schema_update {
+                    SetOrAddOrRemoveOrModify::Add(schema)
+                    | SetOrAddOrRemoveOrModify::Set(schema) => schema.verifiers.len() as u32,
+                    SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
+                        update.verifiers.as_ref().map_or(0, |v| match v {
+                            SetOrModify::Set(_) => T::MaxVerifiersPerSchema::get(),
+                            SetOrModify::Modify(map) => map.len() as u32,
+                        })
+                    }
+                    SetOrAddOrRemoveOrModify::Remove => T::MaxVerifiersPerSchema::get(),
+                })
+                .sum(),
+            SetOrModify::Set(_) => T::MaxVerifiersPerSchema::get(),
+        };
+        let schemas_len = match schemas {
+            SetOrModify::Modify(update) => update.len(),
+            SetOrModify::Set(schemas) => schemas.len(),
+        } as u32;
 
         signed.weight_for_sig_type::<T>(
             || Self::set_schemas_metadata_sr25519(issuers_len, verifiers_len, schemas_len),
@@ -343,7 +415,7 @@ impl<T: Config> SubstrateWeight<T> {
         UpdateDelegatedIssuers { delegated, .. }: &UpdateDelegatedIssuers<T>,
         signed: &DidOrDidMethodKeySignature<Issuer>,
     ) -> Weight {
-        let issuers_len = delegated.len();
+        let issuers_len = delegated.size();
 
         signed.weight_for_sig_type::<T>(
             || Self::update_delegated_issuers_sr25519(issuers_len),

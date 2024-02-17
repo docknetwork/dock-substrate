@@ -1,12 +1,10 @@
 use super::*;
 use crate::{
-    common::TypesAndLimits,
     impl_action_with_nonce,
-    util::{BoundedBytes, MultiTargetUpdate, Types},
+    util::{Bytes, KeyedUpdate, Types},
 };
-use alloc::collections::BTreeSet;
+use alloc::{collections::BTreeSet, string::String};
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
-use utils::BoundedString;
 
 #[derive(
     Encode,
@@ -25,10 +23,10 @@ use utils::BoundedString;
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct InitOrUpdateTrustRegistry<T: TypesAndLimits> {
+pub struct InitOrUpdateTrustRegistry<T: Types> {
     pub registry_id: TrustRegistryId,
-    pub name: BoundedString<T::MaxTrustRegistryNameSize>,
-    pub gov_framework: BoundedBytes<T::MaxTrustRegistryGovFrameworkSize>,
+    pub name: String,
+    pub gov_framework: Bytes,
     pub nonce: T::BlockNumber,
 }
 
@@ -43,8 +41,7 @@ pub struct InitOrUpdateTrustRegistry<T: TypesAndLimits> {
 #[scale_info(omit_prefix)]
 pub struct SetSchemasMetadata<T: Types> {
     pub registry_id: TrustRegistryId,
-    pub schemas:
-        MultiTargetUpdate<TrustRegistrySchemaId, UnboundedTrustRegistrySchemaMetadataModification>,
+    pub schemas: UnboundedSchemasUpdate,
     pub nonce: T::BlockNumber,
 }
 
@@ -57,7 +54,7 @@ pub struct SetSchemasMetadata<T: Types> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct SuspendIssuers<T: TypesAndLimits> {
+pub struct SuspendIssuers<T: Types> {
     pub registry_id: TrustRegistryId,
     pub issuers: BTreeSet<Issuer>,
     pub nonce: T::BlockNumber,
@@ -72,7 +69,7 @@ pub struct SuspendIssuers<T: TypesAndLimits> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct UnsuspendIssuers<T: TypesAndLimits> {
+pub struct UnsuspendIssuers<T: Types> {
     pub registry_id: TrustRegistryId,
     pub issuers: BTreeSet<Issuer>,
     pub nonce: T::BlockNumber,
@@ -87,21 +84,21 @@ pub struct UnsuspendIssuers<T: TypesAndLimits> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct UpdateDelegatedIssuers<T: TypesAndLimits> {
+pub struct UpdateDelegatedIssuers<T: Types> {
     pub registry_id: TrustRegistryId,
-    pub delegated: DelegatedUpdate<T>,
+    pub delegated: UnboundedDelegatedUpdate,
     pub nonce: T::BlockNumber,
 }
 
 impl_action_with_nonce!(
     for ():
         InitOrUpdateTrustRegistry with 1 as len, () as target,
-        UpdateDelegatedIssuers with delegated.len() as len, () as target
+        UpdateDelegatedIssuers with delegated.size() as len, () as target
 );
 
 impl_action_with_nonce!(
     for TrustRegistryId:
-        SetSchemasMetadata with schemas.len() as len, registry_id as target,
+        SetSchemasMetadata with 1 as len, registry_id as target,
         SuspendIssuers with issuers.len() as len, registry_id as target,
         UnsuspendIssuers with issuers.len() as len, registry_id as target
 );

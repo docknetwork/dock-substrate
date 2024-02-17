@@ -32,7 +32,7 @@ pub struct UpdateStatusListCredentialRaw<T: Limits> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct RemoveStatusListCredentialRaw<T: Limits> {
+pub struct RemoveStatusListCredentialRaw<T> {
     pub id: StatusListCredentialId,
     #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]

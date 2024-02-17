@@ -203,7 +203,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 51,
+    spec_version: 52,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -1100,13 +1100,16 @@ impl common::Limits for Runtime {
 
     type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
     type MaxIssuersPerSchema = ConstU32<100>;
-    type MaxVerifiersPerSchema = ConstU32<100000>;
-    type MaxPriceCurrencies = ConstU32<25>;
+    type MaxVerifiersPerSchema = ConstU32<2_000>;
+    type MaxIssuerPriceCurrencies = ConstU32<25>;
     type MaxTrustRegistryNameSize = ConstU32<50>;
     type MaxConvenerRegistries = ConstU32<1000>;
     type MaxDelegatedIssuers = ConstU32<10>;
-    type MaxSchemasPerIssuer = ConstU32<100>;
-    type MaxSchemasPerVerifier = ConstU32<100>;
+    type MaxRegistriesPerIssuer = ConstU32<250>;
+    type MaxRegistriesPerVerifier = ConstU32<250>;
+    type MaxSchemasPerRegistry = ConstU32<1_000>;
+    type MaxSchemasPerIssuer = ConstU32<1_000>;
+    type MaxSchemasPerVerifier = ConstU32<1_000>;
     type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
 }
 
