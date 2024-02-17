@@ -16,7 +16,9 @@ impl<T: Config> Pallet<T> {
         TrustRegistriesInfo::<T>::try_mutate(registry_id, |info| {
             if let Some(existing) = info.replace(TrustRegistryInfo {
                 convener,
-                name: name.try_into().map_err(|_| Error::<T>::NameSizeExceeded)?,
+                name: name
+                    .try_into()
+                    .map_err(|_| Error::<T>::TrustRegistryNameSizeExceeded)?,
                 gov_framework: gov_framework
                     .try_into()
                     .map_err(|_| Error::<T>::GovFrameworkSizeExceeded)?,
@@ -49,7 +51,7 @@ impl<T: Config> Pallet<T> {
             .translate_update()
             .map_err(IntoModuleError::into_module_error)
             .map_err(Into::into)
-            .map_err(StepError::PreValidation)?;
+            .map_err(StepError::Conversion)?;
 
         let mut reads = Default::default();
         schemas
@@ -173,32 +175,30 @@ impl<T: Config> Pallet<T> {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StepError {
-    PreValidation(DispatchError),
+    Conversion(DispatchError),
     Validation(DispatchError, (u32, u32, u32)),
 }
 
 impl From<StepError> for DispatchError {
-    fn from(
-        (StepError::PreValidation(error) | StepError::Validation(error, _)): StepError,
-    ) -> Self {
+    fn from((StepError::Conversion(error) | StepError::Validation(error, _)): StepError) -> Self {
         error
     }
 }
 
 impl From<ActionExecutionError> for StepError {
     fn from(err: ActionExecutionError) -> Self {
-        Self::PreValidation(err.into())
+        Self::Conversion(err.into())
     }
 }
 
 impl From<NonceError> for StepError {
     fn from(err: NonceError) -> Self {
-        Self::PreValidation(err.into())
+        Self::Conversion(err.into())
     }
 }
 
 impl<T: crate::did::Config> From<crate::did::Error<T>> for StepError {
     fn from(err: crate::did::Error<T>) -> Self {
-        Self::PreValidation(err.into())
+        Self::Conversion(err.into())
     }
 }

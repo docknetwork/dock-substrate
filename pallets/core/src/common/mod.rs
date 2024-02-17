@@ -65,7 +65,7 @@ impl<T: Types, L: Limits> Limits for CombineTypesAndLimits<T, L> {
     type MaxIssuerPriceCurrencySymbolSize = L::MaxMasterMembers;
     type MaxIssuersPerSchema = L::MaxIssuersPerSchema;
     type MaxVerifiersPerSchema = L::MaxVerifiersPerSchema;
-    type MaxPriceCurrencies = L::MaxPriceCurrencies;
+    type MaxIssuerPriceCurrencies = L::MaxIssuerPriceCurrencies;
     type MaxTrustRegistryNameSize = L::MaxTrustRegistryNameSize;
     type MaxConvenerRegistries = L::MaxConvenerRegistries;
     type MaxDelegatedIssuers = L::MaxDelegatedIssuers;

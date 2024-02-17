@@ -1101,7 +1101,7 @@ impl common::Limits for Runtime {
     type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
     type MaxIssuersPerSchema = ConstU32<100>;
     type MaxVerifiersPerSchema = ConstU32<2_000>;
-    type MaxPriceCurrencies = ConstU32<25>;
+    type MaxIssuerPriceCurrencies = ConstU32<25>;
     type MaxTrustRegistryNameSize = ConstU32<50>;
     type MaxConvenerRegistries = ConstU32<1000>;
     type MaxDelegatedIssuers = ConstU32<10>;

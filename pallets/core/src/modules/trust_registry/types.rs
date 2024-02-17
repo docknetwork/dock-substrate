@@ -170,11 +170,11 @@ pub struct VerificationPrices<T: Limits>(
     pub  BoundedBTreeMap<
         BoundedString<T::MaxIssuerPriceCurrencySymbolSize>,
         VerificationPrice,
-        T::MaxPriceCurrencies,
+        T::MaxIssuerPriceCurrencies,
     >,
 );
 
-impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedString<T::MaxIssuerPriceCurrencySymbolSize>, VerificationPrice, T::MaxPriceCurrencies>));
+impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedString<T::MaxIssuerPriceCurrencySymbolSize>, VerificationPrice, T::MaxIssuerPriceCurrencies>));
 
 /// Prices of verifying a credential corresponding to the specific schema metadata per different currencies.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
@@ -754,7 +754,7 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
             .into_iter()
             .map(|(cur, value)| {
                 cur.try_into()
-                    .map_err(|_| Error::<T>::PriceCurrencySizeExceeded)
+                    .map_err(|_| Error::<T>::PriceCurrencySymbolSizeExceeded)
                     .map(|cur: BoundedString<T::MaxIssuerPriceCurrencySymbolSize>| (cur, value))
             })
             .collect::<Result<_, Error<T>>>()?;
@@ -1078,7 +1078,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T>
                 check_err!(actor.validate_update(registry_info, &update, &schema_metadata));
 
                 if update.kind(&schema_metadata) == UpdateKind::None {
-                    return None;
+                    None?
                 }
 
                 check_err!(update.record_inner_diff(schema_id, &schema_metadata, ctx));
@@ -1171,7 +1171,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
                 check_err!(actor.validate_update(registry_info, &update, &schemas));
 
                 if update.kind(&schemas) == UpdateKind::None {
-                    return None;
+                    None?
                 }
 
                 if schemas.is_empty() {
@@ -1200,7 +1200,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
                 check_err!(actor.validate_update(registry_info, &update, &schemas));
 
                 if update.kind(&schemas) == UpdateKind::None {
-                    return None;
+                    None?
                 }
 
                 if schemas.is_empty() {

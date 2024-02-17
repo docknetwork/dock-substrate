@@ -58,7 +58,7 @@ pub trait Limits: Clone + Eq {
     /// Max no of verifiers that can verify (credential) for a particular schema
     type MaxVerifiersPerSchema: Size;
     /// Max no of currencies an issuer can set the price in for a particular schema
-    type MaxPriceCurrencies: Size;
+    type MaxIssuerPriceCurrencies: Size;
     /// Max size of the trust registry name.
     type MaxTrustRegistryNameSize: Size;
     /// Max no of the trust registries per a single convener.
@@ -114,7 +114,7 @@ impl Limits for () {
     type MaxIssuerPriceCurrencySymbolSize = NoLimit;
     type MaxIssuersPerSchema = NoLimit;
     type MaxVerifiersPerSchema = NoLimit;
-    type MaxPriceCurrencies = NoLimit;
+    type MaxIssuerPriceCurrencies = NoLimit;
     type MaxTrustRegistryNameSize = NoLimit;
     type MaxConvenerRegistries = NoLimit;
     type MaxDelegatedIssuers = NoLimit;

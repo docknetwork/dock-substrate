@@ -72,7 +72,7 @@ pub mod pallet {
 
     impl<T> IntoModuleError<T> for BoundedStringConversionError {
         fn into_module_error(self) -> Error<T> {
-            Error::<T>::PriceCurrencySizeExceeded
+            Error::<T>::PriceCurrencySymbolSizeExceeded
         }
     }
 
@@ -82,17 +82,27 @@ pub mod pallet {
         TooManyRegistries,
         /// Not the `TrustRegistry`'s `Convener`.
         NotTheConvener,
+        /// Supplied `Issuer` doesn't exist.
         NoSuchIssuer,
-        SchemaMetadataDoesntExist,
+        /// At least one of the supplied `Issuers` was suspended already.
         AlreadySuspended,
+        /// At least one of the supplied `Issuers` wasn't suspended.
         NotSuspended,
-        NameSizeExceeded,
+        /// Trust registry name length exceeds its bound.
+        TrustRegistryNameSizeExceeded,
+        /// Trust registry gov framework size exceeds its bound.
         GovFrameworkSizeExceeded,
+        /// Supplied delegated `Issuer`s amount exceeds max allowed bound.
         DelegatedIssuersSizeExceeded,
+        /// Supplied `Issuer`s amount exceeds max allowed bound.
         IssuersSizeExceeded,
+        /// Supplied `Verifier`s amount exceeds max allowed bound.
         VerifiersSizeExceeded,
+        /// Supplied `VerificatinPrice`s amount exceeds max allowed bound.
         VerificationPricesSizeExceeded,
-        PriceCurrencySizeExceeded,
+        /// One of the verification prices symbols exceeds its max length bound.
+        PriceCurrencySymbolSizeExceeded,
+        /// Too many schemas per a single Trust Registry.
         SchemasPerRegistrySizeExceeded,
     }
 
@@ -255,7 +265,7 @@ pub mod pallet {
                     actual_weight: actual_weight(sizes),
                     pays_fee: Pays::Yes,
                 }),
-                Err(StepError::PreValidation(error)) => Err(DispatchErrorWithPostInfo {
+                Err(StepError::Conversion(error)) => Err(DispatchErrorWithPostInfo {
                     post_info: PostDispatchInfo {
                         actual_weight: actual_weight(Default::default()),
                         pays_fee: Pays::Yes,

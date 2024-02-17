@@ -533,10 +533,10 @@ crate::did_or_did_method_key! {
             )
             .unwrap();
 
-            let build_initial_prices = || {
+            let build_initial_prices = |count, sym_length| {
                 UnboundedVerificationPrices(
-                    (0..5)
-                        .map(|_| (0..5).map(|_| random::<u8>() as char).collect::<String>())
+                    (0..count)
+                        .map(|_| (0..sym_length).map(|_| random::<u8>() as char).collect::<String>())
                         .chain(vec!["A", "B", "C", "D"].into_iter().map(|v| v.to_string()))
                         .map(|symbol| (symbol, VerificationPrice(random())))
                         .collect::<BTreeMap<_, _>>()
@@ -557,7 +557,7 @@ crate::did_or_did_method_key! {
                         (0..5)
                             .map(|_| Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))))
                             .chain((idx == 0).then_some(Issuer(issuer.into())))
-                            .map(|issuer| (issuer, build_initial_prices()))
+                            .map(|issuer| (issuer, build_initial_prices(5, 5)))
                             .collect::<BTreeMap<_, _>>()
                     );
                     let verifiers = UnboundedSchemaVerifiers(
@@ -573,6 +573,28 @@ crate::did_or_did_method_key! {
 
             let initial_schemas = schemas.clone();
             let second_fourth_schemas = BTreeMap::from_iter([(schema_ids[2], schemas.get(&schema_ids[2]).cloned().unwrap()), (schema_ids[4], schemas.get(&schema_ids[4]).cloned().unwrap())]);
+
+            let mut too_large_schemas = schema_ids
+                .iter()
+                .copied()
+                .zip(0..4)
+                .map(|(id, idx)| {
+                    let issuers = UnboundedIssuersWith(
+                        (0..if idx == 0 { 50 } else { 5 })
+                            .map(|_| Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))))
+                            .chain((idx == 0).then_some(Issuer(issuer.into())))
+                            .map(|issuer| (issuer, build_initial_prices(if idx == 2 { 100 } else { 5 }, if idx == 3 { 100 } else { 5 })))
+                            .collect::<BTreeMap<_, _>>()
+                    );
+                    let verifiers = UnboundedSchemaVerifiers(
+                        (0..if idx == 1 { 50 } else { 5 })
+                            .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
+                            .chain((idx == 0).then_some(Verifier(verifier.into())))
+                            .collect::<BTreeSet<_>>()
+                    );
+
+                    (id, UnboundedTrustRegistrySchemaMetadata { issuers, verifiers })
+                });
 
             let add_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
@@ -1539,6 +1561,94 @@ crate::did_or_did_method_key! {
                             }));
 
                             *schemas = initial_schemas.clone();
+                        },
+                    ) as _,
+                ),
+                (
+                    line!(),
+                    SetOrModify::Set(UnboundedSchemas(FromIterator::from_iter(too_large_schemas.next()))),
+                    Box::new(
+                        |update: SetSchemasMetadata<Test>,
+                        _schemas: &mut BTreeMap<
+                            TrustRegistrySchemaId,
+                            UnboundedTrustRegistrySchemaMetadata,
+                        >| {
+                            assert_noop!(
+                                update.clone().execute_readonly(|action, reg| {
+                                    Mod::set_schemas_metadata_(
+                                        action,
+                                        reg,
+                                        ConvenerOrIssuerOrVerifier(convener.into()),
+                                    )
+                                }),
+                                StepError::Conversion(Error::<Test>::IssuersSizeExceeded.into())
+                            );
+                        },
+                    ) as _,
+                ),
+                (
+                    line!(),
+                    SetOrModify::Set(UnboundedSchemas(FromIterator::from_iter(too_large_schemas.next()))),
+                    Box::new(
+                        |update: SetSchemasMetadata<Test>,
+                        _schemas: &mut BTreeMap<
+                            TrustRegistrySchemaId,
+                            UnboundedTrustRegistrySchemaMetadata,
+                        >| {
+                            assert_noop!(
+                                update.clone().execute_readonly(|action, reg| {
+                                    Mod::set_schemas_metadata_(
+                                        action,
+                                        reg,
+                                        ConvenerOrIssuerOrVerifier(convener.into()),
+                                    )
+                                }),
+                                StepError::Conversion(Error::<Test>::VerifiersSizeExceeded.into())
+                            );
+                        },
+                    ) as _,
+                ),
+                (
+                    line!(),
+                    SetOrModify::Set(UnboundedSchemas(FromIterator::from_iter(too_large_schemas.next()))),
+                    Box::new(
+                        |update: SetSchemasMetadata<Test>,
+                        _schemas: &mut BTreeMap<
+                            TrustRegistrySchemaId,
+                            UnboundedTrustRegistrySchemaMetadata,
+                        >| {
+                            assert_noop!(
+                                update.clone().execute_readonly(|action, reg| {
+                                    Mod::set_schemas_metadata_(
+                                        action,
+                                        reg,
+                                        ConvenerOrIssuerOrVerifier(convener.into()),
+                                    )
+                                }),
+                                StepError::Conversion(Error::<Test>::VerificationPricesSizeExceeded.into())
+                            );
+                        },
+                    ) as _,
+                ),
+                (
+                    line!(),
+                    SetOrModify::Set(UnboundedSchemas(FromIterator::from_iter(too_large_schemas.next()))),
+                    Box::new(
+                        |update: SetSchemasMetadata<Test>,
+                        _schemas: &mut BTreeMap<
+                            TrustRegistrySchemaId,
+                            UnboundedTrustRegistrySchemaMetadata,
+                        >| {
+                            assert_noop!(
+                                update.clone().execute_readonly(|action, reg| {
+                                    Mod::set_schemas_metadata_(
+                                        action,
+                                        reg,
+                                        ConvenerOrIssuerOrVerifier(convener.into()),
+                                    )
+                                }),
+                                StepError::Conversion(Error::<Test>::PriceCurrencySymbolSizeExceeded.into())
+                            );
                         },
                     ) as _,
                 ),
