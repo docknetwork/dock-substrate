@@ -138,7 +138,7 @@ pub mod pallet {
 
     /// Stores `TrustRegistry`s information: `Convener`, name, etc.
     #[pallet::storage]
-    #[pallet::getter(fn trust_registry_info)]
+    #[pallet::getter(fn registry_info)]
     pub type TrustRegistriesInfo<T: Config> =
         StorageMap<_, Blake2_128Concat, TrustRegistryId, TrustRegistryInfo<T>>;
 
@@ -156,19 +156,19 @@ pub mod pallet {
 
     /// Schema ids corresponding to trust registries. Mapping of registry_id -> schema_id
     #[pallet::storage]
-    #[pallet::getter(fn registry_schema)]
+    #[pallet::getter(fn registry_stored_schemas)]
     pub type TrustRegistriesStoredSchemas<T: Config> =
         StorageMap<_, Blake2_128Concat, TrustRegistryId, TrustRegistryStoredSchemas<T>, ValueQuery>;
 
     /// Stores `TrustRegistry`s owned by conveners as a mapping of the form convener_id -> Set<registry_id>
     #[pallet::storage]
-    #[pallet::getter(fn convener_trust_registries)]
+    #[pallet::getter(fn convener_registries)]
     pub type ConvenerTrustRegistries<T> =
         StorageMap<_, Blake2_128Concat, Convener, TrustRegistryIdSet<T>, ValueQuery>;
 
     /// Stores `Trust Registry`'s `Verifier`s schemas.
     #[pallet::storage]
-    #[pallet::getter(fn trust_registry_verifier_schemas)]
+    #[pallet::getter(fn registry_verifier_schemas)]
     pub type TrustRegistryVerifierSchemas<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -181,7 +181,7 @@ pub mod pallet {
 
     /// Stores `Trust Registry`'s `Issuer`s schemas.
     #[pallet::storage]
-    #[pallet::getter(fn trust_registry_issuer_schemas)]
+    #[pallet::getter(fn registry_issuer_schemas)]
     pub type TrustRegistryIssuerSchemas<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
@@ -194,19 +194,19 @@ pub mod pallet {
 
     /// Stores a set of `Verifier`s Trust Registries.
     #[pallet::storage]
-    #[pallet::getter(fn verifier_trust_registries)]
+    #[pallet::getter(fn verifier_registries)]
     pub type VerifiersTrustRegistries<T: Config> =
         StorageMap<_, Blake2_128Concat, Verifier, VerifierTrustRegistries<T>, ValueQuery>;
 
     /// Stores a set of `Issuer`s Trust Registries.
     #[pallet::storage]
-    #[pallet::getter(fn issuer_trust_registries)]
+    #[pallet::getter(fn issuer_registries)]
     pub type IssuersTrustRegistries<T: Config> =
         StorageMap<_, Blake2_128Concat, Issuer, IssuerTrustRegistries<T>, ValueQuery>;
 
     /// Stores `Trust Registry`'s `Issuer`s configurations.
     #[pallet::storage]
-    #[pallet::getter(fn trust_registry_issuer_config)]
+    #[pallet::getter(fn registry_issuer_config)]
     pub type TrustRegistryIssuerConfigurations<T: Config> = StorageDoubleMap<
         _,
         Blake2_128Concat,
