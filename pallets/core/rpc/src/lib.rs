@@ -186,7 +186,7 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaIssuers<T::T>>>;
 
-    #[method(name = "trustRegistry_allRegistryTrustRegistrySchemaVerifiers")]
+    #[method(name = "trustRegistry_allRegistrySchemaVerifiers")]
     async fn all_registry_schema_verifiers(
         &self,
         registry_id: TrustRegistryId,
