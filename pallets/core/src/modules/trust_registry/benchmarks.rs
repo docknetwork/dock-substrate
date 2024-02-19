@@ -8,7 +8,6 @@ use alloc::collections::BTreeMap;
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::string::String;
-use sp_runtime::traits::TryCollect;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 
@@ -52,8 +51,8 @@ crate::bench_with_all_pairs! {
     verify {
         assert_eq!(TrustRegistriesInfo::<T>::get(init_or_update_trust_registry.registry_id).unwrap(), TrustRegistryInfo {
             convener: Convener(did.into()),
-            name: init_or_update_trust_registry.name,
-            gov_framework: init_or_update_trust_registry.gov_framework
+            name: init_or_update_trust_registry.name.try_into().unwrap(),
+            gov_framework: init_or_update_trust_registry.gov_framework.try_into().unwrap()
         });
     }
 
@@ -87,53 +86,46 @@ crate::bench_with_all_pairs! {
             .map(|idx|
                 (
                     TrustRegistrySchemaId([idx as u8; 32]),
-                    TrustRegistrySchemaMetadata {
-                        issuers: IssuersWith((0..SCHEMA_ISSUERS - i).map(|idx|
+                    UnboundedTrustRegistrySchemaMetadata {
+                        issuers: UnboundedIssuersWith((0..SCHEMA_ISSUERS - i).map(|idx|
                             (
                                 Issuer(Did([255 - idx as u8; 32]).into()),
-                                VerificationPrices(
+                                UnboundedVerificationPrices(
                                     (0..SCHEMA_ISSUER_PRICES)
                                         .map(|p_idx| (
                                             (0..SCHEMA_ISSUER_PRICE_SYMBOL)
                                                 .map(|idx| (98 + idx + p_idx) as u8 as char)
-                                                .collect::<String>()
-                                                .try_into().unwrap(),
+                                                .collect(),
                                             VerificationPrice(1000)
                                         ))
-                                        .collect::<BTreeMap<_, _>>()
-                                        .try_into()
-                                        .unwrap()
+                                        .collect()
                                     )
                             )
-                        ).try_collect().unwrap()),
-                        verifiers: SchemaVerifiers((0..SCHEMA_VERIFIERS - v).map(|idx| Verifier(Did([255 - idx as u8; 32]).into())).try_collect().unwrap())
+                        ).collect()),
+                        verifiers: UnboundedTrustRegistrySchemaVerifiers((0..SCHEMA_VERIFIERS - v).map(|idx| Verifier(Did([255 - idx as u8; 32]).into())).collect())
                     }
                 )
             ).collect();
 
         SetSchemasMetadata {
             registry_id: TrustRegistryId(id),
-            schemas: schemas.clone().into_iter().map(|(id, schema)| (id, SetOrAddOrRemoveOrModify::Set(schema))).collect(),
+            schemas: SetOrModify::Modify(schemas.clone().into_iter().map(|(id, schema)| (id, SetOrAddOrRemoveOrModify::Set(schema))).collect()),
             nonce: 2u32.into()
         }.execute_readonly(|action, set| Pallet::<T>::set_schemas_metadata_(action, set, ConvenerOrIssuerOrVerifier(did.into()))).unwrap();
 
         let update_issuers = schemas.keys().map(
             |schema_id| {
-                IssuersUpdate::<T>::Modify(
+                UnboundedIssuersUpdate::Modify(
                     MultiTargetUpdate::from_iter((0..i).map(|idx| (Issuer(Did([idx as u8; 32]).into()), SetOrAddOrRemoveOrModify::Set(
-                        VerificationPrices(
+                        UnboundedVerificationPrices(
                             (0..SCHEMA_ISSUER_PRICES)
                                 .map(|p_idx| (
                                     (0..SCHEMA_ISSUER_PRICE_SYMBOL)
                                         .map(|idx| (98 + idx + p_idx) as u8 as char)
-                                        .collect::<String>()
-                                        .try_into()
-                                        .unwrap(),
+                                        .collect::<String>(),
                                     VerificationPrice(1000)
                                 ))
-                                .collect::<BTreeMap<_, _>>()
-                                .try_into()
-                                .unwrap()
+                                .collect()
                         )
                     ))))
                 )
@@ -141,7 +133,7 @@ crate::bench_with_all_pairs! {
         );
         let update_verifiers = schemas.keys().map(
             |schema_id| {
-                VerifiersUpdate::<T>::Modify(MultiTargetUpdate::from_iter(
+                UnboundedVerifiersUpdate::Modify(MultiTargetUpdate::from_iter(
                     (0..v).map(|idx| (Verifier(Did([idx as u8; 32]).into()), AddOrRemoveOrModify::Add(())))
                 ))
             }
@@ -151,7 +143,7 @@ crate::bench_with_all_pairs! {
             update_issuers
                 .zip(update_verifiers)
                 .zip(schemas.keys())
-                .map(|((issuers, verifiers), id)| (id.clone(), SetOrAddOrRemoveOrModify::Modify(OnlyExistent(TrustRegistrySchemaMetadataUpdate {
+                .map(|((issuers, verifiers), id)| (id.clone(), SetOrAddOrRemoveOrModify::Modify(OnlyExistent(UnboundedTrustRegistrySchemaMetadataUpdate {
                     verifiers: Some(verifiers),
                     issuers: Some(issuers)
                 }))))
@@ -159,7 +151,7 @@ crate::bench_with_all_pairs! {
 
         let set_schemas_metadata = SetSchemasMetadata {
             registry_id: TrustRegistryId(id),
-            schemas: schemas_updates.clone(),
+            schemas: SetOrModify::Modify(schemas_updates.clone()),
             nonce: 1u32.into()
         };
 
@@ -176,7 +168,7 @@ crate::bench_with_all_pairs! {
         let signature = DidSignature::new(did, 1u32, sig).into();
     }: set_schemas_metadata(RawOrigin::Signed(caller), set_schemas_metadata, signature)
     verify {
-        assert_eq!(schemas, TrustRegistrySchemasMetadata::<T>::iter().map(|(schema_id, _, metadata)| (schema_id, metadata)).collect::<BTreeMap<_, _>>());
+        assert_eq!(Schemas::try_from(UnboundedSchemas(schemas)).unwrap(), Schemas(TrustRegistrySchemasMetadata::<T>::iter().map(|(schema_id, _, metadata)| (schema_id, metadata)).collect::<BTreeMap<_, _>>().try_into().unwrap()));
     }
 
     update_delegated_issuers_sr25519 for sr25519, update_delegated_issuers_ed25519 for ed25519, update_delegated_issuers_secp256k1 for secp256k1 {
@@ -198,14 +190,14 @@ crate::bench_with_all_pairs! {
         let init_or_update_trust_registry = InitOrUpdateTrustRegistry {
             registry_id: TrustRegistryId(id),
             nonce: 1u32.into(),
-            gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
-            name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
+            gov_framework: Bytes(vec![1; 100]),
+            name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>()
         };
         ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
-        let delegated = DelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).try_collect().unwrap());
+        let delegated = UnboundedDelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect());
 
-        for issuer in &delegated.0 {
+        for issuer in delegated.iter() {
             TrustRegistryIssuerSchemas::<T>::insert(init_or_update_trust_registry.registry_id, Issuer(did.into()), IssuerSchemas(Default::default()));
         }
 
@@ -224,7 +216,7 @@ crate::bench_with_all_pairs! {
                 Issuer(did.into())
             )
             .delegated,
-            delegated
+            delegated.try_into().unwrap()
         );
     }
 
@@ -324,6 +316,6 @@ crate::bench_with_all_pairs! {
             TrustRegistryIssuerConfigurations::<T>::iter()
                 .filter(|(_, issuer, _)| unsuspend_issuers.issuers.contains(issuer))
                 .all(|(_, _, config)| !config.suspended)
-            );
+        );
     }
 }

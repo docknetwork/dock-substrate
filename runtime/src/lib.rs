@@ -203,7 +203,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 51,
+    spec_version: 52,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -1100,13 +1100,16 @@ impl common::Limits for Runtime {
 
     type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
     type MaxIssuersPerSchema = ConstU32<100>;
-    type MaxVerifiersPerSchema = ConstU32<100000>;
-    type MaxPriceCurrencies = ConstU32<25>;
+    type MaxVerifiersPerSchema = ConstU32<2_000>;
+    type MaxIssuerPriceCurrencies = ConstU32<25>;
     type MaxTrustRegistryNameSize = ConstU32<50>;
     type MaxConvenerRegistries = ConstU32<1000>;
     type MaxDelegatedIssuers = ConstU32<10>;
-    type MaxSchemasPerIssuer = ConstU32<100>;
-    type MaxSchemasPerVerifier = ConstU32<100>;
+    type MaxRegistriesPerIssuer = ConstU32<250>;
+    type MaxRegistriesPerVerifier = ConstU32<250>;
+    type MaxSchemasPerRegistry = ConstU32<1_000>;
+    type MaxSchemasPerIssuer = ConstU32<1_000>;
+    type MaxSchemasPerVerifier = ConstU32<1_000>;
     type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
 }
 
@@ -2487,13 +2490,13 @@ impl_runtime_apis! {
 
         fn schema_issuers(
             id: trust_registry::TrustRegistrySchemaId
-        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::AggregatedSchemaIssuers<Runtime>> {
+        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::AggregatedTrustRegistrySchemaIssuers<Runtime>> {
             TrustRegistry::schema_metadata_by_schema_id(id).map(|(registry_id, schema_metadata)| (registry_id, schema_metadata.aggregate(registry_id).issuers)).collect()
         }
 
         fn schema_verifiers(
             id: trust_registry::TrustRegistrySchemaId
-        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::SchemaVerifiers<Runtime>> {
+        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::TrustRegistrySchemaVerifiers<Runtime>> {
             TrustRegistry::schema_metadata_by_schema_id(id).map(|(registry_id, schema_metadata)| (registry_id, schema_metadata.verifiers)).collect()
         }
 
@@ -2507,14 +2510,14 @@ impl_runtime_apis! {
         fn schema_issuers_in_registry(
             id: trust_registry::TrustRegistrySchemaId,
             registry_id: trust_registry::TrustRegistryId
-        ) -> Option<trust_registry::AggregatedSchemaIssuers<Runtime>> {
+        ) -> Option<trust_registry::AggregatedTrustRegistrySchemaIssuers<Runtime>> {
             TrustRegistry::schema_metadata(id, registry_id).map(|schema_metadata| schema_metadata.aggregate(registry_id).issuers)
         }
 
         fn schema_verifiers_in_registry(
             id: trust_registry::TrustRegistrySchemaId,
             registry_id: trust_registry::TrustRegistryId
-        ) -> Option<trust_registry::SchemaVerifiers<Runtime>> {
+        ) -> Option<trust_registry::TrustRegistrySchemaVerifiers<Runtime>> {
             TrustRegistry::schema_metadata(id, registry_id).map(|schema_metadata| schema_metadata.verifiers)
         }
 
@@ -2526,14 +2529,20 @@ impl_runtime_apis! {
 
         fn all_registry_schema_issuers(
             registry_id: trust_registry::TrustRegistryId
-        ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::AggregatedSchemaIssuers<Runtime>> {
+        ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::AggregatedTrustRegistrySchemaIssuers<Runtime>> {
             TrustRegistry::schema_metadata_by_registry_id(registry_id).map(|(schema_id, schema_metadata)| (schema_id, schema_metadata.aggregate(registry_id).issuers)).collect()
         }
 
         fn all_registry_schema_verifiers(
             registry_id: trust_registry::TrustRegistryId
-        ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::SchemaVerifiers<Runtime>> {
+        ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::TrustRegistrySchemaVerifiers<Runtime>> {
             TrustRegistry::schema_metadata_by_registry_id(registry_id).map(|(schema_id, schema_metadata)| (schema_id, schema_metadata.verifiers)).collect()
+        }
+
+        fn registries_info_by(
+            by: trust_registry::TrustRegistriesInfoBy
+        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::TrustRegistryInfo<Runtime>> {
+            by.resolve()
         }
     }
 
