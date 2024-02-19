@@ -1,4 +1,7 @@
-use super::{Config, ConvenerTrustRegistries, Error, IntoModuleError, TrustRegistriesInfo};
+use super::{
+    Config, ConvenerTrustRegistries, Error, IntoModuleError, TrustRegistriesInfo,
+    TrustRegistrySchemasMetadata,
+};
 #[cfg(feature = "serde")]
 use crate::util::{btree_map, btree_set, hex};
 use crate::{
@@ -9,7 +12,7 @@ use crate::{
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::{fmt::Debug, iter::once};
+use core::{borrow::Borrow, fmt::Debug, iter::once, marker::PhantomData};
 use frame_support::*;
 use scale_info::prelude::string::String;
 use sp_runtime::DispatchError;
@@ -57,7 +60,7 @@ impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
 impl AuthorizeTarget<Self, DidMethodKey> for Convener {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 
-/// Maybe an `Issuer` or `Verifier` but definitely not a `Convener`.
+/// Maybe an `Issuer` or a `Verifier` but definitely not a `Convener`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -66,6 +69,16 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 pub struct IssuerOrVerifier(pub DidOrDidMethodKey);
 
 impl_wrapper!(IssuerOrVerifier(DidOrDidMethodKey));
+
+/// Both an `Issuer` and a `Verifier`.
+#[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct IssuerAndVerifier(pub DidOrDidMethodKey);
+
+impl_wrapper!(IssuerAndVerifier(DidOrDidMethodKey));
 
 impl Convener {
     pub fn ensure_controls<T: Limits>(
@@ -992,6 +1005,149 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
 pub struct TrustRegistrySchemaId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
 
 impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
+
+pub trait IntoIterExt: IntoIterator + Sized {
+    fn with_trust_registries_info<T>(self) -> WithTrustRegistriesInfo<Self::IntoIter, T>
+    where
+        Self::Item: Borrow<TrustRegistryId>,
+        T: Config;
+}
+
+impl<I> IntoIterExt for I
+where
+    I: IntoIterator,
+{
+    fn with_trust_registries_info<T>(self) -> WithTrustRegistriesInfo<Self::IntoIter, T>
+    where
+        Self::Item: Borrow<TrustRegistryId>,
+        T: Config,
+    {
+        WithTrustRegistriesInfo::new(self.into_iter())
+    }
+}
+
+pub struct WithTrustRegistriesInfo<I, T>(I, PhantomData<T>);
+
+impl<T, I> WithTrustRegistriesInfo<I, T> {
+    fn new(iter: I) -> Self {
+        Self(iter, PhantomData)
+    }
+}
+
+impl<T: Config, I> Iterator for WithTrustRegistriesInfo<I, T>
+where
+    I: Iterator,
+    I::Item: Borrow<TrustRegistryId>,
+{
+    type Item = (TrustRegistryId, TrustRegistryInfo<T>);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        loop {
+            let id = *self.0.next()?.borrow();
+
+            if let Some(trust_registry_info) = TrustRegistriesInfo::<T>::get(id) {
+                break Some((id, trust_registry_info));
+            }
+        }
+    }
+}
+
+/// Specifies arguments to retrieve registry informations by.
+#[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub enum TrustRegistriesInfoBy {
+    Issuer(Issuer),
+    Verifier(Verifier),
+    SchemaId(TrustRegistrySchemaId),
+    IssuerOrVerifier(IssuerOrVerifier),
+    IssuerAndVerifier(IssuerAndVerifier),
+    IssuerAndSchemaId(Issuer, TrustRegistrySchemaId),
+    VerifierAndSchemaId(Verifier, TrustRegistrySchemaId),
+    IssuerOrVerifierAndSchemaId(IssuerOrVerifier, TrustRegistrySchemaId),
+    IssuerAndVerifierAndSchemaId(IssuerAndVerifier, TrustRegistrySchemaId),
+}
+
+impl TrustRegistriesInfoBy {
+    pub fn resolve<T: Config>(self) -> BTreeMap<TrustRegistryId, TrustRegistryInfo<T>> {
+        use super::Pallet;
+
+        match self {
+            Self::Issuer(issuer) => {
+                let IssuerTrustRegistries(registries) = Pallet::<T>::issuer_registries(issuer);
+
+                registries.with_trust_registries_info().collect()
+            }
+            Self::Verifier(verifier) => {
+                let VerifierTrustRegistries(registries) =
+                    Pallet::<T>::verifier_registries(verifier);
+
+                registries.with_trust_registries_info().collect()
+            }
+            Self::SchemaId(schema_id) => {
+                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
+                    .with_trust_registries_info()
+                    .collect()
+            }
+            Self::IssuerOrVerifier(issuer_or_verifier) => {
+                let issuer_regs = Pallet::<T>::issuer_registries(Issuer(*issuer_or_verifier));
+                let verifier_regs = Pallet::<T>::verifier_registries(Verifier(*issuer_or_verifier));
+
+                issuer_regs
+                    .union(&verifier_regs)
+                    .with_trust_registries_info()
+                    .collect()
+            }
+            Self::IssuerAndVerifier(issuer_and_verifier) => {
+                let issuer_regs = Pallet::<T>::issuer_registries(Issuer(*issuer_and_verifier));
+                let verifier_regs =
+                    Pallet::<T>::verifier_registries(Verifier(*issuer_and_verifier));
+
+                issuer_regs
+                    .intersection(&verifier_regs)
+                    .with_trust_registries_info()
+                    .collect()
+            }
+            Self::IssuerAndSchemaId(issuer, schema_id) => {
+                let issuer_registries = Pallet::<T>::issuer_registries(issuer);
+
+                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
+                    .filter(|reg_id| issuer_registries.contains(reg_id))
+                    .with_trust_registries_info()
+                    .collect()
+            }
+            Self::VerifierAndSchemaId(verifier, schema_id) => {
+                let verifier_registries = Pallet::<T>::verifier_registries(verifier);
+
+                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
+                    .filter(|reg_id| verifier_registries.contains(reg_id))
+                    .with_trust_registries_info()
+                    .collect()
+            }
+            Self::IssuerOrVerifierAndSchemaId(issuer_or_verifier, schema_id) => {
+                let issuer_regs = Pallet::<T>::issuer_registries(Issuer(*issuer_or_verifier));
+                let verifier_regs = Pallet::<T>::verifier_registries(Verifier(*issuer_or_verifier));
+
+                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
+                    .filter(|reg_id| issuer_regs.contains(reg_id) || verifier_regs.contains(reg_id))
+                    .with_trust_registries_info()
+                    .collect()
+            }
+            Self::IssuerAndVerifierAndSchemaId(issuer_and_verifier, schema_id) => {
+                let issuer_regs = Pallet::<T>::issuer_registries(Issuer(*issuer_and_verifier));
+                let verifier_regs =
+                    Pallet::<T>::verifier_registries(Verifier(*issuer_and_verifier));
+
+                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
+                    .filter(|reg_id| issuer_regs.contains(reg_id) && verifier_regs.contains(reg_id))
+                    .with_trust_registries_info()
+                    .collect()
+            }
+        }
+    }
+}
 
 pub trait ValidateTrustRegistryUpdate<T: Config> {
     type Context;

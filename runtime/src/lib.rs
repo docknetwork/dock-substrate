@@ -2538,6 +2538,12 @@ impl_runtime_apis! {
         ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::TrustRegistrySchemaVerifiers<Runtime>> {
             TrustRegistry::schema_metadata_by_registry_id(registry_id).map(|(schema_id, schema_metadata)| (schema_id, schema_metadata.verifiers)).collect()
         }
+
+        fn registries_info_by(
+            by: trust_registry::TrustRegistriesInfoBy
+        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::TrustRegistryInfo<Runtime>> {
+            by.resolve()
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]

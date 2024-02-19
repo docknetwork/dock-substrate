@@ -163,13 +163,13 @@ impl<T: Config> Pallet<T> {
     pub fn schema_metadata_by_registry_id(
         registry_id: TrustRegistryId,
     ) -> impl Iterator<Item = (TrustRegistrySchemaId, TrustRegistrySchemaMetadata<T>)> {
-        TrustRegistriesStoredSchemas::<T>::get(registry_id)
-            .0
-            .into_iter()
-            .filter_map(move |schema_id| {
-                TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)
-                    .map(|schema_metadata| (schema_id, schema_metadata))
-            })
+        let TrustRegistryStoredSchemas(schemas) =
+            TrustRegistriesStoredSchemas::<T>::get(registry_id);
+
+        schemas.into_iter().filter_map(move |schema_id| {
+            TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)
+                .map(|schema_metadata| (schema_id, schema_metadata))
+        })
     }
 }
 
