@@ -385,7 +385,7 @@ pub mod pallet {
             _o: OriginFor<T>,
             _s: common::StateChange<'static, T>,
             _d: AggregatedDidDetailsResponse<T>,
-            _i: crate::trust_registry::TrustRegistriesInfoBy
+            _i: crate::trust_registry::TrustRegistriesInfoBy,
         ) -> DispatchResult {
             Err(DispatchError::BadOrigin)
         }
