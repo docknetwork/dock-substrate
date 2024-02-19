@@ -127,28 +127,28 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<Option<(Vec<u8>, Option<accumulator::AccumPublicKeyWithParams<T::T>>)>>;
 
-    #[method(name = "core_trustRegistrySchemaMetadata")]
+    #[method(name = "trustRegistry_schemaMetadata")]
     async fn schema_metadata(
         &self,
         id: TrustRegistrySchemaId,
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedTrustRegistrySchemaMetadata<T::T>>>;
 
-    #[method(name = "core_trustRegistrySchemaIssuers")]
+    #[method(name = "trustRegistry_schemaIssuers")]
     async fn schema_issuers(
         &self,
         id: TrustRegistrySchemaId,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedSchemaIssuers<T::T>>>;
+    ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedTrustRegistrySchemaIssuers<T::T>>>;
 
-    #[method(name = "core_trustRegistrySchemaVerifiers")]
+    #[method(name = "trustRegistry_schemaVerifiers")]
     async fn schema_verifiers(
         &self,
         id: TrustRegistrySchemaId,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<TrustRegistryId, SchemaVerifiers<T::T>>>;
+    ) -> RpcResult<BTreeMap<TrustRegistryId, TrustRegistrySchemaVerifiers<T::T>>>;
 
-    #[method(name = "core_trustRegistrySchemaMetadataInRegistry")]
+    #[method(name = "trustRegistry_schemaMetadataInRegistry")]
     async fn schema_metadata_in_registry(
         &self,
         id: TrustRegistrySchemaId,
@@ -156,42 +156,42 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<Option<AggregatedTrustRegistrySchemaMetadata<T::T>>>;
 
-    #[method(name = "core_trustRegistrySchemaIssuersInRegistry")]
+    #[method(name = "trustRegistry_schemaIssuersInRegistry")]
     async fn schema_issuers_in_registry(
         &self,
         id: TrustRegistrySchemaId,
         registry_id: TrustRegistryId,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<AggregatedSchemaIssuers<T::T>>>;
+    ) -> RpcResult<Option<AggregatedTrustRegistrySchemaIssuers<T::T>>>;
 
-    #[method(name = "core_trustRegistrySchemaVerifiersInRegistry")]
+    #[method(name = "trustRegistry_schemaVerifiersInRegistry")]
     async fn schema_verifiers_in_registry(
         &self,
         id: TrustRegistrySchemaId,
         registry_id: TrustRegistryId,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<SchemaVerifiers<T::T>>>;
+    ) -> RpcResult<Option<TrustRegistrySchemaVerifiers<T::T>>>;
 
-    #[method(name = "core_allTrustRegistrySchemaMetadata")]
+    #[method(name = "trustRegistry_allRegistrySchemaMetadata")]
     async fn all_registry_schema_metadata(
         &self,
         registry_id: TrustRegistryId,
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata<T::T>>>;
 
-    #[method(name = "coreallTtrustRegistrySchemaIssuers")]
+    #[method(name = "trustRegistry_allRegistrySchemaIssuers")]
     async fn all_registry_schema_issuers(
         &self,
         registry_id: TrustRegistryId,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedSchemaIssuers<T::T>>>;
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaIssuers<T::T>>>;
 
-    #[method(name = "core_tallTustRegistrySchemaVerifiers")]
+    #[method(name = "trustRegistry_allRegistryTrustRegistrySchemaVerifiers")]
     async fn all_registry_schema_verifiers(
         &self,
         registry_id: TrustRegistryId,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, SchemaVerifiers<T::T>>>;
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, TrustRegistrySchemaVerifiers<T::T>>>;
 }
 
 /// A struct that implements the [`CoreModsApi`].
@@ -437,7 +437,7 @@ where
         &self,
         id: TrustRegistrySchemaId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedSchemaIssuers<T::T>>> {
+    ) -> RpcResult<BTreeMap<TrustRegistryId, AggregatedTrustRegistrySchemaIssuers<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -451,7 +451,7 @@ where
         &self,
         id: TrustRegistrySchemaId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<TrustRegistryId, SchemaVerifiers<T::T>>> {
+    ) -> RpcResult<BTreeMap<TrustRegistryId, TrustRegistrySchemaVerifiers<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -481,7 +481,7 @@ where
         id: TrustRegistrySchemaId,
         registry_id: TrustRegistryId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<AggregatedSchemaIssuers<T::T>>> {
+    ) -> RpcResult<Option<AggregatedTrustRegistrySchemaIssuers<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -496,7 +496,7 @@ where
         id: TrustRegistrySchemaId,
         registry_id: TrustRegistryId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<SchemaVerifiers<T::T>>> {
+    ) -> RpcResult<Option<TrustRegistrySchemaVerifiers<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -525,7 +525,8 @@ where
         &self,
         id: TrustRegistryId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedSchemaIssuers<T::T>>> {
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaIssuers<T::T>>>
+    {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
@@ -539,7 +540,7 @@ where
         &self,
         id: TrustRegistryId,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, SchemaVerifiers<T::T>>> {
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, TrustRegistrySchemaVerifiers<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.

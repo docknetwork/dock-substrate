@@ -180,7 +180,7 @@ crate::did_or_did_method_key! {
                         .into_iter()
                         .collect(),
                     ),
-                    verifiers: UnboundedSchemaVerifiers(
+                    verifiers: UnboundedTrustRegistrySchemaVerifiers(
                         (0..5)
                             .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
                             .collect()
@@ -414,7 +414,7 @@ crate::did_or_did_method_key! {
                         .into_iter()
                         .collect()
                     ),
-                    verifiers: UnboundedSchemaVerifiers(
+                    verifiers: UnboundedTrustRegistrySchemaVerifiers(
                         (0..5)
                             .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
                             .collect()
@@ -560,7 +560,7 @@ crate::did_or_did_method_key! {
                             .map(|issuer| (issuer, build_initial_prices(5, 5)))
                             .collect::<BTreeMap<_, _>>()
                     );
-                    let verifiers = UnboundedSchemaVerifiers(
+                    let verifiers = UnboundedTrustRegistrySchemaVerifiers(
                         (0..5)
                             .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
                             .chain((idx == 0).then_some(Verifier(verifier.into())))
@@ -586,7 +586,7 @@ crate::did_or_did_method_key! {
                             .map(|issuer| (issuer, build_initial_prices(if idx == 2 { 100 } else { 5 }, if idx == 3 { 100 } else { 5 })))
                             .collect::<BTreeMap<_, _>>()
                     );
-                    let verifiers = UnboundedSchemaVerifiers(
+                    let verifiers = UnboundedTrustRegistrySchemaVerifiers(
                         (0..if idx == 1 { 50 } else { 5 })
                             .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
                             .chain((idx == 0).then_some(Verifier(verifier.into())))

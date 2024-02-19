@@ -316,21 +316,21 @@ impl_wrapper!(UnboundedIssuersWith<Entry> where Entry: Eq, Entry: Clone, Entry: 
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-pub struct SchemaVerifiers<T: Limits>(
+pub struct TrustRegistrySchemaVerifiers<T: Limits>(
     #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
     pub  BoundedBTreeSet<Verifier, T::MaxVerifiersPerSchema>,
 );
 
-impl_wrapper!(SchemaVerifiers<T> where T: Limits => (BoundedBTreeSet<Verifier, T::MaxVerifiersPerSchema>));
+impl_wrapper!(TrustRegistrySchemaVerifiers<T> where T: Limits => (BoundedBTreeSet<Verifier, T::MaxVerifiersPerSchema>));
 
 /// Schema `Verifier`s.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct UnboundedSchemaVerifiers(pub BTreeSet<Verifier>);
+pub struct UnboundedTrustRegistrySchemaVerifiers(pub BTreeSet<Verifier>);
 
-impl_wrapper!(UnboundedSchemaVerifiers(BTreeSet<Verifier>));
+impl_wrapper!(UnboundedTrustRegistrySchemaVerifiers(BTreeSet<Verifier>));
 
 /// Delegated `Issuer`s.
 #[derive(
@@ -422,7 +422,7 @@ pub struct TrustRegistryIssuerConfiguration<T: Limits> {
 #[scale_info(omit_prefix)]
 pub struct TrustRegistrySchemaMetadata<T: Limits> {
     pub issuers: SchemaIssuers<T>,
-    pub verifiers: SchemaVerifiers<T>,
+    pub verifiers: TrustRegistrySchemaVerifiers<T>,
 }
 
 /// Unbounded `Trust Registry` schema metadata.
@@ -432,7 +432,7 @@ pub struct TrustRegistrySchemaMetadata<T: Limits> {
 #[scale_info(omit_prefix)]
 pub struct UnboundedTrustRegistrySchemaMetadata {
     pub issuers: UnboundedSchemaIssuers,
-    pub verifiers: UnboundedSchemaVerifiers,
+    pub verifiers: UnboundedTrustRegistrySchemaVerifiers,
 }
 
 impl<T: Limits> TryFrom<UnboundedTrustRegistrySchemaMetadata> for TrustRegistrySchemaMetadata<T> {
@@ -453,7 +453,7 @@ impl<T: Limits> TryFrom<UnboundedTrustRegistrySchemaMetadata> for TrustRegistryS
                     .try_into()
                     .map_err(|_| Error::<T>::IssuersSizeExceeded)?,
             ),
-            verifiers: SchemaVerifiers(
+            verifiers: TrustRegistrySchemaVerifiers(
                 verifiers
                     .0
                     .try_into()
@@ -490,7 +490,7 @@ impl<T: Limits> TrustRegistrySchemaMetadata<T> {
     }
 }
 
-pub type AggregatedSchemaIssuers<T> = UnboundedIssuersWith<AggregatedIssuerInfo<T>>;
+pub type AggregatedTrustRegistrySchemaIssuers<T> = UnboundedIssuersWith<AggregatedIssuerInfo<T>>;
 
 /// `Trust Registry` schema metadata.
 #[derive(
@@ -505,8 +505,8 @@ pub type AggregatedSchemaIssuers<T> = UnboundedIssuersWith<AggregatedIssuerInfo<
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct AggregatedTrustRegistrySchemaMetadata<T: Limits> {
-    pub issuers: AggregatedSchemaIssuers<T>,
-    pub verifiers: SchemaVerifiers<T>,
+    pub issuers: AggregatedTrustRegistrySchemaIssuers<T>,
+    pub verifiers: TrustRegistrySchemaVerifiers<T>,
 }
 
 impl<T: Config> TrustRegistrySchemaMetadata<T> {
@@ -731,15 +731,15 @@ impl<T: Limits> TryFrom<UnboundedSchemaIssuers> for SchemaIssuers<T> {
     }
 }
 
-impl<T: Limits> TryFrom<UnboundedSchemaVerifiers> for SchemaVerifiers<T> {
+impl<T: Limits> TryFrom<UnboundedTrustRegistrySchemaVerifiers> for TrustRegistrySchemaVerifiers<T> {
     type Error = Error<T>;
 
     fn try_from(
-        UnboundedSchemaVerifiers(verifiers): UnboundedSchemaVerifiers,
+        UnboundedTrustRegistrySchemaVerifiers(verifiers): UnboundedTrustRegistrySchemaVerifiers,
     ) -> Result<Self, Self::Error> {
         verifiers
             .try_into()
-            .map(SchemaVerifiers)
+            .map(TrustRegistrySchemaVerifiers)
             .map_err(|_| Error::<T>::VerifiersSizeExceeded)
     }
 }
@@ -766,10 +766,14 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
     }
 }
 
-pub type UnboundedVerifiersUpdate =
-    SetOrModify<UnboundedSchemaVerifiers, MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>>;
-pub type VerifiersUpdate<T> =
-    SetOrModify<SchemaVerifiers<T>, MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>>;
+pub type UnboundedVerifiersUpdate = SetOrModify<
+    UnboundedTrustRegistrySchemaVerifiers,
+    MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>,
+>;
+pub type VerifiersUpdate<T> = SetOrModify<
+    TrustRegistrySchemaVerifiers<T>,
+    MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>,
+>;
 
 pub type UnboundedVerificationPricesUpdate =
     OnlyExistent<MultiTargetUpdate<String, SetOrAddOrRemoveOrModify<VerificationPrice>>>;

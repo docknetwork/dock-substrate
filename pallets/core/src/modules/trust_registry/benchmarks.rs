@@ -102,7 +102,7 @@ crate::bench_with_all_pairs! {
                                     )
                             )
                         ).collect()),
-                        verifiers: UnboundedSchemaVerifiers((0..SCHEMA_VERIFIERS - v).map(|idx| Verifier(Did([255 - idx as u8; 32]).into())).collect())
+                        verifiers: UnboundedTrustRegistrySchemaVerifiers((0..SCHEMA_VERIFIERS - v).map(|idx| Verifier(Did([255 - idx as u8; 32]).into())).collect())
                     }
                 )
             ).collect();

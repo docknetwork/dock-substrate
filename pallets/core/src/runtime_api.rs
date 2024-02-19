@@ -37,11 +37,11 @@ sp_api::decl_runtime_apis! {
 
         fn schema_issuers(
             id: TrustRegistrySchemaId
-        ) -> BTreeMap<TrustRegistryId, AggregatedSchemaIssuers<T>>;
+        ) -> BTreeMap<TrustRegistryId, AggregatedTrustRegistrySchemaIssuers<T>>;
 
         fn schema_verifiers(
             id: TrustRegistrySchemaId
-        ) -> BTreeMap<TrustRegistryId, SchemaVerifiers<T>>;
+        ) -> BTreeMap<TrustRegistryId, TrustRegistrySchemaVerifiers<T>>;
 
         fn schema_metadata_in_registry(
             id: TrustRegistrySchemaId,
@@ -51,12 +51,12 @@ sp_api::decl_runtime_apis! {
         fn schema_issuers_in_registry(
             id: TrustRegistrySchemaId,
             registry_id: TrustRegistryId
-        ) -> Option<AggregatedSchemaIssuers<T>>;
+        ) -> Option<AggregatedTrustRegistrySchemaIssuers<T>>;
 
         fn schema_verifiers_in_registry(
             id: TrustRegistrySchemaId,
             registry_id: TrustRegistryId
-        ) -> Option<SchemaVerifiers<T>>;
+        ) -> Option<TrustRegistrySchemaVerifiers<T>>;
 
         fn all_registry_schema_metadata(
             registry_id: TrustRegistryId
@@ -64,10 +64,10 @@ sp_api::decl_runtime_apis! {
 
         fn all_registry_schema_issuers(
             registry_id: TrustRegistryId
-        ) -> BTreeMap<TrustRegistrySchemaId, AggregatedSchemaIssuers<T>>;
+        ) -> BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaIssuers<T>>;
 
         fn all_registry_schema_verifiers(
             registry_id: TrustRegistryId
-        ) -> BTreeMap<TrustRegistrySchemaId, SchemaVerifiers<T>>;
+        ) -> BTreeMap<TrustRegistrySchemaId, TrustRegistrySchemaVerifiers<T>>;
     }
 }
