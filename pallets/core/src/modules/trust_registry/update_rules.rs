@@ -44,7 +44,7 @@ impl<T: Limits> ApplyUpdate<TrustRegistrySchemaMetadata<T>>
 impl<A, T: Limits> ValidateUpdate<A, TrustRegistrySchemaMetadata<T>>
     for TrustRegistrySchemaMetadataUpdate<T>
 where
-    A: CanUpdateAndCanUpdateKeyed<SchemaIssuers<T>>
+    A: CanUpdateAndCanUpdateKeyed<TrustRegistrySchemaIssuers<T>>
         + CanUpdateAndCanUpdateKeyed<TrustRegistrySchemaVerifiers<T>>
         + CanUpdateAndCanUpdateKeyed<VerificationPrices<T>>
         + CanUpdate<VerificationPrice>,
@@ -133,13 +133,13 @@ impl CanUpdate<VerificationPrice> for IssuerOrVerifier {
     }
 }
 
-impl<T: Limits> CanUpdate<SchemaIssuers<T>> for IssuerOrVerifier {}
+impl<T: Limits> CanUpdate<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {}
 impl<T: Limits> CanUpdate<TrustRegistrySchemaVerifiers<T>> for IssuerOrVerifier {}
 
-impl<T: Limits> CanUpdateKeyed<SchemaIssuers<T>> for IssuerOrVerifier {
-    fn can_update_keyed<U: KeyedUpdate<SchemaIssuers<T>>>(
+impl<T: Limits> CanUpdateKeyed<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {
+    fn can_update_keyed<U: KeyedUpdate<TrustRegistrySchemaIssuers<T>>>(
         &self,
-        entity: &SchemaIssuers<T>,
+        entity: &TrustRegistrySchemaIssuers<T>,
         update: &U,
     ) -> bool {
         Issuer(**self).can_update_keyed(entity, update)
@@ -176,10 +176,10 @@ impl<T: Limits> CanUpdateKeyed<TrustRegistrySchemaVerifiers<T>> for Verifier {
     }
 }
 
-impl<T: Limits> CanUpdateKeyed<SchemaIssuers<T>> for Issuer {
-    fn can_update_keyed<U: KeyedUpdate<SchemaIssuers<T>>>(
+impl<T: Limits> CanUpdateKeyed<TrustRegistrySchemaIssuers<T>> for Issuer {
+    fn can_update_keyed<U: KeyedUpdate<TrustRegistrySchemaIssuers<T>>>(
         &self,
-        entity: &SchemaIssuers<T>,
+        entity: &TrustRegistrySchemaIssuers<T>,
         update: &U,
     ) -> bool {
         entity.0.contains_key(self) && update.targets(entity).all(|target| target == self)
@@ -277,10 +277,6 @@ impl<T: Limits> CanUpdate<VerificationPrices<T>> for Convener {
 }
 
 impl<T: Limits> CanUpdate<VerificationPrices<T>> for IssuerOrVerifier {
-    fn can_add(&self, _entity: &VerificationPrices<T>) -> bool {
-        true
-    }
-
     fn can_remove(&self, _entity: &VerificationPrices<T>) -> bool {
         true
     }
@@ -290,10 +286,10 @@ impl<T: Limits> CanUpdate<VerificationPrices<T>> for IssuerOrVerifier {
     }
 }
 
-impl<T: Limits> CanUpdateKeyed<SchemaIssuers<T>> for Convener {
-    fn can_update_keyed<U: KeyedUpdate<SchemaIssuers<T>>>(
+impl<T: Limits> CanUpdateKeyed<TrustRegistrySchemaIssuers<T>> for Convener {
+    fn can_update_keyed<U: KeyedUpdate<TrustRegistrySchemaIssuers<T>>>(
         &self,
-        _entity: &SchemaIssuers<T>,
+        _entity: &TrustRegistrySchemaIssuers<T>,
         _update: &U,
     ) -> bool {
         true
@@ -390,16 +386,20 @@ impl<T: Limits> CanUpdateKeyed<TrustRegistryStoredSchemas<T>> for IssuerOrVerifi
     }
 }
 
-impl<T: Limits> CanUpdate<SchemaIssuers<T>> for Convener {
-    fn can_add(&self, _entity: &SchemaIssuers<T>) -> bool {
+impl<T: Limits> CanUpdate<TrustRegistrySchemaIssuers<T>> for Convener {
+    fn can_add(&self, _entity: &TrustRegistrySchemaIssuers<T>) -> bool {
         true
     }
 
-    fn can_remove(&self, _entity: &SchemaIssuers<T>) -> bool {
+    fn can_remove(&self, _entity: &TrustRegistrySchemaIssuers<T>) -> bool {
         true
     }
 
-    fn can_replace(&self, _new: &SchemaIssuers<T>, _existing: &SchemaIssuers<T>) -> bool {
+    fn can_replace(
+        &self,
+        _new: &TrustRegistrySchemaIssuers<T>,
+        _existing: &TrustRegistrySchemaIssuers<T>,
+    ) -> bool {
         true
     }
 }

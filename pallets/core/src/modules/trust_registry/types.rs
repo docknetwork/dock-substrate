@@ -277,7 +277,7 @@ pub struct IssuersWith<T: Limits, Entry: Eq + Clone + Debug>(
 impl_wrapper!(IssuersWith<T, Entry> where T: Limits, Entry: Eq, Entry: Clone, Entry: Debug => (BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>));
 
 /// Schema `Issuer`s (`Issuer` => verification prices).
-pub type SchemaIssuers<T> = IssuersWith<T, VerificationPrices<T>>;
+pub type TrustRegistrySchemaIssuers<T> = IssuersWith<T, VerificationPrices<T>>;
 
 /// An unbounded map from `Issuer` to some value.
 #[derive(
@@ -421,7 +421,7 @@ pub struct TrustRegistryIssuerConfiguration<T: Limits> {
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct TrustRegistrySchemaMetadata<T: Limits> {
-    pub issuers: SchemaIssuers<T>,
+    pub issuers: TrustRegistrySchemaIssuers<T>,
     pub verifiers: TrustRegistrySchemaVerifiers<T>,
 }
 
@@ -713,7 +713,7 @@ pub struct TrustRegistryInfo<T: Limits> {
 
 pub type UnboundedSchemaIssuers = UnboundedIssuersWith<UnboundedVerificationPrices>;
 
-impl<T: Limits> TryFrom<UnboundedSchemaIssuers> for SchemaIssuers<T> {
+impl<T: Limits> TryFrom<UnboundedSchemaIssuers> for TrustRegistrySchemaIssuers<T> {
     type Error = Error<T>;
 
     fn try_from(
@@ -792,7 +792,7 @@ pub type IssuerUpdate<T> =
 pub type UnboundedIssuersUpdate =
     SetOrModify<UnboundedSchemaIssuers, MultiTargetUpdate<Issuer, UnboundedIssuerUpdate>>;
 pub type IssuersUpdate<T> =
-    SetOrModify<SchemaIssuers<T>, MultiTargetUpdate<Issuer, IssuerUpdate<T>>>;
+    SetOrModify<TrustRegistrySchemaIssuers<T>, MultiTargetUpdate<Issuer, IssuerUpdate<T>>>;
 
 pub type UnboundedSchemasUpdate = SetOrModify<
     UnboundedSchemas,

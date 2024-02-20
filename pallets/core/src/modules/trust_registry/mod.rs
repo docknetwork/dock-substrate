@@ -26,6 +26,7 @@ mod weights;
 
 pub mod actions;
 pub mod types;
+mod update;
 mod update_rules;
 
 pub use actions::*;
