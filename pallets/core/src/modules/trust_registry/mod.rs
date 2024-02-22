@@ -370,6 +370,9 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
         SetSchemasMetadata { schemas, .. }: &SetSchemasMetadata<T>,
         signed: &DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
     ) -> Weight {
+        let unknown_issuers_per_schema = T::MaxIssuersPerSchema::get() / 5;
+        let unknown_verifiers_per_schema = T::MaxVerifiersPerSchema::get() / 5;
+
         let issuers_len = match schemas {
             SetOrModify::Modify(update) => update
                 .values()
@@ -378,14 +381,14 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
                     | SetOrAddOrRemoveOrModify::Set(schema) => schema.issuers.len() as u32,
                     SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
                         update.issuers.as_ref().map_or(0, |v| match v {
-                            SetOrModify::Set(_) => T::MaxIssuersPerSchema::get(),
+                            SetOrModify::Set(_) => unknown_issuers_per_schema,
                             SetOrModify::Modify(map) => map.len() as u32,
                         })
                     }
-                    SetOrAddOrRemoveOrModify::Remove => T::MaxIssuersPerSchema::get(),
+                    SetOrAddOrRemoveOrModify::Remove => unknown_issuers_per_schema,
                 })
                 .sum(),
-            SetOrModify::Set(_) => T::MaxIssuersPerSchema::get(),
+            SetOrModify::Set(schema) => unknown_issuers_per_schema,
         };
         let verifiers_len = match schemas {
             SetOrModify::Modify(update) => update
@@ -395,14 +398,14 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
                     | SetOrAddOrRemoveOrModify::Set(schema) => schema.verifiers.len() as u32,
                     SetOrAddOrRemoveOrModify::Modify(OnlyExistent(update)) => {
                         update.verifiers.as_ref().map_or(0, |v| match v {
-                            SetOrModify::Set(_) => T::MaxVerifiersPerSchema::get(),
+                            SetOrModify::Set(_) => unknown_verifiers_per_schema,
                             SetOrModify::Modify(map) => map.len() as u32,
                         })
                     }
-                    SetOrAddOrRemoveOrModify::Remove => T::MaxVerifiersPerSchema::get(),
+                    SetOrAddOrRemoveOrModify::Remove => unknown_verifiers_per_schema,
                 })
                 .sum(),
-            SetOrModify::Set(_) => T::MaxVerifiersPerSchema::get(),
+            SetOrModify::Set(_) => unknown_verifiers_per_schema,
         };
         let schemas_len = match schemas {
             SetOrModify::Modify(update) => update.len(),
