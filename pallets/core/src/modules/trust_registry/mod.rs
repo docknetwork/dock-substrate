@@ -388,7 +388,7 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
                     SetOrAddOrRemoveOrModify::Remove => unknown_issuers_per_schema,
                 })
                 .sum(),
-            SetOrModify::Set(schema) => unknown_issuers_per_schema,
+            SetOrModify::Set(_) => unknown_issuers_per_schema,
         };
         let verifiers_len = match schemas {
             SetOrModify::Modify(update) => update

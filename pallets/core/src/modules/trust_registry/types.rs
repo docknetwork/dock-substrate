@@ -48,7 +48,7 @@ impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
 impl AuthorizeTarget<Self, DidMethodKey> for Convener {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 
-/// Maybe an `Issuer` or `Verifier` but definitely not a `Convener`.
+/// Maybe an `Issuer` or a `Verifier` but definitely not a `Convener`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
