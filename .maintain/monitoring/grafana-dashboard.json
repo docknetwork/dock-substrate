@@ -85,9 +85,7 @@
         "justifyMode": "center",
         "orientation": "vertical",
         "reduceOptions": {
-          "calcs": [
-            "last"
-          ],
+          "calcs": ["last"],
           "fields": "",
           "values": false
         },
@@ -686,20 +684,14 @@
         "conditions": [
           {
             "evaluator": {
-              "params": [
-                6
-              ],
+              "params": [6],
               "type": "gt"
             },
             "operator": {
               "type": "and"
             },
             "query": {
-              "params": [
-                "A",
-                "5m",
-                "now"
-              ]
+              "params": ["A", "5m", "now"]
             },
             "reducer": {
               "params": [],
@@ -942,9 +934,7 @@
         "justifyMode": "auto",
         "orientation": "horizontal",
         "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
+          "calcs": ["lastNotNull"],
           "fields": "",
           "values": false
         },
@@ -1106,10 +1096,7 @@
               "decimals": 2,
               "mappingType": 1,
               "pattern": "Value #E",
-              "thresholds": [
-                "70",
-                "85"
-              ],
+              "thresholds": ["70", "85"],
               "type": "number",
               "unit": "percent"
             },
@@ -1126,10 +1113,7 @@
               "decimals": 2,
               "mappingType": 1,
               "pattern": "Value #F",
-              "thresholds": [
-                "70",
-                "85"
-              ],
+              "thresholds": ["70", "85"],
               "type": "number",
               "unit": "percent"
             },
@@ -1146,10 +1130,7 @@
               "decimals": 2,
               "mappingType": 1,
               "pattern": "Value #G",
-              "thresholds": [
-                "70",
-                "85"
-              ],
+              "thresholds": ["70", "85"],
               "type": "number",
               "unit": "percent"
             },
@@ -1166,10 +1147,7 @@
               "decimals": 2,
               "mappingType": 1,
               "pattern": "Value #H",
-              "thresholds": [
-                "10485760",
-                "20485760"
-              ],
+              "thresholds": ["10485760", "20485760"],
               "type": "number",
               "unit": "Bps"
             },
@@ -1186,10 +1164,7 @@
               "decimals": 2,
               "mappingType": 1,
               "pattern": "Value #I",
-              "thresholds": [
-                "10485760",
-                "20485760"
-              ],
+              "thresholds": ["10485760", "20485760"],
               "type": "number",
               "unit": "Bps"
             },
@@ -1206,10 +1181,7 @@
               "decimals": 2,
               "mappingType": 1,
               "pattern": "Value #J",
-              "thresholds": [
-                "30485760",
-                "104857600"
-              ],
+              "thresholds": ["30485760", "104857600"],
               "type": "number",
               "unit": "bps"
             },
@@ -1226,10 +1198,7 @@
               "decimals": 2,
               "mappingType": 1,
               "pattern": "Value #K",
-              "thresholds": [
-                "30485760",
-                "104857600"
-              ],
+              "thresholds": ["30485760", "104857600"],
               "type": "number",
               "unit": "bps"
             },
@@ -2075,9 +2044,7 @@
           "decimals": 2,
           "mappingType": 1,
           "pattern": "mountpoint",
-          "thresholds": [
-            ""
-          ],
+          "thresholds": [""],
           "type": "string",
           "unit": "bytes"
         },
@@ -2094,10 +2061,7 @@
           "decimals": 1,
           "mappingType": 1,
           "pattern": "Value #A",
-          "thresholds": [
-            "10000000000",
-            "20000000000"
-          ],
+          "thresholds": ["10000000000", "20000000000"],
           "type": "number",
           "unit": "bytes"
         },
@@ -2114,10 +2078,7 @@
           "decimals": 1,
           "mappingType": 1,
           "pattern": "Value #B",
-          "thresholds": [
-            "70",
-            "85"
-          ],
+          "thresholds": ["70", "85"],
           "type": "number",
           "unit": "percent"
         },
