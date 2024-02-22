@@ -186,12 +186,19 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaIssuers<T::T>>>;
 
-    #[method(name = "trustRegistry_allRegistryTrustRegistrySchemaVerifiers")]
+    #[method(name = "trustRegistry_allRegistrySchemaVerifiers")]
     async fn all_registry_schema_verifiers(
         &self,
         registry_id: TrustRegistryId,
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, TrustRegistrySchemaVerifiers<T::T>>>;
+
+    #[method(name = "trustRegistry_registriesInfoBy")]
+    async fn registries_info_by(
+        &self,
+        by: QueryTrustRegistriesBy,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<TrustRegistryId, TrustRegistryInfo<T::T>>>;
 }
 
 /// A struct that implements the [`CoreModsApi`].
@@ -546,6 +553,20 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.all_registry_schema_verifiers(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn registries_info_by(
+        &self,
+        by: QueryTrustRegistriesBy,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<TrustRegistryId, TrustRegistryInfo<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.registries_info_by(&at, by)
             .map_err(Error)
             .map_err(Into::into)
     }

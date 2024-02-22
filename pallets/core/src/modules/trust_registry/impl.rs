@@ -46,19 +46,22 @@ impl<T: Config> Pallet<T> {
         }: SetSchemasMetadata<T>,
         registry_info: TrustRegistryInfo<T>,
         actor: ConvenerOrIssuerOrVerifier,
-    ) -> Result<(u32, u32, u32), StepError> {
+    ) -> Result<StepStorageAccesses, StepError> {
         let schemas: SchemasUpdate<T> = schemas
             .translate_update()
             .map_err(IntoModuleError::into_module_error)
             .map_err(Into::into)
             .map_err(StepError::Conversion)?;
 
-        let mut reads = Default::default();
+        let mut validation = StorageAccesses::default();
         schemas
-            .validate_and_record_diff(actor, registry_id, &registry_info, &mut reads)
+            .validate_and_record_diff(actor, registry_id, &registry_info, &mut validation)
             .map_err(Into::into)
-            .map_err(|error| StepError::Validation(error, reads))
-            .map(|validated_update| validated_update.execute(registry_id))
+            .map_err(|error| StepError::Validation(error, validation.clone()))
+            .map(|validated_update| StepStorageAccesses {
+                validation,
+                execution: validated_update.execute(registry_id),
+            })
     }
 
     pub(super) fn update_delegated_issuers_(
@@ -163,20 +166,26 @@ impl<T: Config> Pallet<T> {
     pub fn schema_metadata_by_registry_id(
         registry_id: TrustRegistryId,
     ) -> impl Iterator<Item = (TrustRegistrySchemaId, TrustRegistrySchemaMetadata<T>)> {
-        TrustRegistriesStoredSchemas::<T>::get(registry_id)
-            .0
-            .into_iter()
-            .filter_map(move |schema_id| {
-                TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)
-                    .map(|schema_metadata| (schema_id, schema_metadata))
-            })
+        let TrustRegistryStoredSchemas(schemas) =
+            TrustRegistriesStoredSchemas::<T>::get(registry_id);
+
+        schemas.into_iter().filter_map(move |schema_id| {
+            TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)
+                .map(|schema_metadata| (schema_id, schema_metadata))
+        })
     }
+}
+
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+pub struct StepStorageAccesses {
+    pub validation: StorageAccesses,
+    pub execution: StorageAccesses,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StepError {
     Conversion(DispatchError),
-    Validation(DispatchError, (u32, u32, u32)),
+    Validation(DispatchError, StorageAccesses),
 }
 
 impl From<StepError> for DispatchError {

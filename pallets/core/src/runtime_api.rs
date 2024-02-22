@@ -69,5 +69,9 @@ sp_api::decl_runtime_apis! {
         fn all_registry_schema_verifiers(
             registry_id: TrustRegistryId
         ) -> BTreeMap<TrustRegistrySchemaId, TrustRegistrySchemaVerifiers<T>>;
+
+        fn registries_info_by(
+            by: QueryTrustRegistriesBy
+        ) -> BTreeMap<TrustRegistryId, TrustRegistryInfo<T>>;
     }
 }

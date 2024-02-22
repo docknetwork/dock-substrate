@@ -203,7 +203,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 52,
+    spec_version: 53,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -2537,6 +2537,12 @@ impl_runtime_apis! {
             registry_id: trust_registry::TrustRegistryId
         ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::TrustRegistrySchemaVerifiers<Runtime>> {
             TrustRegistry::schema_metadata_by_registry_id(registry_id).map(|(schema_id, schema_metadata)| (schema_id, schema_metadata.verifiers)).collect()
+        }
+
+        fn registries_info_by(
+            by: trust_registry::QueryTrustRegistriesBy
+        ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::TrustRegistryInfo<Runtime>> {
+            by.resolve_to_registries_info()
         }
     }
 
