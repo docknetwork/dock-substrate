@@ -196,7 +196,7 @@ where
     #[method(name = "trustRegistry_registriesInfoBy")]
     async fn registries_info_by(
         &self,
-        by: TrustRegistriesInfoBy,
+        by: QueryTrustRegistriesBy,
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<TrustRegistryId, TrustRegistryInfo<T::T>>>;
 }
@@ -559,7 +559,7 @@ where
 
     async fn registries_info_by(
         &self,
-        by: TrustRegistriesInfoBy,
+        by: QueryTrustRegistriesBy,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BTreeMap<TrustRegistryId, TrustRegistryInfo<T::T>>> {
         let api = self.client.runtime_api();

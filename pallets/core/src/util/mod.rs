@@ -3,6 +3,7 @@ pub mod batch_update;
 #[cfg(feature = "serde")]
 pub mod btree;
 pub mod bytes;
+pub mod constants;
 #[cfg(feature = "serde")]
 pub mod hex;
 pub mod inc_id;
@@ -19,6 +20,7 @@ pub use batch_update::*;
 #[cfg(feature = "serde")]
 pub use btree::*;
 pub use bytes::*;
+pub use constants::*;
 #[cfg(feature = "serde")]
 pub use hex::*;
 pub use inc_id::*;
