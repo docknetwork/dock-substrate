@@ -1,6 +1,4 @@
 use super::{Config, ConvenerTrustRegistries, Error, TrustRegistriesInfo};
-#[cfg(feature = "serde")]
-use crate::util::{btree_map, btree_set, hex};
 use crate::{
     common::{AuthorizeTarget, Limits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
@@ -14,6 +12,11 @@ use frame_support::{traits::Get, weights::Weight, *};
 use scale_info::prelude::string::String;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 use utils::BoundedString;
+
+#[cfg(feature = "serde")]
+use crate::util::{btree_map, btree_set, hex};
+#[cfg(feature = "serde")]
+use serde_with::serde_as;
 
 /// Trust registry `Convener`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -270,7 +273,9 @@ pub struct AggregatedIssuerInfo<T: Limits> {
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
+#[cfg_attr(feature = "serde", serde_as)]
 pub struct IssuersWith<T: Limits, Entry: Eq + Clone + Debug>(
+    #[cfg_attr(feature = "serde", serde_as(as = "Vec<(Issuer, Entry)>"))]
     #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
     pub  BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>,
 );
@@ -294,7 +299,11 @@ pub type TrustRegistrySchemaIssuers<T> = IssuersWith<T, VerificationPrices<T>>;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct UnboundedIssuersWith<Entry: Eq + Clone + Debug>(pub BTreeMap<Issuer, Entry>);
+#[cfg_attr(feature = "serde", serde_as)]
+pub struct UnboundedIssuersWith<Entry: Eq + Clone + Debug>(
+    #[cfg_attr(feature = "serde", serde_as(as = "Vec<(Issuer, Entry)>"))]
+    pub  BTreeMap<Issuer, Entry>,
+);
 
 impl_wrapper!(UnboundedIssuersWith<Entry> where Entry: Eq, Entry: Clone, Entry: Debug => (BTreeMap<Issuer, Entry>));
 

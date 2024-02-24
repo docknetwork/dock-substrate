@@ -40,6 +40,10 @@ features = ["derive"]
 optional = true
 version = "1.0.119"
 
+[dependencies.serde_with]
+optional = true
+version = "3.6.1"
+
 [dependencies.serde-big-array]
 optional = true
 version = "0.3.0"
@@ -194,6 +198,7 @@ branch = "polkadot-v0.9.29"
 [features]
 default = ["std"]
 std = [
+    "serde_with/std",
     "serde-hex/std",
     "codec/std",
     "frame-support/std",
@@ -202,6 +207,7 @@ std = [
     "sp-application-crypto/std",
     "sp-application-crypto/full_crypto",
     "serde",
+    "serde_with",
     "serde-big-array",
     "getrandom/std",
     "serde-hex",
