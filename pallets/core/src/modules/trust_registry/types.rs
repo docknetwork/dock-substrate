@@ -16,7 +16,7 @@ use utils::BoundedString;
 #[cfg(feature = "serde")]
 use crate::util::{btree_map, btree_set, hex};
 #[cfg(feature = "serde")]
-use serde_with::serde_as;
+use serde_with::{serde_as, DeserializeAs, SerializeAs};
 
 /// Trust registry `Convener`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -246,12 +246,13 @@ impl_wrapper!(
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct AggregatedIssuerInfo<T: Limits> {
-    verification_prices: VerificationPrices<T>,
-    suspended: bool,
-    delegated: DelegatedIssuers<T>,
+    pub verification_prices: VerificationPrices<T>,
+    pub suspended: bool,
+    pub delegated: DelegatedIssuers<T>,
 }
 
 /// A map from `Issuer` to some value.
+#[cfg_attr(feature = "serde", serde_as)]
 #[derive(
     Encode,
     Decode,
@@ -261,24 +262,49 @@ pub struct AggregatedIssuerInfo<T: Limits> {
     DebugNoBound,
     MaxEncodedLen,
     DefaultNoBound,
+    scale_info_derive::TypeInfo,
 )]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(
-        serialize = "T: Sized, Entry: Serialize",
-        deserialize = "T: Sized, Entry: Deserialize<'de>"
-    ))
-)]
-#[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
-#[cfg_attr(feature = "serde", serde_as)]
 pub struct IssuersWith<T: Limits, Entry: Eq + Clone + Debug>(
-    #[cfg_attr(feature = "serde", serde_as(as = "Vec<(Issuer, Entry)>"))]
-    #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
-    pub  BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>,
+    pub BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>,
 );
+
+#[cfg(feature = "serde")]
+impl<T: Limits, Entry: Eq + Clone + Debug + Serialize> serde::Serialize for IssuersWith<T, Entry> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let items: Vec<_> = self
+            .0
+            .iter()
+            .map(|(issuer, entry)| (issuer.clone(), entry.clone()))
+            .collect();
+
+        items.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T: Limits, Entry: Eq + Clone + Debug + Deserialize<'de>> serde::Deserialize<'de>
+    for IssuersWith<T, Entry>
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+
+        Vec::deserialize(deserializer)
+            .map(BTreeMap::from_iter)
+            .and_then(|map| {
+                map.try_into()
+                    .map_err(|_| D::Error::custom("Issuers size exceede"))
+            })
+            .map(Self)
+    }
+}
 
 impl_wrapper!(IssuersWith<T, Entry> where T: Limits, Entry: Eq, Entry: Clone, Entry: Debug => (BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>));
 
@@ -286,23 +312,23 @@ impl_wrapper!(IssuersWith<T, Entry> where T: Limits, Entry: Eq, Entry: Clone, En
 pub type TrustRegistrySchemaIssuers<T> = IssuersWith<T, VerificationPrices<T>>;
 
 /// An unbounded map from `Issuer` to some value.
-#[derive(
-    Encode,
-    Decode,
-    CloneNoBound,
-    PartialEqNoBound,
-    EqNoBound,
-    DebugNoBound,
-    MaxEncodedLen,
-    DefaultNoBound,
-)]
+#[cfg_attr(feature = "serde", serde_as)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "Entry: Serialize",
+        deserialize = "Entry: Deserialize<'de>"
+    ))
+)]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-#[cfg_attr(feature = "serde", serde_as)]
 pub struct UnboundedIssuersWith<Entry: Eq + Clone + Debug>(
-    #[cfg_attr(feature = "serde", serde_as(as = "Vec<(Issuer, Entry)>"))]
-    pub  BTreeMap<Issuer, Entry>,
+    #[cfg(feature = "serde")]
+    #[serde_as(as = "serde_with::Seq<(_, _)>")]
+    pub BTreeMap<Issuer, Entry>,
+    #[cfg(not(feature = "serde"))] pub BTreeMap<Issuer, Entry>,
 );
 
 impl_wrapper!(UnboundedIssuersWith<Entry> where Entry: Eq, Entry: Clone, Entry: Debug => (BTreeMap<Issuer, Entry>));
