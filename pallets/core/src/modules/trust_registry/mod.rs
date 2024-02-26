@@ -254,13 +254,15 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
-            let base_weight = SubstrateWeight::<ZeroDbWeight>::set_schemas_metadata(
-                &set_schemas_metadata,
-                &signature,
+            let base_weight = T::DbWeight::get().reads_writes(4, 2).saturating_add(
+                SubstrateWeight::<ZeroDbWeight>::set_schemas_metadata(
+                    &set_schemas_metadata,
+                    &signature,
+                ),
             );
 
             match set_schemas_metadata
-                .signed(signature.clone())
+                .signed(signature)
                 .execute_readonly(Self::set_schemas_metadata_)
             {
                 Ok(StepStorageAccesses {
