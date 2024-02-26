@@ -16,7 +16,7 @@ use utils::BoundedString;
 #[cfg(feature = "serde")]
 use crate::util::{btree_map, btree_set, hex};
 #[cfg(feature = "serde")]
-use serde_with::{serde_as, DeserializeAs, SerializeAs};
+use serde_with::serde_as;
 
 /// Trust registry `Convener`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -296,13 +296,17 @@ impl<'de, T: Limits, Entry: Eq + Clone + Debug + Deserialize<'de>> serde::Deseri
     {
         use serde::de::Error;
 
-        Vec::deserialize(deserializer)
-            .map(BTreeMap::from_iter)
-            .and_then(|map| {
-                map.try_into()
-                    .map_err(|_| D::Error::custom("Issuers size exceede"))
-            })
-            .map(Self)
+        let items = Vec::deserialize(deserializer)?;
+        let len = items.len();
+
+        let map = BTreeMap::from_iter(items);
+        if len != map.len() {
+            Err(D::Error::custom("Duplicate key"))
+        } else {
+            map.try_into()
+                .map_err(|_| D::Error::custom("Issuers size exceeded"))
+                .map(Self)
+        }
     }
 }
 
@@ -528,7 +532,7 @@ impl<T: Limits> TrustRegistrySchemaMetadata<T> {
     }
 }
 
-pub type AggregatedTrustRegistrySchemaIssuers<T> = UnboundedIssuersWith<AggregatedIssuerInfo<T>>;
+pub type AggregatedTrustRegistrySchemaIssuers<T> = Vec<(Issuer, AggregatedIssuerInfo<T>)>;
 
 /// `Trust Registry` schema metadata.
 #[derive(
@@ -574,10 +578,7 @@ impl<T: Config> TrustRegistrySchemaMetadata<T> {
             })
             .collect();
 
-        AggregatedTrustRegistrySchemaMetadata {
-            issuers: UnboundedIssuersWith(issuers),
-            verifiers,
-        }
+        AggregatedTrustRegistrySchemaMetadata { issuers, verifiers }
     }
 }
 
@@ -790,10 +791,14 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
     ) -> Result<Self, Self::Error> {
         let prices: BTreeMap<_, _> = prices
             .into_iter()
-            .map(|(cur, value)| {
-                cur.try_into()
+            .map(|(sym, value)| {
+                sym.try_into()
                     .map_err(|_| Error::<T>::PriceCurrencySymbolSizeExceeded)
-                    .map(|cur: BoundedString<T::MaxIssuerPriceCurrencySymbolSize>| (cur, value))
+                    .map(
+                        |bounded_sym: BoundedString<T::MaxIssuerPriceCurrencySymbolSize>| {
+                            (bounded_sym, value)
+                        },
+                    )
             })
             .collect::<Result<_, Error<T>>>()?;
 

@@ -56,7 +56,6 @@ impl<T: Config> Pallet<T> {
         let mut validation = StorageAccesses::default();
         schemas
             .validate_and_record_diff(actor, registry_id, &registry_info, &mut validation)
-            .map_err(Into::into)
             .map_err(|error| StepError::Validation(error, validation.clone()))
             .map(|validated_update| StepStorageAccesses {
                 validation,
