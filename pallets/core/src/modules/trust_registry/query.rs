@@ -2,6 +2,8 @@ use super::*;
 use alloc::collections::BTreeMap;
 use core::borrow::Borrow;
 use types::*;
+use codec::EncodeLike;
+use core::iter::Cloned;
 
 /// Specifies arguments to retrieve registry informations by.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -49,6 +51,7 @@ impl QueryTrustRegistriesBy {
 
                 issuer_regs
                     .union(&verifier_regs)
+                    .copied()
                     .with_registry_info()
                     .collect()
             }
@@ -59,6 +62,7 @@ impl QueryTrustRegistriesBy {
 
                 issuer_regs
                     .intersection(&verifier_regs)
+                    .copied()
                     .with_registry_info()
                     .collect()
             }
@@ -105,9 +109,9 @@ impl QueryTrustRegistriesBy {
 trait IntoIterExt: IntoIterator + Sized {
     /// Transforms value to an iterator emitting `TrustRegistryId`, then transforms result to an iterator producing
     /// `(TrustRegistryId, TrustRegistryInfo<T>)` pairs.
-    fn with_registry_info<T>(self) -> WithTrustRegistriesInfo<Self::IntoIter, T>
+    fn with_registry_info<T>(self) -> WithEntity<Self::IntoIter, TrustRegistryInfo<T>>
     where
-        Self::Item: Borrow<TrustRegistryId>,
+        Self::Item: Clone + EncodeLike<TrustRegistryId>,
         T: Config;
 }
 
@@ -115,38 +119,44 @@ impl<I> IntoIterExt for I
 where
     I: IntoIterator,
 {
-    fn with_registry_info<T>(self) -> WithTrustRegistriesInfo<Self::IntoIter, T>
+    fn with_registry_info<T>(self) -> WithEntity<Self::IntoIter, TrustRegistryInfo<T>>
     where
-        Self::Item: Borrow<TrustRegistryId>,
+        Self::Item: Clone + EncodeLike<TrustRegistryId>,
         T: Config,
     {
-        WithTrustRegistriesInfo::new(self.into_iter())
+        WithEntity::new(self.into_iter(), TrustRegistriesInfo::<T>::get as _)
     }
 }
 
 /// A wrapper for the iterator that converts an iterator of `TrustRegistryId`
 /// to an iterator of `(TrustRegistryId, TrustRegistryInfo<T>)`.
-pub struct WithTrustRegistriesInfo<I, T>(I, PhantomData<T>);
+pub struct WithEntity<I: Iterator, E>(I, fn(I::Item) -> Option<E>);
 
-impl<T, I> WithTrustRegistriesInfo<I, T> {
-    fn new(iter: I) -> Self {
-        Self(iter, PhantomData)
+trait GetStorageValue<Key> {
+    type Value;
+
+    fn get(key: Key) -> Self::Value;
+}
+
+impl<I, E> WithEntity<I, E> where I: Iterator {
+    fn new(iter: I, f: fn(I::Item) -> Option<E>) -> Self {
+        Self(iter, f)
     }
 }
 
-impl<T: Config, I> Iterator for WithTrustRegistriesInfo<I, T>
+impl<I, E> Iterator for WithEntity<I, E>
 where
     I: Iterator,
-    I::Item: Borrow<TrustRegistryId>,
+    I::Item: Clone,
 {
-    type Item = (TrustRegistryId, TrustRegistryInfo<T>);
+    type Item = (I::Item, E);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
-            let id = *self.0.next()?.borrow();
+            let id = self.0.next()?;
 
-            if let Some(trust_registry_info) = TrustRegistriesInfo::<T>::get(id) {
-                break Some((id, trust_registry_info));
+            if let Some(data) = self.1(id.clone()) {
+                break Some((id, data));
             }
         }
     }
