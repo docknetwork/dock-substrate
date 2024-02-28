@@ -55,7 +55,7 @@
   - name: Wait for volume modification to complete
     delegate_to: 127.0.0.1
     become: no
-    command: aws --region "{{ ansible_ec2_placement_region }}" ec2 describe-volumes-modifications --volume-id "{{ vol_id }}" --output json
+    command: aws --region "{{ aws_region }}" ec2 describe-volumes-modifications --volume-id "{{ instances['instances'][0].block_device_mappings[0].ebs.volume_id }}" --output json
     register: result
     until: result.stdout.find('completed') != -1 or result.stdout.find('optimizing') != -1
     retries: 60
