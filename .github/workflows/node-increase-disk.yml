@@ -61,12 +61,21 @@ jobs:
           parameters: |
             {"commands":["sudo growpart /dev/nvme0n1 1", "sudo resize2fs /dev/nvme0n1p1"]}
 
-      - name: Check SSM output
+      - name: Get SSM output
+        id: get-ssm-output
         if: steps.extend-file-system.outcome == 'success'
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
           AWS_DEFAULT_REGION: ${{ inputs.aws_region }}
         run: |
-          aws ssm list-command-invocations --command-id "${{ steps.extend-file-system.outputs.command-id }}" --details
+          echo "COMMAND_OUTPUT=$(aws ssm list-command-invocations --command-id "${{ steps.extend-file-system.outputs.command-id }}" --details)" >> $GITHUB_ENV
+
+      - name: Check SSM output    
+        if: steps.get-ssm-output.outcome == 'success' && contains(env.COMMAND_OUTPUT, 'error')
+        run: |
+          echo "Error detected trying to extend the partition."
+          echo ${{env.COMMAND_OUTPUT}}
+          exit 1
+          
 
