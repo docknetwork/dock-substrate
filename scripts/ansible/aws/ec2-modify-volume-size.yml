@@ -52,16 +52,16 @@
       iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
       modify_volume: true
       
-   - name: Wait for volume modification to complete
-      delegate_to: 127.0.0.1
-      become: no
-      command: aws --region "{{ ansible_ec2_placement_region }}" ec2 describe-volumes-modifications --volume-id "{{ vol_id }}" --output json
-      register: result
-      until: result.stdout.find('completed') != -1 or result.stdout.find('optimizing') != -1
-      retries: 60
-      delay: 5
-      changed_when: False
-      when:
-        - not ansible_check_mode
-        - vol_new_size > vol_size | int
+  - name: Wait for volume modification to complete
+    delegate_to: 127.0.0.1
+    become: no
+    command: aws --region "{{ ansible_ec2_placement_region }}" ec2 describe-volumes-modifications --volume-id "{{ vol_id }}" --output json
+    register: result
+    until: result.stdout.find('completed') != -1 or result.stdout.find('optimizing') != -1
+    retries: 60
+    delay: 5
+    changed_when: False
+    when:
+      - not ansible_check_mode
+      - vol_new_size > vol_size | int
 
