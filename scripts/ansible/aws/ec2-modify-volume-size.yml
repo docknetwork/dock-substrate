@@ -63,5 +63,4 @@
     changed_when: False
     when:
       - not ansible_check_mode
-      - vol_new_size > vol_size | int
 
