@@ -1531,13 +1531,11 @@ dependencies = [
  "jsonrpsee",
  "parity-scale-codec",
  "serde",
- "serde_json",
  "sp-api",
  "sp-blockchain",
  "sp-rpc",
  "sp-runtime",
  "thiserror",
- "utils",
 ]
 
 [[package]]
