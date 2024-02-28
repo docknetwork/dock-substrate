@@ -2544,6 +2544,13 @@ impl_runtime_apis! {
         ) -> BTreeMap<trust_registry::TrustRegistryId, trust_registry::TrustRegistryInfo<Runtime>> {
             by.resolve_to_registries_info()
         }
+
+        fn registry_schemas_metadata_by(
+            by: trust_registry::QueryTrustRegistryBy,
+            reg_id: trust_registry::TrustRegistryId
+        ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::AggregatedTrustRegistrySchemaMetadata<Runtime>> {
+            by.resolve_to_schemas_metadata_in_registry(reg_id)
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]

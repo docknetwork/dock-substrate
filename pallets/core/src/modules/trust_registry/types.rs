@@ -608,6 +608,15 @@ pub struct VerifierSchemas<T: Limits>(
 
 impl_wrapper!(VerifierSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerVerifier>));
 
+impl<T: Limits> IntoIterator for VerifierSchemas<T> {
+    type IntoIter = alloc::collections::btree_set::IntoIter<TrustRegistrySchemaId>;
+    type Item = TrustRegistrySchemaId;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 /// Set of trust registries corresponding to a verifier
 #[derive(
     Encode,
@@ -633,6 +642,15 @@ pub struct VerifierTrustRegistries<T: Limits>(
 );
 
 impl_wrapper!(VerifierTrustRegistries<T> where T: Limits => (BoundedBTreeSet<TrustRegistryId, T::MaxRegistriesPerVerifier>));
+
+impl<T: Limits> IntoIterator for VerifierTrustRegistries<T> {
+    type IntoIter = alloc::collections::btree_set::IntoIter<TrustRegistryId>;
+    type Item = TrustRegistryId;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
 
 /// Set of schemas that belong to the `Trust Registry`
 #[derive(
@@ -686,6 +704,15 @@ pub struct IssuerSchemas<T: Limits>(
 
 impl_wrapper!(IssuerSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerIssuer>));
 
+impl<T: Limits> IntoIterator for IssuerSchemas<T> {
+    type IntoIter = alloc::collections::btree_set::IntoIter<TrustRegistrySchemaId>;
+    type Item = TrustRegistrySchemaId;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 /// Set of trust registries corresponding to a issuer
 #[derive(
     Encode,
@@ -711,6 +738,15 @@ pub struct IssuerTrustRegistries<T: Limits>(
 );
 
 impl_wrapper!(IssuerTrustRegistries<T> where T: Limits => (BoundedBTreeSet<TrustRegistryId, T::MaxRegistriesPerIssuer>));
+
+impl<T: Limits> IntoIterator for IssuerTrustRegistries<T> {
+    type IntoIter = alloc::collections::btree_set::IntoIter<TrustRegistryId>;
+    type Item = TrustRegistryId;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
 
 #[derive(
     Encode,
