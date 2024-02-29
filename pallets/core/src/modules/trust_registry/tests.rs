@@ -623,7 +623,7 @@ crate::did_or_did_method_key! {
                     line!(),
                     SetOrModify::Modify(MultiTargetUpdate::from_iter(vec![(
                         schema_ids[0],
-                        UnboundedTrustRegistrySchemaMetadataModification::Modify(OnlyExistent(
+                        UnboundedSchemaMetadataModification::Modify(OnlyExistent(
                             UnboundedTrustRegistrySchemaMetadataUpdate {
                                 issuers: Some(UnboundedIssuersUpdate::Modify(
                                     MultiTargetUpdate::from_iter([(
@@ -1485,7 +1485,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                Error::<Test>::NotTheConvener
+                                UpdateError::InvalidActor
                             );
 
                             assert_ok!(update.execute_readonly(|action, reg| {
@@ -1517,7 +1517,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                Error::<Test>::NotTheConvener
+                                UpdateError::InvalidActor
                             );
 
                             assert_ok!(update.execute_readonly(|action, reg| {
@@ -1549,7 +1549,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                Error::<Test>::NotTheConvener
+                                UpdateError::InvalidActor
                             );
 
                             assert_ok!(update.execute_readonly(|action, reg| {

@@ -1,6 +1,6 @@
+use super::{types::*, *};
 use crate::util::{ActionExecutionError, ApplyUpdate, NonceError, TranslateUpdate, ValidateUpdate};
-
-use super::*;
+use alloc::collections::BTreeSet;
 
 impl<T: Config> Pallet<T> {
     pub(super) fn init_or_update_trust_registry_(
@@ -46,19 +46,21 @@ impl<T: Config> Pallet<T> {
         }: SetSchemasMetadata<T>,
         registry_info: TrustRegistryInfo<T>,
         actor: ConvenerOrIssuerOrVerifier,
-    ) -> Result<(u32, u32, u32), StepError> {
+    ) -> Result<StepStorageAccesses, StepError> {
         let schemas: SchemasUpdate<T> = schemas
             .translate_update()
             .map_err(IntoModuleError::into_module_error)
             .map_err(Into::into)
             .map_err(StepError::Conversion)?;
 
-        let mut reads = Default::default();
+        let mut validation = StorageAccesses::default();
         schemas
-            .validate_and_record_diff(actor, registry_id, &registry_info, &mut reads)
-            .map_err(Into::into)
-            .map_err(|error| StepError::Validation(error, reads))
-            .map(|validated_update| validated_update.execute(registry_id))
+            .validate_and_record_diff(actor, registry_id, &registry_info, &mut validation)
+            .map_err(|error| StepError::Validation(error, validation.clone()))
+            .map(|validated_update| StepStorageAccesses {
+                validation,
+                execution: validated_update.execute(registry_id),
+            })
     }
 
     pub(super) fn update_delegated_issuers_(
@@ -154,6 +156,35 @@ impl<T: Config> Pallet<T> {
         Ok(())
     }
 
+    pub fn issuer_or_verifier_registries(
+        issuer_or_verifier: IssuerOrVerifier,
+    ) -> BTreeSet<TrustRegistryId> {
+        let issuer_registries = Self::issuer_registries(Issuer(*issuer_or_verifier));
+        let verifier_registries = Self::verifier_registries(Verifier(*issuer_or_verifier));
+
+        issuer_registries
+            .union(&verifier_registries)
+            .copied()
+            .collect()
+    }
+
+    pub fn registry_issuer_or_verifier_schemas(
+        reg_id: TrustRegistryId,
+        issuer_or_verifier: IssuerOrVerifier,
+    ) -> BTreeSet<TrustRegistrySchemaId> {
+        let issuer_schemas = Self::registry_issuer_schemas(reg_id, Issuer(*issuer_or_verifier));
+        let verifier_schemas =
+            Self::registry_verifier_schemas(reg_id, Verifier(*issuer_or_verifier));
+
+        issuer_schemas.union(&verifier_schemas).copied().collect()
+    }
+
+    pub fn aggregate_schema_metadata(
+        (reg_id, schema_id): (TrustRegistryId, TrustRegistrySchemaId),
+    ) -> Option<AggregatedTrustRegistrySchemaMetadata<T>> {
+        TrustRegistrySchemasMetadata::<T>::get(schema_id, reg_id).map(|meta| meta.aggregate(reg_id))
+    }
+
     pub fn schema_metadata_by_schema_id(
         schema_id: TrustRegistrySchemaId,
     ) -> impl Iterator<Item = (TrustRegistryId, TrustRegistrySchemaMetadata<T>)> {
@@ -173,10 +204,16 @@ impl<T: Config> Pallet<T> {
     }
 }
 
+#[derive(Clone, Debug, Eq, PartialEq, Default)]
+pub struct StepStorageAccesses {
+    pub validation: StorageAccesses,
+    pub execution: StorageAccesses,
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum StepError {
     Conversion(DispatchError),
-    Validation(DispatchError, (u32, u32, u32)),
+    Validation(DispatchError, StorageAccesses),
 }
 
 impl From<StepError> for DispatchError {

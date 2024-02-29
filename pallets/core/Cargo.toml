@@ -8,6 +8,11 @@ license = "Apache-2.0"
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
+[dependencies.itertools]
+version = "0.12.1"
+default-features = false
+features = ["use_alloc"]
+
 [dependencies.bitflags]
 version = "1.3.2"
 
@@ -35,6 +40,10 @@ optional = true
 features = ["derive"]
 optional = true
 version = "1.0.119"
+
+[dependencies.serde_with]
+optional = true
+version = "3.6.1"
 
 [dependencies.serde-big-array]
 optional = true
@@ -144,7 +153,9 @@ optional = true
 
 [dev-dependencies]
 rand = "0.8.3"
-evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c", default-features = false, features = ["with-codec"] }
+evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c", default-features = false, features = [
+    "with-codec",
+] }
 
 [dev-dependencies.pallet-evm-precompile-storage-reader]
 default-features = false
@@ -188,13 +199,16 @@ branch = "polkadot-v0.9.29"
 [features]
 default = ["std"]
 std = [
+    "serde_with/std",
     "serde-hex/std",
     "codec/std",
     "frame-support/std",
+    "itertools/use_std",
     "frame-benchmarking/std",
     "sp-application-crypto/std",
     "sp-application-crypto/full_crypto",
     "serde",
+    "serde_with",
     "serde-big-array",
     "getrandom/std",
     "serde-hex",
@@ -212,7 +226,7 @@ std = [
     "fp-evm/std",
     "scale-info/std",
     "pallet-evm/std",
-    "evm/std"
+    "evm/std",
 ]
 
 runtime-benchmarks = [
@@ -223,5 +237,5 @@ runtime-benchmarks = [
     "schnorrkel/chacha",
     "rand_chacha",
     "rand",
-    "merlin"
+    "merlin",
 ]
