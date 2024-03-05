@@ -1059,7 +1059,7 @@ parameter_types! {
 
 impl did::Config for Runtime {
     type Event = Event;
-    type OnDidRemoval = OffchainSignatures;
+    type DidRemovalHandler = OffchainSignatures;
 }
 
 impl trust_registry::Config for Runtime {

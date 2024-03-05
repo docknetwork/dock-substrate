@@ -130,7 +130,7 @@ impl<T: Config> Pallet<T> {
         // TODO: limit and cursor
         let _ = DidServiceEndpoints::<T>::clear_prefix(did, u32::MAX, None);
         // TODO: dynamic weight
-        let _ = T::OnDidRemoval::on_remove_did(did);
+        let _ = T::DidRemovalHandler::on_remove_did(did);
 
         deposit_indexed_event!(OnChainDidRemoved(did));
         Ok(())
