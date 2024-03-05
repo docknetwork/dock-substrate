@@ -55,7 +55,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + Limits {
         /// The handler of a `DID` removal.
-        type DidRemovalHandler: HandleDidRemoval;
+        type OnDidRemoval: HandleDidRemoval;
 
         /// The overarching event type.
         type Event: From<Event<Self>>
@@ -422,19 +422,19 @@ pub mod pallet {
 }
 
 pub trait HandleDidRemoval {
-    fn on_remove_did(did: Did) -> Weight;
+    fn on_did_removal(did: Did) -> Weight;
 }
 
 impl HandleDidRemoval for () {
-    fn on_remove_did(_: Did) -> Weight {
+    fn on_did_removal(_: Did) -> Weight {
         Default::default()
     }
 }
 
-crate::impl_tuple!(HandleDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B);
-crate::impl_tuple!(HandleDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C);
-crate::impl_tuple!(HandleDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C D);
-crate::impl_tuple!(HandleDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C D E);
+crate::impl_tuple!(HandleDidRemoval::on_did_removal(did: Did) -> Weight => using saturating_add for A B);
+crate::impl_tuple!(HandleDidRemoval::on_did_removal(did: Did) -> Weight => using saturating_add for A B C);
+crate::impl_tuple!(HandleDidRemoval::on_did_removal(did: Did) -> Weight => using saturating_add for A B C D);
+crate::impl_tuple!(HandleDidRemoval::on_did_removal(did: Did) -> Weight => using saturating_add for A B C D E);
 
 impl<T: Config> SubstrateWeight<T> {
     fn add_keys(keys: &AddKeys<T>, sig: &DidOrDidMethodKeySignature<Controller>) -> Weight {

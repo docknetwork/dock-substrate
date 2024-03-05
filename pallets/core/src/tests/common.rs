@@ -288,7 +288,7 @@ impl crate::common::Limits for Test {
 
 impl crate::did::Config for Test {
     type Event = TestEvent;
-    type DidRemovalHandler = SignatureMod;
+    type OnDidRemoval = SignatureMod;
 }
 
 impl crate::revoke::Config for Test {
