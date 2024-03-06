@@ -46,6 +46,7 @@ pub mod tests;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
+    #[cfg(feature = "std")]
     use alloc::collections::BTreeMap;
     use frame_support::{pallet_prelude::*, Blake2_128Concat, Identity};
     use frame_system::pallet_prelude::*;
@@ -54,7 +55,7 @@ pub mod pallet {
     #[pallet::config]
     pub trait Config: frame_system::Config + Limits {
         /// The handler of a `DID` removal.
-        type OnDidRemoval: OnDidRemoval;
+        type OnDidRemoval: HandleDidRemoval;
 
         /// The overarching event type.
         type Event: From<Event<Self>>
@@ -420,20 +421,20 @@ pub mod pallet {
     }
 }
 
-pub trait OnDidRemoval {
-    fn on_remove_did(did: Did) -> Weight;
+pub trait HandleDidRemoval {
+    fn on_did_removal(did: Did) -> Weight;
 }
 
-impl OnDidRemoval for () {
-    fn on_remove_did(_: Did) -> Weight {
+impl HandleDidRemoval for () {
+    fn on_did_removal(_: Did) -> Weight {
         Default::default()
     }
 }
 
-crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B);
-crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C);
-crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C D);
-crate::impl_tuple!(OnDidRemoval::on_remove_did(did: Did) -> Weight => using saturating_add for A B C D E);
+crate::impl_tuple!(HandleDidRemoval::on_did_removal(did: Did) -> Weight => using saturating_add for A B);
+crate::impl_tuple!(HandleDidRemoval::on_did_removal(did: Did) -> Weight => using saturating_add for A B C);
+crate::impl_tuple!(HandleDidRemoval::on_did_removal(did: Did) -> Weight => using saturating_add for A B C D);
+crate::impl_tuple!(HandleDidRemoval::on_did_removal(did: Did) -> Weight => using saturating_add for A B C D E);
 
 impl<T: Config> SubstrateWeight<T> {
     fn add_keys(keys: &AddKeys<T>, sig: &DidOrDidMethodKeySignature<Controller>) -> Weight {
