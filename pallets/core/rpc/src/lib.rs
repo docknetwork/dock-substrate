@@ -613,7 +613,7 @@ where
             .map_err(Into::into)
     }
 
-    async fn registry_ids_by(
+    async fn registries_ids_by(
         &self,
         by: QueryTrustRegistriesBy,
         at: Option<<Block as BlockT>::Hash>,
