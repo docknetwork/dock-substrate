@@ -14,7 +14,10 @@ use jsonrpsee::{
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 pub trait ConfigWrapper {
     type T: TypesAndLimits;
@@ -207,6 +210,21 @@ where
         reg_id: TrustRegistryId,
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata<T::T>>>;
+
+    #[method(name = "trustRegistry_registriesIdsBy")]
+    async fn registries_ids_by(
+        &self,
+        by: QueryTrustRegistriesBy,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeSet<TrustRegistryId>>;
+
+    #[method(name = "trustRegistry_registrySchemaIdsBy")]
+    async fn registry_schemas_ids_by(
+        &self,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeSet<TrustRegistrySchemaId>>;
 }
 
 /// A struct that implements the [`CoreModsApi`].
@@ -591,6 +609,35 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.registry_schemas_metadata_by(&at, by, reg_id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn registry_ids_by(
+        &self,
+        by: QueryTrustRegistriesBy,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeSet<TrustRegistryId>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.registries_ids_by(&at, by)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn registry_schemas_ids_by(
+        &self,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeSet<TrustRegistrySchemaId>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.registry_schemas_ids_by(&at, by, reg_id)
             .map_err(Error)
             .map_err(Into::into)
     }

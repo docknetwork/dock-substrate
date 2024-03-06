@@ -96,7 +96,7 @@ use sp_runtime::{
     ApplyExtrinsicResult, DispatchResult, FixedPointNumber, MultiSignature, Perbill, Percent,
     Permill, Perquintill, SaturatedConversion,
 };
-use sp_std::collections::btree_map::BTreeMap;
+use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
 use transaction_payment::{
     CurrencyAdapter, Multiplier, OnChargeTransaction, TargetedFeeAdjustment,
 };
@@ -2550,6 +2550,19 @@ impl_runtime_apis! {
             reg_id: trust_registry::TrustRegistryId
         ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::AggregatedTrustRegistrySchemaMetadata<Runtime>> {
             by.resolve_to_schemas_metadata_in_registry(reg_id)
+        }
+
+        fn registries_ids_by(
+            by: trust_registry::QueryTrustRegistriesBy
+        ) -> BTreeSet<trust_registry::TrustRegistryId> {
+            by.resolve_to_registry_ids::<Runtime>()
+        }
+
+        fn registry_schemas_ids_by(
+            by: trust_registry::QueryTrustRegistryBy,
+            reg_id: trust_registry::TrustRegistryId
+        ) -> BTreeSet<trust_registry::TrustRegistrySchemaId> {
+            by.resolve_to_schema_ids_in_registry::<Runtime>(reg_id)
         }
     }
 
