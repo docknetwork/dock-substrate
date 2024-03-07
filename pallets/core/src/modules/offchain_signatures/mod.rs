@@ -4,7 +4,7 @@
 use crate::{
     common::{self, signatures::ForSigType},
     did,
-    did::{Controller, Did, DidOrDidMethodKeySignature, OnDidRemoval},
+    did::{Controller, Did, DidOrDidMethodKeySignature, HandleDidRemoval},
     util::{ActionWithNonce, ActionWrapper, IncId},
 };
 use codec::{Decode, Encode};
@@ -181,8 +181,8 @@ pub mod pallet {
     }
 }
 
-impl<T: Config> OnDidRemoval for Pallet<T> {
-    fn on_remove_did(did: Did) -> Weight {
+impl<T: Config> HandleDidRemoval for Pallet<T> {
+    fn on_did_removal(did: Did) -> Weight {
         use sp_io::MultiRemovalResults;
         // TODO: limit and cursor
         let MultiRemovalResults { backend, .. } =
