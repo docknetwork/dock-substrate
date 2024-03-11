@@ -302,6 +302,87 @@ pub enum SetOrAddOrRemoveOrModify<V, U = ()> {
     Modify(U),
 }
 
+impl<V: PartialEq, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>>
+    for SetOrAddOrRemoveOrModify<V, U>
+{
+    fn apply_update(self, entity: &mut Option<V>) {
+        match self {
+            Self::Set(value) => {
+                entity.replace(value);
+            }
+            Self::Add(value) => {
+                if entity.replace(value).is_some() {
+                    panic!("Entity already exists");
+                }
+            }
+            Self::Remove => {
+                entity.take().expect("Can't remove non-existing entity");
+            }
+            Self::Modify(update) => {
+                update.apply_update(entity);
+            }
+        }
+    }
+
+    fn kind(&self, entity: &Option<V>) -> UpdateKind {
+        match self {
+            Self::Set(new_value) => {
+                if entity.is_none() {
+                    UpdateKind::Add
+                } else if entity.as_ref().map_or(false, |value| new_value == value) {
+                    UpdateKind::None
+                } else {
+                    UpdateKind::Replace
+                }
+            }
+            Self::Add(_) => {
+                if entity.is_none() {
+                    UpdateKind::Add
+                } else {
+                    UpdateKind::None
+                }
+            }
+            Self::Remove => {
+                if entity.is_some() {
+                    UpdateKind::Remove
+                } else {
+                    UpdateKind::None
+                }
+            }
+            Self::Modify(update) => update.kind(entity),
+        }
+    }
+}
+
+impl<A: CanUpdate<V>, V: PartialEq, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
+    for SetOrAddOrRemoveOrModify<V, U>
+{
+    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
+        match self {
+            Self::Set(new) => {
+                let cond = match entity {
+                    Some(current) => actor.can_replace(new, current),
+                    None => actor.can_add(new),
+                };
+
+                ensure!(cond, UpdateError::InvalidActor);
+            }
+            Self::Add(value) => {
+                ensure!(actor.can_add(value), UpdateError::InvalidActor);
+                ensure!(entity.is_none(), UpdateError::AlreadyExists);
+            }
+            Self::Remove => {
+                let existing = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
+
+                ensure!(actor.can_remove(existing), UpdateError::InvalidActor);
+            }
+            Self::Modify(update) => return update.ensure_valid(actor, entity),
+        };
+
+        Ok(())
+    }
+}
+
 impl<V, U, VV, UU> TranslateUpdate<SetOrAddOrRemoveOrModify<VV, UU>>
     for SetOrAddOrRemoveOrModify<V, U>
 where
@@ -337,6 +418,65 @@ pub enum AddOrRemoveOrModify<V, U = ()> {
     Add(V),
     Remove,
     Modify(U),
+}
+
+impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
+    for AddOrRemoveOrModify<V, U>
+{
+    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
+        match self {
+            Self::Add(value) => {
+                ensure!(actor.can_add(value), UpdateError::InvalidActor);
+                ensure!(entity.is_none(), UpdateError::AlreadyExists);
+            }
+            Self::Remove => {
+                let existing = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
+
+                ensure!(actor.can_remove(existing), UpdateError::InvalidActor);
+            }
+            Self::Modify(update) => return update.ensure_valid(actor, entity),
+        }
+
+        Ok(())
+    }
+}
+
+impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModify<V, U> {
+    fn apply_update(self, entity: &mut Option<V>) {
+        match self {
+            Self::Add(value) => {
+                if entity.replace(value).is_some() {
+                    panic!("Entity already exists");
+                }
+            }
+            Self::Remove => {
+                entity.take().expect("Can't remove non-existing entity");
+            }
+            Self::Modify(update) => {
+                update.apply_update(entity);
+            }
+        }
+    }
+
+    fn kind(&self, entity: &Option<V>) -> UpdateKind {
+        match self {
+            Self::Add(_) => {
+                if entity.is_none() {
+                    UpdateKind::Add
+                } else {
+                    UpdateKind::None
+                }
+            }
+            Self::Remove => {
+                if entity.is_some() {
+                    UpdateKind::Remove
+                } else {
+                    UpdateKind::None
+                }
+            }
+            Self::Modify(update) => update.kind(entity),
+        }
+    }
 }
 
 impl<V, U, VV, UU> TranslateUpdate<AddOrRemoveOrModify<VV, UU>> for AddOrRemoveOrModify<V, U>
@@ -380,6 +520,45 @@ impl<V, U> SetOrModify<V, U> {
     }
 }
 
+impl<V: PartialEq, U: ApplyUpdate<V>> ApplyUpdate<V> for SetOrModify<V, U> {
+    fn apply_update(self, entity: &mut V) {
+        match self {
+            SetOrModify::Set(value) => {
+                *entity = value;
+            }
+            SetOrModify::Modify(update) => update.apply_update(entity),
+        }
+    }
+
+    fn kind(&self, entity: &V) -> UpdateKind {
+        match self {
+            SetOrModify::Set(new_value) => {
+                if new_value == entity {
+                    UpdateKind::None
+                } else {
+                    UpdateKind::Replace
+                }
+            }
+            SetOrModify::Modify(update) => update.kind(entity),
+        }
+    }
+}
+
+impl<A: CanUpdate<V>, V: PartialEq, U: ValidateUpdate<A, V>> ValidateUpdate<A, V>
+    for SetOrModify<V, U>
+{
+    fn ensure_valid(&self, actor: &A, entity: &V) -> Result<(), UpdateError> {
+        match self {
+            SetOrModify::Set(new) => {
+                ensure!(actor.can_replace(new, entity), UpdateError::InvalidActor);
+
+                Ok(())
+            }
+            SetOrModify::Modify(update) => update.ensure_valid(actor, entity),
+        }
+    }
+}
+
 impl<V, U, VV, UU> TranslateUpdate<SetOrModify<VV, UU>> for SetOrModify<V, U>
 where
     V: TryInto<VV>,
@@ -397,6 +576,61 @@ where
                 .translate_update()
                 .map_err(UpdateTranslationError::Update)
                 .map(SetOrModify::Modify),
+        }
+    }
+}
+
+impl<U, C> KeyedUpdate<C> for SetOrModify<C, U>
+where
+    C: DerefMut,
+    C::Target: KeyValue,
+    U: KeyedUpdate<C>,
+{
+    type Targets<'a> = Either<
+        core::iter::Chain<
+            <C::Target as KeyValue>::Keys<'a>,
+            <C::Target as KeyValue>::Keys<'a>,
+        >,
+        U::Targets<'a>
+    >  where
+    Self: 'a,
+    <C::Target as KeyValue>::Key: 'a,
+    C: 'a;
+
+    fn targets<'targets>(&'targets self, entity: &'targets C) -> Self::Targets<'targets> {
+        match self {
+            Self::Set(item) => Either::Left(item.keys().chain(entity.keys())),
+            Self::Modify(update) => Either::Right(update.targets(entity)),
+        }
+    }
+
+    fn keys_diff(
+        &self,
+        entity: &C,
+    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
+        match self {
+            Self::Set(item) => {
+                let after: BTreeSet<_> = item.keys().collect();
+                let before: BTreeSet<_> = entity.keys().collect();
+
+                after
+                    .difference(&before)
+                    .map(|key| ((*key).clone(), AddOrRemoveOrModify::Add(())))
+                    .chain(
+                        before
+                            .difference(&after)
+                            .map(|key| ((*key).clone(), AddOrRemoveOrModify::Remove)),
+                    )
+                    .collect()
+            }
+            Self::Modify(update) => update.keys_diff(entity),
+        }
+    }
+
+    fn size(&self) -> u32 {
+        match self {
+            Self::Set(item) => item.len(),
+            Self::Modify(update) => update.size(),
         }
     }
 }
@@ -547,185 +781,6 @@ where
     }
 }
 
-impl<V: PartialEq, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>>
-    for SetOrAddOrRemoveOrModify<V, U>
-{
-    fn apply_update(self, entity: &mut Option<V>) {
-        match self {
-            Self::Set(value) => {
-                entity.replace(value);
-            }
-            Self::Add(value) => {
-                if entity.replace(value).is_some() {
-                    panic!("Entity already exists");
-                }
-            }
-            Self::Remove => {
-                entity.take().expect("Can't remove non-existing entity");
-            }
-            Self::Modify(update) => {
-                update.apply_update(entity);
-            }
-        }
-    }
-
-    fn kind(&self, entity: &Option<V>) -> UpdateKind {
-        match self {
-            Self::Set(new_value) => {
-                if entity.is_none() {
-                    UpdateKind::Add
-                } else if entity.as_ref().map_or(false, |value| new_value == value) {
-                    UpdateKind::None
-                } else {
-                    UpdateKind::Replace
-                }
-            }
-            Self::Add(_) => {
-                if entity.is_none() {
-                    UpdateKind::Add
-                } else {
-                    UpdateKind::None
-                }
-            }
-            Self::Remove => {
-                if entity.is_some() {
-                    UpdateKind::Remove
-                } else {
-                    UpdateKind::None
-                }
-            }
-            Self::Modify(update) => update.kind(entity),
-        }
-    }
-}
-
-impl<A: CanUpdate<V>, V: PartialEq, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
-    for SetOrAddOrRemoveOrModify<V, U>
-{
-    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
-        match self {
-            Self::Set(new) => {
-                let cond = match entity {
-                    Some(current) => actor.can_replace(new, current),
-                    None => actor.can_add(new),
-                };
-
-                ensure!(cond, UpdateError::InvalidActor);
-            }
-            Self::Add(value) => {
-                ensure!(actor.can_add(value), UpdateError::InvalidActor);
-                ensure!(entity.is_none(), UpdateError::AlreadyExists);
-            }
-            Self::Remove => {
-                let existing = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
-
-                ensure!(actor.can_remove(existing), UpdateError::InvalidActor);
-            }
-            Self::Modify(update) => return update.ensure_valid(actor, entity),
-        };
-
-        Ok(())
-    }
-}
-
-impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
-    for AddOrRemoveOrModify<V, U>
-{
-    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
-        match self {
-            Self::Add(value) => {
-                ensure!(actor.can_add(value), UpdateError::InvalidActor);
-                ensure!(entity.is_none(), UpdateError::AlreadyExists);
-            }
-            Self::Remove => {
-                let existing = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
-
-                ensure!(actor.can_remove(existing), UpdateError::InvalidActor);
-            }
-            Self::Modify(update) => return update.ensure_valid(actor, entity),
-        }
-
-        Ok(())
-    }
-}
-
-impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModify<V, U> {
-    fn apply_update(self, entity: &mut Option<V>) {
-        match self {
-            Self::Add(value) => {
-                if entity.replace(value).is_some() {
-                    panic!("Entity already exists");
-                }
-            }
-            Self::Remove => {
-                entity.take().expect("Can't remove non-existing entity");
-            }
-            Self::Modify(update) => {
-                update.apply_update(entity);
-            }
-        }
-    }
-
-    fn kind(&self, entity: &Option<V>) -> UpdateKind {
-        match self {
-            Self::Add(_) => {
-                if entity.is_none() {
-                    UpdateKind::Add
-                } else {
-                    UpdateKind::None
-                }
-            }
-            Self::Remove => {
-                if entity.is_some() {
-                    UpdateKind::Remove
-                } else {
-                    UpdateKind::None
-                }
-            }
-            Self::Modify(update) => update.kind(entity),
-        }
-    }
-}
-
-impl<V: PartialEq, U: ApplyUpdate<V>> ApplyUpdate<V> for SetOrModify<V, U> {
-    fn apply_update(self, entity: &mut V) {
-        match self {
-            SetOrModify::Set(value) => {
-                *entity = value;
-            }
-            SetOrModify::Modify(update) => update.apply_update(entity),
-        }
-    }
-
-    fn kind(&self, entity: &V) -> UpdateKind {
-        match self {
-            SetOrModify::Set(new_value) => {
-                if new_value == entity {
-                    UpdateKind::None
-                } else {
-                    UpdateKind::Replace
-                }
-            }
-            SetOrModify::Modify(update) => update.kind(entity),
-        }
-    }
-}
-
-impl<A: CanUpdate<V>, V: PartialEq, U: ValidateUpdate<A, V>> ValidateUpdate<A, V>
-    for SetOrModify<V, U>
-{
-    fn ensure_valid(&self, actor: &A, entity: &V) -> Result<(), UpdateError> {
-        match self {
-            SetOrModify::Set(new) => {
-                ensure!(actor.can_replace(new, entity), UpdateError::InvalidActor);
-
-                Ok(())
-            }
-            SetOrModify::Modify(update) => update.ensure_valid(actor, entity),
-        }
-    }
-}
-
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum UpdateError {
     DoesntExist,
@@ -856,61 +911,6 @@ where
                 Some((key.clone(), update))
             })
             .collect()
-    }
-}
-
-impl<U, C> KeyedUpdate<C> for SetOrModify<C, U>
-where
-    C: DerefMut,
-    C::Target: KeyValue,
-    U: KeyedUpdate<C>,
-{
-    type Targets<'a> = Either<
-        core::iter::Chain<
-            <C::Target as KeyValue>::Keys<'a>,
-            <C::Target as KeyValue>::Keys<'a>,
-        >,
-        U::Targets<'a>
-    >  where
-    Self: 'a,
-    <C::Target as KeyValue>::Key: 'a,
-    C: 'a;
-
-    fn targets<'targets>(&'targets self, entity: &'targets C) -> Self::Targets<'targets> {
-        match self {
-            Self::Set(item) => Either::Left(item.keys().chain(entity.keys())),
-            Self::Modify(update) => Either::Right(update.targets(entity)),
-        }
-    }
-
-    fn keys_diff(
-        &self,
-        entity: &C,
-    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
-        match self {
-            Self::Set(item) => {
-                let after: BTreeSet<_> = item.keys().collect();
-                let before: BTreeSet<_> = entity.keys().collect();
-
-                after
-                    .difference(&before)
-                    .map(|key| ((*key).clone(), AddOrRemoveOrModify::Add(())))
-                    .chain(
-                        before
-                            .difference(&after)
-                            .map(|key| ((*key).clone(), AddOrRemoveOrModify::Remove)),
-                    )
-                    .collect()
-            }
-            Self::Modify(update) => update.keys_diff(entity),
-        }
-    }
-
-    fn size(&self) -> u32 {
-        match self {
-            Self::Set(item) => item.len(),
-            Self::Modify(update) => update.size(),
-        }
     }
 }
 
