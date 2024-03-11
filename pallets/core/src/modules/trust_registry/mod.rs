@@ -9,7 +9,7 @@ use crate::{
         OnlyExistent, SetOrAddOrRemoveOrModify, SetOrModify, UpdateTranslationError,
     },
 };
-use core::convert::Infallible;
+use core::{convert::Infallible, iter::repeat};
 use frame_support::{
     dispatch::DispatchErrorWithPostInfo,
     pallet_prelude::*,
@@ -42,6 +42,8 @@ use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::util::{IncOrDec, MultiTargetUpdate};
+
     use super::*;
     use frame_system::pallet_prelude::*;
     use utils::BoundedStringConversionError;
@@ -109,6 +111,8 @@ pub mod pallet {
         PriceCurrencySymbolSizeExceeded,
         /// Too many schemas per a single Trust Registry.
         SchemasPerRegistrySizeExceeded,
+        /// `Issuer` attempts to set himself as a delegated `Issuer`.
+        IssuerCantDelegateToHimself,
     }
 
     #[pallet::event]
@@ -126,7 +130,7 @@ pub mod pallet {
         IssuerSuspended(TrustRegistryId, Issuer),
         /// `TrustRegistry`'s `Issuer` was unsuspended.
         IssuerUnsuspended(TrustRegistryId, Issuer),
-        /// Delegated `Issuer`s were updated in the  `TrustRegistry` with the given id..
+        /// Delegated `Issuer`s were updated in the `TrustRegistry` with the given id.
         DelegatedIssuersUpdated(TrustRegistryId, Issuer),
     }
 
@@ -197,6 +201,19 @@ pub mod pallet {
         ValueQuery,
     >;
 
+    /// Stores `Trust Registry`'s delegated `Issuer`s schemas.
+    #[pallet::storage]
+    #[pallet::getter(fn registry_delegated_issuer_schemas)]
+    pub type TrustRegistryDelegatedIssuerSchemas<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        TrustRegistryId,
+        Blake2_128Concat,
+        Issuer,
+        DelegatedIssuerSchemas<T>,
+        ValueQuery,
+    >;
+
     /// Stores a set of `Verifier`s Trust Registries.
     #[pallet::storage]
     #[pallet::getter(fn verifier_registries)]
@@ -263,7 +280,7 @@ pub mod pallet {
 
             match set_schemas_metadata
                 .signed(signature)
-                .execute_readonly(Self::set_schemas_metadata_)
+                .execute_view(Self::set_schemas_metadata_)
             {
                 Ok(StepStorageAccesses {
                     validation,
@@ -304,7 +321,7 @@ pub mod pallet {
 
             update_delegated_issuers
                 .signed(signature)
-                .execute_readonly(Self::update_delegated_issuers_)
+                .execute_view(Self::update_delegated_issuers_)
         }
 
         /// Suspends given `Issuer`s.
@@ -318,7 +335,7 @@ pub mod pallet {
 
             suspend_issuers
                 .signed(signature)
-                .execute_readonly(Self::suspend_issuers_)
+                .execute_view(Self::suspend_issuers_)
         }
 
         /// Unsuspends given `Issuer`s.
@@ -332,7 +349,37 @@ pub mod pallet {
 
             unsuspend_issuers
                 .signed(signature)
-                .execute_readonly(Self::unsuspend_issuers_)
+                .execute_view(Self::unsuspend_issuers_)
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            use crate::util::batch_update::ApplyUpdate;
+
+            let mut reads = 0;
+            let mut writes = 0;
+
+            for (registry_id, issuer, config) in TrustRegistryIssuerConfigurations::<T>::iter() {
+                let schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
+                reads += 2;
+
+                let schema_ids_update: MultiTargetUpdate<_, _> =
+                    schema_ids.into_iter().zip(repeat(IncOrDec::Inc)).collect();
+
+                for delegated_issuer in config.delegated.iter() {
+                    TrustRegistryDelegatedIssuerSchemas::<T>::mutate(
+                        registry_id,
+                        delegated_issuer,
+                        |schema_ids| schema_ids_update.clone().apply_update(schema_ids),
+                    );
+
+                    writes += 1;
+                }
+            }
+
+            T::DbWeight::get().reads_writes(reads, writes)
         }
     }
 }

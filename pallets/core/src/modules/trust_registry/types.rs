@@ -7,7 +7,7 @@ use crate::{
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::fmt::Debug;
+use core::{fmt::Debug, num::NonZeroU32};
 use frame_support::{traits::Get, weights::Weight, *};
 use scale_info::prelude::string::String;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
@@ -60,6 +60,15 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 pub struct IssuerOrVerifier(pub DidOrDidMethodKey);
 
 impl_wrapper!(IssuerOrVerifier(DidOrDidMethodKey));
+
+#[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct DelegatedSchemaCounter(pub NonZeroU32);
+
+impl_wrapper!(DelegatedSchemaCounter(NonZeroU32));
 
 /// Both an `Issuer` and a `Verifier`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -695,7 +704,7 @@ pub struct TrustRegistryStoredSchemas<T: Limits>(
 
 impl_wrapper!(TrustRegistryStoredSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerRegistry>));
 
-/// Set of schemas corresponding to a issuer
+/// Set of schemas corresponding to an `Issuer`.
 #[derive(
     Encode,
     Decode,
@@ -730,6 +739,33 @@ impl<T: Limits> IntoIterator for IssuerSchemas<T> {
         self.0.into_iter()
     }
 }
+
+/// Set of schemas corresponding to a delegated `Issuer`
+#[derive(
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct DelegatedIssuerSchemas<T: Limits>(
+    #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
+    pub  BoundedBTreeMap<TrustRegistrySchemaId, DelegatedSchemaCounter, T::MaxSchemasPerIssuer>,
+);
+
+impl_wrapper!(DelegatedIssuerSchemas<T> where T: Limits => (BoundedBTreeMap<TrustRegistrySchemaId, DelegatedSchemaCounter, T::MaxSchemasPerIssuer>));
 
 /// Set of trust registries corresponding to a issuer
 #[derive(

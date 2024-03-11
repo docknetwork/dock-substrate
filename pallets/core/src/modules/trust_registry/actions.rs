@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     impl_action_with_nonce,
-    util::{Bytes, KeyedUpdate, Types},
+    util::{Bytes, Types},
 };
 use alloc::{collections::BTreeSet, string::String};
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
@@ -93,7 +93,7 @@ pub struct UpdateDelegatedIssuers<T: Types> {
 impl_action_with_nonce!(
     for ():
         InitOrUpdateTrustRegistry with 1 as len, () as target,
-        UpdateDelegatedIssuers with delegated.size() as len, () as target
+        UpdateDelegatedIssuers with 1 as len, () as target
 );
 
 impl_action_with_nonce!(

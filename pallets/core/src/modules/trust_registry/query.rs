@@ -106,7 +106,7 @@ impl QueryTrustRegistryBy {
 
         let issuer_schema_ids = issuers.map(|issuers| {
             issuers.transform_by_applying_rule(|issuer| {
-                Pallet::<T>::registry_issuer_schemas(reg_id, issuer)
+                Pallet::<T>::registry_issuer_or_delegated_issuer_schemas(reg_id, issuer)
             })
         });
         let verifier_schema_ids = verifiers.map(|verifiers| {
