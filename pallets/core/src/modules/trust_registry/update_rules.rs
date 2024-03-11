@@ -152,26 +152,6 @@ impl<T: Limits> CanUpdateKeyed<DelegatedIssuerSchemas<T>> for Issuer {
     }
 }
 
-impl<T: Limits> CanUpdateKeyed<DelegatedIssuerSchemas<T>> for Convener {
-    fn can_update_keyed<U: KeyedUpdate<DelegatedIssuerSchemas<T>>>(
-        &self,
-        _entity: &DelegatedIssuerSchemas<T>,
-        _update: &U,
-    ) -> bool {
-        true
-    }
-}
-
-impl<T: Limits> CanUpdateKeyed<DelegatedIssuerSchemas<T>> for IssuerOrVerifier {
-    fn can_update_keyed<U: KeyedUpdate<DelegatedIssuerSchemas<T>>>(
-        &self,
-        entity: &DelegatedIssuerSchemas<T>,
-        update: &U,
-    ) -> bool {
-        Issuer(**self).can_update_keyed(entity, update)
-    }
-}
-
 impl<T: Limits> CanUpdateKeyed<VerifierSchemas<T>> for Verifier {
     fn can_update_keyed<U: KeyedUpdate<VerifierSchemas<T>>>(
         &self,
