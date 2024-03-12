@@ -3,6 +3,7 @@ use alloc::collections::{btree_map, BTreeMap, BTreeSet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{
     convert::Infallible,
+    num::NonZeroU32,
     ops::{Deref, DerefMut},
 };
 use frame_support::*;
@@ -66,6 +67,14 @@ pub trait ApplyUpdate<Entity> {
     fn kind(&self, entity: &Entity) -> UpdateKind;
 }
 
+impl<V> ApplyUpdate<V> for () {
+    fn apply_update(self, _: &mut V) {}
+
+    fn kind(&self, _: &V) -> UpdateKind {
+        UpdateKind::None
+    }
+}
+
 /// Attempts to translate underlying update to the `ToUpdate`.
 pub trait TranslateUpdate<ToUpdate>: Sized {
     /// Update translation error.
@@ -73,6 +82,14 @@ pub trait TranslateUpdate<ToUpdate>: Sized {
 
     /// Attempts to translate underlying update to the `ToUpdate`.
     fn translate_update(self) -> Result<ToUpdate, Self::Error>;
+}
+
+impl TranslateUpdate<()> for () {
+    type Error = Infallible;
+
+    fn translate_update(self) -> Result<(), Self::Error> {
+        Ok(())
+    }
 }
 
 /// An error that occured during update translation.
@@ -85,6 +102,12 @@ pub enum UpdateTranslationError<V, U> {
 pub trait ValidateUpdate<Actor, Entity>: ApplyUpdate<Entity> {
     /// Ensures that the underlying update is valid.
     fn ensure_valid(&self, actor: &Actor, entity: &Entity) -> Result<(), UpdateError>;
+}
+
+impl<A, V> ValidateUpdate<A, V> for () {
+    fn ensure_valid(&self, _: &A, _: &V) -> Result<(), UpdateError> {
+        Ok(())
+    }
 }
 
 /// Describes what will happen when the update will be applied.
@@ -268,7 +291,7 @@ where
 crate::impl_wrapper!(MultiTargetUpdate<K, U> where K: Ord => (BTreeMap<K, U>));
 
 /// Set/add/remove a value or apply a nested update.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Copy, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
@@ -277,172 +300,6 @@ pub enum SetOrAddOrRemoveOrModify<V, U = ()> {
     Add(V),
     Remove,
     Modify(U),
-}
-
-impl<V, U, VV, UU> TranslateUpdate<SetOrAddOrRemoveOrModify<VV, UU>>
-    for SetOrAddOrRemoveOrModify<V, U>
-where
-    V: TryInto<VV>,
-    U: TranslateUpdate<UU>,
-{
-    type Error = UpdateTranslationError<V::Error, U::Error>;
-
-    fn translate_update(self) -> Result<SetOrAddOrRemoveOrModify<VV, UU>, Self::Error> {
-        match self {
-            Self::Set(value) => value
-                .try_into()
-                .map_err(UpdateTranslationError::Value)
-                .map(SetOrAddOrRemoveOrModify::Set),
-            Self::Add(value) => value
-                .try_into()
-                .map_err(UpdateTranslationError::Value)
-                .map(SetOrAddOrRemoveOrModify::Add),
-            Self::Remove => Ok(SetOrAddOrRemoveOrModify::Remove),
-            Self::Modify(update) => update
-                .translate_update()
-                .map_err(UpdateTranslationError::Update)
-                .map(SetOrAddOrRemoveOrModify::Modify),
-        }
-    }
-}
-
-/// Add/remove a value or apply a nested update.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub enum AddOrRemoveOrModify<V, U = ()> {
-    Add(V),
-    Remove,
-    Modify(U),
-}
-
-impl<V, U, VV, UU> TranslateUpdate<AddOrRemoveOrModify<VV, UU>> for AddOrRemoveOrModify<V, U>
-where
-    V: TryInto<VV>,
-    U: TranslateUpdate<UU>,
-{
-    type Error = UpdateTranslationError<V::Error, U::Error>;
-
-    fn translate_update(self) -> Result<AddOrRemoveOrModify<VV, UU>, Self::Error> {
-        match self {
-            Self::Add(value) => value
-                .try_into()
-                .map_err(UpdateTranslationError::Value)
-                .map(AddOrRemoveOrModify::Add),
-            Self::Remove => Ok(AddOrRemoveOrModify::Remove),
-            Self::Modify(update) => update
-                .translate_update()
-                .map_err(UpdateTranslationError::Update)
-                .map(AddOrRemoveOrModify::Modify),
-        }
-    }
-}
-
-/// Set a value or apply a nested update.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub enum SetOrModify<V, U = ()> {
-    Set(V),
-    Modify(U),
-}
-
-impl<V, U> SetOrModify<V, U> {
-    pub fn unwrap_modify(self) -> U {
-        match self {
-            Self::Modify(update) => update,
-            Self::Set(_) => panic!("Panic on `SetOrModify::Set`"),
-        }
-    }
-}
-
-impl<V, U, VV, UU> TranslateUpdate<SetOrModify<VV, UU>> for SetOrModify<V, U>
-where
-    V: TryInto<VV>,
-    U: TranslateUpdate<UU>,
-{
-    type Error = UpdateTranslationError<V::Error, U::Error>;
-
-    fn translate_update(self) -> Result<SetOrModify<VV, UU>, Self::Error> {
-        match self {
-            SetOrModify::Set(value) => value
-                .try_into()
-                .map_err(UpdateTranslationError::Value)
-                .map(SetOrModify::Set),
-            SetOrModify::Modify(update) => update
-                .translate_update()
-                .map_err(UpdateTranslationError::Update)
-                .map(SetOrModify::Modify),
-        }
-    }
-}
-
-/// Apply an update to the existing entity.
-#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen, Default)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub struct OnlyExistent<U>(pub U);
-
-impl<U, UU> TranslateUpdate<OnlyExistent<UU>> for OnlyExistent<U>
-where
-    U: TranslateUpdate<UU>,
-{
-    type Error = U::Error;
-
-    fn translate_update(self) -> Result<OnlyExistent<UU>, Self::Error> {
-        match self {
-            OnlyExistent(update) => update.translate_update().map(OnlyExistent),
-        }
-    }
-}
-
-impl TranslateUpdate<()> for () {
-    type Error = Infallible;
-
-    fn translate_update(self) -> Result<(), Self::Error> {
-        Ok(())
-    }
-}
-
-impl<V> ApplyUpdate<V> for () {
-    fn apply_update(self, _: &mut V) {}
-
-    fn kind(&self, _: &V) -> UpdateKind {
-        UpdateKind::None
-    }
-}
-
-impl<A, V> ValidateUpdate<A, V> for () {
-    fn ensure_valid(&self, _: &A, _: &V) -> Result<(), UpdateError> {
-        Ok(())
-    }
-}
-
-impl<V, U> ApplyUpdate<Option<V>> for OnlyExistent<U>
-where
-    U: ApplyUpdate<V>,
-{
-    fn apply_update(self, entity: &mut Option<V>) {
-        self.0
-            .apply_update(entity.as_mut().expect("`OnlyExistent` update failed"))
-    }
-
-    fn kind(&self, entity: &Option<V>) -> UpdateKind {
-        entity
-            .as_ref()
-            .map_or(UpdateKind::None, |entity| self.0.kind(entity))
-    }
-}
-
-impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, V>> ValidateUpdate<A, Option<V>> for OnlyExistent<U> {
-    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
-        let target = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
-
-        self.0.ensure_valid(actor, target)
-    }
 }
 
 impl<V: PartialEq, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>>
@@ -526,6 +383,43 @@ impl<A: CanUpdate<V>, V: PartialEq, U: ValidateUpdate<A, Option<V>>> ValidateUpd
     }
 }
 
+impl<V, U, VV, UU> TranslateUpdate<SetOrAddOrRemoveOrModify<VV, UU>>
+    for SetOrAddOrRemoveOrModify<V, U>
+where
+    V: TryInto<VV>,
+    U: TranslateUpdate<UU>,
+{
+    type Error = UpdateTranslationError<V::Error, U::Error>;
+
+    fn translate_update(self) -> Result<SetOrAddOrRemoveOrModify<VV, UU>, Self::Error> {
+        match self {
+            Self::Set(value) => value
+                .try_into()
+                .map_err(UpdateTranslationError::Value)
+                .map(SetOrAddOrRemoveOrModify::Set),
+            Self::Add(value) => value
+                .try_into()
+                .map_err(UpdateTranslationError::Value)
+                .map(SetOrAddOrRemoveOrModify::Add),
+            Self::Remove => Ok(SetOrAddOrRemoveOrModify::Remove),
+            Self::Modify(update) => update
+                .translate_update()
+                .map_err(UpdateTranslationError::Update)
+                .map(SetOrAddOrRemoveOrModify::Modify),
+        }
+    }
+}
+/// Add/remove a value or apply a nested update.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Copy, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub enum AddOrRemoveOrModify<V, U = ()> {
+    Add(V),
+    Remove,
+    Modify(U),
+}
+
 impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, Option<V>>> ValidateUpdate<A, Option<V>>
     for AddOrRemoveOrModify<V, U>
 {
@@ -585,6 +479,47 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModif
     }
 }
 
+impl<V, U, VV, UU> TranslateUpdate<AddOrRemoveOrModify<VV, UU>> for AddOrRemoveOrModify<V, U>
+where
+    V: TryInto<VV>,
+    U: TranslateUpdate<UU>,
+{
+    type Error = UpdateTranslationError<V::Error, U::Error>;
+
+    fn translate_update(self) -> Result<AddOrRemoveOrModify<VV, UU>, Self::Error> {
+        match self {
+            Self::Add(value) => value
+                .try_into()
+                .map_err(UpdateTranslationError::Value)
+                .map(AddOrRemoveOrModify::Add),
+            Self::Remove => Ok(AddOrRemoveOrModify::Remove),
+            Self::Modify(update) => update
+                .translate_update()
+                .map_err(UpdateTranslationError::Update)
+                .map(AddOrRemoveOrModify::Modify),
+        }
+    }
+}
+
+/// Set a value or apply a nested update.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Copy, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub enum SetOrModify<V, U = ()> {
+    Set(V),
+    Modify(U),
+}
+
+impl<V, U> SetOrModify<V, U> {
+    pub fn unwrap_modify(self) -> U {
+        match self {
+            Self::Modify(update) => update,
+            Self::Set(_) => panic!("Panic on `SetOrModify::Set`"),
+        }
+    }
+}
+
 impl<V: PartialEq, U: ApplyUpdate<V>> ApplyUpdate<V> for SetOrModify<V, U> {
     fn apply_update(self, entity: &mut V) {
         match self {
@@ -624,11 +559,234 @@ impl<A: CanUpdate<V>, V: PartialEq, U: ValidateUpdate<A, V>> ValidateUpdate<A, V
     }
 }
 
+impl<V, U, VV, UU> TranslateUpdate<SetOrModify<VV, UU>> for SetOrModify<V, U>
+where
+    V: TryInto<VV>,
+    U: TranslateUpdate<UU>,
+{
+    type Error = UpdateTranslationError<V::Error, U::Error>;
+
+    fn translate_update(self) -> Result<SetOrModify<VV, UU>, Self::Error> {
+        match self {
+            SetOrModify::Set(value) => value
+                .try_into()
+                .map_err(UpdateTranslationError::Value)
+                .map(SetOrModify::Set),
+            SetOrModify::Modify(update) => update
+                .translate_update()
+                .map_err(UpdateTranslationError::Update)
+                .map(SetOrModify::Modify),
+        }
+    }
+}
+
+impl<U, C> KeyedUpdate<C> for SetOrModify<C, U>
+where
+    C: DerefMut,
+    C::Target: KeyValue,
+    U: KeyedUpdate<C>,
+{
+    type Targets<'a> = Either<
+        core::iter::Chain<
+            <C::Target as KeyValue>::Keys<'a>,
+            <C::Target as KeyValue>::Keys<'a>,
+        >,
+        U::Targets<'a>
+    >  where
+    Self: 'a,
+    <C::Target as KeyValue>::Key: 'a,
+    C: 'a;
+
+    fn targets<'targets>(&'targets self, entity: &'targets C) -> Self::Targets<'targets> {
+        match self {
+            Self::Set(item) => Either::Left(item.keys().chain(entity.keys())),
+            Self::Modify(update) => Either::Right(update.targets(entity)),
+        }
+    }
+
+    fn keys_diff(
+        &self,
+        entity: &C,
+    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
+        match self {
+            Self::Set(item) => {
+                let after: BTreeSet<_> = item.keys().collect();
+                let before: BTreeSet<_> = entity.keys().collect();
+
+                after
+                    .difference(&before)
+                    .map(|key| ((*key).clone(), AddOrRemoveOrModify::Add(())))
+                    .chain(
+                        before
+                            .difference(&after)
+                            .map(|key| ((*key).clone(), AddOrRemoveOrModify::Remove)),
+                    )
+                    .collect()
+            }
+            Self::Modify(update) => update.keys_diff(entity),
+        }
+    }
+
+    fn size(&self) -> u32 {
+        match self {
+            Self::Set(item) => item.len(),
+            Self::Modify(update) => update.size(),
+        }
+    }
+}
+
+/// Apply an update to the existing entity.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Copy, MaxEncodedLen, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct OnlyExistent<U>(pub U);
+
+impl<V, U> ApplyUpdate<Option<V>> for OnlyExistent<U>
+where
+    U: ApplyUpdate<V>,
+{
+    fn apply_update(self, entity: &mut Option<V>) {
+        self.0
+            .apply_update(entity.as_mut().expect("`OnlyExistent` update failed"))
+    }
+
+    fn kind(&self, entity: &Option<V>) -> UpdateKind {
+        entity
+            .as_ref()
+            .map_or(UpdateKind::None, |entity| self.0.kind(entity))
+    }
+}
+
+impl<A: CanUpdate<V>, V, U: ValidateUpdate<A, V>> ValidateUpdate<A, Option<V>> for OnlyExistent<U> {
+    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
+        let target = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
+
+        self.0.ensure_valid(actor, target)
+    }
+}
+
+impl<U, UU> TranslateUpdate<OnlyExistent<UU>> for OnlyExistent<U>
+where
+    U: TranslateUpdate<UU>,
+{
+    type Error = U::Error;
+
+    fn translate_update(self) -> Result<OnlyExistent<UU>, Self::Error> {
+        match self {
+            OnlyExistent(update) => update.translate_update().map(OnlyExistent),
+        }
+    }
+}
+
+/// Increase or decrease a counter.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Copy, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub enum IncOrDec {
+    Inc,
+    Dec,
+}
+
+impl IncOrDec {
+    pub const ONE: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(1) };
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CantTransformToIncOrDec;
+
+impl TranslateUpdate<IncOrDec> for AddOrRemoveOrModify<()> {
+    type Error = CantTransformToIncOrDec;
+
+    fn translate_update(self) -> Result<IncOrDec, Self::Error> {
+        match self {
+            Self::Add(()) => Ok(IncOrDec::Inc),
+            Self::Remove => Ok(IncOrDec::Dec),
+            _ => Err(CantTransformToIncOrDec),
+        }
+    }
+}
+
+impl<V> ApplyUpdate<Option<V>> for IncOrDec
+where
+    V: Deref<Target = NonZeroU32> + From<NonZeroU32>,
+{
+    fn apply_update(self, entity: &mut Option<V>) {
+        match self {
+            IncOrDec::Dec => {
+                if entity.is_none() {
+                    panic!("Attempt to decrement an absent counter")
+                }
+                *entity = entity
+                    .take()
+                    .and_then(|value| value.get().checked_sub(1))
+                    .and_then(NonZeroU32::new)
+                    .map(V::from);
+            }
+            IncOrDec::Inc => match entity {
+                Some(value) => *value = value.checked_add(1).map(Into::into).expect("Overflow"),
+                None => {
+                    entity.replace(Self::ONE.into());
+                }
+            },
+        }
+    }
+
+    fn kind(&self, entity: &Option<V>) -> UpdateKind {
+        match self {
+            IncOrDec::Inc => UpdateKind::Replace,
+            IncOrDec::Dec => match entity.as_ref().map(Deref::deref) {
+                Some(&Self::ONE) => UpdateKind::Remove,
+                _ => UpdateKind::Replace,
+            },
+        }
+    }
+}
+
+impl TranslateUpdate<IncOrDec> for IncOrDec {
+    type Error = Infallible;
+
+    fn translate_update(self) -> Result<Self, Self::Error> {
+        Ok(self)
+    }
+}
+
+impl<A, V> ValidateUpdate<A, Option<V>> for IncOrDec
+where
+    V: Deref<Target = NonZeroU32> + From<NonZeroU32>,
+    A: CanUpdate<V>,
+{
+    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
+        match self {
+            Self::Inc => {
+                let Some(new) = entity
+                    .as_ref()
+                    .map_or(Self::ONE.into(), |value| value.checked_add(1))
+                    .map(V::from)
+                else {
+                    Err(UpdateError::Overflow)?
+                };
+                ensure!(actor.can_add(&new), UpdateError::InvalidActor);
+            }
+            Self::Dec => {
+                let Some(value) = entity else {
+                    Err(UpdateError::DoesntExist)?
+                };
+                ensure!(actor.can_remove(&value), UpdateError::InvalidActor);
+            }
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 pub enum UpdateError {
     DoesntExist,
     AlreadyExists,
     InvalidActor,
+    Overflow,
     CapacityOverflow,
     ValidationFailed,
 }
@@ -636,6 +794,7 @@ pub enum UpdateError {
 impl From<UpdateError> for DispatchError {
     fn from(error: UpdateError) -> Self {
         Self::Other(match error {
+            UpdateError::Overflow => "An overflowed happened",
             UpdateError::DoesntExist => "Entity doesn't exist",
             UpdateError::AlreadyExists => "Entity already exists",
             UpdateError::InvalidActor => "Provided actor can't perform this action",
@@ -752,61 +911,6 @@ where
                 Some((key.clone(), update))
             })
             .collect()
-    }
-}
-
-impl<U, C> KeyedUpdate<C> for SetOrModify<C, U>
-where
-    C: DerefMut,
-    C::Target: KeyValue,
-    U: KeyedUpdate<C>,
-{
-    type Targets<'a> = Either<
-        core::iter::Chain<
-            <C::Target as KeyValue>::Keys<'a>,
-            <C::Target as KeyValue>::Keys<'a>,
-        >,
-        U::Targets<'a>
-    >  where
-    Self: 'a,
-    <C::Target as KeyValue>::Key: 'a,
-    C: 'a;
-
-    fn targets<'targets>(&'targets self, entity: &'targets C) -> Self::Targets<'targets> {
-        match self {
-            Self::Set(item) => Either::Left(item.keys().chain(entity.keys())),
-            Self::Modify(update) => Either::Right(update.targets(entity)),
-        }
-    }
-
-    fn keys_diff(
-        &self,
-        entity: &C,
-    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
-        match self {
-            Self::Set(item) => {
-                let after: BTreeSet<_> = item.keys().collect();
-                let before: BTreeSet<_> = entity.keys().collect();
-
-                after
-                    .difference(&before)
-                    .map(|key| ((*key).clone(), AddOrRemoveOrModify::Add(())))
-                    .chain(
-                        before
-                            .difference(&after)
-                            .map(|key| ((*key).clone(), AddOrRemoveOrModify::Remove)),
-                    )
-                    .collect()
-            }
-            Self::Modify(update) => update.keys_diff(entity),
-        }
-    }
-
-    fn size(&self) -> u32 {
-        match self {
-            Self::Set(item) => item.len(),
-            Self::Modify(update) => update.size(),
-        }
     }
 }
 

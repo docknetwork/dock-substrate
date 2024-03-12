@@ -45,7 +45,7 @@ pub trait Action: Sized {
     }
 
     /// Executes an action providing a value associated with the target.
-    fn execute_readonly<T, S, F, R, E>(self, f: F) -> Result<R, E>
+    fn execute_view<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, S) -> Result<R, E>,
         <Self::Target as StorageRef<T>>::Value: TryInto<S>,

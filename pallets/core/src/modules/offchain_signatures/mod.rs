@@ -160,9 +160,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            remove
-                .signed(signature)
-                .execute_readonly(Self::remove_params_)
+            remove.signed(signature).execute_view(Self::remove_params_)
         }
 
         /// Remove existing offchain signature public key. Only the DID controller can remove key and it should use the nonce from the DID module.
