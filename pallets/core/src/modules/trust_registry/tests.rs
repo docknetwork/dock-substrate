@@ -615,7 +615,7 @@ crate::did_or_did_method_key! {
 
             assert_noop!(
                 Mod::set_schemas_metadata(Origin::signed(alice), add_other_schema_metadata, other_sig).map_err(|e| e.error),
-                UpdateError::InvalidActor
+                Error::<Test>::SenderCantApplyThisUpdate
             );
 
             let add_other_schema_metadata = SetSchemasMetadata {
@@ -633,7 +633,7 @@ crate::did_or_did_method_key! {
 
             assert_noop!(
                 Mod::set_schemas_metadata(Origin::signed(alice), add_other_schema_metadata, sig).map_err(|e| e.error),
-                UpdateError::AlreadyExists
+                Error::<Test>::EntityAlreadyExists
             );
         })
     }
@@ -807,7 +807,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(verifier.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             assert_ok!(update.execute_view(|action, reg| {
@@ -870,7 +870,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
                                 update.execute_view(|action, reg| Mod::set_schemas_metadata_(
@@ -878,7 +878,7 @@ crate::did_or_did_method_key! {
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                         },
                     ) as _,
@@ -920,7 +920,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
                                 update.execute_view(|action, reg| Mod::set_schemas_metadata_(
@@ -928,7 +928,7 @@ crate::did_or_did_method_key! {
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                         },
                     )
@@ -1027,7 +1027,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(random_did.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
                                 update.execute_view(|action, reg| Mod::set_schemas_metadata_(
@@ -1035,7 +1035,7 @@ crate::did_or_did_method_key! {
                                     reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::DoesntExist
+                                Error::<Test>::EntityDoesntExist
                             );
                         },
                     ) as _,
@@ -1108,7 +1108,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             let schema_1 = schemas.get_mut(&schema_ids[1]).unwrap();
@@ -1121,7 +1121,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer_3),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             assert_ok!(update.execute_view(|action, reg| {
@@ -1186,7 +1186,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
                                 update.execute_view(|action, reg| Mod::set_schemas_metadata_(
@@ -1194,7 +1194,7 @@ crate::did_or_did_method_key! {
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                         },
                     ) as _,
@@ -1234,7 +1234,7 @@ crate::did_or_did_method_key! {
                                     reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::CapacityOverflow
+                                Error::<Test>::TooManyEntities
                             );
                         },
                     ) as _,
@@ -1286,7 +1286,7 @@ crate::did_or_did_method_key! {
                                     reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::CapacityOverflow
+                                Error::<Test>::TooManyEntities
                             );
                         },
                     ) as _,
@@ -1371,7 +1371,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
@@ -1417,7 +1417,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(verifier.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
@@ -1463,7 +1463,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
@@ -1501,7 +1501,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(convener.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::AlreadyExists
+                                Error::<Test>::EntityAlreadyExists
                             );
                         },
                     ) as _,
@@ -1555,7 +1555,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             assert_ok!(update.clone().execute_view(|action, reg| {
@@ -1590,7 +1590,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             assert_ok!(update.execute_view(|action, reg| {
@@ -1624,7 +1624,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             assert_ok!(update.execute_view(|action, reg| {
@@ -1656,7 +1656,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             assert_ok!(update.execute_view(|action, reg| {
@@ -1688,7 +1688,7 @@ crate::did_or_did_method_key! {
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             assert_ok!(update.execute_view(|action, reg| {

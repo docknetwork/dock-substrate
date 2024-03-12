@@ -29,27 +29,7 @@ impl CanUpdate<VerificationPrice> for IssuerOrVerifier {
     }
 }
 
-impl CanUpdate<DelegatedSchemaCounter> for Convener {
-    fn can_add(&self, _entity: &DelegatedSchemaCounter) -> bool {
-        true
-    }
-
-    fn can_remove(&self, _entity: &DelegatedSchemaCounter) -> bool {
-        true
-    }
-}
-
 impl CanUpdate<DelegatedSchemaCounter> for Issuer {
-    fn can_add(&self, _entity: &DelegatedSchemaCounter) -> bool {
-        true
-    }
-
-    fn can_remove(&self, _entity: &DelegatedSchemaCounter) -> bool {
-        true
-    }
-}
-
-impl CanUpdate<DelegatedSchemaCounter> for IssuerOrVerifier {
     fn can_add(&self, _entity: &DelegatedSchemaCounter) -> bool {
         true
     }

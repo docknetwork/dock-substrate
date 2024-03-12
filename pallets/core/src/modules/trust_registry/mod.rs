@@ -42,7 +42,7 @@ use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use crate::util::{IncOrDec, MultiTargetUpdate};
+    use crate::util::{DuplicateKey, IncOrDec, MultiTargetUpdate, UpdateError};
 
     use super::*;
     use frame_system::pallet_prelude::*;
@@ -83,6 +83,25 @@ pub mod pallet {
         }
     }
 
+    impl<T> From<UpdateError> for Error<T> {
+        fn from(update_error: UpdateError) -> Self {
+            match update_error {
+                UpdateError::DoesntExist => Error::<T>::EntityDoesntExist,
+                UpdateError::AlreadyExists => Error::<T>::EntityAlreadyExists,
+                UpdateError::InvalidActor => Error::<T>::SenderCantApplyThisUpdate,
+                UpdateError::Overflow => Error::<T>::TooManySchemasPerDelegatedIssuer,
+                UpdateError::CapacityOverflow => Error::<T>::TooManyEntities,
+                UpdateError::ValidationFailed => Error::<T>::UpdateValidationFailed,
+            }
+        }
+    }
+
+    impl<T> From<DuplicateKey> for Error<T> {
+        fn from(DuplicateKey: DuplicateKey) -> Self {
+            Error::<T>::DuplicateKey
+        }
+    }
+
     /// Error for the TrustRegistry module.
     #[pallet::error]
     pub enum Error<T> {
@@ -113,6 +132,20 @@ pub mod pallet {
         SchemasPerRegistrySizeExceeded,
         /// `Issuer` attempts to set himself as a delegated `Issuer`.
         IssuerCantDelegateToHimself,
+        /// Attempt to remove/update non-existing entity failed.
+        EntityDoesntExist,
+        /// Attempt to add an existing entity failed.
+        EntityAlreadyExists,
+        /// This update can't be executed by the provided sender.
+        SenderCantApplyThisUpdate,
+        /// Delegated `Issuer`'s schemas amount exceeded.
+        TooManySchemasPerDelegatedIssuer,
+        /// Can't add more entities.
+        TooManyEntities,
+        /// Failed to validate provided update.
+        UpdateValidationFailed,
+        /// Some of the keys were found twice in the update.
+        DuplicateKey,
     }
 
     #[pallet::event]
