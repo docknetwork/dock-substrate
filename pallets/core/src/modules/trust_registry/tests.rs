@@ -10,6 +10,7 @@ use crate::{
     },
 };
 use alloc::collections::{BTreeMap, BTreeSet};
+use core::num::NonZeroU32;
 use frame_support::{assert_noop, assert_ok};
 use rand::{distributions::Alphanumeric, Rng};
 
@@ -203,7 +204,7 @@ crate::did_or_did_method_key! {
             };
 
             add_schema_metadata
-                .execute_readonly(|action, reg| {
+                .execute_view(|action, reg| {
                     Mod::set_schemas_metadata_(action, reg, ConvenerOrIssuerOrVerifier(convener.into()))
                 })
                 .unwrap();
@@ -284,6 +285,13 @@ crate::did_or_did_method_key! {
 
             let (convener, _convener_kp) = newdid();
             let (other, other_kp) = newdid();
+            let (other_1, other_kp_1) = newdid();
+            let other_schemas = (0..5)
+                .map(|_| TrustRegistrySchemaId(rand::random()))
+                .collect::<BTreeSet<_>>();
+            let other_1_schemas = (0..5)
+                .map(|_| TrustRegistrySchemaId(rand::random()))
+                .collect::<BTreeSet<_>>();
 
             let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
                 registry_id: TrustRegistryId(rand::random()),
@@ -319,14 +327,9 @@ crate::did_or_did_method_key! {
             };
             let sig = did_sig(&update_delegated, &other_kp, other, 1u32);
 
-            assert_eq!(
-                TrustRegistryIssuerConfigurations::<Test>::get(
-                    init_or_update_trust_registry.registry_id,
-                    Issuer(other.into())
-                )
-                .delegated,
-                Default::default()
-            );
+            let shared_schemas = (0..5)
+                .map(|_| TrustRegistrySchemaId(rand::random()))
+                .collect::<BTreeSet<_>>();
 
             assert_noop!(
                 Pallet::<Test>::update_delegated_issuers(
@@ -340,7 +343,37 @@ crate::did_or_did_method_key! {
             TrustRegistryIssuerSchemas::<Test>::insert(
                 init_or_update_trust_registry.registry_id,
                 Issuer(other.into()),
-                IssuerSchemas(Default::default()),
+                IssuerSchemas(
+                    shared_schemas.clone().into_iter().chain(
+                        other_schemas.clone()
+                    ).collect::<BTreeSet<_>>().try_into().unwrap()
+                )
+            );
+            TrustRegistryIssuerSchemas::<Test>::insert(
+                init_or_update_trust_registry.registry_id,
+                Issuer(other_1.into()),
+                IssuerSchemas(
+                    shared_schemas.clone().into_iter().chain(
+                        other_1_schemas.clone()
+                    ).collect::<BTreeSet<_>>().try_into().unwrap()
+                )
+            );
+
+            assert_eq!(
+                TrustRegistryIssuerConfigurations::<Test>::get(
+                    init_or_update_trust_registry.registry_id,
+                    Issuer(other.into())
+                )
+                .delegated,
+                Default::default()
+            );
+
+            assert_eq!(
+                TrustRegistryDelegatedIssuerSchemas::<Test>::get(
+                    init_or_update_trust_registry.registry_id,
+                    Issuer(other.into())
+                ),
+                DelegatedIssuerSchemas(Default::default())
             );
 
             assert_ok!(Pallet::<Test>::update_delegated_issuers(
@@ -349,13 +382,119 @@ crate::did_or_did_method_key! {
                 sig
             ),);
 
+            for delegated_issuer in delegated.iter().cloned() {
+                assert_eq!(
+                    TrustRegistryDelegatedIssuerSchemas::<Test>::get(
+                        init_or_update_trust_registry.registry_id,
+                        Issuer(delegated_issuer.into())
+                    ),
+                    DelegatedIssuerSchemas(
+                        shared_schemas
+                            .clone()
+                            .into_iter()
+                            .chain(other_schemas.clone())
+                            .map(|id| (id, NonZeroU32::new(1).unwrap().into()))
+                            .collect::<BTreeMap<_, _>>().try_into().unwrap()
+                    )
+                );
+            }
+
+            let update_delegated = UpdateDelegatedIssuers {
+                delegated: SetOrModify::Set(delegated.clone()),
+                registry_id: init_or_update_trust_registry.registry_id,
+                nonce: 2u32.into(),
+            };
+            let sig = did_sig(&update_delegated, &other_kp_1, other_1, 1u32);
+
+            assert_ok!(
+                Pallet::<Test>::update_delegated_issuers(
+                    Origin::signed(alice),
+                    update_delegated.clone(),
+                    sig.clone()
+                )
+            );
+
+            for delegated_issuer in delegated.iter().cloned() {
+                assert_eq!(
+                    TrustRegistryDelegatedIssuerSchemas::<Test>::get(
+                        init_or_update_trust_registry.registry_id,
+                        Issuer(delegated_issuer.into())
+                    ),
+                    DelegatedIssuerSchemas(
+                        shared_schemas
+                            .clone()
+                            .into_iter()
+                            .map(|id| (id, NonZeroU32::new(2).unwrap().into())
+                        ).chain(
+                            other_schemas.clone()
+                                .into_iter()
+                                .chain(other_1_schemas.clone())
+                                .map(|id| (id, NonZeroU32::new(1).unwrap().into()))
+                        ).collect::<BTreeMap<_, _>>().try_into().unwrap()
+                    )
+                );
+            }
+
+            let update_delegated = UpdateDelegatedIssuers::<Test> {
+                delegated: SetOrModify::Set(Default::default()),
+                registry_id: init_or_update_trust_registry.registry_id,
+                nonce: 3u32.into(),
+            };
+            let sig = did_sig(&update_delegated, &other_kp, other, 1u32);
+
             assert_eq!(
                 TrustRegistryIssuerConfigurations::<Test>::get(
                     init_or_update_trust_registry.registry_id,
                     Issuer(other.into())
                 )
                 .delegated,
-                delegated.try_into().unwrap()
+                delegated.clone().try_into().unwrap()
+            );
+
+            assert_ok!(
+                Pallet::<Test>::update_delegated_issuers(
+                    Origin::signed(alice),
+                    update_delegated.clone(),
+                    sig.clone()
+                )
+            );
+
+            for delegated_issuer in delegated.iter().cloned() {
+                assert_eq!(
+                    TrustRegistryDelegatedIssuerSchemas::<Test>::get(
+                        init_or_update_trust_registry.registry_id,
+                        Issuer(delegated_issuer.into())
+                    ),
+                    DelegatedIssuerSchemas(
+                        shared_schemas
+                            .clone()
+                            .into_iter()
+                            .map(|id| (id, NonZeroU32::new(1).unwrap().into()))
+                            .chain(
+                                other_1_schemas
+                                    .clone()
+                                    .into_iter()
+                                    .map(|id| (id, NonZeroU32::new(1).unwrap().into()))
+                            ).collect::<BTreeMap<_, _>>().try_into().unwrap()
+                    )
+                );
+            }
+
+            assert_eq!(
+                TrustRegistryIssuerConfigurations::<Test>::get(
+                    init_or_update_trust_registry.registry_id,
+                    Issuer(other.into())
+                )
+                .delegated,
+                Default::default()
+            );
+            assert_eq!(
+                TrustRegistryIssuerConfigurations::<Test>::get(
+                    init_or_update_trust_registry.registry_id,
+                    Issuer(other_1.into())
+                )
+                .delegated,
+                delegated.clone().try_into().unwrap()
             );
         })
     }
@@ -476,7 +615,7 @@ crate::did_or_did_method_key! {
 
             assert_noop!(
                 Mod::set_schemas_metadata(Origin::signed(alice), add_other_schema_metadata, other_sig).map_err(|e| e.error),
-                UpdateError::InvalidActor
+                Error::<Test>::SenderCantApplyThisUpdate
             );
 
             let add_other_schema_metadata = SetSchemasMetadata {
@@ -494,7 +633,7 @@ crate::did_or_did_method_key! {
 
             assert_noop!(
                 Mod::set_schemas_metadata(Origin::signed(alice), add_other_schema_metadata, sig).map_err(|e| e.error),
-                UpdateError::AlreadyExists
+                Error::<Test>::EntityAlreadyExists
             );
         })
     }
@@ -661,17 +800,17 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(verifier.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -724,22 +863,22 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
-                                update.execute_readonly(|action, reg| Mod::set_schemas_metadata_(
+                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                         },
                     ) as _,
@@ -774,22 +913,22 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
-                                update.execute_readonly(|action, reg| Mod::set_schemas_metadata_(
+                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                         },
                     )
@@ -836,7 +975,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaId,
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -881,22 +1020,22 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(random_did.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
-                                update.execute_readonly(|action, reg| Mod::set_schemas_metadata_(
+                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::DoesntExist
+                                Error::<Test>::EntityDoesntExist
                             );
                         },
                     ) as _,
@@ -962,30 +1101,30 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
                             let schema_1 = schemas.get_mut(&schema_ids[1]).unwrap();
                             let issuer_3 = (*schema_1.issuers.keys().nth(3).unwrap()).into();
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer_3),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1040,22 +1179,22 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
-                                update.execute_readonly(|action, reg| Mod::set_schemas_metadata_(
+                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
                         },
                     ) as _,
@@ -1090,12 +1229,12 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.execute_readonly(|action, reg| Mod::set_schemas_metadata_(
+                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::CapacityOverflow
+                                Error::<Test>::TooManyEntities
                             );
                         },
                     ) as _,
@@ -1142,12 +1281,12 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.execute_readonly(|action, reg| Mod::set_schemas_metadata_(
+                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
                                 )).map_err(DispatchError::from),
-                                UpdateError::CapacityOverflow
+                                Error::<Test>::TooManyEntities
                             );
                         },
                     ) as _,
@@ -1181,7 +1320,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaId,
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
-                            assert_ok!(update.execute_readonly(|action, registry| {
+                            assert_ok!(update.execute_view(|action, registry| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     registry,
@@ -1225,16 +1364,16 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1271,16 +1410,16 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(verifier.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1317,16 +1456,16 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1355,14 +1494,14 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(convener.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::AlreadyExists
+                                Error::<Test>::EntityAlreadyExists
                             );
                         },
                     ) as _,
@@ -1384,7 +1523,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaId,
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1409,17 +1548,17 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.clone().execute_readonly(|action, reg| {
+                            assert_ok!(update.clone().execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1444,17 +1583,17 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1478,17 +1617,17 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1510,17 +1649,17 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1542,17 +1681,17 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
                                         ConvenerOrIssuerOrVerifier(issuer.into()),
                                     )
                                 }).map_err(DispatchError::from),
-                                UpdateError::InvalidActor
+                                Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_readonly(|action, reg| {
+                            assert_ok!(update.execute_view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1574,7 +1713,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1596,7 +1735,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1618,7 +1757,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1640,7 +1779,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_readonly(|action, reg| {
+                                update.clone().execute_view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,

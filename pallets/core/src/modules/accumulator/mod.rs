@@ -180,9 +180,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            remove
-                .signed(signature)
-                .execute_readonly(Self::remove_params_)
+            remove.signed(signature).execute_view(Self::remove_params_)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
@@ -195,7 +193,7 @@ pub mod pallet {
 
             remove
                 .signed(signature)
-                .execute_readonly(Self::remove_public_key_)
+                .execute_view(Self::remove_public_key_)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it

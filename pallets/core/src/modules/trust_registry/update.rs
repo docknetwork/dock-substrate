@@ -60,7 +60,7 @@ impl<T: Limits> TryFrom<UnboundedSchemas> for Schemas<T> {
         let schemas: BTreeMap<_, _> = schemas
             .into_iter()
             .map(|(schema_id, schema_metadata)| Ok((schema_id, schema_metadata.try_into()?)))
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<_, Error<T>>>()?;
 
         schemas
             .try_into()
@@ -327,7 +327,7 @@ pub trait ValidateTrustRegistryUpdate<T: Config> {
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         context: &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError>
+    ) -> Result<Validated<Self::Result>, Error<T>>
     where
         Validated<Self::Result>: ExecuteTrustRegistryUpdate<T>;
 }
@@ -371,7 +371,7 @@ where
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         (ref mut schemas, ref mut regs): &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
+    ) -> Result<Validated<Self::Result>, Error<T>> {
         self.into_iter()
             .inspect(|_| **schemas += 1)
             .filter_map(|(target, update)| {
@@ -400,7 +400,7 @@ where
 
                 Some(Ok((target, update)))
             })
-            .collect::<Result<_, DispatchError>>()
+            .collect::<Result<_, _>>()
             .map(Validated)
     }
 }
@@ -418,7 +418,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for Schemas<T> {
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         ctx: &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
+    ) -> Result<Validated<Self::Result>, Error<T>> {
         let Self(updates) = self;
 
         let to_set = updates
@@ -449,7 +449,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemaIdUpdate<SchemaMetadata
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         (ref mut issuers_verifiers_schemas, ref mut storage_accesses): &mut Self::Context<'_>,
-    ) -> Result<Validated<Self>, DispatchError> {
+    ) -> Result<Validated<Self>, Error<T>> {
         self.into_iter()
             .inspect(|_| storage_accesses.schemas += 1)
             .filter_map(|(schema_id, update)| {
@@ -485,7 +485,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemaIdUpdate {
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         read_storage: &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
+    ) -> Result<Validated<Self::Result>, Error<T>> {
         if !self.is_empty() {
             let existing_schema_ids = super::TrustRegistriesStoredSchemas::<T>::get(registry_id);
             *read_storage = true;
@@ -510,7 +510,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         storage_accesses: &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
+    ) -> Result<Validated<Self::Result>, Error<T>> {
         let mut issuers_verifiers_schemas = Default::default();
         let Validated(update) = match self {
             Self::Set(schemas) => schemas.validate_and_record_diff(

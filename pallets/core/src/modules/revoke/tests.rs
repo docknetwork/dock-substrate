@@ -757,12 +757,11 @@ mod test {
             let command = &rev;
             let proof = get_pauth(command, signers);
 
-            let res =
-                command
-                    .clone()
-                    .execute_readonly(|action, registry: RevocationRegistry<Test>| {
-                        registry.execute_readonly(|_, _| Ok::<_, DispatchError>(()), action, proof)
-                    });
+            let res = command
+                .clone()
+                .execute_view(|action, registry: RevocationRegistry<Test>| {
+                    registry.execute_view(|_, _| Ok::<_, DispatchError>(()), action, proof)
+                });
             assert_eq!(res.is_ok(), *expect_success);
 
             if *expect_success {

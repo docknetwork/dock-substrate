@@ -124,7 +124,7 @@ crate::bench_with_all_pairs! {
             registry_id: TrustRegistryId(id),
             schemas: SetOrModify::Modify(schemas.clone().into_iter().map(|(id, schema)| (id, SetOrAddOrRemoveOrModify::Set(schema))).collect()),
             nonce: 2u32.into()
-        }.execute_readonly(|action, set| Pallet::<T>::set_schemas_metadata_(action, set, ConvenerOrIssuerOrVerifier(did.into()))).unwrap();
+        }.execute_view(|action, set| Pallet::<T>::set_schemas_metadata_(action, set, ConvenerOrIssuerOrVerifier(did.into()))).unwrap();
 
         let update_issuers = schemas.keys().map(
             |schema_id| {
@@ -208,7 +208,7 @@ crate::bench_with_all_pairs! {
         };
         ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
-        let delegated = UnboundedDelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect());
+        let delegated = UnboundedDelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8 + 90; 32]).into())).collect());
 
         for issuer in delegated.iter() {
             TrustRegistryIssuerSchemas::<T>::insert(init_or_update_trust_registry.registry_id, Issuer(did.into()), IssuerSchemas(Default::default()));
@@ -323,7 +323,7 @@ crate::bench_with_all_pairs! {
             registry_id: TrustRegistryId(id),
             issuers: issuers.clone().into_iter().collect(),
             nonce: 1u32.into()
-        }.execute_readonly::<T, _, _, _, _>(|action, reg_info| Pallet::<T>::suspend_issuers_(action, reg_info, Convener(did.into()))).unwrap();
+        }.execute_view::<T, _, _, _, _>(|action, reg_info| Pallet::<T>::suspend_issuers_(action, reg_info, Convener(did.into()))).unwrap();
 
         let unsuspend_issuers = UnsuspendIssuers {
             registry_id: TrustRegistryId(id),

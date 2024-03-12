@@ -29,6 +29,16 @@ impl CanUpdate<VerificationPrice> for IssuerOrVerifier {
     }
 }
 
+impl CanUpdate<DelegatedSchemaCounter> for Issuer {
+    fn can_add(&self, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+
+    fn can_remove(&self, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+}
+
 impl<T: Limits> CanUpdate<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {}
 impl<T: Limits> CanUpdate<TrustRegistrySchemaVerifiers<T>> for IssuerOrVerifier {}
 
@@ -112,6 +122,16 @@ impl<T: Limits> CanUpdateKeyed<IssuerSchemas<T>> for IssuerOrVerifier {
     }
 }
 
+impl<T: Limits> CanUpdateKeyed<DelegatedIssuerSchemas<T>> for Issuer {
+    fn can_update_keyed<U: KeyedUpdate<DelegatedIssuerSchemas<T>>>(
+        &self,
+        _entity: &DelegatedIssuerSchemas<T>,
+        _update: &U,
+    ) -> bool {
+        true
+    }
+}
+
 impl<T: Limits> CanUpdateKeyed<VerifierSchemas<T>> for Verifier {
     fn can_update_keyed<U: KeyedUpdate<VerifierSchemas<T>>>(
         &self,
@@ -145,16 +165,16 @@ impl<T: Limits> CanUpdateKeyed<VerifierSchemas<T>> for IssuerOrVerifier {
 impl<T: Limits> CanUpdateKeyed<DelegatedIssuers<T>> for Issuer {
     fn can_update_keyed<U: KeyedUpdate<DelegatedIssuers<T>>>(
         &self,
-        _entity: &DelegatedIssuers<T>,
-        _update: &U,
+        entity: &DelegatedIssuers<T>,
+        update: &U,
     ) -> bool {
-        true
+        update.targets(entity).all(|delegated| delegated != self)
     }
 }
 
 impl<T: Limits> CanUpdate<DelegatedIssuers<T>> for Issuer {
-    fn can_replace(&self, _new: &DelegatedIssuers<T>, _existing: &DelegatedIssuers<T>) -> bool {
-        true
+    fn can_replace(&self, new: &DelegatedIssuers<T>, _existing: &DelegatedIssuers<T>) -> bool {
+        !new.contains(self)
     }
 }
 
