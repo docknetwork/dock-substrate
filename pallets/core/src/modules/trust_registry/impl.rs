@@ -1,5 +1,11 @@
+use core::iter::repeat;
+use itertools::Itertools;
+
 use super::{types::*, *};
-use crate::util::{ActionExecutionError, ApplyUpdate, NonceError, TranslateUpdate, ValidateUpdate};
+use crate::util::{
+    ActionExecutionError, ApplyUpdate, IncOrDec, MultiTargetUpdate, NonceError, TranslateUpdate,
+    ValidateUpdate,
+};
 use alloc::collections::BTreeSet;
 
 impl<T: Config> Pallet<T> {
@@ -14,15 +20,19 @@ impl<T: Config> Pallet<T> {
         convener: Convener,
     ) -> DispatchResult {
         TrustRegistriesInfo::<T>::try_mutate(registry_id, |info| {
-            if let Some(existing) = info.replace(TrustRegistryInfo {
+            let name = name
+                .try_into()
+                .map_err(|_| Error::<T>::TrustRegistryNameSizeExceeded)?;
+            let gov_framework = gov_framework
+                .try_into()
+                .map_err(|_| Error::<T>::GovFrameworkSizeExceeded)?;
+            let new_info = TrustRegistryInfo {
                 convener,
-                name: name
-                    .try_into()
-                    .map_err(|_| Error::<T>::TrustRegistryNameSizeExceeded)?,
-                gov_framework: gov_framework
-                    .try_into()
-                    .map_err(|_| Error::<T>::GovFrameworkSizeExceeded)?,
-            }) {
+                name,
+                gov_framework,
+            };
+
+            if let Some(existing) = info.replace(new_info) {
                 if existing.convener != convener {
                     Err(Error::<T>::NotTheConvener)?
                 }
@@ -56,7 +66,7 @@ impl<T: Config> Pallet<T> {
         let mut validation = StorageAccesses::default();
         schemas
             .validate_and_record_diff(actor, registry_id, &registry_info, &mut validation)
-            .map_err(|error| StepError::Validation(error, validation.clone()))
+            .map_err(|error| StepError::Validation(error.into(), validation.clone()))
             .map(|validated_update| StepStorageAccesses {
                 validation,
                 execution: validated_update.execute(registry_id),
@@ -82,8 +92,38 @@ impl<T: Config> Pallet<T> {
 
         TrustRegistryIssuerConfigurations::<T>::try_mutate(registry_id, issuer, |config| {
             delegated.ensure_valid(&issuer, &config.delegated)?;
-            delegated.apply_update(&mut config.delegated);
 
+            let issuer_schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
+            let issuers_diff = delegated.keys_diff(&config.delegated);
+
+            for (issuer, update) in issuers_diff.iter() {
+                let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
+                    .iter()
+                    .copied()
+                    .zip(repeat(update.translate_update().unwrap()))
+                    .collect();
+                let schema_ids = TrustRegistryDelegatedIssuerSchemas::<T>::get(registry_id, issuer);
+
+                schema_ids_update.ensure_valid(issuer, &schema_ids)?;
+            }
+
+            for (issuer, update) in issuers_diff {
+                let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
+                    .iter()
+                    .copied()
+                    .zip(repeat(update.translate_update().unwrap()))
+                    .collect();
+
+                TrustRegistryDelegatedIssuerSchemas::<T>::mutate(
+                    registry_id,
+                    issuer,
+                    |schema_ids| {
+                        schema_ids_update.apply_update(schema_ids);
+                    },
+                );
+            }
+
+            delegated.apply_update(&mut config.delegated);
             Self::deposit_event(Event::DelegatedIssuersUpdated(registry_id, issuer));
 
             Ok(())
@@ -172,11 +212,30 @@ impl<T: Config> Pallet<T> {
         reg_id: TrustRegistryId,
         issuer_or_verifier: IssuerOrVerifier,
     ) -> BTreeSet<TrustRegistrySchemaId> {
-        let issuer_schemas = Self::registry_issuer_schemas(reg_id, Issuer(*issuer_or_verifier));
+        let issuer_schemas =
+            Self::registry_issuer_or_delegated_issuer_schemas(reg_id, Issuer(*issuer_or_verifier));
         let verifier_schemas =
             Self::registry_verifier_schemas(reg_id, Verifier(*issuer_or_verifier));
 
         issuer_schemas.union(&verifier_schemas).copied().collect()
+    }
+
+    pub fn registry_issuer_or_delegated_issuer_schemas(
+        reg_id: TrustRegistryId,
+        issuer_or_delegated_issuer: Issuer,
+    ) -> BTreeSet<TrustRegistrySchemaId> {
+        let IssuerSchemas(issuer_schemas) =
+            Self::registry_issuer_schemas(reg_id, issuer_or_delegated_issuer);
+        let DelegatedIssuerSchemas(delegated_issuer_schemas) =
+            Self::registry_delegated_issuer_schemas(reg_id, issuer_or_delegated_issuer);
+
+        delegated_issuer_schemas
+            .into_iter()
+            .map(|(key, _)| key)
+            .into_iter()
+            .merge(issuer_schemas)
+            .dedup()
+            .collect()
     }
 
     pub fn aggregate_schema_metadata(

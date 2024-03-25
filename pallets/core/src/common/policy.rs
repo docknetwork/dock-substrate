@@ -210,7 +210,7 @@ pub trait HasPolicy<T: Limits>: Sized {
     ///
     /// Returns a mutable reference to the underlying data wrapped into an option if the command is authorized,
     /// otherwise returns Err.
-    fn execute_readonly<A, F, R, E>(
+    fn execute_view<A, F, R, E>(
         self,
         f: F,
         action: A,

@@ -226,8 +226,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            revoke.execute_readonly(|action, registry: RevocationRegistry<T>| {
-                registry.execute_readonly(Self::revoke_, action, proof)
+            revoke.execute_view(|action, registry: RevocationRegistry<T>| {
+                registry.execute_view(Self::revoke_, action, proof)
             })
         }
 
@@ -248,8 +248,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            unrevoke.execute_readonly(|action, registry: RevocationRegistry<T>| {
-                registry.execute_readonly(Self::unrevoke_, action, proof)
+            unrevoke.execute_view(|action, registry: RevocationRegistry<T>| {
+                registry.execute_view(Self::unrevoke_, action, proof)
             })
         }
 
