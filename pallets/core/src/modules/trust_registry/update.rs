@@ -228,7 +228,11 @@ impl<T: Limits> ApplyUpdate<TrustRegistrySchemaMetadata<T>>
             update.apply_update(verifiers);
         }
     }
+}
 
+impl<T: Limits> GetUpdateKind<TrustRegistrySchemaMetadata<T>>
+    for TrustRegistrySchemaMetadataUpdate<T>
+{
     fn kind(
         &self,
         TrustRegistrySchemaMetadata { issuers, verifiers }: &TrustRegistrySchemaMetadata<T>,
@@ -292,7 +296,11 @@ impl ApplyUpdate<UnboundedTrustRegistrySchemaMetadata>
             update.apply_update(verifiers);
         }
     }
+}
 
+impl GetUpdateKind<UnboundedTrustRegistrySchemaMetadata>
+    for UnboundedTrustRegistrySchemaMetadataUpdate
+{
     fn kind(
         &self,
         UnboundedTrustRegistrySchemaMetadata { issuers, verifiers }: &UnboundedTrustRegistrySchemaMetadata,

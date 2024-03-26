@@ -7,7 +7,7 @@ use crate::{
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::{fmt::Debug, num::NonZeroU32};
+use core::{fmt::Debug, iter::once, num::NonZeroU32};
 use frame_support::{traits::Get, weights::Weight, *};
 use scale_info::prelude::string::String;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
@@ -766,6 +766,21 @@ pub struct DelegatedIssuerSchemas<T: Limits>(
 );
 
 impl_wrapper!(DelegatedIssuerSchemas<T> where T: Limits => (BoundedBTreeMap<TrustRegistrySchemaId, DelegatedSchemaCounter, T::MaxSchemasPerIssuer>));
+
+impl<T: Limits> FromIterator<SingleTargetUpdate<TrustRegistrySchemaId, IncOrDec>>
+    for DelegatedIssuerSchemas<T>
+{
+    fn from_iter<I: IntoIterator<Item = SingleTargetUpdate<TrustRegistrySchemaId, IncOrDec>>>(
+        iter: I,
+    ) -> Self {
+        iter.into_iter()
+            .fold(Self::default(), |mut acc, keyed_update| {
+                MultiTargetUpdate::from(keyed_update).apply_update(&mut acc);
+
+                acc
+            })
+    }
+}
 
 /// Set of trust registries corresponding to a issuer
 #[derive(

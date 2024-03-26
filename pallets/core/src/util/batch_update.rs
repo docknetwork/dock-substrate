@@ -3,6 +3,7 @@ use alloc::collections::{btree_map, BTreeMap, BTreeSet};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{
     convert::Infallible,
+    iter::once,
     num::NonZeroU32,
     ops::{Deref, DerefMut},
 };
@@ -59,17 +60,31 @@ where
 }
 
 /// Applies an update to the entity.
-pub trait ApplyUpdate<Entity> {
+pub trait ApplyUpdate<Entity>: GetUpdateKind<Entity> {
     /// Applies update contained in `self` to the supplied entity.
     fn apply_update(self, entity: &mut Entity);
-
-    /// Returns the underlying update's kind.
-    fn kind(&self, entity: &Entity) -> UpdateKind;
 }
 
 impl<V> ApplyUpdate<V> for () {
     fn apply_update(self, _: &mut V) {}
+}
 
+/// Returns the underlying update's kind.
+pub trait GetUpdateKind<Entity> {
+    /// Returns the underlying update's kind.
+    fn kind(&self, entity: &Entity) -> UpdateKind;
+}
+
+impl<E, U> GetUpdateKind<E> for &'_ U
+where
+    U: GetUpdateKind<E>,
+{
+    fn kind(&self, entity: &E) -> UpdateKind {
+        (*self).kind(entity)
+    }
+}
+
+impl<V> GetUpdateKind<V> for () {
     fn kind(&self, _: &V) -> UpdateKind {
         UpdateKind::None
     }
@@ -99,9 +114,18 @@ pub enum UpdateTranslationError<V, U> {
 }
 
 /// Validates underlying update, so it can be safely applied to the supplied entity.
-pub trait ValidateUpdate<Actor, Entity>: ApplyUpdate<Entity> {
+pub trait ValidateUpdate<Actor, Entity>: GetUpdateKind<Entity> {
     /// Ensures that the underlying update is valid.
     fn ensure_valid(&self, actor: &Actor, entity: &Entity) -> Result<(), UpdateError>;
+}
+
+impl<A, E, U> ValidateUpdate<A, E> for &'_ U
+where
+    U: ValidateUpdate<A, E>,
+{
+    fn ensure_valid(&self, actor: &A, entity: &E) -> Result<(), UpdateError> {
+        (*self).ensure_valid(actor, entity)
+    }
 }
 
 impl<A, V> ValidateUpdate<A, V> for () {
@@ -136,6 +160,14 @@ impl<T> CanUpdate<()> for T {
 
     fn can_replace(&self, _new: &(), _entity: &()) -> bool {
         true
+    }
+}
+
+pub struct DuplicateKey;
+
+impl From<DuplicateKey> for DispatchError {
+    fn from(DuplicateKey: DuplicateKey) -> Self {
+        Self::Other("Duplicate key")
     }
 }
 
@@ -178,20 +210,131 @@ where
     }
 }
 
-pub struct DuplicateKey;
-
-impl From<DuplicateKey> for DispatchError {
-    fn from(DuplicateKey: DuplicateKey) -> Self {
-        Self::Other("Duplicate key")
-    }
-}
-
 /// Map representing keyed updates applied over given keys.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, DefaultNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct MultiTargetUpdate<K: Ord, U>(pub BTreeMap<K, U>);
+
+crate::impl_wrapper!(MultiTargetUpdate<K, U> where K: Ord => (BTreeMap<K, U>));
+
+impl<U, C> ApplyUpdate<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
+where
+    C: DerefMut,
+    C::Target: KeyValue,
+    U: ApplyUpdate<Option<<C::Target as KeyValue>::Value>>,
+{
+    fn apply_update(self, entity: &mut C) {
+        #[cfg(not(feature = "std"))]
+        use alloc::vec::Vec;
+
+        let (remove, rest): (Vec<_>, Vec<_>) = self.0.into_iter().partition(|(key, action)| {
+            action.kind(&entity.get(key).cloned()) == UpdateKind::Remove
+        });
+
+        remove.into_iter().chain(rest).for_each(|(key, action)| {
+            let mut opt = entity.take(&key);
+            action.apply_update(&mut opt);
+
+            if let Some(new_value) = opt {
+                entity
+                    .try_add(key, new_value)
+                    .ok()
+                    .expect("`MultiTargetUpdate` update failed");
+            }
+        });
+    }
+}
+
+impl<U, C> GetUpdateKind<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
+where
+    C: DerefMut,
+    C::Target: KeyValue,
+    U: GetUpdateKind<Option<<C::Target as KeyValue>::Value>>,
+{
+    fn kind(&self, entity: &C) -> UpdateKind {
+        self.iter()
+            .any(|(key, update)| update.kind(&entity.get(key).cloned()) != UpdateKind::None)
+            .then_some(UpdateKind::Replace)
+            .unwrap_or_default()
+    }
+}
+
+impl<A, U, C> ValidateUpdate<A, C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
+where
+    C: DerefMut,
+    C::Target: KeyValue,
+    A: CanUpdateKeyed<C>,
+    U: ValidateUpdate<A, Option<<C::Target as KeyValue>::Value>>,
+{
+    fn ensure_valid(&self, actor: &A, entity: &C) -> Result<(), UpdateError> {
+        ensure!(
+            actor.can_update_keyed(entity, self),
+            UpdateError::InvalidActor
+        );
+
+        let new_len = self
+            .iter()
+            .try_fold(entity.len() as i32, |acc, (key, action)| {
+                let value_opt = &entity.get(key).cloned();
+                action.ensure_valid(actor, value_opt)?;
+
+                let diff = match action.kind(value_opt) {
+                    UpdateKind::Add => 1,
+                    UpdateKind::Remove => -1,
+                    _ => 0,
+                };
+
+                Ok(acc + diff)
+            })?;
+
+        if new_len < 0 {
+            Err(UpdateError::ValidationFailed)
+        } else if entity.capacity().map_or(true, |cap| new_len as u32 <= cap) {
+            Ok(())
+        } else {
+            Err(UpdateError::CapacityOverflow)
+        }
+    }
+}
+
+impl<U, C> KeyedUpdate<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
+where
+    C: DerefMut,
+    U: GetUpdateKind<Option<<C::Target as KeyValue>::Value>>,
+    C::Target: KeyValue,
+{
+    type Targets<'a> = alloc::collections::btree_map::Keys<'a, <C::Target as KeyValue>::Key, U>  where
+    Self: 'a,
+    <C::Target as KeyValue>::Key: 'a,
+    C: 'a;
+
+    fn targets<'targets>(&'targets self, _entity: &'targets C) -> Self::Targets<'targets> {
+        self.keys()
+    }
+
+    fn size(&self) -> u32 {
+        self.0.len() as u32
+    }
+
+    fn keys_diff(
+        &self,
+        entity: &C,
+    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
+        self.iter()
+            .filter_map(|(key, update)| {
+                let update = match update.kind(&entity.get(key).cloned()) {
+                    UpdateKind::Add => AddOrRemoveOrModify::Add(()),
+                    UpdateKind::Remove => AddOrRemoveOrModify::Remove,
+                    _ => None?,
+                };
+
+                Some((key.clone(), update))
+            })
+            .collect()
+    }
+}
 
 impl<K, U, KK, UU> TranslateUpdate<MultiTargetUpdate<KK, UU>> for MultiTargetUpdate<K, U>
 where
@@ -221,6 +364,19 @@ where
 {
     fn from_iter<I: IntoIterator<Item = (K, U)>>(iter: I) -> Self {
         Self(FromIterator::from_iter(iter))
+    }
+}
+
+impl<K, U> FromIterator<SingleTargetUpdate<K, U>> for MultiTargetUpdate<K, U>
+where
+    K: Ord,
+{
+    fn from_iter<I: IntoIterator<Item = SingleTargetUpdate<K, U>>>(iter: I) -> Self {
+        Self(
+            iter.into_iter()
+                .map(|SingleTargetUpdate { key, update }| (key, update))
+                .collect(),
+        )
     }
 }
 
@@ -288,7 +444,131 @@ where
     }
 }
 
-crate::impl_wrapper!(MultiTargetUpdate<K, U> where K: Ord => (BTreeMap<K, U>));
+/// A single key-value entry representing a keyed update applied over given key.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct SingleTargetUpdate<K: Ord, U> {
+    key: K,
+    update: U,
+}
+
+impl<K: Ord, U> SingleTargetUpdate<K, U> {
+    pub fn new(key: K, update: U) -> Self {
+        Self { key, update }
+    }
+
+    fn with_cloned_key(&self) -> SingleTargetUpdate<K, &'_ U>
+    where
+        K: Clone,
+    {
+        let Self { key, update } = self;
+
+        SingleTargetUpdate {
+            key: key.clone(),
+            update,
+        }
+    }
+}
+
+impl<U, C> ApplyUpdate<C> for SingleTargetUpdate<<C::Target as KeyValue>::Key, U>
+where
+    C: DerefMut,
+    C::Target: KeyValue,
+    U: ApplyUpdate<Option<<C::Target as KeyValue>::Value>>,
+{
+    fn apply_update(self, entity: &mut C) {
+        MultiTargetUpdate::from(self).apply_update(entity)
+    }
+}
+
+impl<U, C> GetUpdateKind<C> for SingleTargetUpdate<<C::Target as KeyValue>::Key, U>
+where
+    C: DerefMut,
+    C::Target: KeyValue,
+    U: GetUpdateKind<Option<<C::Target as KeyValue>::Value>>,
+{
+    fn kind(&self, entity: &C) -> UpdateKind {
+        (self.update.kind(&entity.get(&self.key).cloned()) != UpdateKind::None)
+            .then_some(UpdateKind::Replace)
+            .unwrap_or_default()
+    }
+}
+
+impl<A, U, C> ValidateUpdate<A, C> for SingleTargetUpdate<<C::Target as KeyValue>::Key, U>
+where
+    C: DerefMut,
+    C::Target: KeyValue,
+    A: CanUpdateKeyed<C>,
+    U: ValidateUpdate<A, Option<<C::Target as KeyValue>::Value>>,
+{
+    fn ensure_valid(&self, actor: &A, entity: &C) -> Result<(), UpdateError> {
+        MultiTargetUpdate::from(self).ensure_valid(actor, entity)
+    }
+}
+
+impl<U, C> KeyedUpdate<C> for SingleTargetUpdate<<C::Target as KeyValue>::Key, U>
+where
+    C: DerefMut,
+    U: GetUpdateKind<Option<<C::Target as KeyValue>::Value>>,
+    C::Target: KeyValue,
+{
+    type Targets<'a> = core::iter::Once<&'a <C::Target as KeyValue>::Key> where U: 'a, C: 'a, <C::Target as KeyValue>::Key: 'a;
+
+    fn targets<'targets>(&'targets self, _entity: &'targets C) -> Self::Targets<'targets> {
+        once(&self.key)
+    }
+
+    fn size(&self) -> u32 {
+        1u32
+    }
+
+    fn keys_diff(
+        &self,
+        entity: &C,
+    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
+        let update = match self.kind(entity) {
+            UpdateKind::Add => AddOrRemoveOrModify::Add(()),
+            UpdateKind::Remove => AddOrRemoveOrModify::Remove,
+            _ => return Default::default(),
+        };
+
+        SingleTargetUpdate::new(self.key.clone(), update).into()
+    }
+}
+
+impl<K, U, KK, UU> TranslateUpdate<SingleTargetUpdate<KK, UU>> for SingleTargetUpdate<K, U>
+where
+    K: TryInto<KK> + Ord,
+    U: TranslateUpdate<UU>,
+    KK: Ord,
+{
+    type Error = UpdateTranslationError<K::Error, U::Error>;
+
+    fn translate_update(self) -> Result<SingleTargetUpdate<KK, UU>, Self::Error> {
+        let Self { key, update } = self;
+
+        Ok(SingleTargetUpdate::new(
+            key.try_into().map_err(UpdateTranslationError::Value)?,
+            update
+                .translate_update()
+                .map_err(UpdateTranslationError::Update)?,
+        ))
+    }
+}
+
+impl<K: Ord, U> From<SingleTargetUpdate<K, U>> for MultiTargetUpdate<K, U> {
+    fn from(SingleTargetUpdate { key, update }: SingleTargetUpdate<K, U>) -> Self {
+        Self::from_iter(once((key, update)))
+    }
+}
+
+impl<'a, K: Ord + Clone, U> From<&'a SingleTargetUpdate<K, U>> for MultiTargetUpdate<K, &'a U> {
+    fn from(SingleTargetUpdate { key, update }: &'a SingleTargetUpdate<K, U>) -> Self {
+        Self::from_iter(once((key.clone(), update)))
+    }
+}
 
 /// Set/add/remove a value or apply a nested update.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Copy, MaxEncodedLen)]
@@ -323,7 +603,11 @@ impl<V: PartialEq, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>>
             }
         }
     }
+}
 
+impl<V: PartialEq, U: GetUpdateKind<Option<V>>> GetUpdateKind<Option<V>>
+    for SetOrAddOrRemoveOrModify<V, U>
+{
     fn kind(&self, entity: &Option<V>) -> UpdateKind {
         match self {
             Self::Set(new_value) => {
@@ -457,7 +741,9 @@ impl<V, U: ApplyUpdate<Option<V>>> ApplyUpdate<Option<V>> for AddOrRemoveOrModif
             }
         }
     }
+}
 
+impl<V, U: GetUpdateKind<Option<V>>> GetUpdateKind<Option<V>> for AddOrRemoveOrModify<V, U> {
     fn kind(&self, entity: &Option<V>) -> UpdateKind {
         match self {
             Self::Add(_) => {
@@ -529,7 +815,9 @@ impl<V: PartialEq, U: ApplyUpdate<V>> ApplyUpdate<V> for SetOrModify<V, U> {
             SetOrModify::Modify(update) => update.apply_update(entity),
         }
     }
+}
 
+impl<V: PartialEq, U: GetUpdateKind<V>> GetUpdateKind<V> for SetOrModify<V, U> {
     fn kind(&self, entity: &V) -> UpdateKind {
         match self {
             SetOrModify::Set(new_value) => {
@@ -650,7 +938,12 @@ where
         self.0
             .apply_update(entity.as_mut().expect("`OnlyExistent` update failed"))
     }
+}
 
+impl<V, U> GetUpdateKind<Option<V>> for OnlyExistent<U>
+where
+    U: GetUpdateKind<V>,
+{
     fn kind(&self, entity: &Option<V>) -> UpdateKind {
         entity
             .as_ref()
@@ -708,6 +1001,17 @@ impl TranslateUpdate<IncOrDec> for AddOrRemoveOrModify<()> {
     }
 }
 
+impl TranslateUpdate<AddOrRemoveOrModify<()>> for IncOrDec {
+    type Error = Infallible;
+
+    fn translate_update(self) -> Result<AddOrRemoveOrModify<()>, Self::Error> {
+        Ok(match self {
+            Self::Inc => AddOrRemoveOrModify::Add(()),
+            Self::Dec => AddOrRemoveOrModify::Remove,
+        })
+    }
+}
+
 impl<V> ApplyUpdate<Option<V>> for IncOrDec
 where
     V: Deref<Target = NonZeroU32> + From<NonZeroU32>,
@@ -732,7 +1036,12 @@ where
             },
         }
     }
+}
 
+impl<V> GetUpdateKind<Option<V>> for IncOrDec
+where
+    V: Deref<Target = NonZeroU32> + From<NonZeroU32>,
+{
     fn kind(&self, entity: &Option<V>) -> UpdateKind {
         match self {
             IncOrDec::Inc => UpdateKind::Replace,
@@ -801,116 +1110,6 @@ impl From<UpdateError> for DispatchError {
             UpdateError::CapacityOverflow => "Capacity overflow",
             UpdateError::ValidationFailed => "Validation failed",
         })
-    }
-}
-
-impl<U, C> ApplyUpdate<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
-where
-    C: DerefMut,
-    C::Target: KeyValue,
-    U: ApplyUpdate<Option<<C::Target as KeyValue>::Value>>,
-{
-    fn apply_update(self, entity: &mut C) {
-        #[cfg(not(feature = "std"))]
-        use alloc::vec::Vec;
-
-        let (remove, rest): (Vec<_>, Vec<_>) = self.0.into_iter().partition(|(key, action)| {
-            action.kind(&entity.get(key).cloned()) == UpdateKind::Remove
-        });
-
-        remove.into_iter().chain(rest).for_each(|(key, action)| {
-            let mut opt = entity.take(&key);
-            action.apply_update(&mut opt);
-
-            if let Some(new_value) = opt {
-                entity
-                    .try_add(key, new_value)
-                    .ok()
-                    .expect("`MultiTargetUpdate` update failed");
-            }
-        });
-    }
-
-    fn kind(&self, entity: &C) -> UpdateKind {
-        self.iter()
-            .any(|(key, update)| update.kind(&entity.get(key).cloned()) != UpdateKind::None)
-            .then_some(UpdateKind::Replace)
-            .unwrap_or_default()
-    }
-}
-
-impl<A, U, C> ValidateUpdate<A, C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
-where
-    C: DerefMut,
-    C::Target: KeyValue,
-    A: CanUpdateKeyed<C>,
-    U: ValidateUpdate<A, Option<<C::Target as KeyValue>::Value>>,
-{
-    fn ensure_valid(&self, actor: &A, entity: &C) -> Result<(), UpdateError> {
-        ensure!(
-            actor.can_update_keyed(entity, self),
-            UpdateError::InvalidActor
-        );
-
-        let new_len = self
-            .iter()
-            .try_fold(entity.len() as i32, |acc, (key, action)| {
-                let value_opt = &entity.get(key).cloned();
-                action.ensure_valid(actor, value_opt)?;
-
-                let diff = match action.kind(value_opt) {
-                    UpdateKind::Add => 1,
-                    UpdateKind::Remove => -1,
-                    _ => 0,
-                };
-
-                Ok(acc + diff)
-            })?;
-
-        if new_len < 0 {
-            Err(UpdateError::ValidationFailed)
-        } else if entity.capacity().map_or(true, |cap| new_len as u32 <= cap) {
-            Ok(())
-        } else {
-            Err(UpdateError::CapacityOverflow)
-        }
-    }
-}
-
-impl<U, C> KeyedUpdate<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
-where
-    C: DerefMut,
-    U: ApplyUpdate<Option<<C::Target as KeyValue>::Value>>,
-    C::Target: KeyValue,
-{
-    type Targets<'a> = alloc::collections::btree_map::Keys<'a, <C::Target as KeyValue>::Key, U>  where
-    Self: 'a,
-    <C::Target as KeyValue>::Key: 'a,
-    C: 'a;
-
-    fn targets<'targets>(&'targets self, _entity: &'targets C) -> Self::Targets<'targets> {
-        self.keys()
-    }
-
-    fn size(&self) -> u32 {
-        self.0.len() as u32
-    }
-
-    fn keys_diff(
-        &self,
-        entity: &C,
-    ) -> MultiTargetUpdate<<C::Target as KeyValue>::Key, AddOrRemoveOrModify<()>> {
-        self.iter()
-            .filter_map(|(key, update)| {
-                let update = match update.kind(&entity.get(key).cloned()) {
-                    UpdateKind::Add => AddOrRemoveOrModify::Add(()),
-                    UpdateKind::Remove => AddOrRemoveOrModify::Remove,
-                    _ => None?,
-                };
-
-                Some((key.clone(), update))
-            })
-            .collect()
     }
 }
 

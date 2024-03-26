@@ -682,26 +682,35 @@ crate::did_or_did_method_key! {
                 )
             };
 
-            let schema_ids: Vec<_> = (0..5)
+            let schema_ids: BTreeSet<_> = (0..5)
                 .map(|_| rand::random())
                 .map(TrustRegistrySchemaId)
                 .collect();
+
+            let initial_schemas_issuers: BTreeMap<_, _> = schema_ids.iter().copied().map(|_| (0..5).map(|_| newdid())).collect();
+            let initial_schemas_verifiers: BTreeMap<_, _> = schema_ids.iter().copied().map(|_| (0..5).map(|_| newdid())).collect();
 
             let mut schemas: BTreeMap<_, _> = schema_ids
                 .iter()
                 .copied()
                 .zip(0..)
-                .map(|(id, idx)| {
+                .zip(&initial_schemas_verifiers)
+                .zip(&initial_schemas_issuers)
+                .map(|(((id, idx), verifiers), issuers)| {
                     let issuers = UnboundedIssuersWith(
-                        (0..5)
-                            .map(|_| Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))))
+                        initial_schemas_issuers
+                            .iter()
+                            .map(|(did, _)| did)
+                            .cloned()
                             .chain((idx == 0).then_some(Issuer(issuer.into())))
                             .map(|issuer| (issuer, build_initial_prices(5, 5)))
                             .collect::<BTreeMap<_, _>>()
                     );
                     let verifiers = UnboundedTrustRegistrySchemaVerifiers(
-                        (0..5)
-                            .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
+                        initial_schemas_verifiers
+                            .iter()
+                            .map(|(did, _)| did)
+                            .cloned()
                             .chain((idx == 0).then_some(Verifier(verifier.into())))
                             .collect::<BTreeSet<_>>()
                     );
@@ -709,6 +718,29 @@ crate::did_or_did_method_key! {
                     (id, UnboundedTrustRegistrySchemaMetadata { issuers, verifiers })
                 })
                 .collect();
+
+            for issuers in initial_schemas_issuers {
+                for (issuer, kp) in issuers {
+                    let delegated = UnboundedDelegatedIssuers(
+                        (0..10)
+                            .map(|idx| Issuer(Did([idx; 32]).into()))
+                            .collect()
+                    );
+
+                    let update_delegated = UpdateDelegatedIssuers {
+                        delegated: SetOrModify::Set(delegated.clone()),
+                        registry_id: init_or_update_trust_registry.registry_id,
+                        nonce: 2u32.into(),
+                    };
+                    let sig = did_sig(&update_delegated, &kp, issuer, 1u32);
+        
+                    assert_ok!(Pallet::<Test>::update_delegated_issuers(
+                        Origin::signed(alice),
+                        update_delegated,
+                        sig
+                    ));
+                }
+            }
 
             let initial_schemas = schemas.clone();
             let second_fourth_schemas = BTreeMap::from_iter([(schema_ids[2], schemas.get(&schema_ids[2]).cloned().unwrap()), (schema_ids[4], schemas.get(&schema_ids[4]).cloned().unwrap())]);
@@ -1867,6 +1899,26 @@ crate::did_or_did_method_key! {
                         )
                         .collect::<BTreeSet<_>>(),
                     IssuersTrustRegistries::<Test>::iter()
+                        .filter(|(_, set)| !set.is_empty())
+                        .map(|(issuer, _)| issuer)
+                        .collect(),
+                    "Failed test on line {:?}",
+                    line
+                );
+                assert_eq!(
+                    schemas
+                        .iter()
+                        .flat_map(|(_id, schema)|
+                            schema
+                                .issuers
+                                .keys()
+                                .copied()
+                        )
+                        .flat_map(|issuer| TrustRegistryIssuerConfiguration::<Test>::get(issuer).delegated)
+                        .flat_map(|delegated_issuer| (delegated_issuer, TrustRegistryDelegatedIssuerSchemas::<Test>::get(delegated_issuer)))
+                        .collect::<BTreeMap<_, _>>(),
+                    initial_schemas_issuers
+                        .iter()
                         .filter(|(_, set)| !set.is_empty())
                         .map(|(issuer, _)| issuer)
                         .collect(),
