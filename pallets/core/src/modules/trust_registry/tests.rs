@@ -4,10 +4,7 @@ use super::{types::*, *};
 use crate::{
     did::base::*,
     tests::common::*,
-    util::{
-        Action, AddOrRemoveOrModify, Bytes, MultiTargetUpdate, OnlyExistent, SetOrModify,
-        UpdateError,
-    },
+    util::{Action, AddOrRemoveOrModify, Bytes, MultiTargetUpdate, OnlyExistent, SetOrModify},
 };
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::num::NonZeroU32;
