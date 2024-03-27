@@ -1,5 +1,5 @@
 #[cfg(feature = "serde")]
-use crate::util::hex;
+use crate::util::serde_hex;
 use crate::{
     common::{self, signatures::ForSigType, DidSignatureWithNonce, HasPolicy, Limits, Policy},
     did::{self},
@@ -31,7 +31,9 @@ mod weights;
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct RevocationRegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct RevocationRegistryId(
+    #[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32],
+);
 
 impl Index<RangeFull> for RevocationRegistryId {
     type Output = [u8; 32];
@@ -66,7 +68,7 @@ crate::impl_wrapper!(RevocationRegistryId([u8; 32]));
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct RevokeId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct RevokeId(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32]);
 
 impl Index<RangeFull> for RevokeId {
     type Output = [u8; 32];

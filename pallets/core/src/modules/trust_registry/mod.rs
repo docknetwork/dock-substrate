@@ -90,6 +90,7 @@ pub mod pallet {
                 UpdateError::AlreadyExists => Error::<T>::EntityAlreadyExists,
                 UpdateError::InvalidActor => Error::<T>::SenderCantApplyThisUpdate,
                 UpdateError::Overflow => Error::<T>::TooManySchemasPerDelegatedIssuer,
+                UpdateError::Underflow => Error::<T>::Underflow,
                 UpdateError::CapacityOverflow => Error::<T>::TooManyEntities,
                 UpdateError::ValidationFailed => Error::<T>::UpdateValidationFailed,
             }
@@ -105,6 +106,7 @@ pub mod pallet {
     /// Error for the TrustRegistry module.
     #[pallet::error]
     pub enum Error<T> {
+        /// Too many registries per a `Convener`.
         TooManyRegistries,
         /// Not the `TrustRegistry`'s `Convener`.
         NotTheConvener,
@@ -132,6 +134,8 @@ pub mod pallet {
         SchemasPerRegistrySizeExceeded,
         /// `Issuer` attempts to set himself as a delegated `Issuer`.
         IssuerCantDelegateToHimself,
+        /// Attempt to decrease counter below zero.
+        Underflow,
         /// Attempt to remove/update non-existing entity failed.
         EntityDoesntExist,
         /// Attempt to add an existing entity failed.
@@ -398,8 +402,10 @@ pub mod pallet {
                 let schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
                 reads += 2;
 
-                let schema_ids_update: MultiTargetUpdate<_, _> =
-                    schema_ids.into_iter().zip(repeat(IncOrDec::Inc)).collect();
+                let schema_ids_update: MultiTargetUpdate<_, _> = schema_ids
+                    .into_iter()
+                    .zip(repeat(IncOrDec::Inc(IncOrDec::ONE)))
+                    .collect();
 
                 for delegated_issuer in config.delegated.iter() {
                     TrustRegistryDelegatedIssuerSchemas::<T>::mutate(
@@ -410,6 +416,25 @@ pub mod pallet {
 
                     writes += 1;
                 }
+            }
+
+            let to_replace: sp_std::vec::Vec<_> = TrustRegistryIssuerConfigurations::<T>::iter()
+                .filter(|(_, issuer, conf)| {
+                    reads += 1;
+
+                    conf.delegated.contains(issuer)
+                })
+                .collect();
+
+            for (registry_id, issuer, mut conf) in to_replace {
+                writes += 1;
+                conf.delegated.remove(&issuer);
+                frame_support::log::info!(
+                    "Delegated issuers configuration updated for {:?}",
+                    issuer
+                );
+
+                TrustRegistryIssuerConfigurations::<T>::insert(registry_id, issuer, conf)
             }
 
             T::DbWeight::get().reads_writes(reads, writes)

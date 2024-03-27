@@ -99,11 +99,20 @@ impl TryFrom<DidOrDidMethodKey> for DidMethodKey {
 }
 
 /// The type of the Dock `DID`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Did(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub RawDid);
+pub struct Did(#[cfg_attr(feature = "serde", serde(with = "crate::util::serde_hex"))] pub RawDid);
+
+impl Debug for Did {
+    fn fmt(
+        &self,
+        f: &mut scale_info::prelude::fmt::Formatter<'_>,
+    ) -> scale_info::prelude::fmt::Result {
+        write!(f, "0x{}", ::hex::encode(&self.0[..]))
+    }
+}
 
 impl<Target> AuthorizeTarget<Target, DidKey> for Did {
     fn ensure_authorizes_target<T, A>(&self, key: &DidKey, _: &A) -> Result<(), Error<T>>

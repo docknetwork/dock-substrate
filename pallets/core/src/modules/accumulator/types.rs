@@ -18,7 +18,7 @@ pub type AccumPublicKeyWithParams<T> = (AccumulatorPublicKey<T>, Option<Accumula
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorId(
-    #[cfg_attr(feature = "serde", serde(with = "crate::util::hex"))] pub [u8; 32],
+    #[cfg_attr(feature = "serde", serde(with = "crate::util::serde_hex"))] pub [u8; 32],
 );
 
 crate::impl_wrapper!(AccumulatorId([u8; 32]), with tests as acc_tests);
@@ -139,6 +139,7 @@ pub struct AccumulatorPublicKey<T: Limits> {
 pub enum Accumulator<T: Limits> {
     Positive(AccumulatorCommon<T>),
     Universal(UniversalAccumulator<T>),
+    KBUniversal(AccumulatorCommon<T>),
 }
 
 #[derive(
@@ -194,6 +195,7 @@ impl<T: Limits> Accumulator<T> {
         match self {
             Accumulator::Positive(a) => a.key_ref,
             Accumulator::Universal(a) => a.common.key_ref,
+            Accumulator::KBUniversal(a) => a.key_ref,
         }
     }
 
@@ -202,6 +204,7 @@ impl<T: Limits> Accumulator<T> {
         match self {
             Accumulator::Positive(a) => &a.key_ref.0,
             Accumulator::Universal(a) => &a.common.key_ref.0,
+            Accumulator::KBUniversal(a) => &a.key_ref.0,
         }
     }
 
@@ -209,6 +212,7 @@ impl<T: Limits> Accumulator<T> {
         match self {
             Accumulator::Positive(a) => &a.accumulated,
             Accumulator::Universal(a) => &a.common.accumulated,
+            Accumulator::KBUniversal(a) => &a.accumulated,
         }
     }
 
@@ -219,6 +223,7 @@ impl<T: Limits> Accumulator<T> {
         match self {
             Accumulator::Positive(a) => a.accumulated = new_accumulated.try_into()?,
             Accumulator::Universal(a) => a.common.accumulated = new_accumulated.try_into()?,
+            Accumulator::KBUniversal(a) => a.accumulated = new_accumulated.try_into()?,
         }
 
         Ok(self)
