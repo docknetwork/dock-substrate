@@ -85,10 +85,16 @@ impl<T: Config> Pallet<T> {
         );
 
         let (acc_owner, key_id) = accumulator.key_ref();
-        ensure!(
-            AccumulatorKeys::<T>::contains_key(acc_owner, key_id),
-            Error::<T>::PublicKeyDoesntExist
-        );
+
+        // key_id being zero indicates that no public key exists for the accumulator and this is acceptable
+        // in certain cases, like when using KVAC
+        if !key_id.is_zero() {
+            ensure!(
+                AccumulatorKeys::<T>::contains_key(acc_owner, key_id),
+                Error::<T>::PublicKeyDoesntExist
+            );
+        }
+
         ensure!(acc_owner == owner, Error::<T>::NotPublicKeyOwner);
 
         let accumulated = accumulator.accumulated().to_vec().into();
