@@ -7,14 +7,14 @@ use crate::{
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::{fmt::Debug, iter::once, num::NonZeroU32};
+use core::{fmt::Debug, num::NonZeroU32};
 use frame_support::{traits::Get, weights::Weight, *};
 use scale_info::prelude::string::String;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 use utils::BoundedString;
 
 #[cfg(feature = "serde")]
-use crate::util::{btree_map, btree_set, hex};
+use crate::util::{btree_map, btree_set, serde_hex};
 #[cfg(feature = "serde")]
 use serde_with::serde_as;
 
@@ -767,21 +767,6 @@ pub struct DelegatedIssuerSchemas<T: Limits>(
 
 impl_wrapper!(DelegatedIssuerSchemas<T> where T: Limits => (BoundedBTreeMap<TrustRegistrySchemaId, DelegatedSchemaCounter, T::MaxSchemasPerIssuer>));
 
-impl<T: Limits> FromIterator<SingleTargetUpdate<TrustRegistrySchemaId, IncOrDec>>
-    for DelegatedIssuerSchemas<T>
-{
-    fn from_iter<I: IntoIterator<Item = SingleTargetUpdate<TrustRegistrySchemaId, IncOrDec>>>(
-        iter: I,
-    ) -> Self {
-        iter.into_iter()
-            .fold(Self::default(), |mut acc, keyed_update| {
-                MultiTargetUpdate::from(keyed_update).apply_update(&mut acc);
-
-                acc
-            })
-    }
-}
-
 /// Set of trust registries corresponding to a issuer
 #[derive(
     Encode,
@@ -923,7 +908,7 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct TrustRegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct TrustRegistryId(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32]);
 
 impl_wrapper!(TrustRegistryId([u8; 32]));
 
@@ -951,7 +936,9 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct TrustRegistrySchemaId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct TrustRegistrySchemaId(
+    #[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32],
+);
 
 impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
 
@@ -960,6 +947,8 @@ impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
 pub struct StorageAccesses {
     pub issuer_schemas: u32,
     pub issuer_registries: u32,
+    pub issuer_configuration: u32,
+    pub delegated_issuer_schemas: u32,
     pub verifier_schemas: u32,
     pub verifier_registries: u32,
     pub schemas: u32,
@@ -982,6 +971,8 @@ impl StorageAccesses {
     pub fn total_count(&self) -> u64 {
         (self.issuer_schemas as u64)
             .saturating_add(self.issuer_registries as u64)
+            .saturating_add(self.issuer_configuration as u64)
+            .saturating_add(self.delegated_issuer_schemas as u64)
             .saturating_add(self.verifier_schemas as u64)
             .saturating_add(self.verifier_registries as u64)
             .saturating_add(self.schemas as u64)

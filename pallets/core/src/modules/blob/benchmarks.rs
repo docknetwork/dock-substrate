@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
     common::state_change::ToStateChange,
-    did::{DidSignature, UncheckedDidKey},
+    did::{Did, DidSignature, UncheckedDidKey},
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;

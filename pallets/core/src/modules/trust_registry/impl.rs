@@ -94,24 +94,28 @@ impl<T: Config> Pallet<T> {
             delegated.ensure_valid(&issuer, &config.delegated)?;
 
             let issuer_schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
-            let issuers_diff = delegated.keys_diff(&config.delegated);
+            let issuers_diff: MultiTargetUpdate<Issuer, IncOrDec> = delegated
+                .keys_diff(&config.delegated)
+                .translate_update()
+                .map_err(IntoModuleError::<T>::into_module_error)?;
 
-            for (issuer, update) in issuers_diff.iter() {
+            for (delegated_issuer, update) in issuers_diff.iter() {
                 let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
                     .iter()
                     .copied()
-                    .zip(repeat(update.translate_update().unwrap()))
+                    .zip(repeat(update.clone()))
                     .collect();
-                let schema_ids = TrustRegistryDelegatedIssuerSchemas::<T>::get(registry_id, issuer);
+                let schema_ids =
+                    TrustRegistryDelegatedIssuerSchemas::<T>::get(registry_id, delegated_issuer);
 
-                schema_ids_update.ensure_valid(issuer, &schema_ids)?;
+                schema_ids_update.ensure_valid(&issuer, &schema_ids)?;
             }
 
             for (issuer, update) in issuers_diff {
                 let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
                     .iter()
                     .copied()
-                    .zip(repeat(update.translate_update().unwrap()))
+                    .zip(repeat(update))
                     .collect();
 
                 TrustRegistryDelegatedIssuerSchemas::<T>::mutate(
@@ -128,6 +132,7 @@ impl<T: Config> Pallet<T> {
 
             Ok(())
         })
+        .map_err(Error::<T>::into)
     }
 
     pub(super) fn suspend_issuers_(

@@ -8,6 +8,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use frame_support::*;
+use itertools::{EitherOrBoth, Itertools};
 use sp_runtime::{DispatchError, Either};
 
 /// Checks whether an actor can update an entity.
@@ -67,6 +68,14 @@ pub trait ApplyUpdate<Entity>: GetUpdateKind<Entity> {
 
 impl<V> ApplyUpdate<V> for () {
     fn apply_update(self, _: &mut V) {}
+}
+
+/// Combines two updates together if possible.
+pub trait CombineUpdates {
+    type Combined;
+    type Error;
+
+    fn combine(self, other: Self) -> Result<Self::Combined, Self::Error>;
 }
 
 /// Returns the underlying update's kind.
@@ -299,6 +308,31 @@ where
     }
 }
 
+impl<K: Ord, U> CombineUpdates for MultiTargetUpdate<K, U>
+where
+    U: CombineUpdates<Combined = U>,
+{
+    type Combined = MultiTargetUpdate<K, U::Combined>;
+    type Error = U::Error;
+
+    fn combine(self, other: Self) -> Result<Self::Combined, Self::Error> {
+        use EitherOrBoth::*;
+
+        self.0
+            .into_iter()
+            .merge_join_by(other.0, |(k1, _), (k2, _)| k1.cmp(k2))
+            .map(|either| {
+                Ok(match either {
+                    Left((key, update)) | Right((key, update)) => (key, update),
+                    Both((key, left_update), (_key, right_update)) => {
+                        (key, left_update.combine(right_update)?)
+                    }
+                })
+            })
+            .collect::<Result<_, _>>()
+    }
+}
+
 impl<U, C> KeyedUpdate<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
 where
     C: DerefMut,
@@ -449,7 +483,7 @@ where
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct SingleTargetUpdate<K: Ord, U> {
+pub struct SingleTargetUpdate<K, U> {
     key: K,
     update: U,
 }
@@ -505,6 +539,18 @@ where
 {
     fn ensure_valid(&self, actor: &A, entity: &C) -> Result<(), UpdateError> {
         MultiTargetUpdate::from(self).ensure_valid(actor, entity)
+    }
+}
+
+impl<K: Ord, U> CombineUpdates for SingleTargetUpdate<K, U>
+where
+    U: CombineUpdates<Combined = U>,
+{
+    type Combined = MultiTargetUpdate<K, U::Combined>;
+    type Error = U::Error;
+
+    fn combine(self, other: Self) -> Result<Self::Combined, Self::Error> {
+        MultiTargetUpdate::from(self).combine(other.into())
     }
 }
 
@@ -565,8 +611,8 @@ impl<K: Ord, U> From<SingleTargetUpdate<K, U>> for MultiTargetUpdate<K, U> {
 }
 
 impl<'a, K: Ord + Clone, U> From<&'a SingleTargetUpdate<K, U>> for MultiTargetUpdate<K, &'a U> {
-    fn from(SingleTargetUpdate { key, update }: &'a SingleTargetUpdate<K, U>) -> Self {
-        Self::from_iter(once((key.clone(), update)))
+    fn from(update: &'a SingleTargetUpdate<K, U>) -> Self {
+        Self::from(update.with_cloned_key())
     }
 }
 
@@ -978,37 +1024,36 @@ where
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub enum IncOrDec {
-    Inc,
-    Dec,
+    Inc(NonZeroU32),
+    Dec(NonZeroU32),
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    None,
 }
 
 impl IncOrDec {
     pub const ONE: NonZeroU32 = unsafe { NonZeroU32::new_unchecked(1) };
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct CantTransformToIncOrDec;
-
-impl TranslateUpdate<IncOrDec> for AddOrRemoveOrModify<()> {
-    type Error = CantTransformToIncOrDec;
-
-    fn translate_update(self) -> Result<IncOrDec, Self::Error> {
+impl IncOrDec {
+    pub fn raw(&self) -> i64 {
         match self {
-            Self::Add(()) => Ok(IncOrDec::Inc),
-            Self::Remove => Ok(IncOrDec::Dec),
-            _ => Err(CantTransformToIncOrDec),
+            Self::Inc(value) => value.get() as i64,
+            Self::Dec(value) => -(value.get() as i64),
+            Self::None => 0i64,
         }
     }
 }
 
-impl TranslateUpdate<AddOrRemoveOrModify<()>> for IncOrDec {
+impl TranslateUpdate<IncOrDec> for AddOrRemoveOrModify<()> {
     type Error = Infallible;
 
-    fn translate_update(self) -> Result<AddOrRemoveOrModify<()>, Self::Error> {
-        Ok(match self {
-            Self::Inc => AddOrRemoveOrModify::Add(()),
-            Self::Dec => AddOrRemoveOrModify::Remove,
-        })
+    fn translate_update(self) -> Result<IncOrDec, Self::Error> {
+        match self {
+            Self::Add(()) => Ok(IncOrDec::Inc(IncOrDec::ONE)),
+            Self::Remove => Ok(IncOrDec::Dec(IncOrDec::ONE)),
+            Self::Modify(()) => Ok(IncOrDec::None),
+        }
     }
 }
 
@@ -1018,23 +1063,72 @@ where
 {
     fn apply_update(self, entity: &mut Option<V>) {
         match self {
-            IncOrDec::Dec => {
+            Self::Inc(inc) => match entity {
+                Some(value) => {
+                    *value = value
+                        .checked_add(inc.get())
+                        .map(Into::into)
+                        .expect("Overflow")
+                }
+                None => {
+                    entity.replace(inc.into());
+                }
+            },
+            Self::Dec(dec) => {
                 if entity.is_none() {
                     panic!("Attempt to decrement an absent counter")
                 }
+
                 *entity = entity
                     .take()
-                    .and_then(|value| value.get().checked_sub(1))
+                    .map(|value| value.get().checked_sub(dec.get()).expect("Underflow"))
                     .and_then(NonZeroU32::new)
                     .map(V::from);
             }
-            IncOrDec::Inc => match entity {
-                Some(value) => *value = value.checked_add(1).map(Into::into).expect("Overflow"),
-                None => {
-                    entity.replace(Self::ONE.into());
-                }
-            },
+            Self::None => {}
         }
+    }
+}
+
+impl<A, V> ValidateUpdate<A, Option<V>> for IncOrDec
+where
+    V: Deref<Target = NonZeroU32> + From<NonZeroU32>,
+    A: CanUpdate<V>,
+{
+    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
+        match self {
+            Self::Inc(inc) => {
+                let new = entity
+                    .as_ref()
+                    .map_or((*inc).into(), |value| value.checked_add(inc.get()))
+                    .map(V::from)
+                    .ok_or(UpdateError::Overflow)?;
+
+                let cond = entity.as_ref().map_or_else(
+                    || actor.can_add(&new),
+                    |current| actor.can_replace(&new, current),
+                );
+
+                ensure!(cond, UpdateError::InvalidActor);
+            }
+            Self::Dec(dec) => {
+                let current = entity.as_ref().ok_or(UpdateError::DoesntExist)?;
+                let new = current
+                    .get()
+                    .checked_sub(dec.get())
+                    .ok_or(UpdateError::Underflow)?;
+
+                let cond = NonZeroU32::new(new).map_or_else(
+                    || actor.can_remove(&current),
+                    |new| actor.can_replace(&new.into(), &current),
+                );
+
+                ensure!(cond, UpdateError::InvalidActor);
+            }
+            Self::None => {}
+        }
+
+        Ok(())
     }
 }
 
@@ -1044,11 +1138,14 @@ where
 {
     fn kind(&self, entity: &Option<V>) -> UpdateKind {
         match self {
-            IncOrDec::Inc => UpdateKind::Replace,
-            IncOrDec::Dec => match entity.as_ref().map(Deref::deref) {
-                Some(&Self::ONE) => UpdateKind::Remove,
+            Self::Inc(_) => entity
+                .as_ref()
+                .map_or(UpdateKind::Add, |_| UpdateKind::Replace),
+            Self::Dec(_) => match entity.as_ref().map(Deref::deref) {
+                Some(_) => UpdateKind::Remove,
                 _ => UpdateKind::Replace,
             },
+            Self::None => UpdateKind::None,
         }
     }
 }
@@ -1061,32 +1158,23 @@ impl TranslateUpdate<IncOrDec> for IncOrDec {
     }
 }
 
-impl<A, V> ValidateUpdate<A, Option<V>> for IncOrDec
-where
-    V: Deref<Target = NonZeroU32> + From<NonZeroU32>,
-    A: CanUpdate<V>,
-{
-    fn ensure_valid(&self, actor: &A, entity: &Option<V>) -> Result<(), UpdateError> {
-        match self {
-            Self::Inc => {
-                let Some(new) = entity
-                    .as_ref()
-                    .map_or(Self::ONE.into(), |value| value.checked_add(1))
-                    .map(V::from)
-                else {
-                    Err(UpdateError::Overflow)?
-                };
-                ensure!(actor.can_add(&new), UpdateError::InvalidActor);
-            }
-            Self::Dec => {
-                let Some(value) = entity else {
-                    Err(UpdateError::DoesntExist)?
-                };
-                ensure!(actor.can_remove(&value), UpdateError::InvalidActor);
-            }
-        }
+impl CombineUpdates for IncOrDec {
+    type Error = UpdateError;
+    type Combined = Self;
 
-        Ok(())
+    fn combine(self, other: Self) -> Result<IncOrDec, Self::Error> {
+        let raw_ctr = self.raw() + other.raw();
+        let abs_ctr_u32 = raw_ctr.abs().try_into();
+
+        let res = if raw_ctr >= 0 {
+            NonZeroU32::new(abs_ctr_u32.map_err(|_| UpdateError::Overflow)?)
+                .map_or(IncOrDec::None, IncOrDec::Inc)
+        } else {
+            NonZeroU32::new(abs_ctr_u32.map_err(|_| UpdateError::Underflow)?)
+                .map_or(IncOrDec::None, IncOrDec::Inc)
+        };
+
+        Ok(res)
     }
 }
 
@@ -1096,6 +1184,7 @@ pub enum UpdateError {
     AlreadyExists,
     InvalidActor,
     Overflow,
+    Underflow,
     CapacityOverflow,
     ValidationFailed,
 }
@@ -1104,6 +1193,7 @@ impl From<UpdateError> for DispatchError {
     fn from(error: UpdateError) -> Self {
         Self::Other(match error {
             UpdateError::Overflow => "An overflowed happened",
+            UpdateError::Underflow => "An underflow happened",
             UpdateError::DoesntExist => "Entity doesn't exist",
             UpdateError::AlreadyExists => "Entity already exists",
             UpdateError::InvalidActor => "Provided actor can't perform this action",
@@ -1122,15 +1212,18 @@ mod tests {
     use super::*;
 
     #[derive(Clone, PartialEq, Eq, Debug)]
-    struct S(BoundedBTreeMap<String, u8, ConstU32<5>>);
+    struct Map(BoundedBTreeMap<String, u8, ConstU32<5>>);
+    crate::impl_wrapper!(Map(BoundedBTreeMap<String, u8, ConstU32<5>>));
 
-    crate::impl_wrapper!(S(BoundedBTreeMap<String, u8, ConstU32<5>>));
+    #[derive(Clone, PartialEq, Eq, PartialOrd, Ord, Debug)]
+    struct Counter(NonZeroU32);
+    crate::impl_wrapper!(Counter(NonZeroU32));
 
     struct CanAddAndReplace;
-    impl CanUpdateKeyed<S> for CanAddAndReplace {
-        fn can_update_keyed<U: crate::util::KeyedUpdate<S>>(
+    impl CanUpdateKeyed<Map> for CanAddAndReplace {
+        fn can_update_keyed<U: crate::util::KeyedUpdate<Map>>(
             &self,
-            _entity: &S,
+            _entity: &Map,
             _update: &U,
         ) -> bool {
             true
@@ -1157,10 +1250,20 @@ mod tests {
             true
         }
     }
+    impl CanUpdate<Counter> for CanAdd {
+        fn can_add(&self, _new: &Counter) -> bool {
+            true
+        }
+    }
 
     struct CanRemove;
     impl CanUpdate<u8> for CanRemove {
         fn can_remove(&self, _entity: &u8) -> bool {
+            true
+        }
+    }
+    impl CanUpdate<Counter> for CanRemove {
+        fn can_remove(&self, _new: &Counter) -> bool {
             true
         }
     }
@@ -1171,12 +1274,17 @@ mod tests {
             true
         }
     }
+    impl CanUpdate<Counter> for CanReplace {
+        fn can_replace(&self, _new: &Counter, _current: &Counter) -> bool {
+            true
+        }
+    }
 
     struct CanDoEverything;
-    impl CanUpdateKeyed<S> for CanDoEverything {
-        fn can_update_keyed<U: crate::util::KeyedUpdate<S>>(
+    impl CanUpdateKeyed<Map> for CanDoEverything {
+        fn can_update_keyed<U: crate::util::KeyedUpdate<Map>>(
             &self,
-            _entity: &S,
+            _entity: &Map,
             _update: &U,
         ) -> bool {
             true
@@ -1204,7 +1312,7 @@ mod tests {
             ("2".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
         ]);
 
-        let mut entity = S(BoundedBTreeMap::new());
+        let mut entity = Map(BoundedBTreeMap::new());
         entity.try_insert("3".to_string(), 4).unwrap();
 
         assert_eq!(
@@ -1240,7 +1348,46 @@ mod tests {
     }
 
     #[test]
-    fn update_exceeding_capacity() {
+    fn inc_or_dec() {
+        use IncOrDec::*;
+
+        let mut value = Option::None::<Counter>;
+        Inc(IncOrDec::ONE).ensure_valid(&CanAdd, &value).unwrap();
+        Inc(IncOrDec::ONE).apply_update(&mut value);
+        assert_eq!(value, Some(NonZeroU32::new(1).unwrap().into()));
+        Inc(IncOrDec::ONE)
+            .ensure_valid(&CanReplace, &value)
+            .unwrap();
+        Inc(IncOrDec::ONE)
+            .ensure_valid(&CanRemove, &value)
+            .unwrap_err();
+        Inc(IncOrDec::ONE)
+            .ensure_valid(&CanAdd, &value)
+            .unwrap_err();
+        Inc(IncOrDec::ONE).apply_update(&mut value);
+        assert_eq!(value, Some(NonZeroU32::new(2).unwrap().into()));
+
+        Dec(IncOrDec::ONE)
+            .ensure_valid(&CanReplace, &value)
+            .unwrap();
+        Dec(IncOrDec::ONE).apply_update(&mut value);
+        assert_eq!(value, Some(NonZeroU32::new(1).unwrap().into()));
+        Dec(IncOrDec::ONE).ensure_valid(&CanRemove, &value).unwrap();
+        Dec(IncOrDec::ONE)
+            .ensure_valid(&CanAdd, &value)
+            .unwrap_err();
+        Dec(IncOrDec::ONE)
+            .ensure_valid(&CanReplace, &value)
+            .unwrap_err();
+        Dec(IncOrDec::ONE).apply_update(&mut value);
+        assert_eq!(value, Option::None);
+        Dec(IncOrDec::ONE)
+            .ensure_valid(&CanRemove, &value)
+            .unwrap_err();
+    }
+
+    #[test]
+    fn multi_target_update_exceeding_capacity() {
         let update: MultiTargetUpdate<String, AddOrRemoveOrModify<u8>> =
             MultiTargetUpdate::from_iter([
                 ("2".to_string(), AddOrRemoveOrModify::Add(2)),
@@ -1254,7 +1401,7 @@ mod tests {
                 ("7".to_string(), AddOrRemoveOrModify::Remove::<_, ()>),
             ]);
 
-        let mut entity = S(BoundedBTreeMap::new());
+        let mut entity = Map(BoundedBTreeMap::new());
         entity.try_insert("1".to_string(), 1).unwrap();
         entity.try_insert("3".to_string(), 3).unwrap();
         entity.try_insert("5".to_string(), 5).unwrap();
@@ -1275,7 +1422,7 @@ mod tests {
 
         update.apply_update(&mut entity);
 
-        let mut new_entity = S(BoundedBTreeMap::new());
+        let mut new_entity = Map(BoundedBTreeMap::new());
         new_entity.try_insert("2".to_string(), 2).unwrap();
         new_entity.try_insert("4".to_string(), 4).unwrap();
         new_entity.try_insert("6".to_string(), 6).unwrap();
