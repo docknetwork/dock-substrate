@@ -1,5 +1,5 @@
 #[cfg(feature = "serde")]
-use crate::util::hex;
+use crate::util::serde_hex;
 use crate::{
     common::{HasPolicy, Limits, Policy},
     util::{BoundedBytes, StorageRef},
@@ -126,7 +126,9 @@ impl<T: Limits> From<StatusListCredentialWithPolicy<T>> for StatusListCredential
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct StatusListCredentialId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct StatusListCredentialId(
+    #[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32],
+);
 
 crate::impl_wrapper!(StatusListCredentialId([u8; 32]));
 

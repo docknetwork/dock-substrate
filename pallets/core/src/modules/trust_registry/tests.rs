@@ -5,8 +5,8 @@ use crate::{
     did::base::*,
     tests::common::*,
     util::{
-        Action, AddOrRemoveOrModify, Bytes, MultiTargetUpdate, OnlyExistent, SetOrModify,
-        UpdateError,
+        Action, AddOrRemoveOrModify, Bytes, IncOrDec, MultiTargetUpdate, OnlyExistent, SetOrModify,
+        SingleTargetUpdate,
     },
 };
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -317,7 +317,7 @@ crate::did_or_did_method_key! {
 
             let delegated = UnboundedDelegatedIssuers(
                 (0..10)
-                    .map(|idx| Issuer(Did([idx; 32]).into()))
+                    .map(|_| Issuer(newdid().0.into()))
                     .collect()
             );
             let update_delegated = UpdateDelegatedIssuers {
@@ -682,28 +682,32 @@ crate::did_or_did_method_key! {
                 )
             };
 
-            let schema_ids: Vec<_> = (0..5)
+            let schema_ids_set: BTreeSet<_> = (0..5)
                 .map(|_| rand::random())
                 .map(TrustRegistrySchemaId)
                 .collect();
+            let schema_ids: Vec<_> = schema_ids_set.into_iter().collect();
+
+            let initial_schemas_issuers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
+            let initial_schemas_verifiers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
 
             let mut schemas: BTreeMap<_, _> = schema_ids
                 .iter()
                 .copied()
                 .zip(0..)
-                .map(|(id, idx)| {
+                .zip(initial_schemas_verifiers.values())
+                .zip(initial_schemas_issuers.values())
+                .map(|(((id, idx), verifiers), issuers)| {
                     let issuers = UnboundedIssuersWith(
-                        (0..5)
-                            .map(|_| Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))))
+                        issuers.iter().map(|(did, _)| Issuer((*did).into()))
                             .chain((idx == 0).then_some(Issuer(issuer.into())))
                             .map(|issuer| (issuer, build_initial_prices(5, 5)))
-                            .collect::<BTreeMap<_, _>>()
+                            .collect()
                     );
                     let verifiers = UnboundedTrustRegistrySchemaVerifiers(
-                        (0..5)
-                            .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
+                        verifiers.iter().map(|(did, _)| Verifier((*did).into()))
                             .chain((idx == 0).then_some(Verifier(verifier.into())))
-                            .collect::<BTreeSet<_>>()
+                            .collect()
                     );
 
                     (id, UnboundedTrustRegistrySchemaMetadata { issuers, verifiers })
@@ -756,6 +760,29 @@ crate::did_or_did_method_key! {
             let new_schema_id = TrustRegistrySchemaId([123; 32]);
 
             Mod::set_schemas_metadata(Origin::signed(alice), add_schema_metadata, sig).unwrap();
+
+            for (_schema_id, issuers) in initial_schemas_issuers {
+                for (issuer, kp) in issuers {
+                    let delegated = UnboundedDelegatedIssuers(
+                        (0..10)
+                            .map(|_| Issuer(newdid().0.into()))
+                            .collect()
+                    );
+
+                    let update_delegated = UpdateDelegatedIssuers {
+                        delegated: SetOrModify::Set(delegated.clone()),
+                        registry_id: init_or_update_trust_registry.registry_id,
+                        nonce: 2u32.into(),
+                    };
+                    let sig = did_sig(&update_delegated, &kp, issuer, 1u32);
+
+                    assert_ok!(Pallet::<Test>::update_delegated_issuers(
+                        Origin::signed(alice),
+                        update_delegated,
+                        sig
+                    ));
+                }
+            }
 
             let cases = [
                 (
@@ -1870,6 +1897,41 @@ crate::did_or_did_method_key! {
                         .filter(|(_, set)| !set.is_empty())
                         .map(|(issuer, _)| issuer)
                         .collect(),
+                    "Failed test on line {:?}",
+                    line
+                );
+                assert_eq!(
+                    schemas
+                        .iter()
+                        .flat_map(|(_id, schema)|
+                            schema
+                                .issuers
+                                .keys()
+                                .copied()
+                        )
+                        .flat_map(|issuer| TrustRegistryIssuerConfigurations::<Test>::get(init_or_update_trust_registry.registry_id, issuer).delegated.0)
+                        .map(|delegated_issuer| (delegated_issuer, TrustRegistryDelegatedIssuerSchemas::<Test>::get(init_or_update_trust_registry.registry_id, delegated_issuer)))
+                        .collect::<BTreeMap<_, _>>(),
+                    schemas
+                        .iter()
+                        .flat_map(
+                            |(id, schema)|
+                                schema.issuers.keys().copied().flat_map(
+                                    |issuer|
+                                        TrustRegistryIssuerConfigurations::<Test>::get(init_or_update_trust_registry.registry_id, issuer)
+                                            .delegated
+                                            .0
+                                            .into_iter()
+                                            .map(|delegated_issuer| (delegated_issuer, SingleTargetUpdate::new(id.clone(), IncOrDec::Inc(IncOrDec::ONE))))
+                                )
+                        )
+                        .fold(BTreeMap::<_, DelegatedIssuerSchemas<Test>>::new(), |mut acc, (issuer, update)| {
+                            use crate::util::batch_update::ApplyUpdate;
+
+                            update.apply_update(acc.entry(issuer).or_default());
+
+                            acc
+                        }),
                     "Failed test on line {:?}",
                     line
                 );

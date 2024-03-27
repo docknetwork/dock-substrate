@@ -228,7 +228,11 @@ impl<T: Limits> ApplyUpdate<TrustRegistrySchemaMetadata<T>>
             update.apply_update(verifiers);
         }
     }
+}
 
+impl<T: Limits> GetUpdateKind<TrustRegistrySchemaMetadata<T>>
+    for TrustRegistrySchemaMetadataUpdate<T>
+{
     fn kind(
         &self,
         TrustRegistrySchemaMetadata { issuers, verifiers }: &TrustRegistrySchemaMetadata<T>,
@@ -292,7 +296,11 @@ impl ApplyUpdate<UnboundedTrustRegistrySchemaMetadata>
             update.apply_update(verifiers);
         }
     }
+}
 
+impl GetUpdateKind<UnboundedTrustRegistrySchemaMetadata>
+    for UnboundedTrustRegistrySchemaMetadataUpdate
+{
     fn kind(
         &self,
         UnboundedTrustRegistrySchemaMetadata { issuers, verifiers }: &UnboundedTrustRegistrySchemaMetadata,
@@ -344,11 +352,88 @@ pub trait ExecuteTrustRegistryUpdate<T: Config> {
 /// An update that passed validation.
 pub struct Validated<V>(V);
 
-pub type IssuersVerifiersSchemas = (
+pub type IssuersVerifiersSchemas<
+    Issuers = MultiSchemaIdUpdate<Issuer>,
+    Verifiers = MultiSchemaIdUpdate<Verifier>,
+    Schemas = SchemaIdUpdate,
+> = (Issuers, Verifiers, Schemas);
+
+pub struct IssuersSchemasUpdate(MultiSchemaIdUpdate<Issuer>);
+pub struct IssuersAndDelegatedIssuersSchemasUpdate(
     MultiSchemaIdUpdate<Issuer>,
-    MultiSchemaIdUpdate<Verifier>,
-    SchemaIdUpdate,
+    MultiTargetUpdate<Issuer, SchemaIdUpdate<IncOrDec>>,
 );
+
+impl<T: Config> ValidateTrustRegistryUpdate<T> for IssuersSchemasUpdate {
+    type Context<'ctx> = StorageAccesses;
+    type Result = IssuersAndDelegatedIssuersSchemasUpdate;
+
+    fn validate_and_record_diff(
+        self,
+        actor: ConvenerOrIssuerOrVerifier,
+        registry_id: TrustRegistryId,
+        registry_info: &TrustRegistryInfo<T>,
+        storage_accesses: &mut Self::Context<'_>,
+    ) -> Result<Validated<Self::Result>, Error<T>> {
+        let Validated(issuers_update) = self.0.validate_and_record_diff(
+            actor,
+            registry_id,
+            registry_info,
+            &mut (
+                &mut storage_accesses.issuer_schemas,
+                &mut storage_accesses.issuer_registries,
+            ),
+        )?;
+
+        let combined_delegated_issuers_update = issuers_update
+            .iter()
+            .flat_map(|(issuer, updates)| {
+                storage_accesses.issuer_configuration += 1;
+
+                TrustRegistryIssuerConfigurations::<T>::get(registry_id, issuer)
+                    .delegated
+                    .0
+                    .into_iter()
+                    .map(move |delegated_issuer| (delegated_issuer, updates.clone()))
+            })
+            .try_fold(
+                MultiTargetUpdate::<Issuer, SchemaIdUpdate<IncOrDec>>::default(),
+                |mut acc, (delegated_issuer, updates)| {
+                    let translated_updates = updates
+                        .translate_update()
+                        .map_err(IntoModuleError::into_module_error)?;
+                    let entry = acc.entry(delegated_issuer).or_default();
+                    let existing = core::mem::take(entry);
+                    *entry = existing.combine(translated_updates)?;
+
+                    Ok::<_, Error<T>>(acc)
+                },
+            )?;
+
+        let validated_delegated_issuers_update = combined_delegated_issuers_update
+            .into_iter()
+            .filter_map(|(delegated_issuer, combined_updates)| {
+                storage_accesses.delegated_issuer_schemas += 1;
+
+                let schemas =
+                    TrustRegistryDelegatedIssuerSchemas::<T>::get(registry_id, delegated_issuer);
+
+                check_err!(actor.validate_update(registry_info, &combined_updates, &schemas));
+
+                if combined_updates.kind(&schemas) == UpdateKind::None {
+                    None?
+                }
+
+                Some(Ok((delegated_issuer, combined_updates)))
+            })
+            .collect::<Result<_, Error<T>>>()?;
+
+        Ok(Validated(IssuersAndDelegatedIssuersSchemasUpdate(
+            issuers_update,
+            validated_delegated_issuers_update,
+        )))
+    }
+}
 
 impl<T: Config, Target: HasSchemasAndRegistries<T> + Ord> ValidateTrustRegistryUpdate<T>
     for MultiSchemaIdUpdate<Target>
@@ -501,7 +586,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
     type Context<'ctx> = StorageAccesses;
     type Result = (
         SchemaIdUpdate<SchemaMetadataModification<T>>,
-        IssuersVerifiersSchemas,
+        IssuersVerifiersSchemas<IssuersAndDelegatedIssuersSchemasUpdate>,
     );
 
     fn validate_and_record_diff(
@@ -529,15 +614,8 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
 
         let (issuers_update, verifiers_update, schema_ids_update) = issuers_verifiers_schemas;
 
-        let Validated(issuers_update) = issuers_update.validate_and_record_diff(
-            actor,
-            registry_id,
-            registry_info,
-            &mut (
-                &mut storage_accesses.issuer_schemas,
-                &mut storage_accesses.issuer_registries,
-            ),
-        )?;
+        let Validated(issuers_and_delegated_issuers_update) = IssuersSchemasUpdate(issuers_update)
+            .validate_and_record_diff(actor, registry_id, registry_info, storage_accesses)?;
 
         let Validated(verifiers_update) = verifiers_update.validate_and_record_diff(
             actor,
@@ -558,8 +636,43 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
 
         Ok(Validated((
             update,
-            (issuers_update, verifiers_update, schema_ids_update),
+            (
+                issuers_and_delegated_issuers_update,
+                verifiers_update,
+                schema_ids_update,
+            ),
         )))
+    }
+}
+
+impl<T: Config> ExecuteTrustRegistryUpdate<T>
+    for Validated<IssuersAndDelegatedIssuersSchemasUpdate>
+{
+    type Output = (u32, u32, u32, u32);
+
+    fn execute(self, registry_id: TrustRegistryId) -> Self::Output {
+        let Validated(IssuersAndDelegatedIssuersSchemasUpdate(
+            issuers_update,
+            delegated_issuers_update,
+        )) = self;
+
+        let (iss_schemas, iss_regs) =
+            ExecuteTrustRegistryUpdate::<T>::execute(Validated(issuers_update), registry_id);
+
+        let mut delegated_issuer_schemas = 0;
+        delegated_issuers_update
+            .into_iter()
+            .for_each(|(delegated_issuer, updates)| {
+                delegated_issuer_schemas += 1;
+
+                TrustRegistryDelegatedIssuerSchemas::<T>::mutate(
+                    registry_id,
+                    delegated_issuer,
+                    |schemas| updates.apply_update(schemas),
+                )
+            });
+
+        (iss_schemas, iss_regs, 0, delegated_issuer_schemas)
     }
 }
 
@@ -664,7 +777,7 @@ impl<T: Config> ExecuteTrustRegistryUpdate<T> for Validated<SchemaIdUpdate> {
 impl<T: Config> ExecuteTrustRegistryUpdate<T>
     for Validated<(
         SchemaIdUpdate<SchemaMetadataModification<T>>,
-        IssuersVerifiersSchemas,
+        IssuersVerifiersSchemas<IssuersAndDelegatedIssuersSchemasUpdate>,
     )>
 {
     type Output = StorageAccesses;
@@ -673,7 +786,7 @@ impl<T: Config> ExecuteTrustRegistryUpdate<T>
         let Self((schemas_update, (issuers_update, verifiers_update, schemas_ids_update))) = self;
 
         let schemas = Validated(schemas_update).execute(registry_id);
-        let (issuer_schemas, issuer_registries) =
+        let (issuer_schemas, issuer_registries, issuer_configuration, delegated_issuer_schemas) =
             ExecuteTrustRegistryUpdate::<T>::execute(Validated(issuers_update), registry_id);
         let (verifier_schemas, verifier_registries) =
             ExecuteTrustRegistryUpdate::<T>::execute(Validated(verifiers_update), registry_id);
@@ -683,6 +796,8 @@ impl<T: Config> ExecuteTrustRegistryUpdate<T>
         StorageAccesses {
             issuer_schemas,
             issuer_registries,
+            issuer_configuration,
+            delegated_issuer_schemas,
             verifier_schemas,
             verifier_registries,
             schemas,
