@@ -1350,40 +1350,46 @@ mod tests {
     #[test]
     fn inc_or_dec() {
         use IncOrDec::*;
+        let one = IncOrDec::ONE;
 
         let mut value = Option::None::<Counter>;
-        Inc(IncOrDec::ONE).ensure_valid(&CanAdd, &value).unwrap();
-        Inc(IncOrDec::ONE).apply_update(&mut value);
+        Inc(one).ensure_valid(&CanAdd, &value).unwrap();
+        Inc(one).apply_update(&mut value);
         assert_eq!(value, Some(NonZeroU32::new(1).unwrap().into()));
-        Inc(IncOrDec::ONE)
+        Inc(one)
             .ensure_valid(&CanReplace, &value)
             .unwrap();
-        Inc(IncOrDec::ONE)
+        Inc(one)
             .ensure_valid(&CanRemove, &value)
             .unwrap_err();
-        Inc(IncOrDec::ONE)
+        Inc(one)
             .ensure_valid(&CanAdd, &value)
             .unwrap_err();
-        Inc(IncOrDec::ONE).apply_update(&mut value);
+        Inc(one).apply_update(&mut value);
         assert_eq!(value, Some(NonZeroU32::new(2).unwrap().into()));
 
-        Dec(IncOrDec::ONE)
+        Dec(one)
             .ensure_valid(&CanReplace, &value)
             .unwrap();
-        Dec(IncOrDec::ONE).apply_update(&mut value);
+        Dec(one).apply_update(&mut value);
         assert_eq!(value, Some(NonZeroU32::new(1).unwrap().into()));
-        Dec(IncOrDec::ONE).ensure_valid(&CanRemove, &value).unwrap();
-        Dec(IncOrDec::ONE)
+        Dec(one).ensure_valid(&CanRemove, &value).unwrap();
+        Dec(one)
             .ensure_valid(&CanAdd, &value)
             .unwrap_err();
-        Dec(IncOrDec::ONE)
+        Dec(one)
             .ensure_valid(&CanReplace, &value)
             .unwrap_err();
-        Dec(IncOrDec::ONE).apply_update(&mut value);
+        Dec(one).apply_update(&mut value);
         assert_eq!(value, Option::None);
-        Dec(IncOrDec::ONE)
+        Dec(one)
             .ensure_valid(&CanRemove, &value)
             .unwrap_err();
+
+        assert_eq!(Inc(one).combine(Dec(one)).unwrap(), None);
+        assert_eq!(Inc(one).combine(Inc(one)).unwrap(), Inc(NonZeroU32::new(2).unwrap()));
+        assert_eq!(Dec(one).combine(Dec(one)).unwrap(), Dec(NonZeroU32::new(2).unwrap()));
+        assert_eq!(Dec(one).combine(Inc(one)).unwrap(), None);
     }
 
     #[test]
