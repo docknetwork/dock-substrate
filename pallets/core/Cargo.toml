@@ -16,6 +16,10 @@ features = ["use_alloc"]
 [dependencies.bitflags]
 version = "1.3.2"
 
+[dependencies.hex]
+version = "0.4"
+default-features = false
+
 [dependencies.utils]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
 default-features = false
@@ -28,13 +32,6 @@ features = ["derive", "serde"]
 [dependencies.scale-info-derive]
 git = "https://github.com/docknetwork/scale-info.git"
 branch = "master"
-
-[dependencies.serde-hex]
-package = "hex"
-default-features = false
-version = "0.4.2"
-features = ["serde"]
-optional = true
 
 [dependencies.serde]
 features = ["derive"]
@@ -200,9 +197,9 @@ branch = "polkadot-v0.9.29"
 default = ["std"]
 std = [
     "serde_with/std",
-    "serde-hex/std",
     "codec/std",
     "frame-support/std",
+    "hex/std",
     "itertools/use_std",
     "frame-benchmarking/std",
     "sp-application-crypto/std",
@@ -211,7 +208,6 @@ std = [
     "serde_with",
     "serde-big-array",
     "getrandom/std",
-    "serde-hex",
     "utils/std",
     "serde-big-array",
     "sp-core/std",

@@ -203,7 +203,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 54,
+    spec_version: 55,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -2572,20 +2572,37 @@ impl_runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
+            // use frame_system_benchmarking::Pallet as SystemBench;
             use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
             let mut list = Vec::<BenchmarkList>::new();
 
+            // Core modules
+            list_benchmark!(list, extra, accumulator, Accumulator);
+            list_benchmark!(list, extra, attest, Anchor);
+            list_benchmark!(list, extra, anchor, Attest);
+            list_benchmark!(list, extra, blob, BlobStore);
             list_benchmark!(list, extra, did, DIDModule);
+            list_benchmark!(list, extra, offchain_signatures, OffchainSignatures);
             list_benchmark!(list, extra, revoke, Revoke);
             list_benchmark!(list, extra, status_list_credential, StatusListCredential);
             list_benchmark!(list, extra, trust_registry, TrustRegistry);
-            list_benchmark!(list, extra, blob, BlobStore);
+
+            // Substrate pallets
             list_benchmark!(list, extra, balances, Balances);
-            list_benchmark!(list, extra, dock_token_migration, MigrationModule);
-            list_benchmark!(list, extra, pallet_collective, Council);
             list_benchmark!(list, extra, pallet_staking, Staking);
+            list_benchmark!(list, extra, dock_token_migration, MigrationModule);
+            // list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
+
+            list_benchmark!(list, extra, pallet_collective, Council);
+            list_benchmark!(list, extra, pallet_democracy, Democracy);
+            list_benchmark!(list, extra, pallet_scheduler, Scheduler);
+
+            list_benchmark!(list, extra, pallet_babe, Babe);
+            list_benchmark!(list, extra, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
+            list_benchmark!(list, extra, pallet_grandpa, GrandpaFinality);
+            list_benchmark!(list, extra, pallet_im_online, ImOnline);
 
             macro_rules! storage_info {
                 ($($pallet: ty),+) => {
@@ -2638,15 +2655,8 @@ impl_runtime_apis! {
                 StatusListCredential,
                 TrustRegistry
             );
-            //list_benchmark!(list, extra, pallet_democracy, Democracy);
-            //list_benchmark!(list, extra, pallet_scheduler, Scheduler);
 
-            //list_benchmark!(list, extra, pallet_babe, Babe);
-            //list_benchmark!(list, extra, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
-            //list_benchmark!(list, extra, pallet_grandpa, Grandpa);
-            //list_benchmark!(list, extra, pallet_im_online, ImOnline);
-
-            return (list, storage_info)
+            (list, storage_info)
         }
 
         fn dispatch_benchmark(
@@ -2681,24 +2691,31 @@ impl_runtime_apis! {
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
 
+            // Core modules
+            add_benchmark!(params, batches, accumulator, Accumulator);
+            add_benchmark!(params, batches, attest, Anchor);
+            add_benchmark!(params, batches, anchor, Attest);
+            add_benchmark!(params, batches, blob, BlobStore);
             add_benchmark!(params, batches, did, DIDModule);
+            add_benchmark!(params, batches, offchain_signatures, OffchainSignatures);
             add_benchmark!(params, batches, revoke, Revoke);
             add_benchmark!(params, batches, status_list_credential, StatusListCredential);
             add_benchmark!(params, batches, trust_registry, TrustRegistry);
-            add_benchmark!(params, batches, blob, BlobStore);
+
+            // Substrate pallets
             add_benchmark!(params, batches, balances, Balances);
             add_benchmark!(params, batches, pallet_staking, Staking);
             add_benchmark!(params, batches, dock_token_migration, MigrationModule);
             // add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 
-            //add_benchmark!(params, batches, pallet_collective, Council);
-            //add_benchmark!(params, batches, pallet_democracy, Democracy);
-            //add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            add_benchmark!(params, batches, pallet_collective, Council);
+            add_benchmark!(params, batches, pallet_democracy, Democracy);
+            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
 
-            //add_benchmark!(params, batches, pallet_babe, Babe);
-            //add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
-            //add_benchmark!(params, batches, pallet_grandpa, Grandpa);
-            //add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            add_benchmark!(params, batches, pallet_babe, Babe);
+            add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
+            add_benchmark!(params, batches, pallet_grandpa, GrandpaFinality);
+            add_benchmark!(params, batches, pallet_im_online, ImOnline);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

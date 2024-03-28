@@ -18,7 +18,7 @@ pub type AccumPublicKeyWithParams<T> = (AccumulatorPublicKey<T>, Option<Accumula
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct AccumulatorId(
-    #[cfg_attr(feature = "serde", serde(with = "crate::util::hex"))] pub [u8; 32],
+    #[cfg_attr(feature = "serde", serde(with = "crate::util::serde_hex"))] pub [u8; 32],
 );
 
 crate::impl_wrapper!(AccumulatorId([u8; 32]), with tests as acc_tests);
