@@ -40,6 +40,18 @@
     ansible.builtin.debug:
       msg: "{{ ami_info['images'][-1] }}"
 
+  - name: Attempt to get EC2 instance state
+    amazon.aws.ec2_instance:
+      profile: "{{ aws_profile }}"
+      region: "{{ aws_region }}"
+      name: "{{ instance_name }}"
+    register: instances
+
+  - name: Existing EC2 instance info
+    when: "instances | length > 0"
+    ansible.builtin.debug:
+      msg: Existing EC2 instance {{ instances['instances'][0]['instance_id'] }} with IP {{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }} and security groups {{ instances['instances'][0] | json_query('security_groups[*].group_id') }}
+
   - name: Run new AWS EC2 instance
     amazon.aws.ec2_instance:
       profile: "{{ aws_profile }}"
@@ -50,8 +62,7 @@
       instance_type: "{{ instance_type | default('t3.large') }}"
       state: "running"
       wait: true
-      security_groups: 
-        - "Substrate P2P (created by ansible)"
+      security_groups: "{{ instances | json_query('instances[0].security_groups[*].group_id') + [\"Substrate P2P (created by ansible)\"] }}"
       network:
         delete_on_termination: true
       image_id: "{{ ami_info['images'][-1]['image_id'] }}"
@@ -66,6 +77,7 @@
     register: instances
 
   - name: EC2 instance info
+    when: "instances | length == 0"
     ansible.builtin.debug:
       msg: Created public EC2 instance {{ instances['instances'][0]['instance_id'] }} with IP {{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}
 
