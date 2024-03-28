@@ -1171,7 +1171,7 @@ impl CombineUpdates for IncOrDec {
                 .map_or(IncOrDec::None, IncOrDec::Inc)
         } else {
             NonZeroU32::new(abs_ctr_u32.map_err(|_| UpdateError::Underflow)?)
-                .map_or(IncOrDec::None, IncOrDec::Inc)
+                .map_or(IncOrDec::None, IncOrDec::Dec)
         };
 
         Ok(res)
