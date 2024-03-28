@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ID_BYTE_SIZE"],"enum":["Call","Error"],"mod":["pallet"],"struct":["AddBlob","Blob","BlobOwner","Pallet"],"trait":["Config"],"type":["BlobId","Blobs","Module"]};

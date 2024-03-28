@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["RemoveStatusListCredentialRaw","UpdateStatusListCredentialRaw"],"type":["RemoveStatusListCredential","UpdateStatusListCredential"]};

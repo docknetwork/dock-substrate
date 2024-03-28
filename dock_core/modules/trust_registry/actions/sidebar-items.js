@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["InitOrUpdateTrustRegistry","SetSchemasMetadata","SuspendIssuers","UnsuspendIssuers","UpdateDelegatedIssuers"]};

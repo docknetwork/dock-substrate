@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["OldPolicy","Policy","PolicyExecutionError","PolicyValidationError"],"struct":["DidSignatureWithNonce","PolicyExecutor"],"trait":["HasPolicy"]};

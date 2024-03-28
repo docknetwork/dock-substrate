@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["AnyOfOrAll"],"struct":["MapToPairs","QueryTrustRegistriesBy","QueryTrustRegistryBy"]};
