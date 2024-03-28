@@ -511,8 +511,8 @@ crate::did_or_did_method_key! {
                     assert!(AccumMod::get_accumulator_with_public_key_and_params(&$id).is_none());
                     next_nonce = next_nonce + 1;
 
-                    run_to_block(current_block + 10);
                     current_block += 10;
+                    run_to_block(current_block);
                 }}
             }
 
