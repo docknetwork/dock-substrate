@@ -4,7 +4,7 @@ use itertools::Itertools;
 use super::{types::*, *};
 use crate::util::{
     ActionExecutionError, ApplyUpdate, IncOrDec, MultiTargetUpdate, NonceError, TranslateUpdate,
-    ValidateUpdate,
+    UpdateError, ValidateUpdate,
 };
 use alloc::collections::BTreeSet;
 
@@ -91,7 +91,12 @@ impl<T: Config> Pallet<T> {
             .map_err(IntoModuleError::into_module_error)?;
 
         TrustRegistryIssuerConfigurations::<T>::try_mutate(registry_id, issuer, |config| {
-            delegated.ensure_valid(&issuer, &config.delegated)?;
+            delegated
+                .ensure_valid(&issuer, &config.delegated)
+                .map_err(|err| match err {
+                    UpdateError::InvalidActor => Error::<T>::IssuerCantDelegateToHimself,
+                    other => other.into(),
+                })?;
 
             let issuer_schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
             let issuers_diff: MultiTargetUpdate<Issuer, IncOrDec> = delegated
