@@ -308,7 +308,7 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
-            let base_weight = T::DbWeight::get().reads_writes(4, 2).saturating_add(
+            let base_weight = T::DbWeight::get().reads_writes(3, 1).saturating_add(
                 SubstrateWeight::<ZeroDbWeight>::set_schemas_metadata(
                     &set_schemas_metadata,
                     &signature,
