@@ -11,7 +11,7 @@ use sp_runtime::traits::TryCollect;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 
-const MIN_CREDENTIAL_SIZE: u32 = 100;
+const MIN_CREDENTIAL_SIZE: u32 = 1000;
 const MAX_CREDENTIAL_SIZE: u32 = 10_000;
 const MAX_POLICY_CONTROLLERS: u32 = 15;
 
