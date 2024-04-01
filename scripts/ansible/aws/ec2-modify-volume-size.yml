@@ -59,7 +59,7 @@
     register: result
     until: result.stdout.find('completed') != -1 or result.stdout.find('optimizing') != -1
     retries: 60
-    delay: 5
+    delay: 30
     changed_when: False
     when:
       - not ansible_check_mode
