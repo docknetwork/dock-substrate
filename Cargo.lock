@@ -5381,6 +5381,7 @@ name = "pallet-elections-phragmen"
 version = "5.0.0-dev"
 source = "git+https://github.com/docknetwork/dock-substrate-common.git?branch=approve-candidacy#bf3e6a24bd31f4a2ef926dec554d0650765bd11d"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
