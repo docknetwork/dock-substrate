@@ -170,6 +170,19 @@
       src: "{{ chains_data_path }}"
       dest: /var/lib/docker/volumes/dock-chain-data/_data
 
+  - name: Find old AWS Cloudwatch Agent downloads
+    find:
+      paths: "/home/ubuntu"
+      patterns: "amazon-cloudwatch-agent.deb*"
+    register: amazon_cloudwatch_agent_downloads
+
+  - name: Cleanup old AWS Cloudwatch Agent downloads
+    when: amazon_cloudwatch_agent_downloads['files'] | default([]) | length > 0
+    file:
+      path: "{{ item['path'] }}"
+      state: absent
+    with_items: "{{ amazon_cloudwatch_agent_downloads['files'] }}"
+
   - name: Download AWS Cloudwatch Agent
     when: export_aws_metrics_bool
     ansible.builtin.command: wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
