@@ -36,7 +36,7 @@ hex = { version = "0.4", default-features = false }
 
 [dependencies.utils]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "approve-candidacy"
+branch = "identity-provider"
 default-features = false
 
 [dependencies.pallet-babe]
@@ -279,7 +279,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-collective]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "approve-candidacy"
+branch = "identity-provider"
 
 [dependencies.pallet-membership]
 default-features = false
@@ -319,7 +319,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-staking]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "approve-candidacy"
+branch = "identity-provider"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
@@ -354,12 +354,12 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-democracy]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "approve-candidacy"
+branch = "identity-provider"
 
 [dependencies.pallet-elections-phragmen]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "approve-candidacy"
+branch = "identity-provider"
 
 [dependencies.hex-literal]
 version = "0.3.4"
@@ -446,7 +446,7 @@ path = "../pallets/core"
 [dependencies.dock-price-feed]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "approve-candidacy"
+branch = "identity-provider"
 
 [dependencies.libsecp256k1]
 version = "0.7"

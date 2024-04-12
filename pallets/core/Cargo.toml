@@ -22,7 +22,7 @@ default-features = false
 
 [dependencies.utils]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-branch = "approve-candidacy"
+branch = "identity-provider"
 default-features = false
 
 [dependencies.scale-info]
