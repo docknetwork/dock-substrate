@@ -94,7 +94,7 @@ use sp_runtime::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
         ValidTransaction,
     },
-    ApplyExtrinsicResult, DispatchError, FixedPointNumber, MultiSignature, Perbill, Percent,
+    ApplyExtrinsicResult, DispatchResult, FixedPointNumber, MultiSignature, Perbill, Percent,
     Permill, Perquintill, SaturatedConversion,
 };
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
