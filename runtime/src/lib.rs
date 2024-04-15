@@ -1304,7 +1304,7 @@ impl pallet_elections_phragmen::Config for Runtime {
     type DesiredMembers = DesiredMembers;
     type DesiredRunnersUp = DesiredRunnersUp;
     type TermDuration = TermDuration;
-    type CandidateIdentityProvider = PalletIdentityProvider<Self>;
+    type CandidateIdentityProvider = identity_provider::PalletIdentityAsIdentityProvider<Self>;
     type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1626,78 +1626,82 @@ parameter_types! {
     pub const MaxRegistrars: u32 = 20;
 }
 
-pub struct PalletIdentityProvider<T: pallet_identity::Config>(pallet_identity::Pallet<T>);
-
-impl<T: pallet_identity::Config> utils::IdentityProvider<T> for PalletIdentityProvider<T> {
-    type Identity = pallet_identity::Registration<
-        <<T as pallet_identity::Config>::Currency as Currency<
-            <T as frame_system::Config>::AccountId,
-        >>::Balance,
-        T::MaxRegistrars,
-        T::MaxAdditionalFields,
-    >;
-
-    fn identity(who: &T::AccountId) -> Option<Self::Identity> {
-        pallet_identity::Pallet::<T>::identity(who)
-    }
-}
-
-#[cfg(feature = "runtime-benchmarks")]
-mod identity_setter {
+mod identity_provider {
     use super::*;
-    use frame_support::storage_alias;
-    use pallet_identity::IdentityInfo;
 
-    type StoredIdentity<T> = Registration<
-        <<T as pallet_identity::Config>::Currency as Currency<
-            <T as frame_system::Config>::AccountId,
-        >>::Balance,
+    /// A wrapper that implements `IdentityProvider`/`IdentitySetter` traits for the `Identity` pallet.
+    pub struct PalletIdentityAsIdentityProvider<T: pallet_identity::Config>(
+        pallet_identity::Pallet<T>,
+    );
+
+    type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Currency<
+        <T as frame_system::Config>::AccountId,
+    >>::Balance;
+    type Registration<T> = pallet_identity::Registration<
+        BalanceOf<T>,
         <T as pallet_identity::Config>::MaxRegistrars,
         <T as pallet_identity::Config>::MaxAdditionalFields,
     >;
 
-    #[storage_alias]
-    type IdentityOf<T: pallet_identity::Config> = StorageMap<
-        pallet_identity::Pallet<T>,
-        frame_support::Twox64Concat,
-        <T as frame_system::Config>::AccountId,
-        StoredIdentity<T>,
-        frame_support::pallet_prelude::OptionQuery,
-    >;
+    impl<T: pallet_identity::Config> utils::IdentityProvider<T>
+        for PalletIdentityAsIdentityProvider<T>
+    {
+        type Identity = Registration<T>;
 
-    impl<T: pallet_identity::Config> utils::IdentitySetter<T> for PalletIdentityProvider<T> {
-        type IdentityInfo = Option<StoredIdentity<T>>;
-
-        fn set_identity(account: T::AccountId, identity: Self::IdentityInfo) -> DispatchResult {
-            IdentityOf::<T>::insert(
-                account,
-                identity.unwrap_or(Registration {
-                    judgements: Default::default(),
-                    deposit: Default::default(),
-                    info: IdentityInfo {
-                        additional: Default::default(),
-                        display: Default::default(),
-                        legal: Default::default(),
-                        web: Default::default(),
-                        riot: Default::default(),
-                        email: Default::default(),
-                        pgp_fingerprint: Default::default(),
-                        image: Default::default(),
-                        twitter: Default::default(),
-                    },
-                }),
-            );
-
-            Ok(())
+        fn identity(who: &T::AccountId) -> Option<Self::Identity> {
+            pallet_identity::Pallet::<T>::identity(who)
         }
+    }
 
-        fn remove_identity(account: &T::AccountId) -> DispatchResult {
-            frame_support::ensure!(
-                IdentityOf::<T>::take(account).is_some(),
-                pallet_identity::Error::<T>::NoIdentity
-            );
+    #[cfg(feature = "runtime-benchmarks")]
+    mod identity_setter {
+        use super::*;
+        use frame_support::storage_alias;
+        use pallet_identity::IdentityInfo;
 
-            Ok(())
+        #[storage_alias]
+        type IdentityOf<T: pallet_identity::Config> = StorageMap<
+            pallet_identity::Pallet<T>,
+            frame_support::Twox64Concat,
+            <T as frame_system::Config>::AccountId,
+            Registration<T>,
+            frame_support::pallet_prelude::OptionQuery,
+        >;
+
+        impl<T: pallet_identity::Config> utils::IdentitySetter<T> for PalletIdentityAsIdentityProvider<T> {
+            type IdentityInfo = Option<Registration<T>>;
+
+            fn set_identity(account: T::AccountId, identity: Self::IdentityInfo) -> DispatchResult {
+                IdentityOf::<T>::insert(
+                    account,
+                    identity.unwrap_or_else(|| pallet_identity::Registration {
+                        judgements: Default::default(),
+                        deposit: Default::default(),
+                        info: IdentityInfo {
+                            additional: Default::default(),
+                            display: Default::default(),
+                            legal: Default::default(),
+                            web: Default::default(),
+                            riot: Default::default(),
+                            email: Default::default(),
+                            pgp_fingerprint: Default::default(),
+                            image: Default::default(),
+                            twitter: Default::default(),
+                        },
+                    }),
+                );
+
+                Ok(())
+            }
+
+            fn remove_identity(account: &T::AccountId) -> DispatchResult {
+                frame_support::ensure!(
+                    IdentityOf::<T>::take(account).is_some(),
+                    pallet_identity::Error::<T>::NoIdentity
+                );
+
+                Ok(())
+            }
         }
     }
 }
