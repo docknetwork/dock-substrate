@@ -49,6 +49,10 @@ jobs:
           verbose: 3
           extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
 
+      - name: Wait for AWS to finish provisioning the disk
+        run: sleep 30m
+        shell: bash
+
       - name: Extend file system
         id: extend-file-system
         uses: nohmad/aws-ssm-send-command-action@master
