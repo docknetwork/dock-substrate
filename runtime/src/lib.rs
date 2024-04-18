@@ -32,7 +32,6 @@ mod wasm {
     const _: Option<&[u8]> = WASM_BINARY_BLOATY;
 }
 
-use pallet_identity::Registration;
 #[cfg(feature = "std")]
 pub use wasm::WASM_BINARY;
 
@@ -1640,10 +1639,23 @@ impl<T: pallet_identity::Config> utils::IdentityProvider<T> for PalletIdentityPr
     fn identity(who: &T::AccountId) -> Option<Self::Identity> {
         pallet_identity::Pallet::<T>::identity(who)
     }
+
+    fn has_verified_identity(who: &T::AccountId) -> bool {
+        Self::identity(who).map_or(false, |identity| {
+            use pallet_identity::Judgement::*;
+
+            identity
+                .judgements
+                .iter()
+                .any(|(_idx, judjement)| matches!(judjement, KnownGood | Reasonable))
+        })
+    }
 }
 
 #[cfg(feature = "runtime-benchmarks")]
 mod identity_setter {
+    use pallet_identity::{Judgement, Registration};
+
     use super::*;
     use frame_support::storage_alias;
     use pallet_identity::IdentityInfo;
@@ -1672,7 +1684,8 @@ mod identity_setter {
             IdentityOf::<T>::insert(
                 account,
                 identity.unwrap_or(Registration {
-                    judgements: Default::default(),
+                    // Create a single dummy judgement to pass the verified identity check
+                    judgements: vec![(0, Judgement::Reasonable)].try_into().unwrap(),
                     deposit: Default::default(),
                     info: IdentityInfo {
                         additional: Default::default(),
