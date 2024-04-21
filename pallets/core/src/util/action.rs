@@ -165,8 +165,8 @@ pub trait ActionWithNonce<T: Types>: Action {
     where
         S: Signature,
     {
-        let wrapped =
-            ActionWrapper::new(self.nonce(), signature.signer().ok_or(InvalidSigner)?, self);
+        let signer = signature.signer().ok_or(InvalidSigner)?;
+        let wrapped = ActionWrapper::new(self.nonce(), signer, self);
 
         Ok(wrapped.signed(signature))
     }
