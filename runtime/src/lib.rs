@@ -1627,11 +1627,45 @@ parameter_types! {
 
 mod identity_provider {
     use super::*;
+    use utils::{Identity, IdentityProvider};
 
     /// A wrapper that implements `IdentityProvider`/`IdentitySetter` traits for the `Identity` pallet.
     pub struct PalletIdentityAsIdentityProvider<T: pallet_identity::Config>(
         pallet_identity::Pallet<T>,
     );
+
+    /// Registration for the identity.
+    #[derive(Clone, PartialEq, Eq, Debug)]
+    pub struct RegisteredIdentity<T: pallet_identity::Config>(Registration<T>);
+
+    impl<T: pallet_identity::Config> Identity for RegisteredIdentity<T> {
+        type Info =
+            pallet_identity::IdentityInfo<<T as pallet_identity::Config>::MaxAdditionalFields>;
+        type Justification = (u32, pallet_identity::Judgement<BalanceOf<T>>);
+
+        fn verified(&self) -> bool {
+            use pallet_identity::Judgement::*;
+
+            self.0
+                .judgements
+                .iter()
+                .any(|(_idx, judjement)| matches!(judjement, KnownGood | Reasonable))
+        }
+
+        fn info(&self) -> &Self::Info {
+            &self.0.info
+        }
+
+        fn verify(
+            &mut self,
+            justification: (u32, pallet_identity::Judgement<BalanceOf<T>>),
+        ) -> DispatchResult {
+            self.0
+                .judgements
+                .try_push(justification)
+                .ok_or(pallet_identity::Error::<T>::TooManyRegistrars.into())
+        }
+    }
 
     type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Currency<
         <T as frame_system::Config>::AccountId,
@@ -1642,24 +1676,11 @@ mod identity_provider {
         <T as pallet_identity::Config>::MaxAdditionalFields,
     >;
 
-    impl<T: pallet_identity::Config> utils::IdentityProvider<T>
-        for PalletIdentityAsIdentityProvider<T>
-    {
-        type Identity = Registration<T>;
+    impl<T: pallet_identity::Config> IdentityProvider<T> for PalletIdentityAsIdentityProvider<T> {
+        type Identity = RegisteredIdentity<T>;
 
         fn identity(who: &T::AccountId) -> Option<Self::Identity> {
-            pallet_identity::Pallet::<T>::identity(who)
-        }
-
-        fn has_verified_identity(who: &T::AccountId) -> bool {
-            Self::identity(who).map_or(false, |identity| {
-                use pallet_identity::Judgement::*;
-
-                identity
-                    .judgements
-                    .iter()
-                    .any(|(_idx, judjement)| matches!(judjement, KnownGood | Reasonable))
-            })
+            pallet_identity::Pallet::<T>::identity(who).map(RegisteredIdentity)
         }
     }
 
@@ -1668,6 +1689,7 @@ mod identity_provider {
         use super::*;
         use frame_support::storage_alias;
         use pallet_identity::IdentityInfo;
+        use utils::IdentitySetter;
 
         #[storage_alias]
         type IdentityOf<T: pallet_identity::Config> = StorageMap<
@@ -1678,16 +1700,17 @@ mod identity_provider {
             frame_support::pallet_prelude::OptionQuery,
         >;
 
-        impl<T: pallet_identity::Config> utils::IdentitySetter<T> for PalletIdentityAsIdentityProvider<T> {
-            type IdentityInfo = Option<Registration<T>>;
-
-            fn set_identity(account: T::AccountId, identity: Self::IdentityInfo) -> DispatchResult {
+        impl<T: pallet_identity::Config> IdentitySetter<T> for PalletIdentityAsIdentityProvider<T> {
+            fn set_identity(
+                account: T::AccountId,
+                info: <Self::Identity as Identity>::Info,
+            ) -> DispatchResult {
                 IdentityOf::<T>::insert(
                     account,
-                    identity.unwrap_or_else(|| pallet_identity::Registration {
+                    pallet_identity::Registration {
                         judgements: Default::default(),
                         deposit: Default::default(),
-                        info: IdentityInfo {
+                        info: info.unwrap_or_else(|| IdentityInfo {
                             additional: Default::default(),
                             display: Default::default(),
                             legal: Default::default(),
@@ -1697,11 +1720,23 @@ mod identity_provider {
                             pgp_fingerprint: Default::default(),
                             image: Default::default(),
                             twitter: Default::default(),
-                        },
-                    }),
+                        }),
+                    },
                 );
 
                 Ok(())
+            }
+
+            fn verify_identity(
+                account: &T::AccountId,
+                justification: <Self::Identity as Identity>::Justification,
+            ) -> DispatchResult {
+                IdentityOf::<T>::try_mutate(account, |identity| {
+                    identity
+                        .as_mut()
+                        .ok_or(pallet_identity::Error::<T>::NotFound)?
+                        .verify(justification)
+                })
             }
 
             fn remove_identity(account: &T::AccountId) -> DispatchResult {
