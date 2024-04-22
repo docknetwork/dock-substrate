@@ -1631,17 +1631,38 @@ mod identity_provider {
 
     /// A wrapper that implements `IdentityProvider`/`IdentitySetter` traits for the `Identity` pallet.
     pub struct PalletIdentityAsIdentityProvider<T: pallet_identity::Config>(
-        pallet_identity::Pallet<T>,
+        pub pallet_identity::Pallet<T>,
     );
 
     /// Registration for the identity.
-    #[derive(Clone, PartialEq, Eq, Debug)]
-    pub struct RegisteredIdentity<T: pallet_identity::Config>(Registration<T>);
+    #[derive(Clone, Debug)]
+    pub struct RegisteredIdentity<T: pallet_identity::Config>(pub Registration<T>);
+
+    /// Identity information.
+    #[derive(Clone, Debug)]
+    pub struct IdentityInfo<T: pallet_identity::Config>(
+        pub pallet_identity::IdentityInfo<<T as pallet_identity::Config>::MaxAdditionalFields>,
+    );
+
+    impl<T: pallet_identity::Config> Default for IdentityInfo<T> {
+        fn default() -> Self {
+            Self(pallet_identity::IdentityInfo {
+                additional: Default::default(),
+                display: Default::default(),
+                legal: Default::default(),
+                web: Default::default(),
+                riot: Default::default(),
+                email: Default::default(),
+                pgp_fingerprint: Default::default(),
+                image: Default::default(),
+                twitter: Default::default(),
+            })
+        }
+    }
 
     impl<T: pallet_identity::Config> Identity for RegisteredIdentity<T> {
-        type Info =
-            pallet_identity::IdentityInfo<<T as pallet_identity::Config>::MaxAdditionalFields>;
-        type Justification = (u32, pallet_identity::Judgement<BalanceOf<T>>);
+        type Info = IdentityInfo<T>;
+        type Justification = Option<(u32, pallet_identity::Judgement<BalanceOf<T>>)>;
 
         fn verified(&self) -> bool {
             use pallet_identity::Judgement::*;
@@ -1652,18 +1673,15 @@ mod identity_provider {
                 .any(|(_idx, judjement)| matches!(judjement, KnownGood | Reasonable))
         }
 
-        fn info(&self) -> &Self::Info {
-            &self.0.info
+        fn info(&self) -> Self::Info {
+            IdentityInfo(self.0.info.clone())
         }
 
-        fn verify(
-            &mut self,
-            justification: (u32, pallet_identity::Judgement<BalanceOf<T>>),
-        ) -> DispatchResult {
+        fn verify(&mut self, justification: Self::Justification) -> DispatchResult {
             self.0
                 .judgements
-                .try_push(justification)
-                .ok_or(pallet_identity::Error::<T>::TooManyRegistrars.into())
+                .try_push(justification.unwrap_or((0, pallet_identity::Judgement::KnownGood)))
+                .map_err(|_| pallet_identity::Error::<T>::TooManyRegistrars.into())
         }
     }
 
@@ -1710,17 +1728,7 @@ mod identity_provider {
                     pallet_identity::Registration {
                         judgements: Default::default(),
                         deposit: Default::default(),
-                        info: info.unwrap_or_else(|| IdentityInfo {
-                            additional: Default::default(),
-                            display: Default::default(),
-                            legal: Default::default(),
-                            web: Default::default(),
-                            riot: Default::default(),
-                            email: Default::default(),
-                            pgp_fingerprint: Default::default(),
-                            image: Default::default(),
-                            twitter: Default::default(),
-                        }),
+                        info: info.unwrap_or_default(),
                     },
                 );
 
