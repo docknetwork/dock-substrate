@@ -514,6 +514,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-elections-phragmen]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 
 [dependencies.dock-staking-rewards]
 path = "../pallets/staking-rewards"
@@ -527,6 +528,7 @@ rev = "dc50c3d973d1f53434c7a03e426faa9c20062f60"
 
 [dependencies.dock-price-feed-rpc]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 
 [dependencies.dock-staking-rewards-rpc]
 path = "../pallets/staking-rewards/rpc"
@@ -536,6 +538,7 @@ path = "../pallets/core/rpc"
 
 [dependencies.pallet-staking]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 
 [dependencies.fp-consensus]
 git = "https://github.com/docknetwork/frontier.git"

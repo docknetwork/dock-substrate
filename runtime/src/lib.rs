@@ -1303,6 +1303,7 @@ impl pallet_elections_phragmen::Config for Runtime {
     type DesiredMembers = DesiredMembers;
     type DesiredRunnersUp = DesiredRunnersUp;
     type TermDuration = TermDuration;
+    type CandidateIdentityProvider = identity_provider::PalletIdentityAsIdentityProvider<Self>;
     type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1622,6 +1623,140 @@ parameter_types! {
     pub const MaxSubAccounts: u32 = 100;
     pub const MaxAdditionalFields: u32 = 100;
     pub const MaxRegistrars: u32 = 20;
+}
+
+mod identity_provider {
+    use super::*;
+    use utils::{Identity, IdentityProvider};
+
+    /// A wrapper that implements `IdentityProvider`/`IdentitySetter` traits for the `Identity` pallet.
+    pub struct PalletIdentityAsIdentityProvider<T: pallet_identity::Config>(
+        pub pallet_identity::Pallet<T>,
+    );
+
+    /// Registration for the identity.
+    #[derive(Clone, Debug)]
+    pub struct RegisteredIdentity<T: pallet_identity::Config>(pub Registration<T>);
+
+    /// Identity information.
+    #[derive(Clone, Debug)]
+    pub struct IdentityInfo<T: pallet_identity::Config>(
+        pub pallet_identity::IdentityInfo<<T as pallet_identity::Config>::MaxAdditionalFields>,
+    );
+
+    impl<T: pallet_identity::Config> Default for IdentityInfo<T> {
+        fn default() -> Self {
+            Self(pallet_identity::IdentityInfo {
+                additional: Default::default(),
+                display: Default::default(),
+                legal: Default::default(),
+                web: Default::default(),
+                riot: Default::default(),
+                email: Default::default(),
+                pgp_fingerprint: Default::default(),
+                image: Default::default(),
+                twitter: Default::default(),
+            })
+        }
+    }
+
+    impl<T: pallet_identity::Config> Identity for RegisteredIdentity<T> {
+        type Info = IdentityInfo<T>;
+        type Justification = Option<(u32, pallet_identity::Judgement<BalanceOf<T>>)>;
+
+        fn verified(&self) -> bool {
+            use pallet_identity::Judgement::*;
+
+            self.0
+                .judgements
+                .iter()
+                .any(|(_idx, judjement)| matches!(judjement, KnownGood | Reasonable))
+        }
+
+        fn info(&self) -> Self::Info {
+            IdentityInfo(self.0.info.clone())
+        }
+
+        fn verify(&mut self, justification: Self::Justification) -> DispatchResult {
+            self.0
+                .judgements
+                .try_push(justification.unwrap_or((0, pallet_identity::Judgement::KnownGood)))
+                .map_err(|_| pallet_identity::Error::<T>::TooManyRegistrars.into())
+        }
+    }
+
+    type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Currency<
+        <T as frame_system::Config>::AccountId,
+    >>::Balance;
+    type Registration<T> = pallet_identity::Registration<
+        BalanceOf<T>,
+        <T as pallet_identity::Config>::MaxRegistrars,
+        <T as pallet_identity::Config>::MaxAdditionalFields,
+    >;
+
+    impl<T: pallet_identity::Config> IdentityProvider<T> for PalletIdentityAsIdentityProvider<T> {
+        type Identity = RegisteredIdentity<T>;
+
+        fn identity(who: &T::AccountId) -> Option<Self::Identity> {
+            pallet_identity::Pallet::<T>::identity(who).map(RegisteredIdentity)
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    mod identity_setter {
+        use super::*;
+        use frame_support::storage_alias;
+        use pallet_identity::IdentityInfo;
+        use utils::IdentitySetter;
+
+        #[storage_alias]
+        type IdentityOf<T: pallet_identity::Config> = StorageMap<
+            pallet_identity::Pallet<T>,
+            frame_support::Twox64Concat,
+            <T as frame_system::Config>::AccountId,
+            Registration<T>,
+            frame_support::pallet_prelude::OptionQuery,
+        >;
+
+        impl<T: pallet_identity::Config> IdentitySetter<T> for PalletIdentityAsIdentityProvider<T> {
+            fn set_identity(
+                account: T::AccountId,
+                info: <Self::Identity as Identity>::Info,
+            ) -> DispatchResult {
+                IdentityOf::<T>::insert(
+                    account,
+                    pallet_identity::Registration {
+                        judgements: Default::default(),
+                        deposit: Default::default(),
+                        info: info.unwrap_or_default(),
+                    },
+                );
+
+                Ok(())
+            }
+
+            fn verify_identity(
+                account: &T::AccountId,
+                justification: <Self::Identity as Identity>::Justification,
+            ) -> DispatchResult {
+                IdentityOf::<T>::try_mutate(account, |identity| {
+                    identity
+                        .as_mut()
+                        .ok_or(pallet_identity::Error::<T>::NotFound)?
+                        .verify(justification)
+                })
+            }
+
+            fn remove_identity(account: &T::AccountId) -> DispatchResult {
+                frame_support::ensure!(
+                    IdentityOf::<T>::take(account).is_some(),
+                    pallet_identity::Error::<T>::NoIdentity
+                );
+
+                Ok(())
+            }
+        }
+    }
 }
 
 impl pallet_identity::Config for Runtime {
@@ -2597,6 +2732,7 @@ impl_runtime_apis! {
 
             list_benchmark!(list, extra, pallet_collective, Council);
             list_benchmark!(list, extra, pallet_democracy, Democracy);
+            list_benchmark!(list, extra, pallet_elections_phragmen, Elections);
             list_benchmark!(list, extra, pallet_scheduler, Scheduler);
 
             list_benchmark!(list, extra, pallet_babe, Babe);
@@ -2710,6 +2846,7 @@ impl_runtime_apis! {
 
             add_benchmark!(params, batches, pallet_collective, Council);
             add_benchmark!(params, batches, pallet_democracy, Democracy);
+            add_benchmark!(params, batches, pallet_elections_phragmen, Elections);
             add_benchmark!(params, batches, pallet_scheduler, Scheduler);
 
             add_benchmark!(params, batches, pallet_babe, Babe);
