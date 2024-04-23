@@ -74,7 +74,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
           AWS_DEFAULT_REGION: ${{ inputs.aws_region }}
         run: |
-          echo "COMMAND_OUTPUT=$(aws ssm list-command-invocations --command-id "${{ steps.extend-file-system.outputs.command-id }}" --details)" >> $GITHUB_ENV
+          echo "COMMAND_OUTPUT=$(aws ssm list-command-invocations --command-id ${{ steps.extend-file-system.outputs.command-id }} --details)" >> $GITHUB_ENV
 
       - name: Check SSM output    
         if: steps.get-ssm-output.outcome == 'success' && contains(env.COMMAND_OUTPUT, 'error')
