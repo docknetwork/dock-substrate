@@ -1,4 +1,5 @@
 use super::*;
+use crate::util::AnyOfOrAll;
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::{convert::identity, iter::repeat};
 use itertools::Itertools;
@@ -36,47 +37,6 @@ pub struct QueryTrustRegistryBy {
     issuers_or_verifiers: Option<AnyOfOrAll<IssuerOrVerifier>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     schema_ids: Option<BTreeSet<TrustRegistrySchemaId>>,
-}
-
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub enum AnyOfOrAll<V: Ord> {
-    AnyOf(BTreeSet<V>),
-    All(BTreeSet<V>),
-}
-
-impl<V: Ord> AnyOfOrAll<V> {
-    pub fn satisfy(&self, others: &BTreeSet<V>) -> bool {
-        match self {
-            Self::AnyOf(values) => !values.is_disjoint(others),
-            Self::All(values) => values.is_subset(others),
-        }
-    }
-
-    pub fn transform_by_applying_rule<I, F>(self, f: F) -> BTreeSet<I::Item>
-    where
-        F: FnMut(V) -> I,
-        I: IntoIterator,
-        I::Item: Ord,
-    {
-        match self {
-            Self::AnyOf(items) => items.into_iter().flat_map(f).collect(),
-            Self::All(items) => {
-                let len = items.len();
-
-                items
-                    .into_iter()
-                    .map(f)
-                    .kmerge()
-                    .dedup_with_count()
-                    .filter_map(|(count, value)| (count == len).then_some(value))
-                    .collect()
-            }
-        }
-    }
 }
 
 impl QueryTrustRegistryBy {

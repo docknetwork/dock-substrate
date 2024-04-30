@@ -1,8 +1,8 @@
 #[cfg(feature = "serde")]
 use crate::util::serde_hex;
 use crate::{
-    common::{HasPolicy, Limits, Policy},
-    util::{BoundedBytes, StorageRef},
+    common::{Limits, Policy, PolicyExecutor},
+    util::{AnyOfOrAll, BoundedBytes, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::fmt::Debug;
@@ -76,12 +76,6 @@ pub struct StatusListCredentialWithPolicy<T: Limits> {
     pub policy: Policy<T>,
 }
 
-impl<T: Limits> HasPolicy<T> for StatusListCredentialWithPolicy<T> {
-    fn policy(&self) -> &Policy<T> {
-        &self.policy
-    }
-}
-
 impl<T: Limits> StatusListCredentialWithPolicy<T> {
     /// Returns underlying raw bytes.
     pub fn bytes(&self) -> &[u8] {
@@ -107,6 +101,10 @@ impl<T: Limits> StatusListCredentialWithPolicy<T> {
         self.status_list_credential.ensure_valid()?;
 
         Ok(())
+    }
+
+    pub fn expand_policy(&self) -> AnyOfOrAll<PolicyExecutor> {
+        self.policy.expand()
     }
 }
 

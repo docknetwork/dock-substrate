@@ -18,7 +18,7 @@ type Mod = super::Pallet<Test>;
 pub fn get_pauth<A: Action + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
-) -> Vec<DidSignatureWithNonce<Test>>
+) -> Vec<DidSignatureWithNonce<T::BlockNumberest>>
 where
     WithNonce<Test, A>: ToStateChange<Test>,
 {

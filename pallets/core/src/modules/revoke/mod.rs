@@ -1,9 +1,9 @@
 #[cfg(feature = "serde")]
 use crate::util::serde_hex;
 use crate::{
-    common::{self, signatures::ForSigType, DidSignatureWithNonce, HasPolicy, Limits, Policy},
-    did::{self},
-    util::{Action, NonceError, StorageRef, WithNonce},
+    common::{self, signatures::ForSigType, DidSignatureWithNonce, Limits, Policy, PolicyExecutor},
+    did::{self, DidOrDidMethodKey},
+    util::{Action, AnyOfOrAll, NonceError, StorageRef, WithNonce},
 };
 use alloc::collections::BTreeSet;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -100,14 +100,18 @@ pub struct RevocationRegistry<T: Limits> {
     pub add_only: bool,
 }
 
-impl<T: Limits> HasPolicy<T> for RevocationRegistry<T> {
-    fn policy(&self) -> &Policy<T> {
-        &self.policy
+impl<T: Limits> RevocationRegistry<T> {
+    fn expand_policy(&self) -> AnyOfOrAll<PolicyExecutor> {
+        self.policy.expand()
     }
 }
 
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::util::MultiSignedActionWithNonces;
+
+    use self::common::PolicyExecutor;
+
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
@@ -224,13 +228,12 @@ pub mod pallet {
         pub fn revoke(
             origin: OriginFor<T>,
             revoke: RevokeRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            revoke.execute_view(|action, registry: RevocationRegistry<T>| {
-                registry.execute_view(Self::revoke_, action, proof)
-            })
+            MultiSignedActionWithNonces::new(revoke, proof)
+                .execute_view(Self::revoke_, RevocationRegistry::expand_policy)
         }
 
         /// Delete some revocations according to the `unrevoke` command.
@@ -246,13 +249,12 @@ pub mod pallet {
         pub fn unrevoke(
             origin: OriginFor<T>,
             unrevoke: UnRevokeRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            unrevoke.execute_view(|action, registry: RevocationRegistry<T>| {
-                registry.execute_view(Self::unrevoke_, action, proof)
-            })
+            MultiSignedActionWithNonces::new(unrevoke, proof)
+                .execute_view(Self::unrevoke_, RevocationRegistry::expand_policy)
         }
 
         /// Delete an entire registry. Deletes all revocations within the registry, as well as
@@ -270,13 +272,12 @@ pub mod pallet {
         pub fn remove_registry(
             origin: OriginFor<T>,
             removal: RemoveRegistryRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            removal.execute_removable(|action, registry| {
-                HasPolicy::execute_removable(registry, Self::remove_registry_, action, proof)
-            })
+            MultiSignedActionWithNonces::new(removal, proof)
+                .execute_removable(Self::remove_registry_, RevocationRegistry::expand_policy)
         }
     }
 
@@ -311,7 +312,10 @@ pub mod pallet {
 }
 
 impl<T: Config> SubstrateWeight<T> {
-    fn revoke(revoke: &RevokeRaw<T>, sig: &DidSignatureWithNonce<T>) -> Weight {
+    fn revoke(
+        revoke: &RevokeRaw<T>,
+        sig: &DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>,
+    ) -> Weight {
         let len = revoke.len();
 
         sig.weight_for_sig_type::<T>(
@@ -321,7 +325,10 @@ impl<T: Config> SubstrateWeight<T> {
         )
     }
 
-    fn unrevoke(unrevoke: &UnRevokeRaw<T>, sig: &DidSignatureWithNonce<T>) -> Weight {
+    fn unrevoke(
+        unrevoke: &UnRevokeRaw<T>,
+        sig: &DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>,
+    ) -> Weight {
         let len = unrevoke.len();
 
         sig.weight_for_sig_type::<T>(
@@ -331,7 +338,7 @@ impl<T: Config> SubstrateWeight<T> {
         )
     }
 
-    fn remove_registry(sig: &DidSignatureWithNonce<T>) -> Weight {
+    fn remove_registry(sig: &DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>) -> Weight {
         sig.weight_for_sig_type::<T>(
             Self::remove_registry_sr25519,
             Self::remove_registry_ed25519,

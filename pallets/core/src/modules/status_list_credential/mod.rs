@@ -2,7 +2,7 @@
 //! - [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
 //! - [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential).
 use crate::{
-    common::{signatures::ForSigType, DidSignatureWithNonce, HasPolicy},
+    common::{signatures::ForSigType, DidSignatureWithNonce, PolicyExecutor},
     deposit_indexed_event, did,
     util::Action,
 };
@@ -29,6 +29,11 @@ use weights::*;
 #[frame_support::pallet]
 
 pub mod pallet {
+    use crate::{
+        common::{Policy, PolicyExecutor},
+        util::MultiSignedActionWithNonces,
+    };
+
     use super::*;
 
     use frame_system::pallet_prelude::*;
@@ -95,15 +100,12 @@ pub mod pallet {
         pub fn update(
             origin: OriginFor<T>,
             update_credential: UpdateStatusListCredentialRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            update_credential.execute(
-                |action, credential: &mut StatusListCredentialWithPolicy<T>| {
-                    credential.execute(Self::update_, action, proof)
-                },
-            )
+            MultiSignedActionWithNonces::new(update_credential, proof)
+                .execute(Self::update_, StatusListCredentialWithPolicy::expand_policy)
         }
 
         /// Removes `StatusListCredential` associated with the supplied identifier.
@@ -111,15 +113,12 @@ pub mod pallet {
         pub fn remove(
             origin: OriginFor<T>,
             remove_credential: RemoveStatusListCredentialRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            remove_credential.execute_removable(
-                |action, credential: &mut Option<StatusListCredentialWithPolicy<T>>| {
-                    HasPolicy::execute_removable(credential, Self::remove_, action, proof)
-                },
-            )
+            MultiSignedActionWithNonces::new(remove_credential, proof)
+                .execute_removable(Self::remove_, StatusListCredentialWithPolicy::expand_policy)
         }
     }
 
@@ -171,7 +170,7 @@ impl<T: Config> SubstrateWeight<T> {
     }
 
     fn update(
-        sig: &DidSignatureWithNonce<T>,
+        sig: &DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>,
         UpdateStatusListCredentialRaw { credential, .. }: &UpdateStatusListCredentialRaw<T>,
     ) -> Weight {
         sig.weight_for_sig_type::<T>(
@@ -181,7 +180,7 @@ impl<T: Config> SubstrateWeight<T> {
         )
     }
 
-    fn remove(sig: &DidSignatureWithNonce<T>) -> Weight {
+    fn remove(sig: &DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>) -> Weight {
         sig.weight_for_sig_type::<T>(
             Self::remove_sr25519,
             Self::remove_ed25519,

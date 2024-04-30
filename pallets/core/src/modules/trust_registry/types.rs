@@ -1,4 +1,6 @@
-use super::{Config, ConvenerTrustRegistries, Error, TrustRegistriesInfo};
+use super::{
+    Config, ConvenerTrustRegistries, Error, TrustRegistriesInfo, TrustRegistriesParticipants,
+};
 use crate::{
     common::{AuthorizeTarget, Limits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
@@ -46,6 +48,24 @@ impl<T: Config> StorageRef<T> for Convener {
     }
 }
 
+impl<T: Config> StorageRef<T> for IssuerOrVerifier {
+    type Value = TrustRegistryStoredParticipants<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryStoredParticipants<T>>) -> Result<R, E>,
+    {
+        TrustRegistriesParticipants::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryStoredParticipants<T>>) -> R,
+    {
+        f(Some(TrustRegistriesParticipants::<T>::get(self)))
+    }
+}
+
 impl AuthorizeTarget<Self, DidKey> for Convener {}
 impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
 impl AuthorizeTarget<Self, DidMethodKey> for Convener {}
@@ -60,6 +80,9 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 pub struct IssuerOrVerifier(pub DidOrDidMethodKey);
 
 impl_wrapper!(IssuerOrVerifier(DidOrDidMethodKey));
+
+impl AuthorizeTarget<TrustRegistryId, DidKey> for IssuerOrVerifier {}
+impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for IssuerOrVerifier {}
 
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -441,8 +464,11 @@ impl<T: Limits> TryFrom<UnboundedDelegatedIssuers> for DelegatedIssuers<T> {
     }
 }
 
-pub type UnboundedDelegatedUpdate =
+pub type UnboundedDelegatedIssuersUpdate =
     SetOrModify<UnboundedDelegatedIssuers, MultiTargetUpdate<Issuer, AddOrRemoveOrModify<()>>>;
+
+pub type UnboundedTrustRegistryParticipantsUpdate =
+    MultiTargetUpdate<IssuerOrVerifier, AddOrRemoveOrModify<()>>;
 
 #[derive(
     Encode,
@@ -703,6 +729,33 @@ pub struct TrustRegistryStoredSchemas<T: Limits>(
 );
 
 impl_wrapper!(TrustRegistryStoredSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerRegistry>));
+
+/// Set of `Trust Registry` participants.
+#[derive(
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistryStoredParticipants<T: Limits>(
+    #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
+    pub  BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerRegistry>,
+);
+
+impl_wrapper!(TrustRegistryStoredParticipants<T> where T: Limits => (BoundedBTreeSet<IssuerOrVerifier, T::MaxSchemasPerRegistry>));
 
 /// Set of schemas corresponding to an `Issuer`.
 #[derive(

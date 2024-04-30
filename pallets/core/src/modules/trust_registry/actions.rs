@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    impl_action_with_nonce,
-    util::{Bytes, Types},
+    impl_action, impl_action_with_nonce,
+    util::{Bytes, Types, WithNonce},
 };
 use alloc::{collections::BTreeSet, string::String};
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
@@ -86,9 +86,33 @@ pub struct UnsuspendIssuers<T: Types> {
 #[scale_info(omit_prefix)]
 pub struct UpdateDelegatedIssuers<T: Types> {
     pub registry_id: TrustRegistryId,
-    pub delegated: UnboundedDelegatedUpdate,
+    pub delegated: UnboundedDelegatedIssuersUpdate,
     pub nonce: T::BlockNumber,
 }
+
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct ChangeParticipantsRaw<T: Types> {
+    pub trust_registry_id: TrustRegistryId,
+    pub participants: UnboundedTrustRegistryParticipantsUpdate,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    _marker: PhantomData<T>,
+}
+
+pub type ChangeParticipants<T> = WithNonce<T, ChangeParticipantsRaw<T>>;
+
+impl_action!(
+    for TrustRegistryId:
+        ChangeParticipantsRaw with 1 as len, trust_registry_id as target no_state_change
+);
 
 impl_action_with_nonce!(
     for ():
@@ -100,5 +124,6 @@ impl_action_with_nonce!(
     for TrustRegistryId:
         SetSchemasMetadata with { |this: &Self| match &this.schemas { SetOrModify::Set(_) => 1, SetOrModify::Modify(update) => update.len() } } as len, registry_id as target,
         SuspendIssuers with issuers.len() as len, registry_id as target,
-        UnsuspendIssuers with issuers.len() as len, registry_id as target
+        UnsuspendIssuers with issuers.len() as len, registry_id as target,
+        ChangeParticipants with data().len() as len, data().trust_registry_id as target
 );

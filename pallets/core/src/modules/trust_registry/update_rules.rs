@@ -32,6 +32,8 @@ impl CanUpdate<VerificationPrice> for IssuerOrVerifier {
 impl<T: Limits> CanUpdate<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {}
 impl<T: Limits> CanUpdate<TrustRegistrySchemaVerifiers<T>> for IssuerOrVerifier {}
 
+impl<T: Limits> CanUpdate<TrustRegistryStoredParticipants<T>> for IssuerOrVerifier {}
+
 impl<T: Limits> CanUpdateKeyed<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {
     fn can_update_keyed<U: KeyedUpdate<TrustRegistrySchemaIssuers<T>>>(
         &self,

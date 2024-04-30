@@ -1,10 +1,15 @@
+use alloc::collections::{BTreeMap, BTreeSet};
 use core::marker::PhantomData;
 use frame_support::ensure;
 use sp_runtime::DispatchError;
 
-use crate::util::{ActionWrapper, OptionExt, Signature, Types};
+use crate::{
+    common::DidSignatureWithNonce,
+    did::DidOrDidMethodKey,
+    util::{ActionWrapper, OptionExt, Signature, Types},
+};
 
-use super::{NonceError, WithNonce};
+use super::{AnyOfOrAll, KeyedUpdate, MultiTargetUpdate, NonceError, WithNonce};
 
 /// Describes an action which can be performed on some `Target`.
 pub trait Action: Sized {
@@ -183,6 +188,8 @@ impl From<InvalidSigner> for DispatchError {
 pub enum ActionExecutionError {
     NoEntity,
     EmptyPayload,
+    InvalidSigner,
+    NotEnoughSignatures,
     ConversionError,
 }
 
@@ -192,6 +199,10 @@ impl From<ActionExecutionError> for DispatchError {
             ActionExecutionError::NoEntity => DispatchError::Other("Entity doesn't exist"),
             ActionExecutionError::EmptyPayload => DispatchError::Other("Payload is empty"),
             ActionExecutionError::ConversionError => DispatchError::Other("Conversion failed"),
+            ActionExecutionError::InvalidSigner => DispatchError::Other("Invalid signer"),
+            ActionExecutionError::NotEnoughSignatures => {
+                DispatchError::Other("Not enough signatures")
+            }
         }
     }
 }
@@ -213,6 +224,34 @@ where
         Self {
             action,
             signature,
+            _marker: PhantomData,
+        }
+    }
+}
+
+pub struct MultiSignedActionWithNonces<T: Types, A, SI, D>
+where
+    A: Action,
+    D: Ord,
+{
+    pub action: A,
+    pub signatures: SI,
+    _marker: PhantomData<(T, D)>,
+}
+
+impl<T: Types, A, SI, D> MultiSignedActionWithNonces<T, A, SI, D>
+where
+    A: Action,
+    SI: IntoIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
+    D: Into<DidOrDidMethodKey> + Ord,
+{
+    pub fn new<S>(action: A, signatures: S) -> Self
+    where
+        S: IntoIterator<IntoIter = SI>,
+    {
+        Self {
+            action,
+            signatures: signatures.into_iter(),
             _marker: PhantomData,
         }
     }

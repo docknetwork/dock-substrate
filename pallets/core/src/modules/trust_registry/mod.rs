@@ -42,7 +42,13 @@ use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use crate::util::{DuplicateKey, IncOrDec, MultiTargetUpdate, UpdateError};
+    use crate::{
+        common::DidSignatureWithNonce,
+        util::{
+            AnyOfOrAll, DuplicateKey, IncOrDec, MultiSignedActionWithNonces, MultiTargetUpdate,
+            UpdateError,
+        },
+    };
 
     use super::*;
     use frame_system::pallet_prelude::*;
@@ -205,6 +211,17 @@ pub mod pallet {
     #[pallet::getter(fn registry_stored_schemas)]
     pub type TrustRegistriesStoredSchemas<T: Config> =
         StorageMap<_, Blake2_128Concat, TrustRegistryId, TrustRegistryStoredSchemas<T>, ValueQuery>;
+
+    /// Trust Registry participants. Mapping of registry_id -> schema_id
+    #[pallet::storage]
+    #[pallet::getter(fn registry_participants)]
+    pub type TrustRegistriesParticipants<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        TrustRegistryId,
+        TrustRegistryStoredParticipants<T>,
+        ValueQuery,
+    >;
 
     /// Stores `TrustRegistry`s owned by conveners as a mapping of the form convener_id -> Set<registry_id>
     #[pallet::storage]
@@ -387,6 +404,19 @@ pub mod pallet {
             unsuspend_issuers
                 .signed(signature)
                 .execute_view(Self::unsuspend_issuers_)
+        }
+
+        #[pallet::weight(T::DbWeight::get().reads(1))]
+        pub fn change_participants(
+            origin: OriginFor<T>,
+            change_participants: ChangeParticipantsRaw<T>,
+            signatures: Vec<DidSignatureWithNonce<T::BlockNumber, IssuerOrVerifier>>,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            let signers = AnyOfOrAll::all(change_participants.participants.keys().copied());
+            MultiSignedActionWithNonces::new(change_participants, signatures)
+                .execute(Self::change_participants_, |_| signers)
         }
     }
 
