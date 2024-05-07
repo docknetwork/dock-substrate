@@ -62,7 +62,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
+        ActionWithNonceWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
             params: AccumulatorParameters {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
@@ -98,7 +98,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
+        ActionWithNonceWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
             params: AccumulatorParameters {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
@@ -138,7 +138,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
+        ActionWithNonceWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
             params: AccumulatorParameters {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
@@ -146,12 +146,12 @@ crate::bench_with_all_pairs! {
             },
             nonce: 1u8.into()
         }).execute::<T, _, _, _, _>(
-            |ActionWrapper { action, .. }, accumulator| {
+            |ActionWithNonceWrapper { action, .. }, accumulator| {
                 Pallet::<T>::add_params_(action, accumulator, AccumulatorOwner(did.into()))
             },
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorPublicKey {
@@ -163,7 +163,7 @@ crate::bench_with_all_pairs! {
                 },
                 nonce: 1u8.into()
             }).execute::<T, _, _, _, _>(
-            |ActionWrapper { action, .. }, accumulator| {
+            |ActionWithNonceWrapper { action, .. }, accumulator| {
                 Pallet::<T>::add_public_key_(action, accumulator, AccumulatorOwner(did.into()))
             }
         ).unwrap();
@@ -202,7 +202,7 @@ crate::bench_with_all_pairs! {
 
         let acc_id: AccumulatorId = AccumulatorId([1; 32]);
 
-        ActionWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
+        ActionWithNonceWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
             params: AccumulatorParameters {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
@@ -210,12 +210,12 @@ crate::bench_with_all_pairs! {
             },
             nonce: 1u8.into()
         }).execute::<T, _, _, _, _>(
-            |ActionWrapper { action, .. }, accumulator| {
+            |ActionWithNonceWrapper { action, .. }, accumulator| {
                 Pallet::<T>::add_params_(action, accumulator, AccumulatorOwner(did.into()))
             },
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorPublicKey {
@@ -227,7 +227,7 @@ crate::bench_with_all_pairs! {
                 },
                 nonce: 1u8.into()
             }).execute::<T, _, _, _, _>(
-            |ActionWrapper { action, .. }, accumulator| {
+            |ActionWithNonceWrapper { action, .. }, accumulator| {
                 Pallet::<T>::add_public_key_(action, accumulator, AccumulatorOwner(did.into()))
             }
         ).unwrap();
@@ -272,7 +272,7 @@ crate::bench_with_all_pairs! {
 
         let acc_id: AccumulatorId = AccumulatorId([1; 32]);
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorParams {
@@ -286,7 +286,7 @@ crate::bench_with_all_pairs! {
         ).execute::<T, _, _, _, _>(|action, counters|  Pallet::<T>::add_params_(action.action, counters, AccumulatorOwner(did.into()))).unwrap();
 
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorPublicKey {
@@ -343,7 +343,7 @@ crate::bench_with_all_pairs! {
         let acc_id: AccumulatorId = AccumulatorId([2; 32]);
 
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorParams {
@@ -357,7 +357,7 @@ crate::bench_with_all_pairs! {
         ).execute::<T, _, _, _, _>(|action, counters|  Pallet::<T>::add_params_(action.action, counters, AccumulatorOwner(did.into()))).unwrap();
 
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorPublicKey {

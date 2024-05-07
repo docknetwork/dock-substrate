@@ -4,7 +4,7 @@ use super::{
 use crate::{
     common::{AuthorizeTarget, Limits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
-    impl_wrapper,
+    hex_debug, impl_wrapper,
     util::{batch_update::*, BoundedBytes, KeyValue, OptionExt, StorageRef},
 };
 use alloc::collections::BTreeMap;
@@ -48,7 +48,7 @@ impl<T: Config> StorageRef<T> for Convener {
     }
 }
 
-impl<T: Config> StorageRef<T> for IssuerOrVerifier {
+impl<T: Config> StorageRef<T> for TrustRegistryIdForParticipants {
     type Value = TrustRegistryStoredParticipants<T>;
 
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
@@ -80,6 +80,20 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 pub struct IssuerOrVerifier(pub DidOrDidMethodKey);
 
 impl_wrapper!(IssuerOrVerifier(DidOrDidMethodKey));
+
+pub struct IssuersOrVerifiers(pub BTreeSet<IssuerOrVerifier>);
+
+impl_wrapper!(IssuersOrVerifiers(BTreeSet<IssuerOrVerifier>));
+
+impl IssuersOrVerifiers {
+    pub fn issuers(&self) -> BTreeSet<Issuer> {
+        self.0.iter().copied().map(|did| Issuer(*did)).collect()
+    }
+
+    pub fn verifiers(&self) -> BTreeSet<Verifier> {
+        self.0.iter().copied().map(|did| Verifier(*did)).collect()
+    }
+}
 
 impl AuthorizeTarget<TrustRegistryId, DidKey> for IssuerOrVerifier {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for IssuerOrVerifier {}
@@ -173,6 +187,9 @@ impl ConvenerOrIssuerOrVerifier {
 
 impl AuthorizeTarget<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
+
+impl AuthorizeTarget<TrustRegistryIdForParticipants, DidKey> for ConvenerOrIssuerOrVerifier {}
+impl AuthorizeTarget<TrustRegistryIdForParticipants, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
 
 /// Price to verify a credential. Lowest denomination should be used.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -752,7 +769,7 @@ impl_wrapper!(TrustRegistryStoredSchemas<T> where T: Limits => (BoundedBTreeSet<
 #[scale_info(omit_prefix)]
 pub struct TrustRegistryStoredParticipants<T: Limits>(
     #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
-    pub  BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerRegistry>,
+    pub  BoundedBTreeSet<IssuerOrVerifier, T::MaxSchemasPerRegistry>,
 );
 
 impl_wrapper!(TrustRegistryStoredParticipants<T> where T: Limits => (BoundedBTreeSet<IssuerOrVerifier, T::MaxSchemasPerRegistry>));
@@ -956,7 +973,7 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
 }
 
 /// Unique identifier for the `Trust Registry`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -964,6 +981,17 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
 pub struct TrustRegistryId(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32]);
 
 impl_wrapper!(TrustRegistryId([u8; 32]));
+hex_debug!(TrustRegistryId);
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistryIdForParticipants(pub TrustRegistryId);
+
+impl_wrapper!(TrustRegistryIdForParticipants(TrustRegistryId));
+hex_debug!(TrustRegistryIdForParticipants);
 
 impl<T: Config> StorageRef<T> for TrustRegistryId {
     type Value = TrustRegistryInfo<T>;
@@ -984,7 +1012,7 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
 }
 
 /// Unique identifier for the `Trust Registry`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -994,6 +1022,7 @@ pub struct TrustRegistrySchemaId(
 );
 
 impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
+hex_debug!(TrustRegistrySchemaId);
 
 /// Number of times storage entities were accessed.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]

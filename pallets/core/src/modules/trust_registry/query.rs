@@ -2,7 +2,6 @@ use super::*;
 use crate::util::AnyOfOrAll;
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::{convert::identity, iter::repeat};
-use itertools::Itertools;
 use types::*;
 
 /// Specifies arguments to retrieve trust registries informations by.

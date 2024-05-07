@@ -1,22 +1,20 @@
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use sp_std::fmt::Debug;
 
-use super::{Limits, ToStateChange};
+use super::Limits;
 
 #[cfg(feature = "serde")]
 use crate::util::btree_set;
 
 use crate::{
-    common::{AuthorizeTarget, ForSigType, Signature},
-    did::{self, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::{
-        Action, ActionExecutionError, ActionWithNonce, AnyOfOrAll, MultiSignedActionWithNonces,
-        NonceError, StorageRef, Types, WithNonce,
-    },
+    common::{AuthorizeTarget, ForSigType},
+    did::{Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    util::AnyOfOrAll,
 };
+#[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{ensure, BoundedBTreeSet};
+use frame_support::BoundedBTreeSet;
 use sp_runtime::{traits::TryCollect, DispatchError};
 
 /// Authorization logic containing rules to modify some data entity.
@@ -69,27 +67,6 @@ impl<T: Limits> Policy<T> {
     }
 }
 
-/// An error occurred during `Policy`-based action execution.
-pub enum PolicyExecutionError {
-    IncorrectNonce,
-    NoEntity,
-    NotAuthorized,
-    InvalidSigner,
-}
-
-impl From<PolicyExecutionError> for DispatchError {
-    fn from(error: PolicyExecutionError) -> Self {
-        let raw = match error {
-            PolicyExecutionError::IncorrectNonce => "Incorrect nonce",
-            PolicyExecutionError::NoEntity => "Entity not found",
-            PolicyExecutionError::NotAuthorized => "Provided DID is not authorized",
-            PolicyExecutionError::InvalidSigner => "Invalid signer",
-        };
-
-        DispatchError::Other(raw)
-    }
-}
-
 /// An error occurred during `Policy` validation.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PolicyValidationError {
@@ -131,7 +108,7 @@ impl<T: Limits> Policy<T> {
     }
 }
 
-/// `DID`'s controller.
+/// `DID` performing an action according to the policies.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -158,7 +135,10 @@ pub struct DidSignatureWithNonce<N, D: Into<DidOrDidMethodKey>> {
 
 impl<N, D: Into<DidOrDidMethodKey>> DidSignatureWithNonce<N, D> {
     pub fn new(sig: DidOrDidMethodKeySignature<D>, nonce: N) -> Self {
-        Self { sig, nonce }
+        Self {
+            sig: sig.into(),
+            nonce,
+        }
     }
 
     pub fn into_data(self) -> DidOrDidMethodKeySignature<D> {

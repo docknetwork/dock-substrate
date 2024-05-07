@@ -1,12 +1,13 @@
 //! Dock Trust Registry.
 
 use crate::{
-    common::ForSigType,
+    common::{DidSignatureWithNonce, ForSigType},
     deposit_indexed_event,
     did::{self, DidOrDidMethodKeySignature},
     util::{
-        constants::ZeroDbWeight, ActionWithNonce, ActionWrapper, KeyValue, KeyedUpdate,
-        OnlyExistent, SetOrAddOrRemoveOrModify, SetOrModify, UpdateTranslationError,
+        constants::ZeroDbWeight, Action, ActionWithNonce, ActionWithNonceWrapper, ActionWrapper,
+        KeyValue, KeyedUpdate, OnlyExistent, SetOrAddOrRemoveOrModify, SetOrModify,
+        UpdateTranslationError,
     },
 };
 use core::{convert::Infallible, iter::repeat};
@@ -16,6 +17,7 @@ use frame_support::{
     weights::{PostDispatchInfo, RuntimeDbWeight},
 };
 use r#impl::{StepError, StepStorageAccesses};
+use sp_std::vec::Vec;
 
 use frame_system::ensure_signed;
 
@@ -42,6 +44,8 @@ use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use core::iter::once;
+
     use crate::{
         common::DidSignatureWithNonce,
         util::{
@@ -116,6 +120,8 @@ pub mod pallet {
         TooManyRegistries,
         /// Not the `TrustRegistry`'s `Convener`.
         NotTheConvener,
+        /// `TrustRegistry` with supplied identitier doesn't exist
+        NoRegistry,
         /// Supplied `Issuer` doesn't exist.
         NoSuchIssuer,
         /// At least one of the supplied `Issuers` was suspended already.
@@ -156,6 +162,8 @@ pub mod pallet {
         UpdateValidationFailed,
         /// Some of the keys were found twice in the update.
         DuplicateKey,
+        /// One of the `Issuer`s or `Verifier`s is not a registry participant.
+        NotAParticipant,
     }
 
     #[pallet::event]
@@ -218,7 +226,7 @@ pub mod pallet {
     pub type TrustRegistriesParticipants<T: Config> = StorageMap<
         _,
         Blake2_128Concat,
-        TrustRegistryId,
+        TrustRegistryIdForParticipants,
         TrustRegistryStoredParticipants<T>,
         ValueQuery,
     >;
@@ -307,7 +315,9 @@ pub mod pallet {
 
             init_or_update_trust_registry
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::init_or_update_trust_registry_))
+                .execute(ActionWithNonceWrapper::wrap_fn(
+                    Self::init_or_update_trust_registry_,
+                ))
         }
 
         /// Sets the schema metadata entry (entries) with the supplied identifier(s).
@@ -406,17 +416,29 @@ pub mod pallet {
                 .execute_view(Self::unsuspend_issuers_)
         }
 
-        #[pallet::weight(T::DbWeight::get().reads(1))]
+        #[pallet::weight(SubstrateWeight::<T::DbWeight>::change_participants_::<T>(change_participants, signatures))]
         pub fn change_participants(
             origin: OriginFor<T>,
             change_participants: ChangeParticipantsRaw<T>,
-            signatures: Vec<DidSignatureWithNonce<T::BlockNumber, IssuerOrVerifier>>,
+            signatures: Vec<DidSignatureWithNonce<T::BlockNumber, ConvenerOrIssuerOrVerifier>>,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            let signers = AnyOfOrAll::all(change_participants.participants.keys().copied());
-            MultiSignedActionWithNonces::new(change_participants, signatures)
-                .execute(Self::change_participants_, |_| signers)
+            let f = |action: ChangeParticipantsRaw<T>, registry_info: TrustRegistryInfo<T>| {
+                let participants = action
+                    .participants
+                    .keys()
+                    .map(|did| ConvenerOrIssuerOrVerifier(**did));
+                let convener = ConvenerOrIssuerOrVerifier(*registry_info.convener);
+
+                let signers = AnyOfOrAll::all(participants.chain(once(convener)));
+
+                MultiSignedActionWithNonces::new(action, signatures)
+                    .execute(Self::change_participants_, |_| signers)
+            };
+
+            ActionWrapper::new(*change_participants.registry_id, change_participants)
+                .execute_view(ActionWrapper::wrap_fn(f))
         }
     }
 
@@ -580,6 +602,15 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
             || Self::suspend_issuers_ed25519(issuers_len),
             || Self::suspend_issuers_secp256k1(issuers_len),
         )
+    }
+
+    fn change_participants_<T: Config>(
+        ChangeParticipantsRaw { participants, .. }: &ChangeParticipantsRaw<T>,
+        _signatures: &[DidSignatureWithNonce<T::BlockNumber, ConvenerOrIssuerOrVerifier>],
+    ) -> Weight {
+        let len = participants.len() as u32;
+
+        Self::change_participants(len)
     }
 
     fn unsuspend_issuers<T: Config>(

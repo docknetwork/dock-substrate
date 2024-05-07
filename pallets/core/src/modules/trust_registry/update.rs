@@ -1,6 +1,9 @@
 use super::*;
 use crate::{common::Limits, util::batch_update::*};
-use alloc::{collections::BTreeMap, string::String};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+};
 use core::{
     iter,
     iter::once,
@@ -365,7 +368,7 @@ pub struct IssuersAndDelegatedIssuersSchemasUpdate(
 );
 
 impl<T: Config> ValidateTrustRegistryUpdate<T> for IssuersSchemasUpdate {
-    type Context<'ctx> = StorageAccesses;
+    type Context<'ctx> = (&'ctx mut StorageAccesses, &'ctx BTreeSet<Issuer>);
     type Result = IssuersAndDelegatedIssuersSchemasUpdate;
 
     fn validate_and_record_diff(
@@ -373,7 +376,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for IssuersSchemasUpdate {
         actor: ConvenerOrIssuerOrVerifier,
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
-        storage_accesses: &mut Self::Context<'_>,
+        (storage_accesses, participants): &mut Self::Context<'_>,
     ) -> Result<Validated<Self::Result>, Error<T>> {
         let Validated(issuers_update) = self.0.validate_and_record_diff(
             actor,
@@ -382,6 +385,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for IssuersSchemasUpdate {
             &mut (
                 &mut storage_accesses.issuer_schemas,
                 &mut storage_accesses.issuer_registries,
+                participants,
             ),
         )?;
 
@@ -435,9 +439,9 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for IssuersSchemasUpdate {
     }
 }
 
-impl<T: Config, Target: HasSchemasAndRegistries<T> + Ord> ValidateTrustRegistryUpdate<T>
-    for MultiSchemaIdUpdate<Target>
+impl<T: Config, Target> ValidateTrustRegistryUpdate<T> for MultiSchemaIdUpdate<Target>
 where
+    Target: HasSchemasAndRegistries<T> + Ord + 'static,
     Target::Schemas: Deref,
     Target::Registries: Deref,
     <Target::Schemas as Deref>::Target: KeyValue,
@@ -447,7 +451,7 @@ where
     RegistryIdUpdate: ValidateUpdate<Convener, Target::Registries>
         + ValidateUpdate<IssuerOrVerifier, Target::Registries>,
 {
-    type Context<'ctx> = (&'ctx mut u32, &'ctx mut u32);
+    type Context<'ctx> = (&'ctx mut u32, &'ctx mut u32, &'ctx BTreeSet<Target>);
     type Result = MultiSchemaIdUpdate<Target>;
 
     fn validate_and_record_diff(
@@ -455,7 +459,7 @@ where
         actor: ConvenerOrIssuerOrVerifier,
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
-        (ref mut schemas, ref mut regs): &mut Self::Context<'_>,
+        (ref mut schemas, ref mut regs, allowed): &mut Self::Context<'_>,
     ) -> Result<Validated<Self::Result>, Error<T>> {
         self.into_iter()
             .inspect(|_| **schemas += 1)
@@ -463,6 +467,10 @@ where
                 let schemas = target.schemas(registry_id);
 
                 check_err!(actor.validate_update(registry_info, &update, &schemas));
+
+                if !allowed.contains(&target) {
+                    return Some(Err(Error::<T>::NotAParticipant));
+                }
 
                 if update.kind(&schemas) == UpdateKind::None {
                     None?
@@ -613,9 +621,19 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
         }?;
 
         let (issuers_update, verifiers_update, schema_ids_update) = issuers_verifiers_schemas;
+        let participants = IssuersOrVerifiers(
+            TrustRegistriesParticipants::<T>::get(TrustRegistryIdForParticipants(registry_id))
+                .0
+                .into(),
+        );
 
         let Validated(issuers_and_delegated_issuers_update) = IssuersSchemasUpdate(issuers_update)
-            .validate_and_record_diff(actor, registry_id, registry_info, storage_accesses)?;
+            .validate_and_record_diff(
+                actor,
+                registry_id,
+                registry_info,
+                &mut (storage_accesses, &participants.issuers()),
+            )?;
 
         let Validated(verifiers_update) = verifiers_update.validate_and_record_diff(
             actor,
@@ -624,6 +642,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
             &mut (
                 &mut storage_accesses.verifier_schemas,
                 &mut storage_accesses.verifier_registries,
+                &participants.verifiers(),
             ),
         )?;
 

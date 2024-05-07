@@ -1,10 +1,14 @@
 use super::*;
 use crate::{
-    common::state_change::ToStateChange,
+    common::{state_change::ToStateChange, DidSignatureWithNonce},
     did::{Did, DidSignature, UncheckedDidKey},
-    util::{batch_update::*, Action, ActionWrapper, Bytes},
+    util::{
+        batch_update::*, Action, ActionWithNonceWrapper, Bytes, MultiSignedActionWithNonces,
+        WithNonce,
+    },
 };
-use alloc::collections::BTreeMap;
+use alloc::collections::{BTreeMap, BTreeSet};
+use core::iter::{empty, once};
 use frame_benchmarking::{benchmarks, whitelisted_caller};
 use frame_system::RawOrigin;
 use scale_info::prelude::string::String;
@@ -19,6 +23,7 @@ const SCHEMA_ISSUER_PRICES: u32 = 20;
 const SCHEMA_ISSUER_PRICE_SYMBOL: u32 = 10;
 const SCHEMAS_COUNT: u32 = 10;
 const DELEGATED_ISSUERS: u32 = 10;
+const TRUST_REGISTRY_PARTICIPANTS: u32 = 100;
 
 crate::bench_with_all_pairs! {
     with_pairs:
@@ -80,7 +85,7 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u32.into(),
             Convener(did.into()),
             init_or_update_trust_registry.clone()
@@ -91,6 +96,20 @@ crate::bench_with_all_pairs! {
                 Convener(did.into())
             )
         ).unwrap();
+        let participants: MultiTargetUpdate<_, _> = (0..SCHEMA_ISSUERS.max(SCHEMA_VERIFIERS)).map(|idx| 255 - idx as u8)
+            .chain((0..i.max(v)).map(|idx| idx as u8))
+            .map(|v| IssuerOrVerifier(Did([v; 32]).into()))
+            .map(|participant| (participant, AddOrRemoveOrModify::Add(())))
+            .collect();
+
+        let action = ChangeParticipantsRaw {
+            registry_id: TrustRegistryIdForParticipants(TrustRegistryId(id)),
+            participants: participants.clone(),
+            _marker: PhantomData::<T>,
+        };
+        MultiSignedActionWithNonces::new(action, empty())
+            .execute(|action, set, _: BTreeSet<ConvenerOrIssuerOrVerifier>| Pallet::<T>::change_participants_(action, set, participants.keys().copied().map(|did| ConvenerOrIssuerOrVerifier(*did)).collect()), |_| None)
+            .unwrap();
 
         let mut schemas: BTreeMap<_, _> = (0..s)
             .map(|idx|
@@ -206,7 +225,7 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>()
         };
-        ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        ActionWithNonceWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let delegated = UnboundedDelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8 + 90; 32]).into())).collect());
 
@@ -255,7 +274,7 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u32.into(),
             Convener(did.into()),
             init_or_update_trust_registry.clone()
@@ -311,7 +330,7 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        ActionWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        ActionWithNonceWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).execute::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
 
@@ -340,5 +359,70 @@ crate::bench_with_all_pairs! {
                 .filter(|(_, issuer, _)| unsuspend_issuers.issuers.contains(issuer))
                 .all(|(_, _, config)| !config.suspended)
         );
+    };
+
+    standard:
+    change_participants {
+        let i in 1 .. TRUST_REGISTRY_PARTICIPANTS as u32;
+        let pair = crate::def_test_pair!(sr25519, &[4; 32]);
+        let caller = whitelisted_caller();
+        let did = Did([0; 32]);
+        let id = [1; 32];
+
+        let alice = 1u64;
+        let init_or_update_trust_registry = InitOrUpdateTrustRegistry {
+            registry_id: TrustRegistryId(id),
+            nonce: 1u32.into(),
+            gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
+            name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
+        };
+        ActionWithNonceWrapper::<T, _, _>::new(
+            1u32.into(),
+            Convener(did.into()),
+            init_or_update_trust_registry.clone()
+        ).execute::<T, _, _, _, _>(
+            |action, set| Pallet::<T>::init_or_update_trust_registry_(
+                action.action,
+                set,
+                Convener(did.into())
+            )
+        ).unwrap();
+
+        let participants: BTreeSet<_> = (0..i).map(|idx| (IssuerOrVerifier(Did([idx as u8; 32]).into()))).collect();
+
+        let payload = ChangeParticipantsRaw {
+            registry_id: TrustRegistryIdForParticipants(TrustRegistryId(id)),
+            participants: participants
+                .iter()
+                .map(|&participant| (participant, AddOrRemoveOrModify::Add(())))
+                .collect(),
+            _marker: PhantomData,
+        };
+
+        for IssuerOrVerifier(did) in participants.iter().copied().chain(once(IssuerOrVerifier(did.into()))) {
+            if crate::did::Pallet::<T>::did(Did::try_from(did).unwrap()).is_none() {
+                crate::did::Pallet::<T>::new_onchain_(
+                    did.try_into().unwrap(),
+                    vec![UncheckedDidKey::new_with_all_relationships(pair.public())],
+                    Default::default(),
+                ).unwrap();
+            }
+        }
+
+        let sigs = participants.clone().into_iter().chain(once(IssuerOrVerifier(did.into())))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .map(|IssuerOrVerifier(did)| {
+                let nonce = T::BlockNumber::from(1u8);
+                let payload_with_nonce = WithNonce::<T, _>::new_with_nonce(payload.clone(), nonce);
+                let sig = pair.sign(&payload_with_nonce.to_state_change().encode());
+                let signature = DidSignature::new(Did::try_from(did).unwrap(), 1u32, sig).into();
+
+                DidSignatureWithNonce::<T::BlockNumber, ConvenerOrIssuerOrVerifier>::new(signature, nonce)
+            })
+            .collect();
+    }: change_participants(RawOrigin::Signed(caller), payload, sigs)
+    verify {
+        assert_eq!(TrustRegistriesParticipants::get(TrustRegistryIdForParticipants(TrustRegistryId(id))), TrustRegistryStoredParticipants::<T>(participants.clone().try_into().unwrap()));
     }
 }

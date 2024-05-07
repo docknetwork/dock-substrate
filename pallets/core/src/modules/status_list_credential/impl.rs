@@ -1,3 +1,5 @@
+use alloc::collections::BTreeSet;
+
 use super::*;
 
 impl<T: Config> Pallet<T> {
@@ -20,6 +22,7 @@ impl<T: Config> Pallet<T> {
     pub(super) fn update_(
         UpdateStatusListCredentialRaw { id, credential, .. }: UpdateStatusListCredentialRaw<T>,
         status_list_credential: &mut StatusListCredentialWithPolicy<T>,
+        _: BTreeSet<PolicyExecutor>,
     ) -> DispatchResult {
         credential.ensure_valid()?;
 
@@ -32,6 +35,7 @@ impl<T: Config> Pallet<T> {
     pub(super) fn remove_(
         RemoveStatusListCredentialRaw { id, .. }: RemoveStatusListCredentialRaw<T>,
         status_list_credential: &mut Option<StatusListCredentialWithPolicy<T>>,
+        _: BTreeSet<PolicyExecutor>,
     ) -> DispatchResult {
         status_list_credential.take();
 

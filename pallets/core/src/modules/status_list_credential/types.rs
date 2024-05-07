@@ -5,7 +5,6 @@ use crate::{
     util::{AnyOfOrAll, BoundedBytes, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::fmt::Debug;
 use frame_support::{traits::Get, DebugNoBound, *};
 use sp_runtime::DispatchResult;
 
@@ -103,8 +102,8 @@ impl<T: Limits> StatusListCredentialWithPolicy<T> {
         Ok(())
     }
 
-    pub fn expand_policy(&self) -> AnyOfOrAll<PolicyExecutor> {
-        self.policy.expand()
+    pub fn expand_policy(&self) -> Option<AnyOfOrAll<PolicyExecutor>> {
+        Some(self.policy.expand())
     }
 }
 
@@ -120,7 +119,7 @@ impl<T: Limits> From<StatusListCredentialWithPolicy<T>> for StatusListCredential
 }
 
 /// Unique identifier for the `StatusListCredential`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
@@ -129,6 +128,7 @@ pub struct StatusListCredentialId(
 );
 
 crate::impl_wrapper!(StatusListCredentialId([u8; 32]));
+crate::hex_debug!(StatusListCredentialId);
 
 impl<T: Config> StorageRef<T> for StatusListCredentialId {
     type Value = StatusListCredentialWithPolicy<T>;

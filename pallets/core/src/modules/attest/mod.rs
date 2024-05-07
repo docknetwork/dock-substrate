@@ -5,7 +5,7 @@
 use crate::{
     common::{signatures::ForSigType, AuthorizeTarget, Limits, TypesAndLimits},
     did::{self, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, ActionWrapper, BoundedBytes, OptionExt, StorageRef},
+    util::{ActionWithNonce, ActionWithNonceWrapper, BoundedBytes, OptionExt, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -166,7 +166,7 @@ pub mod pallet {
 
             attests
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::set_claim_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::set_claim_))
         }
     }
 

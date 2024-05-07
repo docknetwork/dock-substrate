@@ -5,7 +5,7 @@ use crate::{
     common::{Policy, ToStateChange},
     did::Did,
     tests::common::*,
-    util::{Action, WithNonce},
+    util::{Action, Types, WithNonce},
 };
 use alloc::collections::BTreeMap;
 use frame_support::assert_noop;
@@ -15,7 +15,7 @@ use sp_std::{iter::once, marker::PhantomData};
 pub fn get_pauth<A: Action + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
-) -> Vec<DidSignatureWithNonce<T::BlockNumberest>>
+) -> Vec<DidSignatureWithNonce<<Test as Types>::BlockNumber, PolicyExecutor>>
 where
     WithNonce<Test, A>: ToStateChange<Test>,
 {
@@ -56,10 +56,7 @@ pub fn check_nonce_increase(old_nonces: BTreeMap<Did, u64>, signers: &[(Did, &sr
 /// Tests in this module are named after the errors they check.
 /// For example, `#[test] fn invalidpolicy` exercises the Error::InvalidPolicy.
 mod errors {
-    use crate::{
-        common::{PolicyExecutionError, PolicyValidationError},
-        util::ActionExecutionError,
-    };
+    use crate::{common::PolicyValidationError, util::ActionExecutionError};
 
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
@@ -130,13 +127,13 @@ mod errors {
                 Policy::one_of([a]).unwrap(),
                 &[],
                 "provide no signatures",
-                PolicyExecutionError::NotAuthorized.into(),
+                ActionExecutionError::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
                 &[(b, &kpb)],
                 "wrong account; wrong key",
-                PolicyExecutionError::NotAuthorized.into(),
+                ActionExecutionError::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
@@ -148,31 +145,31 @@ mod errors {
                 Policy::one_of([a]).unwrap(),
                 &[(b, &kpb)],
                 "wrong account; correct key",
-                PolicyExecutionError::NotAuthorized.into(),
+                ActionExecutionError::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[(c, &kpc)],
                 "account not a controller",
-                PolicyExecutionError::NotAuthorized.into(),
+                ActionExecutionError::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[(a, &kpa), (b, &kpb)],
                 "two signers",
-                PolicyExecutionError::NotAuthorized.into(),
+                ActionExecutionError::TooManySignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
                 &[],
                 "one controller; no sigs",
-                PolicyExecutionError::NotAuthorized.into(),
+                ActionExecutionError::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[],
                 "two controllers; no sigs",
-                PolicyExecutionError::NotAuthorized.into(),
+                ActionExecutionError::NotEnoughSignatures.into(),
             ),
         ];
 
@@ -360,7 +357,7 @@ mod errors {
         let kpa = create_did(DIDA);
 
         let registry_id = RGA;
-        let err: Result<(), DispatchError> = Err(PolicyExecutionError::IncorrectNonce.into());
+        let err: Result<(), DispatchError> = Err(NonceError::IncorrectNonce.into());
 
         let ar = AddRegistry {
             id: registry_id,
@@ -701,7 +698,7 @@ mod test {
     use sp_runtime::DispatchError;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
-    use crate::revoke::Registries;
+    use crate::{revoke::Registries, util::MultiSignedActionWithNonces};
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.
@@ -754,14 +751,12 @@ mod test {
             );
 
             let old_nonces = get_nonces(signers);
-            let command = &rev;
-            let proof = get_pauth(command, signers);
+            let proof = get_pauth(&rev, signers);
 
-            let res = command
-                .clone()
-                .execute_view(|action, registry: RevocationRegistry<Test>| {
-                    registry.execute_view(|_, _| Ok::<_, DispatchError>(()), action, proof)
-                });
+            let res = MultiSignedActionWithNonces::new(rev.clone(), proof).execute_view(
+                |_, _, _| Ok::<_, DispatchError>(()),
+                RevocationRegistry::expand_policy,
+            );
             assert_eq!(res.is_ok(), *expect_success);
 
             if *expect_success {

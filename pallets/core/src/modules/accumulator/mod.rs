@@ -2,7 +2,7 @@ use crate::{
     common::{self, signatures::ForSigType, CurveType},
     did,
     did::{Did, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, ActionWrapper, Bytes, IncId},
+    util::{ActionWithNonce, ActionWithNonceWrapper, Bytes, IncId},
 };
 pub use actions::*;
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -156,7 +156,7 @@ pub mod pallet {
 
             params
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::add_params_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::add_params_))
         }
 
         #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
@@ -169,7 +169,7 @@ pub mod pallet {
 
             public_key
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::add_public_key_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::add_public_key_))
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]

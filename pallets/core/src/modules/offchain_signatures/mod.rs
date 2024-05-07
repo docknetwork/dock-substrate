@@ -5,7 +5,7 @@ use crate::{
     common::{self, signatures::ForSigType},
     did,
     did::{Controller, Did, DidOrDidMethodKeySignature, HandleDidRemoval},
-    util::{ActionWithNonce, ActionWrapper, IncId},
+    util::{ActionWithNonce, ActionWithNonceWrapper, IncId},
 };
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
@@ -134,7 +134,7 @@ pub mod pallet {
 
             params
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::add_params_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::add_params_))
         }
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.

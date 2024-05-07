@@ -2,22 +2,65 @@
 
 use super::{types::*, *};
 use crate::{
+    common::{DidSignatureWithNonce, SigValue},
     did::base::*,
     tests::common::*,
     util::{
-        Action, AddOrRemoveOrModify, Bytes, IncOrDec, MultiTargetUpdate, OnlyExistent, SetOrModify,
-        SingleTargetUpdate,
+        Action, ActionExecutionError, AddOrRemoveOrModify, Bytes, IncOrDec, MultiTargetUpdate,
+        OnlyExistent, SetOrModify, SingleTargetUpdate, WithNonce,
     },
 };
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::num::NonZeroU32;
 use frame_support::{assert_noop, assert_ok};
+use itertools::Itertools;
 use rand::{distributions::Alphanumeric, Rng};
+use sp_runtime::DispatchError;
 
 type Mod = super::Pallet<Test>;
 
 crate::did_or_did_method_key! {
     newdid =>
+
+    fn change_participants<P: sp_core::Pair>(registry_id: TrustRegistryId, participants: impl IntoIterator<Item = (impl Into<DidOrDidMethodKey>, P, AddOrRemoveOrModify<()>)>, (convener, convener_kp): (impl Into<DidOrDidMethodKey>, P)) -> DispatchResult where P::Signature: Into<SigValue> {
+        let alice = 1u64;
+        let (parts, part_keys, changes): (Vec<_>, Vec<_>, Vec<_>) = participants.into_iter().map(|(did, key, change)| (did.into(), key, change)).multiunzip();
+
+        let payload = ChangeParticipantsRaw {
+            registry_id: TrustRegistryIdForParticipants(registry_id),
+            participants: parts.iter().zip(changes).map(|(participant, change)| (IssuerOrVerifier(*participant), change)).collect(),
+            _marker: PhantomData
+        };
+
+        let sigs = part_keys.into_iter().chain(once(convener_kp)).zip(parts.into_iter().chain(once(convener.into()))).map(|(key, part)| {
+            let nonce = did_nonce::<Test, _>(part).unwrap();
+
+            let sig = did_sig(
+                &WithNonce::new_with_nonce(payload.clone(), nonce),
+                &key,
+                ConvenerOrIssuerOrVerifier(part),
+                1,
+            );
+
+            DidSignatureWithNonce::new(sig, nonce)
+        }).collect();
+
+        Mod::change_participants(Origin::signed(alice), payload, sigs)
+    }
+
+    fn add_participants<P: sp_core::Pair>(registry_id: TrustRegistryId, participants: impl IntoIterator<Item = (impl Into<DidOrDidMethodKey>, P)>, (convener, convener_kp): (impl Into<DidOrDidMethodKey>, P)) -> DispatchResult where P::Signature: Into<SigValue> {
+        change_participants(registry_id, participants.into_iter().map(|(did, kp)| (did, kp, AddOrRemoveOrModify::Add(()))), (convener, convener_kp))
+    }
+
+    fn build_initial_prices(count: usize, sym_length: usize) -> UnboundedVerificationPrices {
+        UnboundedVerificationPrices(
+            (0..count)
+                .map(|_| (0..sym_length).map(|_| random::<u8>() as char).collect::<String>())
+                .chain(vec!["A", "B", "C", "D"].into_iter().map(str::to_string))
+                .map(|symbol| (symbol, VerificationPrice(random())))
+                .collect()
+        )
+    }
 
     #[test]
     fn init_or_update_trust_registry() {
@@ -150,7 +193,7 @@ crate::did_or_did_method_key! {
             };
             let alice = 1u64;
 
-            ActionWrapper::<Test, _, _>::new(
+            ActionWithNonceWrapper::<Test, _, _>::new(
                 2,
                 Convener(convener.into()),
                 init_or_update_trust_registry.clone(),
@@ -160,36 +203,37 @@ crate::did_or_did_method_key! {
             })
             .unwrap();
 
-            let schemas: BTreeMap<_, _> = [(
-                TrustRegistrySchemaId(rand::random()),
-                UnboundedTrustRegistrySchemaMetadata {
-                    issuers: UnboundedIssuersWith(
-                        [(
-                            Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))),
-                            UnboundedVerificationPrices(
-                                (0..5)
-                                    .map(|_| {
-                                        let s = (0..10)
-                                            .map(|_| rng.sample(Alphanumeric) as char)
-                                            .collect::<String>();
+            let schema_ids_set: BTreeSet<_> = (0..5)
+                .map(|_| rand::random())
+                .map(TrustRegistrySchemaId)
+                .collect();
+            let schema_ids: Vec<_> = schema_ids_set.into_iter().collect();
 
-                                        (s, VerificationPrice(random()))
-                                    })
-                                    .collect()
-                            ),
-                        )]
-                        .into_iter()
-                        .collect(),
-                    ),
-                    verifiers: UnboundedTrustRegistrySchemaVerifiers(
-                        (0..5)
-                            .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
+            let schema_issuers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
+            let schema_verifiers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
+
+            let schemas: BTreeMap<_, _> = schema_ids
+                .iter()
+                .copied()
+                .zip(0..)
+                .zip(schema_verifiers.values())
+                .zip(schema_issuers.values())
+                .map(|(((id, idx), verifiers), issuers)| {
+                    let issuers = UnboundedIssuersWith(
+                        issuers.iter().map(|(did, _)| Issuer((*did).into()))
+                            .map(|issuer| (issuer, build_initial_prices(5, 5)))
                             .collect()
-                    ),
-                },
-            )]
-            .into_iter()
-            .collect();
+                    );
+                    let verifiers = UnboundedTrustRegistrySchemaVerifiers(
+                        verifiers.iter().map(|(did, _)| Verifier((*did).into())).collect()
+                    );
+
+                    (id, UnboundedTrustRegistrySchemaMetadata { issuers, verifiers })
+                })
+                .collect();
+
+            add_participants(init_or_update_trust_registry.registry_id, schema_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, schema_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
 
             let add_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
@@ -220,7 +264,7 @@ crate::did_or_did_method_key! {
                     .chain(once(Issuer(Did(rand::random()).into())))
                     .collect(),
                 registry_id: init_or_update_trust_registry.registry_id,
-                nonce: 2u32.into(),
+                nonce: did_nonce::<Test, _>(convener).unwrap(),
             };
             let sig = did_sig(&suspend_issuers, &convener_kp, convener, 1u32);
 
@@ -239,7 +283,7 @@ crate::did_or_did_method_key! {
                     .copied()
                     .collect(),
                 registry_id: init_or_update_trust_registry.registry_id,
-                nonce: 2u32.into(),
+                nonce: did_nonce::<Test, _>(other).unwrap(),
             };
             let sig = did_sig(&suspend_issuers, &other_kp, other, 1u32);
 
@@ -258,7 +302,7 @@ crate::did_or_did_method_key! {
                     .copied()
                     .collect(),
                 registry_id: init_or_update_trust_registry.registry_id,
-                nonce: 2u32.into(),
+                nonce: did_nonce::<Test, _>(convener).unwrap(),
             };
             let sig = did_sig(&suspend_issuers, &convener_kp, convener, 1u32);
 
@@ -305,7 +349,7 @@ crate::did_or_did_method_key! {
             };
             let alice = 1u64;
 
-            ActionWrapper::<Test, _, _>::new(
+            ActionWithNonceWrapper::<Test, _, _>::new(
                 init_or_update_trust_registry.nonce(),
                 Convener(convener.into()),
                 init_or_update_trust_registry.clone(),
@@ -500,6 +544,55 @@ crate::did_or_did_method_key! {
     }
 
     #[test]
+    fn add_and_remove_participants() {
+        ext().execute_with(|| {
+             let mut rng = rand::thread_rng();
+
+             let (convener, convener_kp) = newdid();
+
+             let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
+                 registry_id: TrustRegistryId(rand::random()),
+                 name: (0..25)
+                     .map(|_| rng.sample(Alphanumeric) as char)
+                     .collect::<String>()
+                     .try_into()
+                     .unwrap(),
+                 gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
+                 nonce: 2,
+             };
+
+             ActionWithNonceWrapper::<Test, _, _>::new(
+                 2,
+                 Convener(convener.into()),
+                 init_or_update_trust_registry.clone(),
+             )
+             .execute::<Test, _, _, _, _>(|action, set| {
+                 Mod::init_or_update_trust_registry_(action.action, set, Convener(convener.into()))
+             })
+             .unwrap();
+
+             let participants: Vec<_> = (0..10).map(|_| newdid()).collect();
+             let invalid_convener = newdid();
+             assert_noop!(Mod::change_participants(Origin::signed(1u64), ChangeParticipantsRaw {
+                 registry_id: TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id),
+                 participants: participants.iter().map(|(participant, _)| (IssuerOrVerifier((*participant).into()), AddOrRemoveOrModify::Add(()))).collect(),
+                 _marker: PhantomData
+             }, vec![]), ActionExecutionError::NotEnoughSignatures);
+
+             assert_noop!(add_participants(init_or_update_trust_registry.registry_id, participants.clone(), invalid_convener.clone()), ActionExecutionError::NotEnoughSignatures);
+
+             assert_eq!(TrustRegistriesParticipants::<Test>::get(TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id)), Default::default());
+
+             assert_ok!(add_participants(init_or_update_trust_registry.registry_id, participants.clone(), (convener, convener_kp.clone())));
+             assert_eq!(TrustRegistriesParticipants::<Test>::get(TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id)), TrustRegistryStoredParticipants(participants.iter().map(|(did, _)| IssuerOrVerifier((*did).into())).collect::<BTreeSet<_>>().try_into().unwrap()));
+
+             assert_noop!(change_participants(init_or_update_trust_registry.registry_id, participants.clone().into_iter().map(|(did, kp)| (did, kp, AddOrRemoveOrModify::Remove)), invalid_convener), ActionExecutionError::NotEnoughSignatures);
+             assert_ok!(change_participants(init_or_update_trust_registry.registry_id, participants.clone().into_iter().map(|(did, kp)| (did, kp, AddOrRemoveOrModify::Remove)), (convener, convener_kp)));
+             assert_eq!(TrustRegistriesParticipants::<Test>::get(TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id)), Default::default());
+        });
+    }
+
+    #[test]
     fn add_schemas_metadata() {
         ext().execute_with(|| {
             let mut rng = rand::thread_rng();
@@ -532,36 +625,37 @@ crate::did_or_did_method_key! {
             )
             .unwrap();
 
-            let schemas: BTreeMap<_, _> = [(
-                TrustRegistrySchemaId(rand::random()),
-                UnboundedTrustRegistrySchemaMetadata {
-                    issuers: UnboundedIssuersWith(
-                        [(
-                            Issuer(did::DidOrDidMethodKey::Did(Did(rand::random()))),
-                            UnboundedVerificationPrices(
-                                (0..5)
-                                    .map(|_| {
-                                        let s = (0..10)
-                                            .map(|_| rng.sample(Alphanumeric) as char)
-                                            .collect::<String>();
+            let schema_ids_set: BTreeSet<_> = (0..5)
+                .map(|_| rand::random())
+                .map(TrustRegistrySchemaId)
+                .collect();
+            let schema_ids: Vec<_> = schema_ids_set.into_iter().collect();
 
-                                        (s, VerificationPrice(random()))
-                                    })
-                                    .collect()
-                            ),
-                        )]
-                        .into_iter()
-                        .collect()
-                    ),
-                    verifiers: UnboundedTrustRegistrySchemaVerifiers(
-                        (0..5)
-                            .map(|_| Verifier(did::DidOrDidMethodKey::Did(Did(rand::random()))))
+            let schema_issuers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
+            let schema_verifiers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
+
+            add_participants(init_or_update_trust_registry.registry_id, schema_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, schema_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
+
+            let mut schemas: BTreeMap<_, _> = schema_ids
+                .iter()
+                .copied()
+                .zip(0..)
+                .zip(schema_verifiers.values())
+                .zip(schema_issuers.values())
+                .map(|(((id, idx), verifiers), issuers)| {
+                    let issuers = UnboundedIssuersWith(
+                        issuers.iter().map(|(did, _)| Issuer((*did).into()))
+                            .map(|issuer| (issuer, build_initial_prices(5, 5)))
                             .collect()
-                    ),
-                },
-            )]
-            .into_iter()
-            .collect();
+                    );
+                    let verifiers = UnboundedTrustRegistrySchemaVerifiers(
+                        verifiers.iter().map(|(did, _)| Verifier((*did).into())).collect()
+                    );
+
+                    (id, UnboundedTrustRegistrySchemaMetadata { issuers, verifiers })
+                })
+                .collect();
 
             let add_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
@@ -572,7 +666,7 @@ crate::did_or_did_method_key! {
                         (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata.into()))
                     })
                     .collect()),
-                nonce: 3,
+                nonce: did_nonce::<Test, _>(convener).unwrap(),
             };
             let sig = did_sig(
                 &add_schema_metadata,
@@ -621,7 +715,7 @@ crate::did_or_did_method_key! {
             let add_other_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
                 schemas: add_schema_metadata.schemas.clone(),
-                nonce: 4,
+                nonce: did_nonce::<Test, _>(convener).unwrap(),
             };
 
             let sig = did_sig(
@@ -644,8 +738,8 @@ crate::did_or_did_method_key! {
             let mut rng = rand::thread_rng();
 
             let (convener, convener_kp) = newdid();
-            let (verifier, _) = newdid();
-            let (issuer, _) = newdid();
+            let (verifier, verifier_kp) = newdid();
+            let (issuer, issuer_kp) = newdid();
 
             let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
                 registry_id: TrustRegistryId(rand::random()),
@@ -672,16 +766,6 @@ crate::did_or_did_method_key! {
             )
             .unwrap();
 
-            let build_initial_prices = |count, sym_length| {
-                UnboundedVerificationPrices(
-                    (0..count)
-                        .map(|_| (0..sym_length).map(|_| random::<u8>() as char).collect::<String>())
-                        .chain(vec!["A", "B", "C", "D"].into_iter().map(|v| v.to_string()))
-                        .map(|symbol| (symbol, VerificationPrice(random())))
-                        .collect::<BTreeMap<_, _>>()
-                )
-            };
-
             let schema_ids_set: BTreeSet<_> = (0..5)
                 .map(|_| rand::random())
                 .map(TrustRegistrySchemaId)
@@ -690,6 +774,9 @@ crate::did_or_did_method_key! {
 
             let initial_schemas_issuers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
             let initial_schemas_verifiers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
+
+            add_participants(init_or_update_trust_registry.registry_id, initial_schemas_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())).chain(once((issuer, issuer_kp.clone()))), (convener, convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, initial_schemas_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())).chain(once((verifier, verifier_kp.clone()))), (convener, convener_kp.clone())).unwrap();
 
             let mut schemas: BTreeMap<_, _> = schema_ids
                 .iter()
@@ -748,7 +835,7 @@ crate::did_or_did_method_key! {
                         (schema_id, SetOrAddOrRemoveOrModify::Add(schema_metadata.into()))
                     })
                     .collect()),
-                nonce: 3,
+                nonce: did_nonce::<Test, _>(convener).unwrap(),
             };
             let sig = did_sig(
                 &add_schema_metadata,
@@ -772,7 +859,7 @@ crate::did_or_did_method_key! {
                     let update_delegated = UpdateDelegatedIssuers {
                         delegated: SetOrModify::Set(delegated.clone()),
                         registry_id: init_or_update_trust_registry.registry_id,
-                        nonce: 2u32.into(),
+                        nonce: did_nonce::<Test, _>(issuer).unwrap(),
                     };
                     let sig = did_sig(&update_delegated, &kp, issuer, 1u32);
 

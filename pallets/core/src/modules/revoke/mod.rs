@@ -2,13 +2,13 @@
 use crate::util::serde_hex;
 use crate::{
     common::{self, signatures::ForSigType, DidSignatureWithNonce, Limits, Policy, PolicyExecutor},
-    did::{self, DidOrDidMethodKey},
+    did,
     util::{Action, AnyOfOrAll, NonceError, StorageRef, WithNonce},
 };
 use alloc::collections::BTreeSet;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Index, RangeFull};
-use sp_std::{fmt::Debug, marker::PhantomData, vec::Vec};
+use sp_std::{marker::PhantomData, vec::Vec};
 
 use frame_support::{dispatch::DispatchResult, ensure, weights::Weight, DebugNoBound};
 use frame_system::ensure_signed;
@@ -27,7 +27,7 @@ pub mod tests;
 mod weights;
 
 /// Points to an on-chain revocation registry.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
@@ -61,10 +61,11 @@ impl<T: Config> StorageRef<T> for RevocationRegistryId {
     }
 }
 
+crate::hex_debug!(RevocationRegistryId);
 crate::impl_wrapper!(RevocationRegistryId([u8; 32]));
 
 /// Points to a revocation which may or may not exist in a registry.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
@@ -78,6 +79,7 @@ impl Index<RangeFull> for RevokeId {
     }
 }
 
+crate::hex_debug!(RevokeId);
 crate::impl_wrapper!(RevokeId([u8; 32]));
 
 /// Metadata about a revocation scope.
@@ -101,8 +103,8 @@ pub struct RevocationRegistry<T: Limits> {
 }
 
 impl<T: Limits> RevocationRegistry<T> {
-    fn expand_policy(&self) -> AnyOfOrAll<PolicyExecutor> {
-        self.policy.expand()
+    fn expand_policy(&self) -> Option<AnyOfOrAll<PolicyExecutor>> {
+        Some(self.policy.expand())
     }
 }
 

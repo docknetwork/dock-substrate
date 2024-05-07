@@ -1,15 +1,14 @@
-use alloc::collections::{BTreeMap, BTreeSet};
-use core::marker::PhantomData;
+use core::{iter::FusedIterator, marker::PhantomData};
 use frame_support::ensure;
 use sp_runtime::DispatchError;
 
 use crate::{
     common::DidSignatureWithNonce,
     did::DidOrDidMethodKey,
-    util::{ActionWrapper, OptionExt, Signature, Types},
+    util::{OptionExt, Signature, Types},
 };
 
-use super::{AnyOfOrAll, KeyedUpdate, MultiTargetUpdate, NonceError, WithNonce};
+use super::{ActionWithNonceWrapper, NonceError, WithNonce};
 
 /// Describes an action which can be performed on some `Target`.
 pub trait Action: Sized {
@@ -166,12 +165,15 @@ pub trait ActionWithNonce<T: Types>: Action {
     fn signed_with_signer_target<S>(
         self,
         signature: S,
-    ) -> Result<SignedActionWithNonce<T, ActionWrapper<T, Self, S::Signer>, S>, InvalidSigner>
+    ) -> Result<
+        SignedActionWithNonce<T, ActionWithNonceWrapper<T, Self, S::Signer>, S>,
+        InvalidSigner,
+    >
     where
         S: Signature,
     {
         let signer = signature.signer().ok_or(InvalidSigner)?;
-        let wrapped = ActionWrapper::new(self.nonce(), signer, self);
+        let wrapped = ActionWithNonceWrapper::new(self.nonce(), signer, self);
 
         Ok(wrapped.signed(signature))
     }
@@ -190,6 +192,7 @@ pub enum ActionExecutionError {
     EmptyPayload,
     InvalidSigner,
     NotEnoughSignatures,
+    TooManySignatures,
     ConversionError,
 }
 
@@ -203,6 +206,7 @@ impl From<ActionExecutionError> for DispatchError {
             ActionExecutionError::NotEnoughSignatures => {
                 DispatchError::Other("Not enough signatures")
             }
+            ActionExecutionError::TooManySignatures => DispatchError::Other("Too many signatures"),
         }
     }
 }
@@ -242,7 +246,7 @@ where
 impl<T: Types, A, SI, D> MultiSignedActionWithNonces<T, A, SI, D>
 where
     A: Action,
-    SI: IntoIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
+    SI: FusedIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
     D: Into<DidOrDidMethodKey> + Ord,
 {
     pub fn new<S>(action: A, signatures: S) -> Self

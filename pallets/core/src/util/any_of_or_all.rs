@@ -14,21 +14,23 @@ pub enum AnyOfOrAll<V: Ord> {
 }
 
 #[derive(PartialEq, Eq, Debug, Clone, Copy)]
-struct ItemNotFound;
+pub struct ItemNotFound;
 
 impl<V: Ord> AnyOfOrAll<V> {
     pub fn any_of(items: impl IntoIterator<Item = V>) -> Self {
         Self::AnyOf(BTreeSet::from_iter(items))
     }
 
-    pub fn all(items: impl IntoIterator<Item = V>) -> Self {
-        Self::All(BTreeSet::from_iter(items))
+    pub fn all(items: impl IntoIterator<Item = V>) -> Option<Self> {
+        let set = BTreeSet::from_iter(items);
+
+        (!set.is_empty()).then_some(Self::All(set))
     }
 
-    pub fn satisfy(&self, others: &BTreeSet<V>) -> bool {
+    pub fn satisfies(&self, check: &BTreeSet<V>) -> bool {
         match self {
-            Self::AnyOf(values) => !values.is_disjoint(others),
-            Self::All(values) => values.is_subset(others),
+            Self::AnyOf(values) => !values.is_disjoint(check),
+            Self::All(values) => values.is_subset(check),
         }
     }
 
@@ -43,7 +45,7 @@ impl<V: Ord> AnyOfOrAll<V> {
         ensure!(self.contains(value), ItemNotFound);
 
         let set = match self {
-            Self::AnyOf(values) => None,
+            Self::AnyOf(_) => None,
             Self::All(mut values) => {
                 values.remove(value);
 

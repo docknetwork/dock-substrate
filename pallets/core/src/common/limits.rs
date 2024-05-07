@@ -77,10 +77,12 @@ pub trait Limits: Clone + Eq {
     type MaxTrustRegistryGovFrameworkSize: Size;
     /// Max no of schemas per registry.
     type MaxSchemasPerRegistry: Size;
+    /// Max no of participants per a single registry.
+    type MaxParticipantsPerRegistry: Size;
 }
 
-type NoLimit = ConstU32<{ u32::MAX }>;
 type Zero = ConstU32<0>;
+type NoLimit = ConstU32<{ u32::MAX }>;
 
 /// `Limits` without any limits.
 impl Limits for () {
@@ -124,4 +126,5 @@ impl Limits for () {
     type MaxRegistriesPerIssuer = NoLimit;
     type MaxRegistriesPerVerifier = NoLimit;
     type MaxSchemasPerRegistry = NoLimit;
+    type MaxParticipantsPerRegistry = NoLimit;
 }

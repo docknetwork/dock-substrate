@@ -1,11 +1,10 @@
 use crate::{
     common::{Authorization, AuthorizeSignedAction, AuthorizeTarget, ToStateChange},
     did::*,
-    util::{action::*, signature::Signature, with_nonce::*, ActionWrapper, AnyOfOrAll},
+    util::{action::*, signature::Signature, with_nonce::*, ActionWithNonceWrapper, AnyOfOrAll},
 };
 use alloc::collections::BTreeSet;
-use core::ops::Deref;
-use frame_support::ensure;
+use core::{iter::FusedIterator, ops::Deref};
 
 use super::DidSignatureWithNonce;
 
@@ -33,8 +32,10 @@ where
             .authorizes_signed_action(&action)?
             .ok_or(Error::<T>::InvalidSignature)?;
 
-        ActionWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
-            .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| f(action, signer))
+        ActionWithNonceWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
+            .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
+                f(action, signer)
+            })
             .map_err(Into::into)
     }
 
@@ -56,8 +57,8 @@ where
             .authorizes_signed_action(&action)?
             .ok_or(Error::<T>::InvalidSignature)?;
 
-        ActionWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
-            .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
+        ActionWithNonceWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
+            .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
                 action.execute_view(|action, target_data| f(action, target_data, signer))
             })
             .map_err(Into::into)
@@ -94,8 +95,8 @@ where
             .authorizes_signed_action(&action)?
             .ok_or(Error::<T>::InvalidSignature)?;
 
-        ActionWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
-            .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
+        ActionWithNonceWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
+            .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
                 action.execute_removable(|action, target_data| f(action, target_data, signer))
             })
             .map_err(Into::into)
@@ -104,14 +105,20 @@ where
 
 impl<T: Config, A, SI, D> MultiSignedActionWithNonces<T, A, SI, D>
 where
-    SI: Iterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
+    SI: FusedIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
     A: Action,
     D: Into<DidOrDidMethodKey> + From<DidOrDidMethodKey> + Clone + Ord,
 {
     pub fn execute<R, E, S>(
         self,
-        f: impl FnOnce(A, &mut <<A as Action>::Target as StorageRef<T>>::Value) -> Result<R, E>,
-        signers: impl FnOnce(&<<A as Action>::Target as StorageRef<T>>::Value) -> AnyOfOrAll<D>,
+        f: impl FnOnce(
+            A,
+            &mut <<A as Action>::Target as StorageRef<T>>::Value,
+            BTreeSet<D>,
+        ) -> Result<R, E>,
+        required_signers: impl FnOnce(
+            &<<A as Action>::Target as StorageRef<T>>::Value,
+        ) -> Option<AnyOfOrAll<D>>,
     ) -> Result<R, E>
     where
         E: From<ActionExecutionError> + From<NonceError> + From<crate::did::Error<T>>,
@@ -135,14 +142,21 @@ where
         } = self;
 
         action.execute(|action, data| {
-            Self::new(action, signatures).execute_inner(f, data, Some((signers)(&data)))
+            Self::new(action, signatures).execute_inner(
+                f,
+                data,
+                BTreeSet::new(),
+                (required_signers)(&data),
+            )
         })
     }
 
     pub fn execute_view<R, E, S>(
         self,
-        f: impl FnOnce(A, <<A as Action>::Target as StorageRef<T>>::Value) -> Result<R, E>,
-        signers: impl FnOnce(&<<A as Action>::Target as StorageRef<T>>::Value) -> AnyOfOrAll<D>,
+        f: impl FnOnce(A, <<A as Action>::Target as StorageRef<T>>::Value, BTreeSet<D>) -> Result<R, E>,
+        required_signers: impl FnOnce(
+            &<<A as Action>::Target as StorageRef<T>>::Value,
+        ) -> Option<AnyOfOrAll<D>>,
     ) -> Result<R, E>
     where
         E: From<ActionExecutionError> + From<NonceError> + From<crate::did::Error<T>>,
@@ -166,14 +180,22 @@ where
         } = self;
 
         action.execute_view(|action, data| {
-            Self::new(action, signatures).execute_inner(f, data, Some((signers)(&data)))
+            let required_signers = (required_signers)(&data);
+
+            Self::new(action, signatures).execute_inner(f, data, BTreeSet::new(), required_signers)
         })
     }
 
     pub fn execute_removable<R, E, S>(
         self,
-        f: impl FnOnce(A, &mut Option<<<A as Action>::Target as StorageRef<T>>::Value>) -> Result<R, E>,
-        signers: impl FnOnce(&<<A as Action>::Target as StorageRef<T>>::Value) -> AnyOfOrAll<D>,
+        f: impl FnOnce(
+            A,
+            &mut Option<<<A as Action>::Target as StorageRef<T>>::Value>,
+            BTreeSet<D>,
+        ) -> Result<R, E>,
+        required_signers: impl FnOnce(
+            &<<A as Action>::Target as StorageRef<T>>::Value,
+        ) -> Option<AnyOfOrAll<D>>,
     ) -> Result<R, E>
     where
         E: From<ActionExecutionError> + From<NonceError> + From<crate::did::Error<T>>,
@@ -197,18 +219,17 @@ where
         } = self;
 
         action.execute_removable(|action, data| {
-            Self::new(action, signatures).execute_inner(
-                f,
-                data,
-                Some((signers)(&data.as_ref().unwrap())),
-            )
+            let required_signers = (required_signers)(&data.as_ref().unwrap());
+
+            Self::new(action, signatures).execute_inner(f, data, BTreeSet::new(), required_signers)
         })
     }
 
     fn execute_inner<Data, R, E, S>(
         self,
-        f: impl FnOnce(A, Data) -> Result<R, E>,
+        f: impl FnOnce(A, Data, BTreeSet<D>) -> Result<R, E>,
         data: Data,
+        mut verified_signers: BTreeSet<D>,
         required_signers: Option<AnyOfOrAll<D>>,
     ) -> Result<R, E>
     where
@@ -233,30 +254,29 @@ where
             ..
         } = self;
 
-        if let Some(DidSignatureWithNonce { sig, nonce }) = signatures.next() {
-            let action_with_nonce = WithNonce::new_with_nonce(action, nonce);
-            let signed_action = action_with_nonce.signed(sig);
-            let signer = sig.signer().ok_or(ActionExecutionError::InvalidSigner)?;
+        match (required_signers, signatures.next()) {
+            (None, None) => f(action, data, verified_signers),
+            (None, Some(_)) => Err(ActionExecutionError::TooManySignatures.into()),
+            (Some(_), None) => Err(ActionExecutionError::NotEnoughSignatures.into()),
+            (Some(signers), Some(DidSignatureWithNonce { sig, nonce })) => {
+                let action_with_nonce = WithNonce::new_with_nonce(action, nonce);
+                let signer = sig.signer().ok_or(ActionExecutionError::InvalidSigner)?;
+                let signed_action = action_with_nonce.signed(sig);
 
-            let signers = required_signers
-                .map(|signers| {
-                    signers
-                        .exclude(&signer)
-                        .map_err(|_| ActionExecutionError::InvalidSigner)
+                verified_signers.insert(signer.clone());
+                let required_signers = signers
+                    .exclude(&signer)
+                    .map_err(|_| ActionExecutionError::NotEnoughSignatures)?;
+
+                signed_action.execute_without_target_data(|action, _| {
+                    Self::new(action.into_data(), signatures).execute_inner(
+                        f,
+                        data,
+                        verified_signers,
+                        required_signers,
+                    )
                 })
-                .transpose()?
-                .flatten();
-
-            signed_action.execute_without_target_data(|action, _| {
-                Self::new(action.into_data(), signatures).execute_inner(f, data, signers)
-            })
-        } else {
-            ensure!(
-                required_signers.is_none(),
-                ActionExecutionError::NotEnoughSignatures
-            );
-
-            f(action, data)
+            }
         }
     }
 }

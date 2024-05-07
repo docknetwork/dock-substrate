@@ -4,7 +4,6 @@
 use crate::{
     common::{signatures::ForSigType, DidSignatureWithNonce, PolicyExecutor},
     deposit_indexed_event, did,
-    util::Action,
 };
 use alloc::vec::*;
 use frame_support::pallet_prelude::*;
@@ -29,10 +28,7 @@ use weights::*;
 #[frame_support::pallet]
 
 pub mod pallet {
-    use crate::{
-        common::{Policy, PolicyExecutor},
-        util::MultiSignedActionWithNonces,
-    };
+    use crate::{common::PolicyExecutor, util::MultiSignedActionWithNonces};
 
     use super::*;
 

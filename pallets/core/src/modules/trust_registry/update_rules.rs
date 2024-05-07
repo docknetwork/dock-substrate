@@ -32,7 +32,15 @@ impl CanUpdate<VerificationPrice> for IssuerOrVerifier {
 impl<T: Limits> CanUpdate<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {}
 impl<T: Limits> CanUpdate<TrustRegistrySchemaVerifiers<T>> for IssuerOrVerifier {}
 
-impl<T: Limits> CanUpdate<TrustRegistryStoredParticipants<T>> for IssuerOrVerifier {}
+impl<T: Limits> CanUpdateKeyed<TrustRegistryStoredParticipants<T>> for IssuersOrVerifiers {
+    fn can_update_keyed<U: KeyedUpdate<TrustRegistryStoredParticipants<T>>>(
+        &self,
+        entity: &TrustRegistryStoredParticipants<T>,
+        update: &U,
+    ) -> bool {
+        update.targets(entity).all(|target| self.contains(target))
+    }
+}
 
 impl<T: Limits> CanUpdateKeyed<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {
     fn can_update_keyed<U: KeyedUpdate<TrustRegistrySchemaIssuers<T>>>(

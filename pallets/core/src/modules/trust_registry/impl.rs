@@ -204,8 +204,17 @@ impl<T: Config> Pallet<T> {
     pub(super) fn change_participants_(
         ChangeParticipantsRaw { participants, .. }: ChangeParticipantsRaw<T>,
         trust_registry_participants: &mut TrustRegistryStoredParticipants<T>,
+        convener_or_issuers_or_verifiers: BTreeSet<ConvenerOrIssuerOrVerifier>,
     ) -> DispatchResult {
-        participants.ensure_valid(&issuer_or_verifier, &trust_registry_participants)?;
+        participants.ensure_valid(
+            &IssuersOrVerifiers(
+                convener_or_issuers_or_verifiers
+                    .into_iter()
+                    .map(|did| IssuerOrVerifier(*did))
+                    .collect(),
+            ),
+            &trust_registry_participants,
+        )?;
         participants.apply_update(trust_registry_participants);
 
         Ok(())

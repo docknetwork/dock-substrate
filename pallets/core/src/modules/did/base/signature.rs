@@ -307,14 +307,14 @@ where
         match signer.into() {
             DidOrDidMethodKey::Did(controller) => {
                 if controller == action.target() {
-                    ActionWrapper::<T, A, Did>::new(action.nonce(), controller, action)
-                        .execute_and_increase_nonce(|ActionWrapper { action, .. }, reference| {
-                            f(action, reference)
-                        })
+                    ActionWithNonceWrapper::<T, A, Did>::new(action.nonce(), controller, action)
+                        .execute_and_increase_nonce(
+                            |ActionWithNonceWrapper { action, .. }, reference| f(action, reference),
+                        )
                         .map_err(Into::into)
                 } else {
-                    ActionWrapper::<T, A, Did>::new(action.nonce(), controller, action)
-                        .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
+                    ActionWithNonceWrapper::<T, A, Did>::new(action.nonce(), controller, action)
+                        .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
                             action.execute_without_increasing_nonce(|action, reference| {
                                 f(action, reference)
                             })
@@ -322,15 +322,17 @@ where
                         .map_err(Into::into)
                 }
             }
-            DidOrDidMethodKey::DidMethodKey(controller) => {
-                ActionWrapper::<T, A, DidMethodKey>::new(action.nonce(), controller, action)
-                    .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
-                        action.execute_without_increasing_nonce(|action, reference| {
-                            f(action, reference)
-                        })
-                    })
-                    .map_err(Into::into)
-            }
+            DidOrDidMethodKey::DidMethodKey(controller) => ActionWithNonceWrapper::<
+                T,
+                A,
+                DidMethodKey,
+            >::new(
+                action.nonce(), controller, action
+            )
+            .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
+                action.execute_without_increasing_nonce(|action, reference| f(action, reference))
+            })
+            .map_err(Into::into),
         }
     }
 }

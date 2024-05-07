@@ -5,7 +5,9 @@ use crate::{
     common::{Policy, PolicyValidationError, ToStateChange},
     did::Did,
     tests::common::*,
-    util::{Action, ActionExecutionError, BoundedBytes, WithNonce},
+    util::{
+        Action, ActionExecutionError, BoundedBytes, MultiSignedActionWithNonces, Types, WithNonce,
+    },
 };
 use alloc::collections::BTreeMap;
 use frame_support::{assert_noop, assert_ok};
@@ -18,7 +20,7 @@ type Mod = super::Pallet<Test>;
 pub fn get_pauth<A: Action + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
-) -> Vec<DidSignatureWithNonce<T::BlockNumberest>>
+) -> Vec<DidSignatureWithNonce<<Test as Types>::BlockNumber, PolicyExecutor>>
 where
     WithNonce<Test, A>: ToStateChange<Test>,
 {
@@ -112,10 +114,9 @@ fn ensure_auth() {
             };
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = command.clone().execute(
-                |action, cred: &mut StatusListCredentialWithPolicy<Test>| {
-                    cred.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
-                },
+            let res = MultiSignedActionWithNonces::new(command.clone(), proof).execute(
+                |_, _, _| Ok::<_, DispatchError>(()),
+                StatusListCredentialWithPolicy::expand_policy,
             );
             assert_eq!(res.is_ok(), expect_success);
             if expect_success {
@@ -129,10 +130,9 @@ fn ensure_auth() {
 
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = command.clone().execute(
-                |action, cred: &mut StatusListCredentialWithPolicy<Test>| {
-                    cred.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
-                },
+            let res = MultiSignedActionWithNonces::new(command, proof).execute(
+                |_, _, _| Ok::<_, DispatchError>(()),
+                StatusListCredentialWithPolicy::expand_policy,
             );
             assert_eq!(res.is_ok(), expect_success);
 

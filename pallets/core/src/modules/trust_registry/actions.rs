@@ -100,18 +100,18 @@ pub struct UpdateDelegatedIssuers<T: Types> {
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct ChangeParticipantsRaw<T: Types> {
-    pub trust_registry_id: TrustRegistryId,
+    pub registry_id: TrustRegistryIdForParticipants,
     pub participants: UnboundedTrustRegistryParticipantsUpdate,
     #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
-    _marker: PhantomData<T>,
+    pub _marker: PhantomData<T>,
 }
 
 pub type ChangeParticipants<T> = WithNonce<T, ChangeParticipantsRaw<T>>;
 
 impl_action!(
-    for TrustRegistryId:
-        ChangeParticipantsRaw with 1 as len, trust_registry_id as target no_state_change
+    for TrustRegistryIdForParticipants:
+        ChangeParticipantsRaw with participants.len() as len, registry_id as target no_state_change
 );
 
 impl_action_with_nonce!(
@@ -124,6 +124,10 @@ impl_action_with_nonce!(
     for TrustRegistryId:
         SetSchemasMetadata with { |this: &Self| match &this.schemas { SetOrModify::Set(_) => 1, SetOrModify::Modify(update) => update.len() } } as len, registry_id as target,
         SuspendIssuers with issuers.len() as len, registry_id as target,
-        UnsuspendIssuers with issuers.len() as len, registry_id as target,
-        ChangeParticipants with data().len() as len, data().trust_registry_id as target
+        UnsuspendIssuers with issuers.len() as len, registry_id as target
+);
+
+impl_action_with_nonce!(
+    for TrustRegistryIdForParticipants:
+        ChangeParticipants with data().len() as len, data().registry_id as target
 );

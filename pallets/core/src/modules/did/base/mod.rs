@@ -105,14 +105,7 @@ impl TryFrom<DidOrDidMethodKey> for DidMethodKey {
 #[scale_info(omit_prefix)]
 pub struct Did(#[cfg_attr(feature = "serde", serde(with = "crate::util::serde_hex"))] pub RawDid);
 
-impl Debug for Did {
-    fn fmt(
-        &self,
-        f: &mut scale_info::prelude::fmt::Formatter<'_>,
-    ) -> scale_info::prelude::fmt::Result {
-        write!(f, "0x{}", ::hex::encode(&self.0[..]))
-    }
-}
+crate::hex_debug!(Did);
 
 impl<Target> AuthorizeTarget<Target, DidKey> for Did {
     fn ensure_authorizes_target<T, A>(&self, key: &DidKey, _: &A) -> Result<(), Error<T>>

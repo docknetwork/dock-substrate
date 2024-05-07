@@ -198,6 +198,17 @@ macro_rules! impl_tuple {
     }
 }
 
+#[macro_export]
+macro_rules! hex_debug {
+    ($ty: ty) => {
+        impl core::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(f, "0x{}", ::hex::encode(&self.0[..]))
+            }
+        }
+    };
+}
+
 /// Deposits an event indexed over the supplied fields.
 #[macro_export]
 macro_rules! deposit_indexed_event {
