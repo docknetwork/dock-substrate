@@ -198,7 +198,7 @@ crate::did_or_did_method_key! {
                 Convener(convener.into()),
                 init_or_update_trust_registry.clone(),
             )
-            .execute::<Test, _, _, _, _>(|action, set| {
+            .modify::<Test, _, _, _, _>(|action, set| {
                 Mod::init_or_update_trust_registry_(action.action, set, Convener(convener.into()))
             })
             .unwrap();
@@ -218,7 +218,7 @@ crate::did_or_did_method_key! {
                 .zip(0..)
                 .zip(schema_verifiers.values())
                 .zip(schema_issuers.values())
-                .map(|(((id, idx), verifiers), issuers)| {
+                .map(|(((id, _), verifiers), issuers)| {
                     let issuers = UnboundedIssuersWith(
                         issuers.iter().map(|(did, _)| Issuer((*did).into()))
                             .map(|issuer| (issuer, build_initial_prices(5, 5)))
@@ -248,7 +248,7 @@ crate::did_or_did_method_key! {
             };
 
             add_schema_metadata
-                .execute_view(|action, reg| {
+                .view(|action, reg| {
                     Mod::set_schemas_metadata_(action, reg, ConvenerOrIssuerOrVerifier(convener.into()))
                 })
                 .unwrap();
@@ -354,7 +354,7 @@ crate::did_or_did_method_key! {
                 Convener(convener.into()),
                 init_or_update_trust_registry.clone(),
             )
-            .execute::<Test, _, _, _, _>(|action, reg| {
+            .modify::<Test, _, _, _, _>(|action, reg| {
                 Mod::init_or_update_trust_registry_(action.action, reg, Convener(convener.into()))
             })
             .unwrap();
@@ -566,7 +566,7 @@ crate::did_or_did_method_key! {
                  Convener(convener.into()),
                  init_or_update_trust_registry.clone(),
              )
-             .execute::<Test, _, _, _, _>(|action, set| {
+             .modify::<Test, _, _, _, _>(|action, set| {
                  Mod::init_or_update_trust_registry_(action.action, set, Convener(convener.into()))
              })
              .unwrap();
@@ -637,13 +637,13 @@ crate::did_or_did_method_key! {
             add_participants(init_or_update_trust_registry.registry_id, schema_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
             add_participants(init_or_update_trust_registry.registry_id, schema_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
 
-            let mut schemas: BTreeMap<_, _> = schema_ids
+            let schemas: BTreeMap<_, _> = schema_ids
                 .iter()
                 .copied()
                 .zip(0..)
                 .zip(schema_verifiers.values())
                 .zip(schema_issuers.values())
-                .map(|(((id, idx), verifiers), issuers)| {
+                .map(|(((id, _), verifiers), issuers)| {
                     let issuers = UnboundedIssuersWith(
                         issuers.iter().map(|(did, _)| Issuer((*did).into()))
                             .map(|issuer| (issuer, build_initial_prices(5, 5)))
@@ -914,7 +914,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -924,7 +924,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -977,7 +977,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -987,7 +987,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
-                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
+                                update.view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
@@ -1027,7 +1027,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1037,7 +1037,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
-                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
+                                update.view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
@@ -1089,7 +1089,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaId,
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1134,7 +1134,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1144,7 +1144,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
-                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
+                                update.view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
@@ -1215,7 +1215,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1228,7 +1228,7 @@ crate::did_or_did_method_key! {
                             let schema_1 = schemas.get_mut(&schema_ids[1]).unwrap();
                             let issuer_3 = (*schema_1.issuers.keys().nth(3).unwrap()).into();
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1238,7 +1238,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1293,7 +1293,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1303,7 +1303,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
                             assert_noop!(
-                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
+                                update.view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(verifier.into())
@@ -1343,7 +1343,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
+                                update.view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(issuer.into())
@@ -1395,7 +1395,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.execute_view(|action, reg| Mod::set_schemas_metadata_(
+                                update.view(|action, reg| Mod::set_schemas_metadata_(
                                     action,
                                     reg,
                                     ConvenerOrIssuerOrVerifier(convener.into())
@@ -1434,7 +1434,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaId,
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
-                            assert_ok!(update.execute_view(|action, registry| {
+                            assert_ok!(update.view(|action, registry| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     registry,
@@ -1478,7 +1478,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1487,7 +1487,7 @@ crate::did_or_did_method_key! {
                                 }).map_err(DispatchError::from),
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1524,7 +1524,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1533,7 +1533,7 @@ crate::did_or_did_method_key! {
                                 }).map_err(DispatchError::from),
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1570,7 +1570,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1579,7 +1579,7 @@ crate::did_or_did_method_key! {
                                 }).map_err(DispatchError::from),
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1608,7 +1608,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1637,7 +1637,7 @@ crate::did_or_did_method_key! {
                             TrustRegistrySchemaId,
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1662,7 +1662,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1672,7 +1672,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.clone().execute_view(|action, reg| {
+                            assert_ok!(update.clone().view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1697,7 +1697,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1707,7 +1707,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1731,7 +1731,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1741,7 +1741,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1763,7 +1763,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1773,7 +1773,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1795,7 +1795,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1805,7 +1805,7 @@ crate::did_or_did_method_key! {
                                 Error::<Test>::SenderCantApplyThisUpdate
                             );
 
-                            assert_ok!(update.execute_view(|action, reg| {
+                            assert_ok!(update.view(|action, reg| {
                                 Mod::set_schemas_metadata_(
                                     action,
                                     reg,
@@ -1827,7 +1827,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1849,7 +1849,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1871,7 +1871,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,
@@ -1893,7 +1893,7 @@ crate::did_or_did_method_key! {
                             UnboundedTrustRegistrySchemaMetadata,
                         >| {
                             assert_noop!(
-                                update.clone().execute_view(|action, reg| {
+                                update.clone().view(|action, reg| {
                                     Mod::set_schemas_metadata_(
                                         action,
                                         reg,

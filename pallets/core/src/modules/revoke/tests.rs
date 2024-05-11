@@ -698,7 +698,7 @@ mod test {
     use sp_runtime::DispatchError;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
-    use crate::{revoke::Registries, util::MultiSignedActionWithNonces};
+    use crate::{revoke::Registries, util::MultiSignedAction};
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.
@@ -753,7 +753,7 @@ mod test {
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&rev, signers);
 
-            let res = MultiSignedActionWithNonces::new(rev.clone(), proof).execute_view(
+            let res = MultiSignedAction::new(rev.clone(), proof).execute_view(
                 |_, _, _| Ok::<_, DispatchError>(()),
                 RevocationRegistry::expand_policy,
             );

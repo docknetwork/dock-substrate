@@ -28,7 +28,7 @@ use weights::*;
 #[frame_support::pallet]
 
 pub mod pallet {
-    use crate::{common::PolicyExecutor, util::MultiSignedActionWithNonces};
+    use crate::{common::PolicyExecutor, util::MultiSignedAction};
 
     use super::*;
 
@@ -100,7 +100,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            MultiSignedActionWithNonces::new(update_credential, proof)
+            MultiSignedAction::new(update_credential, proof)
                 .execute(Self::update_, StatusListCredentialWithPolicy::expand_policy)
         }
 
@@ -113,7 +113,7 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            MultiSignedActionWithNonces::new(remove_credential, proof)
+            MultiSignedAction::new(remove_credential, proof)
                 .execute_removable(Self::remove_, StatusListCredentialWithPolicy::expand_policy)
         }
     }

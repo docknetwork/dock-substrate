@@ -39,7 +39,7 @@ where
             .map_err(Into::into)
     }
 
-    /// Verifies signer's signature and nonce, then executes given action providing a reference to the
+    /// Verifies signer's signature and nonce, then executes given action providing a
     /// value associated with the target.
     /// In case of a successful result, increases the signer's nonce.
     pub fn execute_view<F, S, R, E>(self, f: F) -> Result<R, E>
@@ -59,7 +59,7 @@ where
 
         ActionWithNonceWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
             .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
-                action.execute_view(|action, target_data| f(action, target_data, signer))
+                action.view(|action, target_data| f(action, target_data, signer))
             })
             .map_err(Into::into)
     }
@@ -97,41 +97,38 @@ where
 
         ActionWithNonceWrapper::<T, _, _>::new(action.nonce(), (*signer).clone(), action)
             .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
-                action.execute_removable(|action, target_data| f(action, target_data, signer))
+                action.modify_removable(|action, target_data| f(action, target_data, signer))
             })
             .map_err(Into::into)
     }
 }
 
-impl<T: Config, A, SI, D> MultiSignedActionWithNonces<T, A, SI, D>
+impl<T: Config, A, SI, D> MultiSignedAction<T, A, SI, D>
 where
     SI: FusedIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
     A: Action,
     D: Into<DidOrDidMethodKey> + From<DidOrDidMethodKey> + Clone + Ord,
 {
+    /// Verifies signature and nonce for all required signers, then executes given action providing a mutable reference to the
+    /// value associated with the target along with the set of actors that provided signatures.
+    /// In case of a successful result, commits all storage changes and increases nonces for all signers.
     pub fn execute<R, E, S>(
         self,
-        f: impl FnOnce(
-            A,
-            &mut <<A as Action>::Target as StorageRef<T>>::Value,
-            BTreeSet<D>,
-        ) -> Result<R, E>,
-        required_signers: impl FnOnce(
-            &<<A as Action>::Target as StorageRef<T>>::Value,
-        ) -> Option<AnyOfOrAll<D>>,
+        f: impl FnOnce(A, &mut <A::Target as StorageRef<T>>::Value, BTreeSet<D>) -> Result<R, E>,
+        required_signers: impl FnOnce(&<A::Target as StorageRef<T>>::Value) -> Option<AnyOfOrAll<D>>,
     ) -> Result<R, E>
     where
         E: From<ActionExecutionError> + From<NonceError> + From<crate::did::Error<T>>,
         WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
         <WithNonce<T, A> as Action>::Target: StorageRef<T>,
-        <A as Action>::Target: StorageRef<T>,
+        A::Target: StorageRef<T>,
         DidOrDidMethodKeySignature<D>:
             AuthorizeSignedAction<WithNonce<T, A>> + Signature<Signer = D>,
         D: AuthorizeTarget<
                 <WithNonce<T, A> as Action>::Target,
                 <DidOrDidMethodKeySignature<D> as Signature>::Key,
             > + Deref,
-        <D as Deref>::Target: AuthorizeTarget<
+        D::Target: AuthorizeTarget<
                 <WithNonce<T, A> as Action>::Target,
                 <DidOrDidMethodKeySignature<D> as Signature>::Key,
             > + StorageRef<T, Value = WithNonce<T, S>>
@@ -141,7 +138,7 @@ where
             action, signatures, ..
         } = self;
 
-        action.execute(|action, data| {
+        action.modify(|action, data| {
             Self::new(action, signatures).execute_inner(
                 f,
                 data,
@@ -151,25 +148,26 @@ where
         })
     }
 
+    /// Verifies signature and nonce for all required signers, then executes given action providing a
+    /// value associated with the target along with the set of actors that provided signatures.
+    /// In case of a successful result, commits all storage changes and increases nonces for all signers
     pub fn execute_view<R, E, S>(
         self,
-        f: impl FnOnce(A, <<A as Action>::Target as StorageRef<T>>::Value, BTreeSet<D>) -> Result<R, E>,
-        required_signers: impl FnOnce(
-            &<<A as Action>::Target as StorageRef<T>>::Value,
-        ) -> Option<AnyOfOrAll<D>>,
+        f: impl FnOnce(A, <A::Target as StorageRef<T>>::Value, BTreeSet<D>) -> Result<R, E>,
+        required_signers: impl FnOnce(&<A::Target as StorageRef<T>>::Value) -> Option<AnyOfOrAll<D>>,
     ) -> Result<R, E>
     where
         E: From<ActionExecutionError> + From<NonceError> + From<crate::did::Error<T>>,
         WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
         <WithNonce<T, A> as Action>::Target: StorageRef<T>,
-        <A as Action>::Target: StorageRef<T>,
+        A::Target: StorageRef<T>,
         DidOrDidMethodKeySignature<D>:
             AuthorizeSignedAction<WithNonce<T, A>> + Signature<Signer = D>,
         D: AuthorizeTarget<
                 <WithNonce<T, A> as Action>::Target,
                 <DidOrDidMethodKeySignature<D> as Signature>::Key,
             > + Deref,
-        <D as Deref>::Target: AuthorizeTarget<
+        D::Target: AuthorizeTarget<
                 <WithNonce<T, A> as Action>::Target,
                 <DidOrDidMethodKeySignature<D> as Signature>::Key,
             > + StorageRef<T, Value = WithNonce<T, S>>
@@ -179,36 +177,33 @@ where
             action, signatures, ..
         } = self;
 
-        action.execute_view(|action, data| {
+        action.view(|action, data| {
             let required_signers = (required_signers)(&data);
 
             Self::new(action, signatures).execute_inner(f, data, BTreeSet::new(), required_signers)
         })
     }
 
+    /// Verifies signature and nonce for all required signers, then executes given action providing  a mutable reference to the
+    /// option containing value associated with the target along with the set of actors that provided signatures.
+    /// In case of a successful result, commits all storage changes and increases nonces for all signers.
     pub fn execute_removable<R, E, S>(
         self,
-        f: impl FnOnce(
-            A,
-            &mut Option<<<A as Action>::Target as StorageRef<T>>::Value>,
-            BTreeSet<D>,
-        ) -> Result<R, E>,
-        required_signers: impl FnOnce(
-            &<<A as Action>::Target as StorageRef<T>>::Value,
-        ) -> Option<AnyOfOrAll<D>>,
+        f: impl FnOnce(A, &mut Option<<A::Target as StorageRef<T>>::Value>, BTreeSet<D>) -> Result<R, E>,
+        required_signers: impl FnOnce(&<A::Target as StorageRef<T>>::Value) -> Option<AnyOfOrAll<D>>,
     ) -> Result<R, E>
     where
         E: From<ActionExecutionError> + From<NonceError> + From<crate::did::Error<T>>,
         WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
         <WithNonce<T, A> as Action>::Target: StorageRef<T>,
-        <A as Action>::Target: StorageRef<T>,
+        A::Target: StorageRef<T>,
         DidOrDidMethodKeySignature<D>:
             AuthorizeSignedAction<WithNonce<T, A>> + Signature<Signer = D>,
         D: AuthorizeTarget<
                 <WithNonce<T, A> as Action>::Target,
                 <DidOrDidMethodKeySignature<D> as Signature>::Key,
             > + Deref,
-        <D as Deref>::Target: AuthorizeTarget<
+        D::Target: AuthorizeTarget<
                 <WithNonce<T, A> as Action>::Target,
                 <DidOrDidMethodKeySignature<D> as Signature>::Key,
             > + StorageRef<T, Value = WithNonce<T, S>>
@@ -218,7 +213,7 @@ where
             action, signatures, ..
         } = self;
 
-        action.execute_removable(|action, data| {
+        action.modify_removable(|action, data| {
             let required_signers = (required_signers)(&data.as_ref().unwrap());
 
             Self::new(action, signatures).execute_inner(f, data, BTreeSet::new(), required_signers)
@@ -242,7 +237,7 @@ where
                 <WithNonce<T, A> as Action>::Target,
                 <DidOrDidMethodKeySignature<D> as Signature>::Key,
             > + Deref,
-        <D as Deref>::Target: AuthorizeTarget<
+        D::Target: AuthorizeTarget<
                 <WithNonce<T, A> as Action>::Target,
                 <DidOrDidMethodKeySignature<D> as Signature>::Key,
             > + StorageRef<T, Value = WithNonce<T, S>>

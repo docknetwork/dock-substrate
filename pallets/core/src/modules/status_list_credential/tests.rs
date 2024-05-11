@@ -5,9 +5,7 @@ use crate::{
     common::{Policy, PolicyValidationError, ToStateChange},
     did::Did,
     tests::common::*,
-    util::{
-        Action, ActionExecutionError, BoundedBytes, MultiSignedActionWithNonces, Types, WithNonce,
-    },
+    util::{Action, ActionExecutionError, BoundedBytes, MultiSignedAction, Types, WithNonce},
 };
 use alloc::collections::BTreeMap;
 use frame_support::{assert_noop, assert_ok};
@@ -114,7 +112,7 @@ fn ensure_auth() {
             };
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = MultiSignedActionWithNonces::new(command.clone(), proof).execute(
+            let res = MultiSignedAction::new(command.clone(), proof).execute(
                 |_, _, _| Ok::<_, DispatchError>(()),
                 StatusListCredentialWithPolicy::expand_policy,
             );
@@ -130,7 +128,7 @@ fn ensure_auth() {
 
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = MultiSignedActionWithNonces::new(command, proof).execute(
+            let res = MultiSignedAction::new(command, proof).execute(
                 |_, _, _| Ok::<_, DispatchError>(()),
                 StatusListCredentialWithPolicy::expand_policy,
             );

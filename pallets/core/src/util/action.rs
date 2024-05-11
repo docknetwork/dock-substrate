@@ -26,8 +26,8 @@ pub trait Action: Sized {
         self.len() == 0
     }
 
-    /// Executes an action providing a mutable reference to the value associated with the target.
-    fn execute<T, S, F, R, E>(self, f: F) -> Result<R, E>
+    /// Calls supplied function providing an action along with a mutable reference to the value associated with the target.
+    fn modify<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut S) -> Result<R, E>,
         <Self::Target as StorageRef<T>>::Value: TryInto<S>,
@@ -48,8 +48,8 @@ pub trait Action: Sized {
         })
     }
 
-    /// Executes an action providing a value associated with the target.
-    fn execute_view<T, S, F, R, E>(self, f: F) -> Result<R, E>
+    /// Calls supplied function providing an action along with a value associated with the target.
+    fn view<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, S) -> Result<R, E>,
         <Self::Target as StorageRef<T>>::Value: TryInto<S>,
@@ -69,8 +69,8 @@ pub trait Action: Sized {
         })
     }
 
-    /// Executes an action providing a mutable reference to the option containing a value associated with the target.
-    fn execute_removable<T, S, F, R, E>(self, f: F) -> Result<R, E>
+    /// Calls supplied function providing an action along with a mutable reference to the option containing a value associated with the target.
+    fn modify_removable<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
         <Self::Target as StorageRef<T>>::Value: TryInto<S>,
@@ -233,7 +233,7 @@ where
     }
 }
 
-pub struct MultiSignedActionWithNonces<T: Types, A, SI, D>
+pub struct MultiSignedAction<T: Types, A, SI, D>
 where
     A: Action,
     D: Ord,
@@ -243,7 +243,7 @@ where
     _marker: PhantomData<(T, D)>,
 }
 
-impl<T: Types, A, SI, D> MultiSignedActionWithNonces<T, A, SI, D>
+impl<T: Types, A, SI, D> MultiSignedAction<T, A, SI, D>
 where
     A: Action,
     SI: FusedIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,

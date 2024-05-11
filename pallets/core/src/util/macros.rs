@@ -198,6 +198,7 @@ macro_rules! impl_tuple {
     }
 }
 
+/// Implements `Debug` trait printing hex representation of the underlying value.
 #[macro_export]
 macro_rules! hex_debug {
     ($ty: ty) => {

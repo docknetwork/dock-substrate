@@ -17,7 +17,6 @@ use crate::{
     revoke::{RevocationRegistryId, RevokeId},
 };
 use codec::{Decode, Encode};
-use core::convert::Infallible;
 use frame_support::{
     parameter_types,
     traits::{Contains, OnFinalize, OnInitialize},
@@ -460,7 +459,7 @@ pub fn did_nonce<T: crate::did::Config, D: Into<DidOrDidMethodKey>>(
     struct DummyAction<T>(PhantomData<T>);
     crate::impl_action!(for (): DummyAction with 1 as len, () as target no_state_change);
 
-    ActionWrapper::new(did.into(), DummyAction(PhantomData::<T>)).execute_view(
+    ActionWrapper::new(did.into(), DummyAction(PhantomData::<T>)).view(
         |_, details: WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>| {
             Ok::<_, DispatchError>(details.next_nonce().unwrap())
         },

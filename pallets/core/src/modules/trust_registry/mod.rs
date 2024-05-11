@@ -49,8 +49,7 @@ pub mod pallet {
     use crate::{
         common::DidSignatureWithNonce,
         util::{
-            AnyOfOrAll, DuplicateKey, IncOrDec, MultiSignedActionWithNonces, MultiTargetUpdate,
-            UpdateError,
+            AnyOfOrAll, DuplicateKey, IncOrDec, MultiSignedAction, MultiTargetUpdate, UpdateError,
         },
     };
 
@@ -433,12 +432,12 @@ pub mod pallet {
 
                 let signers = AnyOfOrAll::all(participants.chain(once(convener)));
 
-                MultiSignedActionWithNonces::new(action, signatures)
+                MultiSignedAction::new(action, signatures)
                     .execute(Self::change_participants_, |_| signers)
             };
 
             ActionWrapper::new(*change_participants.registry_id, change_participants)
-                .execute_view(ActionWrapper::wrap_fn(f))
+                .view(ActionWrapper::wrap_fn(f))
         }
     }
 
