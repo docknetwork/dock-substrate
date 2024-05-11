@@ -1,0 +1,25 @@
+- hosts: "{{ overriden_host | default(host) }}"
+  gather_facts: true
+  become: true
+  name: Setup http nginx
+
+  tasks:
+    - name: Install nginx
+      become: yes
+      become_method: sudo
+      ansible.builtin.apt:
+        name: nginx
+        state: latest
+
+    - name: Copy basic nginx configuration
+      become: yes
+      ansible.builtin.copy:
+        src: "{{ nginx_dir }}"
+        dest: /etc/
+
+    - name: Run nginx
+      become: yes
+      become_method: sudo
+      ansible.builtin.service:
+        name: nginx
+        state: restarted
