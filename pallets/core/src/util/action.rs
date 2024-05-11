@@ -233,6 +233,7 @@ where
     }
 }
 
+/// An action signed by multiple signers with their corresponding nonces.
 pub struct MultiSignedAction<T: Types, A, SI, D>
 where
     A: Action,
