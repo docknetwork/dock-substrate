@@ -141,7 +141,7 @@ Variables:
 1. `aws_profile` - AWS profile to be used
 2. `aws_region` - AWS region to be used
 3. `name` - to use for the instance
-4. `restricted_cidr_ip` - set of IP addresses to allow `https` connections from. If provided, only port `443` will be open for the supplied IP mask.
+4. `https` - should gateway node use `https` or not. In case if not, its `http` port will be only accessible from within the members of the `http` AWS group.
 
 Variables ([`instance_host`:vars]):
 
