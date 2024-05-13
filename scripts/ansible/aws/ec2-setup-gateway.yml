@@ -3,17 +3,16 @@
   gather_facts: False
   vars:
     instance_name: "{{ name }} (created by ansible)"
-    restricted: "{{ restricted_cidr_ip is defined or not https_bool }}"
-    group_name: "{{ 'HTTP & HTTPS (created by ansible)' if not restricted else 'Restricted HTTP (created by ansible)' if not https_bool else 'HTTP (created by ansible)' }}"
+    group_name: "{{ 'HTTP & HTTPS (created by ansible)' if https_bool else 'Restricted HTTP (created by ansible)' }}"
   tasks:
   - set_fact: 
       https_bool: "{{ https | default('true') | bool }}"
   - name: Create HTTP & HTTPS security group
-    when: not restricted and not https_bool
+    when: https_bool
     amazon.aws.ec2_security_group:
       region: "{{ aws_region }}"
       profile: "{{ aws_profile }}"
-      name: HTTP & HTTPS (created by ansible)
+      name: "{{ group_name }}"
       description: Allows http and https connection (created by ansible)
       rules:
         - proto: tcp
@@ -24,32 +23,19 @@
           from_port: 443
           to_port: 443
           cidr_ip: 0.0.0.0/0
-  
-  - name: Create HTTP security group
-    when: restricted and https_bool
-    amazon.aws.ec2_security_group:
-      region: "{{ aws_region }}"
-      profile: "{{ aws_profile }}"
-      name: HTTP (created by ansible)
-      description: Allows http connection (created by ansible)
-      rules:
-        - proto: tcp
-          from_port: 80
-          to_port: 80
-          cidr_ip: 0.0.0.0/0
 
   - name: Create restricted HTTP security group
-    when: restricted and not https_bool
+    when: not https_bool
     amazon.aws.ec2_security_group:
       region: "{{ aws_region }}"
       profile: "{{ aws_profile }}"
-      name: Restricted HTTP (created by ansible)
+      name: "{{ group_name }}"
       description: Allows http connection (created by ansible)
       rules:
         - proto: tcp
           from_port: 80
           to_port: 80
-          group_name: Restricted HTTP (created by ansible)
+          group_name: "{{ group_name }}"
 
   - name: Get EC2 instance state
     amazon.aws.ec2_instance:
@@ -62,7 +48,7 @@
     ansible.builtin.debug:
       msg: Existing security groups {{ instances['instances'][0] | json_query('security_groups[*].group_id') }}
 
-  - name: Add HTTP & HTTPS open ports group to the EC2 instance
+  - name: Add {{ group_name }} to the EC2 instance
     amazon.aws.ec2_instance:
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
@@ -92,47 +78,3 @@
 
 - name: Close SSH port
   ansible.builtin.import_playbook: ./ec2-disable-ssh.yml
-
-- hosts: localhost
-  connection: local
-  gather_facts: False
-  vars:
-    instance_name: "{{ name }} (created by ansible)"
-    restricted: "{{ restricted_cidr_ip is defined or not https_bool }}"
-    group_name: "{{ 'HTTP & HTTPS (created by ansible)' if not restricted else 'Restricted HTTP (created by ansible)' if not https_bool else 'HTTP (created by ansible)' }}"
-    restricted_group_name: "{{ ('Restricted HTTPS (' + restricted_cidr_ip + ') (created by ansible)') if https_bool else 'Restricted HTTP (created by ansible)' }}"
-  tasks:
-
-  - name: Create restricted HTTPS security group
-    when: restricted and https
-    amazon.aws.ec2_security_group:
-      region: "{{ aws_region }}"
-      profile: "{{ aws_profile }}"
-      name: "{{ restricted_group_name }}"
-      description: Allows restricted https connection (created by ansible)
-      rules:
-        - proto: tcp
-          from_port: 443
-          to_port: 443
-          cidr_ip: "{{ restricted_cidr_ip }}"
-
-  - name: Get EC2 instance state
-    when: restricted
-    amazon.aws.ec2_instance:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ instance_name }}"
-    register: instances
-
-  - name: EC2 instance info
-    when: restricted
-    ansible.builtin.debug:
-      msg: Existing security groups {{ instances['instances'][0] | json_query('security_groups[*].group_id') }}
-
-  - name: Add HTTP & HTTPS open ports group to the EC2 instance
-    when: restricted
-    amazon.aws.ec2_instance:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ instance_name }}"
-      security_groups: "{{ instances['instances'][0] | json_query('security_groups[*].group_id') + [restricted_group_name] | difference([group_name])  }}"
