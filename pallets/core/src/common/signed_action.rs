@@ -314,15 +314,15 @@ where
             (None, None) => f(action, data, verified_signers),
             (None, Some(_)) => Err(ActionExecutionError::TooManySignatures.into()),
             (Some(_), None) => Err(ActionExecutionError::NotEnoughSignatures.into()),
-            (Some(signers), Some(DidSignatureWithNonce { sig, nonce })) => {
+            (Some(required_signers), Some(DidSignatureWithNonce { sig, nonce })) => {
                 let action_with_nonce = WithNonce::new_with_nonce(action, nonce);
                 let signer = sig.signer().ok_or(ActionExecutionError::InvalidSigner)?;
                 let signed_action = action_with_nonce.signed(sig);
 
-                verified_signers.insert(signer.clone());
-                let required_signers = signers
+                let required_signers = required_signers
                     .exclude(&signer)
                     .map_err(|_| ActionExecutionError::NotEnoughSignatures)?;
+                verified_signers.insert(signer);
 
                 signed_action.execute_without_target_data(|action, _| {
                     Self::new(action.into_data(), signatures).execute_inner(
