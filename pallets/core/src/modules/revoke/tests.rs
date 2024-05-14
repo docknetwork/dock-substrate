@@ -256,9 +256,7 @@ mod errors {
 
         let registry_id = RGA;
 
-        let noreg: Result<(), DispatchError> = Err(ActionExecutionError::NoEntity.into());
-
-        assert_eq!(
+        assert_noop!(
             RevoMod::revoke(
                 Origin::signed(ABBA),
                 RevokeRaw {
@@ -268,9 +266,9 @@ mod errors {
                 },
                 vec![]
             ),
-            noreg
+            ActionExecutionError::NoEntity
         );
-        assert_eq!(
+        assert_noop!(
             RevoMod::unrevoke(
                 Origin::signed(ABBA),
                 UnRevokeRaw {
@@ -280,9 +278,9 @@ mod errors {
                 },
                 vec![],
             ),
-            noreg
+            ActionExecutionError::NoEntity
         );
-        assert_eq!(
+        assert_noop!(
             RevoMod::remove_registry(
                 Origin::signed(ABBA),
                 RemoveRegistryRaw {
@@ -291,7 +289,7 @@ mod errors {
                 },
                 vec![],
             ),
-            noreg
+            Error::<Test>::RegistryDoesntExist
         );
     }
 
@@ -459,6 +457,7 @@ mod errors {
     fn _all_included(dummy: Error<Test>) {
         match dummy {
             Error::__Ignore(_, _)
+            | Error::RegistryDoesntExist
             | Error::RegExists
             | Error::EmptyPayload
             | Error::IncorrectNonce
@@ -698,7 +697,7 @@ mod test {
     use sp_runtime::DispatchError;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
-    use crate::{revoke::Registries, util::MultiSignedAction};
+    use crate::{common::MultiSignedAction, revoke::Registries};
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.

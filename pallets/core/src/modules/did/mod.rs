@@ -116,6 +116,7 @@ pub mod pallet {
         ExpectedDid,
         ExpectedDidMethodKey,
         InvalidNonce,
+        OnchainDidDoesntExist,
     }
 
     impl<T: Config> From<NonceError> for Error<T> {

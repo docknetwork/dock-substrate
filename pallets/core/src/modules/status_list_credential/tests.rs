@@ -2,10 +2,10 @@
 
 use super::*;
 use crate::{
-    common::{Policy, PolicyValidationError, ToStateChange},
+    common::{MultiSignedAction, Policy, PolicyValidationError, ToStateChange},
     did::Did,
     tests::common::*,
-    util::{Action, ActionExecutionError, BoundedBytes, MultiSignedAction, Types, WithNonce},
+    util::{Action, BoundedBytes, Types, WithNonce},
 };
 use alloc::collections::BTreeMap;
 use frame_support::{assert_noop, assert_ok};
@@ -328,10 +328,10 @@ fn remove_status_list_credential() {
             id,
             _marker: PhantomData,
         };
-        let auth = get_pauth(&remove, &[(did, &keypair)][..]);
+
         assert_noop!(
-            Mod::remove(Origin::signed(ABBA), remove, auth),
-            ActionExecutionError::NoEntity
+            Mod::remove(Origin::signed(ABBA), remove, vec![]),
+            Error::<Test>::StatusListCredentialDoesntExist
         );
     });
 }

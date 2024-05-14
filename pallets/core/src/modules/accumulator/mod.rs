@@ -60,6 +60,7 @@ pub mod pallet {
         PublicKeyDoesntExist,
         AccumulatedTooBig,
         AccumulatorAlreadyExists,
+        AccumulatorDoesntExist,
         NotPublicKeyOwner,
         NotAccumulatorOwner,
         IncorrectNonce,

@@ -1,10 +1,7 @@
 use core::marker::PhantomData;
 
 use super::super::*;
-use crate::common::{
-    Authorization, AuthorizeSignedAction, AuthorizeTarget, DidMethodKeySigValue, ForSigType,
-    GetKey, SigValue, Signature, ToStateChange,
-};
+use crate::common::*;
 
 /// Either `DidKey` or `DidMethodKey`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, MaxEncodedLen)]
@@ -286,8 +283,12 @@ where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
         E: From<ActionExecutionError> + From<NonceError> + From<Error<T>>,
     {
-        self.execute_removable_from_controller(|action, reference| {
-            f(action, reference.as_mut().unwrap())
+        self.execute_removable_from_controller(|action, data_opt| {
+            let Some(data_ref) = data_opt.as_mut() else {
+                Err(ActionExecutionError::NoEntity)?
+            };
+
+            f(action, data_ref)
         })
     }
 

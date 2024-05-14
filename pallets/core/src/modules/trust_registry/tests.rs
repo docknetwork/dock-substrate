@@ -19,38 +19,70 @@ use sp_runtime::DispatchError;
 
 type Mod = super::Pallet<Test>;
 
-crate::did_or_did_method_key! {
-    newdid =>
+fn change_participants<P: sp_core::Pair>(
+    registry_id: TrustRegistryId,
+    participants: impl IntoIterator<Item = (impl Into<DidOrDidMethodKey>, P, AddOrRemoveOrModify<()>)>,
+    convener_with_kp: impl Into<Option<(DidOrDidMethodKey, P)>>,
+) -> DispatchResult
+where
+    P::Signature: Into<SigValue>,
+{
+    let alice = 1u64;
+    let (parts, part_keys, changes): (Vec<_>, Vec<_>, Vec<_>) = participants
+        .into_iter()
+        .map(|(did, key, change)| (did.into(), key, change))
+        .multiunzip();
 
-    fn change_participants<P: sp_core::Pair>(registry_id: TrustRegistryId, participants: impl IntoIterator<Item = (impl Into<DidOrDidMethodKey>, P, AddOrRemoveOrModify<()>)>, (convener, convener_kp): (impl Into<DidOrDidMethodKey>, P)) -> DispatchResult where P::Signature: Into<SigValue> {
-        let alice = 1u64;
-        let (parts, part_keys, changes): (Vec<_>, Vec<_>, Vec<_>) = participants.into_iter().map(|(did, key, change)| (did.into(), key, change)).multiunzip();
+    let payload = ChangeParticipantsRaw {
+        registry_id: TrustRegistryIdForParticipants(registry_id),
+        participants: parts
+            .iter()
+            .zip(changes)
+            .map(|(participant, change)| (IssuerOrVerifier(*participant), change))
+            .collect(),
+        _marker: PhantomData,
+    };
 
-        let payload = ChangeParticipantsRaw {
-            registry_id: TrustRegistryIdForParticipants(registry_id),
-            participants: parts.iter().zip(changes).map(|(participant, change)| (IssuerOrVerifier(*participant), change)).collect(),
-            _marker: PhantomData
-        };
-
-        let sigs = part_keys.into_iter().chain(once(convener_kp)).zip(parts.into_iter().chain(once(convener.into()))).map(|(key, part)| {
-            let nonce = did_nonce::<Test, _>(part).unwrap();
+    let sigs = parts
+        .into_iter()
+        .zip(part_keys)
+        .chain(convener_with_kp.into())
+        .map(|(signer, key)| {
+            let nonce = did_nonce::<Test, _>(signer).unwrap();
 
             let sig = did_sig(
                 &WithNonce::new_with_nonce(payload.clone(), nonce),
                 &key,
-                ConvenerOrIssuerOrVerifier(part),
+                ConvenerOrIssuerOrVerifier(signer),
                 1,
             );
 
             DidSignatureWithNonce::new(sig, nonce)
-        }).collect();
+        })
+        .collect();
 
-        Mod::change_participants(Origin::signed(alice), payload, sigs)
-    }
+    Mod::change_participants(Origin::signed(alice), payload, sigs)
+}
 
-    fn add_participants<P: sp_core::Pair>(registry_id: TrustRegistryId, participants: impl IntoIterator<Item = (impl Into<DidOrDidMethodKey>, P)>, (convener, convener_kp): (impl Into<DidOrDidMethodKey>, P)) -> DispatchResult where P::Signature: Into<SigValue> {
-        change_participants(registry_id, participants.into_iter().map(|(did, kp)| (did, kp, AddOrRemoveOrModify::Add(()))), (convener, convener_kp))
-    }
+fn add_participants<P: sp_core::Pair>(
+    registry_id: TrustRegistryId,
+    participants: impl IntoIterator<Item = (impl Into<DidOrDidMethodKey>, P)>,
+    convener_with_kp: impl Into<Option<(DidOrDidMethodKey, P)>>,
+) -> DispatchResult
+where
+    P::Signature: Into<SigValue>,
+{
+    change_participants(
+        registry_id,
+        participants
+            .into_iter()
+            .map(|(did, kp)| (did, kp, AddOrRemoveOrModify::Add(()))),
+        convener_with_kp,
+    )
+}
+
+crate::did_or_did_method_key! {
+    newdid =>
 
     fn build_initial_prices(count: usize, sym_length: usize) -> UnboundedVerificationPrices {
         UnboundedVerificationPrices(
@@ -198,10 +230,13 @@ crate::did_or_did_method_key! {
                 Convener(convener.into()),
                 init_or_update_trust_registry.clone(),
             )
-            .modify::<Test, _, _, _, _>(|action, set| {
-                Mod::init_or_update_trust_registry_(action.action, set, Convener(convener.into()))
-            })
-            .unwrap();
+            .modify::<Test, _, _, _, _>(
+                |action, set| {
+                    action.action.modify_removable(
+                        |action, info| Mod::init_or_update_trust_registry_(action, set, info, Convener(convener.into()))
+                    )
+                }
+            ).unwrap();
 
             let schema_ids_set: BTreeSet<_> = (0..5)
                 .map(|_| rand::random())
@@ -232,8 +267,8 @@ crate::did_or_did_method_key! {
                 })
                 .collect();
 
-            add_participants(init_or_update_trust_registry.registry_id, schema_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
-            add_participants(init_or_update_trust_registry.registry_id, schema_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, schema_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (DidOrDidMethodKey::from(convener), convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, schema_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (DidOrDidMethodKey::from(convener), convener_kp.clone())).unwrap();
 
             let add_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
@@ -354,10 +389,13 @@ crate::did_or_did_method_key! {
                 Convener(convener.into()),
                 init_or_update_trust_registry.clone(),
             )
-            .modify::<Test, _, _, _, _>(|action, reg| {
-                Mod::init_or_update_trust_registry_(action.action, reg, Convener(convener.into()))
-            })
-            .unwrap();
+            .modify::<Test, _, _, _, _>(
+                |action, set| {
+                    action.action.modify_removable(
+                        |action, info| Mod::init_or_update_trust_registry_(action, set, info, Convener(convener.into()))
+                    )
+                }
+            ).unwrap();
 
             let delegated = UnboundedDelegatedIssuers(
                 (0..10)
@@ -566,28 +604,41 @@ crate::did_or_did_method_key! {
                  Convener(convener.into()),
                  init_or_update_trust_registry.clone(),
              )
-             .modify::<Test, _, _, _, _>(|action, set| {
-                 Mod::init_or_update_trust_registry_(action.action, set, Convener(convener.into()))
-             })
-             .unwrap();
+             .modify::<Test, _, _, _, _>(
+                 |action, set| {
+                     action.action.modify_removable(
+                         |action, info| Mod::init_or_update_trust_registry_(action, set, info, Convener(convener.into()))
+                     )
+                 }
+             ).unwrap();
 
              let participants: Vec<_> = (0..10).map(|_| newdid()).collect();
-             let invalid_convener = newdid();
+             let (invalid_convener, invalid_convener_kp) = newdid();
+
              assert_noop!(Mod::change_participants(Origin::signed(1u64), ChangeParticipantsRaw {
                  registry_id: TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id),
                  participants: participants.iter().map(|(participant, _)| (IssuerOrVerifier((*participant).into()), AddOrRemoveOrModify::Add(()))).collect(),
                  _marker: PhantomData
              }, vec![]), ActionExecutionError::NotEnoughSignatures);
+             let random_kp = newdid().1;
 
-             assert_noop!(add_participants(init_or_update_trust_registry.registry_id, participants.clone(), invalid_convener.clone()), ActionExecutionError::NotEnoughSignatures);
+             assert_noop!(add_participants(init_or_update_trust_registry.registry_id, participants.iter().map(|(p, _)| (*p, random_kp.clone())), (DidOrDidMethodKey::from(convener), convener_kp.clone())), did::Error::<Test>::InvalidSignature);
+             assert_noop!(add_participants(init_or_update_trust_registry.registry_id, participants.clone(), (DidOrDidMethodKey::from(invalid_convener), invalid_convener_kp.clone())), ActionExecutionError::NotEnoughSignatures);
 
              assert_eq!(TrustRegistriesParticipants::<Test>::get(TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id)), Default::default());
 
-             assert_ok!(add_participants(init_or_update_trust_registry.registry_id, participants.clone(), (convener, convener_kp.clone())));
+             assert_ok!(add_participants(init_or_update_trust_registry.registry_id, participants.clone(), (DidOrDidMethodKey::from(convener), convener_kp.clone())));
              assert_eq!(TrustRegistriesParticipants::<Test>::get(TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id)), TrustRegistryStoredParticipants(participants.iter().map(|(did, _)| IssuerOrVerifier((*did).into())).collect::<BTreeSet<_>>().try_into().unwrap()));
 
-             assert_noop!(change_participants(init_or_update_trust_registry.registry_id, participants.clone().into_iter().map(|(did, kp)| (did, kp, AddOrRemoveOrModify::Remove)), invalid_convener), ActionExecutionError::NotEnoughSignatures);
-             assert_ok!(change_participants(init_or_update_trust_registry.registry_id, participants.clone().into_iter().map(|(did, kp)| (did, kp, AddOrRemoveOrModify::Remove)), (convener, convener_kp)));
+             assert_noop!(Mod::change_participants(Origin::signed(1u64), ChangeParticipantsRaw {
+                 registry_id: TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id),
+                 participants: participants.iter().map(|(participant, _)| (IssuerOrVerifier((*participant).into()), AddOrRemoveOrModify::Remove)).collect(),
+                 _marker: PhantomData
+             }, vec![]), ActionExecutionError::NotEnoughSignatures);
+             assert_noop!(change_participants(init_or_update_trust_registry.registry_id, participants.iter().map(|(p, _)| (*p, random_kp.clone(), AddOrRemoveOrModify::Remove)), (DidOrDidMethodKey::from(convener), convener_kp.clone())), did::Error::<Test>::InvalidSignature);
+
+             // Participants can remove themselves without involving the convener
+             assert_ok!(change_participants(init_or_update_trust_registry.registry_id, participants.clone().into_iter().map(|(did, kp)| (did, kp, AddOrRemoveOrModify::Remove)), None));
              assert_eq!(TrustRegistriesParticipants::<Test>::get(TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id)), Default::default());
         });
     }
@@ -634,8 +685,8 @@ crate::did_or_did_method_key! {
             let schema_issuers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
             let schema_verifiers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
 
-            add_participants(init_or_update_trust_registry.registry_id, schema_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
-            add_participants(init_or_update_trust_registry.registry_id, schema_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (convener, convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, schema_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (DidOrDidMethodKey::from(convener), convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, schema_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())), (DidOrDidMethodKey::from(convener), convener_kp.clone())).unwrap();
 
             let schemas: BTreeMap<_, _> = schema_ids
                 .iter()
@@ -775,8 +826,8 @@ crate::did_or_did_method_key! {
             let initial_schemas_issuers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
             let initial_schemas_verifiers: BTreeMap<_, Vec<_>> = schema_ids.iter().copied().map(|schema_id| (schema_id, (0..5).map(|_| newdid()).collect())).collect();
 
-            add_participants(init_or_update_trust_registry.registry_id, initial_schemas_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())).chain(once((issuer, issuer_kp.clone()))), (convener, convener_kp.clone())).unwrap();
-            add_participants(init_or_update_trust_registry.registry_id, initial_schemas_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())).chain(once((verifier, verifier_kp.clone()))), (convener, convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, initial_schemas_issuers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())).chain(once((issuer, issuer_kp.clone()))), (DidOrDidMethodKey::from(convener), convener_kp.clone())).unwrap();
+            add_participants(init_or_update_trust_registry.registry_id, initial_schemas_verifiers.values().flatten().map(|(did, pair)| (did.clone(), pair.clone())).chain(once((verifier, verifier_kp.clone()))), (DidOrDidMethodKey::from(convener), convener_kp.clone())).unwrap();
 
             let mut schemas: BTreeMap<_, _> = schema_ids
                 .iter()

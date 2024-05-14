@@ -28,7 +28,7 @@ use weights::*;
 #[frame_support::pallet]
 
 pub mod pallet {
-    use crate::{common::PolicyExecutor, util::MultiSignedAction};
+    use crate::common::{MultiSignedAction, PolicyExecutor};
 
     use super::*;
 
@@ -39,6 +39,8 @@ pub mod pallet {
     pub enum Error<T> {
         /// There is already a `StatusListCredential` with the same id
         StatusListCredentialAlreadyExists,
+        /// The `StatusListCredential` with the supplied id doesn't exist
+        StatusListCredentialDoesntExist,
         /// The `StatusListCredential` byte length is less than `MinStatusListCredentialSize`
         StatusListCredentialTooSmall,
         /// Action can't have an empty payload.
@@ -114,7 +116,9 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             MultiSignedAction::new(remove_credential, proof)
-                .execute_removable(Self::remove_, StatusListCredentialWithPolicy::expand_policy)
+                .execute_removable(Self::remove_, |opt| {
+                    opt.and_then(StatusListCredentialWithPolicy::expand_policy)
+                })
         }
     }
 

@@ -3,8 +3,8 @@ use itertools::Itertools;
 
 use super::{types::*, *};
 use crate::util::{
-    ActionExecutionError, ApplyUpdate, IncOrDec, MultiTargetUpdate, NonceError, TranslateUpdate,
-    ValidateUpdate,
+    ActionExecutionError, ActionWithNonceWrapper, ApplyUpdate, IncOrDec, MultiTargetUpdate,
+    NonceError, TranslateUpdate, ValidateUpdate,
 };
 use alloc::collections::BTreeSet;
 
@@ -17,32 +17,31 @@ impl<T: Config> Pallet<T> {
             ..
         }: InitOrUpdateTrustRegistry<T>,
         registries: &mut TrustRegistryIdSet<T>,
+        info: &mut Option<TrustRegistryInfo<T>>,
         convener: Convener,
     ) -> DispatchResult {
-        TrustRegistriesInfo::<T>::try_mutate(registry_id, |info| {
-            let name = name
-                .try_into()
-                .map_err(|_| Error::<T>::TrustRegistryNameSizeExceeded)?;
-            let gov_framework = gov_framework
-                .try_into()
-                .map_err(|_| Error::<T>::GovFrameworkSizeExceeded)?;
-            let new_info = TrustRegistryInfo {
-                convener,
-                name,
-                gov_framework,
-            };
+        let name = name
+            .try_into()
+            .map_err(|_| Error::<T>::TrustRegistryNameSizeExceeded)?;
+        let gov_framework = gov_framework
+            .try_into()
+            .map_err(|_| Error::<T>::GovFrameworkSizeExceeded)?;
+        let new_info = TrustRegistryInfo {
+            convener,
+            name,
+            gov_framework,
+        };
 
-            if let Some(existing) = info.replace(new_info) {
-                if existing.convener != convener {
-                    Err(Error::<T>::NotTheConvener)?
-                }
+        if let Some(existing) = info.replace(new_info) {
+            if existing.convener != convener {
+                Err(Error::<T>::NotTheConvener)?
             }
+        }
 
-            registries
-                .try_insert(registry_id)
-                .map(drop)
-                .map_err(|_| Error::<T>::TooManyRegistries)
-        })?;
+        registries
+            .try_insert(registry_id)
+            .map(drop)
+            .map_err(|_| Error::<T>::TooManyRegistries)?;
 
         deposit_indexed_event!(TrustRegistryInitialized(registry_id));
         Ok(())
@@ -74,12 +73,16 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(super) fn update_delegated_issuers_(
-        UpdateDelegatedIssuers {
-            registry_id,
-            delegated,
+        ActionWithNonceWrapper {
+            action:
+                UpdateDelegatedIssuers {
+                    registry_id,
+                    delegated,
+                    ..
+                },
             ..
-        }: UpdateDelegatedIssuers<T>,
-        (): (),
+        }: ActionWithNonceWrapper<T, UpdateDelegatedIssuers<T>, (TrustRegistryId, Issuer)>,
+        config: &mut TrustRegistryIssuerConfiguration<T>,
         issuer: Issuer,
     ) -> DispatchResult {
         ensure!(
@@ -90,49 +93,42 @@ impl<T: Config> Pallet<T> {
             .translate_update()
             .map_err(IntoModuleError::into_module_error)?;
 
-        TrustRegistryIssuerConfigurations::<T>::try_mutate(registry_id, issuer, |config| {
-            delegated.ensure_valid(&issuer, &config.delegated)?;
+        delegated.ensure_valid(&issuer, &config.delegated)?;
 
-            let issuer_schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
-            let issuers_diff: MultiTargetUpdate<Issuer, IncOrDec> = delegated
-                .keys_diff(&config.delegated)
-                .translate_update()
-                .map_err(IntoModuleError::<T>::into_module_error)?;
+        let issuer_schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
+        let issuers_diff: MultiTargetUpdate<Issuer, IncOrDec> = delegated
+            .keys_diff(&config.delegated)
+            .translate_update()
+            .map_err(IntoModuleError::<T>::into_module_error)?;
 
-            for (delegated_issuer, update) in issuers_diff.iter() {
-                let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
-                    .iter()
-                    .copied()
-                    .zip(repeat(update.clone()))
-                    .collect();
-                let schema_ids =
-                    TrustRegistryDelegatedIssuerSchemas::<T>::get(registry_id, delegated_issuer);
+        for (delegated_issuer, update) in issuers_diff.iter() {
+            let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
+                .iter()
+                .copied()
+                .zip(repeat(update.clone()))
+                .collect();
+            let schema_ids =
+                TrustRegistryDelegatedIssuerSchemas::<T>::get(registry_id, delegated_issuer);
 
-                schema_ids_update.ensure_valid(&issuer, &schema_ids)?;
-            }
+            schema_ids_update.ensure_valid(&issuer, &schema_ids)?;
+        }
 
-            for (issuer, update) in issuers_diff {
-                let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
-                    .iter()
-                    .copied()
-                    .zip(repeat(update))
-                    .collect();
+        for (issuer, update) in issuers_diff {
+            let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
+                .iter()
+                .copied()
+                .zip(repeat(update))
+                .collect();
 
-                TrustRegistryDelegatedIssuerSchemas::<T>::mutate(
-                    registry_id,
-                    issuer,
-                    |schema_ids| {
-                        schema_ids_update.apply_update(schema_ids);
-                    },
-                );
-            }
+            TrustRegistryDelegatedIssuerSchemas::<T>::mutate(registry_id, issuer, |schema_ids| {
+                schema_ids_update.apply_update(schema_ids);
+            });
+        }
 
-            delegated.apply_update(&mut config.delegated);
-            Self::deposit_event(Event::DelegatedIssuersUpdated(registry_id, issuer));
+        delegated.apply_update(&mut config.delegated);
+        Self::deposit_event(Event::DelegatedIssuersUpdated(registry_id, issuer));
 
-            Ok(())
-        })
-        .map_err(Error::<T>::into)
+        Ok(())
     }
 
     pub(super) fn suspend_issuers_(

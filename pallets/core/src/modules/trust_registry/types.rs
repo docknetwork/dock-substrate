@@ -191,6 +191,43 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifi
 impl AuthorizeTarget<TrustRegistryIdForParticipants, DidKey> for ConvenerOrIssuerOrVerifier {}
 impl AuthorizeTarget<TrustRegistryIdForParticipants, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
 
+impl AuthorizeTarget<(TrustRegistryId, Issuer), DidKey> for Issuer {
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        _: &DidKey,
+        action: &A,
+    ) -> Result<(), crate::did::Error<T>>
+    where
+        T: crate::did::Config,
+        A: crate::util::Action<Target = (TrustRegistryId, Issuer)>,
+    {
+        ensure!(
+            action.target().1 == *self,
+            crate::did::Error::<T>::InvalidSigner
+        );
+
+        Ok(())
+    }
+}
+impl AuthorizeTarget<(TrustRegistryId, Issuer), DidMethodKey> for Issuer {
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        _: &DidMethodKey,
+        action: &A,
+    ) -> Result<(), crate::did::Error<T>>
+    where
+        T: crate::did::Config,
+        A: crate::util::Action<Target = (TrustRegistryId, Issuer)>,
+    {
+        ensure!(
+            action.target().1 == *self,
+            crate::did::Error::<T>::InvalidSigner
+        );
+
+        Ok(())
+    }
+}
+
 /// Price to verify a credential. Lowest denomination should be used.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -1008,6 +1045,28 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
         F: FnOnce(Option<TrustRegistryInfo<T>>) -> R,
     {
         f(TrustRegistriesInfo::<T>::get(self))
+    }
+}
+
+impl<T: Config> StorageRef<T> for (TrustRegistryId, Issuer) {
+    type Value = TrustRegistryIssuerConfiguration<T>;
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryIssuerConfiguration<T>>) -> Result<R, E>,
+    {
+        super::TrustRegistryIssuerConfigurations::<T>::try_mutate_exists(self.0, self.1, |opt| {
+            f(opt.initialized())
+        })
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryIssuerConfiguration<T>>) -> R,
+    {
+        f(Some(super::TrustRegistryIssuerConfigurations::<T>::get(
+            self.0, self.1,
+        )))
     }
 }
 

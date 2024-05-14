@@ -110,7 +110,7 @@ impl<T: Limits> RevocationRegistry<T> {
 
 #[frame_support::pallet]
 pub mod pallet {
-    use crate::util::MultiSignedAction;
+    use crate::common::MultiSignedAction;
 
     use self::common::PolicyExecutor;
 
@@ -147,6 +147,8 @@ pub mod pallet {
     pub enum Error<T> {
         /// A revocation registry with that name already exists.
         RegExists,
+        /// A revocation registry with the provided identifier doesnt exist.
+        RegistryDoesntExist,
         /// nonce is incorrect. This is related to replay protection.
         IncorrectNonce,
         /// Too many controllers specified.
@@ -279,7 +281,9 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             MultiSignedAction::new(removal, proof)
-                .execute_removable(Self::remove_registry_, RevocationRegistry::expand_policy)
+                .execute_removable(Self::remove_registry_, |opt| {
+                    opt.and_then(RevocationRegistry::expand_policy)
+                })
         }
     }
 

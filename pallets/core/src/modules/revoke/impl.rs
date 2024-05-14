@@ -59,7 +59,7 @@ impl<T: Config> Pallet<T> {
         registry: &mut Option<RevocationRegistry<T>>,
         _: BTreeSet<PolicyExecutor>,
     ) -> DispatchResult {
-        let registry = registry.take().unwrap();
+        let registry = registry.take().ok_or(Error::<T>::RegistryDoesntExist)?;
         ensure!(!registry.add_only, Error::<T>::AddOnly);
 
         // execute

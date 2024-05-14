@@ -115,13 +115,9 @@ impl_action!(
 );
 
 impl_action_with_nonce!(
-    for ():
-        InitOrUpdateTrustRegistry with 1 as len, () as target,
-        UpdateDelegatedIssuers with 1 as len, () as target
-);
-
-impl_action_with_nonce!(
     for TrustRegistryId:
+        UpdateDelegatedIssuers with 1 as len, registry_id as target,
+        InitOrUpdateTrustRegistry with 1 as len, registry_id as target,
         SetSchemasMetadata with { |this: &Self| match &this.schemas { SetOrModify::Set(_) => 1, SetOrModify::Modify(update) => update.len() } } as len, registry_id as target,
         SuspendIssuers with issuers.len() as len, registry_id as target,
         UnsuspendIssuers with issuers.len() as len, registry_id as target

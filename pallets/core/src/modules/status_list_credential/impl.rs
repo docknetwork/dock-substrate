@@ -37,7 +37,9 @@ impl<T: Config> Pallet<T> {
         status_list_credential: &mut Option<StatusListCredentialWithPolicy<T>>,
         _: BTreeSet<PolicyExecutor>,
     ) -> DispatchResult {
-        status_list_credential.take();
+        status_list_credential
+            .take()
+            .ok_or(Error::<T>::StatusListCredentialDoesntExist)?;
 
         deposit_indexed_event!(StatusListCredentialRemoved(id));
         Ok(())

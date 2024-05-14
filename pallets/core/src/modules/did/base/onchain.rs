@@ -121,7 +121,7 @@ impl<T: Config> Pallet<T> {
         details: &mut Option<OnChainDidDetails>,
     ) -> DispatchResult {
         // This will result in the removal of DID from storage map `Dids`
-        details.take();
+        details.take().ok_or(Error::<T>::OnchainDidDoesntExist)?;
 
         // TODO: limit and cursor
         let _ = DidKeys::<T>::clear_prefix(did, u32::MAX, None);

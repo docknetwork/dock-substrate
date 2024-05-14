@@ -1,12 +1,36 @@
 use crate::{
     common::{Authorization, AuthorizeSignedAction, AuthorizeTarget, ToStateChange},
     did::*,
-    util::{action::*, signature::Signature, with_nonce::*, ActionWithNonceWrapper, AnyOfOrAll},
+    util::{
+        action::*, signature::Signature, with_nonce::*, ActionWithNonceWrapper, AnyOfOrAll, Types,
+    },
 };
 use alloc::collections::BTreeSet;
-use core::{iter::FusedIterator, ops::Deref};
+use core::{iter::FusedIterator, marker::PhantomData, ops::Deref};
 
 use super::DidSignatureWithNonce;
+
+pub struct SignedActionWithNonce<T: Types, A, S>
+where
+    A: ActionWithNonce<T>,
+{
+    pub action: A,
+    pub signature: S,
+    _marker: PhantomData<T>,
+}
+
+impl<T: Types, A, S> SignedActionWithNonce<T, A, S>
+where
+    A: ActionWithNonce<T>,
+{
+    pub fn new(action: A, signature: S) -> Self {
+        Self {
+            action,
+            signature,
+            _marker: PhantomData,
+        }
+    }
+}
 
 impl<T: Config, A, Sig> SignedActionWithNonce<T, A, Sig>
 where
@@ -74,7 +98,13 @@ where
         A::Target: StorageRef<T>,
         <Sig::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, S>> + Clone,
     {
-        self.execute_removable(|action, data, actor| f(action, data.as_mut().unwrap(), actor))
+        self.execute_removable(|action, data, actor| {
+            let Some(data_ref) = data.as_mut() else {
+                Err(ActionExecutionError::NoEntity)?
+            };
+
+            f(action, data_ref, actor)
+        })
     }
 
     /// Verifies signer's signature and nonce, then executes given action providing a mutable reference to the
@@ -100,6 +130,35 @@ where
                 action.modify_removable(|action, target_data| f(action, target_data, signer))
             })
             .map_err(Into::into)
+    }
+}
+
+/// An action signed by multiple signers with their corresponding nonces.
+pub struct MultiSignedAction<T: Types, A, SI, D>
+where
+    A: Action,
+    D: Ord,
+{
+    pub action: A,
+    pub signatures: SI,
+    _marker: PhantomData<(T, D)>,
+}
+
+impl<T: Types, A, SI, D> MultiSignedAction<T, A, SI, D>
+where
+    A: Action,
+    SI: FusedIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
+    D: Into<DidOrDidMethodKey> + Ord,
+{
+    pub fn new<S>(action: A, signatures: S) -> Self
+    where
+        S: IntoIterator<IntoIter = SI>,
+    {
+        Self {
+            action,
+            signatures: signatures.into_iter(),
+            _marker: PhantomData,
+        }
     }
 }
 
@@ -190,7 +249,9 @@ where
     pub fn execute_removable<R, E, S>(
         self,
         f: impl FnOnce(A, &mut Option<<A::Target as StorageRef<T>>::Value>, BTreeSet<D>) -> Result<R, E>,
-        required_signers: impl FnOnce(&<A::Target as StorageRef<T>>::Value) -> Option<AnyOfOrAll<D>>,
+        required_signers: impl FnOnce(
+            Option<&<A::Target as StorageRef<T>>::Value>,
+        ) -> Option<AnyOfOrAll<D>>,
     ) -> Result<R, E>
     where
         E: From<ActionExecutionError> + From<NonceError> + From<crate::did::Error<T>>,
@@ -214,7 +275,7 @@ where
         } = self;
 
         action.modify_removable(|action, data| {
-            let required_signers = (required_signers)(&data.as_ref().unwrap());
+            let required_signers = (required_signers)(data.as_ref());
 
             Self::new(action, signatures).execute_inner(f, data, BTreeSet::new(), required_signers)
         })

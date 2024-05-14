@@ -1,10 +1,8 @@
-use core::{iter::FusedIterator, marker::PhantomData};
 use frame_support::ensure;
 use sp_runtime::DispatchError;
 
 use crate::{
-    common::DidSignatureWithNonce,
-    did::DidOrDidMethodKey,
+    common::signed_action::*,
     util::{OptionExt, Signature, Types},
 };
 
@@ -26,7 +24,8 @@ pub trait Action: Sized {
         self.len() == 0
     }
 
-    /// Calls supplied function providing an action along with a mutable reference to the value associated with the target.
+    /// Calls supplied function providing an action along with a mutable reference
+    /// to the value associated with the target.
     fn modify<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut S) -> Result<R, E>,
@@ -41,9 +40,11 @@ pub trait Action: Sized {
             ensure!(data_opt.is_some(), ActionExecutionError::NoEntity);
 
             data_opt.update_with(|opt| {
-                ensure!(opt.is_some(), ActionExecutionError::ConversionError);
+                let Some(data) = opt else {
+                    Err(ActionExecutionError::ConversionError)?
+                };
 
-                f(self, opt.as_mut().unwrap())
+                f(self, data)
             })
         })
     }
@@ -69,7 +70,8 @@ pub trait Action: Sized {
         })
     }
 
-    /// Calls supplied function providing an action along with a mutable reference to the option containing a value associated with the target.
+    /// Calls supplied function providing an action along with a mutable reference
+    /// to the option possibly containing a value associated with the target.
     fn modify_removable<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
@@ -81,10 +83,13 @@ pub trait Action: Sized {
         ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
 
         self.target().try_mutate_associated(|data_opt| {
-            ensure!(data_opt.is_some(), ActionExecutionError::NoEntity);
+            let exists = data_opt.is_some();
 
             data_opt.update_with(|opt| {
-                ensure!(opt.is_some(), ActionExecutionError::ConversionError);
+                ensure!(
+                    !exists || opt.is_some(),
+                    ActionExecutionError::ConversionError
+                );
 
                 f(self, opt)
             })
@@ -162,6 +167,25 @@ pub trait ActionWithNonce<T: Types>: Action {
 
     /// Wraps underlying action into an action targeting signer then combines result with the provided signature.
     #[allow(clippy::type_complexity)]
+    fn signed_with_combined_target<S, F, Ta>(
+        self,
+        signature: S,
+        build_target: F,
+    ) -> Result<SignedActionWithNonce<T, ActionWithNonceWrapper<T, Self, Ta>, S>, InvalidSigner>
+    where
+        S: Signature,
+        F: FnOnce(Self::Target, S::Signer) -> Ta,
+        Ta: Clone,
+    {
+        let signer = signature.signer().ok_or(InvalidSigner)?;
+        let target = build_target(self.target(), signer);
+        let wrapped = ActionWithNonceWrapper::new(self.nonce(), target, self);
+
+        Ok(wrapped.signed(signature))
+    }
+
+    /// Wraps underlying action into an action targeting signer then combines result with the provided signature.
+    #[allow(clippy::type_complexity)]
     fn signed_with_signer_target<S>(
         self,
         signature: S,
@@ -172,10 +196,7 @@ pub trait ActionWithNonce<T: Types>: Action {
     where
         S: Signature,
     {
-        let signer = signature.signer().ok_or(InvalidSigner)?;
-        let wrapped = ActionWithNonceWrapper::new(self.nonce(), signer, self);
-
-        Ok(wrapped.signed(signature))
+        self.signed_with_combined_target(signature, |_, signer| signer)
     }
 }
 
@@ -207,57 +228,6 @@ impl From<ActionExecutionError> for DispatchError {
                 DispatchError::Other("Not enough signatures")
             }
             ActionExecutionError::TooManySignatures => DispatchError::Other("Too many signatures"),
-        }
-    }
-}
-
-pub struct SignedActionWithNonce<T: Types, A, S>
-where
-    A: ActionWithNonce<T>,
-{
-    pub action: A,
-    pub signature: S,
-    _marker: PhantomData<T>,
-}
-
-impl<T: Types, A, S> SignedActionWithNonce<T, A, S>
-where
-    A: ActionWithNonce<T>,
-{
-    pub fn new(action: A, signature: S) -> Self {
-        Self {
-            action,
-            signature,
-            _marker: PhantomData,
-        }
-    }
-}
-
-/// An action signed by multiple signers with their corresponding nonces.
-pub struct MultiSignedAction<T: Types, A, SI, D>
-where
-    A: Action,
-    D: Ord,
-{
-    pub action: A,
-    pub signatures: SI,
-    _marker: PhantomData<(T, D)>,
-}
-
-impl<T: Types, A, SI, D> MultiSignedAction<T, A, SI, D>
-where
-    A: Action,
-    SI: FusedIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
-    D: Into<DidOrDidMethodKey> + Ord,
-{
-    pub fn new<S>(action: A, signatures: S) -> Self
-    where
-        S: IntoIterator<IntoIter = SI>,
-    {
-        Self {
-            action,
-            signatures: signatures.into_iter(),
-            _marker: PhantomData,
         }
     }
 }

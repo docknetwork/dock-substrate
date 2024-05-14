@@ -141,7 +141,9 @@ impl<T: Config> Pallet<T> {
         accumulator: &mut Option<AccumulatorWithUpdateInfo<T>>,
         signer: AccumulatorOwner,
     ) -> DispatchResult {
-        let accumulator = accumulator.take().unwrap();
+        let accumulator = accumulator
+            .take()
+            .ok_or(Error::<T>::AccumulatorDoesntExist)?;
 
         // Only the DID that added the accumulator can remove it
         ensure!(

@@ -44,12 +44,10 @@ use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use core::iter::once;
-
     use crate::{
-        common::DidSignatureWithNonce,
+        common::{DidSignatureWithNonce, MultiSignedAction},
         util::{
-            AnyOfOrAll, DuplicateKey, IncOrDec, MultiSignedAction, MultiTargetUpdate, UpdateError,
+            AddOrRemoveOrModify, AnyOfOrAll, DuplicateKey, IncOrDec, MultiTargetUpdate, UpdateError,
         },
     };
 
@@ -145,6 +143,8 @@ pub mod pallet {
         SchemasPerRegistrySizeExceeded,
         /// `Issuer` attempts to set himself as a delegated `Issuer`.
         IssuerCantDelegateToHimself,
+        /// Issuer cant' modify other `Issuer`.
+        InvalidIssuerTarget,
         /// Attempt to decrease counter below zero.
         Underflow,
         /// Attempt to remove/update non-existing entity failed.
@@ -312,11 +312,13 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
+            let f = ActionWithNonceWrapper::wrap_fn_with_modify_removable_action(
+                Self::init_or_update_trust_registry_,
+            );
+
             init_or_update_trust_registry
                 .signed_with_signer_target(signature)?
-                .execute(ActionWithNonceWrapper::wrap_fn(
-                    Self::init_or_update_trust_registry_,
-                ))
+                .execute(f)
         }
 
         /// Sets the schema metadata entry (entries) with the supplied identifier(s).
@@ -383,8 +385,8 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             update_delegated_issuers
-                .signed(signature)
-                .execute_view(Self::update_delegated_issuers_)
+                .signed_with_combined_target(signature, |target, signer| (target, signer))?
+                .execute(Self::update_delegated_issuers_)
         }
 
         /// Suspends given `Issuer`s.
@@ -428,9 +430,15 @@ pub mod pallet {
                     .participants
                     .keys()
                     .map(|did| ConvenerOrIssuerOrVerifier(**did));
-                let convener = ConvenerOrIssuerOrVerifier(*registry_info.convener);
+                // Only require convener signature to add new participants, existing participants
+                // can remove themselves without involving the convener.
+                let maybe_convener = action
+                    .participants
+                    .values()
+                    .any(|update| matches!(update, AddOrRemoveOrModify::Add(())))
+                    .then(|| ConvenerOrIssuerOrVerifier(*registry_info.convener));
 
-                let signers = AnyOfOrAll::all(participants.chain(once(convener)));
+                let signers = AnyOfOrAll::all(participants.chain(maybe_convener));
 
                 MultiSignedAction::new(action, signatures)
                     .execute(Self::change_participants_, |_| signers)
