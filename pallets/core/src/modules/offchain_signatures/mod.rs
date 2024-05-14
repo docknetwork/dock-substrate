@@ -12,7 +12,6 @@ use sp_std::prelude::*;
 
 use frame_support::{
     dispatch::{DispatchResult, Weight},
-    storage_alias,
     traits::Get,
 };
 use frame_system::ensure_signed;
@@ -176,67 +175,6 @@ pub mod pallet {
             remove
                 .signed(signature)
                 .execute_from_controller(Self::remove_public_key_)
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            let mut reads_writes = 0;
-
-            let params: Vec<_> = {
-                #[storage_alias]
-                pub type SignatureParams<T: Config> = StorageDoubleMap<
-                    Pallet<T>,
-                    Blake2_128Concat,
-                    Did,
-                    Identity,
-                    IncId,
-                    OffchainSignatureParams<T>,
-                >;
-
-                SignatureParams::<T>::drain()
-                    .map(|(did, id, params): (Did, _, _)| {
-                        (SignatureParamsOwner(did.into()), id, params)
-                    })
-                    .collect()
-            };
-
-            reads_writes += params.len() as u64;
-            frame_support::log::info!("Migrated {} offchain signature params", params.len());
-            for (owner, id, params) in params {
-                SignatureParams::<T>::insert(owner, id, params);
-            }
-
-            let params_counters: Vec<_> = {
-                #[storage_alias]
-                pub type ParamsCounter<T: Config> =
-                    StorageMap<Pallet<T>, Blake2_128Concat, Did, IncId, ValueQuery>;
-
-                ParamsCounter::<T>::drain()
-                    .map(|(did, counter): (Did, _)| (SignatureParamsOwner(did.into()), counter))
-                    .collect()
-            };
-
-            reads_writes += params_counters.len() as u64;
-            frame_support::log::info!(
-                "Migrated {} offchain signature params counters",
-                params_counters.len()
-            );
-            for (did, counter) in params_counters {
-                ParamsCounter::<T>::insert(did, counter);
-            }
-
-            let mut pks = 0;
-            PublicKeys::<T>::translate_values(|key: super::public_key::OldOffchainPublicKey<T>| {
-                pks += 1;
-
-                Some(key.into())
-            });
-            frame_support::log::info!("Migrated {} offchain signature public keys", pks);
-            reads_writes += pks;
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }

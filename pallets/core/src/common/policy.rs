@@ -8,7 +8,7 @@ use crate::util::btree_set;
 
 use crate::{
     common::{AuthorizeTarget, ForSigType},
-    did::{Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    did::{DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
     util::AnyOfOrAll,
 };
 #[cfg(not(feature = "std"))]
@@ -155,33 +155,5 @@ impl<N, D: Into<DidOrDidMethodKey>> ForSigType for DidSignatureWithNonce<N, D> {
     ) -> Option<R> {
         self.sig
             .for_sig_type(for_sr25519, for_ed25519, for_secp256k1)
-    }
-}
-
-/// Authorization logic containing rules to modify some data entity.
-#[derive(
-    Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
-)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-pub enum OldPolicy<T: Limits> {
-    /// Set of `DID`s allowed to modify the entity.
-    OneOf(
-        #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
-        BoundedBTreeSet<Did, T::MaxPolicyControllers>,
-    ),
-}
-
-impl<T: Limits> From<OldPolicy<T>> for Policy<T> {
-    fn from(old_policy: OldPolicy<T>) -> Self {
-        match old_policy {
-            OldPolicy::OneOf(set) => {
-                Self::OneOf(set.into_iter().map(Into::into).try_collect().unwrap())
-            }
-        }
     }
 }

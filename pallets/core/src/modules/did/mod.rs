@@ -6,8 +6,8 @@ use crate::{
 use crate::common::{signatures::ForSigType, Limits};
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
-    dispatch::DispatchResult, ensure, storage_alias, weights::Weight, CloneNoBound, DebugNoBound,
-    EqNoBound, PartialEqNoBound,
+    dispatch::DispatchResult, ensure, weights::Weight, CloneNoBound, DebugNoBound, EqNoBound,
+    PartialEqNoBound,
 };
 use frame_system::ensure_signed;
 use sp_std::{
@@ -392,32 +392,6 @@ pub mod pallet {
             _a: crate::trust_registry::AggregatedTrustRegistrySchemaMetadata<T>,
         ) -> DispatchResult {
             Err(DispatchError::BadOrigin)
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            let mut reads_writes = 0;
-
-            let controllers: Vec<_> = {
-                #[storage_alias]
-                pub type DidControllers<T: Config> =
-                    StorageDoubleMap<Pallet<T>, Blake2_128Concat, Did, Blake2_128Concat, Did, ()>;
-
-                DidControllers::<T>::drain()
-                    .map(|(did, controller, ()): (Did, Did, ())| {
-                        (did, Controller(did.into()), controller)
-                    })
-                    .collect()
-            };
-
-            reads_writes += controllers.len() as u64;
-            for (owner, id, _controllers) in controllers {
-                DidControllers::<T>::insert(owner, id, ());
-            }
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }
