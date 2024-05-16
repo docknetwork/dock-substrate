@@ -2,7 +2,7 @@
 
 use crate::{
     common::{signatures::ForSigType, AuthorizeTarget, Types},
-    did::{self, Did, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
+    did::{self, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
     util::{ActionWithNonce, BoundedBytes, Bytes},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
@@ -134,23 +134,6 @@ pub mod pallet {
             Blobs::<T>::insert(blob.id, (signer, blob_bytes));
 
             Ok(())
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            let mut reads_writes = 0;
-
-            Blobs::<T>::translate_values(|(did, blob): (Did, BoundedBytes<T::MaxBlobSize>)| {
-                reads_writes += 1;
-
-                Some((BlobOwner(did.into()), blob))
-            });
-
-            frame_support::log::info!("Translated {} blobs", reads_writes);
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
         }
     }
 }

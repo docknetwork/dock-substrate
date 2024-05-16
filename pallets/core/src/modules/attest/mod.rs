@@ -187,33 +187,6 @@ pub mod pallet {
             Ok(())
         }
     }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            use did::Did;
-            use frame_support::storage_alias;
-
-            let mut reads_writes = 0;
-
-            let attestations: Vec<_> = {
-                #[storage_alias]
-                pub type Attestations<T: Config> =
-                    StorageMap<Pallet<T>, Blake2_128Concat, Did, Attestation<T>, ValueQuery>;
-
-                Attestations::<T>::drain()
-                    .map(|(did, attest): (Did, _)| (Attester(did.into()), attest))
-                    .collect()
-            };
-
-            reads_writes += attestations.len() as u64;
-            for (did, attest) in attestations {
-                Attestations::<T>::insert(did, attest);
-            }
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
-        }
-    }
 }
 
 impl<T: Config> SubstrateWeight<T> {

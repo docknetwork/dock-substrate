@@ -35,35 +35,6 @@ pub enum OffchainPublicKey<T: Limits> {
     PS(PSPublicKey<T>),
 }
 
-/// Old public key for different signature schemes. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
-#[derive(
-    scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen,
-)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-#[scale_info(skip_type_params(T))]
-pub(super) enum OldOffchainPublicKey<T: Limits> {
-    /// Public key for the BBS signature scheme.
-    BBS(super::schemes::BBS::OldPublicKey<T>),
-    /// Public key for the BBS+ signature scheme.
-    BBSPlus(super::schemes::BBSPlus::OldPublicKey<T>),
-    /// Public key for the Pointcheval-Sanders signature scheme.
-    PS(super::schemes::PS::OldPublicKey<T>),
-}
-
-impl<T: Limits> From<OldOffchainPublicKey<T>> for OffchainPublicKey<T> {
-    fn from(key: OldOffchainPublicKey<T>) -> Self {
-        match key {
-            OldOffchainPublicKey::BBS(key) => Self::BBS(key.into()),
-            OldOffchainPublicKey::BBSPlus(key) => Self::BBSPlus(key.into()),
-            OldOffchainPublicKey::PS(key) => Self::PS(key.into()),
-        }
-    }
-}
-
 impl<T: Limits> OffchainPublicKey<T> {
     /// Returns underlying public key if it corresponds to the BBS scheme.
     pub fn into_bbs(self) -> Option<BBSPublicKey<T>> {
