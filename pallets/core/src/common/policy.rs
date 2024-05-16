@@ -63,7 +63,7 @@ impl<T: Limits> Policy<T> {
     pub fn expand(&self) -> AnyOfOrAll<PolicyExecutor> {
         let Self::OneOf(items) = self;
 
-        AnyOfOrAll::AnyOf(items.iter().cloned().map(Into::into).collect())
+        AnyOfOrAll::any_of(items.iter().copied().map(Into::into))
     }
 }
 
