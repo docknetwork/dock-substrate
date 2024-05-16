@@ -9,7 +9,7 @@ use crate::{
         OnlyExistent, SetOrAddOrRemoveOrModify, SetOrModify, UpdateTranslationError,
     },
 };
-use core::{convert::Infallible, iter::repeat};
+use core::convert::Infallible;
 use frame_support::{
     dispatch::DispatchErrorWithPostInfo,
     pallet_prelude::*,
@@ -42,7 +42,7 @@ use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
-    use crate::util::{DuplicateKey, IncOrDec, MultiTargetUpdate, UpdateError};
+    use crate::util::{DuplicateKey, UpdateError};
 
     use super::*;
     use frame_system::pallet_prelude::*;
@@ -387,57 +387,6 @@ pub mod pallet {
             unsuspend_issuers
                 .signed(signature)
                 .execute_view(Self::unsuspend_issuers_)
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            use crate::util::batch_update::ApplyUpdate;
-
-            let mut reads = 0;
-            let mut writes = 0;
-
-            for (registry_id, issuer, config) in TrustRegistryIssuerConfigurations::<T>::iter() {
-                let schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
-                reads += 2;
-
-                let schema_ids_update: MultiTargetUpdate<_, _> = schema_ids
-                    .into_iter()
-                    .zip(repeat(IncOrDec::Inc(IncOrDec::ONE)))
-                    .collect();
-
-                for delegated_issuer in config.delegated.iter() {
-                    TrustRegistryDelegatedIssuerSchemas::<T>::mutate(
-                        registry_id,
-                        delegated_issuer,
-                        |schema_ids| schema_ids_update.clone().apply_update(schema_ids),
-                    );
-
-                    writes += 1;
-                }
-            }
-
-            let to_replace: sp_std::vec::Vec<_> = TrustRegistryIssuerConfigurations::<T>::iter()
-                .filter(|(_, issuer, conf)| {
-                    reads += 1;
-
-                    conf.delegated.contains(issuer)
-                })
-                .collect();
-
-            for (registry_id, issuer, mut conf) in to_replace {
-                writes += 1;
-                conf.delegated.remove(&issuer);
-                frame_support::log::info!(
-                    "Delegated issuers configuration updated for {:?}",
-                    issuer
-                );
-
-                TrustRegistryIssuerConfigurations::<T>::insert(registry_id, issuer, conf)
-            }
-
-            T::DbWeight::get().reads_writes(reads, writes)
         }
     }
 }

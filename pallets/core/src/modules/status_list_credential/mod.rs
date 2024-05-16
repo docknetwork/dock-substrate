@@ -122,42 +122,6 @@ pub mod pallet {
             )
         }
     }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            use crate::common::{Limits, OldPolicy};
-            let mut reads_writes = 0;
-
-            /// `StatusListCredential` combined with `Policy`.
-            #[derive(Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen)]
-            struct OldStatusListCredentialWithPolicy<T: Limits> {
-                pub status_list_credential: StatusListCredential<T>,
-                pub policy: OldPolicy<T>,
-            }
-
-            StatusListCredentials::<T>::translate_values(
-                |OldStatusListCredentialWithPolicy {
-                     status_list_credential,
-                     policy,
-                 }: OldStatusListCredentialWithPolicy<T>| {
-                    reads_writes += 1;
-
-                    {
-                        StatusListCredentialWithPolicy {
-                            status_list_credential,
-                            policy: policy.into(),
-                        }
-                        .into()
-                    }
-                },
-            );
-
-            frame_support::log::info!("Translated {} StatusListCredentials", reads_writes);
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
-        }
-    }
 }
 
 impl<T: Config> SubstrateWeight<T> {
