@@ -45,6 +45,8 @@
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
       name: "{{ instance_name }}"
+      filters:
+
     register: instances
 
   - name: Existing EC2 instance info
