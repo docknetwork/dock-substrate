@@ -1637,12 +1637,14 @@ mod identity_provider {
     /// Registration for the identity.
     #[derive(Clone, Debug)]
     pub struct RegisteredIdentity<T: pallet_identity::Config>(pub Registration<T>);
+    dock_core::impl_wrapper!(RegisteredIdentity<T> where T: pallet_identity::Config => (Registration<T>));
 
     /// Identity information.
     #[derive(Clone, Debug)]
     pub struct IdentityInfo<T: pallet_identity::Config>(
         pub pallet_identity::IdentityInfo<<T as pallet_identity::Config>::MaxAdditionalFields>,
     );
+    dock_core::impl_wrapper!(IdentityInfo<T> where T: pallet_identity::Config => (pallet_identity::IdentityInfo<<T as pallet_identity::Config>::MaxAdditionalFields>));
 
     impl<T: pallet_identity::Config> Default for IdentityInfo<T> {
         fn default() -> Self {
@@ -1706,7 +1708,6 @@ mod identity_provider {
     mod identity_setter {
         use super::*;
         use frame_support::storage_alias;
-        use pallet_identity::IdentityInfo;
         use utils::IdentitySetter;
 
         #[storage_alias]
@@ -1728,7 +1729,7 @@ mod identity_provider {
                     pallet_identity::Registration {
                         judgements: Default::default(),
                         deposit: Default::default(),
-                        info: info.unwrap_or_default(),
+                        info: info.into(),
                     },
                 );
 
@@ -1739,11 +1740,15 @@ mod identity_provider {
                 account: &T::AccountId,
                 justification: <Self::Identity as Identity>::Justification,
             ) -> DispatchResult {
-                IdentityOf::<T>::try_mutate(account, |identity| {
-                    identity
-                        .as_mut()
-                        .ok_or(pallet_identity::Error::<T>::NotFound)?
-                        .verify(justification)
+                IdentityOf::<T>::try_mutate(account, |identity_opt| {
+                    let mut identity = identity_opt
+                        .take()
+                        .map(RegisteredIdentity::<T>)
+                        .ok_or(pallet_identity::Error::<T>::NotFound)?;
+                    identity.verify(justification)?;
+                    identity_opt.replace(identity.into());
+
+                    Ok(())
                 })
             }
 
