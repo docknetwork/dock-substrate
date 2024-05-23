@@ -319,12 +319,12 @@ where
                 let signer = sig.signer().ok_or(ActionExecutionError::InvalidSigner)?;
                 let signed_action = action_with_nonce.signed(sig);
 
-                let required_signers = required_signers
-                    .exclude(&signer)
-                    .map_err(|_| ActionExecutionError::NotEnoughSignatures)?;
-                verified_signers.insert(signer);
-
                 signed_action.execute_without_target_data(|action, _| {
+                    let required_signers = required_signers
+                        .exclude(&signer)
+                        .map_err(|_| ActionExecutionError::NotEnoughSignatures)?;
+                    verified_signers.insert(signer);
+
                     Self::new(action.into_data(), signatures).execute_inner(
                         f,
                         data,
