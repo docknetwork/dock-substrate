@@ -4,6 +4,7 @@
 use crate::{
     common::{signatures::ForSigType, DidSignatureWithNonce, PolicyExecutor},
     deposit_indexed_event, did,
+    util::Action,
 };
 use alloc::vec::*;
 use frame_support::pallet_prelude::*;
@@ -28,7 +29,7 @@ use weights::*;
 #[frame_support::pallet]
 
 pub mod pallet {
-    use crate::common::{MultiSignedAction, PolicyExecutor};
+    use crate::common::PolicyExecutor;
 
     use super::*;
 
@@ -102,7 +103,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            MultiSignedAction::new(update_credential, proof)
+            update_credential
+                .multi_signed(proof)
                 .execute(Self::update_, StatusListCredentialWithPolicy::expand_policy)
         }
 
@@ -115,7 +117,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            MultiSignedAction::new(remove_credential, proof)
+            remove_credential
+                .multi_signed(proof)
                 .execute_removable(Self::remove_, |opt| {
                     opt.and_then(StatusListCredentialWithPolicy::expand_policy)
                 })

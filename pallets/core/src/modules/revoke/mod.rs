@@ -110,8 +110,6 @@ impl<T: Limits> RevocationRegistry<T> {
 
 #[frame_support::pallet]
 pub mod pallet {
-    use crate::common::MultiSignedAction;
-
     use self::common::PolicyExecutor;
 
     use super::*;
@@ -236,7 +234,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            MultiSignedAction::new(revoke, proof)
+            revoke
+                .multi_signed(proof)
                 .execute_view(Self::revoke_, RevocationRegistry::expand_policy)
         }
 
@@ -257,7 +256,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            MultiSignedAction::new(unrevoke, proof)
+            unrevoke
+                .multi_signed(proof)
                 .execute_view(Self::unrevoke_, RevocationRegistry::expand_policy)
         }
 
@@ -280,7 +280,8 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            MultiSignedAction::new(removal, proof)
+            removal
+                .multi_signed(proof)
                 .execute_removable(Self::remove_registry_, |opt| {
                     opt.and_then(RevocationRegistry::expand_policy)
                 })

@@ -45,7 +45,7 @@ use weights::*;
 #[frame_support::pallet]
 pub mod pallet {
     use crate::{
-        common::{DidSignatureWithNonce, MultiSignedAction},
+        common::DidSignatureWithNonce,
         util::{AddOrRemoveOrModify, AnyOfOrAll, DuplicateKey, UpdateError},
     };
 
@@ -334,43 +334,55 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
-            let base_weight = T::DbWeight::get().reads_writes(4, 2).saturating_add(
+            let base_weight = T::DbWeight::get().reads_writes(4, 1).saturating_add(
                 SubstrateWeight::<ZeroDbWeight>::set_schemas_metadata(
                     &set_schemas_metadata,
                     &signature,
                 ),
             );
 
-            match set_schemas_metadata
-                .signed(signature)
-                .execute_view(Self::set_schemas_metadata_)
-            {
-                Ok(StepStorageAccesses {
+            let map_ok = |accesses| {
+                let StepStorageAccesses {
                     validation,
                     execution,
-                }) => Ok(PostDispatchInfo {
-                    actual_weight: Some(
-                        base_weight
-                            .saturating_add(validation.reads::<T>())
-                            .saturating_add(execution.reads_writes::<T>()),
-                    ),
+                } = accesses;
+
+                let weight = base_weight
+                    .saturating_add(validation.reads::<T>())
+                    .saturating_add(execution.reads_writes::<T>());
+
+                PostDispatchInfo {
+                    actual_weight: Some(weight),
                     pays_fee: Pays::Yes,
-                }),
-                Err(StepError::Conversion(error)) => Err(DispatchErrorWithPostInfo {
+                }
+            };
+
+            let map_err = |error| match error {
+                StepError::Conversion(error) => DispatchErrorWithPostInfo {
                     post_info: PostDispatchInfo {
                         actual_weight: Some(base_weight),
                         pays_fee: Pays::Yes,
                     },
                     error,
-                }),
-                Err(StepError::Validation(error, validation)) => Err(DispatchErrorWithPostInfo {
-                    post_info: PostDispatchInfo {
-                        actual_weight: Some(base_weight.saturating_add(validation.reads::<T>())),
-                        pays_fee: Pays::Yes,
-                    },
-                    error,
-                }),
-            }
+                },
+                StepError::Validation(error, validation) => {
+                    let weight = base_weight.saturating_add(validation.reads::<T>());
+
+                    DispatchErrorWithPostInfo {
+                        post_info: PostDispatchInfo {
+                            actual_weight: Some(weight),
+                            pays_fee: Pays::Yes,
+                        },
+                        error,
+                    }
+                }
+            };
+
+            set_schemas_metadata
+                .signed(signature)
+                .execute_view(Self::set_schemas_metadata_)
+                .map(map_ok)
+                .map_err(map_err)
         }
 
         /// Update delegated `Issuer`s of the given `Issuer`.
@@ -438,7 +450,8 @@ pub mod pallet {
 
                 let signers = AnyOfOrAll::all(participants.chain(maybe_convener));
 
-                MultiSignedAction::new(action, signatures)
+                action
+                    .multi_signed(signatures)
                     .execute(Self::change_participants_, |_| signers)
             };
 

@@ -1,8 +1,10 @@
+use core::iter::FusedIterator;
 use frame_support::ensure;
 use sp_runtime::DispatchError;
 
 use crate::{
-    common::signed_action::*,
+    common::{signed_action::*, DidSignatureWithNonce},
+    did::DidOrDidMethodKey,
     util::{OptionExt, Signature, Types},
 };
 
@@ -94,6 +96,17 @@ pub trait Action: Sized {
                 f(self, opt)
             })
         })
+    }
+
+    /// Combines underlying action with the provided signatures.
+    fn multi_signed<T, D, SI>(self, signatures: SI) -> MultiSignedAction<T, Self, SI::IntoIter, D>
+    where
+        T: Types,
+        SI: IntoIterator,
+        SI::IntoIter: FusedIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
+        D: Into<DidOrDidMethodKey> + Ord,
+    {
+        MultiSignedAction::new(self, signatures)
     }
 }
 
