@@ -144,6 +144,7 @@ impl<V: Ord> InclusionRule<V> {
     /// This method processes the items according to the inclusion criteria defined by the rule (`AnyOf` or `All`).
     /// It transforms the items using the provided function `f` and collects them into a `BTreeSet`.
     ///
+    /// **An iterator created by `f` must produce items in ascending order**.
     pub fn apply_rule<I, F>(self, f: F) -> BTreeSet<I::Item>
     where
         F: FnMut(V) -> I,
@@ -158,6 +159,7 @@ impl<V: Ord> InclusionRule<V> {
                 items
                     .into_iter()
                     .map(f)
+                    .map(|iter| iter.into_iter().dedup())
                     .kmerge()
                     .dedup_with_count()
                     .filter_map(|(count, value)| (count == len).then_some(value))
