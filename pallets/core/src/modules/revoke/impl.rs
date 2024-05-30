@@ -1,16 +1,18 @@
 use super::*;
-use crate::deposit_indexed_event;
+use crate::{common::IntermediateError, deposit_indexed_event};
 
 impl<T: Config> Pallet<T> {
     pub(super) fn new_registry_(
         AddRegistry { new_registry, id }: AddRegistry<T>,
-    ) -> DispatchResult {
+        registry_opt: &mut Option<RevocationRegistry<T>>,
+    ) -> Result<(), IntermediateError<T>> {
         // check
         new_registry.policy.ensure_valid()?;
-        ensure!(!Registries::<T>::contains_key(id), Error::<T>::RegExists);
 
-        // execute
-        Registries::<T>::insert(id, new_registry);
+        ensure!(
+            registry_opt.replace(new_registry).is_none(),
+            IntermediateError::<T>::dispatch(Error::<T>::RegExists)
+        );
 
         deposit_indexed_event!(RegistryAdded(id));
         Ok(())

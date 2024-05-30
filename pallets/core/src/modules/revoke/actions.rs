@@ -80,6 +80,7 @@ pub struct RemoveRegistryRaw<T> {
 
 crate::impl_action! {
     for RevocationRegistryId:
+        AddRegistry with 1 as len, id as target no_state_change,
         RevokeRaw with revoke_ids.len() as len, registry_id as target no_state_change,
         UnRevokeRaw with revoke_ids.len() as len, registry_id as target no_state_change,
         RemoveRegistryRaw with 1 as len, registry_id as target no_state_change

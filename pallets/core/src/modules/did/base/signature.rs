@@ -1,7 +1,7 @@
 use core::marker::PhantomData;
 
 use super::super::*;
-use crate::common::*;
+use crate::common::{signed_action::*, *};
 
 /// Either `DidKey` or `DidMethodKey`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, MaxEncodedLen)]
@@ -44,15 +44,19 @@ where
         &self,
         key: &DidKeyOrDidMethodKey,
         action: &A,
-    ) -> Result<(), super::Error<T>>
+        value: Option<&Target::Value>,
+    ) -> DispatchResult
     where
-        T: super::Config,
+        T: crate::did::Config,
         A: Action<Target = Target>,
+        Target: Associated<T>,
     {
         match key {
-            DidKeyOrDidMethodKey::DidKey(did_key) => self.ensure_authorizes_target(did_key, action),
+            DidKeyOrDidMethodKey::DidKey(did_key) => {
+                self.ensure_authorizes_target(did_key, action, value)
+            }
             DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => {
-                self.ensure_authorizes_target(did_method_key, action)
+                self.ensure_authorizes_target(did_method_key, action, value)
             }
         }
     }
@@ -278,31 +282,30 @@ where
     DidOrDidMethodKeySignature<Controller>:
         AuthorizeSignedAction<A, Key = DidKeyOrDidMethodKey, Signer = Controller>,
 {
-    pub fn execute_from_controller<F, R, E>(self, f: F) -> Result<R, E>
+    pub fn execute_from_controller<F, R, E>(self, f: F) -> Result<R, IntermediateError<T>>
     where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
-        E: From<ActionExecutionError> + From<NonceError> + From<Error<T>>,
+        E: Into<IntermediateError<T>>,
     {
         self.execute_removable_from_controller(|action, data_opt| {
-            let Some(data_ref) = data_opt.as_mut() else {
-                Err(ActionExecutionError::NoEntity)?
-            };
+            let data_ref = data_opt.as_mut().ok_or(ActionExecutionError::NoEntity)?;
 
-            f(action, data_ref)
+            f(action, data_ref).map_err(Into::into)
         })
+        .map_err(Into::into)
     }
 
-    pub fn execute_removable_from_controller<F, R, E>(self, f: F) -> Result<R, E>
+    pub fn execute_removable_from_controller<F, R, E>(self, f: F) -> Result<R, IntermediateError<T>>
     where
         F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
-        E: From<ActionExecutionError> + From<NonceError> + From<Error<T>>,
+        E: Into<IntermediateError<T>>,
     {
         let SignedActionWithNonce {
             action, signature, ..
         } = self;
 
         let Authorization { signer, .. } = signature
-            .authorizes_signed_action(&action)?
+            .authorizes_signed_action(&action, None)?
             .ok_or(Error::<T>::InvalidSignature)?;
 
         match signer.into() {
@@ -310,17 +313,17 @@ where
                 if controller == action.target() {
                     ActionWithNonceWrapper::<T, A, Did>::new(action.nonce(), controller, action)
                         .execute_and_increase_nonce(
-                            |ActionWithNonceWrapper { action, .. }, reference| f(action, reference),
+                            |ActionWithNonceWrapper { action, .. }, reference| {
+                                f(action, reference).map_err(Into::into)
+                            },
                         )
-                        .map_err(Into::into)
                 } else {
                     ActionWithNonceWrapper::<T, A, Did>::new(action.nonce(), controller, action)
                         .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
                             action.execute_without_increasing_nonce(|action, reference| {
-                                f(action, reference)
+                                f(action, reference).map_err(Into::into)
                             })
                         })
-                        .map_err(Into::into)
                 }
             }
             DidOrDidMethodKey::DidMethodKey(controller) => ActionWithNonceWrapper::<
@@ -331,9 +334,10 @@ where
                 action.nonce(), controller, action
             )
             .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
-                action.execute_without_increasing_nonce(|action, reference| f(action, reference))
-            })
-            .map_err(Into::into),
+                action.execute_without_increasing_nonce(|action, reference| {
+                    f(action, reference).map_err(Into::into)
+                })
+            }),
         }
     }
 }

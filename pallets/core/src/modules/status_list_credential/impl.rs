@@ -1,19 +1,20 @@
 use alloc::collections::BTreeSet;
 
+use crate::common::IntermediateError;
+
 use super::*;
 
 impl<T: Config> Pallet<T> {
     pub(super) fn create_(
-        id: StatusListCredentialId,
-        credential: StatusListCredentialWithPolicy<T>,
-    ) -> DispatchResult {
-        ensure!(
-            !StatusListCredentials::<T>::contains_key(id),
-            Error::<T>::StatusListCredentialAlreadyExists
-        );
+        AddStatusListCredential { id, credential }: AddStatusListCredential<T>,
+        cred_opt: &mut Option<StatusListCredentialWithPolicy<T>>,
+    ) -> Result<(), IntermediateError<T>> {
         credential.ensure_valid()?;
 
-        StatusListCredentials::insert(id, credential);
+        ensure!(
+            cred_opt.replace(credential).is_none(),
+            IntermediateError::<T>::dispatch(Error::<T>::StatusListCredentialAlreadyExists)
+        );
 
         deposit_indexed_event!(StatusListCredentialCreated(id));
         Ok(())

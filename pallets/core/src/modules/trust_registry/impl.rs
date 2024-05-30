@@ -2,9 +2,12 @@ use core::iter::repeat;
 use itertools::Itertools;
 
 use super::{types::*, *};
-use crate::util::{
-    ActionExecutionError, ActionWithNonceWrapper, ApplyUpdate, IncOrDec, MultiTargetUpdate,
-    NonceError, TranslateUpdate, ValidateUpdate,
+use crate::{
+    common::IntermediateError,
+    util::{
+        ActionWithNonceWrapper, ApplyUpdate, IncOrDec, MultiTargetUpdate, TranslateUpdate,
+        ValidateUpdate,
+    },
 };
 use alloc::collections::BTreeSet;
 
@@ -26,16 +29,13 @@ impl<T: Config> Pallet<T> {
         let gov_framework = gov_framework
             .try_into()
             .map_err(|_| Error::<T>::GovFrameworkSizeExceeded)?;
-        let new_info = TrustRegistryInfo {
+
+        if let Some(existing) = info.replace(TrustRegistryInfo {
             convener,
             name,
             gov_framework,
-        };
-
-        if let Some(existing) = info.replace(new_info) {
-            if existing.convener != convener {
-                Err(Error::<T>::NotTheConvener)?
-            }
+        }) {
+            convener.ensure_controls(&existing)?;
         }
 
         registries
@@ -55,23 +55,52 @@ impl<T: Config> Pallet<T> {
         }: SetSchemasMetadata<T>,
         registry_info: TrustRegistryInfo<T>,
         actor: ConvenerOrIssuerOrVerifier,
-    ) -> Result<StepStorageAccesses, StepError> {
+    ) -> Result<PostDispatchInfo, IntermediateError<T>> {
         let schemas: SchemasUpdate<T> = schemas
             .translate_update()
             .map_err(IntoModuleError::into_module_error)
             .map_err(Into::into)
-            .map_err(StepError::Conversion)?;
+            .map_err(|error| DispatchErrorWithPostInfo {
+                post_info: PostDispatchInfo {
+                    actual_weight: Some(Default::default()),
+                    pays_fee: Pays::Yes,
+                },
+                error,
+            })?;
 
         let mut validation = StorageAccesses::default();
-        schemas
+        let update = schemas
             .validate_and_record_diff(actor, registry_id, &registry_info, &mut validation)
-            .map_err(|error| StepError::Validation(error.into(), validation.clone()))
-            .map(|validated_update| StepStorageAccesses {
-                validation,
-                execution: validated_update.execute(registry_id),
-            })
+            .map_err(Into::into)
+            .map_err(|error| DispatchErrorWithPostInfo {
+                post_info: PostDispatchInfo {
+                    actual_weight: Some(validation.reads::<T>()),
+                    pays_fee: Pays::Yes,
+                },
+                error,
+            })?;
+
+        let execution = update.execute(registry_id);
+        let weight = validation
+            .reads::<T>()
+            .saturating_add(execution.reads_writes::<T>());
+
+        Ok(PostDispatchInfo {
+            actual_weight: Some(weight),
+            pays_fee: Pays::Yes,
+        })
     }
 
+    /// Updates the delegated issuers for a trust registry.
+    ///
+    /// This function performs the following actions:
+    /// 1. Checks if the issuer exists in the trust registry's schemas.
+    /// 2. Translates the delegated updates to the appropriate format.
+    /// 3. Ensures that the delegated updates are valid.
+    /// 4. Updates the issuer schema IDs and ensures their validity.
+    /// 5. Applies the updates to the delegated issuer schemas.
+    /// 6. Applies the updates to the overall configuration.
+    /// 7. Emits an event to signal the successful update.
     pub(super) fn update_delegated_issuers_(
         ActionWithNonceWrapper {
             action:
@@ -89,18 +118,24 @@ impl<T: Config> Pallet<T> {
             TrustRegistryIssuerSchemas::<T>::contains_key(registry_id, issuer),
             Error::<T>::NoSuchIssuer
         );
+        // Translate the ubounded update to the bounded updates (with size limitations).
         let delegated: DelegatedUpdate<T> = delegated
             .translate_update()
             .map_err(IntoModuleError::into_module_error)?;
 
+        // Ensure that the delegated updates are valid.
         delegated.ensure_valid(&issuer, &config.delegated)?;
 
+        // Get the schema IDs associated with the issuer.
         let issuer_schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
+
+        // Compute the difference in issuer updates and translate update from `AddOrRemoveOrModify` to `IncOrDec`.
         let issuers_diff: MultiTargetUpdate<Issuer, IncOrDec> = delegated
             .keys_diff(&config.delegated)
             .translate_update()
             .map_err(IntoModuleError::<T>::into_module_error)?;
 
+        // Validate and apply the schema ID updates for each delegated issuer.
         for (delegated_issuer, update) in issuers_diff.iter() {
             let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
                 .iter()
@@ -113,6 +148,7 @@ impl<T: Config> Pallet<T> {
             schema_ids_update.ensure_valid(&issuer, &schema_ids)?;
         }
 
+        // Apply the schema ID updates for each issuer.
         for (issuer, update) in issuers_diff {
             let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
                 .iter()
@@ -125,7 +161,10 @@ impl<T: Config> Pallet<T> {
             });
         }
 
+        // Apply the delegated updates to the overall configuration.
         delegated.apply_update(&mut config.delegated);
+
+        // Emit an event indicating that delegated issuers have been updated.
         Self::deposit_event(Event::DelegatedIssuersUpdated(registry_id, issuer));
 
         Ok(())
@@ -280,41 +319,5 @@ impl<T: Config> Pallet<T> {
             TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id)
                 .map(|schema_metadata| (schema_id, schema_metadata))
         })
-    }
-}
-
-#[derive(Clone, Debug, Eq, PartialEq, Default)]
-pub struct StepStorageAccesses {
-    pub validation: StorageAccesses,
-    pub execution: StorageAccesses,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub enum StepError {
-    Conversion(DispatchError),
-    Validation(DispatchError, StorageAccesses),
-}
-
-impl From<StepError> for DispatchError {
-    fn from((StepError::Conversion(error) | StepError::Validation(error, _)): StepError) -> Self {
-        error
-    }
-}
-
-impl From<ActionExecutionError> for StepError {
-    fn from(err: ActionExecutionError) -> Self {
-        Self::Conversion(err.into())
-    }
-}
-
-impl From<NonceError> for StepError {
-    fn from(err: NonceError) -> Self {
-        Self::Conversion(err.into())
-    }
-}
-
-impl<T: crate::did::Config> From<crate::did::Error<T>> for StepError {
-    fn from(err: crate::did::Error<T>) -> Self {
-        Self::Conversion(err.into())
     }
 }

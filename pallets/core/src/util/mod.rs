@@ -1,6 +1,5 @@
 pub mod action;
 pub mod action_wrapper;
-pub mod any_of_or_all;
 pub mod batch_update;
 #[cfg(feature = "serde")]
 pub mod btree;
@@ -12,13 +11,13 @@ pub mod macros;
 pub mod option_ext;
 #[cfg(feature = "serde")]
 pub mod serde_hex;
+pub mod set;
 pub mod signature;
 pub mod types;
 pub mod with_nonce;
 
 pub use action::*;
 pub use action_wrapper::*;
-pub use any_of_or_all::*;
 pub use batch_update::*;
 #[cfg(feature = "serde")]
 pub use btree::*;
@@ -30,6 +29,7 @@ pub use macros::*;
 pub use option_ext::*;
 #[cfg(feature = "serde")]
 pub use serde_hex::*;
+pub use set::*;
 pub use signature::*;
 pub use types::*;
 pub use with_nonce::*;

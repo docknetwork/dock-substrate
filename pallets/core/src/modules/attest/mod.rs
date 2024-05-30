@@ -5,7 +5,9 @@
 use crate::{
     common::{signatures::ForSigType, AuthorizeTarget, Limits, TypesAndLimits},
     did::{self, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, ActionWithNonceWrapper, BoundedBytes, OptionExt, StorageRef},
+    util::{
+        ActionWithNonce, ActionWithNonceWrapper, Associated, BoundedBytes, OptionExt, StorageRef,
+    },
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -64,9 +66,11 @@ pub struct Attestation<T: Limits> {
     pub iri: Option<Iri<T>>,
 }
 
-impl<T: Config> StorageRef<T> for Attester {
+impl<T: TypesAndLimits> Associated<T> for Attester {
     type Value = Attestation<T>;
+}
 
+impl<T: Config> StorageRef<T> for Attester {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<Attestation<T>>) -> Result<R, E>,
@@ -167,6 +171,7 @@ pub mod pallet {
             attests
                 .signed_with_signer_target(signature)?
                 .execute(ActionWithNonceWrapper::wrap_fn(Self::set_claim_))
+                .map_err(Into::into)
         }
     }
 

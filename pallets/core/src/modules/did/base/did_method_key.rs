@@ -7,6 +7,8 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Index, RangeFull};
 use frame_support::ensure;
 
+use self::common::TypesAndLimits;
+
 /// The `public_key` in `did:key:<public_key>`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -26,9 +28,11 @@ impl From<sp_core::ed25519::Public> for DidMethodKey {
     }
 }
 
-impl<T: Config> StorageRef<T> for DidMethodKey {
+impl<T: TypesAndLimits> Associated<T> for DidMethodKey {
     type Value = WithNonce<T, ()>;
+}
 
+impl<T: Config> StorageRef<T> for DidMethodKey {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<WithNonce<T, ()>>) -> Result<R, E>,

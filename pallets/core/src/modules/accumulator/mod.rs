@@ -154,6 +154,7 @@ pub mod pallet {
             params
                 .signed_with_signer_target(signature)?
                 .execute(ActionWithNonceWrapper::wrap_fn(Self::add_params_))
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
@@ -167,6 +168,7 @@ pub mod pallet {
             public_key
                 .signed_with_signer_target(signature)?
                 .execute(ActionWithNonceWrapper::wrap_fn(Self::add_public_key_))
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
@@ -177,7 +179,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            remove.signed(signature).execute_view(Self::remove_params_)
+            remove
+                .signed(signature)
+                .execute_removable(Self::remove_params_)
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
@@ -190,7 +195,8 @@ pub mod pallet {
 
             remove
                 .signed(signature)
-                .execute_view(Self::remove_public_key_)
+                .execute_removable(Self::remove_public_key_)
+                .map_err(Into::into)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -208,7 +214,8 @@ pub mod pallet {
 
             add_accumulator
                 .signed(signature)
-                .execute(Self::add_accumulator_)
+                .execute_removable(Self::add_accumulator_)
+                .map_err(Into::into)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -224,7 +231,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            update.signed(signature).execute(Self::update_accumulator_)
+            update
+                .signed(signature)
+                .execute(Self::update_accumulator_)
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_accumulator(remove, signature))]
@@ -238,6 +248,7 @@ pub mod pallet {
             remove
                 .signed(signature)
                 .execute_removable(Self::remove_accumulator_)
+                .map_err(Into::into)
         }
     }
 }

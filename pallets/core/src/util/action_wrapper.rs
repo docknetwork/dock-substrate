@@ -1,6 +1,6 @@
 use crate::common::{ToStateChange, Types, TypesAndLimits};
 
-use super::{Action, ActionExecutionError, ActionWithNonce, NonceError, StorageRef};
+use super::{Action, ActionWithNonce};
 use codec::{Decode, Encode};
 
 /// Wraps any value in an action with the given target.
@@ -68,21 +68,6 @@ impl<T: Types, A, Ta> ActionWithNonceWrapper<T, A, Ta> {
         f: F,
     ) -> impl FnOnce(Self, &mut V, Ta) -> O {
         move |Self { action, .. }, value, target| f(action, value, target)
-    }
-
-    /// Wraps given function producing a function that takes `ActionWithNonceWrapper` as a parameter and then executes `action.modify`.
-    pub fn wrap_fn_with_modify_removable_action<V, O, E, F>(
-        f: F,
-    ) -> impl FnOnce(Self, &mut V, Ta) -> Result<O, E>
-    where
-        A: Action,
-        A::Target: StorageRef<T>,
-        F: FnOnce(A, &mut V, &mut Option<<A::Target as StorageRef<T>>::Value>, Ta) -> Result<O, E>,
-        E: From<ActionExecutionError> + From<NonceError>,
-    {
-        Self::wrap_fn(|action, value, target| {
-            action.modify_removable(|action, other_value| f(action, value, other_value, target))
-        })
     }
 }
 

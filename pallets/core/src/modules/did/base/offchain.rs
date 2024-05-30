@@ -54,7 +54,7 @@ impl<T: TypesAndLimits> OffChainDidDetails<T> {
 }
 
 /// To describe the off chain DID Doc's reference. This is just to inform the client, this module
-/// does not check if the bytes are indeed valid as per the enum variant
+/// does not check if the bytes are indeed valid as per the enum variant.
 #[derive(
     Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
 )]

@@ -1,8 +1,8 @@
 #[cfg(feature = "serde")]
 use crate::util::serde_hex;
 use crate::{
-    common::{Limits, Policy, PolicyExecutor},
-    util::{AnyOfOrAll, BoundedBytes, StorageRef},
+    common::{IntermediateError, Limits, Policy, PolicyExecutor, TypesAndLimits},
+    util::{Associated, BoundedBytes, InclusionRule, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{traits::Get, DebugNoBound, *};
@@ -96,13 +96,15 @@ impl<T: Limits> StatusListCredentialWithPolicy<T> {
     where
         T: Config,
     {
-        self.policy.ensure_valid()?;
+        self.policy
+            .ensure_valid()
+            .map_err(IntermediateError::<T>::from)?;
         self.status_list_credential.ensure_valid()?;
 
         Ok(())
     }
 
-    pub fn expand_policy(&self) -> Option<AnyOfOrAll<PolicyExecutor>> {
+    pub fn expand_policy(&self) -> Option<InclusionRule<PolicyExecutor>> {
         Some(self.policy.expand())
     }
 }
@@ -130,9 +132,11 @@ pub struct StatusListCredentialId(
 crate::impl_wrapper!(StatusListCredentialId([u8; 32]));
 crate::hex_debug!(StatusListCredentialId);
 
-impl<T: Config> StorageRef<T> for StatusListCredentialId {
+impl<T: TypesAndLimits> Associated<T> for StatusListCredentialId {
     type Value = StatusListCredentialWithPolicy<T>;
+}
 
+impl<T: Config> StorageRef<T> for StatusListCredentialId {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<StatusListCredentialWithPolicy<T>>) -> Result<R, E>,

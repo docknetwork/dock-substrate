@@ -8,14 +8,14 @@ use crate::util::btree_set;
 
 use crate::{
     common::{AuthorizeTarget, ForSigType},
-    did::{DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::AnyOfOrAll,
+    did::{DidKey, DidMethodKey, DidOrDidMethodKey},
+    util::InclusionRule,
 };
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::BoundedBTreeSet;
-use sp_runtime::{traits::TryCollect, DispatchError};
+use sp_runtime::traits::TryCollect;
 
 /// Authorization logic containing rules to modify some data entity.
 #[derive(
@@ -46,12 +46,12 @@ pub enum Policy<T: Limits> {
 
 impl<T: Limits> Policy<T> {
     /// Instantiates `Policy::OneOf` from the given iterator of controllers.
-    pub fn one_of(
-        controllers: impl IntoIterator<
-            IntoIter = impl ExactSizeIterator<Item = impl Into<DidOrDidMethodKey>>,
-            Item = impl Into<DidOrDidMethodKey>,
-        >,
-    ) -> Result<Self, PolicyValidationError> {
+    pub fn one_of<CI>(controllers: CI) -> Result<Self, PolicyValidationError>
+    where
+        CI: IntoIterator,
+        CI::IntoIter: ExactSizeIterator,
+        <CI::IntoIter as Iterator>::Item: Into<DidOrDidMethodKey>,
+    {
         controllers
             .into_iter()
             .map(Into::into)
@@ -60,10 +60,10 @@ impl<T: Limits> Policy<T> {
             .map(Self::OneOf)
     }
 
-    pub fn expand(&self) -> AnyOfOrAll<PolicyExecutor> {
+    pub fn expand(&self) -> InclusionRule<PolicyExecutor> {
         let Self::OneOf(items) = self;
 
-        AnyOfOrAll::any_of(items.iter().copied().map(Into::into))
+        InclusionRule::any_of(items.iter().copied().map(Into::into))
     }
 }
 
@@ -72,17 +72,6 @@ impl<T: Limits> Policy<T> {
 pub enum PolicyValidationError {
     Empty,
     TooManyControllers,
-}
-
-impl From<PolicyValidationError> for DispatchError {
-    fn from(error: PolicyValidationError) -> Self {
-        let raw = match error {
-            PolicyValidationError::Empty => "Policy can't be empty (have zero controllers)",
-            PolicyValidationError::TooManyControllers => "Policy can't have so many controllers",
-        };
-
-        DispatchError::Other(raw)
-    }
 }
 
 impl<T: Limits> Policy<T> {
@@ -125,28 +114,29 @@ impl<T> AuthorizeTarget<T, DidMethodKey> for PolicyExecutor {}
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
-#[codec(encode_bound(N: Encode + MaxEncodedLen))]
-#[codec(encode_bound(D: Encode + MaxEncodedLen))]
 #[scale_info(omit_prefix)]
-pub struct DidSignatureWithNonce<N, D: Into<DidOrDidMethodKey>> {
-    pub sig: DidOrDidMethodKeySignature<D>,
+pub struct SignatureWithNonce<N, S> {
+    pub sig: S,
     pub nonce: N,
 }
 
-impl<N, D: Into<DidOrDidMethodKey>> DidSignatureWithNonce<N, D> {
-    pub fn new(sig: DidOrDidMethodKeySignature<D>, nonce: N) -> Self {
+impl<N, S> SignatureWithNonce<N, S> {
+    pub fn new(sig: S, nonce: N) -> Self {
         Self {
             sig: sig.into(),
             nonce,
         }
     }
 
-    pub fn into_data(self) -> DidOrDidMethodKeySignature<D> {
+    pub fn into_data(self) -> S {
         self.sig
     }
 }
 
-impl<N, D: Into<DidOrDidMethodKey>> ForSigType for DidSignatureWithNonce<N, D> {
+impl<N, S> ForSigType for SignatureWithNonce<N, S>
+where
+    S: ForSigType,
+{
     fn for_sig_type<R>(
         &self,
         for_sr25519: impl FnOnce() -> R,

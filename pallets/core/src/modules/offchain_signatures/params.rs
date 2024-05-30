@@ -1,8 +1,8 @@
 use crate::{
-    common::{AuthorizeTarget, Limits},
+    common::{AuthorizeTarget, Limits, TypesAndLimits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
     offchain_signatures::schemes::*,
-    util::{IncId, OptionExt, StorageRef},
+    util::{Associated, IncId, OptionExt, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{ensure, DebugNoBound};
@@ -29,9 +29,11 @@ impl AuthorizeTarget<Self, DidMethodKey> for SignatureParamsOwner {}
 impl AuthorizeTarget<(), DidKey> for SignatureParamsOwner {}
 impl AuthorizeTarget<(), DidMethodKey> for SignatureParamsOwner {}
 
-impl<T: Config> StorageRef<T> for SignatureParamsOwner {
+impl<T: TypesAndLimits> Associated<T> for SignatureParamsOwner {
     type Value = IncId;
+}
 
+impl<T: Config> StorageRef<T> for SignatureParamsOwner {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<IncId>) -> Result<R, E>,

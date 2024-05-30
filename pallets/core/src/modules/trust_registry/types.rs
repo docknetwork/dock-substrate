@@ -2,16 +2,17 @@ use super::{
     Config, ConvenerTrustRegistries, Error, TrustRegistriesInfo, TrustRegistriesParticipants,
 };
 use crate::{
-    common::{AuthorizeTarget, Limits},
+    common::{AuthorizeTarget, Limits, TypesAndLimits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
     hex_debug, impl_wrapper,
-    util::{batch_update::*, BoundedBytes, KeyValue, OptionExt, StorageRef},
+    util::{batch_update::*, Associated, BoundedBytes, KeyValue, OptionExt, StorageRef},
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, num::NonZeroU32};
 use frame_support::{traits::Get, weights::Weight, *};
 use scale_info::prelude::string::String;
+use sp_runtime::DispatchResult;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 use utils::BoundedString;
 
@@ -30,9 +31,11 @@ pub struct Convener(pub DidOrDidMethodKey);
 
 impl_wrapper!(Convener(DidOrDidMethodKey));
 
-impl<T: Config> StorageRef<T> for Convener {
+impl<T: TypesAndLimits> Associated<T> for Convener {
     type Value = TrustRegistryIdSet<T>;
+}
 
+impl<T: Config> StorageRef<T> for Convener {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<TrustRegistryIdSet<T>>) -> Result<R, E>,
@@ -48,9 +51,11 @@ impl<T: Config> StorageRef<T> for Convener {
     }
 }
 
-impl<T: Config> StorageRef<T> for TrustRegistryIdForParticipants {
+impl<T: TypesAndLimits> Associated<T> for TrustRegistryIdForParticipants {
     type Value = TrustRegistryStoredParticipants<T>;
+}
 
+impl<T: Config> StorageRef<T> for TrustRegistryIdForParticipants {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<TrustRegistryStoredParticipants<T>>) -> Result<R, E>,
@@ -66,9 +71,48 @@ impl<T: Config> StorageRef<T> for TrustRegistryIdForParticipants {
     }
 }
 
-impl AuthorizeTarget<Self, DidKey> for Convener {}
+impl AuthorizeTarget<Self, DidKey> for Convener {
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        _: &DidKey,
+        action: &A,
+        _: Option<&<Self as Associated<T>>::Value>,
+    ) -> DispatchResult
+    where
+        T: crate::did::Config,
+        A: crate::util::Action<Target = Self>,
+        Self: Associated<T>,
+    {
+        ensure!(
+            action.target() == *self,
+            crate::did::Error::<T>::InvalidSigner
+        );
+
+        Ok(())
+    }
+}
+impl AuthorizeTarget<Self, DidMethodKey> for Convener {
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        _: &DidMethodKey,
+        action: &A,
+        _: Option<&<Self as Associated<T>>::Value>,
+    ) -> DispatchResult
+    where
+        T: crate::did::Config,
+        A: crate::util::Action<Target = Self>,
+        Self: Associated<T>,
+    {
+        ensure!(
+            action.target() == *self,
+            crate::did::Error::<T>::InvalidSigner
+        );
+
+        Ok(())
+    }
+}
+
 impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
-impl AuthorizeTarget<Self, DidMethodKey> for Convener {}
 impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 
 /// Maybe an `Issuer` or a `Verifier` but definitely not a `Convener`.
@@ -118,11 +162,15 @@ pub struct IssuerAndVerifier(pub DidOrDidMethodKey);
 impl_wrapper!(IssuerAndVerifier(DidOrDidMethodKey));
 
 impl Convener {
-    pub fn ensure_controls<T: Limits>(
+    pub fn controls<T: Limits>(
         &self,
         TrustRegistryInfo { convener, .. }: &TrustRegistryInfo<T>,
-    ) -> Result<(), Error<T>> {
-        ensure!(convener == self, Error::<T>::NotTheConvener);
+    ) -> bool {
+        convener == self
+    }
+
+    pub fn ensure_controls<T: Config>(&self, info: &TrustRegistryInfo<T>) -> Result<(), Error<T>> {
+        ensure!(self.controls(info), Error::<T>::NotTheConvener);
 
         Ok(())
     }
@@ -174,10 +222,7 @@ impl ConvenerOrIssuerOrVerifier {
         U: ValidateUpdate<Convener, E> + ValidateUpdate<IssuerOrVerifier, E>,
         T: Limits,
     {
-        if Convener(**self)
-            .ensure_controls(trust_registry_info)
-            .is_ok()
-        {
+        if Convener(**self).controls(trust_registry_info) {
             update.ensure_valid(&Convener(**self), entity)
         } else {
             update.ensure_valid(&IssuerOrVerifier(**self), entity)
@@ -196,7 +241,8 @@ impl AuthorizeTarget<(TrustRegistryId, Issuer), DidKey> for Issuer {
         &self,
         _: &DidKey,
         action: &A,
-    ) -> Result<(), crate::did::Error<T>>
+        _: Option<&<(TrustRegistryId, Issuer) as Associated<T>>::Value>,
+    ) -> DispatchResult
     where
         T: crate::did::Config,
         A: crate::util::Action<Target = (TrustRegistryId, Issuer)>,
@@ -214,7 +260,8 @@ impl AuthorizeTarget<(TrustRegistryId, Issuer), DidMethodKey> for Issuer {
         &self,
         _: &DidMethodKey,
         action: &A,
-    ) -> Result<(), crate::did::Error<T>>
+        _: Option<&<(TrustRegistryId, Issuer) as Associated<T>>::Value>,
+    ) -> DispatchResult
     where
         T: crate::did::Config,
         A: crate::util::Action<Target = (TrustRegistryId, Issuer)>,
@@ -806,10 +853,10 @@ impl_wrapper!(TrustRegistryStoredSchemas<T> where T: Limits => (BoundedBTreeSet<
 #[scale_info(omit_prefix)]
 pub struct TrustRegistryStoredParticipants<T: Limits>(
     #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
-    pub  BoundedBTreeSet<IssuerOrVerifier, T::MaxSchemasPerRegistry>,
+    pub  BoundedBTreeSet<IssuerOrVerifier, T::MaxParticipantsPerRegistry>,
 );
 
-impl_wrapper!(TrustRegistryStoredParticipants<T> where T: Limits => (BoundedBTreeSet<IssuerOrVerifier, T::MaxSchemasPerRegistry>));
+impl_wrapper!(TrustRegistryStoredParticipants<T> where T: Limits => (BoundedBTreeSet<IssuerOrVerifier, T::MaxParticipantsPerRegistry>));
 
 /// Set of schemas corresponding to an `Issuer`.
 #[derive(
@@ -1030,9 +1077,11 @@ pub struct TrustRegistryIdForParticipants(pub TrustRegistryId);
 impl_wrapper!(TrustRegistryIdForParticipants(TrustRegistryId));
 hex_debug!(TrustRegistryIdForParticipants);
 
-impl<T: Config> StorageRef<T> for TrustRegistryId {
+impl<T: Limits> Associated<T> for TrustRegistryId {
     type Value = TrustRegistryInfo<T>;
+}
 
+impl<T: Config> StorageRef<T> for TrustRegistryId {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<TrustRegistryInfo<T>>) -> Result<R, E>,
@@ -1048,9 +1097,11 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
     }
 }
 
-impl<T: Config> StorageRef<T> for (TrustRegistryId, Issuer) {
+impl<T: TypesAndLimits> Associated<T> for (TrustRegistryId, Issuer) {
     type Value = TrustRegistryIssuerConfiguration<T>;
+}
 
+impl<T: Config> StorageRef<T> for (TrustRegistryId, Issuer) {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<TrustRegistryIssuerConfiguration<T>>) -> Result<R, E>,

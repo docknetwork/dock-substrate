@@ -15,7 +15,7 @@ use sp_std::{iter::once, marker::PhantomData};
 pub fn get_pauth<A: Action + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
-) -> Vec<DidSignatureWithNonce<<Test as Types>::BlockNumber, PolicyExecutor>>
+) -> Vec<SignatureWithNonce<<Test as Types>::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>>
 where
     WithNonce<Test, A>: ToStateChange<Test>,
 {
@@ -27,7 +27,7 @@ where
             let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
             let sig = did_sig_on_bytes(&sp.to_state_change().encode(), kp, *did, 1).into();
 
-            DidSignatureWithNonce::new(sig, next_nonce)
+            SignatureWithNonce::new(sig, next_nonce)
         })
         .collect()
 }
@@ -56,8 +56,6 @@ pub fn check_nonce_increase(old_nonces: BTreeMap<Did, u64>, signers: &[(Did, &sr
 /// Tests in this module are named after the errors they check.
 /// For example, `#[test] fn invalidpolicy` exercises the Error::InvalidPolicy.
 mod errors {
-    use crate::{common::PolicyValidationError, util::ActionExecutionError};
-
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
     use alloc::collections::BTreeSet;
@@ -78,7 +76,7 @@ mod errors {
         };
 
         let err = RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap_err();
-        assert_eq!(err, PolicyValidationError::Empty.into());
+        assert_eq!(err, did::Error::<Test>::EmptyPolicy.into());
     }
 
     // this test has caught at least one bug
@@ -127,13 +125,13 @@ mod errors {
                 Policy::one_of([a]).unwrap(),
                 &[],
                 "provide no signatures",
-                ActionExecutionError::NotEnoughSignatures.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
                 &[(b, &kpb)],
                 "wrong account; wrong key",
-                ActionExecutionError::NotEnoughSignatures.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
@@ -145,31 +143,31 @@ mod errors {
                 Policy::one_of([a]).unwrap(),
                 &[(b, &kpb)],
                 "wrong account; correct key",
-                ActionExecutionError::NotEnoughSignatures.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[(c, &kpc)],
                 "account not a controller",
-                ActionExecutionError::NotEnoughSignatures.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[(a, &kpa), (b, &kpb)],
                 "two signers",
-                ActionExecutionError::TooManySignatures.into(),
+                did::Error::<Test>::TooManySignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
                 &[],
                 "one controller; no sigs",
-                ActionExecutionError::NotEnoughSignatures.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[],
                 "two controllers; no sigs",
-                ActionExecutionError::NotEnoughSignatures.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
         ];
 
@@ -266,7 +264,7 @@ mod errors {
                 },
                 vec![]
             ),
-            ActionExecutionError::NoEntity
+            did::Error::<Test>::NoEntity
         );
         assert_noop!(
             RevoMod::unrevoke(
@@ -278,7 +276,7 @@ mod errors {
                 },
                 vec![],
             ),
-            ActionExecutionError::NoEntity
+            did::Error::<Test>::NoEntity
         );
         assert_noop!(
             RevoMod::remove_registry(
@@ -355,7 +353,7 @@ mod errors {
         let kpa = create_did(DIDA);
 
         let registry_id = RGA;
-        let err: Result<(), DispatchError> = Err(NonceError::IncorrectNonce.into());
+        let err: Result<(), DispatchError> = Err(did::Error::<Test>::InvalidNonce.into());
 
         let ar = AddRegistry {
             id: registry_id,

@@ -4,12 +4,22 @@ use super::*;
 use crate::{
     common::{AuthorizeTarget, Limits, TypesAndLimits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
-    util::{BoundedBytes, OptionExt, StorageRef},
+    util::{Associated, BoundedBytes, OptionExt, StorageRef},
 };
 
-pub type AccumParametersStorageKey = (AccumulatorOwner, IncId);
-pub type AccumPublicKeyStorageKey = (AccumulatorOwner, IncId);
 pub type AccumPublicKeyWithParams<T> = (AccumulatorPublicKey<T>, Option<AccumulatorParameters<T>>);
+
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct AccumParametersStorageKey(pub AccumulatorOwner, pub IncId);
+
+#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct AccumPublicKeyStorageKey(pub AccumulatorOwner, pub IncId);
 
 /// Accumulator identifier.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -32,9 +42,11 @@ pub struct AccumulatorOwner(pub DidOrDidMethodKey);
 
 crate::impl_wrapper!(AccumulatorOwner(DidOrDidMethodKey));
 
-impl<T: Config> StorageRef<T> for AccumulatorId {
+impl<T: TypesAndLimits> Associated<T> for AccumulatorId {
     type Value = AccumulatorWithUpdateInfo<T>;
+}
 
+impl<T: Config> StorageRef<T> for AccumulatorId {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<AccumulatorWithUpdateInfo<T>>) -> Result<R, E>,
@@ -50,16 +62,65 @@ impl<T: Config> StorageRef<T> for AccumulatorId {
     }
 }
 
+impl<T: Limits> Associated<T> for AccumPublicKeyStorageKey {
+    type Value = AccumulatorPublicKey<T>;
+}
+
+impl<T: Config> StorageRef<T> for AccumPublicKeyStorageKey {
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<AccumulatorPublicKey<T>>) -> Result<R, E>,
+    {
+        AccumulatorKeys::<T>::try_mutate_exists(self.0, self.1, f)
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<AccumulatorPublicKey<T>>) -> R,
+    {
+        f(AccumulatorKeys::<T>::get(self.0, self.1))
+    }
+}
+
+impl<T: Limits> Associated<T> for AccumParametersStorageKey {
+    type Value = AccumulatorParameters<T>;
+}
+
+impl<T: Config> StorageRef<T> for AccumParametersStorageKey {
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<AccumulatorParameters<T>>) -> Result<R, E>,
+    {
+        AccumulatorParams::<T>::try_mutate_exists(self.0, self.1, f)
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<AccumulatorParameters<T>>) -> R,
+    {
+        f(AccumulatorParams::<T>::get(self.0, self.1))
+    }
+}
+
 impl AuthorizeTarget<AccumulatorId, DidKey> for AccumulatorOwner {}
 impl AuthorizeTarget<AccumulatorId, DidMethodKey> for AccumulatorOwner {}
 impl AuthorizeTarget<Self, DidKey> for AccumulatorOwner {}
 impl AuthorizeTarget<Self, DidMethodKey> for AccumulatorOwner {}
-impl AuthorizeTarget<(), DidKey> for AccumulatorOwner {}
-impl AuthorizeTarget<(), DidMethodKey> for AccumulatorOwner {}
+crate::impl_authorize_target!(
+    for AccumPublicKeyStorageKey using DidKey, AccumPublicKeyStorageKey using DidMethodKey,
+        AccumParametersStorageKey using DidKey, AccumParametersStorageKey using DidMethodKey
+        from AccumulatorOwner by fn (self, _, action, _) {
+            ensure!(action.target().0 == *self, did::Error::<T>::InvalidSigner);
+
+            Ok(())
+        }
+);
+
+impl<T: TypesAndLimits> Associated<T> for AccumulatorOwner {
+    type Value = StoredAccumulatorOwnerCounters;
+}
 
 impl<T: Config> StorageRef<T> for AccumulatorOwner {
-    type Value = StoredAccumulatorOwnerCounters;
-
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<StoredAccumulatorOwnerCounters>) -> Result<R, E>,

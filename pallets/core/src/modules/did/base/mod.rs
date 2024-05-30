@@ -35,14 +35,20 @@ impl<Target> AuthorizeTarget<Target, DidKey> for DidOrDidMethodKey
 where
     Did: AuthorizeTarget<Target, DidKey>,
 {
-    fn ensure_authorizes_target<T, A>(&self, key: &DidKey, action: &A) -> Result<(), Error<T>>
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        key: &DidKey,
+        action: &A,
+        value: Option<&Target::Value>,
+    ) -> DispatchResult
     where
         T: crate::did::Config,
         A: Action<Target = Target>,
+        Target: Associated<T>,
     {
         match self {
-            DidOrDidMethodKey::Did(did) => did.ensure_authorizes_target(key, action),
-            _ => Err(Error::<T>::ExpectedDid),
+            DidOrDidMethodKey::Did(did) => did.ensure_authorizes_target(key, action, value),
+            _ => Err(Error::<T>::ExpectedDid.into()),
         }
     }
 }
@@ -51,16 +57,22 @@ impl<Target> AuthorizeTarget<Target, DidMethodKey> for DidOrDidMethodKey
 where
     DidMethodKey: AuthorizeTarget<Target, DidMethodKey>,
 {
-    fn ensure_authorizes_target<T, A>(&self, key: &DidMethodKey, action: &A) -> Result<(), Error<T>>
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        key: &DidMethodKey,
+        action: &A,
+        value: Option<&Target::Value>,
+    ) -> DispatchResult
     where
         T: crate::did::Config,
         A: Action<Target = Target>,
+        Target: Associated<T>,
     {
         match self {
             DidOrDidMethodKey::DidMethodKey(did_method_key) => {
-                did_method_key.ensure_authorizes_target(key, action)
+                did_method_key.ensure_authorizes_target(key, action, value)
             }
-            _ => Err(Error::<T>::ExpectedDidMethodKey),
+            _ => Err(Error::<T>::ExpectedDidMethodKey.into()),
         }
     }
 }
@@ -108,10 +120,16 @@ pub struct Did(#[cfg_attr(feature = "serde", serde(with = "crate::util::serde_he
 crate::hex_debug!(Did);
 
 impl<Target> AuthorizeTarget<Target, DidKey> for Did {
-    fn ensure_authorizes_target<T, A>(&self, key: &DidKey, _: &A) -> Result<(), Error<T>>
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        key: &DidKey,
+        _: &A,
+        _: Option<&<A::Target as Associated<T>>::Value>,
+    ) -> DispatchResult
     where
         T: crate::did::Config,
         A: Action<Target = Target>,
+        Target: Associated<T>,
     {
         ensure!(
             key.can_authenticate_or_control(),
@@ -323,9 +341,11 @@ pub enum DidDetailsOrDidMethodKeyDetails<T: TypesAndLimits> {
     DidMethodKeyDetails,
 }
 
-impl<T: Config> StorageRef<T> for DidOrDidMethodKey {
+impl<T: TypesAndLimits> Associated<T> for DidOrDidMethodKey {
     type Value = WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>;
+}
 
+impl<T: Config> StorageRef<T> for DidOrDidMethodKey {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<Self::Value>) -> Result<R, E>,

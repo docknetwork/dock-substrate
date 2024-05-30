@@ -134,6 +134,7 @@ pub mod pallet {
             params
                 .signed_with_signer_target(signature)?
                 .execute(ActionWithNonceWrapper::wrap_fn(Self::add_params_))
+                .map_err(Into::into)
         }
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.
@@ -149,6 +150,7 @@ pub mod pallet {
             public_key
                 .signed(signature)
                 .execute_from_controller(Self::add_public_key_)
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
@@ -159,7 +161,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            remove.signed(signature).execute_view(Self::remove_params_)
+            remove
+                .signed(signature)
+                .execute_view(Self::remove_params_)
+                .map_err(Into::into)
         }
 
         /// Remove existing offchain signature public key. Only the DID controller can remove key and it should use the nonce from the DID module.
@@ -175,6 +180,7 @@ pub mod pallet {
             remove
                 .signed(signature)
                 .execute_from_controller(Self::remove_public_key_)
+                .map_err(Into::into)
         }
     }
 }

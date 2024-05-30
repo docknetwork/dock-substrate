@@ -1,9 +1,11 @@
 //! Generic immutable single-owner storage.
 
+#[cfg(feature = "serde")]
+use crate::util::serde_hex;
 use crate::{
-    common::{signatures::ForSigType, AuthorizeTarget, Types},
+    common::{signatures::ForSigType, AuthorizeTarget, Limits, Types},
     did::{self, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, BoundedBytes, Bytes},
+    util::{ActionWithNonce, Associated, BoundedBytes, Bytes, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use sp_std::fmt::Debug;
@@ -31,8 +33,8 @@ mod weights;
 #[scale_info(omit_prefix)]
 pub struct BlobOwner(pub DidOrDidMethodKey);
 
-impl AuthorizeTarget<(), DidKey> for BlobOwner {}
-impl AuthorizeTarget<(), DidMethodKey> for BlobOwner {}
+impl AuthorizeTarget<BlobId, DidKey> for BlobOwner {}
+impl AuthorizeTarget<BlobId, DidMethodKey> for BlobOwner {}
 
 crate::impl_wrapper!(BlobOwner(DidOrDidMethodKey));
 
@@ -40,7 +42,34 @@ crate::impl_wrapper!(BlobOwner(DidOrDidMethodKey));
 pub const ID_BYTE_SIZE: usize = 32;
 
 /// The unique name for a blob.
-pub type BlobId = [u8; ID_BYTE_SIZE];
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct BlobId(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; ID_BYTE_SIZE]);
+
+crate::impl_wrapper!(BlobId([u8; 32]));
+crate::hex_debug!(BlobId);
+
+impl<T: Limits> Associated<T> for BlobId {
+    type Value = StoredBlob<T>;
+}
+
+impl<T: Config> StorageRef<T> for BlobId {
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<Self::Value>) -> R,
+    {
+        f(Blobs::<T>::get(self))
+    }
+
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<Self::Value>) -> Result<R, E>,
+    {
+        Blobs::<T>::try_mutate_exists(self, f)
+    }
+}
 
 /// When a new blob is being registered, the following object is sent.
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, DebugNoBound, EqNoBound)]
@@ -52,6 +81,8 @@ pub struct Blob {
     pub id: BlobId,
     pub blob: Bytes,
 }
+
+pub type StoredBlob<T> = (BlobOwner, BoundedBytes<<T as Limits>::MaxBlobSize>);
 
 #[derive(Encode, Decode, DebugNoBound, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -69,7 +100,7 @@ pub struct AddBlob<T: Types> {
 }
 
 crate::impl_action_with_nonce! {
-    AddBlob for (): with 1 as len, () as target
+    AddBlob for BlobId: with 1 as len, blob.id as target
 }
 
 #[frame_support::pallet]
@@ -111,27 +142,26 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            add_blob.signed(signature).execute(Self::new_)
+            add_blob
+                .signed(signature)
+                .execute_removable(Self::new_)
+                .map_err(Into::into)
         }
     }
 
     impl<T: Config> Pallet<T> {
         fn new_(
             AddBlob { blob, .. }: AddBlob<T>,
-            (): &mut (),
+            blob_opt: &mut Option<(BlobOwner, BoundedBytes<T::MaxBlobSize>)>,
             signer: BlobOwner,
         ) -> DispatchResult {
-            let blob_bytes: BoundedBytes<T::MaxBlobSize> =
-                blob.blob.try_into().map_err(|_| Error::<T>::TooBig)?;
+            let blob_bytes = blob.blob.try_into().map_err(|_| Error::<T>::TooBig)?;
 
             // check
             ensure!(
-                !Blobs::<T>::contains_key(blob.id),
+                blob_opt.replace((signer, blob_bytes)).is_none(),
                 Error::<T>::BlobAlreadyExists
             );
-
-            // execute
-            Blobs::<T>::insert(blob.id, (signer, blob_bytes));
 
             Ok(())
         }

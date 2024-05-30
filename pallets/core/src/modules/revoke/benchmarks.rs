@@ -52,7 +52,7 @@ crate::bench_with_all_pairs! {
         let signature = DidSignature::new(did, 1u32, sig).into();
 
         super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: RevocationRegistry { policy: Policy::one_of([DidOrDidMethodKey::from(did)]).unwrap(), add_only: false } }).unwrap();
-    }: revoke(RawOrigin::Signed(caller), revoke_raw, vec![DidSignatureWithNonce::new(signature, 1u32.into())])
+    }: revoke(RawOrigin::Signed(caller), revoke_raw, vec![SignatureWithNonce::new(signature, 1u32.into())])
     verify {
         assert!(revoke_ids
             .iter()
@@ -102,7 +102,7 @@ crate::bench_with_all_pairs! {
         let unrevoke = UnRevoke::new_with_nonce(unrevoke_raw.clone(), 1u32.into());
         let sig = pair.sign(&unrevoke.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
-    }: unrevoke(RawOrigin::Signed(caller), unrevoke_raw, vec![DidSignatureWithNonce::new(signature, 1u32.into())])
+    }: unrevoke(RawOrigin::Signed(caller), unrevoke_raw, vec![SignatureWithNonce::new(signature, 1u32.into())])
     verify {
         assert!(revoke_ids
             .iter()
@@ -151,7 +151,7 @@ crate::bench_with_all_pairs! {
         let rem_reg = RemoveRegistry::new_with_nonce(rem_reg_raw.clone(), 1u32.into());
         let sig = pair.sign(&rem_reg.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
-    }: remove_registry(RawOrigin::Signed(caller), rem_reg_raw, vec![DidSignatureWithNonce::new(signature, 1u32.into())])
+    }: remove_registry(RawOrigin::Signed(caller), rem_reg_raw, vec![SignatureWithNonce::new(signature, 1u32.into())])
     verify {
         assert!(Registries::<T>::get(reg_id).is_none());
     };

@@ -3,8 +3,7 @@ use frame_support::ensure;
 use sp_runtime::DispatchError;
 
 use crate::{
-    common::{signed_action::*, DidSignatureWithNonce},
-    did::DidOrDidMethodKey,
+    common::{signed_action::*, SignatureWithNonce},
     util::{OptionExt, Signature, Types},
 };
 
@@ -26,13 +25,13 @@ pub trait Action: Sized {
         self.len() == 0
     }
 
-    /// Calls supplied function providing an action along with a mutable reference
+    /// Calls supplied function accepting an action along with a mutable reference
     /// to the value associated with the target.
     fn modify<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut S) -> Result<R, E>,
-        <Self::Target as StorageRef<T>>::Value: TryInto<S>,
-        S: Into<<Self::Target as StorageRef<T>>::Value>,
+        <Self::Target as Associated<T>>::Value: TryInto<S>,
+        S: Into<<Self::Target as Associated<T>>::Value>,
         E: From<ActionExecutionError> + From<NonceError>,
         Self::Target: StorageRef<T>,
     {
@@ -51,12 +50,12 @@ pub trait Action: Sized {
         })
     }
 
-    /// Calls supplied function providing an action along with a value associated with the target.
+    /// Calls supplied function accepting an action along with a value associated with the target.
     fn view<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, S) -> Result<R, E>,
-        <Self::Target as StorageRef<T>>::Value: TryInto<S>,
-        S: Into<<Self::Target as StorageRef<T>>::Value>,
+        <Self::Target as Associated<T>>::Value: TryInto<S>,
+        S: Into<<Self::Target as Associated<T>>::Value>,
         E: From<ActionExecutionError> + From<NonceError>,
         Self::Target: StorageRef<T>,
     {
@@ -72,13 +71,14 @@ pub trait Action: Sized {
         })
     }
 
-    /// Calls supplied function providing an action along with a mutable reference
+    /// Calls supplied function accepting an action along with a mutable reference
     /// to the option possibly containing a value associated with the target.
+    /// Modifying supplied `Option<_>` to `None` will lead to the value removal.
     fn modify_removable<T, S, F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
-        <Self::Target as StorageRef<T>>::Value: TryInto<S>,
-        S: Into<<Self::Target as StorageRef<T>>::Value>,
+        <Self::Target as Associated<T>>::Value: TryInto<S>,
+        S: Into<<Self::Target as Associated<T>>::Value>,
         E: From<ActionExecutionError> + From<NonceError>,
         Self::Target: StorageRef<T>,
     {
@@ -99,12 +99,12 @@ pub trait Action: Sized {
     }
 
     /// Combines underlying action with the provided signatures.
-    fn multi_signed<T, D, SI>(self, signatures: SI) -> MultiSignedAction<T, Self, SI::IntoIter, D>
+    fn multi_signed<T, S, SI>(self, signatures: SI) -> MultiSignedAction<T, Self, S, SI::IntoIter>
     where
         T: Types,
+        S: Signature,
         SI: IntoIterator,
-        SI::IntoIter: FusedIterator<Item = DidSignatureWithNonce<T::BlockNumber, D>>,
-        D: Into<DidOrDidMethodKey> + Ord,
+        SI::IntoIter: FusedIterator<Item = SignatureWithNonce<T::BlockNumber, S>>,
     {
         MultiSignedAction::new(self, signatures)
     }
@@ -122,8 +122,8 @@ pub trait ActionWithNonce<T: Types>: Action {
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
         E: From<ActionExecutionError> + From<NonceError>,
         Self::Target: StorageRef<T>,
-        <Self::Target as StorageRef<T>>::Value: TryInto<WithNonce<T, S>>,
-        WithNonce<T, S>: Into<<Self::Target as StorageRef<T>>::Value>,
+        <Self::Target as Associated<T>>::Value: TryInto<WithNonce<T, S>>,
+        WithNonce<T, S>: Into<<Self::Target as Associated<T>>::Value>,
     {
         ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
 
@@ -148,11 +148,11 @@ pub trait ActionWithNonce<T: Types>: Action {
     where
         F: FnOnce(Self, &mut Option<S>) -> Result<R, E>,
         E: From<ActionExecutionError>,
-        WithNonce<T, S>: TryFrom<<Self::Target as StorageRef<T>>::Value>
-            + Into<<Self::Target as StorageRef<T>>::Value>,
+        WithNonce<T, S>: TryFrom<<Self::Target as Associated<T>>::Value>
+            + Into<<Self::Target as Associated<T>>::Value>,
         Self::Target: StorageRef<T>,
-        <Self::Target as StorageRef<T>>::Value: TryInto<WithNonce<T, S>>,
-        WithNonce<T, S>: Into<<Self::Target as StorageRef<T>>::Value>,
+        <Self::Target as Associated<T>>::Value: TryInto<WithNonce<T, S>>,
+        WithNonce<T, S>: Into<<Self::Target as Associated<T>>::Value>,
     {
         ensure!(!self.is_empty(), ActionExecutionError::EmptyPayload);
 
@@ -230,26 +230,30 @@ pub enum ActionExecutionError {
     ConversionError,
 }
 
+#[cfg(test)]
 impl From<ActionExecutionError> for DispatchError {
     fn from(error: ActionExecutionError) -> Self {
+        use ActionExecutionError::*;
+
         match error {
-            ActionExecutionError::NoEntity => DispatchError::Other("Entity doesn't exist"),
-            ActionExecutionError::EmptyPayload => DispatchError::Other("Payload is empty"),
-            ActionExecutionError::ConversionError => DispatchError::Other("Conversion failed"),
-            ActionExecutionError::InvalidSigner => DispatchError::Other("Invalid signer"),
-            ActionExecutionError::NotEnoughSignatures => {
-                DispatchError::Other("Not enough signatures")
-            }
-            ActionExecutionError::TooManySignatures => DispatchError::Other("Too many signatures"),
+            NoEntity => DispatchError::Other("NoEntity"),
+            EmptyPayload => DispatchError::Other("EmptyPayload"),
+            InvalidSigner => DispatchError::Other("InvalidSigner"),
+            NotEnoughSignatures => DispatchError::Other("NotEnoughSignatures"),
+            TooManySignatures => DispatchError::Other("TooManySignatures"),
+            ConversionError => DispatchError::Other("ConversionError"),
         }
     }
 }
 
-/// Allows to view and mutate a value associated with `Self`.
-pub trait StorageRef<T>: Sized {
-    /// Some value type associated with `Self`.
+/// Marker trait claiming that `Self` has an associated `Value`.
+pub trait Associated<T>: Sized {
+    /// Some type associated with `Self`.
     type Value;
+}
 
+/// Allows to view and mutate a value associated with `Self`.
+pub trait StorageRef<T>: Associated<T> {
     /// Attempts to mutate a value associated with `Self`.
     /// If the value under the option is taken, the associated value will be removed.
     /// All updates will be applied only in case of a successful result.
@@ -263,9 +267,11 @@ pub trait StorageRef<T>: Sized {
         F: FnOnce(Option<Self::Value>) -> R;
 }
 
-impl<T> StorageRef<T> for () {
+impl<T> Associated<T> for () {
     type Value = ();
+}
 
+impl<T> StorageRef<T> for () {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<()>) -> Result<R, E>,

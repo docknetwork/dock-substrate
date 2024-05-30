@@ -2,8 +2,9 @@
 //! - [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
 //! - [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential).
 use crate::{
-    common::{signatures::ForSigType, DidSignatureWithNonce, PolicyExecutor},
-    deposit_indexed_event, did,
+    common::{signatures::ForSigType, PolicyExecutor, SignatureWithNonce},
+    deposit_indexed_event,
+    did::{self, DidOrDidMethodKeySignature},
     util::Action,
 };
 use alloc::vec::*;
@@ -90,7 +91,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::create_(id, credential)
+            AddStatusListCredential { id, credential }
+                .modify_removable(Self::create_)
+                .map_err(Into::into)
         }
 
         /// Updates `StatusListCredential` associated with the supplied identifier.
@@ -99,13 +102,16 @@ pub mod pallet {
         pub fn update(
             origin: OriginFor<T>,
             update_credential: UpdateStatusListCredentialRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>>,
+            proof: Vec<
+                SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+            >,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
             update_credential
                 .multi_signed(proof)
                 .execute(Self::update_, StatusListCredentialWithPolicy::expand_policy)
+                .map_err(Into::into)
         }
 
         /// Removes `StatusListCredential` associated with the supplied identifier.
@@ -113,7 +119,9 @@ pub mod pallet {
         pub fn remove(
             origin: OriginFor<T>,
             remove_credential: RemoveStatusListCredentialRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>>,
+            proof: Vec<
+                SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+            >,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
@@ -122,6 +130,7 @@ pub mod pallet {
                 .execute_removable(Self::remove_, |opt| {
                     opt.and_then(StatusListCredentialWithPolicy::expand_policy)
                 })
+                .map_err(Into::into)
         }
     }
 }
@@ -137,7 +146,7 @@ impl<T: Config> SubstrateWeight<T> {
     }
 
     fn update(
-        sig: &DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>,
+        sig: &SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
         UpdateStatusListCredentialRaw { credential, .. }: &UpdateStatusListCredentialRaw<T>,
     ) -> Weight {
         sig.weight_for_sig_type::<T>(
@@ -147,7 +156,9 @@ impl<T: Config> SubstrateWeight<T> {
         )
     }
 
-    fn remove(sig: &DidSignatureWithNonce<T::BlockNumber, PolicyExecutor>) -> Weight {
+    fn remove(
+        sig: &SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+    ) -> Weight {
         sig.weight_for_sig_type::<T>(
             Self::remove_sr25519,
             Self::remove_ed25519,

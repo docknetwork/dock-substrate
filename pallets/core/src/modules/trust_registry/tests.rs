@@ -2,12 +2,12 @@
 
 use super::{types::*, *};
 use crate::{
-    common::{DidSignatureWithNonce, SigValue},
+    common::{SigValue, SignatureWithNonce},
     did::base::*,
     tests::common::*,
     util::{
-        Action, ActionExecutionError, AddOrRemoveOrModify, Bytes, IncOrDec, MultiTargetUpdate,
-        OnlyExistent, SetOrModify, SingleTargetUpdate, WithNonce,
+        Action, AddOrRemoveOrModify, Bytes, IncOrDec, MultiTargetUpdate, OnlyExistent, SetOrModify,
+        SingleTargetUpdate, WithNonce,
     },
 };
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -57,7 +57,7 @@ where
                 1,
             );
 
-            DidSignatureWithNonce::new(sig, nonce)
+            SignatureWithNonce::new(sig, nonce)
         })
         .collect();
 
@@ -619,11 +619,11 @@ crate::did_or_did_method_key! {
                  registry_id: TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id),
                  participants: participants.iter().map(|(participant, _)| (IssuerOrVerifier((*participant).into()), AddOrRemoveOrModify::Add(()))).collect(),
                  _marker: PhantomData
-             }, vec![]), ActionExecutionError::NotEnoughSignatures);
+             }, vec![]), did::Error::<Test>::NotEnoughSignatures);
              let random_kp = newdid().1;
 
              assert_noop!(add_participants(init_or_update_trust_registry.registry_id, participants.iter().map(|(p, _)| (*p, random_kp.clone())), (DidOrDidMethodKey::from(convener), convener_kp.clone())), did::Error::<Test>::InvalidSignature);
-             assert_noop!(add_participants(init_or_update_trust_registry.registry_id, participants.clone(), (DidOrDidMethodKey::from(invalid_convener), invalid_convener_kp.clone())), ActionExecutionError::NotEnoughSignatures);
+             assert_noop!(add_participants(init_or_update_trust_registry.registry_id, participants.clone(), (DidOrDidMethodKey::from(invalid_convener), invalid_convener_kp.clone())), did::Error::<Test>::NotEnoughSignatures);
 
              assert_eq!(TrustRegistriesParticipants::<Test>::get(TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id)), Default::default());
 
@@ -634,7 +634,7 @@ crate::did_or_did_method_key! {
                  registry_id: TrustRegistryIdForParticipants(init_or_update_trust_registry.registry_id),
                  participants: participants.iter().map(|(participant, _)| (IssuerOrVerifier((*participant).into()), AddOrRemoveOrModify::Remove)).collect(),
                  _marker: PhantomData
-             }, vec![]), ActionExecutionError::NotEnoughSignatures);
+             }, vec![]), did::Error::<Test>::NotEnoughSignatures);
              assert_noop!(change_participants(init_or_update_trust_registry.registry_id, participants.iter().map(|(p, _)| (*p, random_kp.clone(), AddOrRemoveOrModify::Remove)), (DidOrDidMethodKey::from(convener), convener_kp.clone())), did::Error::<Test>::InvalidSignature);
 
              // Participants can remove themselves without involving the convener
@@ -1884,8 +1884,8 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(convener.into()),
                                     )
-                                }),
-                                StepError::Conversion(Error::<Test>::IssuersSizeExceeded.into())
+                                }).map_err(DispatchError::from),
+                                Error::<Test>::IssuersSizeExceeded
                             );
                         },
                     ) as _,
@@ -1906,8 +1906,8 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(convener.into()),
                                     )
-                                }),
-                                StepError::Conversion(Error::<Test>::VerifiersSizeExceeded.into())
+                                }).map_err(DispatchError::from),
+                                Error::<Test>::VerifiersSizeExceeded
                             );
                         },
                     ) as _,
@@ -1928,8 +1928,8 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(convener.into()),
                                     )
-                                }),
-                                StepError::Conversion(Error::<Test>::VerificationPricesSizeExceeded.into())
+                                }).map_err(DispatchError::from),
+                                Error::<Test>::VerificationPricesSizeExceeded
                             );
                         },
                     ) as _,
@@ -1950,8 +1950,8 @@ crate::did_or_did_method_key! {
                                         reg,
                                         ConvenerOrIssuerOrVerifier(convener.into()),
                                     )
-                                }),
-                                StepError::Conversion(Error::<Test>::PriceCurrencySymbolSizeExceeded.into())
+                                }).map_err(DispatchError::from),
+                                Error::<Test>::PriceCurrencySymbolSizeExceeded
                             );
                         },
                     ) as _,

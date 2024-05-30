@@ -1,23 +1,34 @@
-use crate::{common::Signature, did, util::Action};
+use crate::{
+    common::Signature,
+    did,
+    util::{Action, Associated},
+};
 use codec::Encode;
 use core::ops::Deref;
+use sp_runtime::{DispatchError, DispatchResult};
 
 use super::{GetKey, ToStateChange};
 
 /// Authorizes action performed by `Self` over supplied target using given key.
 pub trait AuthorizeTarget<Target, Key> {
     /// `Self` can perform supplied action over `target` using the provided key.
-    fn ensure_authorizes_target<T, A>(&self, _: &Key, _: &A) -> Result<(), did::Error<T>>
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        _: &Key,
+        _: &A,
+        _: Option<&Target::Value>,
+    ) -> DispatchResult
     where
-        T: did::Config,
+        T: crate::did::Config,
         A: Action<Target = Target>,
+        Target: Associated<T>,
     {
         Ok(())
     }
 }
 
-type AuthorizationResult<T, S> =
-    Result<Option<Authorization<<S as Signature>::Signer, <S as Signature>::Key>>, did::Error<T>>;
+type AuthorizationResult<S> =
+    Result<Option<Authorization<<S as Signature>::Signer, <S as Signature>::Key>>, DispatchError>;
 
 /// Signature that can authorize a signed action.
 pub trait AuthorizeSignedAction<A: Action>: Signature + GetKey<Self::Key>
@@ -26,18 +37,25 @@ where
     <Self::Signer as Deref>::Target: AuthorizeTarget<A::Target, Self::Key>,
 {
     /// This signature allows `Self::Signer` to perform the supplied action.
-    fn authorizes_signed_action<T: did::Config>(&self, action: &A) -> AuthorizationResult<T, Self>
+    fn authorizes_signed_action<T: did::Config>(
+        &self,
+        action: &A,
+        value: Option<&<A::Target as Associated<T>>::Value>,
+    ) -> AuthorizationResult<Self>
     where
         A: ToStateChange<T>,
+        A::Target: Associated<T>,
     {
         let signer_pubkey = self.key::<T>().ok_or(did::Error::<T>::NoKeyForDid)?;
         let encoded_state_change = action.to_state_change().encode();
 
         let signer = self.signer().ok_or(did::Error::<T>::InvalidSigner)?;
-        (*signer).ensure_authorizes_target(&signer_pubkey, action)?;
-        signer.ensure_authorizes_target(&signer_pubkey, action)?;
+        (*signer).ensure_authorizes_target(&signer_pubkey, action, value.as_ref().copied())?;
+        signer.ensure_authorizes_target(&signer_pubkey, action, value.as_ref().copied())?;
 
-        let ok = self.verify_bytes(encoded_state_change, &signer_pubkey)?;
+        let ok = self
+            .verify_bytes(encoded_state_change, &signer_pubkey)
+            .map_err(did::Error::<T>::from)?;
 
         Ok(ok.then_some(Authorization {
             signer,

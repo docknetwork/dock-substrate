@@ -40,9 +40,11 @@ impl<T: Config> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
     }
 }
 
-impl<T: Config> StorageRef<T> for Did {
+impl<T: TypesAndLimits> Associated<T> for Did {
     type Value = StoredDidDetails<T>;
+}
 
+impl<T: Config> StorageRef<T> for Did {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<StoredDidDetails<T>>) -> Result<R, E>,
