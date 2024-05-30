@@ -100,7 +100,7 @@ impl<V: Ord> InclusionRule<V> {
         Self::AnyOf(BTreeSet::from_iter(items))
     }
 
-    /// Instantiates `Self::ALl` using supplied items if size is greater than 1, otherwise returns `None`.
+    /// Instantiates `Self::All` using supplied items if size is greater than 0, otherwise returns `None`.
     pub fn all(items: impl IntoIterator<Item = V>) -> Option<Self> {
         let set = BTreeSet::from_iter(items);
 
