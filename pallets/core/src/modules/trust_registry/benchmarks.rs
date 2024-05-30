@@ -1,8 +1,10 @@
 use super::*;
 use crate::{
-    common::{state_change::ToStateChange, DidSignatureWithNonce},
+    common::{
+        state_change::ToStateChange, IntermediateError, MultiSignedAction, SignatureWithNonce,
+    },
     did::{Did, DidSignature, UncheckedDidKey},
-    util::{batch_update::*, Action, ActionWithNonceWrapper, Bytes, MultiSignedAction, WithNonce},
+    util::{batch_update::*, Action, ActionWithNonceWrapper, Bytes, WithNonce},
 };
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::iter::{empty, once};
@@ -87,11 +89,12 @@ crate::bench_with_all_pairs! {
             Convener(did.into()),
             init_or_update_trust_registry.clone()
         ).modify::<T, _, _, _, _>(
-            |action, set| Pallet::<T>::init_or_update_trust_registry_(
-                action.action,
+            |action, set| action.action.modify_removable(|action, info| Pallet::<T>::init_or_update_trust_registry_(
+                action,
                 set,
+                info,
                 Convener(did.into())
-            )
+            ).map_err(IntermediateError::<T>::from))
         ).unwrap();
         let participants: MultiTargetUpdate<_, _> = (0..SCHEMA_ISSUERS.max(SCHEMA_VERIFIERS)).map(|idx| 255 - idx as u8)
             .chain((0..i.max(v)).map(|idx| idx as u8))
@@ -104,7 +107,7 @@ crate::bench_with_all_pairs! {
             participants: participants.clone(),
             _marker: PhantomData::<T>,
         };
-        MultiSignedAction::new(action, empty())
+        MultiSignedAction::new(action, empty::<SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>>>())
             .execute(|action, set, _: BTreeSet<ConvenerOrIssuerOrVerifier>| Pallet::<T>::change_participants_(action, set, participants.keys().copied().map(|did| ConvenerOrIssuerOrVerifier(*did)).collect()), |_| None)
             .unwrap();
 
@@ -222,7 +225,12 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>()
         };
-        ActionWithNonceWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).modify::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        ActionWithNonceWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).modify::<T, _, _, _, _>(
+            |action, set|
+                action.action.modify_removable(
+                    |action, info| Pallet::<T>::init_or_update_trust_registry_(action, set, info, Convener(did.into())).map_err(IntermediateError::<T>::from)
+                )
+        ).unwrap();
 
         let delegated = UnboundedDelegatedIssuers((0..i).map(|idx| Issuer(Did([idx as u8 + 90; 32]).into())).collect());
 
@@ -277,10 +285,14 @@ crate::bench_with_all_pairs! {
             init_or_update_trust_registry.clone()
         ).modify::<T, _, _, _, _>(
             |action, set|
-                Pallet::<T>::init_or_update_trust_registry_(
-                    action.action,
-                    set,
-                    Convener(did.into()))
+                action.action.modify_removable(|action, info|
+                    Pallet::<T>::init_or_update_trust_registry_(
+                        action,
+                        set,
+                        info,
+                        Convener(did.into())
+                    ).map_err(IntermediateError::<T>::from)
+                )
         ).unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
@@ -327,7 +339,9 @@ crate::bench_with_all_pairs! {
             gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
             name: (0..10).map(|idx| (98 + idx) as u8 as char).collect::<String>().try_into().unwrap()
         };
-        ActionWithNonceWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone()).modify::<T, _, _, _, _>(|action, set| Pallet::<T>::init_or_update_trust_registry_(action.action, set, Convener(did.into()))).unwrap();
+        ActionWithNonceWrapper::<T, _, _>::new(1u32.into(), Convener(did.into()), init_or_update_trust_registry.clone())
+            .modify::<T, _, _, _, _>(|action, set| action.action.modify_removable(|action, info| Pallet::<T>::init_or_update_trust_registry_(action, set, info, Convener(did.into())).map_err(IntermediateError::<T>::from)))
+            .unwrap();
 
         let issuers: Vec<_> = (0..i).map(|idx| Issuer(Did([idx as u8; 32]).into())).collect();
 
@@ -339,7 +353,7 @@ crate::bench_with_all_pairs! {
             registry_id: TrustRegistryId(id),
             issuers: issuers.clone().into_iter().collect(),
             nonce: 1u32.into()
-        }.view::<T, _, _, _, _>(|action, reg_info| Pallet::<T>::suspend_issuers_(action, reg_info, Convener(did.into()))).unwrap();
+        }.view::<T, _, _, _, _>(|action, reg_info| Pallet::<T>::suspend_issuers_(action, reg_info, Convener(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         let unsuspend_issuers = UnsuspendIssuers {
             registry_id: TrustRegistryId(id),
@@ -378,11 +392,12 @@ crate::bench_with_all_pairs! {
             Convener(did.into()),
             init_or_update_trust_registry.clone()
         ).modify::<T, _, _, _, _>(
-            |action, set| Pallet::<T>::init_or_update_trust_registry_(
-                action.action,
+            |action, set| action.action.modify_removable(|action, info| Pallet::<T>::init_or_update_trust_registry_(
+                action,
                 set,
+                info,
                 Convener(did.into())
-            )
+            ).map_err(IntermediateError::<T>::from))
         ).unwrap();
 
         let participants: BTreeSet<_> = (0..i).map(|idx| (IssuerOrVerifier(Did([idx as u8; 32]).into()))).collect();
@@ -415,7 +430,7 @@ crate::bench_with_all_pairs! {
                 let sig = pair.sign(&payload_with_nonce.to_state_change().encode());
                 let signature = DidSignature::new(Did::try_from(did).unwrap(), 1u32, sig).into();
 
-                DidSignatureWithNonce::<T::BlockNumber, ConvenerOrIssuerOrVerifier>::new(signature, nonce)
+                SignatureWithNonce::<T::BlockNumber, DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>>::new(signature, nonce)
             })
             .collect();
     }: change_participants(RawOrigin::Signed(caller), payload, sigs)

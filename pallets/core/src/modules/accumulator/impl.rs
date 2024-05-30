@@ -137,7 +137,6 @@ impl<T: Config> Pallet<T> {
             *accumulator.accumulator.owner_did() == signer,
             Error::<T>::NotAccumulatorOwner
         );
-        Accumulators::<T>::remove(id);
 
         deposit_indexed_event!(AccumulatorRemoved(id));
         Ok(())

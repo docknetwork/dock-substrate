@@ -23,7 +23,7 @@ crate::bench_with_all_pairs! {
         let did = Did([1; Did::BYTE_SIZE]);
 
         did::Pallet::<T>::new_onchain_(did, vec![UncheckedDidKey::new_with_all_relationships(public)], Default::default()).unwrap();
-        let id = Default::default();
+        let id = BlobId(Default::default());
 
         let blob = Blob {
             id,

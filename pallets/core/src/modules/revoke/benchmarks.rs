@@ -51,7 +51,7 @@ crate::bench_with_all_pairs! {
         let sig = pair.sign(&revoke.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
 
-        super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: RevocationRegistry { policy: Policy::one_of([DidOrDidMethodKey::from(did)]).unwrap(), add_only: false } }).unwrap();
+        AddRegistry { id: reg_id, new_registry: RevocationRegistry { policy: Policy::one_of([DidOrDidMethodKey::from(did)]).unwrap(), add_only: false } }.modify_removable(super::Pallet::<T>::new_registry_).unwrap();
     }: revoke(RawOrigin::Signed(caller), revoke_raw, vec![SignatureWithNonce::new(signature, 1u32.into())])
     verify {
         assert!(revoke_ids
@@ -77,7 +77,7 @@ crate::bench_with_all_pairs! {
         let reg_id = RevocationRegistryId([2u8; 32]);
         let revoke_ids: BTreeSet<_> = (0..r).map(|i| U256::from(i).into()).map(RevokeId).collect();
 
-        super::Pallet::<T>::new_registry_(AddRegistry { id: reg_id, new_registry: RevocationRegistry { policy: Policy::one_of([DidOrDidMethodKey::from(did)]).unwrap(), add_only: false } }).unwrap();
+        AddRegistry { id: reg_id, new_registry: RevocationRegistry { policy: Policy::one_of([DidOrDidMethodKey::from(did)]).unwrap(), add_only: false } }.modify_removable(super::Pallet::<T>::new_registry_).unwrap();
 
         crate::revoke::Pallet::<T>::revoke_(
             RevokeRaw {
@@ -130,7 +130,7 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        super::Pallet::<T>::new_registry_(add_reg).unwrap();
+        add_reg.modify_removable(super::Pallet::<T>::new_registry_).unwrap();
 
         crate::revoke::Pallet::<T>::revoke_(
             RevokeRaw {

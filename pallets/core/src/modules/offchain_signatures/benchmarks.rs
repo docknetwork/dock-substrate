@@ -1,6 +1,6 @@
 use super::*;
 use crate::{
-    common::{CurveType, ToStateChange},
+    common::{CurveType, IntermediateError, ToStateChange},
     did::{Did, DidSignature, UncheckedDidKey},
     util::{Action, BoundedBytes, IncId},
 };
@@ -71,7 +71,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-        ).modify::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
+        ).modify::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         let rem_params = RemoveOffchainSignatureParams {
             params_ref: (SignatureParamsOwner(did.into()), 1u8.into()),
@@ -111,7 +111,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-        ).modify::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
+        ).modify::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         let key: OffchainPublicKey<T> = BBSPlusPublicKey::new(
             BoundedBytes::try_from(vec![0; b as usize]).unwrap(),
@@ -154,7 +154,7 @@ crate::bench_with_all_pairs! {
                 ).into(),
                 nonce: 1u8.into()
             },
-        ).modify::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into()))).unwrap();
+        ).modify::<T, _, _, _, _>(|action, entity| super::Pallet::<T>::add_params_(action.action, entity, SignatureParamsOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         Pallet::<T>::add_public_key_(
             AddOffchainSignaturePublicKey {
