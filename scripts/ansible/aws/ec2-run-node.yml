@@ -4,113 +4,114 @@
   vars:
     instance_name: "{{ name }} (created by ansible)"
     ssh_key_full_name: "{{ ssh_key_name }} (created by ansible)"
-    volume_type_default: "{{ volume_type | default('io1') }}" 
+    volume_type_default: "{{ volume_type | default('io1') }}"
+    create_new_bool: "{{ create_new | default('false') | bool }}"
   tasks:
+    - name: Create new keypair
+      amazon.aws.ec2_key:
+        profile: "{{ aws_profile }}"
+        region: "{{ aws_region }}"
+        name: "{{ ssh_key_full_name }}"
+        force: false
+        key_material: "{{ lookup('file', ssh_key_pub) }}"
 
-  - name: Create new keypair
-    amazon.aws.ec2_key:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ ssh_key_full_name }}"
-      force: false
-      key_material: "{{ lookup('file', ssh_key_pub) }}"
+    - name: Create substrate P2P security group
+      amazon.aws.ec2_security_group:
+        region: "{{ aws_region }}"
+        profile: "{{ aws_profile }}"
+        name: Substrate P2P (created by ansible)
+        description: Allows nodes to communicate peer-to-peer (created by ansible)
+        rules:
+          - proto: tcp
+            from_port: 30333
+            to_port: 30333
+            cidr_ip: 0.0.0.0/0
 
-  - name: Create substrate P2P security group
-    amazon.aws.ec2_security_group:
-      region: "{{ aws_region }}"
-      profile: "{{ aws_profile }}"
-      name: Substrate P2P (created by ansible)
-      description: Allows nodes to communicate peer-to-peer (created by ansible)
-      rules:
-        - proto: tcp
-          from_port: 30333
-          to_port: 30333
-          cidr_ip: 0.0.0.0/0
+    - name: Get AMI info
+      amazon.aws.ec2_ami_info:
+        profile: "{{ aws_profile }}"
+        region: "{{ aws_region }}"
+        owner: "amazon"
+        filters:
+          name: "{{ ami_name | default('ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230601') }}"
+      register: ami_info
 
-  - name: Get AMI info
-    amazon.aws.ec2_ami_info:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      owner: "amazon"
-      filters:
-        name: "{{ ami_name | default('ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230601') }}"
-    register: ami_info
+    - name: AMI image info
+      ansible.builtin.debug:
+        msg: "{{ ami_info['images'][-1] }}"
 
-  - name: AMI image info
-    ansible.builtin.debug:
-      msg: "{{ ami_info['images'][-1] }}"
+    - name: Attempt to get EC2 instance state
+      when: "not create_new_bool"
+      amazon.aws.ec2_instance:
+        profile: "{{ aws_profile }}"
+        region: "{{ aws_region }}"
+        name: "{{ instance_name }}"
+        filters:
+          instance-state-name: "*"
+      register: instances
 
-  - name: Attempt to get EC2 instance state
-    amazon.aws.ec2_instance:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ instance_name }}"
-      filters:
+    - name: Existing EC2 instance info
+      when: "not create_new_bool and instances | length > 0"
+      ansible.builtin.debug:
+        msg: Existing EC2 instance {{ instances['instances'][-1]['instance_id'] }} with IP {{ instances['instances'][-1]['network_interfaces'][0]['association']['public_ip'] }} and security groups {{ instances['instances'][0] | json_query('security_groups[*].group_id') }}
 
-    register: instances
+    - name: Run new AWS EC2 instance
+      amazon.aws.ec2_instance:
+        profile: "{{ aws_profile }}"
+        region: "{{ aws_region }}"
+        name: "{{ instance_name }}"
+        key_name: "{{ ssh_key_full_name }}"
+        instance_role: "{{ instance_role | default('CloudWatchAgent_Role') }}"
+        instance_type: "{{ instance_type | default('t3.large') }}"
+        state: "running"
+        wait: true
+        security_groups: '{{ (instances | json_query(''instances[-1].security_groups[*].group_id'') if not create_new_bool else []) + ["Substrate P2P (created by ansible)"] }}'
+        network:
+          delete_on_termination: true
+        image_id: "{{ ami_info['images'][-1]['image_id'] }}"
+        volumes:
+          - device_name: /dev/sda1
+            ebs:
+              volume_size: "{{ volume_size | default('300') }}"
+              delete_on_termination: "{{ not(persistent | default('false') | bool) }}"
+              snapshot_id: "{{ snapshot_id | default(omit) }}"
+              volume_type: "{{ volume_type_default }}"
+              iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
+      register: instances
 
-  - name: Existing EC2 instance info
-    when: "instances | length > 0"
-    ansible.builtin.debug:
-      msg: Existing EC2 instance {{ instances['instances'][0]['instance_id'] }} with IP {{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }} and security groups {{ instances['instances'][0] | json_query('security_groups[*].group_id') }}
+    - name: EC2 instance info
+      when: "instances | length == 0"
+      ansible.builtin.debug:
+        msg: Created public EC2 instance {{ instances['instances'][-1]['instance_id'] }} with IP {{ instances['instances'][-1]['network_interfaces'][0]['association']['public_ip'] }}
 
-  - name: Run new AWS EC2 instance
-    amazon.aws.ec2_instance:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ instance_name }}"
-      key_name: "{{ ssh_key_full_name }}"
-      instance_role: "{{ instance_role | default('CloudWatchAgent_Role') }}"
-      instance_type: "{{ instance_type | default('t3.large') }}"
-      state: "running"
-      wait: true
-      security_groups: "{{ instances | json_query('instances[0].security_groups[*].group_id') + [\"Substrate P2P (created by ansible)\"] }}"
-      network:
-        delete_on_termination: true
-      image_id: "{{ ami_info['images'][-1]['image_id'] }}"
-      volumes:
-        - device_name: /dev/sda1
-          ebs:
-            volume_size: "{{ volume_size | default('300') }}"
-            delete_on_termination: "{{ not(persistent | default('false') | bool) }}"
-            snapshot_id: "{{ snapshot_id | default(omit) }}"
-            volume_type: "{{ volume_type_default }}"
-            iops: "{{ iops | default(1300) if volume_type_default is regex('^io*') else omit }}"
-    register: instances
+    - name: Create SNS alarm topic
+      community.aws.sns_topic:
+        profile: "{{ aws_profile }}"
+        region: "{{ aws_region }}"
+        name: "AlarmTopicCreatedByAnsible"
+        state: present
+        display_name: "SNS alarm topic (created by ansible)"
+        delivery_policy:
+          http:
+            defaultHealthyRetryPolicy:
+              minDelayTarget: 20
+              maxDelayTarget: 20
+              numRetries: 3
+              numMaxDelayRetries: 0
+              numNoDelayRetries: 0
+              numMinDelayRetries: 0
+              backoffFunction: linear
+            disableSubscriptionOverrides: false
+        subscriptions:
+          - endpoint: "{{ alarm_lambda_arn }}"
+            protocol: "LAMBDA"
+      register: sns_topic
 
-  - name: EC2 instance info
-    when: "instances | length == 0"
-    ansible.builtin.debug:
-      msg: Created public EC2 instance {{ instances['instances'][0]['instance_id'] }} with IP {{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}
-
-  - name: Create SNS alarm topic
-    community.aws.sns_topic:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "AlarmTopicCreatedByAnsible"
-      state: present
-      display_name: "SNS alarm topic (created by ansible)"
-      delivery_policy:
-        http:
-          defaultHealthyRetryPolicy:
-            minDelayTarget: 20
-            maxDelayTarget: 20
-            numRetries: 3
-            numMaxDelayRetries: 0
-            numNoDelayRetries: 0
-            numMinDelayRetries: 0
-            backoffFunction: linear
-          disableSubscriptionOverrides: false
-      subscriptions:
-        - endpoint: "{{ alarm_lambda_arn }}"
-          protocol: "LAMBDA"
-    register: sns_topic
-
-  - name: Add a host
-    ansible.builtin.add_host:
-      hostname: "{{ instances['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
-      inventory_dir: "{{ inventory_dir }}"
-      groups: "{{ instance_host }}"
+    - name: Add a host
+      ansible.builtin.add_host:
+        hostname: "{{ instances['instances'][-1]['network_interfaces'][0]['association']['public_ip'] }}"
+        inventory_dir: "{{ inventory_dir }}"
+        groups: "{{ instance_host }}"
 
 - name: Open SSH port
   ansible.builtin.import_playbook: ./ec2-enable-ssh.yml
@@ -118,7 +119,7 @@
 - name: Run a node
   ansible.builtin.import_playbook: ../run-node.yml
   vars:
-    overriden_host: "{{ hostvars['localhost']['instances']['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
+    overriden_host: "{{ hostvars['localhost']['instances']['instances'][-1]['network_interfaces'][0]['association']['public_ip'] }}"
     node_name: "{{ hostvars['localhost']['name'] }}"
     export_aws_metrics: true
 
@@ -132,7 +133,6 @@
     instance_name: "{{ name }} (created by ansible)"
     ssh_key_full_name: "{{ ssh_key_name }} (created by ansible)"
   tasks:
-
     - name: Pause for 30 seconds before creating a disk space alarm
       ansible.builtin.pause:
         seconds: 30
@@ -147,19 +147,20 @@
         namespace: "CWAgent"
         statistic: Minimum
         comparison: "LessThanOrEqualToThreshold"
-        threshold: 10000000000
+        threshold: 5000000000
         period: 21600
         evaluation_periods: 1
         treat_missing_data: breaching
         description: "This will alarm when an instance's disk free space is less than or equal to 10 GB"
-        dimensions: {
-          "path": "/",
-          "InstanceId": "{{ instances['instances'][0]['instance_id'] }}",
-          "ImageId": "{{ ami_info['images'][-1]['image_id'] }}",
-          "InstanceType": "{{ instance_type | default('t3.large') }}",
-          "device": "nvme0n1p1",
-          "fstype": "ext4"
-        }
+        dimensions:
+          {
+            "path": "/",
+            "InstanceId": "{{ instances['instances'][-1]['instance_id'] }}",
+            "ImageId": "{{ ami_info['images'][-1]['image_id'] }}",
+            "InstanceType": "{{ instance_type | default('t3.large') }}",
+            "device": "nvme0n1p1",
+            "fstype": "ext4",
+          }
         alarm_actions: ["{{ sns_topic.sns_arn }}"]
         ok_actions: ["{{ sns_topic.sns_arn }}"]
 

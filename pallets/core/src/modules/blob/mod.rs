@@ -128,8 +128,7 @@ pub mod pallet {
 
     #[pallet::storage]
     #[pallet::getter(fn blob)]
-    pub type Blobs<T: Config> =
-        StorageMap<_, Blake2_128Concat, BlobId, (BlobOwner, BoundedBytes<T::MaxBlobSize>)>;
+    pub type Blobs<T: Config> = StorageMap<_, Blake2_128Concat, BlobId, StoredBlob<T>>;
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
@@ -152,7 +151,7 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         fn new_(
             AddBlob { blob, .. }: AddBlob<T>,
-            blob_opt: &mut Option<(BlobOwner, BoundedBytes<T::MaxBlobSize>)>,
+            blob_opt: &mut Option<StoredBlob<T>>,
             signer: BlobOwner,
         ) -> DispatchResult {
             let blob_bytes = blob.blob.try_into().map_err(|_| Error::<T>::TooBig)?;

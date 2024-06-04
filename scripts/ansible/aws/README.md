@@ -19,6 +19,7 @@ Variables:
 11. `volume_size` - volume size to be created in GB. The default is `300`
 12. `persistent` - don't delete a volume on termination. Default to `false`
 13. `snapshot_id` - optional snapshot id to be used to instantiate the volume from
+14. `create_new` - forces new instance to be created.
 
 `instance_host` will represent an EC2 instance with dynamic IP.
 
