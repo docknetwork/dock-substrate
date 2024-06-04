@@ -2,7 +2,7 @@
 authors = ["Dock.io"]
 edition = "2021"
 name = "dock-runtime"
-version = "0.26.0"
+version = "0.27.0"
 license = "Apache-2.0"
 
 [package.metadata.docs.rs]
@@ -535,7 +535,7 @@ std = [
     "rlp/std",
     "log/std",
 	  "hex/std",
-    "sha3/std",  
+    "sha3/std",
     "sp-runtime-interface/std",
     "sp-trie/std",
     "sp-io/std",
