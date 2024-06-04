@@ -86,20 +86,17 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, CheckedConversion, ConvertInto,
-        DispatchInfoOf, Dispatchable, Extrinsic, IdentifyAccount, Keccak256, NumberFor, OpaqueKeys,
+        Dispatchable, Extrinsic, IdentifyAccount, Keccak256, NumberFor, OpaqueKeys,
         PostDispatchInfoOf, StaticLookup, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
-        ValidTransaction,
     },
     ApplyExtrinsicResult, DispatchResult, FixedPointNumber, MultiSignature, Perbill, Percent,
     Permill, Perquintill, SaturatedConversion,
 };
 use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
-use transaction_payment::{
-    CurrencyAdapter, Multiplier, OnChargeTransaction, TargetedFeeAdjustment,
-};
+use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
@@ -472,9 +469,7 @@ where
             frame_system::CheckEra::<Runtime>::from(era),
             frame_system::CheckNonce::<Runtime>::from(nonce),
             frame_system::CheckWeight::<Runtime>::new(),
-            CustomChargeTransactionPayment(transaction_payment::ChargeTransactionPayment::from(
-                tip,
-            )),
+            transaction_payment::ChargeTransactionPayment::from(tip),
             dock_token_migration::OnlyMigrator::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
@@ -819,198 +814,6 @@ parameter_types! {
     pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
     pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
     pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
-}
-
-/// Custom transaction fee payments handler.
-/// Doesn't take a full length fee from successful `note_preimage`, `note_preimage_operational`
-/// (optionally wrapped in `council.execute`) transactions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, scale_info::TypeInfo)]
-pub struct CustomChargeTransactionPayment(
-    pub transaction_payment::ChargeTransactionPayment<Runtime>,
-);
-
-/// Denotes customizable length fee for a successful extrinsic to be paid by the caller.
-/// The final length to be used in the calculation is produced by `post_dispatch_overridden_length`.
-/// This method should be called after the extrinsic was dispatched (during `post_dispatch` phase).
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum OverriddenLengthFee {
-    /// The caller should pay a *full* length fee.
-    Full,
-    /// The caller should pay a *partial* length fee for a successful extrinsic.
-    Partial(u32),
-    /// The caller should pay a *partial* length fee for a successful extrinsic if the given predicate
-    /// called during `post_dispatch` phase returns `true`.
-    PartialIf { len: u32, check: fn() -> bool },
-}
-
-impl OverriddenLengthFee {
-    /// Allow paying only for 25% of the extrinsic length for whitelist calls.
-    const BASE_LENGTH_DIVIDER: u32 = 4;
-
-    /// Checks whether the given call has a customized length fee or not.
-    pub fn new(call: &<Runtime as frame_system::Config>::Call, len: u32) -> OverriddenLengthFee {
-        Self::is_preimage_with_deposit(call)
-            .then_some(Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
-            .or_else(|| match call {
-                Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
-                    Self::is_preimage_with_deposit(proposal)
-                        .then_some(Self::last_council_execute_was_successful)
-                        .map(|check| Self::PartialIf {
-                            len: len / Self::BASE_LENGTH_DIVIDER,
-                            check,
-                        })
-                }
-                _ => None,
-            })
-            .unwrap_or(Self::Full)
-    }
-
-    /// Returns optional overriden length for a successful extrinsic to be paid by the caller.
-    /// **Should be called right after the extrinsic was dispatched (during `post_dispatch` phase).**
-    /// In case `None` is returned, the full extrinsic length must be paid.
-    pub fn post_dispatch_overridden_length(self) -> Option<u32> {
-        match self {
-            Self::Full => None,
-            Self::Partial(len) => Some(len),
-            Self::PartialIf { len, check } => (check)().then_some(len),
-        }
-    }
-
-    /// Returns `true` if the supplied call is a democracy note preimage call with a deposit:
-    /// either `note_preimage` or `note_preimage_operational`.
-    fn is_preimage_with_deposit(call: &<Runtime as frame_system::Config>::Call) -> bool {
-        matches!(
-            call,
-            Call::Democracy(
-                pallet_democracy::Call::note_preimage { .. }
-                    | pallet_democracy::Call::note_preimage_operational { .. }
-            )
-        )
-    }
-
-    /// Returns `true` if the last `council.execute` call was successful.
-    fn last_council_execute_was_successful() -> bool {
-        frame_system::Pallet::<Runtime>::read_events_no_consensus()
-            .into_iter()
-            .rev()
-            .find_map(|record| match record.event {
-                Event::Council(event) => Some(event),
-                _ => None,
-            })
-            .filter(|event| {
-                matches!(
-                    event,
-                    pallet_collective::Event::MemberExecuted { result: Ok(_), .. }
-                )
-            })
-            .is_some()
-    }
-}
-
-impl CustomChargeTransactionPayment {
-    fn withdraw_fee(
-		&self,
-		who: &<Runtime as frame_system::Config>::AccountId,
-		call: &<Runtime as frame_system::Config>::Call,
-		info: &DispatchInfoOf<<Runtime as frame_system::Config>::Call>,
-		len: usize,
-	) -> Result<
-		(
-			u64,
-			<<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::LiquidityInfo,
-		),
-		TransactionValidityError,
-    >{
-        let tip = self.0.tip();
-        let fee = transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, info, tip);
-
-        <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<
-            Runtime,
-        >>::withdraw_fee(who, call, info, fee, tip)
-        .map(|i| (fee, i))
-    }
-}
-
-impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
-    const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-    type AccountId = <Runtime as frame_system::Config>::AccountId;
-    type Call = <Runtime as frame_system::Config>::Call;
-    type AdditionalSigned = ();
-    type Pre = (
-		// tip
-		u64,
-		// who paid the fee - this is an option to allow for a Default impl.
-		Self::AccountId,
-		// imbalance resulting from withdrawing the fee
-        <<Runtime as transaction_payment::Config>::OnChargeTransaction as transaction_payment::OnChargeTransaction<Runtime>>::LiquidityInfo,
-        // whether the caller should pay fee for the successful call or not
-        OverriddenLengthFee
-	);
-
-    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-        Ok(())
-    }
-
-    fn validate(
-        &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
-    ) -> TransactionValidity {
-        let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
-
-        let tip = self.0.tip();
-        Ok(ValidTransaction {
-            priority: transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
-                info, len, tip, final_fee,
-            ),
-            ..Default::default()
-        })
-    }
-
-    fn pre_dispatch(
-        self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
-    ) -> Result<Self::Pre, TransactionValidityError> {
-        let len_fee = OverriddenLengthFee::new(call, len as u32);
-        let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
-
-        Ok((self.0.tip(), who.clone(), imbalance, len_fee))
-    }
-
-    fn post_dispatch(
-        maybe_pre: Option<Self::Pre>,
-        info: &DispatchInfoOf<Self::Call>,
-        post_info: &PostDispatchInfoOf<Self::Call>,
-        len: usize,
-        result: &DispatchResult,
-    ) -> Result<(), TransactionValidityError> {
-        if let Some((tip, who, imbalance, len_fee)) = maybe_pre {
-            let final_len = result
-                .is_ok()
-                .then(|| len_fee.post_dispatch_overridden_length())
-                .flatten()
-                .unwrap_or(len as u32);
-
-            let actual_fee =
-                TransactionPayment::compute_actual_fee(final_len, info, post_info, tip);
-            <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::correct_and_deposit_fee(
-				&who, info, post_info, actual_fee, tip, imbalance,
-            )?;
-            frame_system::Pallet::<Runtime>::deposit_event(
-                transaction_payment::Event::<Runtime>::TransactionFeePaid {
-                    who,
-                    actual_fee,
-                    tip,
-                },
-            );
-        }
-        Ok(())
-    }
 }
 
 impl transaction_payment::Config for Runtime {
@@ -2079,7 +1882,7 @@ pub type SignedExtra = (
     frame_system::CheckEra<Runtime>,
     frame_system::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
-    CustomChargeTransactionPayment,
+    transaction_payment::ChargeTransactionPayment<Runtime>,
     dock_token_migration::OnlyMigrator<Runtime>,
 );
 
