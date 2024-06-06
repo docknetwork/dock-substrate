@@ -29,6 +29,7 @@ mod weights;
 #[frame_support::pallet]
 pub mod pallet {
     use super::*;
+    use did::Did;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
 
@@ -240,6 +241,97 @@ pub mod pallet {
             remove
                 .signed(signature)
                 .execute_removable(Self::remove_accumulator_)
+        }
+    }
+
+    #[pallet::hooks]
+    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
+        fn on_runtime_upgrade() -> Weight {
+            // https://dock.subscan.io/extrinsic/28622371-1?event=28622371-2
+            // https://fe.dock.io/#/explorer/query/28622371
+            AccumulatorOwnerCounters::<T>::insert(
+                AccumulatorOwner(
+                    Did(hex_literal::hex!(
+                        "33665c0bdd23a17e702b106a90d359e1465fe9e756b93c6f24248b9d9992fbe7"
+                    ))
+                    .into(),
+                ),
+                StoredAccumulatorOwnerCounters {
+                    params_counter: IncId::from(0u8),
+                    key_counter: IncId::from(1u8),
+                },
+            );
+            // https://dock.subscan.io/extrinsic/28880175-1?event=28880175-2
+            // https://fe.dock.io/#/explorer/query/28880175
+            AccumulatorOwnerCounters::<T>::insert(
+                AccumulatorOwner(
+                    Did(hex_literal::hex!(
+                        "d92cbc21bfc3d37f215d4e612f586c73efdc1e53ba6ced25582044013898d221"
+                    ))
+                    .into(),
+                ),
+                StoredAccumulatorOwnerCounters {
+                    params_counter: IncId::from(0u8),
+                    key_counter: IncId::from(1u8),
+                },
+            );
+
+            // https://dock.subscan.io/extrinsic/28622371-1?event=28622371-2
+            // https://fe.dock.io/#/explorer/query/28622371
+            AccumulatorKeys::<T>::insert(
+                AccumulatorOwner(Did(hex_literal::hex!("33665c0bdd23a17e702b106a90d359e1465fe9e756b93c6f24248b9d9992fbe7")).into()),
+                IncId::from(1u8),
+                AccumulatorPublicKey {
+                    curve_type: CurveType::Bls12381,
+                    bytes: Bytes::from(hex_literal::hex!("864d43414c769767e67ae4c77af19733f43a0866014d266fc45e933835aa47ec0ff00a4cb10a144cc8f9113f649a09ad03ad3c7c820054bd3738c6cd8eb12a049932c4695ebeae30715762aa3bcece2e027d58b07d76bdf7c2d3e881ff214e26").to_vec()).try_into().unwrap(),
+                    params_ref:None
+                }
+            );
+            // https://dock.subscan.io/extrinsic/28880175-1?event=28880175-2
+            // https://fe.dock.io/#/explorer/query/28880175
+            AccumulatorKeys::<T>::insert(
+                AccumulatorOwner(Did(hex_literal::hex!("d92cbc21bfc3d37f215d4e612f586c73efdc1e53ba6ced25582044013898d221")).into()),
+                IncId::from(1u8),
+                AccumulatorPublicKey {
+                    curve_type: CurveType::Bls12381,
+                    bytes: Bytes::from(hex_literal::hex!("a28dc6c3101f6bf840af1299b0fa5a66296dd449c8109cafea51f9ed44123f12eca3f1d8d5ac3099b0ab21883b2bc5b411f3b2589e15f1d461ee3ce42281254ad89a6c0fbba96518a597b6c8a1bc1346e8ad5ff5a694953792bd387462de347a").to_vec()).try_into().unwrap(),
+                    params_ref:None
+                }
+            );
+
+            // https://dock.subscan.io/extrinsic/28622371-1?event=28622371-2
+            // https://fe.dock.io/#/explorer/query/28622371
+            Accumulators::<T>::insert(
+                AccumulatorId(hex_literal::hex!("1de50299ee71e2ca501e0b0b549cc5e93cc9ff2548a6634b48b806f1a4c22607")),
+                AccumulatorWithUpdateInfo {
+                    created_at: 28622371u32.into(),
+                    last_updated_at:28622371u32.into(),
+                    accumulator: Accumulator::Positive(
+                        AccumulatorCommon {
+                            accumulated: hex_literal::hex!("8fd77827daa553a56128bbb9ffbdcd4066b23493dd5bcbecc81528dff64c2b69d776fda6f0fd39667f6f4a5cbc74f844").to_vec().try_into().unwrap(),
+                            key_ref: (AccumulatorOwner(Did(hex_literal::hex!("33665c0bdd23a17e702b106a90d359e1465fe9e756b93c6f24248b9d9992fbe7")).into()), IncId::from(1u8))
+                        }
+                    )
+                }
+            );
+
+            // https://dock.subscan.io/extrinsic/28915004-1?event=28915004-2
+            // https://fe.dock.io/#/explorer/query/28915004
+            Accumulators::<T>::insert(
+                AccumulatorId(hex_literal::hex!("0ca1cbbeccf140f252dedb6ca1762dff1eb92d3e006ab526a7945dc30b3777b3")),
+                AccumulatorWithUpdateInfo {
+                    created_at: 28880175u32.into(),
+                    last_updated_at:28915004u32.into(),
+                    accumulator: Accumulator::Positive(
+                        AccumulatorCommon {
+                            accumulated: hex_literal::hex!("a4f797b2ab235877d2d5ad27f6ebc46567ea09ccd247b515572db461bd5330fdf712756f7b671b243584e35f55ce6f55").to_vec().try_into().unwrap(),
+                            key_ref: (AccumulatorOwner(Did(hex_literal::hex!("d92cbc21bfc3d37f215d4e612f586c73efdc1e53ba6ced25582044013898d221")).into()), IncId::from(1u8))
+                        }
+                    )
+                }
+            );
+
+            T::DbWeight::get().writes(6)
         }
     }
 }

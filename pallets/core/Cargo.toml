@@ -98,7 +98,6 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.hex-literal]
 version = "0.3.1"
-optional = true
 
 [dependencies.sp-application-crypto]
 default-features = false
@@ -228,7 +227,6 @@ std = [
 
 runtime-benchmarks = [
     "frame-benchmarking",
-    "hex-literal",
     "getrandom",
     "schnorrkel",
     "schnorrkel/chacha",
