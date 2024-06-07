@@ -48,7 +48,23 @@ impl<T: Config> StorageRef<T> for DidMethodKey {
     }
 }
 
-impl<Target> AuthorizeTarget<Target, Self> for DidMethodKey {}
+impl<Target> AuthorizeTarget<Target, Self> for DidMethodKey {
+    fn ensure_authorizes_target<T, A>(
+        &self,
+        key: &Self,
+        _: &A,
+        _: Option<&Target::Value>,
+    ) -> sp_runtime::DispatchResult
+    where
+        T: crate::did::Config,
+        A: Action<Target = Target>,
+        Target: Associated<T>,
+    {
+        ensure!(self == key, Error::<T>::InvalidSigner);
+
+        Ok(())
+    }
+}
 
 impl Index<RangeFull> for DidMethodKey {
     type Output = [u8];

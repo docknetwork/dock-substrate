@@ -468,12 +468,14 @@ where
 
                 check_err!(actor.validate_update(registry_info, &update, &schemas));
 
-                if !allowed.contains(&target) {
-                    return Some(Err(Error::<T>::NotAParticipant));
-                }
-
-                if update.kind(&schemas) == UpdateKind::None {
-                    None?
+                match update.kind(&schemas) {
+                    UpdateKind::None => None?,
+                    UpdateKind::Add => {
+                        if !allowed.contains(&target) {
+                            return Some(Err(Error::<T>::NotAParticipant));
+                        }
+                    }
+                    _ => {}
                 }
 
                 if schemas.is_empty() {
