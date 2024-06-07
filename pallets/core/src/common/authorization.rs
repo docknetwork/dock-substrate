@@ -7,21 +7,22 @@ use codec::Encode;
 use core::ops::Deref;
 use sp_runtime::{DispatchError, DispatchResult};
 
-use super::{GetKey, ToStateChange};
+use super::{GetKey, ToStateChange, TypesAndLimits};
 
 /// Authorizes action performed by `Self` over supplied target using given key.
-pub trait AuthorizeTarget<Target, Key> {
+pub trait AuthorizeTarget<T, Target, Key>
+where
+    Target: Associated<T>,
+{
     /// `Self` can perform supplied action over `target` using the provided key.
-    fn ensure_authorizes_target<T, A>(
+    fn ensure_authorizes_target<A>(
         &self,
         _: &Key,
         _: &A,
         _: Option<&Target::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Target>,
-        Target: Associated<T>,
     {
         Ok(())
     }
@@ -31,20 +32,22 @@ type AuthorizationResult<S> =
     Result<Option<Authorization<<S as Signature>::Signer, <S as Signature>::Key>>, DispatchError>;
 
 /// Signature that can authorize a signed action.
-pub trait AuthorizeSignedAction<A: Action>: Signature + GetKey<Self::Key>
+pub trait AuthorizeSignedAction<T: TypesAndLimits, A: Action>:
+    Signature + GetKey<Self::Key>
 where
-    Self::Signer: AuthorizeTarget<A::Target, Self::Key> + Deref,
-    <Self::Signer as Deref>::Target: AuthorizeTarget<A::Target, Self::Key>,
+    A: ToStateChange<T>,
+    A::Target: Associated<T>,
+    Self::Signer: AuthorizeTarget<T, A::Target, Self::Key> + Deref,
+    <Self::Signer as Deref>::Target: AuthorizeTarget<T, A::Target, Self::Key>,
 {
     /// This signature allows `Self::Signer` to perform the supplied action.
-    fn authorizes_signed_action<T: did::Config>(
+    fn authorizes_signed_action(
         &self,
         action: &A,
         value: Option<&<A::Target as Associated<T>>::Value>,
     ) -> AuthorizationResult<Self>
     where
-        A: ToStateChange<T>,
-        A::Target: Associated<T>,
+        T: crate::did::Config,
     {
         let signer_pubkey = self.key::<T>().ok_or(did::Error::<T>::NoKeyForDid)?;
         let encoded_state_change = action.to_state_change().encode();
@@ -64,11 +67,13 @@ where
     }
 }
 
-impl<A: Action, S> AuthorizeSignedAction<A> for S
+impl<T: TypesAndLimits, A: Action, S> AuthorizeSignedAction<T, A> for S
 where
+    A::Target: Associated<T>,
+    A: ToStateChange<T>,
     S: Signature + GetKey<S::Key>,
-    S::Signer: AuthorizeTarget<A::Target, S::Key> + Deref,
-    <S::Signer as Deref>::Target: AuthorizeTarget<A::Target, S::Key>,
+    S::Signer: AuthorizeTarget<T, A::Target, S::Key> + Deref,
+    <S::Signer as Deref>::Target: AuthorizeTarget<T, A::Target, S::Key>,
 {
 }
 

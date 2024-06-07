@@ -36,8 +36,8 @@ pub type Iri<T> = BoundedBytes<<T as Limits>::MaxIriSize>;
 #[scale_info(omit_prefix)]
 pub struct Attester(pub DidOrDidMethodKey);
 
-impl AuthorizeTarget<Self, DidKey> for Attester {}
-impl AuthorizeTarget<Self, DidMethodKey> for Attester {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidKey> for Attester {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidMethodKey> for Attester {}
 
 crate::impl_wrapper!(Attester(DidOrDidMethodKey));
 

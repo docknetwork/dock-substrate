@@ -9,7 +9,7 @@ use crate::util::btree_set;
 use crate::{
     common::{AuthorizeTarget, ForSigType},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
-    util::InclusionRule,
+    util::{Associated, InclusionRule},
 };
 #[cfg(not(feature = "std"))]
 use alloc::vec::Vec;
@@ -107,8 +107,11 @@ pub struct PolicyExecutor(pub DidOrDidMethodKey);
 
 crate::impl_wrapper!(PolicyExecutor(DidOrDidMethodKey));
 
-impl<T> AuthorizeTarget<T, DidKey> for PolicyExecutor {}
-impl<T> AuthorizeTarget<T, DidMethodKey> for PolicyExecutor {}
+impl<T, Target> AuthorizeTarget<T, Target, DidKey> for PolicyExecutor where Target: Associated<T> {}
+impl<T, Target> AuthorizeTarget<T, Target, DidMethodKey> for PolicyExecutor where
+    Target: Associated<T>
+{
+}
 
 /// `DID`s signature along with the nonce.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen)]

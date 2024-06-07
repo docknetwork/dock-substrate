@@ -102,10 +102,10 @@ impl<T: Config> StorageRef<T> for AccumParametersStorageKey {
     }
 }
 
-impl AuthorizeTarget<AccumulatorId, DidKey> for AccumulatorOwner {}
-impl AuthorizeTarget<AccumulatorId, DidMethodKey> for AccumulatorOwner {}
-impl AuthorizeTarget<Self, DidKey> for AccumulatorOwner {}
-impl AuthorizeTarget<Self, DidMethodKey> for AccumulatorOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, AccumulatorId, DidKey> for AccumulatorOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, AccumulatorId, DidMethodKey> for AccumulatorOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidKey> for AccumulatorOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidMethodKey> for AccumulatorOwner {}
 crate::impl_authorize_target!(
     for AccumPublicKeyStorageKey using DidKey, AccumPublicKeyStorageKey using DidMethodKey,
         AccumParametersStorageKey using DidKey, AccumParametersStorageKey using DidMethodKey

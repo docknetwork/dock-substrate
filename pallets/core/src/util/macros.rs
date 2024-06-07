@@ -173,17 +173,16 @@ macro_rules! impl_action_with_nonce {
 macro_rules! impl_authorize_target {
     (for $($target: ident using $key: ident),+ from $actor: ident by fn($self: ident, $key_var: pat, $action_var: pat, $target_value_var: pat) $body: block) => {
         $(
-            impl AuthorizeTarget<$target, $key> for $actor {
-                fn ensure_authorizes_target<T, A>(
+            impl<T> AuthorizeTarget<T, $target, $key> for $actor where T: Config, $target: crate::util::Associated<T> {
+                fn ensure_authorizes_target<A>(
                     &$self,
                     $key_var: &$key,
                     $action_var: &A,
                     $target_value_var: Option<&<$target as crate::util::Associated<T>>::Value>,
                 ) -> DispatchResult
                 where
-                    T: crate::did::Config,
                     A: crate::util::Action<Target = $target>,
-                    $target: crate::util::Associated<T> $body
+                     $body
             }
         )+
     };

@@ -24,10 +24,10 @@ pub struct SignatureParamsOwner(pub DidOrDidMethodKey);
 
 crate::impl_wrapper!(SignatureParamsOwner(DidOrDidMethodKey));
 
-impl AuthorizeTarget<Self, DidKey> for SignatureParamsOwner {}
-impl AuthorizeTarget<Self, DidMethodKey> for SignatureParamsOwner {}
-impl AuthorizeTarget<(), DidKey> for SignatureParamsOwner {}
-impl AuthorizeTarget<(), DidMethodKey> for SignatureParamsOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidKey> for SignatureParamsOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidMethodKey> for SignatureParamsOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, (), DidKey> for SignatureParamsOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, (), DidMethodKey> for SignatureParamsOwner {}
 
 impl<T: TypesAndLimits> Associated<T> for SignatureParamsOwner {
     type Value = IncId;

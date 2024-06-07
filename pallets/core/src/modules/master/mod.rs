@@ -118,7 +118,7 @@ pub struct Master(pub Did);
 
 crate::impl_wrapper!(Master(Did));
 
-impl AuthorizeTarget<(), DidKey> for Master {}
+impl<T> AuthorizeTarget<T, (), DidKey> for Master {}
 
 impl<T: Limits> Default for Membership<T> {
     fn default() -> Self {

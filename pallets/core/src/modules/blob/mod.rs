@@ -33,8 +33,8 @@ mod weights;
 #[scale_info(omit_prefix)]
 pub struct BlobOwner(pub DidOrDidMethodKey);
 
-impl AuthorizeTarget<BlobId, DidKey> for BlobOwner {}
-impl AuthorizeTarget<BlobId, DidMethodKey> for BlobOwner {}
+impl<T: Limits> AuthorizeTarget<T, BlobId, DidKey> for BlobOwner {}
+impl<T: Limits> AuthorizeTarget<T, BlobId, DidMethodKey> for BlobOwner {}
 
 crate::impl_wrapper!(BlobOwner(DidOrDidMethodKey));
 

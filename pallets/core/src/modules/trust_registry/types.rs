@@ -71,17 +71,19 @@ impl<T: Config> StorageRef<T> for TrustRegistryIdForParticipants {
     }
 }
 
-impl AuthorizeTarget<Self, DidKey> for Convener {
-    fn ensure_authorizes_target<T, A>(
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidKey> for Convener
+where
+    T: Config,
+    Self: Associated<T>,
+{
+    fn ensure_authorizes_target<A>(
         &self,
         _: &DidKey,
         action: &A,
         _: Option<&<Self as Associated<T>>::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: crate::util::Action<Target = Self>,
-        Self: Associated<T>,
     {
         ensure!(
             action.target() == *self,
@@ -91,17 +93,19 @@ impl AuthorizeTarget<Self, DidKey> for Convener {
         Ok(())
     }
 }
-impl AuthorizeTarget<Self, DidMethodKey> for Convener {
-    fn ensure_authorizes_target<T, A>(
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidMethodKey> for Convener
+where
+    T: Config,
+    Self: Associated<T>,
+{
+    fn ensure_authorizes_target<A>(
         &self,
         _: &DidMethodKey,
         action: &A,
         _: Option<&<Self as Associated<T>>::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: crate::util::Action<Target = Self>,
-        Self: Associated<T>,
     {
         ensure!(
             action.target() == *self,
@@ -112,8 +116,8 @@ impl AuthorizeTarget<Self, DidMethodKey> for Convener {
     }
 }
 
-impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for Convener {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for Convener {}
 
 /// Maybe an `Issuer` or a `Verifier` but definitely not a `Convener`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -139,8 +143,8 @@ impl IssuersOrVerifiers {
     }
 }
 
-impl AuthorizeTarget<TrustRegistryId, DidKey> for IssuerOrVerifier {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for IssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for IssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for IssuerOrVerifier {}
 
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -186,10 +190,10 @@ pub struct Issuer(pub DidOrDidMethodKey);
 
 impl_wrapper!(Issuer(DidOrDidMethodKey));
 
-impl AuthorizeTarget<TrustRegistryId, DidKey> for Issuer {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Issuer {}
-impl AuthorizeTarget<(), DidKey> for Issuer {}
-impl AuthorizeTarget<(), DidMethodKey> for Issuer {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for Issuer {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for Issuer {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, (), DidKey> for Issuer {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, (), DidMethodKey> for Issuer {}
 
 /// Trust registry `Verifier`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -230,21 +234,32 @@ impl ConvenerOrIssuerOrVerifier {
     }
 }
 
-impl AuthorizeTarget<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
 
-impl AuthorizeTarget<TrustRegistryIdForParticipants, DidKey> for ConvenerOrIssuerOrVerifier {}
-impl AuthorizeTarget<TrustRegistryIdForParticipants, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryIdForParticipants, DidKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryIdForParticipants, DidMethodKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
 
-impl AuthorizeTarget<(TrustRegistryId, Issuer), DidKey> for Issuer {
-    fn ensure_authorizes_target<T, A>(
+impl<T: TypesAndLimits> AuthorizeTarget<T, (TrustRegistryId, Issuer), DidKey> for Issuer
+where
+    T: crate::did::Config,
+{
+    fn ensure_authorizes_target<A>(
         &self,
         _: &DidKey,
         action: &A,
         _: Option<&<(TrustRegistryId, Issuer) as Associated<T>>::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: crate::util::Action<Target = (TrustRegistryId, Issuer)>,
     {
         ensure!(
@@ -255,15 +270,17 @@ impl AuthorizeTarget<(TrustRegistryId, Issuer), DidKey> for Issuer {
         Ok(())
     }
 }
-impl AuthorizeTarget<(TrustRegistryId, Issuer), DidMethodKey> for Issuer {
-    fn ensure_authorizes_target<T, A>(
+impl<T: TypesAndLimits> AuthorizeTarget<T, (TrustRegistryId, Issuer), DidMethodKey> for Issuer
+where
+    T: crate::did::Config,
+{
+    fn ensure_authorizes_target<A>(
         &self,
         _: &DidMethodKey,
         action: &A,
         _: Option<&<(TrustRegistryId, Issuer) as Associated<T>>::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: crate::util::Action<Target = (TrustRegistryId, Issuer)>,
     {
         ensure!(

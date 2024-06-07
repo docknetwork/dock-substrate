@@ -31,20 +31,20 @@ pub enum DidOrDidMethodKey {
     DidMethodKey(DidMethodKey),
 }
 
-impl<Target> AuthorizeTarget<Target, DidKey> for DidOrDidMethodKey
+impl<T, Target> AuthorizeTarget<T, Target, DidKey> for DidOrDidMethodKey
 where
-    Did: AuthorizeTarget<Target, DidKey>,
+    T: Config,
+    Did: AuthorizeTarget<T, Target, DidKey>,
+    Target: Associated<T>,
 {
-    fn ensure_authorizes_target<T, A>(
+    fn ensure_authorizes_target<A>(
         &self,
         key: &DidKey,
         action: &A,
         value: Option<&Target::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Target>,
-        Target: Associated<T>,
     {
         match self {
             DidOrDidMethodKey::Did(did) => did.ensure_authorizes_target(key, action, value),
@@ -53,20 +53,20 @@ where
     }
 }
 
-impl<Target> AuthorizeTarget<Target, DidMethodKey> for DidOrDidMethodKey
+impl<T, Target> AuthorizeTarget<T, Target, DidMethodKey> for DidOrDidMethodKey
 where
-    DidMethodKey: AuthorizeTarget<Target, DidMethodKey>,
+    T: Config,
+    DidMethodKey: AuthorizeTarget<T, Target, DidMethodKey>,
+    Target: Associated<T>,
 {
-    fn ensure_authorizes_target<T, A>(
+    fn ensure_authorizes_target<A>(
         &self,
         key: &DidMethodKey,
         action: &A,
         value: Option<&Target::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Target>,
-        Target: Associated<T>,
     {
         match self {
             DidOrDidMethodKey::DidMethodKey(did_method_key) => {
@@ -119,17 +119,19 @@ pub struct Did(#[cfg_attr(feature = "serde", serde(with = "crate::util::serde_he
 
 crate::hex_debug!(Did);
 
-impl<Target> AuthorizeTarget<Target, DidKey> for Did {
-    fn ensure_authorizes_target<T, A>(
+impl<T, Target> AuthorizeTarget<T, Target, DidKey> for Did
+where
+    T: crate::did::Config,
+    Target: Associated<T>,
+{
+    fn ensure_authorizes_target<A>(
         &self,
         key: &DidKey,
         _: &A,
         _: Option<&<A::Target as Associated<T>>::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Target>,
-        Target: Associated<T>,
     {
         ensure!(
             key.can_authenticate_or_control(),

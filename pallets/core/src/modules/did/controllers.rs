@@ -22,15 +22,17 @@ impl Controller {
     }
 }
 
-impl AuthorizeTarget<Did, DidKey> for Controller {
-    fn ensure_authorizes_target<T, A>(
+impl<T> AuthorizeTarget<T, Did, DidKey> for Controller
+where
+    T: crate::did::Config,
+{
+    fn ensure_authorizes_target<A>(
         &self,
         key: &DidKey,
         action: &A,
         _: Option<&<Did as Associated<T>>::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Did>,
     {
         ensure!(
@@ -43,15 +45,17 @@ impl AuthorizeTarget<Did, DidKey> for Controller {
     }
 }
 
-impl AuthorizeTarget<Did, DidMethodKey> for Controller {
-    fn ensure_authorizes_target<T, A>(
+impl<T> AuthorizeTarget<T, Did, DidMethodKey> for Controller
+where
+    T: crate::did::Config,
+{
+    fn ensure_authorizes_target<A>(
         &self,
         _: &DidMethodKey,
         action: &A,
         _: Option<&<Did as Associated<T>>::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Did>,
     {
         self.ensure_controller_for::<T>(&action.target())?;

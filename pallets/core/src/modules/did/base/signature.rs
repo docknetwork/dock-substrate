@@ -36,20 +36,19 @@ impl TryFrom<DidKeyOrDidMethodKey> for DidMethodKey {
     }
 }
 
-impl<Target, Authorizer> AuthorizeTarget<Target, DidKeyOrDidMethodKey> for Authorizer
+impl<T, Target, Authorizer> AuthorizeTarget<T, Target, DidKeyOrDidMethodKey> for Authorizer
 where
-    Authorizer: AuthorizeTarget<Target, DidKey> + AuthorizeTarget<Target, DidMethodKey>,
+    Authorizer: AuthorizeTarget<T, Target, DidKey> + AuthorizeTarget<T, Target, DidMethodKey>,
+    Target: Associated<T>,
 {
-    fn ensure_authorizes_target<T, A>(
+    fn ensure_authorizes_target<A>(
         &self,
         key: &DidKeyOrDidMethodKey,
         action: &A,
         value: Option<&Target::Value>,
     ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Target>,
-        Target: Associated<T>,
     {
         match key {
             DidKeyOrDidMethodKey::DidKey(did_key) => {
@@ -280,7 +279,7 @@ impl<T: Config, A> SignedActionWithNonce<T, A, DidOrDidMethodKeySignature<Contro
 where
     A: ActionWithNonce<T, Target = Did> + ToStateChange<T>,
     DidOrDidMethodKeySignature<Controller>:
-        AuthorizeSignedAction<A, Key = DidKeyOrDidMethodKey, Signer = Controller>,
+        AuthorizeSignedAction<T, A, Key = DidKeyOrDidMethodKey, Signer = Controller>,
 {
     pub fn execute_from_controller<F, R, E>(self, f: F) -> Result<R, IntermediateError<T>>
     where

@@ -38,9 +38,10 @@ where
 impl<T: Config, A, Sig> SignedActionWithNonce<T, A, Sig>
 where
     A: ActionWithNonce<T> + ToStateChange<T>,
-    Sig: AuthorizeSignedAction<A>,
-    Sig::Signer: AuthorizeTarget<A::Target, Sig::Key> + Deref,
-    <Sig::Signer as Deref>::Target: AuthorizeTarget<A::Target, Sig::Key>,
+    Sig: AuthorizeSignedAction<T, A>,
+    A::Target: Associated<T>,
+    Sig::Signer: AuthorizeTarget<T, A::Target, Sig::Key> + Deref,
+    <Sig::Signer as Deref>::Target: AuthorizeTarget<T, A::Target, Sig::Key>,
 {
     /// Verifies signer's signature and nonce, then executes given action without providing target data.
     /// In case of a successful result, increases the signer's nonce.
@@ -172,9 +173,9 @@ where
     A::Target: StorageRef<T>,
     WithNonce<T, A>: ActionWithNonce<T> + ToStateChange<T>,
     <WithNonce<T, A> as Action>::Target: StorageRef<T>,
-    S: Signature + AuthorizeSignedAction<WithNonce<T, A>>,
-    S::Signer: AuthorizeTarget<<WithNonce<T, A> as Action>::Target, S::Key> + Ord + Deref,
-    <S::Signer as Deref>::Target: AuthorizeTarget<<WithNonce<T, A> as Action>::Target, S::Key>,
+    S: Signature + AuthorizeSignedAction<T, WithNonce<T, A>>,
+    S::Signer: AuthorizeTarget<T, <WithNonce<T, A> as Action>::Target, S::Key> + Ord + Deref,
+    <S::Signer as Deref>::Target: AuthorizeTarget<T, <WithNonce<T, A> as Action>::Target, S::Key>,
     SI: FusedIterator<Item = SignatureWithNonce<T::BlockNumber, S>>,
 {
     /// Verifies signature and nonce for all required signers, then executes given action providing a mutable reference to the
