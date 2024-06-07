@@ -259,7 +259,7 @@ crate::did_or_did_method_key! {
             let sig = did_sig(&rem, &author_1_kp, author_1, 1);
             assert_err!(
                 AccumMod::remove_public_key(Origin::signed(1), rem, sig),
-                did::Error::<Test>::InvalidSigner
+                Error::<Test>::NotPublicKeyOwner
             );
             check_nonce(&author_1, next_nonce_1 - 1);
             let rem = RemoveAccumulatorPublicKey {
@@ -279,7 +279,7 @@ crate::did_or_did_method_key! {
             let sig = did_sig(&rem, &author_1_kp, author_1, 1);
             assert_err!(
                 AccumMod::remove_params(Origin::signed(1), rem, sig),
-                did::Error::<Test>::InvalidSigner
+                Error::<Test>::NotParamsOwner
             );
             check_nonce(&author_1, next_nonce_1 - 1);
 

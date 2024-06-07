@@ -113,7 +113,7 @@ impl<W: Get<RuntimeDbWeight>> WeightInfo for SubstrateWeight<W> {
     fn update_delegated_issuers_sr25519(i: u32) -> Weight {
         Weight::from_ref_time(62_734_000) // Standard Error: 14_000
             .saturating_add(Weight::from_ref_time(2_187_000).saturating_mul(i as u64))
-            .saturating_add(W::get().reads(4))
+            .saturating_add(W::get().reads(5))
             .saturating_add(W::get().reads((1 as u64).saturating_mul(i as u64)))
             .saturating_add(W::get().writes(2))
             .saturating_add(W::get().writes((1 as u64).saturating_mul(i as u64)))
@@ -121,7 +121,7 @@ impl<W: Get<RuntimeDbWeight>> WeightInfo for SubstrateWeight<W> {
     fn update_delegated_issuers_ed25519(i: u32) -> Weight {
         Weight::from_ref_time(62_217_000) // Standard Error: 13_000
             .saturating_add(Weight::from_ref_time(2_025_000).saturating_mul(i as u64))
-            .saturating_add(W::get().reads(4))
+            .saturating_add(W::get().reads(5))
             .saturating_add(W::get().reads((1 as u64).saturating_mul(i as u64)))
             .saturating_add(W::get().writes(2))
             .saturating_add(W::get().writes((1 as u64).saturating_mul(i as u64)))
@@ -129,7 +129,7 @@ impl<W: Get<RuntimeDbWeight>> WeightInfo for SubstrateWeight<W> {
     fn update_delegated_issuers_secp256k1(i: u32) -> Weight {
         Weight::from_ref_time(155_752_000) // Standard Error: 25_000
             .saturating_add(Weight::from_ref_time(2_269_000).saturating_mul(i as u64))
-            .saturating_add(W::get().reads(4))
+            .saturating_add(W::get().reads(5))
             .saturating_add(W::get().reads((1 as u64).saturating_mul(i as u64)))
             .saturating_add(W::get().writes(2))
             .saturating_add(W::get().writes((1 as u64).saturating_mul(i as u64)))

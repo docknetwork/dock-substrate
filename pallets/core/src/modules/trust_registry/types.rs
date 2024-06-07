@@ -71,53 +71,22 @@ impl<T: Config> StorageRef<T> for TrustRegistryIdForParticipants {
     }
 }
 
-impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidKey> for Convener
-where
-    T: Config,
-    Self: Associated<T>,
-{
-    fn ensure_authorizes_target<A>(
-        &self,
-        _: &DidKey,
-        action: &A,
-        _: Option<&<Self as Associated<T>>::Value>,
-    ) -> DispatchResult
-    where
-        A: crate::util::Action<Target = Self>,
-    {
+crate::impl_authorize_target!(
+    for Self: Convener fn (self, _, action, _) {
         ensure!(
             action.target() == *self,
             crate::did::Error::<T>::InvalidSigner
         );
-
-        Ok(())
     }
-}
-impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidMethodKey> for Convener
-where
-    T: Config,
-    Self: Associated<T>,
-{
-    fn ensure_authorizes_target<A>(
-        &self,
-        _: &DidMethodKey,
-        action: &A,
-        _: Option<&<Self as Associated<T>>::Value>,
-    ) -> DispatchResult
-    where
-        A: crate::util::Action<Target = Self>,
-    {
-        ensure!(
-            action.target() == *self,
-            crate::did::Error::<T>::InvalidSigner
-        );
+);
 
-        Ok(())
+crate::impl_authorize_target!(
+    for TrustRegistryId: Convener with Value=TrustRegistryInfo<T> => fn (self, _, _, reg_info_opt) {
+        if let Some(reg_info) = reg_info_opt {
+            self.ensure_controls(reg_info)?;
+        }
     }
-}
-
-impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for Convener {}
-impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for Convener {}
+);
 
 /// Maybe an `Issuer` or a `Verifier` but definitely not a `Convener`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -192,8 +161,6 @@ impl_wrapper!(Issuer(DidOrDidMethodKey));
 
 impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for Issuer {}
 impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for Issuer {}
-impl<T: TypesAndLimits> AuthorizeTarget<T, (), DidKey> for Issuer {}
-impl<T: TypesAndLimits> AuthorizeTarget<T, (), DidMethodKey> for Issuer {}
 
 /// Trust registry `Verifier`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -216,6 +183,7 @@ pub struct ConvenerOrIssuerOrVerifier(pub DidOrDidMethodKey);
 impl_wrapper!(ConvenerOrIssuerOrVerifier(DidOrDidMethodKey));
 
 impl ConvenerOrIssuerOrVerifier {
+    /// Ensures that underlying update is valid.
     pub fn validate_update<T, E, U>(
         &self,
         trust_registry_info: &TrustRegistryInfo<T>,
@@ -249,48 +217,14 @@ impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryIdForParticipants, DidMe
 {
 }
 
-impl<T: TypesAndLimits> AuthorizeTarget<T, (TrustRegistryId, Issuer), DidKey> for Issuer
-where
-    T: crate::did::Config,
-{
-    fn ensure_authorizes_target<A>(
-        &self,
-        _: &DidKey,
-        action: &A,
-        _: Option<&<(TrustRegistryId, Issuer) as Associated<T>>::Value>,
-    ) -> DispatchResult
-    where
-        A: crate::util::Action<Target = (TrustRegistryId, Issuer)>,
-    {
+crate::impl_authorize_target!(
+    for (TrustRegistryId, Issuer): Issuer fn (self, _, action, _) {
         ensure!(
             action.target().1 == *self,
             crate::did::Error::<T>::InvalidSigner
         );
-
-        Ok(())
     }
-}
-impl<T: TypesAndLimits> AuthorizeTarget<T, (TrustRegistryId, Issuer), DidMethodKey> for Issuer
-where
-    T: crate::did::Config,
-{
-    fn ensure_authorizes_target<A>(
-        &self,
-        _: &DidMethodKey,
-        action: &A,
-        _: Option<&<(TrustRegistryId, Issuer) as Associated<T>>::Value>,
-    ) -> DispatchResult
-    where
-        A: crate::util::Action<Target = (TrustRegistryId, Issuer)>,
-    {
-        ensure!(
-            action.target().1 == *self,
-            crate::did::Error::<T>::InvalidSigner
-        );
-
-        Ok(())
-    }
-}
+);
 
 /// Price to verify a credential. Lowest denomination should be used.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -1201,7 +1135,9 @@ impl StorageAccesses {
 
 /// An entity that has references to schemas and registries.
 pub trait HasSchemasAndRegistries<T> {
+    /// Associated `Schemas`.
     type Schemas;
+    /// Associated `Registries`.
     type Registries;
 
     fn schemas(&self, registry_id: TrustRegistryId) -> Self::Schemas;

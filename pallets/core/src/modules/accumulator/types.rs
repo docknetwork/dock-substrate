@@ -107,13 +107,15 @@ impl<T: TypesAndLimits> AuthorizeTarget<T, AccumulatorId, DidMethodKey> for Accu
 impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidKey> for AccumulatorOwner {}
 impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidMethodKey> for AccumulatorOwner {}
 crate::impl_authorize_target!(
-    for AccumPublicKeyStorageKey using DidKey, AccumPublicKeyStorageKey using DidMethodKey,
-        AccumParametersStorageKey using DidKey, AccumParametersStorageKey using DidMethodKey
-        from AccumulatorOwner by fn (self, _, action, _) {
-            ensure!(action.target().0 == *self, did::Error::<T>::InvalidSigner);
+    for AccumPublicKeyStorageKey: AccumulatorOwner fn (self, _, action, _) {
+        ensure!(action.target().0 == *self, Error::<T>::NotPublicKeyOwner);
+    }
+);
 
-            Ok(())
-        }
+crate::impl_authorize_target!(
+    for AccumParametersStorageKey: AccumulatorOwner fn (self, _, action, _) {
+        ensure!(action.target().0 == *self, Error::<T>::NotParamsOwner);
+    }
 );
 
 impl<T: TypesAndLimits> Associated<T> for AccumulatorOwner {

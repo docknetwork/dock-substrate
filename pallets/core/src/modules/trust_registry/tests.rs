@@ -6,8 +6,8 @@ use crate::{
     did::base::*,
     tests::common::*,
     util::{
-        Action, AddOrRemoveOrModify, Bytes, IncOrDec, MultiTargetUpdate, OnlyExistent, SetOrModify,
-        SingleTargetUpdate, WithNonce,
+        Action, ActionWithNonceWrapper, AddOrRemoveOrModify, Bytes, IncOrDec, MultiTargetUpdate,
+        OnlyExistent, SetOrModify, SingleTargetUpdate, WithNonce,
     },
 };
 use alloc::collections::{BTreeMap, BTreeSet};
@@ -362,7 +362,7 @@ crate::did_or_did_method_key! {
         ext().execute_with(|| {
             let mut rng = rand::thread_rng();
 
-            let (convener, _convener_kp) = newdid();
+            let (convener, convener_kp) = newdid();
             let (other, other_kp) = newdid();
             let (other_1, other_kp_1) = newdid();
             let other_schemas = (0..5)
@@ -371,6 +371,14 @@ crate::did_or_did_method_key! {
             let other_1_schemas = (0..5)
                 .map(|_| TrustRegistrySchemaId(rand::random()))
                 .collect::<BTreeSet<_>>();
+
+            let raw_delegated: Vec<_> = (0..10)
+                .map(|_| newdid())
+                .collect();
+
+            let delegated = UnboundedDelegatedIssuers(
+                raw_delegated.iter().map(|(did, _)| Issuer((*did).into())).collect()
+            );
 
             let init_or_update_trust_registry = InitOrUpdateTrustRegistry::<Test> {
                 registry_id: TrustRegistryId(rand::random()),
@@ -397,11 +405,8 @@ crate::did_or_did_method_key! {
                 }
             ).unwrap();
 
-            let delegated = UnboundedDelegatedIssuers(
-                (0..10)
-                    .map(|_| Issuer(newdid().0.into()))
-                    .collect()
-            );
+            add_participants(init_or_update_trust_registry.registry_id, raw_delegated.iter().map(|(did, pair)| (did.clone(), pair.clone())), (DidOrDidMethodKey::from(convener), convener_kp.clone())).unwrap();
+
             let update_delegated = UpdateDelegatedIssuers {
                 delegated: SetOrModify::Set(delegated.clone()),
                 registry_id: init_or_update_trust_registry.registry_id,
@@ -901,11 +906,15 @@ crate::did_or_did_method_key! {
 
             for (_schema_id, issuers) in initial_schemas_issuers {
                 for (issuer, kp) in issuers {
+                    let raw_delegated: Vec<_> = (0..10)
+                        .map(|_| newdid())
+                        .collect();
+
                     let delegated = UnboundedDelegatedIssuers(
-                        (0..10)
-                            .map(|_| Issuer(newdid().0.into()))
-                            .collect()
+                        raw_delegated.iter().map(|(did, _)| Issuer((*did).into())).collect()
                     );
+
+                    add_participants(init_or_update_trust_registry.registry_id, raw_delegated.iter().map(|(did, pair)| (did.clone(), pair.clone())), (DidOrDidMethodKey::from(convener), convener_kp.clone())).unwrap();
 
                     let update_delegated = UpdateDelegatedIssuers {
                         delegated: SetOrModify::Set(delegated.clone()),

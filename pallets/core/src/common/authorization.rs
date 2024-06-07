@@ -37,7 +37,11 @@ pub trait AuthorizeSignedAction<T: TypesAndLimits, A: Action>:
 where
     A: ToStateChange<T>,
     A::Target: Associated<T>,
+    // The signer must implement the `AuthorizeTarget` trait, which authorizes the target of the action.
+    // Additionally, the signer must implement the `Deref` trait.
     Self::Signer: AuthorizeTarget<T, A::Target, Self::Key> + Deref,
+    // The target of the dereferenced signer must also implement the `AuthorizeTarget` trait,
+    // ensuring that the underlying target is authorized for the action.
     <Self::Signer as Deref>::Target: AuthorizeTarget<T, A::Target, Self::Key>,
 {
     /// This signature allows `Self::Signer` to perform the supplied action.
@@ -53,7 +57,9 @@ where
         let encoded_state_change = action.to_state_change().encode();
 
         let signer = self.signer().ok_or(did::Error::<T>::InvalidSigner)?;
+        // Ensure that signer's underlying value authorizes supplied action.
         (*signer).ensure_authorizes_target(&signer_pubkey, action, value.as_ref().copied())?;
+        // Ensure that signer's wrapper value authorizes supplied action.
         signer.ensure_authorizes_target(&signer_pubkey, action, value.as_ref().copied())?;
 
         let ok = self

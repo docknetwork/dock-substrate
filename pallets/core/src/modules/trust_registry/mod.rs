@@ -6,8 +6,8 @@ use crate::{
     did::{self, DidOrDidMethodKeySignature},
     util::{
         batch_update::TranslateUpdate, constants::ZeroDbWeight, Action, ActionWithNonce,
-        ActionWithNonceWrapper, ActionWrapper, KeyValue, KeyedUpdate, OnlyExistent,
-        SetOrAddOrRemoveOrModify, SetOrModify, UpdateTranslationError,
+        ActionWrapper, KeyValue, KeyedUpdate, OnlyExistent, SetOrAddOrRemoveOrModify, SetOrModify,
+        UpdateTranslationError,
     },
 };
 use alloc::collections::BTreeSet;
@@ -310,18 +310,14 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            let f = ActionWithNonceWrapper::wrap_fn(
-                |action: InitOrUpdateTrustRegistry<T>, reg, signer| {
-                    action.modify_removable(|action, info| {
-                        Self::init_or_update_trust_registry_(action, reg, info, signer)
+            init_or_update_trust_registry
+                .signed(signature)
+                .execute_removable(|action, info, signer| {
+                    ActionWrapper::new(signer, action).modify(|action, set| {
+                        Self::init_or_update_trust_registry_(action.action, set, info, signer)
                             .map_err(IntermediateError::<T>::from)
                     })
-                },
-            );
-
-            init_or_update_trust_registry
-                .signed_with_signer_target(signature)?
-                .execute(f)
+                })
                 .map_err(Into::into)
         }
 

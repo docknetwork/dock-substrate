@@ -171,20 +171,37 @@ macro_rules! impl_action_with_nonce {
 
 #[macro_export]
 macro_rules! impl_authorize_target {
-    (for $($target: ident using $key: ident),+ from $actor: ident by fn($self: ident, $key_var: pat, $action_var: pat, $target_value_var: pat) $body: block) => {
-        $(
-            impl<T> AuthorizeTarget<T, $target, $key> for $actor where T: Config, $target: crate::util::Associated<T> {
-                fn ensure_authorizes_target<A>(
-                    &$self,
-                    $key_var: &$key,
-                    $action_var: &A,
-                    $target_value_var: Option<&<$target as crate::util::Associated<T>>::Value>,
-                ) -> DispatchResult
-                where
-                    A: crate::util::Action<Target = $target>,
-                     $body
+    (for $target: ty: $actor: ident $(with Value=$target_value_ty: ty =>)? fn($self: ident, $key_var: pat, $action_var: pat, $target_value_var: pat) $body: block) => {
+        impl<T> AuthorizeTarget<T, $target, DidKey> for $actor where T: Config, $target: crate::util::Associated<T$(, Value=$target_value_ty)?> {
+            fn ensure_authorizes_target<A>(
+                &$self,
+                $key_var: &DidKey,
+                $action_var: &A,
+                $target_value_var: Option<&<$target as crate::util::Associated<T>>::Value>,
+            ) -> DispatchResult
+            where
+                A: crate::util::Action<Target = $target> {
+                $body
+
+                Ok(())
             }
-        )+
+        }
+
+        impl<T> AuthorizeTarget<T, $target, DidMethodKey> for $actor where T: Config, $target: crate::util::Associated<T$(, Value=$target_value_ty)?> {
+            fn ensure_authorizes_target<A>(
+                &$self,
+                $key_var: &DidMethodKey,
+                $action_var: &A,
+                $target_value_var: Option<&<$target as crate::util::Associated<T>>::Value>,
+            ) -> DispatchResult
+            where
+                A: crate::util::Action<Target = $target> {
+                $body
+
+                Ok(())
+            }
+        }
+
     };
 }
 

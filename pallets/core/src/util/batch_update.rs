@@ -401,19 +401,6 @@ where
     }
 }
 
-impl<K, U> FromIterator<SingleTargetUpdate<K, U>> for MultiTargetUpdate<K, U>
-where
-    K: Ord,
-{
-    fn from_iter<I: IntoIterator<Item = SingleTargetUpdate<K, U>>>(iter: I) -> Self {
-        Self(
-            iter.into_iter()
-                .map(|SingleTargetUpdate { key, update }| (key, update))
-                .collect(),
-        )
-    }
-}
-
 impl<K: Ord, U> MultiTargetUpdate<K, U> {
     pub fn insert_update(&mut self, key: K, value: U) -> Result<(), DuplicateKey> {
         match self.entry(key) {

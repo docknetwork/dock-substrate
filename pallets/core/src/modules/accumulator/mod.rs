@@ -52,13 +52,23 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// The specified parameters do not exist.
         ParamsDontExist,
+        /// The specified public key does not exist.
         PublicKeyDoesntExist,
+        /// The accumulated value is too large to be processed.
         AccumulatedTooBig,
+        /// The accumulator already exists.
         AccumulatorAlreadyExists,
+        /// The specified accumulator does not exist.
         AccumulatorDoesntExist,
+        /// The caller is not the owner of the public key.
         NotPublicKeyOwner,
+        /// The caller is not the owner of the parameters.
+        NotParamsOwner,
+        /// The caller is not the owner of the accumulator.
         NotAccumulatorOwner,
+        /// The nonce provided is incorrect.
         IncorrectNonce,
     }
 

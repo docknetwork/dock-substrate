@@ -30,13 +30,11 @@ impl<T: Config> Pallet<T> {
             .try_into()
             .map_err(|_| Error::<T>::GovFrameworkSizeExceeded)?;
 
-        if let Some(existing) = info.replace(TrustRegistryInfo {
+        info.replace(TrustRegistryInfo {
             convener,
             name,
             gov_framework,
-        }) {
-            convener.ensure_controls(&existing)?;
-        }
+        });
 
         registries
             .try_insert(registry_id)
@@ -129,6 +127,9 @@ impl<T: Config> Pallet<T> {
         // Get the schema IDs associated with the issuer.
         let issuer_schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
 
+        let participants =
+            TrustRegistriesParticipants::<T>::get(TrustRegistryIdForParticipants(registry_id));
+
         // Compute the difference in issuer updates and translate update from `AddOrRemoveOrModify` to `IncOrDec`.
         let issuers_diff: MultiTargetUpdate<Issuer, IncOrDec> = delegated
             .keys_diff(&config.delegated)
@@ -144,11 +145,17 @@ impl<T: Config> Pallet<T> {
                 .collect();
             let schema_ids =
                 TrustRegistryDelegatedIssuerSchemas::<T>::get(registry_id, delegated_issuer);
+            if schema_ids.is_empty() {
+                ensure!(
+                    participants.contains(&IssuerOrVerifier(**delegated_issuer)),
+                    Error::<T>::NotAParticipant
+                );
+            }
 
             schema_ids_update.ensure_valid(&issuer, &schema_ids)?;
         }
 
-        // Apply the schema ID updates for each issuer.
+        // Apply the schema ID updates for each delegated issuer.
         for (issuer, update) in issuers_diff {
             let schema_ids_update: MultiTargetUpdate<_, IncOrDec> = issuer_schema_ids
                 .iter()
@@ -161,10 +168,9 @@ impl<T: Config> Pallet<T> {
             });
         }
 
-        // Apply the delegated updates to the overall configuration.
+        // Apply the delegated updates to the issuer configuration.
         delegated.apply_update(&mut config.delegated);
 
-        // Emit an event indicating that delegated issuers have been updated.
         Self::deposit_event(Event::DelegatedIssuersUpdated(registry_id, issuer));
 
         Ok(())
@@ -176,11 +182,9 @@ impl<T: Config> Pallet<T> {
             issuers,
             ..
         }: SuspendIssuers<T>,
-        registry_info: TrustRegistryInfo<T>,
-        convener: Convener,
+        _: TrustRegistryInfo<T>,
+        _: Convener,
     ) -> DispatchResult {
-        convener.ensure_controls::<T>(&registry_info)?;
-
         for issuer in &issuers {
             ensure!(
                 TrustRegistryIssuerSchemas::<T>::contains_key(registry_id, issuer),
@@ -209,11 +213,9 @@ impl<T: Config> Pallet<T> {
             issuers,
             ..
         }: UnsuspendIssuers<T>,
-        registry_info: TrustRegistryInfo<T>,
-        convener: Convener,
+        _: TrustRegistryInfo<T>,
+        _: Convener,
     ) -> DispatchResult {
-        convener.ensure_controls::<T>(&registry_info)?;
-
         for issuer in &issuers {
             ensure!(
                 TrustRegistryIssuerSchemas::<T>::contains_key(registry_id, issuer),
