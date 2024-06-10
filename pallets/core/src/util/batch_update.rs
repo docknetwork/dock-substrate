@@ -228,6 +228,7 @@ pub struct MultiTargetUpdate<K: Ord, U>(pub BTreeMap<K, U>);
 
 crate::impl_wrapper!(MultiTargetUpdate<K, U> where K: Ord => (BTreeMap<K, U>));
 
+// Applies the underlying updates map to the entity map containing the data.
 impl<U, C> ApplyUpdate<C> for MultiTargetUpdate<<C::Target as KeyValue>::Key, U>
 where
     C: DerefMut,
@@ -263,6 +264,7 @@ where
     U: GetUpdateKind<Option<<C::Target as KeyValue>::Value>>,
 {
     fn kind(&self, entity: &C) -> UpdateKind {
+        // If any of the underlying updates is not `None`, return `UpdateKind::Replace`; otherwise, return the default `UpdateKind`.
         self.iter()
             .any(|(key, update)| update.kind(&entity.get(key).cloned()) != UpdateKind::None)
             .then_some(UpdateKind::Replace)
@@ -329,7 +331,7 @@ where
                     }
                 })
             })
-            .collect::<Result<_, _>>()
+            .collect()
     }
 }
 

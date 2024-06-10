@@ -885,6 +885,7 @@ where
 impl<T: Config> ExecuteTrustRegistryUpdate<T>
     for Validated<SchemaIdUpdate<SchemaMetadataModification<T>>>
 {
+    /// Number of modified schema metadatas.
     type Output = u32;
 
     fn execute(self, registry_id: TrustRegistryId) -> u32 {
@@ -920,6 +921,7 @@ impl<T: Config> ExecuteTrustRegistryUpdate<T>
 }
 
 impl<T: Config> ExecuteTrustRegistryUpdate<T> for Validated<SchemaIdUpdate> {
+    /// Identifies where the trust registry stored schemas were modified.
     type Output = bool;
 
     fn execute(self, registry_id: TrustRegistryId) -> Self::Output {
@@ -943,6 +945,7 @@ impl<T: Config> ExecuteTrustRegistryUpdate<T>
         IssuersVerifiersSchemas<IssuersAndDelegatedIssuersSchemasUpdate>,
     )>
 {
+    /// Storage accesses that took place during the update execution.
     type Output = StorageAccesses;
 
     fn execute(self, registry_id: TrustRegistryId) -> StorageAccesses {
