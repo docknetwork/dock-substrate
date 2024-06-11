@@ -75,6 +75,20 @@
         url: https://download.docker.com/linux/ubuntu/gpg
         state: present
 
+    - name: Add Docker Repository (Will only run for Ubuntu/Debian)
+      when: ansible_facts['os_family'] == "Debian"
+      become: yes
+      become_method: sudo
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu bionic stable
+        state: present
+
+    - name: Update apt and install docker-ce (Will only run for Ubuntu/Debian)
+      when: ansible_facts['os_family'] == "Debian"
+      become: yes
+      become_method: sudo
+      apt: update_cache=yes name=docker-ce state=latest
+
     - name: Add group "docker", ignore if exists
       become: yes
       become_method: sudo
