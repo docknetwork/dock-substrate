@@ -77,15 +77,7 @@ impl_wrapper! { Bytes(Vec<u8>), for rand use rand::distributions::Standard.sampl
 pub struct Bytes32(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32]);
 
 crate::impl_wrapper! { Bytes32([u8; 32]) }
-
-impl core::fmt::Debug for Bytes32 {
-    fn fmt(
-        &self,
-        f: &mut scale_info::prelude::fmt::Formatter<'_>,
-    ) -> scale_info::prelude::fmt::Result {
-        write!(f, "0x{}", ::hex::encode(&self.0[..]))
-    }
-}
+crate::hex_debug!(Bytes32);
 
 impl Index<RangeFull> for Bytes32 {
     type Output = [u8; 32];
@@ -118,15 +110,7 @@ macro_rules! struct_over_byte_array {
             pub [u8; $size]
         );
 
-        impl core::fmt::Debug for $name {
-            fn fmt(
-                &self,
-                f: &mut scale_info::prelude::fmt::Formatter<'_>,
-            ) -> scale_info::prelude::fmt::Result {
-                write!(f, "0x{}", ::hex::encode(&self.0[..]))
-            }
-        }
-
+        $crate::hex_debug!($name);
         $crate::impl_wrapper! { $name([u8; $size]) }
 
         /// Implementing Default as it cannot be automatically derived for arrays of size > 32

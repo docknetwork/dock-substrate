@@ -2,13 +2,15 @@
 
 use crate::{
     accumulator, anchor, attest, blob,
-    common::{self, StateChange, ToStateChange},
+    common::{self, StateChange, ToStateChange, Types},
     did::{
-        self, Did, DidKey, DidMethodKeySignature, DidOrDidMethodKey, DidOrDidMethodKeySignature,
-        DidSignature,
+        self, Did, DidDetailsOrDidMethodKeyDetails, DidKey, DidMethodKeySignature,
+        DidOrDidMethodKey, DidOrDidMethodKeySignature, DidSignature,
     },
     master, offchain_signatures, revoke, status_list_credential, trust_registry,
+    util::{ActionWrapper, WithNonce},
 };
+use sp_runtime::DispatchError;
 
 use crate::{
     common::SigValue,
@@ -284,6 +286,7 @@ impl crate::common::Limits for Test {
     type MaxRegistriesPerVerifier = ConstU32<250>;
     type MaxSchemasPerRegistry = ConstU32<1_000>;
     type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
+    type MaxParticipantsPerRegistry = ConstU32<10_000>;
 }
 
 impl crate::did::Config for Test {
@@ -379,17 +382,17 @@ pub fn gen_kp() -> sr25519::Pair {
 // concern), but that doesn't matter for our purposes.
 pub fn create_did(did: did::Did) -> sr25519::Pair {
     let kp = gen_kp();
-    println!("did pk: {:?}", kp.public().0);
+    let did_pk = DidKey::new_with_all_relationships(kp.public());
+    println!("did pk: {:?}", did_pk.public_key());
+
     did::Pallet::<Test>::new_onchain(
         Origin::signed(ABBA),
         did,
-        vec![
-            DidKey::new_with_all_relationships(common::PublicKey::Sr25519(kp.public().0.into()))
-                .into(),
-        ],
-        vec![].into_iter().collect(),
+        vec![did_pk.into()],
+        Default::default(),
     )
     .unwrap();
+
     kp
 }
 
@@ -445,6 +448,22 @@ macro_rules! did_or_did_method_key {
             $($tt)+
         }
     }
+}
+
+pub fn did_nonce<T: crate::did::Config, D: Into<DidOrDidMethodKey>>(
+    did: D,
+) -> Result<<T as Types>::BlockNumber, DispatchError> {
+    use crate::util::Action;
+    use core::marker::PhantomData;
+
+    struct DummyAction<T>(PhantomData<T>);
+    crate::impl_action!(for (): DummyAction with 1 as len, () as target no_state_change);
+
+    ActionWrapper::new(did.into(), DummyAction(PhantomData::<T>)).view(
+        |_, details: WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>| {
+            Ok::<_, DispatchError>(details.next_nonce().unwrap())
+        },
+    )
 }
 
 pub fn did_sig<T: crate::did::Config, A: ToStateChange<T>, D: Into<DidOrDidMethodKey>, P: Pair>(

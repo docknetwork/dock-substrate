@@ -40,9 +40,11 @@ impl<T: Config> TryFrom<StoredDidDetails<T>> for StoredOnChainDidDetails<T> {
     }
 }
 
-impl<T: Config> StorageRef<T> for Did {
+impl<T: TypesAndLimits> Associated<T> for Did {
     type Value = StoredDidDetails<T>;
+}
 
+impl<T: Config> StorageRef<T> for Did {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<StoredDidDetails<T>>) -> Result<R, E>,
@@ -121,7 +123,7 @@ impl<T: Config> Pallet<T> {
         details: &mut Option<OnChainDidDetails>,
     ) -> DispatchResult {
         // This will result in the removal of DID from storage map `Dids`
-        details.take();
+        details.take().ok_or(Error::<T>::OnchainDidDoesntExist)?;
 
         // TODO: limit and cursor
         let _ = DidKeys::<T>::clear_prefix(did, u32::MAX, None);

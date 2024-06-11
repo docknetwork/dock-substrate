@@ -49,7 +49,7 @@ crate::did_or_did_method_key! {
         fn add(size: usize, block_no: u64) {
             run_to_block(block_no);
 
-            let id: BlobId = rand::random();
+            let id = BlobId(rand::random());
             let noise = random_bytes(size);
             let (author, author_kp) = newdid();
             assert_eq!(Blobs::<Test>::get(id), None);
@@ -86,7 +86,7 @@ crate::did_or_did_method_key! {
 
             let (author, author_kp) = newdid();
             let noise = random_bytes(size);
-            let id = rand::random();
+            let id = BlobId(rand::random());
             assert_eq!(Blobs::<Test>::get(id), None);
             check_nonce(&author, block_no);
             assert!(
@@ -107,7 +107,7 @@ crate::did_or_did_method_key! {
             run_to_block(10);
 
             // Adding a blob with already used id fails with error BlobAlreadyExists.
-            let id = rand::random();
+            let id = BlobId(rand::random());
             let (author, author_kp) = newdid();
             assert_eq!(Blobs::<Test>::get(id), None);
             check_nonce(&author, 10);
@@ -141,7 +141,7 @@ crate::did_or_did_method_key! {
             // Adding a blob with an unregistered DID fails with error DidDoesNotExist.
             let author = BlobOwner(Did(rand::random()).into());
             let author_kp = gen_kp();
-            let err = create_blob(rand::random(), random_bytes(10), author, author_kp, 10 + 1)
+            let err = create_blob(BlobId(rand::random()), random_bytes(10), author, author_kp, 10 + 1)
                 .unwrap_err();
             assert_eq!(err, did::Error::<Test>::NoKeyForDid.into());
         });
@@ -155,7 +155,7 @@ crate::did_or_did_method_key! {
                 // An invalid signature while adding a blob should fail with error InvalidSignature.
                 let (author, author_kp) = newdid();
                 let bl = Blob {
-                    id: rand::random(),
+                    id: BlobId(rand::random()),
                     blob: random_bytes(10).try_into().unwrap(),
                 };
                 let att = crate::attest::SetAttestationClaim::<Test> {
@@ -186,7 +186,7 @@ crate::did_or_did_method_key! {
                 let (author, _) = newdid();
                 let (_, author_kp) = newdid();
                 let bl = Blob {
-                    id: rand::random(),
+                    id: BlobId(rand::random()),
                     blob: random_bytes(10).try_into().unwrap(),
                 };
                 check_nonce(&author, 20);

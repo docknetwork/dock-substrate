@@ -1,15 +1,12 @@
 use crate::{
-    common::{self, signatures::ForSigType, CurveType},
+    common::{self, CurveType, ForSigType},
     did,
     did::DidOrDidMethodKeySignature,
-    util::{ActionWithNonce, ActionWrapper, Bytes, IncId},
+    util::{ActionWithNonce, ActionWithNonceWrapper, Bytes, IncId},
 };
 pub use actions::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-    dispatch::{DispatchResult, Weight},
-    ensure,
-};
+use frame_support::{dispatch::DispatchResult, ensure, weights::Weight};
 use sp_std::{fmt::Debug, prelude::*};
 use utils::CheckedDivCeil;
 
@@ -55,12 +52,23 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// The specified parameters do not exist.
         ParamsDontExist,
+        /// The specified public key does not exist.
         PublicKeyDoesntExist,
+        /// The accumulated value is too large to be processed.
         AccumulatedTooBig,
+        /// The accumulator already exists.
         AccumulatorAlreadyExists,
+        /// The specified accumulator does not exist.
+        AccumulatorDoesntExist,
+        /// The caller is not the owner of the public key.
         NotPublicKeyOwner,
+        /// The caller is not the owner of the parameters.
+        NotParamsOwner,
+        /// The caller is not the owner of the accumulator.
         NotAccumulatorOwner,
+        /// The nonce provided is incorrect.
         IncorrectNonce,
     }
 
@@ -155,7 +163,8 @@ pub mod pallet {
 
             params
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::add_params_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::add_params_))
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
@@ -168,7 +177,8 @@ pub mod pallet {
 
             public_key
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::add_public_key_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::add_public_key_))
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
@@ -179,7 +189,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            remove.signed(signature).execute_view(Self::remove_params_)
+            remove
+                .signed(signature)
+                .execute_removable(Self::remove_params_)
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
@@ -192,7 +205,8 @@ pub mod pallet {
 
             remove
                 .signed(signature)
-                .execute_view(Self::remove_public_key_)
+                .execute_removable(Self::remove_public_key_)
+                .map_err(Into::into)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -210,7 +224,8 @@ pub mod pallet {
 
             add_accumulator
                 .signed(signature)
-                .execute(Self::add_accumulator_)
+                .execute_removable(Self::add_accumulator_)
+                .map_err(Into::into)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -226,7 +241,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            update.signed(signature).execute(Self::update_accumulator_)
+            update
+                .signed(signature)
+                .execute(Self::update_accumulator_)
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_accumulator(remove, signature))]
@@ -240,6 +258,7 @@ pub mod pallet {
             remove
                 .signed(signature)
                 .execute_removable(Self::remove_accumulator_)
+                .map_err(Into::into)
         }
     }
 }

@@ -1,5 +1,5 @@
 use super::*;
-use crate::{tests::common::*, util::ActionExecutionError};
+use crate::tests::common::*;
 use frame_support::assert_err;
 use sp_core::{Hasher, H256};
 
@@ -47,7 +47,7 @@ crate::did_or_did_method_key! {
                 .map(
                     |accumulated| Accumulator::<Test>::Positive(AccumulatorCommon {
                         accumulated,
-                        key_ref: (author, 1u8.into()),
+                        key_ref: AccumPublicKeyStorageKey(author, 1u8.into()),
                     })
                 )
                 .is_err());
@@ -55,7 +55,7 @@ crate::did_or_did_method_key! {
             let id = AccumulatorId(rand::random());
 
             let accumulator = Accumulator::Positive(AccumulatorCommon {
-                key_ref: (author, 1u8.into()),
+                key_ref: AccumPublicKeyStorageKey(author, 1u8.into()),
                 accumulated: vec![3; 100].try_into().unwrap(),
             });
 
@@ -108,7 +108,7 @@ crate::did_or_did_method_key! {
             let id = AccumulatorId(rand::random());
             let accumulator = Accumulator::Positive(AccumulatorCommon {
                 accumulated: vec![3; 32].try_into().unwrap(),
-                key_ref: (author, 1u8.into()),
+                key_ref: AccumPublicKeyStorageKey(author, 1u8.into()),
             });
             let add_accum = AddAccumulator {
                 id,
@@ -146,7 +146,7 @@ crate::did_or_did_method_key! {
             let sig = did_sig(&update_accum, &author_kp, author, 1);
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                ActionExecutionError::NoEntity
+                did::Error::<Test>::NoEntity
             );
 
             update_accum.id = id;
@@ -199,7 +199,7 @@ crate::did_or_did_method_key! {
             let sig = did_sig(&update_accum, &author_kp, author, 1);
             assert_err!(
                 AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                sp_runtime::DispatchError::Other("Incorrect nonce")
+                crate::did::Error::<Test>::InvalidNonce
             );
             check_nonce(&author, next_nonce - 1);
 
@@ -253,17 +253,17 @@ crate::did_or_did_method_key! {
 
             // Only key owner can remove it
             let rem = RemoveAccumulatorPublicKey {
-                key_ref: (author, 1u8.into()),
+                key_ref: AccumPublicKeyStorageKey(author, 1u8.into()),
                 nonce: next_nonce_1,
             };
             let sig = did_sig(&rem, &author_1_kp, author_1, 1);
             assert_err!(
                 AccumMod::remove_public_key(Origin::signed(1), rem, sig),
-                Error::<Test>::NotAccumulatorOwner
+                Error::<Test>::NotPublicKeyOwner
             );
             check_nonce(&author_1, next_nonce_1 - 1);
             let rem = RemoveAccumulatorPublicKey {
-                key_ref: (author, 1u8.into()),
+                key_ref: AccumPublicKeyStorageKey(author, 1u8.into()),
                 nonce: next_nonce,
             };
             let sig: DidOrDidMethodKeySignature<AccumulatorOwner> = did_sig(&rem, &author_kp, author, 1);
@@ -273,18 +273,18 @@ crate::did_or_did_method_key! {
 
             // Only params owner can remove it
             let rem = RemoveAccumulatorParams {
-                params_ref: (author, 1u8.into()),
+                params_ref: AccumParametersStorageKey(author, 1u8.into()),
                 nonce: next_nonce_1,
             };
             let sig = did_sig(&rem, &author_1_kp, author_1, 1);
             assert_err!(
                 AccumMod::remove_params(Origin::signed(1), rem, sig),
-                Error::<Test>::NotAccumulatorOwner
+                Error::<Test>::NotParamsOwner
             );
             check_nonce(&author_1, next_nonce_1 - 1);
 
             let rem = RemoveAccumulatorParams {
-                params_ref: (author, 1u8.into()),
+                params_ref: AccumParametersStorageKey(author, 1u8.into()),
                 nonce: next_nonce,
             };
             let sig = did_sig(&rem, &author_kp, author, 1);
@@ -368,7 +368,7 @@ crate::did_or_did_method_key! {
                 ($id: ident, $key_id: expr, $created_at: expr) => {{
                     let accumulator = Accumulator::Positive(AccumulatorCommon {
                         accumulated: vec![3; 32].try_into().unwrap(),
-                        key_ref: (author, $key_id.into()),
+                        key_ref: AccumPublicKeyStorageKey(author, $key_id.into()),
                     });
                     let add_accum = AddAccumulator {
                         id: $id,
@@ -409,7 +409,7 @@ crate::did_or_did_method_key! {
                     let sig = did_sig(&update_accum, &author_kp, author, 1);
                     assert_err!(
                         AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                        sp_runtime::DispatchError::Other("Incorrect nonce")
+                        crate::did::Error::<Test>::InvalidNonce
                     );
                     check_nonce(&author, next_nonce - 1);
 
@@ -417,7 +417,7 @@ crate::did_or_did_method_key! {
                     let sig = did_sig(&update_accum, &author_kp, author, 1);
                     assert_err!(
                         AccumMod::update_accumulator(Origin::signed(1), update_accum.clone(), sig),
-                        sp_runtime::DispatchError::Other("Incorrect nonce")
+                        crate::did::Error::<Test>::InvalidNonce
                     );
                     check_nonce(&author, next_nonce - 1);
 
@@ -429,7 +429,7 @@ crate::did_or_did_method_key! {
 
                     let accumulator = Accumulator::Positive(AccumulatorCommon {
                         accumulated: vec![4; 32].try_into().unwrap(),
-                        key_ref: (author, $key_id.into()),
+                        key_ref: AccumPublicKeyStorageKey(author, $key_id.into()),
                     });
                     assert_eq!(
                         Accumulators::<Test>::get($id),
@@ -462,7 +462,7 @@ crate::did_or_did_method_key! {
 
                     let accumulator = Accumulator::Positive(AccumulatorCommon {
                         accumulated: vec![5; 32].try_into().unwrap(),
-                        key_ref: (author, $key_id.into()),
+                        key_ref: AccumPublicKeyStorageKey(author, $key_id.into()),
                     });
                     assert_eq!(
                         Accumulators::<Test>::get($id),
@@ -487,7 +487,7 @@ crate::did_or_did_method_key! {
                     let sig = did_sig(&rem_accum, &author_kp, author, 1);
                     assert_err!(
                         AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig),
-                        sp_runtime::DispatchError::Other("Incorrect nonce")
+                        crate::did::Error::<Test>::InvalidNonce
                     );
                     check_nonce(&author, next_nonce - 1);
 
@@ -495,7 +495,7 @@ crate::did_or_did_method_key! {
                     let sig = did_sig(&rem_accum, &author_kp, author, 1);
                     assert_err!(
                         AccumMod::remove_accumulator(Origin::signed(1), rem_accum.clone(), sig),
-                        sp_runtime::DispatchError::Other("Incorrect nonce")
+                        crate::did::Error::<Test>::InvalidNonce
                     );
                     check_nonce(&author, next_nonce - 1);
 
@@ -533,7 +533,7 @@ crate::did_or_did_method_key! {
             let id3 = AccumulatorId(rand::random());
             let accumulator = Accumulator::Positive(AccumulatorCommon {
                 accumulated: vec![3; 32].try_into().unwrap(),
-                key_ref: (author, 2_u32.into()),
+                key_ref: AccumPublicKeyStorageKey(author, 2_u32.into()),
             });
             let add_accum = AddAccumulator {
                 id: id3,

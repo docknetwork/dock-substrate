@@ -1,15 +1,18 @@
-use super::{Config, ConvenerTrustRegistries, Error, TrustRegistriesInfo};
+use super::{
+    Config, ConvenerTrustRegistries, Error, TrustRegistriesInfo, TrustRegistriesParticipants,
+};
 use crate::{
-    common::{AuthorizeTarget, Limits},
+    common::{AuthorizeTarget, Limits, TypesAndLimits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
-    impl_wrapper,
-    util::{batch_update::*, BoundedBytes, KeyValue, OptionExt, StorageRef},
+    hex_debug, impl_wrapper,
+    util::{batch_update::*, Associated, BoundedBytes, KeyValue, OptionExt, StorageRef},
 };
 use alloc::collections::BTreeMap;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, num::NonZeroU32};
 use frame_support::{traits::Get, weights::Weight, *};
 use scale_info::prelude::string::String;
+use sp_runtime::DispatchResult;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 use utils::BoundedString;
 
@@ -28,9 +31,11 @@ pub struct Convener(pub DidOrDidMethodKey);
 
 impl_wrapper!(Convener(DidOrDidMethodKey));
 
-impl<T: Config> StorageRef<T> for Convener {
+impl<T: TypesAndLimits> Associated<T> for Convener {
     type Value = TrustRegistryIdSet<T>;
+}
 
+impl<T: Config> StorageRef<T> for Convener {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<TrustRegistryIdSet<T>>) -> Result<R, E>,
@@ -46,10 +51,42 @@ impl<T: Config> StorageRef<T> for Convener {
     }
 }
 
-impl AuthorizeTarget<Self, DidKey> for Convener {}
-impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
-impl AuthorizeTarget<Self, DidMethodKey> for Convener {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
+impl<T: TypesAndLimits> Associated<T> for TrustRegistryIdForParticipants {
+    type Value = TrustRegistryStoredParticipants<T>;
+}
+
+impl<T: Config> StorageRef<T> for TrustRegistryIdForParticipants {
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryStoredParticipants<T>>) -> Result<R, E>,
+    {
+        TrustRegistriesParticipants::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryStoredParticipants<T>>) -> R,
+    {
+        f(Some(TrustRegistriesParticipants::<T>::get(self)))
+    }
+}
+
+crate::impl_authorize_target!(
+    for Self: Convener fn (self, _, action, _) {
+        ensure!(
+            action.target() == *self,
+            crate::did::Error::<T>::InvalidSigner
+        );
+    }
+);
+
+crate::impl_authorize_target!(
+    for TrustRegistryId: Convener with Value=TrustRegistryInfo<T> => fn (self, _, _, reg_info_opt) {
+        if let Some(reg_info) = reg_info_opt {
+            self.ensure_controls(reg_info)?;
+        }
+    }
+);
 
 /// Maybe an `Issuer` or a `Verifier` but definitely not a `Convener`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -60,6 +97,23 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 pub struct IssuerOrVerifier(pub DidOrDidMethodKey);
 
 impl_wrapper!(IssuerOrVerifier(DidOrDidMethodKey));
+
+pub struct IssuersOrVerifiers(pub BTreeSet<IssuerOrVerifier>);
+
+impl_wrapper!(IssuersOrVerifiers(BTreeSet<IssuerOrVerifier>));
+
+impl IssuersOrVerifiers {
+    pub fn issuers(&self) -> BTreeSet<Issuer> {
+        self.0.iter().copied().map(|did| Issuer(*did)).collect()
+    }
+
+    pub fn verifiers(&self) -> BTreeSet<Verifier> {
+        self.0.iter().copied().map(|did| Verifier(*did)).collect()
+    }
+}
+
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for IssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for IssuerOrVerifier {}
 
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -81,11 +135,15 @@ pub struct IssuerAndVerifier(pub DidOrDidMethodKey);
 impl_wrapper!(IssuerAndVerifier(DidOrDidMethodKey));
 
 impl Convener {
-    pub fn ensure_controls<T: Limits>(
+    pub fn controls<T: Limits>(
         &self,
         TrustRegistryInfo { convener, .. }: &TrustRegistryInfo<T>,
-    ) -> Result<(), Error<T>> {
-        ensure!(convener == self, Error::<T>::NotTheConvener);
+    ) -> bool {
+        convener == self
+    }
+
+    pub fn ensure_controls<T: Config>(&self, info: &TrustRegistryInfo<T>) -> Result<(), Error<T>> {
+        ensure!(self.controls(info), Error::<T>::NotTheConvener);
 
         Ok(())
     }
@@ -101,10 +159,8 @@ pub struct Issuer(pub DidOrDidMethodKey);
 
 impl_wrapper!(Issuer(DidOrDidMethodKey));
 
-impl AuthorizeTarget<TrustRegistryId, DidKey> for Issuer {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Issuer {}
-impl AuthorizeTarget<(), DidKey> for Issuer {}
-impl AuthorizeTarget<(), DidMethodKey> for Issuer {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for Issuer {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for Issuer {}
 
 /// Trust registry `Verifier`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -127,6 +183,7 @@ pub struct ConvenerOrIssuerOrVerifier(pub DidOrDidMethodKey);
 impl_wrapper!(ConvenerOrIssuerOrVerifier(DidOrDidMethodKey));
 
 impl ConvenerOrIssuerOrVerifier {
+    /// Ensures that underlying update is valid.
     pub fn validate_update<T, E, U>(
         &self,
         trust_registry_info: &TrustRegistryInfo<T>,
@@ -137,10 +194,7 @@ impl ConvenerOrIssuerOrVerifier {
         U: ValidateUpdate<Convener, E> + ValidateUpdate<IssuerOrVerifier, E>,
         T: Limits,
     {
-        if Convener(**self)
-            .ensure_controls(trust_registry_info)
-            .is_ok()
-        {
+        if Convener(**self).controls(trust_registry_info) {
             update.ensure_valid(&Convener(**self), entity)
         } else {
             update.ensure_valid(&IssuerOrVerifier(**self), entity)
@@ -148,8 +202,29 @@ impl ConvenerOrIssuerOrVerifier {
     }
 }
 
-impl AuthorizeTarget<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryIdForParticipants, DidKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryIdForParticipants, DidMethodKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+
+crate::impl_authorize_target!(
+    for (TrustRegistryId, Issuer): Issuer fn (self, _, action, _) {
+        ensure!(
+            action.target().1 == *self,
+            crate::did::Error::<T>::InvalidSigner
+        );
+    }
+);
 
 /// Price to verify a credential. Lowest denomination should be used.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -441,8 +516,11 @@ impl<T: Limits> TryFrom<UnboundedDelegatedIssuers> for DelegatedIssuers<T> {
     }
 }
 
-pub type UnboundedDelegatedUpdate =
+pub type UnboundedDelegatedIssuersUpdate =
     SetOrModify<UnboundedDelegatedIssuers, MultiTargetUpdate<Issuer, AddOrRemoveOrModify<()>>>;
+
+pub type UnboundedTrustRegistryParticipantsUpdate =
+    MultiTargetUpdate<IssuerOrVerifier, AddOrRemoveOrModify<()>>;
 
 #[derive(
     Encode,
@@ -704,6 +782,33 @@ pub struct TrustRegistryStoredSchemas<T: Limits>(
 
 impl_wrapper!(TrustRegistryStoredSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerRegistry>));
 
+/// Set of `Trust Registry` participants.
+#[derive(
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistryStoredParticipants<T: Limits>(
+    #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
+    pub  BoundedBTreeSet<IssuerOrVerifier, T::MaxParticipantsPerRegistry>,
+);
+
+impl_wrapper!(TrustRegistryStoredParticipants<T> where T: Limits => (BoundedBTreeSet<IssuerOrVerifier, T::MaxParticipantsPerRegistry>));
+
 /// Set of schemas corresponding to an `Issuer`.
 #[derive(
     Encode,
@@ -903,7 +1008,7 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
 }
 
 /// Unique identifier for the `Trust Registry`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -911,10 +1016,23 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
 pub struct TrustRegistryId(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32]);
 
 impl_wrapper!(TrustRegistryId([u8; 32]));
+hex_debug!(TrustRegistryId);
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistryIdForParticipants(pub TrustRegistryId);
+
+impl_wrapper!(TrustRegistryIdForParticipants(TrustRegistryId));
+hex_debug!(TrustRegistryIdForParticipants);
+
+impl<T: Limits> Associated<T> for TrustRegistryId {
+    type Value = TrustRegistryInfo<T>;
+}
 
 impl<T: Config> StorageRef<T> for TrustRegistryId {
-    type Value = TrustRegistryInfo<T>;
-
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<TrustRegistryInfo<T>>) -> Result<R, E>,
@@ -930,8 +1048,32 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
     }
 }
 
+impl<T: TypesAndLimits> Associated<T> for (TrustRegistryId, Issuer) {
+    type Value = TrustRegistryIssuerConfiguration<T>;
+}
+
+impl<T: Config> StorageRef<T> for (TrustRegistryId, Issuer) {
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryIssuerConfiguration<T>>) -> Result<R, E>,
+    {
+        super::TrustRegistryIssuerConfigurations::<T>::try_mutate_exists(self.0, self.1, |opt| {
+            f(opt.initialized())
+        })
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryIssuerConfiguration<T>>) -> R,
+    {
+        f(Some(super::TrustRegistryIssuerConfigurations::<T>::get(
+            self.0, self.1,
+        )))
+    }
+}
+
 /// Unique identifier for the `Trust Registry`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -941,6 +1083,7 @@ pub struct TrustRegistrySchemaId(
 );
 
 impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
+hex_debug!(TrustRegistrySchemaId);
 
 /// Number of times storage entities were accessed.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
@@ -992,7 +1135,9 @@ impl StorageAccesses {
 
 /// An entity that has references to schemas and registries.
 pub trait HasSchemasAndRegistries<T> {
+    /// Associated `Schemas`.
     type Schemas;
+    /// Associated `Registries`.
     type Registries;
 
     fn schemas(&self, registry_id: TrustRegistryId) -> Self::Schemas;

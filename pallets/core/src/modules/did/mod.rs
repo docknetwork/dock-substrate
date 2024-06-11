@@ -45,6 +45,8 @@ pub mod tests;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use self::common::PolicyValidationError;
+
     use super::*;
     #[cfg(feature = "std")]
     use alloc::collections::BTreeMap;
@@ -85,37 +87,72 @@ pub mod pallet {
     pub enum Error<T> {
         /// Given public key is not of the correct size
         PublicKeySizeIncorrect,
-        /// There is already a DID with same value
+        /// There is already a DID with the same value
         DidAlreadyExists,
-        /// There is already a DID key with same value
+        /// There is already a DID key with the same value
         DidMethodKeyExists,
         /// There is no such DID registered
         DidDoesNotExist,
+        /// The DID is not an off-chain DID
         NotAnOffChainDid,
+        /// The DID is not owned by the account
         DidNotOwnedByAccount,
+        /// No controller was provided for the DID
         NoControllerProvided,
-        /// The provided key type is not comptaible with the provided verification relationship
+        /// The provided key type is not compatible with the provided verification relationship
         IncompatibleVerificationRelation,
+        /// The DID is expected to be an off-chain DID
         ExpectedOffChainDid,
+        /// The DID is expected to be an on-chain DID
         ExpectedOnChainDid,
+        /// The provided signature is invalid
         InvalidSignature,
-        /// Only controller of a DID can update the DID Doc
+        /// Only the controller of a DID can update the DID Document
         OnlyControllerCanUpdate,
+        /// No key found for the DID
         NoKeyForDid,
+        /// No controller found for the DID
         NoControllerForDid,
+        /// The signer is invalid
         InvalidSigner,
+        /// The signature is incompatible with the provided public key
         IncompatibleSignaturePublicKey,
         /// The key does not have the required verification relationship
         InsufficientVerificationRelationship,
+        /// The controller is already added for the DID
         ControllerIsAlreadyAdded,
+        /// The service endpoint is invalid
         InvalidServiceEndpoint,
+        /// The service endpoint already exists
         ServiceEndpointAlreadyExists,
+        /// The service endpoint does not exist
         ServiceEndpointDoesNotExist,
+        /// Key agreement key cannot be used for signing
         KeyAgreementCantBeUsedForSigning,
+        /// Signing key cannot be used for key agreement
         SigningKeyCantBeUsedForKeyAgreement,
+        /// A DID was expected
         ExpectedDid,
+        /// A DID method key was expected
         ExpectedDidMethodKey,
+        /// The provided nonce is invalid
         InvalidNonce,
+        /// The on-chain DID does not exist
+        OnchainDidDoesntExist,
+        /// The entity does not exist
+        NoEntity,
+        /// The payload is empty
+        EmptyPayload,
+        /// Conversion failed
+        ConversionError,
+        /// Not enough signatures provided
+        NotEnoughSignatures,
+        /// Too many signatures provided
+        TooManySignatures,
+        /// Policy can't be empty (have zero controllers)
+        EmptyPolicy,
+        /// Policy can't have so many controllers
+        TooManyControllersInPolicy,
     }
 
     impl<T: Config> From<NonceError> for Error<T> {
@@ -127,6 +164,28 @@ pub mod pallet {
     impl<T: Config> From<VerificationError> for Error<T> {
         fn from(VerificationError::IncompatibleKey: VerificationError) -> Self {
             Self::IncompatibleSignaturePublicKey
+        }
+    }
+
+    impl<T: Config> From<ActionExecutionError> for Error<T> {
+        fn from(error: ActionExecutionError) -> Self {
+            match error {
+                ActionExecutionError::NoEntity => Self::NoEntity,
+                ActionExecutionError::EmptyPayload => Self::EmptyPayload,
+                ActionExecutionError::ConversionError => Self::ConversionError,
+                ActionExecutionError::InvalidSigner => Self::InvalidSigner,
+                ActionExecutionError::NotEnoughSignatures => Self::NotEnoughSignatures,
+                ActionExecutionError::TooManySignatures => Self::TooManySignatures,
+            }
+        }
+    }
+
+    impl<T: Config> From<PolicyValidationError> for Error<T> {
+        fn from(error: PolicyValidationError) -> Self {
+            match error {
+                PolicyValidationError::Empty => Self::EmptyPolicy,
+                PolicyValidationError::TooManyControllers => Self::TooManyControllersInPolicy,
+            }
         }
     }
 
@@ -213,6 +272,18 @@ pub mod pallet {
 
     #[pallet::call]
     impl<T: Config> Pallet<T> {
+        /// Creates a new offchain DID (Decentralized Identifier) entry.
+        ///
+        /// This function is used to create a new offchain DID entry by providing a reference to an offchain DID document.
+        ///
+        /// # Parameters
+        ///
+        /// - `origin`: The origin of the call, which determines who is making the request.
+        /// - `did`: The decentralized identifier (DID) that uniquely identifies the entity.
+        /// - `did_doc_ref`: The new reference to the offchain DID document. It can be one of the following:
+        ///   - `CID`: A Content Identifier as per [multiformats/cid](https://github.com/multiformats/cid).
+        ///   - `URL`: A URL pointing to the DID document.
+        ///   - `Custom`: A custom encoding of the reference.
         #[pallet::weight(SubstrateWeight::<T>::new_offchain(did_doc_ref.len()))]
         pub fn new_offchain(
             origin: OriginFor<T>,
@@ -225,6 +296,18 @@ pub mod pallet {
             Self::new_offchain_(did_owner, did, did_doc_ref).map_err(Into::into)
         }
 
+        /// Updates the offchain DID document reference for an existing DID.
+        ///
+        /// This function is used to set or update the reference to the offchain DID document for a given DID. The offchain DID document reference can be one of the following types: CID, URL, or Custom.
+        ///
+        /// # Parameters
+        ///
+        /// - `origin`: The origin of the call, which determines who is making the request and their permissions.
+        /// - `did`: The decentralized identifier (DID) that uniquely identifies the entity whose DID document reference is being updated.
+        /// - `did_doc_ref`: The new reference to the offchain DID document. It can be one of the following:
+        ///   - `CID`: A Content Identifier as per [multiformats/cid](https://github.com/multiformats/cid).
+        ///   - `URL`: A URL pointing to the DID document.
+        ///   - `Custom`: A custom encoding of the reference.
         #[pallet::weight(SubstrateWeight::<T>::set_offchain_did_doc_ref(did_doc_ref.len()))]
         pub fn set_offchain_did_doc_ref(
             origin: OriginFor<T>,
@@ -236,6 +319,14 @@ pub mod pallet {
             Self::set_offchain_did_doc_ref_(caller, did, did_doc_ref).map_err(Into::into)
         }
 
+        /// Removes an existing offchain DID entry.
+        ///
+        /// This function is used to remove an offchain DID entry from the system. This operation deletes the DID and its associated offchain DID document reference.
+        ///
+        /// # Parameters
+        ///
+        /// - `origin`: The origin of the call, which determines who is making the request and their permissions.
+        /// - `did`: The decentralized identifier (DID) that uniquely identifies the entity to be removed.
         #[pallet::weight(SubstrateWeight::<T>::remove_offchain_did())]
         pub fn remove_offchain_did(origin: OriginFor<T>, did: Did) -> DispatchResult {
             let caller = ensure_signed(origin)?;

@@ -18,7 +18,7 @@ impl<T: Config> Pallet<T> {
         StoredAccumulatorOwnerCounters { key_counter, .. }: &mut StoredAccumulatorOwnerCounters,
         owner: AccumulatorOwner,
     ) -> DispatchResult {
-        if let Some((acc_owner, params_id)) = public_key.params_ref {
+        if let Some(AccumParametersStorageKey(acc_owner, params_id)) = public_key.params_ref {
             ensure!(
                 AccumulatorParams::<T>::contains_key(acc_owner, params_id),
                 Error::<T>::ParamsDontExist
@@ -33,20 +33,15 @@ impl<T: Config> Pallet<T> {
 
     pub(super) fn remove_params_(
         RemoveAccumulatorParams {
-            params_ref: (did, counter),
+            params_ref: AccumParametersStorageKey(did, counter),
             ..
         }: RemoveAccumulatorParams<T>,
-        (): (),
-        owner: AccumulatorOwner,
+        accumulator_params: &mut Option<AccumulatorParameters<T>>,
+        _: AccumulatorOwner,
     ) -> DispatchResult {
-        // Only the DID that added the param can remove it
-        ensure!(did == owner, Error::<T>::NotAccumulatorOwner);
-        ensure!(
-            AccumulatorParams::<T>::contains_key(did, counter),
-            Error::<T>::ParamsDontExist
-        );
-
-        AccumulatorParams::<T>::remove(did, counter);
+        accumulator_params
+            .take()
+            .ok_or(Error::<T>::ParamsDontExist)?;
 
         Self::deposit_event(Event::ParamsRemoved(did, counter));
         Ok(())
@@ -54,19 +49,15 @@ impl<T: Config> Pallet<T> {
 
     pub(super) fn remove_public_key_(
         RemoveAccumulatorPublicKey {
-            key_ref: (did, counter),
+            key_ref: AccumPublicKeyStorageKey(did, counter),
             ..
         }: RemoveAccumulatorPublicKey<T>,
-        (): (),
-        owner: AccumulatorOwner,
+        accumulator_pk: &mut Option<AccumulatorPublicKey<T>>,
+        _: AccumulatorOwner,
     ) -> DispatchResult {
-        ensure!(did == owner, Error::<T>::NotAccumulatorOwner);
-        ensure!(
-            AccumulatorKeys::<T>::contains_key(did, counter),
-            Error::<T>::PublicKeyDoesntExist
-        );
-
-        AccumulatorKeys::<T>::remove(did, counter);
+        accumulator_pk
+            .take()
+            .ok_or(Error::<T>::PublicKeyDoesntExist)?;
 
         Self::deposit_event(Event::KeyRemoved(did, counter));
         Ok(())
@@ -76,15 +67,10 @@ impl<T: Config> Pallet<T> {
         AddAccumulator {
             id, accumulator, ..
         }: AddAccumulator<T>,
-        (): &mut (),
+        acc_opt: &mut Option<AccumulatorWithUpdateInfo<T>>,
         owner: AccumulatorOwner,
     ) -> DispatchResult {
-        ensure!(
-            !Accumulators::<T>::contains_key(id),
-            Error::<T>::AccumulatorAlreadyExists
-        );
-
-        let (acc_owner, key_id) = accumulator.key_ref();
+        let AccumPublicKeyStorageKey(acc_owner, key_id) = accumulator.key_ref();
 
         // key_id being zero indicates that no public key exists for the accumulator and this is acceptable
         // in certain cases, like when using KVAC
@@ -100,9 +86,10 @@ impl<T: Config> Pallet<T> {
         let accumulated = accumulator.accumulated().to_vec().into();
 
         let current_block = <frame_system::Pallet<T>>::block_number();
-        Accumulators::<T>::insert(
-            id,
-            AccumulatorWithUpdateInfo::new(accumulator, current_block),
+        let acc = AccumulatorWithUpdateInfo::new(accumulator, current_block);
+        ensure!(
+            acc_opt.replace(acc).is_none(),
+            Error::<T>::AccumulatorAlreadyExists
         );
 
         deposit_indexed_event!(AccumulatorAdded(id, accumulated) over id);
@@ -141,25 +128,28 @@ impl<T: Config> Pallet<T> {
         accumulator: &mut Option<AccumulatorWithUpdateInfo<T>>,
         signer: AccumulatorOwner,
     ) -> DispatchResult {
-        let accumulator = accumulator.take().unwrap();
+        let accumulator = accumulator
+            .take()
+            .ok_or(Error::<T>::AccumulatorDoesntExist)?;
 
         // Only the DID that added the accumulator can remove it
         ensure!(
             *accumulator.accumulator.owner_did() == signer,
             Error::<T>::NotAccumulatorOwner
         );
-        Accumulators::<T>::remove(id);
 
         deposit_indexed_event!(AccumulatorRemoved(id));
         Ok(())
     }
 
     pub fn public_key_with_params(
-        (key_did, key_id): &AccumPublicKeyStorageKey,
+        AccumPublicKeyStorageKey(key_did, key_id): &AccumPublicKeyStorageKey,
     ) -> Option<AccumPublicKeyWithParams<T>> {
         let pk = AccumulatorKeys::get(key_did, key_id)?;
         let params = match &pk.params_ref {
-            Some((params_did, params_id)) => AccumulatorParams::<T>::get(params_did, params_id),
+            Some(AccumParametersStorageKey(params_did, params_id)) => {
+                AccumulatorParams::<T>::get(params_did, params_id)
+            }
             _ => None,
         };
 

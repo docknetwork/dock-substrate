@@ -1,7 +1,7 @@
 use super::*;
+use crate::util::{InclusionRule, MaybeDoubleSet};
 use alloc::collections::{BTreeMap, BTreeSet};
 use core::{convert::identity, iter::repeat};
-use itertools::Itertools;
 use types::*;
 
 /// Specifies arguments to retrieve trust registries informations by.
@@ -12,13 +12,13 @@ use types::*;
 #[scale_info(omit_prefix)]
 pub struct QueryTrustRegistriesBy {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    issuers: Option<AnyOfOrAll<Issuer>>,
+    issuers: Option<InclusionRule<Issuer>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    verifiers: Option<AnyOfOrAll<Verifier>>,
+    verifiers: Option<InclusionRule<Verifier>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    issuers_or_verifiers: Option<AnyOfOrAll<IssuerOrVerifier>>,
+    issuers_or_verifiers: Option<InclusionRule<IssuerOrVerifier>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    schema_ids: Option<AnyOfOrAll<TrustRegistrySchemaId>>,
+    schema_ids: Option<InclusionRule<TrustRegistrySchemaId>>,
 }
 
 /// Specifies arguments to retrieve trust registry informations by.
@@ -29,54 +29,13 @@ pub struct QueryTrustRegistriesBy {
 #[scale_info(omit_prefix)]
 pub struct QueryTrustRegistryBy {
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    issuers: Option<AnyOfOrAll<Issuer>>,
+    issuers: Option<InclusionRule<Issuer>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    verifiers: Option<AnyOfOrAll<Verifier>>,
+    verifiers: Option<InclusionRule<Verifier>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
-    issuers_or_verifiers: Option<AnyOfOrAll<IssuerOrVerifier>>,
+    issuers_or_verifiers: Option<InclusionRule<IssuerOrVerifier>>,
     #[cfg_attr(feature = "serde", serde(skip_serializing_if = "Option::is_none"))]
     schema_ids: Option<BTreeSet<TrustRegistrySchemaId>>,
-}
-
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Ord, PartialOrd)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub enum AnyOfOrAll<V: Ord> {
-    AnyOf(BTreeSet<V>),
-    All(BTreeSet<V>),
-}
-
-impl<V: Ord> AnyOfOrAll<V> {
-    pub fn satisfy(&self, others: &BTreeSet<V>) -> bool {
-        match self {
-            Self::AnyOf(values) => !values.is_disjoint(others),
-            Self::All(values) => values.is_subset(others),
-        }
-    }
-
-    pub fn transform_by_applying_rule<I, F>(self, f: F) -> BTreeSet<I::Item>
-    where
-        F: FnMut(V) -> I,
-        I: IntoIterator,
-        I::Item: Ord,
-    {
-        match self {
-            Self::AnyOf(items) => items.into_iter().flat_map(f).collect(),
-            Self::All(items) => {
-                let len = items.len();
-
-                items
-                    .into_iter()
-                    .map(f)
-                    .kmerge()
-                    .dedup_with_count()
-                    .filter_map(|(count, value)| (count == len).then_some(value))
-                    .collect()
-            }
-        }
-    }
 }
 
 impl QueryTrustRegistryBy {
@@ -105,20 +64,19 @@ impl QueryTrustRegistryBy {
         } = self;
 
         let issuer_schema_ids = issuers.map(|issuers| {
-            issuers.transform_by_applying_rule(|issuer| {
+            issuers.apply_rule(|issuer| {
                 Pallet::<T>::registry_issuer_or_delegated_issuer_schemas(reg_id, issuer)
             })
         });
         let verifier_schema_ids = verifiers.map(|verifiers| {
-            verifiers.transform_by_applying_rule(|verifier| {
-                Pallet::<T>::registry_verifier_schemas(reg_id, verifier)
-            })
+            verifiers
+                .apply_rule(|verifier| Pallet::<T>::registry_verifier_schemas(reg_id, verifier))
         });
 
         let issuers_and_verifiers_schema_ids =
             MaybeDoubleSet(issuer_schema_ids, verifier_schema_ids).intersection();
         let issuers_or_verifiers_schema_ids = issuers_or_verifiers.map(|issuer_or_verifier| {
-            issuer_or_verifier.transform_by_applying_rule(|issuer_or_verifier| {
+            issuer_or_verifier.apply_rule(|issuer_or_verifier| {
                 Pallet::<T>::registry_issuer_or_verifier_schemas(reg_id, issuer_or_verifier)
             })
         });
@@ -154,54 +112,24 @@ impl QueryTrustRegistriesBy {
             schema_ids,
         } = self;
 
-        let issuer_regs = issuers
-            .map(|issuers| issuers.transform_by_applying_rule(Pallet::<T>::issuer_registries));
-        let verifier_regs = verifiers.map(|verifiers| {
-            verifiers.transform_by_applying_rule(Pallet::<T>::verifier_registries)
-        });
+        let issuer_regs = issuers.map(|issuers| issuers.apply_rule(Pallet::<T>::issuer_registries));
+        let verifier_regs =
+            verifiers.map(|verifiers| verifiers.apply_rule(Pallet::<T>::verifier_registries));
 
         let issuers_and_verifiers_regs = MaybeDoubleSet(issuer_regs, verifier_regs).intersection();
         let issuers_or_verifiers_regs = issuers_or_verifiers.map(|issuers_or_verifiers| {
-            issuers_or_verifiers
-                .transform_by_applying_rule(Pallet::<T>::issuer_or_verifier_registries)
+            issuers_or_verifiers.apply_rule(Pallet::<T>::issuer_or_verifier_registries)
         });
 
         let combined_issuers_verifiers_regs =
             MaybeDoubleSet(issuers_or_verifiers_regs, issuers_and_verifiers_regs).intersection();
         let schema_id_regs = schema_ids.map(|schema_ids| {
-            schema_ids
-                .transform_by_applying_rule(TrustRegistrySchemasMetadata::<T>::iter_key_prefix)
+            schema_ids.apply_rule(TrustRegistrySchemasMetadata::<T>::iter_key_prefix)
         });
 
         MaybeDoubleSet(combined_issuers_verifiers_regs, schema_id_regs)
             .intersection()
             .unwrap_or_default()
-    }
-}
-
-struct MaybeDoubleSet<V: Ord>(Option<BTreeSet<V>>, Option<BTreeSet<V>>);
-
-impl<V: Ord + Clone> MaybeDoubleSet<V> {
-    fn intersection(self) -> Option<BTreeSet<V>> {
-        let Self(first, second) = self;
-
-        Some(match (first, second) {
-            (Some(first), Some(second)) => first.intersection(&second).cloned().collect(),
-            (Some(first), None) => first,
-            (None, Some(second)) => second,
-            (None, None) => None?,
-        })
-    }
-
-    fn union(self) -> Option<BTreeSet<V>> {
-        let Self(first, second) = self;
-
-        Some(match (first, second) {
-            (Some(first), Some(second)) => first.union(&second).cloned().collect(),
-            (Some(first), None) => first,
-            (None, Some(second)) => second,
-            (None, None) => None?,
-        })
     }
 }
 

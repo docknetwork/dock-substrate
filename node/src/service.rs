@@ -12,6 +12,7 @@ use fc_rpc::{
 use fc_rpc_core::types::{FeeHistoryCache, FeeHistoryCacheLimit, FilterPool};
 use fp_storage::EthereumStorageSchema;
 use futures::StreamExt;
+use pallet_transaction_payment::ChargeTransactionPayment;
 use sc_cli::SubstrateCli;
 use sc_client_api::{BlockBackend, BlockchainEvents, ExecutorProvider};
 use sc_consensus_babe::{BabeBlockImport, BabeLink, BabeParams};
@@ -673,9 +674,7 @@ pub fn create_extrinsic(
         frame_system::CheckEra::<dock_runtime::Runtime>::from(generic::Era::Immortal),
         frame_system::CheckNonce::<dock_runtime::Runtime>::from(nonce),
         frame_system::CheckWeight::<dock_runtime::Runtime>::new(),
-        dock_runtime::CustomChargeTransactionPayment(
-            pallet_transaction_payment::ChargeTransactionPayment::from(tip),
-        ),
+        ChargeTransactionPayment::from(tip),
         dock_token_migration::OnlyMigrator::<dock_runtime::Runtime>::new(),
     );
 

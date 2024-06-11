@@ -5,7 +5,9 @@
 use crate::{
     common::{signatures::ForSigType, AuthorizeTarget, Limits, TypesAndLimits},
     did::{self, DidKey, DidMethodKey, DidOrDidMethodKey, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, ActionWrapper, BoundedBytes, OptionExt, StorageRef},
+    util::{
+        ActionWithNonce, ActionWithNonceWrapper, Associated, BoundedBytes, OptionExt, StorageRef,
+    },
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{
@@ -34,8 +36,8 @@ pub type Iri<T> = BoundedBytes<<T as Limits>::MaxIriSize>;
 #[scale_info(omit_prefix)]
 pub struct Attester(pub DidOrDidMethodKey);
 
-impl AuthorizeTarget<Self, DidKey> for Attester {}
-impl AuthorizeTarget<Self, DidMethodKey> for Attester {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidKey> for Attester {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidMethodKey> for Attester {}
 
 crate::impl_wrapper!(Attester(DidOrDidMethodKey));
 
@@ -64,9 +66,11 @@ pub struct Attestation<T: Limits> {
     pub iri: Option<Iri<T>>,
 }
 
-impl<T: Config> StorageRef<T> for Attester {
+impl<T: TypesAndLimits> Associated<T> for Attester {
     type Value = Attestation<T>;
+}
 
+impl<T: Config> StorageRef<T> for Attester {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<Attestation<T>>) -> Result<R, E>,
@@ -166,7 +170,8 @@ pub mod pallet {
 
             attests
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::set_claim_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::set_claim_))
+                .map_err(Into::into)
         }
     }
 

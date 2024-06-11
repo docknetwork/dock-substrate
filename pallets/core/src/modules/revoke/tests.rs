@@ -5,7 +5,7 @@ use crate::{
     common::{Policy, ToStateChange},
     did::Did,
     tests::common::*,
-    util::{Action, WithNonce},
+    util::{Action, Types, WithNonce},
 };
 use alloc::collections::BTreeMap;
 use frame_support::assert_noop;
@@ -15,7 +15,7 @@ use sp_std::{iter::once, marker::PhantomData};
 pub fn get_pauth<A: Action + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
-) -> Vec<DidSignatureWithNonce<Test>>
+) -> Vec<SignatureWithNonce<<Test as Types>::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>>
 where
     WithNonce<Test, A>: ToStateChange<Test>,
 {
@@ -27,7 +27,7 @@ where
             let sp = WithNonce::<Test, _>::new_with_nonce(action.clone(), next_nonce);
             let sig = did_sig_on_bytes(&sp.to_state_change().encode(), kp, *did, 1).into();
 
-            DidSignatureWithNonce::new(sig, next_nonce)
+            SignatureWithNonce::new(sig, next_nonce)
         })
         .collect()
 }
@@ -56,11 +56,6 @@ pub fn check_nonce_increase(old_nonces: BTreeMap<Did, u64>, signers: &[(Did, &sr
 /// Tests in this module are named after the errors they check.
 /// For example, `#[test] fn invalidpolicy` exercises the Error::InvalidPolicy.
 mod errors {
-    use crate::{
-        common::{PolicyExecutionError, PolicyValidationError},
-        util::ActionExecutionError,
-    };
-
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
     use alloc::collections::BTreeSet;
@@ -81,7 +76,7 @@ mod errors {
         };
 
         let err = RevoMod::new_registry(Origin::signed(ABBA), ar).unwrap_err();
-        assert_eq!(err, PolicyValidationError::Empty.into());
+        assert_eq!(err, did::Error::<Test>::EmptyPolicy.into());
     }
 
     // this test has caught at least one bug
@@ -130,13 +125,13 @@ mod errors {
                 Policy::one_of([a]).unwrap(),
                 &[],
                 "provide no signatures",
-                PolicyExecutionError::NotAuthorized.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
                 &[(b, &kpb)],
                 "wrong account; wrong key",
-                PolicyExecutionError::NotAuthorized.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
@@ -148,31 +143,31 @@ mod errors {
                 Policy::one_of([a]).unwrap(),
                 &[(b, &kpb)],
                 "wrong account; correct key",
-                PolicyExecutionError::NotAuthorized.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[(c, &kpc)],
                 "account not a controller",
-                PolicyExecutionError::NotAuthorized.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[(a, &kpa), (b, &kpb)],
                 "two signers",
-                PolicyExecutionError::NotAuthorized.into(),
+                did::Error::<Test>::TooManySignatures.into(),
             ),
             (
                 Policy::one_of([a]).unwrap(),
                 &[],
                 "one controller; no sigs",
-                PolicyExecutionError::NotAuthorized.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
             (
                 Policy::one_of([a, b]).unwrap(),
                 &[],
                 "two controllers; no sigs",
-                PolicyExecutionError::NotAuthorized.into(),
+                did::Error::<Test>::NotEnoughSignatures.into(),
             ),
         ];
 
@@ -259,9 +254,7 @@ mod errors {
 
         let registry_id = RGA;
 
-        let noreg: Result<(), DispatchError> = Err(ActionExecutionError::NoEntity.into());
-
-        assert_eq!(
+        assert_noop!(
             RevoMod::revoke(
                 Origin::signed(ABBA),
                 RevokeRaw {
@@ -271,9 +264,9 @@ mod errors {
                 },
                 vec![]
             ),
-            noreg
+            did::Error::<Test>::NoEntity
         );
-        assert_eq!(
+        assert_noop!(
             RevoMod::unrevoke(
                 Origin::signed(ABBA),
                 UnRevokeRaw {
@@ -283,9 +276,9 @@ mod errors {
                 },
                 vec![],
             ),
-            noreg
+            did::Error::<Test>::NoEntity
         );
-        assert_eq!(
+        assert_noop!(
             RevoMod::remove_registry(
                 Origin::signed(ABBA),
                 RemoveRegistryRaw {
@@ -294,7 +287,7 @@ mod errors {
                 },
                 vec![],
             ),
-            noreg
+            Error::<Test>::RegistryDoesntExist
         );
     }
 
@@ -360,7 +353,7 @@ mod errors {
         let kpa = create_did(DIDA);
 
         let registry_id = RGA;
-        let err: Result<(), DispatchError> = Err(PolicyExecutionError::IncorrectNonce.into());
+        let err: Result<(), DispatchError> = Err(did::Error::<Test>::InvalidNonce.into());
 
         let ar = AddRegistry {
             id: registry_id,
@@ -462,6 +455,7 @@ mod errors {
     fn _all_included(dummy: Error<Test>) {
         match dummy {
             Error::__Ignore(_, _)
+            | Error::RegistryDoesntExist
             | Error::RegExists
             | Error::EmptyPayload
             | Error::IncorrectNonce
@@ -701,7 +695,7 @@ mod test {
     use sp_runtime::DispatchError;
     // Cannot do `use super::*` as that would import `Call` as `Call` which conflicts with `Call` in `tests::common`
     use super::*;
-    use crate::revoke::Registries;
+    use crate::{common::MultiSignedAction, revoke::Registries};
 
     #[test]
     /// Exercises Module::ensure_auth, both success and failure cases.
@@ -754,14 +748,12 @@ mod test {
             );
 
             let old_nonces = get_nonces(signers);
-            let command = &rev;
-            let proof = get_pauth(command, signers);
+            let proof = get_pauth(&rev, signers);
 
-            let res = command
-                .clone()
-                .execute_view(|action, registry: RevocationRegistry<Test>| {
-                    registry.execute_view(|_, _| Ok::<_, DispatchError>(()), action, proof)
-                });
+            let res = MultiSignedAction::new(rev.clone(), proof).execute_view(
+                |_, _, _| Ok::<_, DispatchError>(()),
+                RevocationRegistry::expand_policy,
+            );
             assert_eq!(res.is_ok(), *expect_success);
 
             if *expect_success {
