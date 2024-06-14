@@ -180,6 +180,10 @@ pub mod pallet {
         IssuerUnsuspended(TrustRegistryId, Issuer),
         /// Delegated `Issuer`s were updated in the `TrustRegistry` with the given id.
         DelegatedIssuersUpdated(TrustRegistryId, Issuer),
+        /// `TrustRegistry` new participant was invited and confirmed his allowance.
+        TrustRegistryParticipantConfirmed(TrustRegistryId, IssuerOrVerifier),
+        /// The `TrustRegistry` participant was removed from the registry.
+        TrustRegistryParticipantRemoved(TrustRegistryId, IssuerOrVerifier),
     }
 
     #[pallet::pallet]

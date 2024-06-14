@@ -5,8 +5,8 @@ use super::{types::*, *};
 use crate::{
     common::IntermediateError,
     util::{
-        ActionWithNonceWrapper, ApplyUpdate, IncOrDec, MultiTargetUpdate, TranslateUpdate,
-        ValidateUpdate,
+        ActionWithNonceWrapper, AddOrRemoveOrModify, ApplyUpdate, IncOrDec, MultiTargetUpdate,
+        TranslateUpdate, ValidateUpdate,
     },
 };
 use alloc::collections::BTreeSet;
@@ -239,7 +239,11 @@ impl<T: Config> Pallet<T> {
     }
 
     pub(super) fn change_participants_(
-        ChangeParticipantsRaw { participants, .. }: ChangeParticipantsRaw<T>,
+        ChangeParticipantsRaw {
+            registry_id,
+            participants,
+            ..
+        }: ChangeParticipantsRaw<T>,
         trust_registry_participants: &mut TrustRegistryStoredParticipants<T>,
         convener_or_issuers_or_verifiers: BTreeSet<ConvenerOrIssuerOrVerifier>,
     ) -> DispatchResult {
@@ -252,6 +256,19 @@ impl<T: Config> Pallet<T> {
             ),
             &trust_registry_participants,
         )?;
+        for (participant, action) in participants.iter() {
+            let event = match action {
+                AddOrRemoveOrModify::Add(()) => {
+                    Event::TrustRegistryParticipantConfirmed(*registry_id, *participant)
+                }
+                AddOrRemoveOrModify::Remove => {
+                    Event::TrustRegistryParticipantRemoved(*registry_id, *participant)
+                }
+                _ => continue,
+            };
+
+            Self::deposit_event(event);
+        }
         participants.apply_update(trust_registry_participants);
 
         Ok(())
