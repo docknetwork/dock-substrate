@@ -269,6 +269,7 @@ impl crate::common::Limits for Test {
     type MaxBBSPublicKeySize = MaxBBSPublicKeySize;
     type MaxBBSPlusPublicKeySize = MaxBBSPublicKeySize;
     type MaxPSPublicKeySize = MaxPSPublicKeySize;
+    type MaxBDDT16PublicKeySize = MaxBDDT16PublicKeySize;
 
     type MaxMasterMembers = MaxMasterMembers;
     type MaxPolicyControllers = MaxPolicyControllers;
@@ -313,6 +314,7 @@ parameter_types! {
     pub const MaxAccumulatorParamsSize: u32 = 512;
     pub const MaxBBSPublicKeySize: u32 = 128;
     pub const MaxPSPublicKeySize: u32 = 128;
+    pub const MaxBDDT16PublicKeySize: u32 = 128;
     pub const MaxAccumulatorAccumulatedSize: u32 = 256;
     pub const MaxDidDocRefSize: u16 = 128;
     pub const MaxDidServiceEndpointIdSize: u16 = 256;
