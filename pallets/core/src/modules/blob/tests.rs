@@ -7,6 +7,7 @@ use crate::{
     util::Bytes,
 };
 use sp_core::Pair;
+use sp_runtime::traits::Get;
 
 fn create_blob<P>(
     id: BlobId,
@@ -38,7 +39,7 @@ where
 }
 
 fn get_max_blob_size() -> usize {
-    <Test as Limits>::MaxBlobSize::get() as usize
+    <<Test as Limits>::MaxBlobSize as Get<u32>>::get() as usize
 }
 
 crate::did_or_did_method_key! {

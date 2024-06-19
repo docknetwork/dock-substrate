@@ -79,6 +79,10 @@ pub trait Limits: Clone + Eq {
     type MaxSchemasPerRegistry: Size;
     /// Max no of participants per a single registry.
     type MaxParticipantsPerRegistry: Size;
+
+    type MaxRegistryParticipantOrgNameSize: Size;
+    type MaxRegistryParticipantDescriptionSize: Size;
+    type MaxRegistryParticipantLogoSize: Size;
 }
 
 type Zero = ConstU32<0>;
@@ -127,4 +131,7 @@ impl Limits for () {
     type MaxRegistriesPerVerifier = NoLimit;
     type MaxSchemasPerRegistry = NoLimit;
     type MaxParticipantsPerRegistry = NoLimit;
+    type MaxRegistryParticipantOrgNameSize = NoLimit;
+    type MaxRegistryParticipantDescriptionSize = NoLimit;
+    type MaxRegistryParticipantLogoSize = NoLimit;
 }

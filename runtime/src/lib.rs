@@ -498,9 +498,9 @@ where
 }
 
 impl pallet_im_online::Config for Runtime {
-    type MaxKeys = MaxKeys;
-    type MaxPeerInHeartbeats = MaxAuthorities;
-    type MaxPeerDataEncodingSize = MaxAuthorities;
+    type MaxKeys = ConstU32<100>;
+    type MaxPeerInHeartbeats = ConstU32<100>;
+    type MaxPeerDataEncodingSize = ConstU32<100>;
 
     type AuthorityId = ImOnlineId;
     type Event = Event;
@@ -520,7 +520,7 @@ parameter_types! {
 
 impl pallet_babe::Config for Runtime {
     type DisabledValidators = ();
-    type MaxAuthorities = MaxAuthorities;
+    type MaxAuthorities = ConstU32<100>;
 
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
@@ -690,7 +690,6 @@ impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfi
 }
 
 parameter_types! {
-    pub const SignedMaxSubmissions: u32 = 10;
     pub const SignedRewardBase: Balance = DOCK;
     pub const SignedDepositBase: Balance = 500 * DOCK;
     pub const SignedDepositByte: Balance = DOCK / 100;
@@ -715,7 +714,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 
     type EstimateCallFee = TransactionPayment;
     type OffchainRepeat = OffchainRepeat;
-    type SignedMaxSubmissions = SignedMaxSubmissions;
+    type SignedMaxSubmissions = ConstU32<10>;
     type SignedMaxWeight = MinerMaxWeight;
     type SignedRewardBase = SignedRewardBase;
     type SignedDepositBase = SignedDepositBase;
@@ -743,17 +742,12 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
     type BenchmarkingConfig = BenchmarkConfig;
 }
 
-parameter_types! {
-    pub const MaxAuthorities: u32 = 100;
-    pub const MaxKeys: u32 = 100;
-}
-
 impl pallet_authority_discovery::Config for Runtime {
-    type MaxAuthorities = MaxAuthorities;
+    type MaxAuthorities = ConstU32<100>;
 }
 
 impl grandpa::Config for Runtime {
-    type MaxAuthorities = MaxAuthorities;
+    type MaxAuthorities = ConstU32<100>;
 
     type Event = Event;
 
@@ -789,12 +783,10 @@ impl timestamp::Config for Runtime {
 
 parameter_types! {
     pub const ExistentialDeposit: Balance = 500;
-    pub const MaxLocks: u32 = 50;
-    pub const MaxReserves: u32 = 50;
 }
 
 impl balances::Config for Runtime {
-    type MaxReserves = MaxReserves;
+    type MaxReserves = ConstU32<50>;
     type ReserveIdentifier = [u8; 8];
 
     /// The type for recording an account's balance.
@@ -805,7 +797,7 @@ impl balances::Config for Runtime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = balances::weights::SubstrateWeight<Runtime>;
-    type MaxLocks = MaxLocks;
+    type MaxLocks = ConstU32<50>;
 }
 
 parameter_types! {
@@ -827,39 +819,6 @@ impl transaction_payment::Config for Runtime {
         TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
 }
 
-parameter_types! {
-    /// 8KB
-    pub const MaxBlobSize: u32 = 8192;
-    /// 1KB
-    pub const MaxIriSize: u32 = 1024;
-
-    /// 128 bytes, for large labels, hash of a label can be used
-    pub const MaxAccumulatorLabelSize: u32 = 128;
-
-    pub const MaxAccumulatorParamsSize: u32 = 512;
-
-    /// 128 bytes, for large labels, hash of a label can be used
-    pub const MaxOffchainParamsLabelSize: u32 = 128;
-    /// 16KB
-    pub const MaxOffchainParamsBytesSize: u32 = 65536;
-
-    pub const FixedPublicKeyMaxSize: u32 = 256;
-    pub const PSPublicKeyMaxSize: u32 = 65536;
-
-    pub const AccumulatedMaxSize: u32 = 128;
-
-    pub const MaxDidDocRefSize: u16 = 1024;
-    pub const MaxDidServiceEndpointIdSize: u16 = 1024;
-    pub const MaxDidServiceEndpointOrigins: u16 = 64;
-    pub const MaxDidServiceEndpointOriginSize: u16 = 1025;
-
-    pub const MaxPolicyControllers: u32 = 15;
-    pub const MinStatusListCredentialSize: u32 = 500;
-    pub const MaxStatusListCredentialSize: u32 = 40_000;
-
-    pub const MaxMasterMembers: u32 = 25;
-}
-
 impl did::Config for Runtime {
     type Event = Event;
     type OnDidRemoval = OffchainSignatures;
@@ -874,32 +833,37 @@ impl revoke::Config for Runtime {
 }
 
 impl common::Limits for Runtime {
-    type MaxPolicyControllers = MaxPolicyControllers;
+    type MaxPolicyControllers = ConstU32<15>;
 
-    type MaxDidDocRefSize = MaxDidDocRefSize;
-    type MaxDidServiceEndpointIdSize = MaxDidServiceEndpointIdSize;
-    type MaxDidServiceEndpointOriginSize = MaxDidServiceEndpointOriginSize;
-    type MaxDidServiceEndpointOrigins = MaxDidServiceEndpointOrigins;
+    type MaxDidDocRefSize = ConstU32<1024>;
+    type MaxDidServiceEndpointIdSize = ConstU32<1024>;
+    type MaxDidServiceEndpointOriginSize = ConstU32<1025>;
+    type MaxDidServiceEndpointOrigins = ConstU32<64>;
 
-    type MinStatusListCredentialSize = MinStatusListCredentialSize;
-    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
+    type MinStatusListCredentialSize = ConstU32<500>;
+    type MaxStatusListCredentialSize = ConstU32<40_000>;
 
-    type MaxPSPublicKeySize = PSPublicKeyMaxSize;
-    type MaxBBSPublicKeySize = FixedPublicKeyMaxSize;
-    type MaxBBSPlusPublicKeySize = FixedPublicKeyMaxSize;
+    type MaxPSPublicKeySize = ConstU32<65536>;
+    type MaxBBSPublicKeySize = ConstU32<256>;
+    type MaxBBSPlusPublicKeySize = ConstU32<256>;
 
-    type MaxOffchainParamsLabelSize = MaxOffchainParamsLabelSize;
-    type MaxOffchainParamsBytesSize = MaxOffchainParamsBytesSize;
+    /// 128 bytes, for large labels, hash of a label can be used
+    type MaxOffchainParamsLabelSize = ConstU32<128>;
+    /// 16KB
+    type MaxOffchainParamsBytesSize = ConstU32<65_536>;
 
-    type MaxAccumulatorLabelSize = MaxAccumulatorLabelSize;
-    type MaxAccumulatorParamsSize = MaxAccumulatorParamsSize;
-    type MaxAccumulatorPublicKeySize = FixedPublicKeyMaxSize;
-    type MaxAccumulatorAccumulatedSize = AccumulatedMaxSize;
+    /// 128 bytes, for large labels, hash of a label can be used
+    type MaxAccumulatorLabelSize = ConstU32<128>;
+    type MaxAccumulatorParamsSize = ConstU32<512>;
+    type MaxAccumulatorPublicKeySize = ConstU32<256>;
+    type MaxAccumulatorAccumulatedSize = ConstU32<128>;
 
-    type MaxBlobSize = MaxBlobSize;
-    type MaxIriSize = MaxIriSize;
+    /// 8KB
+    type MaxBlobSize = ConstU32<8192>;
+    /// 1KB
+    type MaxIriSize = ConstU32<1024>;
 
-    type MaxMasterMembers = MaxMasterMembers;
+    type MaxMasterMembers = ConstU32<25>;
 
     type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
     type MaxIssuersPerSchema = ConstU32<100>;
@@ -915,6 +879,10 @@ impl common::Limits for Runtime {
     type MaxSchemasPerVerifier = ConstU32<1_000>;
     type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
     type MaxParticipantsPerRegistry = ConstU32<10_000>;
+
+    type MaxRegistryParticipantLogoSize = ConstU32<500>;
+    type MaxRegistryParticipantOrgNameSize = ConstU32<100>;
+    type MaxRegistryParticipantDescriptionSize = ConstU32<500>;
 }
 
 impl status_list_credential::Config for Runtime {

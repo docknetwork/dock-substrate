@@ -161,6 +161,12 @@ pub mod pallet {
         DuplicateKey,
         /// One of the `Issuer`s or `Verifier`s is not a registry participant.
         NotAParticipant,
+        /// `TrustRegistry` participant's org name exceeded its limit.
+        ParticipantOrgNameSizeExceededLimit,
+        /// `TrustRegistry` participant's logo exceeded its limit.
+        ParticipantLogoSizeExceededLimit,
+        /// `TrustRegistry` participant's description exceeded its limit.
+        ParticipantDescriptionSizeExceededLimit,
     }
 
     #[pallet::event]
@@ -215,13 +221,13 @@ pub mod pallet {
         TrustRegistrySchemaMetadata<T>,
     >;
 
-    /// Schema ids corresponding to trust registries. Mapping of registry_id -> schema_id
+    /// Schema ids corresponding to trust registries. Mapping of `TrustRegistryId` -> set of schema ids.
     #[pallet::storage]
     #[pallet::getter(fn registry_stored_schemas)]
     pub type TrustRegistriesStoredSchemas<T: Config> =
         StorageMap<_, Blake2_128Concat, TrustRegistryId, TrustRegistryStoredSchemas<T>, ValueQuery>;
 
-    /// Trust Registry participants. Mapping of registry_id -> set of participants (`Verifier`s and `Issuer`s).
+    /// Trust Registry participants. Mapping of `TrustRegistryId` -> set of participants (`Verifier`s and `Issuer`s).
     #[pallet::storage]
     #[pallet::getter(fn registry_participants)]
     pub type TrustRegistriesParticipants<T: Config> = StorageMap<
@@ -229,6 +235,19 @@ pub mod pallet {
         Blake2_128Concat,
         TrustRegistryIdForParticipants,
         TrustRegistryStoredParticipants<T>,
+        ValueQuery,
+    >;
+
+    /// Trust Registry participants. Mapping of `TrustRegistryId` -> `Issuer` -> trust registry participant information.
+    #[pallet::storage]
+    #[pallet::getter(fn registry_participant_information)]
+    pub type TrustRegistryParticipantsInformation<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        TrustRegistryIdForParticipants,
+        Blake2_128Concat,
+        IssuerOrVerifier,
+        TrustRegistryStoredParticipantInformation<T>,
         ValueQuery,
     >;
 
@@ -456,6 +475,47 @@ pub mod pallet {
             ActionWrapper::new(*change_participants.registry_id, change_participants)
                 .view(ActionWrapper::wrap_fn(f))
                 .map_err(Into::into)
+        }
+
+        #[pallet::weight(T::DbWeight::get().writes(1))]
+        pub fn set_participant_information(
+            origin: OriginFor<T>,
+            set_participant_information: SetParticipantInformationRaw<T>,
+            signatures: Vec<
+                SignatureWithNonce<
+                    T::BlockNumber,
+                    DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+                >,
+            >,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            let f = |action: SetParticipantInformationRaw<T>,
+                     registry_info: TrustRegistryInfo<T>| {
+                let (registry_id, participant) = action.target();
+
+                let signers = InclusionRule::all(
+                    [*participant, *registry_info.convener]
+                        .into_iter()
+                        .map(ConvenerOrIssuerOrVerifier),
+                );
+
+                ActionWrapper::new(registry_id, action).view(|action, participants| {
+                    action.action.multi_signed(signatures).execute_removable(
+                        |action, info, signers| {
+                            Self::set_participant_information_(action, info, participants, signers)
+                        },
+                        |_| signers,
+                    )
+                })
+            };
+
+            ActionWrapper::new(
+                *set_participant_information.registry_id,
+                set_participant_information,
+            )
+            .view(ActionWrapper::wrap_fn(f))
+            .map_err(Into::into)
         }
     }
 

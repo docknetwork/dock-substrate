@@ -13,6 +13,9 @@ use sp_runtime::DispatchError;
 
 use super::{PolicyValidationError, SignatureWithNonce};
 
+/// `Value` type associated with the `Action`'s target.
+type TargetValue<T, A> = <<A as Action>::Target as Associated<T>>::Value;
+
 pub struct SignedActionWithNonce<T: Types, A, S>
 where
     A: ActionWithNonce<T>,
@@ -71,7 +74,7 @@ where
     /// In case of a successful result, increases the signer's nonce.
     pub fn execute_view<F, S, R, E>(self, f: F) -> Result<R, IntermediateError<T>>
     where
-        F: FnOnce(A, <A::Target as Associated<T>>::Value, Sig::Signer) -> Result<R, E>,
+        F: FnOnce(A, TargetValue<T, A>, Sig::Signer) -> Result<R, E>,
         E: Into<IntermediateError<T>>,
         A::Target: StorageRef<T>,
         <Sig::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, S>> + Clone,
@@ -97,7 +100,7 @@ where
     /// In case of a successful result, commits all storage changes and increases the signer's nonce.
     pub fn execute<F, S, R, E>(self, f: F) -> Result<R, IntermediateError<T>>
     where
-        F: FnOnce(A, &mut <A::Target as Associated<T>>::Value, Sig::Signer) -> Result<R, E>,
+        F: FnOnce(A, &mut TargetValue<T, A>, Sig::Signer) -> Result<R, E>,
         E: Into<IntermediateError<T>>,
         A::Target: StorageRef<T>,
         <Sig::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, S>> + Clone,
@@ -114,7 +117,7 @@ where
     /// In case of a successful result, commits all storage changes and increases the signer's nonce.
     pub fn execute_removable<F, S, R, E>(self, f: F) -> Result<R, IntermediateError<T>>
     where
-        F: FnOnce(A, &mut Option<<A::Target as Associated<T>>::Value>, Sig::Signer) -> Result<R, E>,
+        F: FnOnce(A, &mut Option<TargetValue<T, A>>, Sig::Signer) -> Result<R, E>,
         E: Into<IntermediateError<T>>,
         A::Target: StorageRef<T>,
         <Sig::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, S>> + Clone,
@@ -181,14 +184,14 @@ where
     /// Verifies signature and nonce for all required signers, then executes given action providing a mutable reference to the
     /// value associated with the target along with the set of actors that provided signatures.
     /// In case of a successful result, commits all storage changes and increases nonces for all signers.
-    pub fn execute<R, E, V>(
+    pub fn execute<F, R, E, V, RS>(
         self,
-        f: impl FnOnce(A, &mut <A::Target as Associated<T>>::Value, BTreeSet<S::Signer>) -> Result<R, E>,
-        required_signers: impl FnOnce(
-            &<A::Target as Associated<T>>::Value,
-        ) -> Option<InclusionRule<S::Signer>>,
+        f: F,
+        get_required_signers: RS,
     ) -> Result<R, IntermediateError<T>>
     where
+        F: FnOnce(A, &mut TargetValue<T, A>, BTreeSet<S::Signer>) -> Result<R, E>,
+        RS: FnOnce(&TargetValue<T, A>) -> Option<InclusionRule<S::Signer>>,
         E: Into<IntermediateError<T>>,
         <S::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, V>> + Clone,
     {
@@ -201,7 +204,7 @@ where
                 f,
                 data,
                 BTreeSet::new(),
-                (required_signers)(&data),
+                (get_required_signers)(&data),
             )
         })
     }
@@ -209,14 +212,14 @@ where
     /// Verifies signature and nonce for all required signers, then executes given action providing a
     /// value associated with the target along with the set of actors that provided signatures.
     /// In case of a successful result, commits all storage changes and increases nonces for all signers
-    pub fn execute_view<R, E, V>(
+    pub fn execute_view<F, R, E, V, RS>(
         self,
-        f: impl FnOnce(A, <A::Target as Associated<T>>::Value, BTreeSet<S::Signer>) -> Result<R, E>,
-        required_signers: impl FnOnce(
-            &<A::Target as Associated<T>>::Value,
-        ) -> Option<InclusionRule<S::Signer>>,
+        f: F,
+        get_required_signers: RS,
     ) -> Result<R, IntermediateError<T>>
     where
+        F: FnOnce(A, TargetValue<T, A>, BTreeSet<S::Signer>) -> Result<R, E>,
+        RS: FnOnce(&TargetValue<T, A>) -> Option<InclusionRule<S::Signer>>,
         E: Into<IntermediateError<T>>,
         <S::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, V>> + Clone,
     {
@@ -225,7 +228,7 @@ where
         } = self;
 
         action.view(|action, data| {
-            let required_signers = (required_signers)(&data);
+            let required_signers = (get_required_signers)(&data);
 
             Self::new(action, signatures).execute_inner(f, data, BTreeSet::new(), required_signers)
         })
@@ -234,18 +237,14 @@ where
     /// Verifies signature and nonce for all required signers, then executes given action providing  a mutable reference to the
     /// option containing value associated with the target along with the set of actors that provided signatures.
     /// In case of a successful result, commits all storage changes and increases nonces for all signers.
-    pub fn execute_removable<R, E, V>(
+    pub fn execute_removable<F, R, E, V, RS>(
         self,
-        f: impl FnOnce(
-            A,
-            &mut Option<<A::Target as Associated<T>>::Value>,
-            BTreeSet<S::Signer>,
-        ) -> Result<R, E>,
-        required_signers: impl FnOnce(
-            Option<&<A::Target as Associated<T>>::Value>,
-        ) -> Option<InclusionRule<S::Signer>>,
+        f: F,
+        get_required_signers: RS,
     ) -> Result<R, IntermediateError<T>>
     where
+        F: FnOnce(A, &mut Option<TargetValue<T, A>>, BTreeSet<S::Signer>) -> Result<R, E>,
+        RS: FnOnce(Option<&TargetValue<T, A>>) -> Option<InclusionRule<S::Signer>>,
         E: Into<IntermediateError<T>>,
         <S::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, V>> + Clone,
     {
@@ -254,20 +253,21 @@ where
         } = self;
 
         action.modify_removable(|action, data| {
-            let required_signers = (required_signers)(data.as_ref());
+            let required_signers = (get_required_signers)(data.as_ref());
 
             Self::new(action, signatures).execute_inner(f, data, BTreeSet::new(), required_signers)
         })
     }
 
-    fn execute_inner<D, R, E, V>(
+    fn execute_inner<F, D, R, E, V>(
         self,
-        f: impl FnOnce(A, D, BTreeSet<S::Signer>) -> Result<R, E>,
+        f: F,
         data: D,
         mut verified_signers: BTreeSet<S::Signer>,
         required_signers: Option<InclusionRule<S::Signer>>,
     ) -> Result<R, IntermediateError<T>>
     where
+        F: FnOnce(A, D, BTreeSet<S::Signer>) -> Result<R, E>,
         E: Into<IntermediateError<T>>,
         <S::Signer as Deref>::Target: StorageRef<T, Value = WithNonce<T, V>> + Clone,
     {
@@ -283,10 +283,9 @@ where
             (Some(_), None) => Err(ActionExecutionError::NotEnoughSignatures.into()),
             (Some(required_signers), Some(SignatureWithNonce { sig, nonce })) => {
                 let action_with_nonce = WithNonce::new_with_nonce(action, nonce);
-                let signer = sig.signer().ok_or(ActionExecutionError::InvalidSigner)?;
                 let signed_action = action_with_nonce.signed(sig);
 
-                signed_action.execute_without_target_data(|action, _| {
+                signed_action.execute_without_target_data(|action, signer| {
                     let required_signers = required_signers
                         .exclude(&signer)
                         .map_err(|_| ActionExecutionError::NotEnoughSignatures)?;
