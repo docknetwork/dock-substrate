@@ -61,7 +61,7 @@ where
     }
 }
 
-/// `DID`'s signature along with the used `DID`s key reference.
+/// `DID`'s signature along with the used `DID`s key reference or `DidMethodKey`'s signature.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]

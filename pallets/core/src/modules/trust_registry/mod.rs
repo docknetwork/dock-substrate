@@ -480,7 +480,7 @@ pub mod pallet {
         /// Updates participant details in the TrustRegistry, including their name, logo, and description.
         /// The Convener ensures the accuracy of these updates.
         /// This transaction requires signatures from both the Convener and the participant.
-        #[pallet::weight(T::DbWeight::get().writes(1))]
+        #[pallet::weight(SubstrateWeight::<T::DbWeight>::set_participant_information_::<T>(set_participant_information, signatures))]
         pub fn set_participant_information(
             origin: OriginFor<T>,
             set_participant_information: SetParticipantInformationRaw<T>,
@@ -666,6 +666,19 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
         )
     }
 
+    fn unsuspend_issuers<T: Config>(
+        UnsuspendIssuers { issuers, .. }: &UnsuspendIssuers<T>,
+        signed: &DidOrDidMethodKeySignature<Convener>,
+    ) -> Weight {
+        let issuers_len = issuers.len() as u32;
+
+        signed.weight_for_sig_type::<T>(
+            || Self::unsuspend_issuers_sr25519(issuers_len),
+            || Self::unsuspend_issuers_ed25519(issuers_len),
+            || Self::unsuspend_issuers_secp256k1(issuers_len),
+        )
+    }
+
     fn change_participants_<T: Config>(
         ChangeParticipantsRaw { participants, .. }: &ChangeParticipantsRaw<T>,
         _signatures: &[SignatureWithNonce<
@@ -678,16 +691,25 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
         Self::change_participants(len)
     }
 
-    fn unsuspend_issuers<T: Config>(
-        UnsuspendIssuers { issuers, .. }: &UnsuspendIssuers<T>,
-        signed: &DidOrDidMethodKeySignature<Convener>,
+    fn set_participant_information_<T: Config>(
+        SetParticipantInformationRaw {
+            participant_information:
+                UnboundedTrustRegistryParticipantInformation {
+                    org_name,
+                    logo,
+                    description,
+                },
+            ..
+        }: &SetParticipantInformationRaw<T>,
+        _signatures: &[SignatureWithNonce<
+            T::BlockNumber,
+            DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+        >],
     ) -> Weight {
-        let issuers_len = issuers.len() as u32;
-
-        signed.weight_for_sig_type::<T>(
-            || Self::unsuspend_issuers_sr25519(issuers_len),
-            || Self::unsuspend_issuers_ed25519(issuers_len),
-            || Self::unsuspend_issuers_secp256k1(issuers_len),
+        Self::set_participant_information(
+            org_name.len() as u32,
+            logo.len() as u32,
+            description.len() as u32,
         )
     }
 }
