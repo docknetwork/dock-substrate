@@ -248,7 +248,7 @@ pub mod pallet {
         Blake2_128Concat,
         IssuerOrVerifier,
         TrustRegistryStoredParticipantInformation<T>,
-        ValueQuery,
+        OptionQuery,
     >;
 
     /// Stores `TrustRegistry`s owned by conveners as a mapping of the form convener_id -> Set<registry_id>
@@ -477,6 +477,9 @@ pub mod pallet {
                 .map_err(Into::into)
         }
 
+        /// Updates participant details in the TrustRegistry, including their name, logo, and description.
+        /// The Convener ensures the accuracy of these updates.
+        /// This transaction requires signatures from both the Convener and the participant.
         #[pallet::weight(T::DbWeight::get().writes(1))]
         pub fn set_participant_information(
             origin: OriginFor<T>,

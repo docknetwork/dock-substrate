@@ -330,7 +330,6 @@ impl<T: Config> Pallet<T> {
         delegated_issuer_schemas
             .into_iter()
             .map(|(key, _)| key)
-            .into_iter()
             .merge(issuer_schemas)
             .dedup()
             .collect()

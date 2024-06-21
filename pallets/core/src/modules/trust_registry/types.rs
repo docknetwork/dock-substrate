@@ -849,23 +849,23 @@ pub struct TrustRegistryStoredParticipantInformation<T: Limits> {
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct UnboundedTrustRegistryStoredParticipantInformation {
+pub struct UnboundedTrustRegistryParticipantInformation {
     pub org_name: String,
     pub logo: String,
     pub description: String,
 }
 
-impl<T: Limits> TryFrom<UnboundedTrustRegistryStoredParticipantInformation>
+impl<T: Limits> TryFrom<UnboundedTrustRegistryParticipantInformation>
     for TrustRegistryStoredParticipantInformation<T>
 {
     type Error = Error<T>;
 
     fn try_from(
-        UnboundedTrustRegistryStoredParticipantInformation {
+        UnboundedTrustRegistryParticipantInformation {
             org_name,
             logo,
             description,
-        }: UnboundedTrustRegistryStoredParticipantInformation,
+        }: UnboundedTrustRegistryParticipantInformation,
     ) -> Result<Self, Error<T>> {
         let this = Self {
             org_name: org_name
@@ -1162,9 +1162,9 @@ impl<T: Config> StorageRef<T> for (TrustRegistryIdForParticipants, IssuerOrVerif
     where
         F: FnOnce(Option<TrustRegistryStoredParticipantInformation<T>>) -> R,
     {
-        f(Some(super::TrustRegistryParticipantsInformation::<T>::get(
+        f(super::TrustRegistryParticipantsInformation::<T>::get(
             self.0, self.1,
-        )))
+        ))
     }
 }
 

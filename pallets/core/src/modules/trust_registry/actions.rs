@@ -119,7 +119,7 @@ pub struct ChangeParticipantsRaw<T: Types> {
 pub struct SetParticipantInformationRaw<T: Types> {
     pub registry_id: TrustRegistryIdForParticipants,
     pub participant: IssuerOrVerifier,
-    pub participant_information: UnboundedTrustRegistryStoredParticipantInformation,
+    pub participant_information: UnboundedTrustRegistryParticipantInformation,
     #[codec(skip)]
     #[cfg_attr(feature = "serde", serde(skip))]
     pub _marker: PhantomData<T>,
