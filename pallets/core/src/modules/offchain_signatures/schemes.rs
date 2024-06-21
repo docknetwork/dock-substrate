@@ -189,3 +189,11 @@ def_signature_scheme_key_and_params! {
         /// Signature parameters for the PS signature scheme.
         PSParameters<MaxOffchainParamsBytesSize>
 }
+
+def_signature_scheme_key_and_params! {
+    for BDDT16:
+        /// Public key for the BDDT16 signature scheme.
+        BDDT16PublicKey<MaxBDDT16PublicKeySize>,
+        /// Signature parameters for the BDDT16 signature scheme.
+        BDDT16Parameters<MaxOffchainParamsBytesSize>
+}

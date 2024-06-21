@@ -43,6 +43,8 @@ pub trait Limits: Clone + Eq {
     type MaxBBSPublicKeySize: Size;
     /// Maximum byte size of the `BBS+` (fixed size) public key. This depends only on the chosen elliptic curve.
     type MaxBBSPlusPublicKeySize: Size;
+    /// Maximum byte size of the `BDDT16` (fixed size) public key. This depends only on the chosen elliptic curve.
+    type MaxBDDT16PublicKeySize: Size;
     /// Maximum byte size of the `PS` public key. This depends on the chosen elliptic curve and the number
     /// of messages that can be signed.
     type MaxPSPublicKeySize: Size;
@@ -112,6 +114,7 @@ impl Limits for () {
 
     type MaxBBSPublicKeySize = NoLimit;
     type MaxBBSPlusPublicKeySize = NoLimit;
+    type MaxBDDT16PublicKeySize = NoLimit;
     type MaxPSPublicKeySize = NoLimit;
 
     type MaxMasterMembers = NoLimit;
