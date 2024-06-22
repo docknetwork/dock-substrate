@@ -262,6 +262,7 @@ impl crate::common::Limits for Test {
     type MaxBBSPublicKeySize = ConstU32<128>;
     type MaxBBSPlusPublicKeySize = ConstU32<128>;
     type MaxPSPublicKeySize = ConstU32<128>;
+    type MaxBDDT16PublicKeySize = ConstU32<128>;
 
     type MaxMasterMembers = ConstU32<100>;
     type MaxPolicyControllers = ConstU32<15>;

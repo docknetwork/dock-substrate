@@ -846,6 +846,7 @@ impl common::Limits for Runtime {
     type MaxPSPublicKeySize = ConstU32<65536>;
     type MaxBBSPublicKeySize = ConstU32<256>;
     type MaxBBSPlusPublicKeySize = ConstU32<256>;
+    type MaxBDDT16PublicKeySize = ConstU32<256>;
 
     /// 128 bytes, for large labels, hash of a label can be used
     type MaxOffchainParamsLabelSize = ConstU32<128>;
@@ -2475,6 +2476,23 @@ impl_runtime_apis! {
             reg_id: trust_registry::TrustRegistryId
         ) -> BTreeSet<trust_registry::TrustRegistrySchemaId> {
             by.resolve_to_schema_ids_in_registry::<Runtime>(reg_id)
+        }
+
+        fn bddt16_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BDDT16PublicKeyWithParams<Runtime>> {
+            OffchainSignatures::did_public_key(did, key_id)
+                .and_then(CheckedConversion::checked_into)
+        }
+
+        fn bddt16_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BDDT16Parameters<Runtime>> {
+            OffchainSignatures::did_params(&owner)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
+        }
+
+        fn bddt16_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BDDT16PublicKeyWithParams<Runtime>> {
+            OffchainSignatures::did_public_keys(&did)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
         }
     }
 
