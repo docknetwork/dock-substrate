@@ -77,4 +77,7 @@ impl<T: Types, L: Limits> Limits for CombineTypesAndLimits<T, L> {
     type MaxRegistriesPerVerifier = L::MaxRegistriesPerVerifier;
     type MaxTrustRegistryGovFrameworkSize = L::MaxTrustRegistryGovFrameworkSize;
     type MaxParticipantsPerRegistry = L::MaxParticipantsPerRegistry;
+    type MaxRegistryParticipantOrgNameSize = L::MaxRegistryParticipantOrgNameSize;
+    type MaxRegistryParticipantLogoSize = L::MaxRegistryParticipantLogoSize;
+    type MaxRegistryParticipantDescriptionSize = L::MaxRegistryParticipantDescriptionSize;
 }

@@ -1178,6 +1178,7 @@ pub enum UpdateError {
     ValidationFailed,
 }
 
+#[cfg(test)]
 impl From<UpdateError> for DispatchError {
     fn from(error: UpdateError) -> Self {
         Self::Other(match error {

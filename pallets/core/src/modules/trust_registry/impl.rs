@@ -122,7 +122,9 @@ impl<T: Config> Pallet<T> {
             .map_err(IntoModuleError::into_module_error)?;
 
         // Ensure that the delegated updates are valid.
-        delegated.ensure_valid(&issuer, &config.delegated)?;
+        delegated
+            .ensure_valid(&issuer, &config.delegated)
+            .map_err(Error::<T>::from)?;
 
         // Get the schema IDs associated with the issuer.
         let issuer_schema_ids = TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
@@ -152,7 +154,9 @@ impl<T: Config> Pallet<T> {
                 );
             }
 
-            schema_ids_update.ensure_valid(&issuer, &schema_ids)?;
+            schema_ids_update
+                .ensure_valid(&issuer, &schema_ids)
+                .map_err(Error::<T>::from)?;
         }
 
         // Apply the schema ID updates for each delegated issuer.
@@ -245,31 +249,47 @@ impl<T: Config> Pallet<T> {
             ..
         }: ChangeParticipantsRaw<T>,
         trust_registry_participants: &mut TrustRegistryStoredParticipants<T>,
-        convener_or_issuers_or_verifiers: BTreeSet<ConvenerOrIssuerOrVerifier>,
+        signers: BTreeSet<ConvenerOrIssuerOrVerifier>,
     ) -> DispatchResult {
-        participants.ensure_valid(
-            &IssuersOrVerifiers(
-                convener_or_issuers_or_verifiers
-                    .into_iter()
-                    .map(|did| IssuerOrVerifier(*did))
-                    .collect(),
-            ),
-            &trust_registry_participants,
-        )?;
+        let actors = signers
+            .into_iter()
+            .map(|did| IssuerOrVerifier(*did))
+            .collect();
+        participants
+            .ensure_valid(&IssuersOrVerifiers(actors), &trust_registry_participants)
+            .map_err(Error::<T>::from)?;
+
         for (participant, action) in participants.iter() {
+            use AddOrRemoveOrModify::*;
+
             let event = match action {
-                AddOrRemoveOrModify::Add(()) => {
-                    Event::TrustRegistryParticipantConfirmed(*registry_id, *participant)
-                }
-                AddOrRemoveOrModify::Remove => {
-                    Event::TrustRegistryParticipantRemoved(*registry_id, *participant)
-                }
+                Add(()) => Event::TrustRegistryParticipantConfirmed(*registry_id, *participant),
+                Remove => Event::TrustRegistryParticipantRemoved(*registry_id, *participant),
                 _ => continue,
             };
 
             Self::deposit_event(event);
         }
         participants.apply_update(trust_registry_participants);
+
+        Ok(())
+    }
+
+    pub(super) fn set_participant_information_(
+        SetParticipantInformationRaw {
+            participant_information,
+            participant,
+            ..
+        }: SetParticipantInformationRaw<T>,
+        info: &mut Option<TrustRegistryStoredParticipantInformation<T>>,
+        participants: TrustRegistryStoredParticipants<T>,
+        _: BTreeSet<ConvenerOrIssuerOrVerifier>,
+    ) -> DispatchResult {
+        ensure!(
+            participants.contains(&participant),
+            Error::<T>::NotAParticipant
+        );
+        info.replace(participant_information.try_into()?);
 
         Ok(())
     }
@@ -310,7 +330,6 @@ impl<T: Config> Pallet<T> {
         delegated_issuer_schemas
             .into_iter()
             .map(|(key, _)| key)
-            .into_iter()
             .merge(issuer_schemas)
             .dedup()
             .collect()

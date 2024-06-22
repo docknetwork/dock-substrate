@@ -7,11 +7,10 @@ use crate::{
     hex_debug, impl_wrapper,
     util::{batch_update::*, Associated, BoundedBytes, KeyValue, OptionExt, StorageRef},
 };
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, string::String};
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::{fmt::Debug, num::NonZeroU32};
 use frame_support::{traits::Get, weights::Weight, *};
-use scale_info::prelude::string::String;
 use sp_runtime::DispatchResult;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 use utils::BoundedString;
@@ -207,7 +206,16 @@ impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey>
     for ConvenerOrIssuerOrVerifier
 {
 }
-
+impl<T: TypesAndLimits>
+    AuthorizeTarget<T, (TrustRegistryIdForParticipants, IssuerOrVerifier), DidKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+impl<T: TypesAndLimits>
+    AuthorizeTarget<T, (TrustRegistryIdForParticipants, IssuerOrVerifier), DidMethodKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
 impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryIdForParticipants, DidKey>
     for ConvenerOrIssuerOrVerifier
 {
@@ -546,7 +554,7 @@ pub struct TrustRegistryIssuerConfiguration<T: Limits> {
     pub delegated: DelegatedIssuers<T>,
 }
 
-/// `Trust Registry` schema metadata.
+/// `TrustRegistry` schema metadata.
 #[derive(
     Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
 )]
@@ -564,7 +572,7 @@ pub struct TrustRegistrySchemaMetadata<T: Limits> {
     pub verifiers: TrustRegistrySchemaVerifiers<T>,
 }
 
-/// Unbounded `Trust Registry` schema metadata.
+/// Unbounded `TrustRegistry` schema metadata.
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -634,7 +642,7 @@ impl<T: Limits> TrustRegistrySchemaMetadata<T> {
 
 pub type AggregatedTrustRegistrySchemaIssuers<T> = Vec<(Issuer, AggregatedIssuerInfo<T>)>;
 
-/// `Trust Registry` schema metadata.
+/// `TrustRegistry` schema metadata.
 #[derive(
     Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
 )]
@@ -755,7 +763,7 @@ impl<T: Limits> IntoIterator for VerifierTrustRegistries<T> {
     }
 }
 
-/// Set of schemas that belong to the `Trust Registry`
+/// Set of schemas that belong to the `TrustRegistry`
 #[derive(
     Encode,
     Decode,
@@ -782,7 +790,7 @@ pub struct TrustRegistryStoredSchemas<T: Limits>(
 
 impl_wrapper!(TrustRegistryStoredSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerRegistry>));
 
-/// Set of `Trust Registry` participants.
+/// Set of `TrustRegistry` participants.
 #[derive(
     Encode,
     Decode,
@@ -808,6 +816,72 @@ pub struct TrustRegistryStoredParticipants<T: Limits>(
 );
 
 impl_wrapper!(TrustRegistryStoredParticipants<T> where T: Limits => (BoundedBTreeSet<IssuerOrVerifier, T::MaxParticipantsPerRegistry>));
+
+/// Information about the `TrustRegistry` participant.
+#[derive(
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistryStoredParticipantInformation<T: Limits> {
+    pub org_name: BoundedString<T::MaxRegistryParticipantOrgNameSize>,
+    pub logo: BoundedString<T::MaxRegistryParticipantLogoSize>,
+    pub description: BoundedString<T::MaxRegistryParticipantDescriptionSize>,
+}
+
+/// Information about the `TrustRegistry` participant.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct UnboundedTrustRegistryParticipantInformation {
+    pub org_name: String,
+    pub logo: String,
+    pub description: String,
+}
+
+impl<T: Limits> TryFrom<UnboundedTrustRegistryParticipantInformation>
+    for TrustRegistryStoredParticipantInformation<T>
+{
+    type Error = Error<T>;
+
+    fn try_from(
+        UnboundedTrustRegistryParticipantInformation {
+            org_name,
+            logo,
+            description,
+        }: UnboundedTrustRegistryParticipantInformation,
+    ) -> Result<Self, Error<T>> {
+        let this = Self {
+            org_name: org_name
+                .try_into()
+                .map_err(|_| Error::<T>::ParticipantOrgNameSizeExceededLimit)?,
+            logo: logo
+                .try_into()
+                .map_err(|_| Error::<T>::ParticipantLogoSizeExceededLimit)?,
+            description: description
+                .try_into()
+                .map_err(|_| Error::<T>::ParticipantDescriptionSizeExceededLimit)?,
+        };
+
+        Ok(this)
+    }
+}
 
 /// Set of schemas corresponding to an `Issuer`.
 #[derive(
@@ -1007,7 +1081,7 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
     }
 }
 
-/// Unique identifier for the `Trust Registry`.
+/// Unique identifier for the `TrustRegistry`.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -1072,7 +1146,29 @@ impl<T: Config> StorageRef<T> for (TrustRegistryId, Issuer) {
     }
 }
 
-/// Unique identifier for the `Trust Registry`.
+impl<T: Limits> Associated<T> for (TrustRegistryIdForParticipants, IssuerOrVerifier) {
+    type Value = TrustRegistryStoredParticipantInformation<T>;
+}
+
+impl<T: Config> StorageRef<T> for (TrustRegistryIdForParticipants, IssuerOrVerifier) {
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryStoredParticipantInformation<T>>) -> Result<R, E>,
+    {
+        super::TrustRegistryParticipantsInformation::<T>::try_mutate_exists(self.0, self.1, f)
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryStoredParticipantInformation<T>>) -> R,
+    {
+        f(super::TrustRegistryParticipantsInformation::<T>::get(
+            self.0, self.1,
+        ))
+    }
+}
+
+/// Unique identifier for the `TrustRegistry`.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]

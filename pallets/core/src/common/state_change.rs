@@ -41,7 +41,8 @@ crate::def_state_change! {
         trust_registry::UpdateDelegatedIssuers,
         trust_registry::SuspendIssuers,
         trust_registry::UnsuspendIssuers,
-        trust_registry::ChangeParticipants
+        trust_registry::ChangeParticipants,
+        trust_registry::SetParticipantInformation
 }
 
 /// Converts the given entity to the state change.

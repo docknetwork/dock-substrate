@@ -161,6 +161,12 @@ pub mod pallet {
         DuplicateKey,
         /// One of the `Issuer`s or `Verifier`s is not a registry participant.
         NotAParticipant,
+        /// `TrustRegistry` participant's org name exceeded its limit.
+        ParticipantOrgNameSizeExceededLimit,
+        /// `TrustRegistry` participant's logo exceeded its limit.
+        ParticipantLogoSizeExceededLimit,
+        /// `TrustRegistry` participant's description exceeded its limit.
+        ParticipantDescriptionSizeExceededLimit,
     }
 
     #[pallet::event]
@@ -215,13 +221,13 @@ pub mod pallet {
         TrustRegistrySchemaMetadata<T>,
     >;
 
-    /// Schema ids corresponding to trust registries. Mapping of registry_id -> schema_id
+    /// Schema ids corresponding to trust registries. Mapping of `TrustRegistryId` -> set of schema ids.
     #[pallet::storage]
     #[pallet::getter(fn registry_stored_schemas)]
     pub type TrustRegistriesStoredSchemas<T: Config> =
         StorageMap<_, Blake2_128Concat, TrustRegistryId, TrustRegistryStoredSchemas<T>, ValueQuery>;
 
-    /// Trust Registry participants. Mapping of registry_id -> set of participants (`Verifier`s and `Issuer`s).
+    /// Trust Registry participants. Mapping of `TrustRegistryId` -> set of participants (`Verifier`s and `Issuer`s).
     #[pallet::storage]
     #[pallet::getter(fn registry_participants)]
     pub type TrustRegistriesParticipants<T: Config> = StorageMap<
@@ -230,6 +236,19 @@ pub mod pallet {
         TrustRegistryIdForParticipants,
         TrustRegistryStoredParticipants<T>,
         ValueQuery,
+    >;
+
+    /// Trust Registry participants. Mapping of `TrustRegistryId` -> `Issuer` -> trust registry participant information.
+    #[pallet::storage]
+    #[pallet::getter(fn registry_participant_information)]
+    pub type TrustRegistryParticipantsInformation<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        TrustRegistryIdForParticipants,
+        Blake2_128Concat,
+        IssuerOrVerifier,
+        TrustRegistryStoredParticipantInformation<T>,
+        OptionQuery,
     >;
 
     /// Stores `TrustRegistry`s owned by conveners as a mapping of the form convener_id -> Set<registry_id>
@@ -457,6 +476,50 @@ pub mod pallet {
                 .view(ActionWrapper::wrap_fn(f))
                 .map_err(Into::into)
         }
+
+        /// Updates participant details in the TrustRegistry, including their name, logo, and description.
+        /// The Convener ensures the accuracy of these updates.
+        /// This transaction requires signatures from both the Convener and the participant.
+        #[pallet::weight(SubstrateWeight::<T::DbWeight>::set_participant_information_::<T>(set_participant_information, signatures))]
+        pub fn set_participant_information(
+            origin: OriginFor<T>,
+            set_participant_information: SetParticipantInformationRaw<T>,
+            signatures: Vec<
+                SignatureWithNonce<
+                    T::BlockNumber,
+                    DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+                >,
+            >,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            let f = |action: SetParticipantInformationRaw<T>,
+                     registry_info: TrustRegistryInfo<T>| {
+                let (registry_id, participant) = action.target();
+
+                let signers = InclusionRule::all(
+                    [*participant, *registry_info.convener]
+                        .into_iter()
+                        .map(ConvenerOrIssuerOrVerifier),
+                );
+
+                ActionWrapper::new(registry_id, action).view(|action, participants| {
+                    action.action.multi_signed(signatures).execute_removable(
+                        |action, info, signers| {
+                            Self::set_participant_information_(action, info, participants, signers)
+                        },
+                        |_| signers,
+                    )
+                })
+            };
+
+            ActionWrapper::new(
+                *set_participant_information.registry_id,
+                set_participant_information,
+            )
+            .view(ActionWrapper::wrap_fn(f))
+            .map_err(Into::into)
+        }
     }
 
     #[pallet::hooks]
@@ -603,6 +666,19 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
         )
     }
 
+    fn unsuspend_issuers<T: Config>(
+        UnsuspendIssuers { issuers, .. }: &UnsuspendIssuers<T>,
+        signed: &DidOrDidMethodKeySignature<Convener>,
+    ) -> Weight {
+        let issuers_len = issuers.len() as u32;
+
+        signed.weight_for_sig_type::<T>(
+            || Self::unsuspend_issuers_sr25519(issuers_len),
+            || Self::unsuspend_issuers_ed25519(issuers_len),
+            || Self::unsuspend_issuers_secp256k1(issuers_len),
+        )
+    }
+
     fn change_participants_<T: Config>(
         ChangeParticipantsRaw { participants, .. }: &ChangeParticipantsRaw<T>,
         _signatures: &[SignatureWithNonce<
@@ -615,16 +691,25 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
         Self::change_participants(len)
     }
 
-    fn unsuspend_issuers<T: Config>(
-        UnsuspendIssuers { issuers, .. }: &UnsuspendIssuers<T>,
-        signed: &DidOrDidMethodKeySignature<Convener>,
+    fn set_participant_information_<T: Config>(
+        SetParticipantInformationRaw {
+            participant_information:
+                UnboundedTrustRegistryParticipantInformation {
+                    org_name,
+                    logo,
+                    description,
+                },
+            ..
+        }: &SetParticipantInformationRaw<T>,
+        _signatures: &[SignatureWithNonce<
+            T::BlockNumber,
+            DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+        >],
     ) -> Weight {
-        let issuers_len = issuers.len() as u32;
-
-        signed.weight_for_sig_type::<T>(
-            || Self::unsuspend_issuers_sr25519(issuers_len),
-            || Self::unsuspend_issuers_ed25519(issuers_len),
-            || Self::unsuspend_issuers_secp256k1(issuers_len),
+        Self::set_participant_information(
+            org_name.len() as u32,
+            logo.len() as u32,
+            description.len() as u32,
         )
     }
 }
