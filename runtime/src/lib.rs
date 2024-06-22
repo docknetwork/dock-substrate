@@ -880,8 +880,8 @@ impl common::Limits for Runtime {
     type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
     type MaxParticipantsPerRegistry = ConstU32<10_000>;
 
-    type MaxRegistryParticipantLogoSize = ConstU32<500>;
     type MaxRegistryParticipantOrgNameSize = ConstU32<100>;
+    type MaxRegistryParticipantLogoSize = ConstU32<250>;
     type MaxRegistryParticipantDescriptionSize = ConstU32<500>;
 }
 
