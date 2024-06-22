@@ -79,9 +79,11 @@ pub trait Limits: Clone + Eq {
     type MaxSchemasPerRegistry: Size;
     /// Max no of participants per a single registry.
     type MaxParticipantsPerRegistry: Size;
-
+    /// Max size of the `TrustRegistry` participant's org name.
     type MaxRegistryParticipantOrgNameSize: Size;
+    /// Max size of the `TrustRegistry` participant's description.
     type MaxRegistryParticipantDescriptionSize: Size;
+    /// Max size of the `TrustRegistry` participant's logo.
     type MaxRegistryParticipantLogoSize: Size;
 }
 
