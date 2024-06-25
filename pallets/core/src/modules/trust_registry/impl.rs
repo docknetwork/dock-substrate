@@ -279,6 +279,7 @@ impl<T: Config> Pallet<T> {
         SetParticipantInformationRaw {
             participant_information,
             participant,
+            registry_id,
             ..
         }: SetParticipantInformationRaw<T>,
         info: &mut Option<TrustRegistryStoredParticipantInformation<T>>,
@@ -290,6 +291,11 @@ impl<T: Config> Pallet<T> {
             Error::<T>::NotAParticipant
         );
         info.replace(participant_information.try_into()?);
+
+        Self::deposit_event(Event::TrustRegistryParticipantInformationSet(
+            *registry_id,
+            participant,
+        ));
 
         Ok(())
     }

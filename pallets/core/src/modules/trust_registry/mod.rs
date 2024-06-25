@@ -190,6 +190,8 @@ pub mod pallet {
         TrustRegistryParticipantConfirmed(TrustRegistryId, IssuerOrVerifier),
         /// The `TrustRegistry` participant was removed from the registry.
         TrustRegistryParticipantRemoved(TrustRegistryId, IssuerOrVerifier),
+        /// `TrustRegistry` participant information was set.
+        TrustRegistryParticipantInformationSet(TrustRegistryId, IssuerOrVerifier),
     }
 
     #[pallet::pallet]
