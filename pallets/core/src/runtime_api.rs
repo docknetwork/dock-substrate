@@ -91,10 +91,10 @@ sp_api::decl_runtime_apis! {
             reg_id: TrustRegistryId
         ) -> BTreeSet<TrustRegistrySchemaId>;
 
-        fn bddt16_public_key_with_params(id: offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BDDT16PublicKeyWithParams<T>>;
+        fn bbdt16_public_key_with_params(id: offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBDT16PublicKeyWithParams<T>>;
 
-        fn bddt16_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BDDT16Parameters<T>>;
+        fn bbdt16_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBDT16Parameters<T>>;
 
-        fn bddt16_public_keys_by_did(did: crate::did::Did) -> BTreeMap<IncId, offchain_signatures::BDDT16PublicKeyWithParams<T>>;
+        fn bbdt16_public_keys_by_did(did: crate::did::Did) -> BTreeMap<IncId, offchain_signatures::BBDT16PublicKeyWithParams<T>>;
     }
 }

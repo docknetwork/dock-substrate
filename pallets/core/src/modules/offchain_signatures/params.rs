@@ -53,7 +53,7 @@ pub type SignatureParamsStorageKey = (SignatureParamsOwner, IncId);
 pub type BBSPublicKeyWithParams<T> = (BBSPublicKey<T>, Option<BBSParameters<T>>);
 pub type BBSPlusPublicKeyWithParams<T> = (BBSPlusPublicKey<T>, Option<BBSPlusParameters<T>>);
 pub type PSPublicKeyWithParams<T> = (PSPublicKey<T>, Option<PSParameters<T>>);
-pub type BDDT16PublicKeyWithParams<T> = (BDDT16PublicKey<T>, Option<BDDT16Parameters<T>>);
+pub type BBDT16PublicKeyWithParams<T> = (BBDT16PublicKey<T>, Option<BBDT16Parameters<T>>);
 
 /// Signature parameters. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 #[derive(
@@ -73,8 +73,8 @@ pub enum OffchainSignatureParams<T: Limits> {
     BBSPlus(BBSPlusParameters<T>),
     /// Signature parameters for the Pointcheval-Sanders signature scheme.
     PS(PSParameters<T>),
-    /// Signature parameters for the BDDT16 signature scheme.
-    BDDT16(BDDT16Parameters<T>),
+    /// Signature parameters for the BBDT16 signature scheme.
+    BBDT16(BBDT16Parameters<T>),
 }
 
 impl<T: Limits> OffchainSignatureParams<T> {
@@ -93,8 +93,8 @@ impl<T: Limits> OffchainSignatureParams<T> {
         self.try_into().ok()
     }
 
-    /// Returns underlying parameters if it corresponds to the BDDT16 scheme.
-    pub fn into_bddt16(self) -> Option<BDDT16Parameters<T>> {
+    /// Returns underlying parameters if it corresponds to the BBDT16 scheme.
+    pub fn into_bbdt16(self) -> Option<BBDT16Parameters<T>> {
         self.try_into().ok()
     }
 
@@ -104,7 +104,7 @@ impl<T: Limits> OffchainSignatureParams<T> {
             Self::BBS(params) => &params.bytes[..],
             Self::BBSPlus(params) => &params.bytes[..],
             Self::PS(params) => &params.bytes[..],
-            Self::BDDT16(params) => &params.bytes[..],
+            Self::BBDT16(params) => &params.bytes[..],
         }
     }
 
@@ -114,7 +114,7 @@ impl<T: Limits> OffchainSignatureParams<T> {
             Self::BBS(params) => params.label.as_ref().map(|slice| &slice[..]),
             Self::BBSPlus(params) => params.label.as_ref().map(|slice| &slice[..]),
             Self::PS(params) => params.label.as_ref().map(|slice| &slice[..]),
-            Self::BDDT16(params) => params.label.as_ref().map(|slice| &slice[..]),
+            Self::BBDT16(params) => params.label.as_ref().map(|slice| &slice[..]),
         }
     }
 }

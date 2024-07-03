@@ -1,6 +1,6 @@
 //! Module to store offchain signature keys and parameters for different signature schemes.
-//! Currently, can be either `BBS`, `BBS+`, `Pointcheval-Sanders` or `BDDT16`.
-//! For `BBS`, `BBS+` and `Pointcheval-Sanders`, the public key is in group G2 but for `BDDT16`, it's
+//! Currently, can be either `BBS`, `BBS+`, `Pointcheval-Sanders` or `BBDT16`.
+//! For `BBS`, `BBS+` and `Pointcheval-Sanders`, the public key is in group G2 but for `BBDT16`, it's
 //! in group G1 and used to verify the proof of validity of MAC (and related proofs) but not the MAC itself.
 
 use crate::{

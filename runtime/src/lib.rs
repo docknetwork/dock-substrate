@@ -200,7 +200,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 58,
+    spec_version: 59,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -846,7 +846,7 @@ impl common::Limits for Runtime {
     type MaxPSPublicKeySize = ConstU32<65536>;
     type MaxBBSPublicKeySize = ConstU32<256>;
     type MaxBBSPlusPublicKeySize = ConstU32<256>;
-    type MaxBDDT16PublicKeySize = ConstU32<256>;
+    type MaxBBDT16PublicKeySize = ConstU32<256>;
 
     /// 128 bytes, for large labels, hash of a label can be used
     type MaxOffchainParamsLabelSize = ConstU32<128>;
@@ -1566,12 +1566,20 @@ pallet_staking_reward_curve::build! {
     );
 }
 
+/// Pay high-rate rewards for 1 month (in eras) after the upgrade.
+const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
+    DurationInEras::new_non_zero((30 * DAY / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
+
+#[cfg(not(feature = "small_durations"))]
+// 1 era lasts for 12h.
+const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 30 * 2);
+
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const HighRateRewardDecayPct: Percent = Percent::from_percent(50);
     pub const LowRateRewardDecayPct: Percent = Percent::from_percent(25);
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
-    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = None;
+    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = Some(POST_UPGRADE_HIGH_RATE_DURATION);
 }
 
 impl dock_staking_rewards::Config for Runtime {
@@ -2478,18 +2486,18 @@ impl_runtime_apis! {
             by.resolve_to_schema_ids_in_registry::<Runtime>(reg_id)
         }
 
-        fn bddt16_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BDDT16PublicKeyWithParams<Runtime>> {
+        fn bbdt16_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBDT16PublicKeyWithParams<Runtime>> {
             OffchainSignatures::did_public_key(did, key_id)
                 .and_then(CheckedConversion::checked_into)
         }
 
-        fn bddt16_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BDDT16Parameters<Runtime>> {
+        fn bbdt16_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBDT16Parameters<Runtime>> {
             OffchainSignatures::did_params(&owner)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
         }
 
-        fn bddt16_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BDDT16PublicKeyWithParams<Runtime>> {
+        fn bbdt16_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBDT16PublicKeyWithParams<Runtime>> {
             OffchainSignatures::did_public_keys(&did)
                 .filter_map(checked_convert_indexed_item)
                 .collect()
