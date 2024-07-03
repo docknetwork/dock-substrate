@@ -191,9 +191,9 @@ def_signature_scheme_key_and_params! {
 }
 
 def_signature_scheme_key_and_params! {
-    for BDDT16:
-        /// Public key for the BDDT16 signature scheme.
-        BDDT16PublicKey<MaxBDDT16PublicKeySize>,
-        /// Signature parameters for the BDDT16 signature scheme.
-        BDDT16Parameters<MaxOffchainParamsBytesSize>
+    for BBDT16:
+        /// Public key for the BBDT16 signature scheme.
+        BBDT16PublicKey<MaxBBDT16PublicKeySize>,
+        /// Signature parameters for the BBDT16 signature scheme.
+        BBDT16Parameters<MaxOffchainParamsBytesSize>
 }

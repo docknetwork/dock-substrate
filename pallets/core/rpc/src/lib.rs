@@ -226,26 +226,26 @@ where
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeSet<TrustRegistrySchemaId>>;
 
-    #[method(name = "core_mods_bddt16PublicKeyWithParams")]
-    async fn bddt16_public_key_with_params(
+    #[method(name = "core_mods_bbdt16PublicKeyWithParams")]
+    async fn bbdt16_public_key_with_params(
         &self,
         id: offchain_signatures::SignaturePublicKeyStorageKey,
         at: Option<BlockHash>,
-    ) -> RpcResult<Option<offchain_signatures::BDDT16PublicKeyWithParams<T::T>>>;
+    ) -> RpcResult<Option<offchain_signatures::BBDT16PublicKeyWithParams<T::T>>>;
 
-    #[method(name = "core_mods_bddt16ParamsByDid")]
-    async fn bddt16_params_by_did(
+    #[method(name = "core_mods_bbdt16ParamsByDid")]
+    async fn bbdt16_params_by_did(
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BDDT16Parameters<T::T>>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBDT16Parameters<T::T>>>;
 
-    #[method(name = "core_mods_bddt16PublicKeysByDid")]
-    async fn bddt16_public_keys_by_did(
+    #[method(name = "core_mods_bbdt16PublicKeysByDid")]
+    async fn bbdt16_public_keys_by_did(
         &self,
         did: did::Did,
         at: Option<BlockHash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BDDT16PublicKeyWithParams<T::T>>>;
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBDT16PublicKeyWithParams<T::T>>>;
 }
 
 /// A struct that implements the [`CoreModsApi`].
@@ -663,44 +663,44 @@ where
             .map_err(Into::into)
     }
 
-    async fn bddt16_public_key_with_params(
+    async fn bbdt16_public_key_with_params(
         &self,
         id: offchain_signatures::SignaturePublicKeyStorageKey,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<Option<offchain_signatures::BDDT16PublicKeyWithParams<T::T>>> {
+    ) -> RpcResult<Option<offchain_signatures::BBDT16PublicKeyWithParams<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
-        api.bddt16_public_key_with_params(&at, id)
+        api.bbdt16_public_key_with_params(&at, id)
             .map_err(Error)
             .map_err(Into::into)
     }
 
-    async fn bddt16_params_by_did(
+    async fn bbdt16_params_by_did(
         &self,
         owner: offchain_signatures::SignatureParamsOwner,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BDDT16Parameters<T::T>>> {
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBDT16Parameters<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
-        api.bddt16_params_by_did(&at, owner)
+        api.bbdt16_params_by_did(&at, owner)
             .map_err(Error)
             .map_err(Into::into)
     }
 
-    async fn bddt16_public_keys_by_did(
+    async fn bbdt16_public_keys_by_did(
         &self,
         did: did::Did,
         at: Option<<Block as BlockT>::Hash>,
-    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BDDT16PublicKeyWithParams<T::T>>> {
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBDT16PublicKeyWithParams<T::T>>> {
         let api = self.client.runtime_api();
         let at = BlockId::hash(at.unwrap_or_else(||
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
-        api.bddt16_public_keys_by_did(&at, did)
+        api.bbdt16_public_keys_by_did(&at, did)
             .map_err(Error)
             .map_err(Into::into)
     }

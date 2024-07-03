@@ -37,10 +37,10 @@ macro_rules! with_each_scheme {
             $($tt)+
         }
 
-        mod bddt16 {
+        mod bbdt16 {
             use super::*;
-            use BDDT16PublicKey as $key;
-            use BDDT16Parameters as $params;
+            use BBDT16PublicKey as $key;
+            use BBDT16Parameters as $params;
 
             $($tt)+
         }

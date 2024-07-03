@@ -58,7 +58,7 @@ impl<T: Types, L: Limits> Limits for CombineTypesAndLimits<T, L> {
     type MaxBBSPublicKeySize = L::MaxBBSPublicKeySize;
     type MaxBBSPlusPublicKeySize = L::MaxBBSPlusPublicKeySize;
     type MaxPSPublicKeySize = L::MaxPSPublicKeySize;
-    type MaxBDDT16PublicKeySize = L::MaxBDDT16PublicKeySize;
+    type MaxBBDT16PublicKeySize = L::MaxBBDT16PublicKeySize;
 
     type MaxMasterMembers = L::MaxMasterMembers;
     type MaxPolicyControllers = L::MaxPolicyControllers;
