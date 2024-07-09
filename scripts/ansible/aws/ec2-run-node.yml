@@ -48,6 +48,7 @@
         name: "{{ instance_name }}"
         filters:
           instance-state-name: "*"
+          instance-id: "{{ instance_id }}"
       register: instances
 
     - name: Existing EC2 instance info

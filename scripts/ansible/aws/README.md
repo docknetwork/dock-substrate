@@ -13,13 +13,14 @@ Variables:
 5. `ssh_key_pub` - file path of the ssh public key to be used
 6. `alarm_lambda_arn` - arn of the lambda function to be invoked in case of alarm
 7. `name` to use for the created instance and node naming
-8. `instance_type` - the type of the EC2 instance to be used, default to `t3.large`
-9. `instance_role` - role assigned to the EC2 instance, default to `CloudWatchAgent_Role`
+8. `create_new` - forces new instance to be created.
+9. `instance_id` - id of the instance to operate with (if already have one).
 10. `ami_name` - AMI name to launch an instance from, default to `ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-20230601`
 11. `volume_size` - volume size to be created in GB. The default is `300`
 12. `persistent` - don't delete a volume on termination. Default to `false`
-13. `snapshot_id` - optional snapshot id to be used to instantiate the volume from
-14. `create_new` - forces new instance to be created.
+13. `instance_type` - the type of the EC2 instance to be used, default to `t3.large`
+14. `instance_role` - role assigned to the EC2 instance, default to `CloudWatchAgent_Role`
+15. `snapshot_id` - optional snapshot id to be used to instantiate the volume from
 
 `instance_host` will represent an EC2 instance with dynamic IP.
 
