@@ -2,10 +2,10 @@
 
 use super::*;
 use crate::{
-    common::{Policy, PolicyValidationError, ToStateChange},
+    common::{MultiSignedAction, Policy, ToStateChange},
     did::Did,
     tests::common::*,
-    util::{Action, ActionExecutionError, BoundedBytes, WithNonce},
+    util::{Action, BoundedBytes, Types, WithNonce},
 };
 use alloc::collections::BTreeMap;
 use frame_support::{assert_noop, assert_ok};
@@ -18,7 +18,7 @@ type Mod = super::Pallet<Test>;
 pub fn get_pauth<A: Action + Clone>(
     action: &A,
     signers: &[(Did, &sr25519::Pair)],
-) -> Vec<DidSignatureWithNonce<Test>>
+) -> Vec<SignatureWithNonce<<Test as Types>::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>>
 where
     WithNonce<Test, A>: ToStateChange<Test>,
 {
@@ -32,7 +32,7 @@ where
             let state_change = action_with_nonce.to_state_change().encode();
             let sig = did_sig_on_bytes(&state_change, kp, *did, 1).into();
 
-            DidSignatureWithNonce::new(sig, next_nonce)
+            SignatureWithNonce::new(sig, next_nonce)
         })
         .collect()
 }
@@ -90,15 +90,16 @@ fn ensure_auth() {
             eprintln!("running case from line {}", line_no);
             let id = StatusListCredentialId(rand::random());
 
-            Mod::create_(
+            AddStatusListCredential {
                 id,
-                StatusListCredentialWithPolicy {
+                credential: StatusListCredentialWithPolicy {
                     status_list_credential: StatusListCredential::RevocationList2020Credential(
                         BoundedBytes((0..10).map(|v| v as u8).try_collect().unwrap()),
                     ),
                     policy: policy.clone(),
                 },
-            )
+            }
+            .modify_removable(Mod::create_)
             .unwrap();
 
             let command = UpdateStatusListCredentialRaw {
@@ -112,10 +113,9 @@ fn ensure_auth() {
             };
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = command.clone().execute(
-                |action, cred: &mut StatusListCredentialWithPolicy<Test>| {
-                    cred.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
-                },
+            let res = MultiSignedAction::new(command.clone(), proof).execute(
+                |_, _, _| Ok::<_, DispatchError>(()),
+                StatusListCredentialWithPolicy::expand_policy,
             );
             assert_eq!(res.is_ok(), expect_success);
             if expect_success {
@@ -129,10 +129,9 @@ fn ensure_auth() {
 
             let old_nonces = get_nonces(signers);
             let proof = get_pauth(&command, signers);
-            let res = command.clone().execute(
-                |action, cred: &mut StatusListCredentialWithPolicy<Test>| {
-                    cred.execute(|_, _| Ok::<_, DispatchError>(()), action, proof)
-                },
+            let res = MultiSignedAction::new(command, proof).execute(
+                |_, _, _| Ok::<_, DispatchError>(()),
+                StatusListCredentialWithPolicy::expand_policy,
             );
             assert_eq!(res.is_ok(), expect_success);
 
@@ -183,18 +182,19 @@ fn create_status_list_credential() {
                     policy: Policy::one_of(empty::<Did>()).unwrap(),
                 }
             ),
-            PolicyValidationError::Empty
+            did::Error::<Test>::EmptyPolicy
         );
         Policy::<Test>::one_of((0..16).map(|_| Did(random()))).unwrap_err();
-        Mod::create_(
+        AddStatusListCredential {
             id,
-            StatusListCredentialWithPolicy {
+            credential: StatusListCredentialWithPolicy {
                 status_list_credential: StatusListCredential::StatusList2021Credential(
                     BoundedBytes((0..10).map(|v| v as u8).try_collect().unwrap()),
                 ),
                 policy: policy.clone(),
             },
-        )
+        }
+        .modify_removable(Mod::create_)
         .unwrap();
         assert_eq!(
             Mod::status_list_credential(id).unwrap(),
@@ -233,15 +233,16 @@ fn update_status_list_credential() {
         let policy = Policy::one_of([did]).unwrap();
         let id = StatusListCredentialId(rand::random());
 
-        Mod::create_(
+        AddStatusListCredential {
             id,
-            StatusListCredentialWithPolicy {
+            credential: StatusListCredentialWithPolicy {
                 status_list_credential: StatusListCredential::StatusList2021Credential(
                     BoundedBytes((0..10).map(|v| v as u8).try_collect().unwrap()),
                 ),
                 policy: policy.clone(),
             },
-        )
+        }
+        .modify_removable(Mod::create_)
         .unwrap();
         assert_eq!(
             Mod::status_list_credential(id).unwrap(),
@@ -297,15 +298,16 @@ fn remove_status_list_credential() {
         let policy = Policy::one_of([did]).unwrap();
         let id = StatusListCredentialId(rand::random());
 
-        Mod::create_(
+        AddStatusListCredential {
             id,
-            StatusListCredentialWithPolicy {
+            credential: StatusListCredentialWithPolicy {
                 status_list_credential: StatusListCredential::StatusList2021Credential(
                     BoundedBytes((0..10).map(|v| v as u8).try_collect().unwrap()),
                 ),
                 policy: policy.clone(),
             },
-        )
+        }
+        .modify_removable(Mod::create_)
         .unwrap();
         assert_eq!(
             Mod::status_list_credential(id).unwrap(),
@@ -330,10 +332,10 @@ fn remove_status_list_credential() {
             id,
             _marker: PhantomData,
         };
-        let auth = get_pauth(&remove, &[(did, &keypair)][..]);
+
         assert_noop!(
-            Mod::remove(Origin::signed(ABBA), remove, auth),
-            ActionExecutionError::NoEntity
+            Mod::remove(Origin::signed(ABBA), remove, vec![]),
+            Error::<Test>::StatusListCredentialDoesntExist
         );
     });
 }

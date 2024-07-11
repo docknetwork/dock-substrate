@@ -4,6 +4,7 @@ use crate::common::ToStateChange;
 use crate::{
     common::{get_secp256k1_keypair, SigValue},
     did::{
+        self,
         keys::{DidKeyError, UncheckedDidKey},
         service_endpoints::{ServiceEndpointOrigin, ServiceEndpointType},
     },
@@ -851,7 +852,7 @@ fn add_keys_to_did() {
                     }
                     .into()
                 ),
-                NonceError::IncorrectNonce
+                did::Error::<Test>::InvalidNonce
             );
         }
 
@@ -1151,7 +1152,7 @@ fn remove_keys_from_did() {
                     }
                     .into()
                 ),
-                NonceError::IncorrectNonce
+                did::Error::<Test>::InvalidNonce
             );
         }
 
@@ -1384,7 +1385,7 @@ fn remove_controllers_from_did() {
                     }
                     .into()
                 ),
-                NonceError::IncorrectNonce
+                did::Error::<Test>::InvalidNonce
             );
         }
 
@@ -1652,7 +1653,7 @@ fn add_controllers_to_did() {
                     }
                     .into()
                 ),
-                NonceError::IncorrectNonce
+                did::Error::<Test>::InvalidNonce
             );
         }
 
@@ -2544,7 +2545,7 @@ fn did_removal() {
                 }
                 .into()
             ),
-            NonceError::IncorrectNonce
+            did::Error::<Test>::InvalidNonce
         );
         check_did_detail(&did_1, 1, 1, 1, 6);
         check_did_detail(&did_3, 1, 1, 2, 15);

@@ -169,6 +169,42 @@ macro_rules! impl_action_with_nonce {
     };
 }
 
+#[macro_export]
+macro_rules! impl_authorize_target {
+    (for $target: ty: $actor: ident $(with Value=$target_value_ty: ty =>)? fn($self: ident, $key_var: pat, $action_var: pat, $target_value_var: pat) $body: block) => {
+        impl<T> AuthorizeTarget<T, $target, DidKey> for $actor where T: Config, $target: crate::util::Associated<T$(, Value=$target_value_ty)?> {
+            fn ensure_authorizes_target<A>(
+                &$self,
+                $key_var: &DidKey,
+                $action_var: &A,
+                $target_value_var: Option<&<$target as crate::util::Associated<T>>::Value>,
+            ) -> DispatchResult
+            where
+                A: crate::util::Action<Target = $target> {
+                $body
+
+                Ok(())
+            }
+        }
+
+        impl<T> AuthorizeTarget<T, $target, DidMethodKey> for $actor where T: Config, $target: crate::util::Associated<T$(, Value=$target_value_ty)?> {
+            fn ensure_authorizes_target<A>(
+                &$self,
+                $key_var: &DidMethodKey,
+                $action_var: &A,
+                $target_value_var: Option<&<$target as crate::util::Associated<T>>::Value>,
+            ) -> DispatchResult
+            where
+                A: crate::util::Action<Target = $target> {
+                $body
+
+                Ok(())
+            }
+        }
+
+    };
+}
+
 /// Implements given trait for the tuple type.
 #[macro_export]
 macro_rules! impl_tuple {
@@ -196,6 +232,18 @@ macro_rules! impl_tuple {
                     }
                 }
     }
+}
+
+/// Implements `Debug` trait printing hex representation of the underlying value.
+#[macro_export]
+macro_rules! hex_debug {
+    ($ty: ty) => {
+        impl core::fmt::Debug for $ty {
+            fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                write!(f, "0x{}", ::hex::encode(&self.0[..]))
+            }
+        }
+    };
 }
 
 /// Deposits an event indexed over the supplied fields.

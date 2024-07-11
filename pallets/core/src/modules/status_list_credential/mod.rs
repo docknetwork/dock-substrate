@@ -2,8 +2,9 @@
 //! - [`RevocationList2020Credential`](https://w3c-ccg.github.io/vc-status-rl-2020/#revocationlist2020credential)
 //! - [`StatusList2021Credential`](https://www.w3.org/TR/vc-status-list/#statuslist2021credential).
 use crate::{
-    common::{signatures::ForSigType, DidSignatureWithNonce, HasPolicy},
-    deposit_indexed_event, did,
+    common::{signatures::ForSigType, PolicyExecutor, SignatureWithNonce},
+    deposit_indexed_event,
+    did::{self, DidOrDidMethodKeySignature},
     util::Action,
 };
 use alloc::vec::*;
@@ -29,6 +30,8 @@ use weights::*;
 #[frame_support::pallet]
 
 pub mod pallet {
+    use crate::common::PolicyExecutor;
+
     use super::*;
 
     use frame_system::pallet_prelude::*;
@@ -38,6 +41,8 @@ pub mod pallet {
     pub enum Error<T> {
         /// There is already a `StatusListCredential` with the same id
         StatusListCredentialAlreadyExists,
+        /// The `StatusListCredential` with the supplied id doesn't exist
+        StatusListCredentialDoesntExist,
         /// The `StatusListCredential` byte length is less than `MinStatusListCredentialSize`
         StatusListCredentialTooSmall,
         /// Action can't have an empty payload.
@@ -86,7 +91,9 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::create_(id, credential)
+            AddStatusListCredential { id, credential }
+                .modify_removable(Self::create_)
+                .map_err(Into::into)
         }
 
         /// Updates `StatusListCredential` associated with the supplied identifier.
@@ -95,15 +102,16 @@ pub mod pallet {
         pub fn update(
             origin: OriginFor<T>,
             update_credential: UpdateStatusListCredentialRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<
+                SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+            >,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            update_credential.execute(
-                |action, credential: &mut StatusListCredentialWithPolicy<T>| {
-                    credential.execute(Self::update_, action, proof)
-                },
-            )
+            update_credential
+                .multi_signed(proof)
+                .execute(Self::update_, StatusListCredentialWithPolicy::expand_policy)
+                .map_err(Into::into)
         }
 
         /// Removes `StatusListCredential` associated with the supplied identifier.
@@ -111,51 +119,18 @@ pub mod pallet {
         pub fn remove(
             origin: OriginFor<T>,
             remove_credential: RemoveStatusListCredentialRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<
+                SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+            >,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            remove_credential.execute_removable(
-                |action, credential: &mut Option<StatusListCredentialWithPolicy<T>>| {
-                    HasPolicy::execute_removable(credential, Self::remove_, action, proof)
-                },
-            )
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            use crate::common::{Limits, OldPolicy};
-            let mut reads_writes = 0;
-
-            /// `StatusListCredential` combined with `Policy`.
-            #[derive(Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen)]
-            struct OldStatusListCredentialWithPolicy<T: Limits> {
-                pub status_list_credential: StatusListCredential<T>,
-                pub policy: OldPolicy<T>,
-            }
-
-            StatusListCredentials::<T>::translate_values(
-                |OldStatusListCredentialWithPolicy {
-                     status_list_credential,
-                     policy,
-                 }: OldStatusListCredentialWithPolicy<T>| {
-                    reads_writes += 1;
-
-                    {
-                        StatusListCredentialWithPolicy {
-                            status_list_credential,
-                            policy: policy.into(),
-                        }
-                        .into()
-                    }
-                },
-            );
-
-            frame_support::log::info!("Translated {} StatusListCredentials", reads_writes);
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
+            remove_credential
+                .multi_signed(proof)
+                .execute_removable(Self::remove_, |opt| {
+                    opt.and_then(StatusListCredentialWithPolicy::expand_policy)
+                })
+                .map_err(Into::into)
         }
     }
 }
@@ -171,7 +146,7 @@ impl<T: Config> SubstrateWeight<T> {
     }
 
     fn update(
-        sig: &DidSignatureWithNonce<T>,
+        sig: &SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
         UpdateStatusListCredentialRaw { credential, .. }: &UpdateStatusListCredentialRaw<T>,
     ) -> Weight {
         sig.weight_for_sig_type::<T>(
@@ -181,7 +156,9 @@ impl<T: Config> SubstrateWeight<T> {
         )
     }
 
-    fn remove(sig: &DidSignatureWithNonce<T>) -> Weight {
+    fn remove(
+        sig: &SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+    ) -> Weight {
         sig.weight_for_sig_type::<T>(
             Self::remove_sr25519,
             Self::remove_ed25519,

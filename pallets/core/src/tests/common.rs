@@ -2,13 +2,15 @@
 
 use crate::{
     accumulator, anchor, attest, blob,
-    common::{self, StateChange, ToStateChange},
+    common::{self, StateChange, ToStateChange, Types},
     did::{
-        self, Did, DidKey, DidMethodKeySignature, DidOrDidMethodKey, DidOrDidMethodKeySignature,
-        DidSignature,
+        self, Did, DidDetailsOrDidMethodKeyDetails, DidKey, DidMethodKeySignature,
+        DidOrDidMethodKey, DidOrDidMethodKeySignature, DidSignature,
     },
     master, offchain_signatures, revoke, status_list_credential, trust_registry,
+    util::{ActionWrapper, WithNonce},
 };
+use sp_runtime::DispatchError;
 
 use crate::{
     common::SigValue,
@@ -143,9 +145,6 @@ impl From<accumulator::Event> for TestEvent {
 
 parameter_types! {
     pub const BlockHashCount: u64 = 250;
-    pub const MaxPolicyControllers: u32 = 15;
-    pub const MaxStatusListCredentialSize: u32 = 1_000;
-    pub const MinStatusListCredentialSize: u32 = 10;
     pub const ByteReadWeight: Weight = Weight::from_ref_time(10);
 }
 
@@ -241,35 +240,32 @@ impl pallet_balances::Config for Test {
     type WeightInfo = ();
 }
 
-parameter_types! {
-    pub const MaxMasterMembers: u32 = 100;
-}
-
 impl crate::common::Limits for Test {
-    type MaxDidDocRefSize = MaxDidDocRefSize;
-    type MaxDidServiceEndpointIdSize = MaxDidServiceEndpointIdSize;
-    type MaxDidServiceEndpointOrigins = MaxDidServiceEndpointOrigins;
-    type MaxDidServiceEndpointOriginSize = MaxDidServiceEndpointOriginSize;
+    type MaxDidDocRefSize = ConstU32<128>;
+    type MaxDidServiceEndpointIdSize = ConstU32<256>;
+    type MaxDidServiceEndpointOrigins = ConstU32<20>;
+    type MaxDidServiceEndpointOriginSize = ConstU32<256>;
 
-    type MaxAccumulatorLabelSize = MaxAccumulatorLabelSize;
-    type MaxAccumulatorParamsSize = MaxAccumulatorParamsSize;
-    type MaxAccumulatorPublicKeySize = MaxBBSPublicKeySize;
-    type MaxAccumulatorAccumulatedSize = MaxAccumulatorAccumulatedSize;
+    type MaxAccumulatorLabelSize = ConstU32<512>;
+    type MaxAccumulatorParamsSize = ConstU32<512>;
+    type MaxAccumulatorPublicKeySize = ConstU32<128>;
+    type MaxAccumulatorAccumulatedSize = ConstU32<256>;
 
-    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
-    type MinStatusListCredentialSize = MinStatusListCredentialSize;
+    type MinStatusListCredentialSize = ConstU32<10>;
+    type MaxStatusListCredentialSize = ConstU32<1_000>;
 
-    type MaxIriSize = MaxIriSize;
-    type MaxBlobSize = MaxBlobSize;
+    type MaxIriSize = ConstU32<1024>;
+    type MaxBlobSize = ConstU32<1024>;
 
-    type MaxOffchainParamsLabelSize = MaxAccumulatorParamsSize;
-    type MaxOffchainParamsBytesSize = MaxAccumulatorParamsSize;
-    type MaxBBSPublicKeySize = MaxBBSPublicKeySize;
-    type MaxBBSPlusPublicKeySize = MaxBBSPublicKeySize;
-    type MaxPSPublicKeySize = MaxPSPublicKeySize;
+    type MaxOffchainParamsLabelSize = ConstU32<512>;
+    type MaxOffchainParamsBytesSize = ConstU32<512>;
+    type MaxBBSPublicKeySize = ConstU32<128>;
+    type MaxBBSPlusPublicKeySize = ConstU32<128>;
+    type MaxPSPublicKeySize = ConstU32<128>;
+    type MaxBBDT16PublicKeySize = ConstU32<128>;
 
-    type MaxMasterMembers = MaxMasterMembers;
-    type MaxPolicyControllers = MaxPolicyControllers;
+    type MaxMasterMembers = ConstU32<100>;
+    type MaxPolicyControllers = ConstU32<15>;
 
     type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
     type MaxIssuersPerSchema = ConstU32<20>;
@@ -284,6 +280,10 @@ impl crate::common::Limits for Test {
     type MaxRegistriesPerVerifier = ConstU32<250>;
     type MaxSchemasPerRegistry = ConstU32<1_000>;
     type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
+    type MaxParticipantsPerRegistry = ConstU32<10_000>;
+    type MaxRegistryParticipantOrgNameSize = ConstU32<100>;
+    type MaxRegistryParticipantLogoSize = ConstU32<500>;
+    type MaxRegistryParticipantDescriptionSize = ConstU32<500>;
 }
 
 impl crate::did::Config for Test {
@@ -302,20 +302,6 @@ impl crate::trust_registry::Config for Test {
 }
 impl crate::blob::Config for Test {}
 impl crate::attest::Config for Test {}
-
-parameter_types! {
-    pub const MaxBlobSize: u32 = 1024;
-    pub const MaxIriSize: u32 = 1024;
-    pub const MaxAccumulatorLabelSize: u32 = 512;
-    pub const MaxAccumulatorParamsSize: u32 = 512;
-    pub const MaxBBSPublicKeySize: u32 = 128;
-    pub const MaxPSPublicKeySize: u32 = 128;
-    pub const MaxAccumulatorAccumulatedSize: u32 = 256;
-    pub const MaxDidDocRefSize: u16 = 128;
-    pub const MaxDidServiceEndpointIdSize: u16 = 256;
-    pub const MaxDidServiceEndpointOrigins: u16 = 20;
-    pub const MaxDidServiceEndpointOriginSize: u16 = 256;
-}
 
 impl crate::anchor::Config for Test {
     type Event = TestEvent;
@@ -379,17 +365,17 @@ pub fn gen_kp() -> sr25519::Pair {
 // concern), but that doesn't matter for our purposes.
 pub fn create_did(did: did::Did) -> sr25519::Pair {
     let kp = gen_kp();
-    println!("did pk: {:?}", kp.public().0);
+    let did_pk = DidKey::new_with_all_relationships(kp.public());
+    println!("did pk: {:?}", did_pk.public_key());
+
     did::Pallet::<Test>::new_onchain(
         Origin::signed(ABBA),
         did,
-        vec![
-            DidKey::new_with_all_relationships(common::PublicKey::Sr25519(kp.public().0.into()))
-                .into(),
-        ],
-        vec![].into_iter().collect(),
+        vec![did_pk.into()],
+        Default::default(),
     )
     .unwrap();
+
     kp
 }
 
@@ -445,6 +431,22 @@ macro_rules! did_or_did_method_key {
             $($tt)+
         }
     }
+}
+
+pub fn did_nonce<T: crate::did::Config, D: Into<DidOrDidMethodKey>>(
+    did: D,
+) -> Result<<T as Types>::BlockNumber, DispatchError> {
+    use crate::util::Action;
+    use core::marker::PhantomData;
+
+    struct DummyAction<T>(PhantomData<T>);
+    crate::impl_action!(for (): DummyAction with 1 as len, () as target no_state_change);
+
+    ActionWrapper::new(did.into(), DummyAction(PhantomData::<T>)).view(
+        |_, details: WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>| {
+            Ok::<_, DispatchError>(details.next_nonce().unwrap())
+        },
+    )
 }
 
 pub fn did_sig<T: crate::did::Config, A: ToStateChange<T>, D: Into<DidOrDidMethodKey>, P: Pair>(

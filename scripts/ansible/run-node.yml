@@ -1,34 +1,34 @@
-- hosts: '{{ overriden_host | default(host) }}'
+- hosts: "{{ overriden_host | default(host) }}"
   vars:
     node_nm: "--name={{ node_name | default('') }}"
     image_tag: "{{ docker_image_tag | default('mainnet') }}"
     container_name: "{{ docker_container_name | default('dock-node') }}"
     mount_at: "{{ mount_container_at | default('/docknode') }}" # Mount docker volume at
     base_path: "--base-path={{ node_base_path if node_base_path is defined else mount_at}}" # Base path for Substrate node
-    chain: "--chain=./cspec/{{ chain_spec_file | default('knox_raw.json') }}"   # chain spec for mainnet by default
+    chain: "--chain=./cspec/{{ chain_spec_file | default('knox_raw.json') }}" # chain spec for mainnet by default
     export_aws_metrics_bool: "{{ export_aws_metrics | default('false') | bool }}"
     copy_chains_data_bool: "{{ copy_chains_data | default('false') | bool }}"
     rpc_methods_value: "{{ '--rpc-methods=' + rpc_methods if rpc_methods is defined else '' }}"
-    
+
     # When `libp2p_key` is not provided `--node-key=...` parameter is not passed to the node making it generate a random key
     # Expecting a 32 byte hex string without leading `0x`. No input validation done
-    # As the node key is passed as command line argument, it can be learned through bash history. 
+    # As the node key is passed as command line argument, it can be learned through bash history.
     # TODO: Ansible should disable history before running script and enable once done.
-    has_node_key: "{{ libp2p_key | default(false) }}"  # libp2p_key might not be defined
+    has_node_key: "{{ libp2p_key | default(false) }}" # libp2p_key might not be defined
     node_key_cmd: "{{ '--node-key=' + libp2p_key if (has_node_key) else '' }}"
 
-    ext_rpc_flag: "{{ allow_ext_rpc | default('false') | bool }}"  # External RPC is disabled by default
+    ext_rpc_flag: "{{ allow_ext_rpc | default('false') | bool }}" # External RPC is disabled by default
     external_rpc: "{{ '--unsafe-rpc-external --unsafe-ws-external --rpc-cors=all' if (ext_rpc_flag) else '' }}"
 
     ws_max: "{{ '--ws-max-connections=' + (ws_max_connections | string) if ws_max_connections is defined else '' }}"
 
-    ext_prometheus_flag: "{{ allow_ext_prom | default('false') | bool }}"  # Listening to external Prometheus interfaces is disabled by default
+    ext_prometheus_flag: "{{ allow_ext_prom | default('false') | bool }}" # Listening to external Prometheus interfaces is disabled by default
     external_prom: "{{ '--prometheus-external' if (ext_prometheus_flag) else '' }}"
 
     new_session_key: "{{ rotate_session_key | default('false') | bool }}"
     offchain_indexing: "{{ '' if (disable_offchain_indexing | default(false)) else '--enable-offchain-indexing=true' }}"
-    
-    is_val_flag: "{{ is_validator | default('false') | bool }}"  # Is validator node or not
+
+    is_val_flag: "{{ is_validator | default('false') | bool }}" # Is validator node or not
     validator: "{{ '--validator' if (is_val_flag) else '' }}"
 
     # This flag should be only applicable and required for sentry nodes. Its the caller's responsibility to pass it
@@ -36,221 +36,192 @@
     sentry: "{{ '--sentry=' + sentry_of if sentry_of is defined else '' }}"
 
     telemetry: "{{ '--telemetry-url='+telemetry_url if telemetry_url is defined else '--no-telemetry' }}"
-    
-    only_reserved: "{{ '--reserved-only' if (reserved_only | bool) else '' }}"  # Variable name `only_reserved` is intentionally kept different from `reserved_only` to avoid recursion 
-    
+
+    only_reserved: "{{ '--reserved-only' if (reserved_only | bool) else '' }}" # Variable name `only_reserved` is intentionally kept different from `reserved_only` to avoid recursion
+
     # if `reserved-nodes` is defined, then `nodes_reserved` will be a string like `--reserved-nodes=<addr1> --reserved-nodes=<addr2>`. `reserved-nodes` is expected to as an array and no input validation is done as of now
     # Variable name `nodes_reserved` is intentionally kept different from `reserved_nodes` to avoid recursion
     nodes_reserved: "{{ '--reserved-nodes=' + reserved_nodes | join(' --reserved-nodes=') if reserved_nodes is defined else '' }}"
-    
+
     # if `bootnodes` is defined, then `boot_nodes` will be a string like `--bootnodes=<addr1> --bootnodes=<addr2>`. `bootnodes` is expected to as an array and no input validation is done as of now
     # Variable name `boot_nodes` is intentionally kept different from `bootnodes` to avoid recursion
     boot_nodes: "{{ '--bootnodes=' + bootnodes | join(' --bootnodes=') if bootnodes is defined else '' }}"
-    
+
     prune: "{{ '--pruning=' + pruning if pruning is defined else '' }}"
     # TODO: Allow light node as well
   tasks:
+    - name: Install required system packages (Will only run for Ubuntu/Debian)
+      when: ansible_facts['os_family'] == "Debian"
+      become: yes
+      become_method: sudo
+      apt: name={{ item }} state=latest update_cache=yes
+      loop:
+        [
+          "apt-transport-https",
+          "ca-certificates",
+          "curl",
+          "software-properties-common",
+          "python3-pip",
+          "python3-dnf",
+          "virtualenv",
+          "python3-setuptools",
+        ]
 
-  # - fail:
-  #     msg: Validators cannot allow external RPC
-  #   when: is_val_flag | bool and ext_rpc_flag | bool
+    - name: Add Docker GPG apt Key (Will only run for Ubuntu/Debian)
+      when: ansible_facts['os_family'] == "Debian"
+      become: yes
+      become_method: sudo
+      apt_key:
+        url: https://download.docker.com/linux/ubuntu/gpg
+        state: present
 
-  - name: Install required system packages (Will only run for Ubuntu/Debian)
-    when: ansible_facts['os_family'] == "Debian"
-    become: yes
-    become_method: sudo
-    apt: name={{ item }} state=latest update_cache=yes
-    loop: [ 'apt-transport-https', 'ca-certificates', 'curl', 'software-properties-common', 'python3-pip', 'python3-dnf', 'virtualenv', 'python3-setuptools' ]
- 
-  - name: Add Docker GPG apt Key (Will only run for Ubuntu/Debian)
-    when: ansible_facts['os_family'] == "Debian"
-    become: yes
-    become_method: sudo
-    apt_key:
-      url: https://download.docker.com/linux/ubuntu/gpg
-      state: present
-    
-  - name: Add Docker Repository (Will only run for Ubuntu/Debian)
-    when: ansible_facts['os_family'] == "Debian"
-    become: yes
-    become_method: sudo
-    apt_repository:
-      repo: deb https://download.docker.com/linux/ubuntu bionic stable
-      state: present
+    - name: Add Docker Repository (Will only run for Ubuntu/Debian)
+      when: ansible_facts['os_family'] == "Debian"
+      become: yes
+      become_method: sudo
+      apt_repository:
+        repo: deb https://download.docker.com/linux/ubuntu bionic stable
+        state: present
 
-  - name: Update apt and install docker-ce (Will only run for Ubuntu/Debian)
-    when: ansible_facts['os_family'] == "Debian"
-    become: yes
-    become_method: sudo
-    apt: update_cache=yes name=docker-ce state=latest
-  
-  # Following commented are for RedHat.
-  - name: Install yum utils (Will only run for RedHat/Centos)
-    when: ansible_facts['os_family'] == "RedHat"
-    become: yes
-    become_method: sudo
-    yum:
-      name: yum-utils
-      state: latest
-  
-  - name: Install device-mapper-persistent-data (Will only run for RedHat/Centos)
-    when: ansible_facts['os_family'] == "RedHat"
-    become: yes
-    become_method: sudo
-    yum:
-      name: device-mapper-persistent-data
-      state: latest
+    - name: Update apt and install docker-ce (Will only run for Ubuntu/Debian)
+      when: ansible_facts['os_family'] == "Debian"
+      become: yes
+      become_method: sudo
+      apt: update_cache=yes name=docker-ce state=latest
 
-  - name: Install lvm2 (Will only run for RedHat/Centos)
-    when: ansible_facts['os_family'] == "RedHat"
-    become: yes
-    become_method: sudo
-    yum:
-      name: lvm2
-      state: latest
+    - name: Add group "docker", ignore if exists
+      become: yes
+      become_method: sudo
+      group:
+        name: docker
+        state: present
 
-  - name: Add Docker repo (Will only run for RedHat/Centos)
-    when: ansible_facts['os_family'] == "RedHat"
-    get_url:
-      url: https://download.docker.com/linux/centos/docker-ce.repo
-      dest: /etc/yum.repos.d/docer-ce.repo
-    become: yes
-  
-  - name: Install Containerd (Will only run for RedHat/Centos; this should be removed in future when docker-ce is packaged with the distro)
-    when: ansible_facts['os_family'] == "RedHat"
-    become: yes
-    become_method: sudo
-    yum:
-      name: https://download.docker.com/linux/centos/7/x86_64/stable/Packages/containerd.io-1.2.6-3.3.el7.x86_64.rpm
+    - name: This achieves the "logout and then login" effect by resetting the ssh connection to add current user to the group "docker". Need only on RedHat.
+      meta: reset_connection
 
-  - name: Install Docker (Will only run for RedHat/Centos)
-    when: ansible_facts['os_family'] == "RedHat"
-    package:
-      name: docker-ce
-      state: latest
-    become: yes
+    - name: Add current user to group "docker", ignore if exists
+      become: yes
+      become_method: sudo
+      user:
+        name: "{{ ansible_ssh_user }}"
+        groups: docker
+        append: yes
 
-  - name: Start Docker service (Will only run for RedHat/Centos)
-    when: ansible_facts['os_family'] == "RedHat"
-    service:
-      name: docker
-      state: started
-      enabled: yes
-    become: yes
+    - name: Copy chain data
+      when: copy_chains_data_bool
+      become: yes
+      become_method: sudo
+      ansible.builtin.copy:
+        src: "{{ chains_data_path }}"
+        dest: /var/lib/docker/volumes/dock-chain-data/_data
 
-  - name: Add group "docker", ignore if exists
-    become: yes
-    become_method: sudo
-    group:
-      name: docker
-      state: present
+    - name: Find old AWS Cloudwatch Agent downloads
+      find:
+        paths: "/home/ubuntu"
+        patterns: "amazon-cloudwatch-agent.deb*"
+      register: amazon_cloudwatch_agent_downloads
 
-  - name: This achieves the "logout and then login" effect by resetting the ssh connection to add current user to the group "docker". Need only on RedHat.
-    meta: reset_connection
+    - name: Cleanup old AWS Cloudwatch Agent downloads
+      when: amazon_cloudwatch_agent_downloads['files'] | default([]) | length > 0
+      file:
+        path: "{{ item['path'] }}"
+        state: absent
+      with_items: "{{ amazon_cloudwatch_agent_downloads['files'] }}"
 
-  - name: Add current user to group "docker", ignore if exists
-    become: yes
-    become_method: sudo
-    user:
-      name: "{{ ansible_ssh_user }}"
-      groups: docker
-      append: yes
+    - name: Download AWS Cloudwatch Agent
+      when: export_aws_metrics_bool
+      ansible.builtin.command: wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
 
-  - name: Install Docker Module for Python
-    become: yes
-    become_method: sudo
-    pip:
-      name: docker
+    - name: Install AWS Cloudwatch Agent
+      when: export_aws_metrics_bool
+      become: yes
+      become_method: sudo
+      ansible.builtin.command: dpkg -i -E ./amazon-cloudwatch-agent.deb
 
-  - name: Copy chain data
-    when: copy_chains_data_bool
-    become: yes
-    become_method: sudo
-    ansible.builtin.copy:
-      src: "{{ chains_data_path }}"
-      dest: /var/lib/docker/volumes/dock-chain-data/_data
+    - name: Copy AWS Cloudwatch Agent configuration file
+      when: export_aws_metrics_bool
+      become: yes
+      become_method: sudo
+      ansible.builtin.copy:
+        src: "{{ cloudwatch_agent_config | default('../../.maintain/monitoring/diskspace/cloudwatch-agent-config.json') }}"
+        dest: /opt/aws/amazon-cloudwatch-agent/bin/config.json
+        owner: "{{ ansible_ssh_user }}"
+        group: "{{ ansible_ssh_user }}"
+        mode: "777"
 
-  - name: Download AWS Cloudwatch Agent
-    when: export_aws_metrics_bool
-    ansible.builtin.command: wget https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+    - name: Create collectD dir
+      when: export_aws_metrics_bool
+      become: yes
+      become_method: sudo
+      ansible.builtin.command: "mkdir -p /usr/share/collectd/"
 
-  - name: Install AWS Cloudwatch Agent
-    when: export_aws_metrics_bool
-    become: yes
-    become_method: sudo
-    ansible.builtin.command: dpkg -i -E ./amazon-cloudwatch-agent.deb
+    - name: Touch collectd/types.db
+      when: export_aws_metrics_bool
+      become: yes
+      become_method: sudo
+      ansible.builtin.command: "touch /usr/share/collectd/types.db"
 
-  - name: Copy AWS Cloudwatch Agent configuration file
-    when: export_aws_metrics_bool
-    become: yes
-    become_method: sudo
-    ansible.builtin.copy:
-      src: "{{ cloudwatch_agent_config | default('../../.maintain/monitoring/diskspace/cloudwatch-agent-config.json') }}"
-      dest: /opt/aws/amazon-cloudwatch-agent/bin/config.json
-      owner: "{{ ansible_ssh_user }}"
-      group: "{{ ansible_ssh_user }}"
-      mode: '777'
-  
-  - name: Create collectD dir
-    when: export_aws_metrics_bool
-    become: yes
-    become_method: sudo
-    ansible.builtin.command: "mkdir -p /usr/share/collectd/"
+    - name: Run AWS Cloudwatch Agent
+      when: export_aws_metrics_bool
+      become: yes
+      become_method: sudo
+      ansible.builtin.command: "/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json"
 
-  - name: Touch collectd/types.db
-    when: export_aws_metrics_bool
-    become: yes
-    become_method: sudo
-    ansible.builtin.command: "touch /usr/share/collectd/types.db"
+    - name: Install specific version of requests library for Python
+      become: yes
+      become_method: sudo
+      pip:
+        name: requests
+        version: 2.32.1
 
-  - name: Run AWS Cloudwatch Agent
-    when: export_aws_metrics_bool
-    become: yes
-    become_method: sudo
-    ansible.builtin.command: "/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/bin/config.json"
-  
-  - name: Download image if not already.
-    become: yes
-    become_method: sudo
-    docker_image:
-      name: 'docknetwork/dock-substrate:{{ image_tag }}'
-      source: pull
-      force_source: yes
-      state: present
+    - name: Install Docker Module for Python
+      become: yes
+      become_method: sudo
+      pip:
+        name: docker
 
-  - name: Run container for node.
-    become: yes
-    become_method: sudo
-    docker_container:
-      name: '{{ container_name }}'
-      image: 'docknetwork/dock-substrate:{{ image_tag }}'
-      state: started
-      detach: yes
-      restart_policy: always
-      published_ports:
-        # WS RPC
-        - 9944:9944
-        # TCP RPC
-        - 9933:9933
-        # Node P2P
-        - 30333:30333
-        # Prometheus
-        - 9615:9615
-      mounts:
-      - source: 'dock-chain-data'
-        target: '{{ mount_at }}'
-      command: '{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }} {{ offchain_indexing }} {{ ws_max }} {{ rpc_methods_value }}'
+    - name: Download image if not already.
+      become: yes
+      become_method: sudo
+      docker_image:
+        name: "docknetwork/dock-substrate:{{ image_tag }}"
+        source: pull
+        force_source: yes
+        state: present
 
-  # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
-  - name: Rotate session key
-    shell: docker exec {{ container_name }} ./scripts/rotate_session_key --nocolor
-    register: sess_key
-    until: sess_key['stdout'].find("The session key is") != -1
-    retries: 20
-    delay: 2
-    when: rotate_session_key | bool
-  
-  - name: Write session key to file "session_key.txt" in current directory
-    shell: echo "{{ sess_key['stdout_lines'][0] }}" > session_key.txt
-    when: rotate_session_key | bool
-    connection: local
+    - name: Run container for node.
+      become: yes
+      become_method: sudo
+      docker_container:
+        name: "{{ container_name }}"
+        image: "docknetwork/dock-substrate:{{ image_tag }}"
+        state: started
+        detach: yes
+        restart_policy: always
+        published_ports:
+          # WS RPC
+          - 9944:9944
+          # TCP RPC
+          - 9933:9933
+          # Node P2P
+          - 30333:30333
+          # Prometheus
+          - 9615:9615
+        mounts:
+          - source: "dock-chain-data"
+            target: "{{ mount_at }}"
+        command: "{{ node_nm }} {{ base_path }} {{ chain }} {{ node_key_cmd }} {{ external_rpc }} {{ validator }} {{ only_reserved }} {{ nodes_reserved }} {{ boot_nodes }} {{ telemetry }} {{ prune }} {{ external_prom }} {{ offchain_indexing }} {{ ws_max }} {{ rpc_methods_value }}"
+
+    # Suggestion from Andrew: We should check for presence of session_key.txt and run only if its not present to avoid accidental session key rotation
+    - name: Rotate session key
+      shell: docker exec {{ container_name }} ./scripts/rotate_session_key --nocolor
+      register: sess_key
+      until: sess_key['stdout'].find("The session key is") != -1
+      retries: 20
+      delay: 2
+      when: rotate_session_key | bool
+
+    - name: Write session key to file "session_key.txt" in current directory
+      shell: echo "{{ sess_key['stdout_lines'][0] }}" > session_key.txt
+      when: rotate_session_key | bool
+      connection: local

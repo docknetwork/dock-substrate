@@ -1,31 +1,24 @@
 use super::{
-    Config, ConvenerTrustRegistries, Error, IntoModuleError, TrustRegistriesInfo,
-    TrustRegistrySchemasMetadata,
+    Config, ConvenerTrustRegistries, Error, TrustRegistriesInfo, TrustRegistriesParticipants,
 };
-#[cfg(feature = "serde")]
-use crate::util::{btree_map, btree_set, hex};
 use crate::{
-    common::{AuthorizeTarget, Limits},
+    common::{AuthorizeTarget, Limits, TypesAndLimits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
-    impl_wrapper,
-    util::{batch_update::*, BoundedBytes, KeyValue, OptionExt, StorageRef},
+    hex_debug, impl_wrapper,
+    util::{batch_update::*, Associated, BoundedBytes, KeyValue, OptionExt, StorageRef},
 };
-use alloc::collections::BTreeMap;
+use alloc::{collections::BTreeMap, string::String};
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::{borrow::Borrow, fmt::Debug, iter::once, marker::PhantomData};
-use frame_support::*;
-use scale_info::prelude::string::String;
-use sp_runtime::DispatchError;
+use core::{fmt::Debug, num::NonZeroU32};
+use frame_support::{traits::Get, weights::Weight, *};
+use sp_runtime::DispatchResult;
 use sp_std::{collections::btree_set::BTreeSet, prelude::*};
 use utils::BoundedString;
 
-macro_rules! check_err {
-    ($expr: expr) => {
-        if let Err(err) = $expr {
-            return Some(Err(err.into()));
-        }
-    };
-}
+#[cfg(feature = "serde")]
+use crate::util::{btree_map, btree_set, serde_hex};
+#[cfg(feature = "serde")]
+use serde_with::serde_as;
 
 /// Trust registry `Convener`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -37,9 +30,11 @@ pub struct Convener(pub DidOrDidMethodKey);
 
 impl_wrapper!(Convener(DidOrDidMethodKey));
 
-impl<T: Config> StorageRef<T> for Convener {
+impl<T: TypesAndLimits> Associated<T> for Convener {
     type Value = TrustRegistryIdSet<T>;
+}
 
+impl<T: Config> StorageRef<T> for Convener {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<TrustRegistryIdSet<T>>) -> Result<R, E>,
@@ -55,10 +50,42 @@ impl<T: Config> StorageRef<T> for Convener {
     }
 }
 
-impl AuthorizeTarget<Self, DidKey> for Convener {}
-impl AuthorizeTarget<TrustRegistryId, DidKey> for Convener {}
-impl AuthorizeTarget<Self, DidMethodKey> for Convener {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
+impl<T: TypesAndLimits> Associated<T> for TrustRegistryIdForParticipants {
+    type Value = TrustRegistryStoredParticipants<T>;
+}
+
+impl<T: Config> StorageRef<T> for TrustRegistryIdForParticipants {
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryStoredParticipants<T>>) -> Result<R, E>,
+    {
+        TrustRegistriesParticipants::<T>::try_mutate_exists(self, |entry| f(entry.initialized()))
+    }
+
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryStoredParticipants<T>>) -> R,
+    {
+        f(Some(TrustRegistriesParticipants::<T>::get(self)))
+    }
+}
+
+crate::impl_authorize_target!(
+    for Self: Convener fn (self, _, action, _) {
+        ensure!(
+            action.target() == *self,
+            crate::did::Error::<T>::InvalidSigner
+        );
+    }
+);
+
+crate::impl_authorize_target!(
+    for TrustRegistryId: Convener with Value=TrustRegistryInfo<T> => fn (self, _, _, reg_info_opt) {
+        if let Some(reg_info) = reg_info_opt {
+            self.ensure_controls(reg_info)?;
+        }
+    }
+);
 
 /// Maybe an `Issuer` or a `Verifier` but definitely not a `Convener`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -69,6 +96,32 @@ impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Convener {}
 pub struct IssuerOrVerifier(pub DidOrDidMethodKey);
 
 impl_wrapper!(IssuerOrVerifier(DidOrDidMethodKey));
+
+pub struct IssuersOrVerifiers(pub BTreeSet<IssuerOrVerifier>);
+
+impl_wrapper!(IssuersOrVerifiers(BTreeSet<IssuerOrVerifier>));
+
+impl IssuersOrVerifiers {
+    pub fn issuers(&self) -> BTreeSet<Issuer> {
+        self.0.iter().copied().map(|did| Issuer(*did)).collect()
+    }
+
+    pub fn verifiers(&self) -> BTreeSet<Verifier> {
+        self.0.iter().copied().map(|did| Verifier(*did)).collect()
+    }
+}
+
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for IssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for IssuerOrVerifier {}
+
+#[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct DelegatedSchemaCounter(pub NonZeroU32);
+
+impl_wrapper!(DelegatedSchemaCounter(NonZeroU32));
 
 /// Both an `Issuer` and a `Verifier`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -81,11 +134,15 @@ pub struct IssuerAndVerifier(pub DidOrDidMethodKey);
 impl_wrapper!(IssuerAndVerifier(DidOrDidMethodKey));
 
 impl Convener {
-    pub fn ensure_controls<T: Limits>(
+    pub fn controls<T: Limits>(
         &self,
         TrustRegistryInfo { convener, .. }: &TrustRegistryInfo<T>,
-    ) -> Result<(), Error<T>> {
-        ensure!(convener == self, Error::<T>::NotTheConvener);
+    ) -> bool {
+        convener == self
+    }
+
+    pub fn ensure_controls<T: Config>(&self, info: &TrustRegistryInfo<T>) -> Result<(), Error<T>> {
+        ensure!(self.controls(info), Error::<T>::NotTheConvener);
 
         Ok(())
     }
@@ -101,10 +158,8 @@ pub struct Issuer(pub DidOrDidMethodKey);
 
 impl_wrapper!(Issuer(DidOrDidMethodKey));
 
-impl AuthorizeTarget<TrustRegistryId, DidKey> for Issuer {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for Issuer {}
-impl AuthorizeTarget<(), DidKey> for Issuer {}
-impl AuthorizeTarget<(), DidMethodKey> for Issuer {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for Issuer {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey> for Issuer {}
 
 /// Trust registry `Verifier`'s `DID`.
 #[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
@@ -127,6 +182,7 @@ pub struct ConvenerOrIssuerOrVerifier(pub DidOrDidMethodKey);
 impl_wrapper!(ConvenerOrIssuerOrVerifier(DidOrDidMethodKey));
 
 impl ConvenerOrIssuerOrVerifier {
+    /// Ensures that underlying update is valid.
     pub fn validate_update<T, E, U>(
         &self,
         trust_registry_info: &TrustRegistryInfo<T>,
@@ -137,10 +193,7 @@ impl ConvenerOrIssuerOrVerifier {
         U: ValidateUpdate<Convener, E> + ValidateUpdate<IssuerOrVerifier, E>,
         T: Limits,
     {
-        if Convener(**self)
-            .ensure_controls(trust_registry_info)
-            .is_ok()
-        {
+        if Convener(**self).controls(trust_registry_info) {
             update.ensure_valid(&Convener(**self), entity)
         } else {
             update.ensure_valid(&IssuerOrVerifier(**self), entity)
@@ -148,8 +201,38 @@ impl ConvenerOrIssuerOrVerifier {
     }
 }
 
-impl AuthorizeTarget<TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
-impl AuthorizeTarget<TrustRegistryId, DidMethodKey> for ConvenerOrIssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidKey> for ConvenerOrIssuerOrVerifier {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryId, DidMethodKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+impl<T: TypesAndLimits>
+    AuthorizeTarget<T, (TrustRegistryIdForParticipants, IssuerOrVerifier), DidKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+impl<T: TypesAndLimits>
+    AuthorizeTarget<T, (TrustRegistryIdForParticipants, IssuerOrVerifier), DidMethodKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryIdForParticipants, DidKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+impl<T: TypesAndLimits> AuthorizeTarget<T, TrustRegistryIdForParticipants, DidMethodKey>
+    for ConvenerOrIssuerOrVerifier
+{
+}
+
+crate::impl_authorize_target!(
+    for (TrustRegistryId, Issuer): Issuer fn (self, _, action, _) {
+        ensure!(
+            action.target().1 == *self,
+            crate::did::Error::<T>::InvalidSigner
+        );
+    }
+);
 
 /// Price to verify a credential. Lowest denomination should be used.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
@@ -175,6 +258,7 @@ pub struct VerificationPrice(#[codec(compact)] pub u128);
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -192,6 +276,7 @@ impl_wrapper!(VerificationPrices<T> where T: Limits => (BoundedBTreeMap<BoundedS
 /// Prices of verifying a credential corresponding to the specific schema metadata per different currencies.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct UnboundedVerificationPrices(pub BTreeMap<String, VerificationPrice>);
@@ -213,6 +298,7 @@ impl_wrapper!(UnboundedVerificationPrices(BTreeMap<String, VerificationPrice>));
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 pub struct Schemas<T: Limits>(
     #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
@@ -227,6 +313,7 @@ impl_wrapper!(Schemas<T> where T: Limits => (BoundedBTreeMap<TrustRegistrySchema
 
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 pub struct UnboundedSchemas(
     pub BTreeMap<TrustRegistrySchemaId, UnboundedTrustRegistrySchemaMetadata>,
@@ -251,16 +338,18 @@ impl_wrapper!(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct AggregatedIssuerInfo<T: Limits> {
-    verification_prices: VerificationPrices<T>,
-    suspended: bool,
-    delegated: DelegatedIssuers<T>,
+    pub verification_prices: VerificationPrices<T>,
+    pub suspended: bool,
+    pub delegated: DelegatedIssuers<T>,
 }
 
 /// A map from `Issuer` to some value.
+#[cfg_attr(feature = "serde", serde_as)]
 #[derive(
     Encode,
     Decode,
@@ -270,43 +359,79 @@ pub struct AggregatedIssuerInfo<T: Limits> {
     DebugNoBound,
     MaxEncodedLen,
     DefaultNoBound,
+    scale_info_derive::TypeInfo,
 )]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(
-        serialize = "T: Sized, Entry: Serialize",
-        deserialize = "T: Sized, Entry: Deserialize<'de>"
-    ))
-)]
-#[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct IssuersWith<T: Limits, Entry: Eq + Clone + Debug>(
-    #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
-    pub  BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>,
+    pub BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>,
 );
+
+#[cfg(feature = "serde")]
+impl<T: Limits, Entry: Eq + Clone + Debug + Serialize> serde::Serialize for IssuersWith<T, Entry> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        let items: Vec<_> = self
+            .0
+            .iter()
+            .map(|(issuer, entry)| (issuer.clone(), entry.clone()))
+            .collect();
+
+        items.serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, T: Limits, Entry: Eq + Clone + Debug + Deserialize<'de>> serde::Deserialize<'de>
+    for IssuersWith<T, Entry>
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        use serde::de::Error;
+
+        let items = Vec::deserialize(deserializer)?;
+        let len = items.len();
+
+        let map = BTreeMap::from_iter(items);
+        if len != map.len() {
+            Err(D::Error::custom("Duplicate key"))
+        } else {
+            map.try_into()
+                .map_err(|_| D::Error::custom("Issuers size exceeded"))
+                .map(Self)
+        }
+    }
+}
 
 impl_wrapper!(IssuersWith<T, Entry> where T: Limits, Entry: Eq, Entry: Clone, Entry: Debug => (BoundedBTreeMap<Issuer, Entry, T::MaxIssuersPerSchema>));
 
 /// Schema `Issuer`s (`Issuer` => verification prices).
-pub type SchemaIssuers<T> = IssuersWith<T, VerificationPrices<T>>;
+pub type TrustRegistrySchemaIssuers<T> = IssuersWith<T, VerificationPrices<T>>;
 
 /// An unbounded map from `Issuer` to some value.
-#[derive(
-    Encode,
-    Decode,
-    CloneNoBound,
-    PartialEqNoBound,
-    EqNoBound,
-    DebugNoBound,
-    MaxEncodedLen,
-    DefaultNoBound,
-)]
+#[cfg_attr(feature = "serde", serde_as)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(
+        serialize = "Entry: Serialize",
+        deserialize = "Entry: Deserialize<'de>"
+    ))
+)]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct UnboundedIssuersWith<Entry: Eq + Clone + Debug>(pub BTreeMap<Issuer, Entry>);
+pub struct UnboundedIssuersWith<Entry: Eq + Clone + Debug>(
+    #[cfg(feature = "serde")]
+    #[serde_as(as = "serde_with::Seq<(_, _)>")]
+    pub BTreeMap<Issuer, Entry>,
+    #[cfg(not(feature = "serde"))] pub BTreeMap<Issuer, Entry>,
+);
 
 impl_wrapper!(UnboundedIssuersWith<Entry> where Entry: Eq, Entry: Clone, Entry: Debug => (BTreeMap<Issuer, Entry>));
 
@@ -326,6 +451,7 @@ impl_wrapper!(UnboundedIssuersWith<Entry> where Entry: Eq, Entry: Clone, Entry: 
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
 )]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -339,6 +465,7 @@ impl_wrapper!(TrustRegistrySchemaVerifiers<T> where T: Limits => (BoundedBTreeSe
 /// Schema `Verifier`s.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct UnboundedTrustRegistrySchemaVerifiers(pub BTreeSet<Verifier>);
@@ -357,6 +484,7 @@ impl_wrapper!(UnboundedTrustRegistrySchemaVerifiers(BTreeSet<Verifier>));
     MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -377,6 +505,7 @@ pub type DelegatedUpdate<T> =
 /// Unbounded delegated `Issuer`s.
 #[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct UnboundedDelegatedIssuers(pub BTreeSet<Issuer>);
@@ -395,8 +524,11 @@ impl<T: Limits> TryFrom<UnboundedDelegatedIssuers> for DelegatedIssuers<T> {
     }
 }
 
-pub type UnboundedDelegatedUpdate =
+pub type UnboundedDelegatedIssuersUpdate =
     SetOrModify<UnboundedDelegatedIssuers, MultiTargetUpdate<Issuer, AddOrRemoveOrModify<()>>>;
+
+pub type UnboundedTrustRegistryParticipantsUpdate =
+    MultiTargetUpdate<IssuerOrVerifier, AddOrRemoveOrModify<()>>;
 
 #[derive(
     Encode,
@@ -409,6 +541,7 @@ pub type UnboundedDelegatedUpdate =
     MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -421,11 +554,12 @@ pub struct TrustRegistryIssuerConfiguration<T: Limits> {
     pub delegated: DelegatedIssuers<T>,
 }
 
-/// `Trust Registry` schema metadata.
+/// `TrustRegistry` schema metadata.
 #[derive(
     Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -434,17 +568,18 @@ pub struct TrustRegistryIssuerConfiguration<T: Limits> {
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
 pub struct TrustRegistrySchemaMetadata<T: Limits> {
-    pub issuers: SchemaIssuers<T>,
+    pub issuers: TrustRegistrySchemaIssuers<T>,
     pub verifiers: TrustRegistrySchemaVerifiers<T>,
 }
 
-/// Unbounded `Trust Registry` schema metadata.
+/// Unbounded `TrustRegistry` schema metadata.
 #[derive(Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
 pub struct UnboundedTrustRegistrySchemaMetadata {
-    pub issuers: UnboundedSchemaIssuers,
+    pub issuers: UnboundedRegistrySchemaIssuers,
     pub verifiers: UnboundedTrustRegistrySchemaVerifiers,
 }
 
@@ -476,16 +611,18 @@ impl<T: Limits> TryFrom<UnboundedTrustRegistrySchemaMetadata> for TrustRegistryS
     }
 }
 
-pub type SchemaUpdate<Update = AddOrRemoveOrModify<()>> =
+pub type RegistryIdUpdate<Update = AddOrRemoveOrModify<()>> =
+    MultiTargetUpdate<TrustRegistryId, Update>;
+pub type SchemaIdUpdate<Update = AddOrRemoveOrModify<()>> =
     MultiTargetUpdate<TrustRegistrySchemaId, Update>;
-pub type MultiSchemaUpdate<Key, Update = AddOrRemoveOrModify<()>> =
-    MultiTargetUpdate<Key, SchemaUpdate<Update>>;
+pub type MultiSchemaIdUpdate<Key, Update = AddOrRemoveOrModify<()>> =
+    MultiTargetUpdate<Key, SchemaIdUpdate<Update>>;
 
 impl<T: Limits> TrustRegistrySchemaMetadata<T> {
-    fn record_inner_issuers_and_verifiers_diff<F, U>(
+    pub fn record_inner_issuers_and_verifiers_diff<F, U>(
         &self,
-        issuers: &mut MultiSchemaUpdate<Issuer, U>,
-        verifiers: &mut MultiSchemaUpdate<Verifier, U>,
+        issuers: &mut MultiSchemaIdUpdate<Issuer, U>,
+        verifiers: &mut MultiSchemaIdUpdate<Verifier, U>,
         mut record_update: F,
     ) -> Result<(), DuplicateKey>
     where
@@ -503,13 +640,14 @@ impl<T: Limits> TrustRegistrySchemaMetadata<T> {
     }
 }
 
-pub type AggregatedTrustRegistrySchemaIssuers<T> = UnboundedIssuersWith<AggregatedIssuerInfo<T>>;
+pub type AggregatedTrustRegistrySchemaIssuers<T> = Vec<(Issuer, AggregatedIssuerInfo<T>)>;
 
-/// `Trust Registry` schema metadata.
+/// `TrustRegistry` schema metadata.
 #[derive(
     Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -549,10 +687,7 @@ impl<T: Config> TrustRegistrySchemaMetadata<T> {
             })
             .collect();
 
-        AggregatedTrustRegistrySchemaMetadata {
-            issuers: UnboundedIssuersWith(issuers),
-            verifiers,
-        }
+        AggregatedTrustRegistrySchemaMetadata { issuers, verifiers }
     }
 }
 
@@ -568,6 +703,7 @@ impl<T: Config> TrustRegistrySchemaMetadata<T> {
     DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -582,6 +718,15 @@ pub struct VerifierSchemas<T: Limits>(
 
 impl_wrapper!(VerifierSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerVerifier>));
 
+impl<T: Limits> IntoIterator for VerifierSchemas<T> {
+    type IntoIter = alloc::collections::btree_set::IntoIter<TrustRegistrySchemaId>;
+    type Item = TrustRegistrySchemaId;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 /// Set of trust registries corresponding to a verifier
 #[derive(
     Encode,
@@ -594,6 +739,7 @@ impl_wrapper!(VerifierSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegist
     DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -608,7 +754,16 @@ pub struct VerifierTrustRegistries<T: Limits>(
 
 impl_wrapper!(VerifierTrustRegistries<T> where T: Limits => (BoundedBTreeSet<TrustRegistryId, T::MaxRegistriesPerVerifier>));
 
-/// Set of schemas that belong to the `Trust Registry`
+impl<T: Limits> IntoIterator for VerifierTrustRegistries<T> {
+    type IntoIter = alloc::collections::btree_set::IntoIter<TrustRegistryId>;
+    type Item = TrustRegistryId;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+/// Set of schemas that belong to the `TrustRegistry`
 #[derive(
     Encode,
     Decode,
@@ -620,6 +775,7 @@ impl_wrapper!(VerifierTrustRegistries<T> where T: Limits => (BoundedBTreeSet<Tru
     DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -634,7 +790,7 @@ pub struct TrustRegistryStoredSchemas<T: Limits>(
 
 impl_wrapper!(TrustRegistryStoredSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerRegistry>));
 
-/// Set of schemas corresponding to a issuer
+/// Set of `TrustRegistry` participants.
 #[derive(
     Encode,
     Decode,
@@ -646,6 +802,100 @@ impl_wrapper!(TrustRegistryStoredSchemas<T> where T: Limits => (BoundedBTreeSet<
     DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistryStoredParticipants<T: Limits>(
+    #[cfg_attr(feature = "serde", serde(with = "btree_set"))]
+    pub  BoundedBTreeSet<IssuerOrVerifier, T::MaxParticipantsPerRegistry>,
+);
+
+impl_wrapper!(TrustRegistryStoredParticipants<T> where T: Limits => (BoundedBTreeSet<IssuerOrVerifier, T::MaxParticipantsPerRegistry>));
+
+/// Information about the `TrustRegistry` participant.
+#[derive(
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistryStoredParticipantInformation<T: Limits> {
+    pub org_name: BoundedString<T::MaxRegistryParticipantOrgNameSize>,
+    pub logo: BoundedString<T::MaxRegistryParticipantLogoSize>,
+    pub description: BoundedString<T::MaxRegistryParticipantDescriptionSize>,
+}
+
+/// Information about the `TrustRegistry` participant.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Debug, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct UnboundedTrustRegistryParticipantInformation {
+    pub org_name: String,
+    pub logo: String,
+    pub description: String,
+}
+
+impl<T: Limits> TryFrom<UnboundedTrustRegistryParticipantInformation>
+    for TrustRegistryStoredParticipantInformation<T>
+{
+    type Error = Error<T>;
+
+    fn try_from(
+        UnboundedTrustRegistryParticipantInformation {
+            org_name,
+            logo,
+            description,
+        }: UnboundedTrustRegistryParticipantInformation,
+    ) -> Result<Self, Error<T>> {
+        let this = Self {
+            org_name: org_name
+                .try_into()
+                .map_err(|_| Error::<T>::ParticipantOrgNameSizeExceededLimit)?,
+            logo: logo
+                .try_into()
+                .map_err(|_| Error::<T>::ParticipantLogoSizeExceededLimit)?,
+            description: description
+                .try_into()
+                .map_err(|_| Error::<T>::ParticipantDescriptionSizeExceededLimit)?,
+        };
+
+        Ok(this)
+    }
+}
+
+/// Set of schemas corresponding to an `Issuer`.
+#[derive(
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -660,6 +910,42 @@ pub struct IssuerSchemas<T: Limits>(
 
 impl_wrapper!(IssuerSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistrySchemaId, T::MaxSchemasPerIssuer>));
 
+impl<T: Limits> IntoIterator for IssuerSchemas<T> {
+    type IntoIter = alloc::collections::btree_set::IntoIter<TrustRegistrySchemaId>;
+    type Item = TrustRegistrySchemaId;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
+/// Set of schemas corresponding to a delegated `Issuer`
+#[derive(
+    Encode,
+    Decode,
+    CloneNoBound,
+    PartialEqNoBound,
+    EqNoBound,
+    DebugNoBound,
+    MaxEncodedLen,
+    DefaultNoBound,
+)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct DelegatedIssuerSchemas<T: Limits>(
+    #[cfg_attr(feature = "serde", serde(with = "btree_map"))]
+    pub  BoundedBTreeMap<TrustRegistrySchemaId, DelegatedSchemaCounter, T::MaxSchemasPerIssuer>,
+);
+
+impl_wrapper!(DelegatedIssuerSchemas<T> where T: Limits => (BoundedBTreeMap<TrustRegistrySchemaId, DelegatedSchemaCounter, T::MaxSchemasPerIssuer>));
+
 /// Set of trust registries corresponding to a issuer
 #[derive(
     Encode,
@@ -672,6 +958,7 @@ impl_wrapper!(IssuerSchemas<T> where T: Limits => (BoundedBTreeSet<TrustRegistry
     DefaultNoBound,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -686,6 +973,15 @@ pub struct IssuerTrustRegistries<T: Limits>(
 
 impl_wrapper!(IssuerTrustRegistries<T> where T: Limits => (BoundedBTreeSet<TrustRegistryId, T::MaxRegistriesPerIssuer>));
 
+impl<T: Limits> IntoIterator for IssuerTrustRegistries<T> {
+    type IntoIter = alloc::collections::btree_set::IntoIter<TrustRegistryId>;
+    type Item = TrustRegistryId;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.0.into_iter()
+    }
+}
+
 #[derive(
     Encode,
     Decode,
@@ -697,6 +993,7 @@ impl_wrapper!(IssuerTrustRegistries<T> where T: Limits => (BoundedBTreeSet<Trust
     MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[cfg_attr(
     feature = "serde",
     serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
@@ -715,6 +1012,7 @@ impl_wrapper!(TrustRegistryIdSet<T> where T: Limits => (BoundedBTreeSet<TrustReg
     Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen,
 )]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(skip_type_params(T))]
 #[scale_info(omit_prefix)]
@@ -724,13 +1022,13 @@ pub struct TrustRegistryInfo<T: Limits> {
     pub gov_framework: BoundedBytes<T::MaxTrustRegistryGovFrameworkSize>,
 }
 
-pub type UnboundedSchemaIssuers = UnboundedIssuersWith<UnboundedVerificationPrices>;
+pub type UnboundedRegistrySchemaIssuers = UnboundedIssuersWith<UnboundedVerificationPrices>;
 
-impl<T: Limits> TryFrom<UnboundedSchemaIssuers> for SchemaIssuers<T> {
+impl<T: Limits> TryFrom<UnboundedRegistrySchemaIssuers> for TrustRegistrySchemaIssuers<T> {
     type Error = Error<T>;
 
     fn try_from(
-        UnboundedIssuersWith(issuers): UnboundedSchemaIssuers,
+        UnboundedIssuersWith(issuers): UnboundedRegistrySchemaIssuers,
     ) -> Result<Self, Self::Error> {
         let issuers: BTreeMap<_, _> = issuers
             .into_iter()
@@ -765,10 +1063,14 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
     ) -> Result<Self, Self::Error> {
         let prices: BTreeMap<_, _> = prices
             .into_iter()
-            .map(|(cur, value)| {
-                cur.try_into()
+            .map(|(sym, value)| {
+                sym.try_into()
                     .map_err(|_| Error::<T>::PriceCurrencySymbolSizeExceeded)
-                    .map(|cur: BoundedString<T::MaxIssuerPriceCurrencySymbolSize>| (cur, value))
+                    .map(
+                        |bounded_sym: BoundedString<T::MaxIssuerPriceCurrencySymbolSize>| {
+                            (bounded_sym, value)
+                        },
+                    )
             })
             .collect::<Result<_, Error<T>>>()?;
 
@@ -779,209 +1081,32 @@ impl<T: Limits> TryFrom<UnboundedVerificationPrices> for VerificationPrices<T> {
     }
 }
 
-pub type UnboundedVerifiersUpdate = SetOrModify<
-    UnboundedTrustRegistrySchemaVerifiers,
-    MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>,
->;
-pub type VerifiersUpdate<T> = SetOrModify<
-    TrustRegistrySchemaVerifiers<T>,
-    MultiTargetUpdate<Verifier, AddOrRemoveOrModify<()>>,
->;
-
-pub type UnboundedVerificationPricesUpdate =
-    OnlyExistent<MultiTargetUpdate<String, SetOrAddOrRemoveOrModify<VerificationPrice>>>;
-pub type VerificationPricesUpdate<T> = OnlyExistent<
-    MultiTargetUpdate<
-        BoundedString<<T as Limits>::MaxIssuerPriceCurrencySymbolSize>,
-        SetOrAddOrRemoveOrModify<VerificationPrice>,
-    >,
->;
-
-pub type UnboundedIssuerUpdate =
-    SetOrAddOrRemoveOrModify<UnboundedVerificationPrices, UnboundedVerificationPricesUpdate>;
-pub type IssuerUpdate<T> =
-    SetOrAddOrRemoveOrModify<VerificationPrices<T>, VerificationPricesUpdate<T>>;
-
-pub type UnboundedIssuersUpdate =
-    SetOrModify<UnboundedSchemaIssuers, MultiTargetUpdate<Issuer, UnboundedIssuerUpdate>>;
-pub type IssuersUpdate<T> =
-    SetOrModify<SchemaIssuers<T>, MultiTargetUpdate<Issuer, IssuerUpdate<T>>>;
-
-pub type UnboundedSchemasUpdate = SetOrModify<
-    UnboundedSchemas,
-    MultiTargetUpdate<TrustRegistrySchemaId, UnboundedTrustRegistrySchemaMetadataModification>,
->;
-pub type SchemasUpdate<T> =
-    SetOrModify<Schemas<T>, SchemaUpdate<TrustRegistrySchemaMetadataModification<T>>>;
-
-impl<T: Limits> TryFrom<UnboundedSchemas> for Schemas<T> {
-    type Error = Error<T>;
-
-    fn try_from(UnboundedSchemas(schemas): UnboundedSchemas) -> Result<Self, Self::Error> {
-        let schemas: BTreeMap<_, _> = schemas
-            .into_iter()
-            .map(|(schema_id, schema_metadata)| Ok((schema_id, schema_metadata.try_into()?)))
-            .collect::<Result<_, _>>()?;
-
-        schemas
-            .try_into()
-            .map(Self)
-            .map_err(|_| Error::<T>::SchemasPerRegistrySizeExceeded)
-    }
-}
-
-#[derive(Encode, Decode, Clone, PartialEqNoBound, EqNoBound, DebugNoBound, DefaultNoBound)]
+/// Unique identifier for the `TrustRegistry`.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(skip_type_params(T))]
-#[scale_info(omit_prefix)]
-pub struct TrustRegistrySchemaMetadataUpdate<T: Limits> {
-    pub issuers: Option<IssuersUpdate<T>>,
-    pub verifiers: Option<VerifiersUpdate<T>>,
-}
-
-#[derive(Encode, Decode, Clone, PartialEqNoBound, EqNoBound, DebugNoBound, DefaultNoBound)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct UnboundedTrustRegistrySchemaMetadataUpdate {
-    pub issuers: Option<UnboundedIssuersUpdate>,
-    pub verifiers: Option<UnboundedVerifiersUpdate>,
-}
-
-impl<T: Limits> TranslateUpdate<TrustRegistrySchemaMetadataUpdate<T>>
-    for UnboundedTrustRegistrySchemaMetadataUpdate
-{
-    type Error = Error<T>;
-
-    fn translate_update(self) -> Result<TrustRegistrySchemaMetadataUpdate<T>, Self::Error> {
-        let UnboundedTrustRegistrySchemaMetadataUpdate { issuers, verifiers } = self;
-
-        Ok(TrustRegistrySchemaMetadataUpdate {
-            issuers: issuers
-                .map(TranslateUpdate::translate_update)
-                .transpose()
-                .map_err(IntoModuleError::into_module_error)?,
-            verifiers: verifiers
-                .map(TranslateUpdate::translate_update)
-                .transpose()
-                .map_err(IntoModuleError::into_module_error)?,
-        })
-    }
-}
-
-impl<T: Limits> TrustRegistrySchemaMetadataUpdate<T> {
-    fn record_inner_issuers_and_verifiers_diff(
-        &self,
-        schema_id: TrustRegistrySchemaId,
-        entity: &TrustRegistrySchemaMetadata<T>,
-        issuers: &mut MultiSchemaUpdate<Issuer>,
-        verifiers: &mut MultiSchemaUpdate<Verifier>,
-    ) -> Result<(), DuplicateKey> {
-        if let Some(verifiers_update) = self.verifiers.as_ref() {
-            verifiers_update.record_inner_keys_diff(&entity.verifiers, schema_id, verifiers)?
-        }
-
-        if let Some(issuers_update) = self.issuers.as_ref() {
-            issuers_update.record_inner_keys_diff(&entity.issuers, schema_id, issuers)?
-        }
-
-        Ok(())
-    }
-}
-
-pub type UnboundedTrustRegistrySchemaMetadataModification = SetOrAddOrRemoveOrModify<
-    UnboundedTrustRegistrySchemaMetadata,
-    OnlyExistent<UnboundedTrustRegistrySchemaMetadataUpdate>,
->;
-pub type TrustRegistrySchemaMetadataModification<T> = SetOrAddOrRemoveOrModify<
-    TrustRegistrySchemaMetadata<T>,
-    OnlyExistent<TrustRegistrySchemaMetadataUpdate<T>>,
->;
-
-impl<T: Limits> TrustRegistrySchemaMetadataModification<T> {
-    pub(super) fn record_inner_diff(
-        &self,
-        schema_id: TrustRegistrySchemaId,
-        entity: &Option<TrustRegistrySchemaMetadata<T>>,
-        (issuers, verifiers, schemas): &mut IssuersVerifiersSchemas,
-    ) -> Result<(), DuplicateKey> {
-        match self.kind(entity) {
-            UpdateKind::Add => schemas.insert_update(schema_id, AddOrRemoveOrModify::Add(()))?,
-            UpdateKind::Remove => schemas.insert_update(schema_id, AddOrRemoveOrModify::Remove)?,
-            _ => {}
-        }
-
-        match self {
-            Self::Add(new) => new.record_inner_issuers_and_verifiers_diff(
-                issuers,
-                verifiers,
-                MultiTargetUpdate::bind_modifier(
-                    MultiTargetUpdate::insert_update,
-                    schema_id,
-                    AddOrRemoveOrModify::Add(()),
-                ),
-            ),
-            Self::Remove => entity
-                .as_ref()
-                .expect("An entity expected")
-                .record_inner_issuers_and_verifiers_diff(
-                    issuers,
-                    verifiers,
-                    MultiTargetUpdate::bind_modifier(
-                        MultiTargetUpdate::insert_update,
-                        schema_id,
-                        AddOrRemoveOrModify::Remove,
-                    ),
-                ),
-            Self::Set(new) => {
-                if let Some(old) = entity {
-                    old.record_inner_issuers_and_verifiers_diff(
-                        issuers,
-                        verifiers,
-                        MultiTargetUpdate::bind_modifier(
-                            MultiTargetUpdate::insert_update,
-                            schema_id,
-                            AddOrRemoveOrModify::Remove,
-                        ),
-                    )?;
-                }
-
-                new.record_inner_issuers_and_verifiers_diff(issuers, verifiers, |map| {
-                    MultiTargetUpdate::insert_update_or_remove_duplicate_if(
-                        map,
-                        schema_id,
-                        AddOrRemoveOrModify::Add(()),
-                        |update| matches!(update, AddOrRemoveOrModify::Remove),
-                    )
-                })
-            }
-            Self::Modify(OnlyExistent(update)) => update.record_inner_issuers_and_verifiers_diff(
-                schema_id,
-                entity.as_ref().expect("An entity expected"),
-                issuers,
-                verifiers,
-            ),
-        }
-    }
-}
-
-/// Unique identifier for the `Trust Registry`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub struct TrustRegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct TrustRegistryId(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32]);
 
 impl_wrapper!(TrustRegistryId([u8; 32]));
+hex_debug!(TrustRegistryId);
+
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistryIdForParticipants(pub TrustRegistryId);
+
+impl_wrapper!(TrustRegistryIdForParticipants(TrustRegistryId));
+hex_debug!(TrustRegistryIdForParticipants);
+
+impl<T: Limits> Associated<T> for TrustRegistryId {
+    type Value = TrustRegistryInfo<T>;
+}
 
 impl<T: Config> StorageRef<T> for TrustRegistryId {
-    type Value = TrustRegistryInfo<T>;
-
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<TrustRegistryInfo<T>>) -> Result<R, E>,
@@ -997,463 +1122,183 @@ impl<T: Config> StorageRef<T> for TrustRegistryId {
     }
 }
 
-/// Unique identifier for the `Trust Registry`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub struct TrustRegistrySchemaId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
-
-impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
-
-pub trait IntoIterExt: IntoIterator + Sized {
-    fn with_trust_registries_info<T>(self) -> WithTrustRegistriesInfo<Self::IntoIter, T>
-    where
-        Self::Item: Borrow<TrustRegistryId>,
-        T: Config;
+impl<T: TypesAndLimits> Associated<T> for (TrustRegistryId, Issuer) {
+    type Value = TrustRegistryIssuerConfiguration<T>;
 }
 
-impl<I> IntoIterExt for I
-where
-    I: IntoIterator,
-{
-    fn with_trust_registries_info<T>(self) -> WithTrustRegistriesInfo<Self::IntoIter, T>
+impl<T: Config> StorageRef<T> for (TrustRegistryId, Issuer) {
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
-        Self::Item: Borrow<TrustRegistryId>,
-        T: Config,
+        F: FnOnce(&mut Option<TrustRegistryIssuerConfiguration<T>>) -> Result<R, E>,
     {
-        WithTrustRegistriesInfo::new(self.into_iter())
+        super::TrustRegistryIssuerConfigurations::<T>::try_mutate_exists(self.0, self.1, |opt| {
+            f(opt.initialized())
+        })
     }
-}
 
-pub struct WithTrustRegistriesInfo<I, T>(I, PhantomData<T>);
-
-impl<T, I> WithTrustRegistriesInfo<I, T> {
-    fn new(iter: I) -> Self {
-        Self(iter, PhantomData)
-    }
-}
-
-impl<T: Config, I> Iterator for WithTrustRegistriesInfo<I, T>
-where
-    I: Iterator,
-    I::Item: Borrow<TrustRegistryId>,
-{
-    type Item = (TrustRegistryId, TrustRegistryInfo<T>);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        loop {
-            let id = *self.0.next()?.borrow();
-
-            if let Some(trust_registry_info) = TrustRegistriesInfo::<T>::get(id) {
-                break Some((id, trust_registry_info));
-            }
-        }
-    }
-}
-
-/// Specifies arguments to retrieve registry informations by.
-#[derive(Encode, Decode, Clone, Debug, Copy, PartialEq, Eq, Ord, PartialOrd, MaxEncodedLen)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-#[derive(scale_info_derive::TypeInfo)]
-#[scale_info(omit_prefix)]
-pub enum TrustRegistriesInfoBy {
-    Issuer(Issuer),
-    Verifier(Verifier),
-    SchemaId(TrustRegistrySchemaId),
-    IssuerOrVerifier(IssuerOrVerifier),
-    IssuerAndVerifier(IssuerAndVerifier),
-    IssuerAndSchemaId(Issuer, TrustRegistrySchemaId),
-    VerifierAndSchemaId(Verifier, TrustRegistrySchemaId),
-    IssuerOrVerifierAndSchemaId(IssuerOrVerifier, TrustRegistrySchemaId),
-    IssuerAndVerifierAndSchemaId(IssuerAndVerifier, TrustRegistrySchemaId),
-}
-
-impl TrustRegistriesInfoBy {
-    pub fn resolve<T: Config>(self) -> BTreeMap<TrustRegistryId, TrustRegistryInfo<T>> {
-        use super::Pallet;
-
-        match self {
-            Self::Issuer(issuer) => {
-                let IssuerTrustRegistries(registries) = Pallet::<T>::issuer_registries(issuer);
-
-                registries.with_trust_registries_info().collect()
-            }
-            Self::Verifier(verifier) => {
-                let VerifierTrustRegistries(registries) =
-                    Pallet::<T>::verifier_registries(verifier);
-
-                registries.with_trust_registries_info().collect()
-            }
-            Self::SchemaId(schema_id) => {
-                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
-                    .with_trust_registries_info()
-                    .collect()
-            }
-            Self::IssuerOrVerifier(issuer_or_verifier) => {
-                let issuer_regs = Pallet::<T>::issuer_registries(Issuer(*issuer_or_verifier));
-                let verifier_regs = Pallet::<T>::verifier_registries(Verifier(*issuer_or_verifier));
-
-                issuer_regs
-                    .union(&verifier_regs)
-                    .with_trust_registries_info()
-                    .collect()
-            }
-            Self::IssuerAndVerifier(issuer_and_verifier) => {
-                let issuer_regs = Pallet::<T>::issuer_registries(Issuer(*issuer_and_verifier));
-                let verifier_regs =
-                    Pallet::<T>::verifier_registries(Verifier(*issuer_and_verifier));
-
-                issuer_regs
-                    .intersection(&verifier_regs)
-                    .with_trust_registries_info()
-                    .collect()
-            }
-            Self::IssuerAndSchemaId(issuer, schema_id) => {
-                let issuer_registries = Pallet::<T>::issuer_registries(issuer);
-
-                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
-                    .filter(|reg_id| issuer_registries.contains(reg_id))
-                    .with_trust_registries_info()
-                    .collect()
-            }
-            Self::VerifierAndSchemaId(verifier, schema_id) => {
-                let verifier_registries = Pallet::<T>::verifier_registries(verifier);
-
-                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
-                    .filter(|reg_id| verifier_registries.contains(reg_id))
-                    .with_trust_registries_info()
-                    .collect()
-            }
-            Self::IssuerOrVerifierAndSchemaId(issuer_or_verifier, schema_id) => {
-                let issuer_regs = Pallet::<T>::issuer_registries(Issuer(*issuer_or_verifier));
-                let verifier_regs = Pallet::<T>::verifier_registries(Verifier(*issuer_or_verifier));
-
-                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
-                    .filter(|reg_id| issuer_regs.contains(reg_id) || verifier_regs.contains(reg_id))
-                    .with_trust_registries_info()
-                    .collect()
-            }
-            Self::IssuerAndVerifierAndSchemaId(issuer_and_verifier, schema_id) => {
-                let issuer_regs = Pallet::<T>::issuer_registries(Issuer(*issuer_and_verifier));
-                let verifier_regs =
-                    Pallet::<T>::verifier_registries(Verifier(*issuer_and_verifier));
-
-                TrustRegistrySchemasMetadata::<T>::iter_key_prefix(schema_id)
-                    .filter(|reg_id| issuer_regs.contains(reg_id) && verifier_regs.contains(reg_id))
-                    .with_trust_registries_info()
-                    .collect()
-            }
-        }
-    }
-}
-
-pub trait ValidateTrustRegistryUpdate<T: Config> {
-    type Context;
-    type Result;
-
-    fn validate_and_record_diff(
-        self,
-        actor: ConvenerOrIssuerOrVerifier,
-        registry_id: TrustRegistryId,
-        registry_info: &TrustRegistryInfo<T>,
-        context: &mut Self::Context,
-    ) -> Result<Validated<Self::Result>, DispatchError>;
-}
-
-pub trait ExecutableTrustRegistryUpdate<T: Config> {
-    type Output;
-
-    fn execute(self, registry_id: TrustRegistryId) -> Self::Output;
-}
-
-/// An update that passed validation.
-pub struct Validated<V>(V);
-
-pub type IssuersVerifiersSchemas = (
-    MultiSchemaUpdate<Issuer>,
-    MultiSchemaUpdate<Verifier>,
-    SchemaUpdate,
-);
-
-impl<T: Config> ValidateTrustRegistryUpdate<T> for Schemas<T> {
-    type Context = IssuersVerifiersSchemas;
-    type Result = SchemaUpdate<TrustRegistrySchemaMetadataModification<T>>;
-
-    fn validate_and_record_diff(
-        mut self,
-        actor: ConvenerOrIssuerOrVerifier,
-        registry_id: TrustRegistryId,
-        registry_info: &TrustRegistryInfo<T>,
-        ctx: &mut Self::Context,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
-        Convener(*actor).ensure_controls(registry_info)?;
-        let schema_ids = self.0.keys().cloned().collect();
-
-        super::TrustRegistriesStoredSchemas::<T>::get(registry_id)
-            .union(&schema_ids)
-            .filter_map(|&schema_id| {
-                let existing_schema =
-                    super::TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id);
-                let update = self
-                    .take(&schema_id)
-                    .map(TrustRegistrySchemaMetadataModification::<T>::Set)
-                    .unwrap_or(TrustRegistrySchemaMetadataModification::<T>::Remove);
-
-                if update.kind(&existing_schema) == UpdateKind::None {
-                    None?
-                }
-
-                update
-                    .record_inner_diff(schema_id, &existing_schema, ctx)
-                    .map(move |()| Some((schema_id, update)))
-                    .map_err(Into::into)
-                    .transpose()
-            })
-            .collect::<Result<_, _>>()
-            .map(Validated)
-    }
-}
-
-impl<T: Config> ValidateTrustRegistryUpdate<T>
-    for SchemaUpdate<TrustRegistrySchemaMetadataModification<T>>
-{
-    type Context = IssuersVerifiersSchemas;
-    type Result = Self;
-
-    fn validate_and_record_diff(
-        self,
-        actor: ConvenerOrIssuerOrVerifier,
-        registry_id: TrustRegistryId,
-        registry_info: &TrustRegistryInfo<T>,
-        ctx: &mut Self::Context,
-    ) -> Result<Validated<Self>, DispatchError> {
-        self.0
-            .into_iter()
-            .filter_map(|(schema_id, update)| {
-                let schema_metadata =
-                    super::TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id);
-
-                check_err!(actor.validate_update(registry_info, &update, &schema_metadata));
-
-                if update.kind(&schema_metadata) == UpdateKind::None {
-                    None?
-                }
-
-                check_err!(update.record_inner_diff(schema_id, &schema_metadata, ctx));
-
-                Some(Ok((schema_id, update)))
-            })
-            .collect::<Result<_, _>>()
-            .map(Validated)
-    }
-}
-
-impl<T: Config> ExecutableTrustRegistryUpdate<T>
-    for Validated<SchemaUpdate<TrustRegistrySchemaMetadataModification<T>>>
-{
-    type Output = u32;
-
-    fn execute(self, registry_id: TrustRegistryId) -> u32 {
-        let Self(updates) = self;
-
-        updates
-            .into_iter()
-            .map(|(schema_id, update)| {
-                super::TrustRegistrySchemasMetadata::<T>::mutate_exists(
-                    schema_id,
-                    registry_id,
-                    |schema_metadata| {
-                        let event = match update.kind(&*schema_metadata) {
-                            UpdateKind::Add => {
-                                super::Event::SchemaMetadataAdded(registry_id, schema_id)
-                            }
-                            UpdateKind::Remove => {
-                                super::Event::SchemaMetadataRemoved(registry_id, schema_id)
-                            }
-                            UpdateKind::Replace => {
-                                super::Event::SchemaMetadataUpdated(registry_id, schema_id)
-                            }
-                            UpdateKind::None => return,
-                        };
-
-                        super::Pallet::<T>::deposit_event(event);
-
-                        update.apply_update(schema_metadata);
-                    },
-                );
-            })
-            .count() as u32
-    }
-}
-
-impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
-    type Context = (u32, u32, u32);
-    type Result = (
-        SchemaUpdate<TrustRegistrySchemaMetadataModification<T>>,
-        IssuersVerifiersSchemas,
-    );
-
-    fn validate_and_record_diff(
-        self,
-        actor: ConvenerOrIssuerOrVerifier,
-        registry_id: TrustRegistryId,
-        registry_info: &TrustRegistryInfo<T>,
-        (ref mut issuers_read, ref mut verifiers_read, ref mut schemas_read): &mut Self::Context,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
-        let mut issuers_verifiers_schemas = Default::default();
-        let Validated(update) = match self {
-            Self::Set(schemas) => schemas.validate_and_record_diff(
-                actor,
-                registry_id,
-                registry_info,
-                &mut issuers_verifiers_schemas,
-            ),
-            Self::Modify(update) => update.validate_and_record_diff(
-                actor,
-                registry_id,
-                registry_info,
-                &mut issuers_verifiers_schemas,
-            ),
-        }?;
-
-        let (mut issuers_update, mut verifiers_update, schema_ids_update) =
-            issuers_verifiers_schemas;
-        *schemas_read = schema_ids_update.len() as u32;
-
-        issuers_update = issuers_update
-            .into_iter()
-            .filter_map(|(issuer, update)| {
-                let schemas = super::TrustRegistryIssuerSchemas::<T>::get(registry_id, issuer);
-                *issuers_read += 1;
-
-                check_err!(actor.validate_update(registry_info, &update, &schemas));
-
-                if update.kind(&schemas) == UpdateKind::None {
-                    None?
-                }
-
-                if schemas.is_empty() {
-                    let update_issuer_schemas = MultiTargetUpdate::from_iter(once((
-                        registry_id,
-                        AddOrRemoveOrModify::<_>::Add(()),
-                    )));
-
-                    check_err!(actor.validate_update(
-                        registry_info,
-                        &update_issuer_schemas,
-                        &super::IssuersTrustRegistries::<T>::get(issuer)
-                    ))
-                }
-
-                Some(Ok((issuer, update)))
-            })
-            .collect::<Result<_, DispatchError>>()?;
-
-        verifiers_update = verifiers_update
-            .into_iter()
-            .filter_map(|(verifier, update)| {
-                let schemas = super::TrustRegistryVerifierSchemas::<T>::get(registry_id, verifier);
-                *verifiers_read += 1;
-
-                check_err!(actor.validate_update(registry_info, &update, &schemas));
-
-                if update.kind(&schemas) == UpdateKind::None {
-                    None?
-                }
-
-                if schemas.is_empty() {
-                    let update_verifier_schemas = MultiTargetUpdate::from_iter(once((
-                        registry_id,
-                        AddOrRemoveOrModify::<_>::Add(()),
-                    )));
-
-                    check_err!(actor.validate_update(
-                        registry_info,
-                        &update_verifier_schemas,
-                        &super::VerifiersTrustRegistries::<T>::get(verifier),
-                    ));
-                }
-
-                Some(Ok((verifier, update)))
-            })
-            .collect::<Result<_, DispatchError>>()?;
-
-        if !schema_ids_update.is_empty() {
-            let existing_schema_ids = super::TrustRegistriesStoredSchemas::<T>::get(registry_id);
-
-            actor.validate_update(registry_info, &schema_ids_update, &existing_schema_ids)?;
-        }
-
-        Ok(Validated((
-            update,
-            (issuers_update, verifiers_update, schema_ids_update),
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryIssuerConfiguration<T>>) -> R,
+    {
+        f(Some(super::TrustRegistryIssuerConfigurations::<T>::get(
+            self.0, self.1,
         )))
     }
 }
 
-impl<T: Config> ExecutableTrustRegistryUpdate<T>
-    for Validated<(
-        SchemaUpdate<TrustRegistrySchemaMetadataModification<T>>,
-        IssuersVerifiersSchemas,
-    )>
-{
-    type Output = (u32, u32, u32);
+impl<T: Limits> Associated<T> for (TrustRegistryIdForParticipants, IssuerOrVerifier) {
+    type Value = TrustRegistryStoredParticipantInformation<T>;
+}
 
-    fn execute(self, registry_id: TrustRegistryId) -> (u32, u32, u32) {
-        let Self((schemas_update, (issuers, verifiers, schemas))) = self;
-        let issuers_count = issuers.len() as u32;
-        let verifiers_count = verifiers.len() as u32;
+impl<T: Config> StorageRef<T> for (TrustRegistryIdForParticipants, IssuerOrVerifier) {
+    fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
+    where
+        F: FnOnce(&mut Option<TrustRegistryStoredParticipantInformation<T>>) -> Result<R, E>,
+    {
+        super::TrustRegistryParticipantsInformation::<T>::try_mutate_exists(self.0, self.1, f)
+    }
 
-        for (issuer, update) in issuers {
-            super::TrustRegistryIssuerSchemas::<T>::mutate(registry_id, issuer, |schemas| {
-                let mut regs_update = MultiTargetUpdate::default();
-                if schemas.is_empty() {
-                    regs_update.insert(registry_id, AddOrRemoveOrModify::<_>::Add(()));
-                }
+    fn view_associated<F, R>(self, f: F) -> R
+    where
+        F: FnOnce(Option<TrustRegistryStoredParticipantInformation<T>>) -> R,
+    {
+        f(super::TrustRegistryParticipantsInformation::<T>::get(
+            self.0, self.1,
+        ))
+    }
+}
 
-                update.apply_update(schemas);
+/// Unique identifier for the `TrustRegistry`.
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[derive(scale_info_derive::TypeInfo)]
+#[scale_info(omit_prefix)]
+pub struct TrustRegistrySchemaId(
+    #[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32],
+);
 
-                if schemas.is_empty() {
-                    regs_update.insert(registry_id, AddOrRemoveOrModify::Remove);
-                }
+impl_wrapper!(TrustRegistrySchemaId([u8; 32]));
+hex_debug!(TrustRegistrySchemaId);
 
-                if !regs_update.is_empty() {
-                    super::IssuersTrustRegistries::<T>::mutate(issuer, |regs| {
-                        regs_update.apply_update(regs)
-                    });
-                }
-            })
-        }
+/// Number of times storage entities were accessed.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct StorageAccesses {
+    pub issuer_schemas: u32,
+    pub issuer_registries: u32,
+    pub issuer_configuration: u32,
+    pub delegated_issuer_schemas: u32,
+    pub verifier_schemas: u32,
+    pub verifier_registries: u32,
+    pub schemas: u32,
+    pub registry_schemas: bool,
+}
 
-        for (verifier, update) in verifiers {
-            super::TrustRegistryVerifierSchemas::<T>::mutate(registry_id, verifier, |schemas| {
-                let mut regs_update = MultiTargetUpdate::default();
-                if schemas.is_empty() {
-                    regs_update.insert(registry_id, AddOrRemoveOrModify::<_>::Add(()));
-                }
+impl StorageAccesses {
+    pub fn issuers(&self) -> u32 {
+        self.issuer_schemas
+    }
 
-                update.apply_update(schemas);
+    pub fn verifiers(&self) -> u32 {
+        self.verifier_schemas
+    }
 
-                if schemas.is_empty() {
-                    regs_update.insert(registry_id, AddOrRemoveOrModify::Remove);
-                }
+    pub fn schemas(&self) -> u32 {
+        self.schemas
+    }
 
-                if !regs_update.is_empty() {
-                    super::VerifiersTrustRegistries::<T>::mutate(verifier, |regs| {
-                        regs_update.apply_update(regs)
-                    });
-                }
-            })
-        }
+    pub fn total_count(&self) -> u64 {
+        (self.issuer_schemas as u64)
+            .saturating_add(self.issuer_registries as u64)
+            .saturating_add(self.issuer_configuration as u64)
+            .saturating_add(self.delegated_issuer_schemas as u64)
+            .saturating_add(self.verifier_schemas as u64)
+            .saturating_add(self.verifier_registries as u64)
+            .saturating_add(self.schemas as u64)
+            .saturating_add(self.registry_schemas as u64)
+    }
 
-        let schemas_count = Validated(schemas_update).execute(registry_id);
+    pub fn reads<T: Config>(&self) -> Weight {
+        T::DbWeight::get().reads(self.total_count())
+    }
 
-        super::TrustRegistriesStoredSchemas::<T>::mutate(registry_id, |schema_set| {
-            schemas.apply_update(schema_set)
-        });
+    pub fn reads_writes<T: Config>(&self) -> Weight {
+        let count = self.total_count();
 
-        (issuers_count, verifiers_count, schemas_count)
+        T::DbWeight::get().reads_writes(count, count)
+    }
+}
+
+/// An entity that has references to schemas and registries.
+pub trait HasSchemasAndRegistries<T> {
+    /// Associated `Schemas`.
+    type Schemas;
+    /// Associated `Registries`.
+    type Registries;
+
+    fn schemas(&self, registry_id: TrustRegistryId) -> Self::Schemas;
+
+    fn registries(&self) -> Self::Registries;
+
+    fn modify_schemas<F, R>(&self, registry_id: TrustRegistryId, f: F) -> R
+    where
+        F: FnOnce(&mut Self::Schemas) -> R;
+
+    fn modify_registries<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut Self::Registries) -> R;
+}
+
+impl<T: Config> HasSchemasAndRegistries<T> for Issuer {
+    type Schemas = IssuerSchemas<T>;
+    type Registries = IssuerTrustRegistries<T>;
+
+    fn schemas(&self, registry_id: TrustRegistryId) -> Self::Schemas {
+        super::TrustRegistryIssuerSchemas::<T>::get(registry_id, self)
+    }
+
+    fn registries(&self) -> Self::Registries {
+        super::IssuersTrustRegistries::<T>::get(self)
+    }
+
+    fn modify_schemas<F, R>(&self, registry_id: TrustRegistryId, f: F) -> R
+    where
+        F: FnOnce(&mut Self::Schemas) -> R,
+    {
+        super::TrustRegistryIssuerSchemas::<T>::mutate(registry_id, self, f)
+    }
+
+    fn modify_registries<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut Self::Registries) -> R,
+    {
+        super::IssuersTrustRegistries::<T>::mutate(self, f)
+    }
+}
+
+impl<T: Config> HasSchemasAndRegistries<T> for Verifier {
+    type Schemas = VerifierSchemas<T>;
+    type Registries = VerifierTrustRegistries<T>;
+
+    fn schemas(&self, registry_id: TrustRegistryId) -> Self::Schemas {
+        super::TrustRegistryVerifierSchemas::<T>::get(registry_id, self)
+    }
+
+    fn registries(&self) -> Self::Registries {
+        super::VerifiersTrustRegistries::<T>::get(self)
+    }
+
+    fn modify_schemas<F, R>(&self, registry_id: TrustRegistryId, f: F) -> R
+    where
+        F: FnOnce(&mut Self::Schemas) -> R,
+    {
+        super::TrustRegistryVerifierSchemas::<T>::mutate(registry_id, self, f)
+    }
+
+    fn modify_registries<F, R>(&self, f: F) -> R
+    where
+        F: FnOnce(&mut Self::Registries) -> R,
+    {
+        super::VerifiersTrustRegistries::<T>::mutate(self, f)
     }
 }

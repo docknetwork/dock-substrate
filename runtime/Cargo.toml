@@ -2,7 +2,7 @@
 authors = ["Dock.io"]
 edition = "2021"
 name = "dock-runtime"
-version = "0.25.0"
+version = "0.28.0"
 license = "Apache-2.0"
 
 [package.metadata.docs.rs]
@@ -36,6 +36,7 @@ hex = { version = "0.4", default-features = false }
 
 [dependencies.utils]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 default-features = false
 
 [dependencies.pallet-babe]
@@ -278,6 +279,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-collective]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 
 [dependencies.pallet-membership]
 default-features = false
@@ -317,6 +319,7 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-staking]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 
 [dependencies.pallet-staking-reward-curve]
 default-features = false
@@ -351,10 +354,12 @@ branch = "polkadot-v0.9.29"
 [dependencies.pallet-democracy]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 
 [dependencies.pallet-elections-phragmen]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 
 [dependencies.hex-literal]
 version = "0.3.4"
@@ -441,6 +446,7 @@ path = "../pallets/core"
 [dependencies.dock-price-feed]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+branch = "identity-provider"
 
 [dependencies.libsecp256k1]
 version = "0.7"
@@ -529,7 +535,7 @@ std = [
     "rlp/std",
     "log/std",
 	  "hex/std",
-    "sha3/std",  
+    "sha3/std",
     "sp-runtime-interface/std",
     "sp-trie/std",
     "sp-io/std",
@@ -608,6 +614,13 @@ runtime-benchmarks = [
   "pallet-collective/runtime-benchmarks",
   "pallet-evm/runtime-benchmarks",
   "pallet-ethereum/runtime-benchmarks",
+  "pallet-democracy/runtime-benchmarks",
+  "pallet-scheduler/runtime-benchmarks",
+  "pallet-babe/runtime-benchmarks",
+  "pallet-elections-phragmen/runtime-benchmarks",
+  "pallet-election-provider-multi-phase/runtime-benchmarks",
+  "grandpa/runtime-benchmarks",
+  "pallet-im-online/runtime-benchmarks",
 
   "frame-support/runtime-benchmarks",
   "frame-system/runtime-benchmarks",

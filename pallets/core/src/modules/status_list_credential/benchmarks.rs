@@ -11,7 +11,7 @@ use sp_runtime::traits::TryCollect;
 #[cfg(not(feature = "std"))]
 use sp_std::prelude::*;
 
-const MIN_CREDENTIAL_SIZE: u32 = 100;
+const MIN_CREDENTIAL_SIZE: u32 = 1000;
 const MAX_CREDENTIAL_SIZE: u32 = 10_000;
 const MAX_POLICY_CONTROLLERS: u32 = 15;
 
@@ -37,7 +37,7 @@ crate::bench_with_all_pairs! {
             status_list_credential: StatusListCredential::<T>::RevocationList2020Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap())),
             policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did)).unwrap()
         };
-        super::Pallet::<T>::create_(id, credential).unwrap();
+        AddStatusListCredential { id, credential }.modify_removable(super::Pallet::<T>::create_).unwrap();
 
         let credential = StatusListCredential::<T>::StatusList2021Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap()));
         let update_credential_raw = UpdateStatusListCredentialRaw {
@@ -51,7 +51,7 @@ crate::bench_with_all_pairs! {
 
         let sig = pair.sign(&update.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
-    }: update(RawOrigin::Signed(caller), update.into_data(), vec![DidSignatureWithNonce::new(signature, 1u32.into())])
+    }: update(RawOrigin::Signed(caller), update.into_data(), vec![SignatureWithNonce::new(signature, 1u32.into())])
     verify {
         assert_eq!(StatusListCredentials::get(id).unwrap(), StatusListCredentialWithPolicy {
             status_list_credential: StatusListCredential::<T>::StatusList2021Credential(BoundedBytes((0..r).map(|v| v as u8).try_collect().unwrap())),
@@ -76,7 +76,7 @@ crate::bench_with_all_pairs! {
             status_list_credential: StatusListCredential::<T>::RevocationList2020Credential(BoundedBytes((0..MAX_CREDENTIAL_SIZE).map(|v| v as u8).try_collect().unwrap())),
             policy: Policy::one_of((0..MAX_POLICY_CONTROLLERS).map(|i| U256::from(i).into()).map(Did)).unwrap()
         };
-        super::Pallet::<T>::create_(id, credential).unwrap();
+        AddStatusListCredential { id, credential }.modify_removable(super::Pallet::<T>::create_).unwrap();
 
         let remove_credential_raw = RemoveStatusListCredentialRaw {
              /// Unique identifier of the underlying `StatusListCredential`
@@ -87,7 +87,7 @@ crate::bench_with_all_pairs! {
 
         let sig = pair.sign(&remove.to_state_change().encode());
         let signature = DidSignature::new(did, 1u32, sig).into();
-    }: remove(RawOrigin::Signed(caller), remove.into_data(), vec![DidSignatureWithNonce::new(signature, 1u32.into())])
+    }: remove(RawOrigin::Signed(caller), remove.into_data(), vec![SignatureWithNonce::new(signature, 1u32.into())])
     verify {
         assert_eq!(StatusListCredentials::<T>::get(id), None);
     };

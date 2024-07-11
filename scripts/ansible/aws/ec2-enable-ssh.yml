@@ -26,11 +26,11 @@
 
   - name: EC2 instance info
     ansible.builtin.debug:
-      msg: Existing security groups {{ instances['instances'][0] | json_query('security_groups[*].group_id') }}
+      msg: Existing security groups {{ instances['instances'][-1] | json_query('security_groups[*].group_id') }}
 
   - name: Add SSH open port group to the EC2 instance
     amazon.aws.ec2_instance:
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
       name: "{{ instance_name }}"
-      security_groups: "{{ instances['instances'][0] | json_query('security_groups[*].group_id') + ['SSH port open (created by ansible)'] }}"
+      security_groups: "{{ instances['instances'][-1] | json_query('security_groups[*].group_id') + ['SSH port open (created by ansible)'] }}"

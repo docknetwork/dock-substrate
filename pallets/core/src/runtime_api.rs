@@ -1,7 +1,10 @@
 use crate::{
     accumulator, common::TypesAndLimits, did, offchain_signatures, trust_registry::*, util::IncId,
 };
-use sp_std::{collections::btree_map::BTreeMap, vec::Vec};
+use sp_std::{
+    collections::{btree_map::BTreeMap, btree_set::BTreeSet},
+    vec::Vec,
+};
 
 sp_api::decl_runtime_apis! {
     pub trait CoreModsApi<T: TypesAndLimits> {
@@ -71,7 +74,27 @@ sp_api::decl_runtime_apis! {
         ) -> BTreeMap<TrustRegistrySchemaId, TrustRegistrySchemaVerifiers<T>>;
 
         fn registries_info_by(
-            by: TrustRegistriesInfoBy
+            by: QueryTrustRegistriesBy
         ) -> BTreeMap<TrustRegistryId, TrustRegistryInfo<T>>;
+
+        fn registry_schemas_metadata_by(
+            by: QueryTrustRegistryBy,
+            reg_id: TrustRegistryId
+        ) -> BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata<T>>;
+
+        fn registries_ids_by(
+            by: QueryTrustRegistriesBy
+        ) -> BTreeSet<TrustRegistryId>;
+
+        fn registry_schemas_ids_by(
+            by: QueryTrustRegistryBy,
+            reg_id: TrustRegistryId
+        ) -> BTreeSet<TrustRegistrySchemaId>;
+
+        fn bbdt16_public_key_with_params(id: offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBDT16PublicKeyWithParams<T>>;
+
+        fn bbdt16_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBDT16Parameters<T>>;
+
+        fn bbdt16_public_keys_by_did(did: crate::did::Did) -> BTreeMap<IncId, offchain_signatures::BBDT16PublicKeyWithParams<T>>;
     }
 }

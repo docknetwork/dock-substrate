@@ -43,6 +43,8 @@ pub trait Limits: Clone + Eq {
     type MaxBBSPublicKeySize: Size;
     /// Maximum byte size of the `BBS+` (fixed size) public key. This depends only on the chosen elliptic curve.
     type MaxBBSPlusPublicKeySize: Size;
+    /// Maximum byte size of the `BBDT16` (fixed size) public key. This depends only on the chosen elliptic curve.
+    type MaxBBDT16PublicKeySize: Size;
     /// Maximum byte size of the `PS` public key. This depends on the chosen elliptic curve and the number
     /// of messages that can be signed.
     type MaxPSPublicKeySize: Size;
@@ -77,10 +79,18 @@ pub trait Limits: Clone + Eq {
     type MaxTrustRegistryGovFrameworkSize: Size;
     /// Max no of schemas per registry.
     type MaxSchemasPerRegistry: Size;
+    /// Max no of participants per a single registry.
+    type MaxParticipantsPerRegistry: Size;
+    /// Max size of the `TrustRegistry` participant's org name.
+    type MaxRegistryParticipantOrgNameSize: Size;
+    /// Max size of the `TrustRegistry` participant's description.
+    type MaxRegistryParticipantDescriptionSize: Size;
+    /// Max size of the `TrustRegistry` participant's logo.
+    type MaxRegistryParticipantLogoSize: Size;
 }
 
-type NoLimit = ConstU32<{ u32::MAX }>;
 type Zero = ConstU32<0>;
+type NoLimit = ConstU32<{ u32::MAX }>;
 
 /// `Limits` without any limits.
 impl Limits for () {
@@ -106,6 +116,7 @@ impl Limits for () {
 
     type MaxBBSPublicKeySize = NoLimit;
     type MaxBBSPlusPublicKeySize = NoLimit;
+    type MaxBBDT16PublicKeySize = NoLimit;
     type MaxPSPublicKeySize = NoLimit;
 
     type MaxMasterMembers = NoLimit;
@@ -124,4 +135,8 @@ impl Limits for () {
     type MaxRegistriesPerIssuer = NoLimit;
     type MaxRegistriesPerVerifier = NoLimit;
     type MaxSchemasPerRegistry = NoLimit;
+    type MaxParticipantsPerRegistry = NoLimit;
+    type MaxRegistryParticipantOrgNameSize = NoLimit;
+    type MaxRegistryParticipantDescriptionSize = NoLimit;
+    type MaxRegistryParticipantLogoSize = NoLimit;
 }

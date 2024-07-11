@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    impl_action_with_nonce,
-    util::{Bytes, KeyedUpdate, Types},
+    impl_action, impl_action_with_nonce,
+    util::{Bytes, Types, WithNonce},
 };
 use alloc::{collections::BTreeSet, string::String};
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
@@ -86,19 +86,73 @@ pub struct UnsuspendIssuers<T: Types> {
 #[scale_info(omit_prefix)]
 pub struct UpdateDelegatedIssuers<T: Types> {
     pub registry_id: TrustRegistryId,
-    pub delegated: UnboundedDelegatedUpdate,
+    pub delegated: UnboundedDelegatedIssuersUpdate,
     pub nonce: T::BlockNumber,
 }
 
-impl_action_with_nonce!(
-    for ():
-        InitOrUpdateTrustRegistry with 1 as len, () as target,
-        UpdateDelegatedIssuers with delegated.size() as len, () as target
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct ChangeParticipantsRaw<T: Types> {
+    pub registry_id: TrustRegistryIdForParticipants,
+    pub participants: UnboundedTrustRegistryParticipantsUpdate,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub _marker: PhantomData<T>,
+}
+
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[cfg_attr(
+    feature = "serde",
+    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
+)]
+#[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
+#[scale_info(skip_type_params(T))]
+#[scale_info(omit_prefix)]
+pub struct SetParticipantInformationRaw<T: Types> {
+    pub registry_id: TrustRegistryIdForParticipants,
+    pub participant: IssuerOrVerifier,
+    pub participant_information: UnboundedTrustRegistryParticipantInformation,
+    #[codec(skip)]
+    #[cfg_attr(feature = "serde", serde(skip))]
+    pub _marker: PhantomData<T>,
+}
+
+pub type ChangeParticipants<T> = WithNonce<T, ChangeParticipantsRaw<T>>;
+pub type SetParticipantInformation<T> = WithNonce<T, SetParticipantInformationRaw<T>>;
+
+impl_action!(
+    for TrustRegistryIdForParticipants:
+        ChangeParticipantsRaw with participants.len() as len, registry_id as target no_state_change
+);
+
+impl_action!(
+    for (TrustRegistryIdForParticipants, IssuerOrVerifier):
+        SetParticipantInformationRaw with 1 as len, { |this: &Self| (this.registry_id, this.participant) } as target no_state_change
 );
 
 impl_action_with_nonce!(
     for TrustRegistryId:
-        SetSchemasMetadata with 1 as len, registry_id as target,
+        UpdateDelegatedIssuers with 1 as len, registry_id as target,
+        InitOrUpdateTrustRegistry with 1 as len, registry_id as target,
+        SetSchemasMetadata with { |this: &Self| match &this.schemas { SetOrModify::Set(_) => 1, SetOrModify::Modify(update) => update.len() } } as len, registry_id as target,
         SuspendIssuers with issuers.len() as len, registry_id as target,
         UnsuspendIssuers with issuers.len() as len, registry_id as target
+);
+
+impl_action_with_nonce!(
+    for TrustRegistryIdForParticipants:
+        ChangeParticipants with data().len() as len, data().registry_id as target
+);
+
+impl_action_with_nonce!(
+    for (TrustRegistryIdForParticipants, IssuerOrVerifier):
+        SetParticipantInformation with 1 as len, data().target() as target
 );

@@ -1,11 +1,10 @@
 #[cfg(feature = "serde")]
-use crate::util::hex;
+use crate::util::serde_hex;
 use crate::{
-    common::{HasPolicy, Limits, Policy},
-    util::{BoundedBytes, StorageRef},
+    common::{IntermediateError, Limits, Policy, PolicyExecutor, TypesAndLimits},
+    util::{Associated, BoundedBytes, InclusionRule, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
-use core::fmt::Debug;
 use frame_support::{traits::Get, DebugNoBound, *};
 use sp_runtime::DispatchResult;
 
@@ -76,12 +75,6 @@ pub struct StatusListCredentialWithPolicy<T: Limits> {
     pub policy: Policy<T>,
 }
 
-impl<T: Limits> HasPolicy<T> for StatusListCredentialWithPolicy<T> {
-    fn policy(&self) -> &Policy<T> {
-        &self.policy
-    }
-}
-
 impl<T: Limits> StatusListCredentialWithPolicy<T> {
     /// Returns underlying raw bytes.
     pub fn bytes(&self) -> &[u8] {
@@ -103,10 +96,16 @@ impl<T: Limits> StatusListCredentialWithPolicy<T> {
     where
         T: Config,
     {
-        self.policy.ensure_valid()?;
+        self.policy
+            .ensure_valid()
+            .map_err(IntermediateError::<T>::from)?;
         self.status_list_credential.ensure_valid()?;
 
         Ok(())
+    }
+
+    pub fn expand_policy(&self) -> Option<InclusionRule<PolicyExecutor>> {
+        Some(self.policy.expand())
     }
 }
 
@@ -122,17 +121,22 @@ impl<T: Limits> From<StatusListCredentialWithPolicy<T>> for StatusListCredential
 }
 
 /// Unique identifier for the `StatusListCredential`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct StatusListCredentialId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct StatusListCredentialId(
+    #[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32],
+);
 
 crate::impl_wrapper!(StatusListCredentialId([u8; 32]));
+crate::hex_debug!(StatusListCredentialId);
+
+impl<T: TypesAndLimits> Associated<T> for StatusListCredentialId {
+    type Value = StatusListCredentialWithPolicy<T>;
+}
 
 impl<T: Config> StorageRef<T> for StatusListCredentialId {
-    type Value = StatusListCredentialWithPolicy<T>;
-
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<StatusListCredentialWithPolicy<T>>) -> Result<R, E>,

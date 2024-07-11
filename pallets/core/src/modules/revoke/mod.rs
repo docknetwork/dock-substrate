@@ -1,14 +1,17 @@
 #[cfg(feature = "serde")]
-use crate::util::hex;
+use crate::util::serde_hex;
 use crate::{
-    common::{self, signatures::ForSigType, DidSignatureWithNonce, HasPolicy, Limits, Policy},
-    did::{self},
-    util::{Action, NonceError, StorageRef, WithNonce},
+    common::{
+        self, signatures::ForSigType, Limits, Policy, PolicyExecutor, SignatureWithNonce,
+        TypesAndLimits,
+    },
+    did::{self, DidOrDidMethodKeySignature},
+    util::{Action, Associated, InclusionRule, NonceError, StorageRef, WithNonce},
 };
 use alloc::collections::BTreeSet;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Index, RangeFull};
-use sp_std::{fmt::Debug, marker::PhantomData, vec::Vec};
+use sp_std::{marker::PhantomData, vec::Vec};
 
 use frame_support::{dispatch::DispatchResult, ensure, weights::Weight, DebugNoBound};
 use frame_system::ensure_signed;
@@ -27,11 +30,13 @@ pub mod tests;
 mod weights;
 
 /// Points to an on-chain revocation registry.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct RevocationRegistryId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct RevocationRegistryId(
+    #[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32],
+);
 
 impl Index<RangeFull> for RevocationRegistryId {
     type Output = [u8; 32];
@@ -41,9 +46,11 @@ impl Index<RangeFull> for RevocationRegistryId {
     }
 }
 
-impl<T: Config> StorageRef<T> for RevocationRegistryId {
+impl<T: TypesAndLimits> Associated<T> for RevocationRegistryId {
     type Value = RevocationRegistry<T>;
+}
 
+impl<T: Config> StorageRef<T> for RevocationRegistryId {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<RevocationRegistry<T>>) -> Result<R, E>,
@@ -59,14 +66,15 @@ impl<T: Config> StorageRef<T> for RevocationRegistryId {
     }
 }
 
+crate::hex_debug!(RevocationRegistryId);
 crate::impl_wrapper!(RevocationRegistryId([u8; 32]));
 
 /// Points to a revocation which may or may not exist in a registry.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct RevokeId(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct RevokeId(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32]);
 
 impl Index<RangeFull> for RevokeId {
     type Output = [u8; 32];
@@ -76,6 +84,7 @@ impl Index<RangeFull> for RevokeId {
     }
 }
 
+crate::hex_debug!(RevokeId);
 crate::impl_wrapper!(RevokeId([u8; 32]));
 
 /// Metadata about a revocation scope.
@@ -98,14 +107,16 @@ pub struct RevocationRegistry<T: Limits> {
     pub add_only: bool,
 }
 
-impl<T: Limits> HasPolicy<T> for RevocationRegistry<T> {
-    fn policy(&self) -> &Policy<T> {
-        &self.policy
+impl<T: Limits> RevocationRegistry<T> {
+    fn expand_policy(&self) -> Option<InclusionRule<PolicyExecutor>> {
+        Some(self.policy.expand())
     }
 }
 
 #[frame_support::pallet]
 pub mod pallet {
+    use self::common::PolicyExecutor;
+
     use super::*;
     use frame_support::pallet_prelude::*;
     use frame_system::pallet_prelude::*;
@@ -139,6 +150,8 @@ pub mod pallet {
     pub enum Error<T> {
         /// A revocation registry with that name already exists.
         RegExists,
+        /// A revocation registry with the provided identifier doesnt exist.
+        RegistryDoesntExist,
         /// nonce is incorrect. This is related to replay protection.
         IncorrectNonce,
         /// Too many controllers specified.
@@ -208,7 +221,9 @@ pub mod pallet {
         pub fn new_registry(origin: OriginFor<T>, add_registry: AddRegistry<T>) -> DispatchResult {
             ensure_signed(origin)?;
 
-            Self::new_registry_(add_registry)
+            add_registry
+                .modify_removable(Self::new_registry_)
+                .map_err(Into::into)
         }
 
         /// Create some revocations according to the `revoke` command.
@@ -222,13 +237,16 @@ pub mod pallet {
         pub fn revoke(
             origin: OriginFor<T>,
             revoke: RevokeRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<
+                SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+            >,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            revoke.execute_readonly(|action, registry: RevocationRegistry<T>| {
-                registry.execute_readonly(Self::revoke_, action, proof)
-            })
+            revoke
+                .multi_signed(proof)
+                .execute_view(Self::revoke_, RevocationRegistry::expand_policy)
+                .map_err(Into::into)
         }
 
         /// Delete some revocations according to the `unrevoke` command.
@@ -244,13 +262,16 @@ pub mod pallet {
         pub fn unrevoke(
             origin: OriginFor<T>,
             unrevoke: UnRevokeRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<
+                SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+            >,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            unrevoke.execute_readonly(|action, registry: RevocationRegistry<T>| {
-                registry.execute_readonly(Self::unrevoke_, action, proof)
-            })
+            unrevoke
+                .multi_signed(proof)
+                .execute_view(Self::unrevoke_, RevocationRegistry::expand_policy)
+                .map_err(Into::into)
         }
 
         /// Delete an entire registry. Deletes all revocations within the registry, as well as
@@ -268,48 +289,27 @@ pub mod pallet {
         pub fn remove_registry(
             origin: OriginFor<T>,
             removal: RemoveRegistryRaw<T>,
-            proof: Vec<DidSignatureWithNonce<T>>,
+            proof: Vec<
+                SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+            >,
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            removal.execute_removable(|action, registry| {
-                HasPolicy::execute_removable(registry, Self::remove_registry_, action, proof)
-            })
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            use crate::common::{Limits, OldPolicy};
-            /// `StatusListCredential` combined with `Policy`.
-            #[derive(Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen)]
-            struct OldRevocationRegistry<T: Limits> {
-                pub policy: OldPolicy<T>,
-                pub add_only: bool,
-            }
-
-            let mut reads_writes = 0;
-
-            Registries::<T>::translate_values(
-                |OldRevocationRegistry { add_only, policy }: OldRevocationRegistry<T>| {
-                    reads_writes += 1;
-
-                    RevocationRegistry {
-                        policy: policy.into(),
-                        add_only,
-                    }
-                    .into()
-                },
-            );
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
+            removal
+                .multi_signed(proof)
+                .execute_removable(Self::remove_registry_, |opt| {
+                    opt.and_then(RevocationRegistry::expand_policy)
+                })
+                .map_err(Into::into)
         }
     }
 }
 
 impl<T: Config> SubstrateWeight<T> {
-    fn revoke(revoke: &RevokeRaw<T>, sig: &DidSignatureWithNonce<T>) -> Weight {
+    fn revoke(
+        revoke: &RevokeRaw<T>,
+        sig: &SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+    ) -> Weight {
         let len = revoke.len();
 
         sig.weight_for_sig_type::<T>(
@@ -319,7 +319,10 @@ impl<T: Config> SubstrateWeight<T> {
         )
     }
 
-    fn unrevoke(unrevoke: &UnRevokeRaw<T>, sig: &DidSignatureWithNonce<T>) -> Weight {
+    fn unrevoke(
+        unrevoke: &UnRevokeRaw<T>,
+        sig: &SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+    ) -> Weight {
         let len = unrevoke.len();
 
         sig.weight_for_sig_type::<T>(
@@ -329,7 +332,9 @@ impl<T: Config> SubstrateWeight<T> {
         )
     }
 
-    fn remove_registry(sig: &DidSignatureWithNonce<T>) -> Weight {
+    fn remove_registry(
+        sig: &SignatureWithNonce<T::BlockNumber, DidOrDidMethodKeySignature<PolicyExecutor>>,
+    ) -> Weight {
         sig.weight_for_sig_type::<T>(
             Self::remove_registry_sr25519,
             Self::remove_registry_ed25519,

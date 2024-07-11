@@ -20,7 +20,7 @@ pub use offchain::*;
 pub use onchain::*;
 pub use signature::*;
 
-/// Either Dock DID or `did:key`,
+/// Either `did:dock:*` or `did:key:*`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
@@ -31,36 +31,48 @@ pub enum DidOrDidMethodKey {
     DidMethodKey(DidMethodKey),
 }
 
-impl<Target> AuthorizeTarget<Target, DidKey> for DidOrDidMethodKey
+impl<T, Target> AuthorizeTarget<T, Target, DidKey> for DidOrDidMethodKey
 where
-    Did: AuthorizeTarget<Target, DidKey>,
+    T: Config,
+    Did: AuthorizeTarget<T, Target, DidKey>,
+    Target: Associated<T>,
 {
-    fn ensure_authorizes_target<T, A>(&self, key: &DidKey, action: &A) -> Result<(), Error<T>>
+    fn ensure_authorizes_target<A>(
+        &self,
+        key: &DidKey,
+        action: &A,
+        value: Option<&Target::Value>,
+    ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Target>,
     {
         match self {
-            DidOrDidMethodKey::Did(did) => did.ensure_authorizes_target(key, action),
-            _ => Err(Error::<T>::ExpectedDid),
+            DidOrDidMethodKey::Did(did) => did.ensure_authorizes_target(key, action, value),
+            _ => Err(Error::<T>::ExpectedDid.into()),
         }
     }
 }
 
-impl<Target> AuthorizeTarget<Target, DidMethodKey> for DidOrDidMethodKey
+impl<T, Target> AuthorizeTarget<T, Target, DidMethodKey> for DidOrDidMethodKey
 where
-    DidMethodKey: AuthorizeTarget<Target, DidMethodKey>,
+    T: Config,
+    DidMethodKey: AuthorizeTarget<T, Target, DidMethodKey>,
+    Target: Associated<T>,
 {
-    fn ensure_authorizes_target<T, A>(&self, key: &DidMethodKey, action: &A) -> Result<(), Error<T>>
+    fn ensure_authorizes_target<A>(
+        &self,
+        key: &DidMethodKey,
+        action: &A,
+        value: Option<&Target::Value>,
+    ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Target>,
     {
         match self {
             DidOrDidMethodKey::DidMethodKey(did_method_key) => {
-                did_method_key.ensure_authorizes_target(key, action)
+                did_method_key.ensure_authorizes_target(key, action, value)
             }
-            _ => Err(Error::<T>::ExpectedDidMethodKey),
+            _ => Err(Error::<T>::ExpectedDidMethodKey.into()),
         }
     }
 }
@@ -99,16 +111,26 @@ impl TryFrom<DidOrDidMethodKey> for DidMethodKey {
 }
 
 /// The type of the Dock `DID`.
-#[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Copy, Ord, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Did(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub RawDid);
+pub struct Did(#[cfg_attr(feature = "serde", serde(with = "crate::util::serde_hex"))] pub RawDid);
 
-impl<Target> AuthorizeTarget<Target, DidKey> for Did {
-    fn ensure_authorizes_target<T, A>(&self, key: &DidKey, _: &A) -> Result<(), Error<T>>
+crate::hex_debug!(Did);
+
+impl<T, Target> AuthorizeTarget<T, Target, DidKey> for Did
+where
+    T: crate::did::Config,
+    Target: Associated<T>,
+{
+    fn ensure_authorizes_target<A>(
+        &self,
+        key: &DidKey,
+        _: &A,
+        _: Option<&<A::Target as Associated<T>>::Value>,
+    ) -> DispatchResult
     where
-        T: crate::did::Config,
         A: Action<Target = Target>,
     {
         ensure!(
@@ -321,9 +343,11 @@ pub enum DidDetailsOrDidMethodKeyDetails<T: TypesAndLimits> {
     DidMethodKeyDetails,
 }
 
-impl<T: Config> StorageRef<T> for DidOrDidMethodKey {
+impl<T: TypesAndLimits> Associated<T> for DidOrDidMethodKey {
     type Value = WithNonce<T, DidDetailsOrDidMethodKeyDetails<T>>;
+}
 
+impl<T: Config> StorageRef<T> for DidOrDidMethodKey {
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<Self::Value>) -> Result<R, E>,

@@ -1,12 +1,12 @@
 use crate::impl_wrapper;
 #[cfg(feature = "serde")]
-use crate::util::hex;
+use crate::util::serde_hex;
 use codec::{Decode, Encode, MaxEncodedLen};
 use core::ops::{Index, RangeFull};
 use frame_support::*;
 use sp_runtime::traits::Get;
 
-use sp_std::{fmt, vec::Vec};
+use sp_std::vec::Vec;
 
 /// Wrapper around the bounded vector. providing the ability to encode/decode in `hex` format.
 #[derive(
@@ -30,7 +30,7 @@ use sp_std::{fmt, vec::Vec};
 #[scale_info(skip_type_params(MaxSize))]
 #[scale_info(omit_prefix)]
 pub struct BoundedBytes<MaxSize: Get<u32>>(
-    #[cfg_attr(feature = "serde", serde(with = "hex"))] pub BoundedVec<u8, MaxSize>,
+    #[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub BoundedVec<u8, MaxSize>,
 );
 
 crate::impl_wrapper!(BoundedBytes<MaxSize> where MaxSize: Get<u32> => (BoundedVec<u8, MaxSize>));
@@ -56,7 +56,7 @@ impl<MaxSize: Get<u32>> TryFrom<Bytes> for BoundedBytes<MaxSize> {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Bytes(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub Vec<u8>);
+pub struct Bytes(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub Vec<u8>);
 
 impl FromIterator<u8> for Bytes {
     fn from_iter<I: IntoIterator<Item = u8>>(iter: I) -> Bytes {
@@ -70,13 +70,14 @@ impl_wrapper! { Bytes(Vec<u8>), for rand use rand::distributions::Standard.sampl
 
 // XXX: This could have been a tuple struct. Keeping it a normal struct for Substrate UI
 /// A wrapper over 32-byte array
-#[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, Ord, Copy, PartialOrd, MaxEncodedLen)]
+#[derive(Encode, Decode, Clone, PartialEq, Eq, Ord, Copy, PartialOrd, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[derive(scale_info_derive::TypeInfo)]
 #[scale_info(omit_prefix)]
-pub struct Bytes32(#[cfg_attr(feature = "serde", serde(with = "hex"))] pub [u8; 32]);
+pub struct Bytes32(#[cfg_attr(feature = "serde", serde(with = "serde_hex"))] pub [u8; 32]);
 
 crate::impl_wrapper! { Bytes32([u8; 32]) }
+crate::hex_debug!(Bytes32);
 
 impl Index<RangeFull> for Bytes32 {
     type Output = [u8; 32];
@@ -105,10 +106,11 @@ macro_rules! struct_over_byte_array {
         #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
         #[scale_info(omit_prefix)]
         pub struct $name(
-            #[cfg_attr(feature = "serde", serde(with = "hex::big_array"))]
+            #[cfg_attr(feature = "serde", serde(with = "serde_hex::big_array"))]
             pub [u8; $size]
         );
 
+        $crate::hex_debug!($name);
         $crate::impl_wrapper! { $name([u8; $size]) }
 
         /// Implementing Default as it cannot be automatically derived for arrays of size > 32
@@ -123,13 +125,6 @@ macro_rules! struct_over_byte_array {
 
             fn index(&self, _: RangeFull) -> &Self::Output {
                 &self.0
-            }
-        }
-
-        /// Implementing Debug as it cannot be automatically derived for arrays of size > 32
-        impl fmt::Debug for $name {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                self.0[..].fmt(f)
             }
         }
 

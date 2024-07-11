@@ -14,7 +14,10 @@ use jsonrpsee::{
 use sp_api::ProvideRuntimeApi;
 use sp_blockchain::HeaderBackend;
 use sp_runtime::{generic::BlockId, traits::Block as BlockT};
-use std::{collections::BTreeMap, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 pub trait ConfigWrapper {
     type T: TypesAndLimits;
@@ -196,9 +199,53 @@ where
     #[method(name = "trustRegistry_registriesInfoBy")]
     async fn registries_info_by(
         &self,
-        by: TrustRegistriesInfoBy,
+        by: QueryTrustRegistriesBy,
         at: Option<BlockHash>,
     ) -> RpcResult<BTreeMap<TrustRegistryId, TrustRegistryInfo<T::T>>>;
+
+    #[method(name = "trustRegistry_registrySchemaMetadataBy")]
+    async fn registry_schemas_metadata_by(
+        &self,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata<T::T>>>;
+
+    #[method(name = "trustRegistry_registriesIdsBy")]
+    async fn registries_ids_by(
+        &self,
+        by: QueryTrustRegistriesBy,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeSet<TrustRegistryId>>;
+
+    #[method(name = "trustRegistry_registrySchemaIdsBy")]
+    async fn registry_schemas_ids_by(
+        &self,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeSet<TrustRegistrySchemaId>>;
+
+    #[method(name = "core_mods_bbdt16PublicKeyWithParams")]
+    async fn bbdt16_public_key_with_params(
+        &self,
+        id: offchain_signatures::SignaturePublicKeyStorageKey,
+        at: Option<BlockHash>,
+    ) -> RpcResult<Option<offchain_signatures::BBDT16PublicKeyWithParams<T::T>>>;
+
+    #[method(name = "core_mods_bbdt16ParamsByDid")]
+    async fn bbdt16_params_by_did(
+        &self,
+        owner: offchain_signatures::SignatureParamsOwner,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBDT16Parameters<T::T>>>;
+
+    #[method(name = "core_mods_bbdt16PublicKeysByDid")]
+    async fn bbdt16_public_keys_by_did(
+        &self,
+        did: did::Did,
+        at: Option<BlockHash>,
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBDT16PublicKeyWithParams<T::T>>>;
 }
 
 /// A struct that implements the [`CoreModsApi`].
@@ -559,7 +606,7 @@ where
 
     async fn registries_info_by(
         &self,
-        by: TrustRegistriesInfoBy,
+        by: QueryTrustRegistriesBy,
         at: Option<<Block as BlockT>::Hash>,
     ) -> RpcResult<BTreeMap<TrustRegistryId, TrustRegistryInfo<T::T>>> {
         let api = self.client.runtime_api();
@@ -567,6 +614,93 @@ where
             // If the block hash is not supplied assume the best block.
             self.client.info().best_hash));
         api.registries_info_by(&at, by)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn registry_schemas_metadata_by(
+        &self,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata<T::T>>>
+    {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.registry_schemas_metadata_by(&at, by, reg_id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn registries_ids_by(
+        &self,
+        by: QueryTrustRegistriesBy,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeSet<TrustRegistryId>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.registries_ids_by(&at, by)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn registry_schemas_ids_by(
+        &self,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeSet<TrustRegistrySchemaId>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.registry_schemas_ids_by(&at, by, reg_id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn bbdt16_public_key_with_params(
+        &self,
+        id: offchain_signatures::SignaturePublicKeyStorageKey,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<Option<offchain_signatures::BBDT16PublicKeyWithParams<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.bbdt16_public_key_with_params(&at, id)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn bbdt16_params_by_did(
+        &self,
+        owner: offchain_signatures::SignatureParamsOwner,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBDT16Parameters<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.bbdt16_params_by_did(&at, owner)
+            .map_err(Error)
+            .map_err(Into::into)
+    }
+
+    async fn bbdt16_public_keys_by_did(
+        &self,
+        did: did::Did,
+        at: Option<<Block as BlockT>::Hash>,
+    ) -> RpcResult<BTreeMap<IncId, offchain_signatures::BBDT16PublicKeyWithParams<T::T>>> {
+        let api = self.client.runtime_api();
+        let at = BlockId::hash(at.unwrap_or_else(||
+            // If the block hash is not supplied assume the best block.
+            self.client.info().best_hash));
+        api.bbdt16_public_keys_by_did(&at, did)
             .map_err(Error)
             .map_err(Into::into)
     }

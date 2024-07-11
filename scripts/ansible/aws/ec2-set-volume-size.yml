@@ -19,6 +19,7 @@
 
   - name: Modify the volume
     amazon.aws.ec2_vol:
+      instance: "{{ instances['instances'][0].instance_id }}"
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
       name: "{{ instance_name }}"
