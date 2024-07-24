@@ -220,6 +220,13 @@ impl<T: Config> Pallet<T> {
             .unwrap_or_else(T::LowRateRewardDecayPct::get)
     }
 
+    pub fn treasury_rewards_pct() -> Percent {
+        Self::high_rate_rewards()
+            .is_active()
+            .then(Default::default)
+            .unwrap_or_else(T::TreasuryRewardsPct::get)
+    }
+
     /// Get maximum emission per year according to the decay percentage and given emission supply
     fn get_max_yearly_emission(emission_supply: BalanceOf<T>) -> BalanceOf<T> {
         // Emission supply decreases by "decay percentage" of the remaining emission supply per year
@@ -267,7 +274,8 @@ impl<T: Config> EraPayout<BalanceOf<T>> for Pallet<T> {
             (BalanceOf::<T>::zero(), BalanceOf::<T>::zero())
         } else {
             Self::set_new_emission_supply(remaining);
-            let treasury_reward = T::TreasuryRewardsPct::get() * emission_reward;
+            let treasury_reward = Self::treasury_rewards_pct() * emission_reward;
+
             (
                 emission_reward.saturating_sub(treasury_reward),
                 treasury_reward,
