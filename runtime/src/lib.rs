@@ -200,7 +200,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 59,
+    spec_version: 60,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -1566,13 +1566,14 @@ pallet_staking_reward_curve::build! {
     );
 }
 
-/// Pay high-rate rewards for 1 month (in eras) after the upgrade.
+/// Pay high-rate rewards for 3 months (in eras) after the upgrade.
+/// At the moment, we still have 18 remaining eras of enabled high-rate rewards.
 const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
-    DurationInEras::new_non_zero((30 * DAY / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
+    DurationInEras::new_non_zero((81 * DAY / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
 
-#[cfg(not(feature = "small_durations"))]
 // 1 era lasts for 12h.
-const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 30 * 2);
+#[cfg(not(feature = "small_durations"))]
+const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 81 * 2);
 
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;

@@ -3,13 +3,13 @@ authors = ["Dock.io"]
 build = "build.rs"
 edition = "2021"
 name = "dock-node"
-version = "0.28.0"
+version = "0.29.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
 
 [dependencies]
-clap = { version = "3.2.5", features = [ "derive" ] }
+clap = { version = "3.2.5", features = ["derive"] }
 zstd = { version = "^0.11.2" }
 futures = "0.3.4"
 log = "0.4.8"
@@ -28,7 +28,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = "../runtime"
-version = "0.28.0"
+version = "0.29.0"
 
 [dependencies.beefy-primitives]
 git = "https://github.com/paritytech/substrate.git"
@@ -602,26 +602,26 @@ name = "dock-node"
 path = "src/main.rs"
 
 [features]
-default = [ "cli" ]
+default = ["cli"]
 cli = [
-	"sc-executor/wasmi-errno",
-	"node-inspect",
-	"sc-cli",
-	"frame-benchmarking",
-	"frame-benchmarking-cli",
-	"structopt",
-	"substrate-build-script-utils",
+    "sc-executor/wasmi-errno",
+    "node-inspect",
+    "sc-cli",
+    "frame-benchmarking",
+    "frame-benchmarking-cli",
+    "structopt",
+    "substrate-build-script-utils",
 ]
 wasmtime = [
-	"sc-cli/wasmtime",
-	"sc-executor/wasmtime",
-	"sc-service/wasmtime",
-	"frame-benchmarking-cli",
-	"structopt",
-	"substrate-build-script-utils",
+    "sc-cli/wasmtime",
+    "sc-executor/wasmtime",
+    "sc-service/wasmtime",
+    "frame-benchmarking-cli",
+    "structopt",
+    "substrate-build-script-utils",
 ]
 runtime-benchmarks = [
-	"frame-benchmarking",
-	"dock-runtime/runtime-benchmarks",
-	"frame-benchmarking-cli",
+    "frame-benchmarking",
+    "dock-runtime/runtime-benchmarks",
+    "frame-benchmarking-cli",
 ]

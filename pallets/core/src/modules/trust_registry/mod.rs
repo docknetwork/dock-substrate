@@ -10,7 +10,6 @@ use crate::{
         UpdateTranslationError,
     },
 };
-use alloc::collections::BTreeSet;
 use core::convert::Infallible;
 use frame_support::{
     dispatch::DispatchErrorWithPostInfo,
@@ -521,39 +520,6 @@ pub mod pallet {
             )
             .view(ActionWrapper::wrap_fn(f))
             .map_err(Into::into)
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<T::BlockNumber> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            let mut reads = 0;
-            let mut writes = 0;
-
-            for registry_id in TrustRegistriesInfo::<T>::iter_keys() {
-                reads += 1;
-                let issuers = TrustRegistryIssuerSchemas::<T>::iter_keys()
-                    .map(|(_, issuer)| IssuerOrVerifier(*issuer));
-                let verifiers = TrustRegistryVerifierSchemas::<T>::iter_keys()
-                    .map(|(_, verifier)| IssuerOrVerifier(*verifier));
-
-                let participants = TrustRegistryStoredParticipants(
-                    issuers
-                        .chain(verifiers)
-                        .inspect(|_| reads += 1)
-                        .collect::<BTreeSet<_>>()
-                        .try_into()
-                        .unwrap(),
-                );
-
-                TrustRegistriesParticipants::<T>::insert(
-                    TrustRegistryIdForParticipants(registry_id),
-                    participants,
-                );
-                writes += 1;
-            }
-
-            T::DbWeight::get().reads_writes(reads, writes)
         }
     }
 }
