@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["pallet"],"struct":["AddRegistry","RemoveRegistryRaw","RevocationRegistry","RevocationRegistryId","RevokeId","RevokeRaw","UnRevokeRaw"],"type":["RemoveRegistry","Revoke","UnRevoke"]};

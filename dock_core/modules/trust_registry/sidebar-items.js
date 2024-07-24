@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["actions","pallet","query","types"]};
