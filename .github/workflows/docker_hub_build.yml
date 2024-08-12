@@ -11,7 +11,7 @@ on:
       - mainnet_next
 
 jobs:
- build-docker-image:
+  build-production-docker-image:
     runs-on: ubuntu-latest
     steps:
       - name: checkout
@@ -41,7 +41,7 @@ jobs:
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
           echo "SPEC_NAME=$SPEC_NAME" >> $GITHUB_OUTPUT
 
-      - name: 'Build production ${{ steps.image_tag.outputs.TAG_NAME }} image'
+      - name: "Build production ${{ steps.image_tag.outputs.TAG_NAME }} image"
         if: steps.image_tag.outputs.TAG_NAME != 'master'
         uses: docker/build-push-action@v3
         with:
@@ -51,7 +51,37 @@ jobs:
           build-args: features=--features=${{ steps.image_tag.outputs.SPEC_NAME }},wasmtime
           tags: docknetwork/dock-substrate:${{ steps.image_tag.outputs.TAG_NAME }}
 
-      - name: 'Build release fastblock_${{ steps.image_tag.outputs.TAG_NAME }} image'
+  build-fastblock-docker-image:
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
+
+      - name: Set tag name
+        id: image_tag
+        shell: bash
+        run: |
+          export TAG_NAME=master
+          if [[ '${{github.ref_name}}' == 'mainnet' || '${{github.ref_name}}' == 'testnet' || '${{github.ref_name}}' == 'mainnet_next' ]];
+          then
+            export TAG_NAME=${{github.ref_name}}
+            if [[ $TAG_NAME == 'mainnet_next' ]]
+            then
+              export SPEC_NAME='mainnet'
+            else
+              export SPEC_NAME=$TAG_NAME
+            fi
+          fi
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "SPEC_NAME=$SPEC_NAME" >> $GITHUB_OUTPUT
+
+      - name: "Build release fastblock_${{ steps.image_tag.outputs.TAG_NAME }} image"
         uses: docker/build-push-action@v3
         with:
           context: .
