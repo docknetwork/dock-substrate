@@ -13,11 +13,22 @@ rustc-hex = { version = "2.1.0", default-features = false }
 ethabi = { git = "https://github.com/snowfork/ethabi-decode.git", package = "ethabi-decode", branch = "master", default-features = false }
 parity-bytes = { version = "0.1.2", default-features = false }
 ethbloom = { version = "0.12.1", default-features = false }
-ethereum = { version = "0.12.0", default-features = false, features = ["with-codec"] }
-ethereum-types = { version = "0.13.1", default-features = false, features = ["codec", "rlp", "serialize"] }
-primitive-types = { version = "0.11.1", default-features = false, features = ["rlp", "byteorder"] }
+ethereum = { version = "0.12.0", default-features = false, features = [
+    "with-codec",
+] }
+ethereum-types = { version = "0.13.1", default-features = false, features = [
+    "codec",
+    "rlp",
+    "serialize",
+] }
+primitive-types = { version = "0.11.1", default-features = false, features = [
+    "rlp",
+    "byteorder",
+] }
 
-evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c", default-features = false, features = ["with-codec"] }
+evm = { git = "https://github.com/rust-blockchain/evm", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c", default-features = false, features = [
+    "with-codec",
+] }
 evm-runtime = { version = "0.35", default-features = false, git = "https://github.com/rust-blockchain/evm.git", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c" }
 evm-gasometer = { version = "0.35", default-features = false, git = "https://github.com/rust-blockchain/evm.git", rev = "51b8c2ce3104265e1fd5bb0fe5cdfd2e0938239c" }
 
@@ -30,7 +41,9 @@ log = { version = "0.4", default-features = false }
 static_assertions = "1.1.0"
 pallet-base-fee = { git = "https://github.com/docknetwork/frontier.git", branch = "master", default_features = false }
 smallvec = "1.4.1"
-scale-info = { version = "2.1.2", default-features = false, features = ["derive"] }
+scale-info = { version = "2.1.2", default-features = false, features = [
+    "derive",
+] }
 getrandom = { version = "0.2", features = ["js"] }
 hex = { version = "0.4", default-features = false }
 
@@ -443,6 +456,10 @@ path = "../pallets/token-migration"
 default-features = false
 path = "../pallets/core"
 
+[dependencies.dock-agreement]
+default-features = false
+path = "../pallets/agreement"
+
 [dependencies.dock-price-feed]
 default-features = false
 git = "https://github.com/docknetwork/dock-substrate-common.git"
@@ -528,13 +545,13 @@ std = [
     "sp-consensus-babe/std",
     "sp-core/std",
     "sp-inherents/std",
-  	"evm/std",
+    "evm/std",
     "evm/with-serde",
     "evm-runtime/std",
     "evm-gasometer/std",
     "rlp/std",
     "log/std",
-	  "hex/std",
+    "hex/std",
     "sha3/std",
     "sp-runtime-interface/std",
     "sp-trie/std",
@@ -603,33 +620,35 @@ std = [
     "dock-poa/std",
     "dock-token-migration/std",
     "dock-core/std",
+    "dock-agreement/std",
     "dock-price-feed/std",
     "pallet-base-fee/std",
     "dock-staking-rewards/std",
     "frame-benchmarking/std",
-    "rustc-hex/std"
+    "rustc-hex/std",
 ]
 runtime-benchmarks = [
-  "frame-benchmarking",
-  "pallet-collective/runtime-benchmarks",
-  "pallet-evm/runtime-benchmarks",
-  "pallet-ethereum/runtime-benchmarks",
-  "pallet-democracy/runtime-benchmarks",
-  "pallet-scheduler/runtime-benchmarks",
-  "pallet-babe/runtime-benchmarks",
-  "pallet-elections-phragmen/runtime-benchmarks",
-  "pallet-election-provider-multi-phase/runtime-benchmarks",
-  "grandpa/runtime-benchmarks",
-  "pallet-im-online/runtime-benchmarks",
+    "frame-benchmarking",
+    "pallet-collective/runtime-benchmarks",
+    "pallet-evm/runtime-benchmarks",
+    "pallet-ethereum/runtime-benchmarks",
+    "pallet-democracy/runtime-benchmarks",
+    "pallet-scheduler/runtime-benchmarks",
+    "pallet-babe/runtime-benchmarks",
+    "pallet-elections-phragmen/runtime-benchmarks",
+    "pallet-election-provider-multi-phase/runtime-benchmarks",
+    "grandpa/runtime-benchmarks",
+    "pallet-im-online/runtime-benchmarks",
 
-  "frame-support/runtime-benchmarks",
-  "frame-system/runtime-benchmarks",
-  "sp-runtime/runtime-benchmarks",
-  "balances/runtime-benchmarks",
-  "frame-system-benchmarking",
-  "dock-token-migration/runtime-benchmarks",
-  "dock-core/runtime-benchmarks",
-  "pallet-staking/runtime-benchmarks"
+    "frame-support/runtime-benchmarks",
+    "frame-system/runtime-benchmarks",
+    "sp-runtime/runtime-benchmarks",
+    "balances/runtime-benchmarks",
+    "frame-system-benchmarking",
+    "dock-token-migration/runtime-benchmarks",
+    "dock-core/runtime-benchmarks",
+    "dock-agreement/runtime-benchmarks",
+    "pallet-staking/runtime-benchmarks",
 ]
 
 # For building testnet, affects spec name and ss58 prefix
