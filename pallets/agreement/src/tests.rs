@@ -8,16 +8,22 @@ use sp_runtime::DispatchError;
 fn generates_event() {
     new_test_ext().execute_with(|| {
         let text = "Hello world".to_string();
+        let url = Some("Test url".to_string());
+
         System::set_block_number(System::block_number() + 1); //otherwise event won't be registered.
         assert_ok!(Remark::<Test>::agree(
             RawOrigin::Root.into(),
             text.clone(),
-            None
+            url.clone()
         ));
+
         let events = System::events();
         // this one we create as we expect it
-        let system_event: <Test as frame_system::Config>::Event =
-            Event::Agreed { on: text.clone() }.into();
+        let system_event: <Test as frame_system::Config>::Event = Event::Agreed {
+            on: text.clone(),
+            url,
+        }
+        .into();
         // this one we actually go into the system pallet and get the last event
         // because we know its there from block +1
         let frame_system::EventRecord { event, .. } = &events[events.len() - 1];
@@ -31,7 +37,11 @@ fn does_not_agree_on_empty() {
         let text = "".to_string();
         System::set_block_number(System::block_number() + 1); //otherwise event won't be registered.
         assert_noop!(
-            Remark::<Test>::agree(RawOrigin::Root.into(), text, None),
+            Remark::<Test>::agree(RawOrigin::Root.into(), text.clone(), None),
+            Error::<Test>::Empty
+        );
+        assert_noop!(
+            Remark::<Test>::agree(RawOrigin::Root.into(), text, Some("".to_string())),
             Error::<Test>::Empty
         );
         assert!(System::events().is_empty());

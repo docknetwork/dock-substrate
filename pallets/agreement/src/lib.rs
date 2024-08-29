@@ -37,11 +37,14 @@ pub mod pallet {
     impl<T: Config> Pallet<T> {
         /// Declares an agreement recognized by the majority of system participants.
         #[pallet::weight(T::DbWeight::get().writes(1))]
-        pub fn agree(origin: OriginFor<T>, on: String, _url: Option<String>) -> DispatchResult {
+        pub fn agree(origin: OriginFor<T>, on: String, url: Option<String>) -> DispatchResult {
             ensure_root(origin)?;
-            ensure!(!on.is_empty(), Error::<T>::Empty);
+            ensure!(
+                !on.is_empty() && !url.as_ref().map_or(false, String::is_empty),
+                Error::<T>::Empty
+            );
 
-            Self::deposit_event(Event::Agreed { on });
+            Self::deposit_event(Event::Agreed { on, url });
             Ok(())
         }
     }
@@ -50,6 +53,6 @@ pub mod pallet {
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event {
         /// Defines an agreement concluded by majority of system participants.
-        Agreed { on: String },
+        Agreed { on: String, url: Option<String> },
     }
 }
