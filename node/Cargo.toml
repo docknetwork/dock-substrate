@@ -3,7 +3,7 @@ authors = ["Dock.io"]
 build = "build.rs"
 edition = "2021"
 name = "dock-node"
-version = "0.29.0"
+version = "0.30.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -28,7 +28,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = "../runtime"
-version = "0.29.0"
+version = "0.30.0"
 
 [dependencies.beefy-primitives]
 git = "https://github.com/paritytech/substrate.git"
