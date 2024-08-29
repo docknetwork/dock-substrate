@@ -1483,6 +1483,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock-agreement"
+version = "0.5.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "dock-core"
 version = "0.5.0"
 dependencies = [
@@ -1540,7 +1557,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.29.0"
+version = "0.30.0"
 dependencies = [
  "async-trait",
  "beefy-gadget",
@@ -1766,10 +1783,11 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.29.0"
+version = "0.30.0"
 dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
+ "dock-agreement",
  "dock-core",
  "dock-poa",
  "dock-price-feed",

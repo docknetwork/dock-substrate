@@ -200,7 +200,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 60,
+    spec_version: 61,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -1744,6 +1744,10 @@ impl dock_price_feed::Config for Runtime {
     type Event = Event;
 }
 
+impl dock_agreement::Config for Runtime {
+    type Event = Event;
+}
+
 parameter_types! {
     pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
 }
@@ -1798,7 +1802,8 @@ construct_runtime!(
         Accumulator: accumulator::{Pallet, Call, Storage, Event} = 40,
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
         StatusListCredential: status_list_credential::{Pallet, Call, Storage, Event} = 42,
-        TrustRegistry: trust_registry::{Pallet, Call, Storage, Event} = 43
+        TrustRegistry: trust_registry::{Pallet, Call, Storage, Event} = 43,
+        Agreement: dock_agreement::{Pallet, Call, Event} = 44
     }
 );
 
