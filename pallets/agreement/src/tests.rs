@@ -34,15 +34,18 @@ fn generates_event() {
 #[test]
 fn does_not_agree_on_empty() {
     new_test_ext().execute_with(|| {
-        let text = "".to_string();
         System::set_block_number(System::block_number() + 1); //otherwise event won't be registered.
         assert_noop!(
-            Remark::<Test>::agree(RawOrigin::Root.into(), text.clone(), None),
-            Error::<Test>::Empty
+            Remark::<Test>::agree(RawOrigin::Root.into(), "".to_string(), None),
+            Error::<Test>::EmptyAgreement
         );
         assert_noop!(
-            Remark::<Test>::agree(RawOrigin::Root.into(), text, Some("".to_string())),
-            Error::<Test>::Empty
+            Remark::<Test>::agree(
+                RawOrigin::Root.into(),
+                "abc".to_string(),
+                Some("".to_string())
+            ),
+            Error::<Test>::EmptyUrl
         );
         assert!(System::events().is_empty());
     });

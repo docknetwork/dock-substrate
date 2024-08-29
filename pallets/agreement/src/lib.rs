@@ -27,7 +27,9 @@ pub mod pallet {
     #[pallet::error]
     pub enum Error<T> {
         /// Attempting to emit an empty agreement.
-        Empty,
+        EmptyAgreement,
+        /// Attempting to emit an agreement with an empty URL.
+        EmptyUrl,
     }
 
     #[pallet::pallet]
@@ -39,9 +41,10 @@ pub mod pallet {
         #[pallet::weight(T::DbWeight::get().writes(1))]
         pub fn agree(origin: OriginFor<T>, on: String, url: Option<String>) -> DispatchResult {
             ensure_root(origin)?;
+            ensure!(!on.is_empty(), Error::<T>::EmptyAgreement);
             ensure!(
-                !on.is_empty() && !url.as_ref().map_or(false, String::is_empty),
-                Error::<T>::Empty
+                !url.as_ref().map_or(false, String::is_empty),
+                Error::<T>::EmptyUrl
             );
 
             Self::deposit_event(Event::Agreed { on, url });
