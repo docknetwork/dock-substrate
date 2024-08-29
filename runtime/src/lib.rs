@@ -1803,7 +1803,7 @@ construct_runtime!(
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
         StatusListCredential: status_list_credential::{Pallet, Call, Storage, Event} = 42,
         TrustRegistry: trust_registry::{Pallet, Call, Storage, Event} = 43,
-        Agreement: dock_agreement::{Pallet, Call, Event}
+        Agreement: dock_agreement::{Pallet, Call, Event} = 44
     }
 );
 
