@@ -200,7 +200,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 61,
+    spec_version: 62,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -1233,20 +1233,26 @@ impl pallet_democracy::Config for Runtime {
     type CooloffPeriod = CooloffPeriod;
     type MinimumDeposit = MinimumDeposit;
     /// A straight majority of the council can decide what their next motion is.
-    type ExternalOrigin =
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>;
+    type ExternalOrigin = EitherOfDiverse<
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>,
+    >;
     /// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-    type ExternalMajorityOrigin =
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>;
+    type ExternalMajorityOrigin = EitherOfDiverse<
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
+    >;
     /// A unanimous council can have the next scheduled referendum be a straight default-carries
     /// (NTB) vote.
-    type ExternalDefaultOrigin =
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>;
+    type ExternalDefaultOrigin = EitherOfDiverse<
+        EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>,
+    >;
     /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
     type FastTrackOrigin = EitherOfDiverse<
-        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>,
         EnsureRoot<AccountId>,
+        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>,
     >;
     /// Root or the Technical committee unanimously agreeing can make a Council proposal a referendum instantly.
     type InstantOrigin = EitherOfDiverse<
