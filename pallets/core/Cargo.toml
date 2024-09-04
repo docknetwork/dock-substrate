@@ -22,7 +22,7 @@ default-features = false
 
 [dependencies.utils]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-commit = "49c162eb87c85631376fb95dc04e48dde845ba1c"
+rev = "5735cdc0d4ad2cdc402043942a7c1ec2ad3bb1fb"
 default-features = false
 
 [dependencies.scale-info]
