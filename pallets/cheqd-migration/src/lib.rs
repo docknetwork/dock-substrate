@@ -84,24 +84,25 @@ pub mod pallet {
         /// By submitting this transaction, you agree to the Terms and Conditions.
         #[pallet::weight(SubstrateWeight::<T::DbWeight>::migrate())]
         pub fn migrate(origin: OriginFor<T>, cheqd_address: String) -> DispatchResultWithPostInfo {
-            let sender = ensure_signed(origin)?;
+            let dock_account = ensure_signed(origin)?;
 
-            let cheqd_recipient = CheqdAddress::new::<T>(cheqd_address)
+            let cheqd_account = CheqdAddress::new::<T>(cheqd_address)
                 .map_err(DispatchError::from)
                 .map_err(|error| {
                     error.with_weight(SubstrateWeight::<T::DbWeight>::migrate_validation_failure())
                 })?;
 
-            let dock_amount = T::Currency::free_balance(&sender);
-            ensure!(!dock_amount.is_zero(), Error::<T>::BalanceIsZero);
+            let dock_tokens_amount = T::Currency::free_balance(&dock_account);
+            ensure!(!dock_tokens_amount.is_zero(), Error::<T>::BalanceIsZero);
 
             let dest = T::BurnDestination::get();
-            T::Currency::transfer(&sender, &dest, dock_amount, AllowDeath)?;
+            T::Currency::transfer(&dock_account, &dest, dock_tokens_amount, AllowDeath)?;
 
             Self::deposit_event(Event::Migrated {
-                sender,
-                cheqd_recipient,
-                dock_amount,
+                dock_account,
+                cheqd_account,
+                dock_tokens_amount,
+                accepted_terms_and_conditions: true,
             });
 
             Ok(Pays::Yes.into())
@@ -111,15 +112,18 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// The corresponding amount of `DOCK` tokens was burned on the `Dock` Chain side, and an equivalent amount of `CHEQD` tokens will be issued to the specified address on the `cheqd` Chain side.
+        /// The corresponding amount of `DOCK` tokens was burned on the `Dock` Chain side, and an equivalent amount
+        /// of `CHEQD` tokens will be issued to the specified address on the `cheqd` Chain side.
         /// Terms and conditions were accepted by the sender.
         Migrated {
             /// The account whose funds were burnt on the `Dock` side.
-            sender: T::AccountId,
-            /// Recipient address on the `cheqd` side.
-            cheqd_recipient: CheqdAddress,
+            dock_account: T::AccountId,
+            /// Recipient address on the `cheqd` side which will receive `CHEQD` tokens.
+            cheqd_account: CheqdAddress,
             /// Amount of the burnt DOCK tokens.
-            dock_amount: BalanceOf<T>,
+            dock_tokens_amount: BalanceOf<T>,
+            /// Indicates whether terms and conditions were accepted by the sender.
+            accepted_terms_and_conditions: bool,
         },
     }
 }

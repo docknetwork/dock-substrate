@@ -30,9 +30,10 @@ fn migrate_works_for_valid_address() {
         assert_eq!(<Test as Config>::Currency::free_balance(&ALICE), 0);
         assert_eq!(<Test as Config>::Currency::reserved_balance(&ALICE), 100);
         assert_event(Event::Migrated {
-            sender: ALICE,
-            cheqd_recipient: CheqdAddress::new::<Test>(cheqd_recipient).unwrap(),
-            dock_amount: ALICE_BALANCE,
+            dock_account: ALICE,
+            cheqd_account: CheqdAddress::new::<Test>(cheqd_recipient).unwrap(),
+            dock_tokens_amount: ALICE_BALANCE,
+            accepted_terms_and_conditions: true,
         });
     })
 }

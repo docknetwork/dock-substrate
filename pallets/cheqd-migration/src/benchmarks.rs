@@ -19,14 +19,15 @@ benchmarks! {
         let destination = "cheqd1fktkf9nsj625jkxz7r7gmryna6uy8y2pptang4".to_string();
         let caller: T::AccountId = whitelisted_caller();
         T::Currency::make_free_balance_be(&caller, 100_000_000u32.into());
-        let dock_amount = T::Currency::free_balance(&caller);
+        let dock_tokens_amount = T::Currency::free_balance(&caller);
 
     }: _(RawOrigin::Signed(caller.clone()), destination.clone())
     verify {
         assert_event::<T>(Event::<T>::Migrated {
-            sender: caller.clone(),
-            cheqd_recipient: CheqdAddress::new::<T>(destination).unwrap(),
-            dock_amount,
+            dock_account: caller.clone(),
+            cheqd_account: CheqdAddress::new::<T>(destination).unwrap(),
+            dock_tokens_amount,
+            accepted_terms_and_conditions: true
         });
         assert!(
             T::Currency::free_balance(&caller).is_zero()
@@ -36,7 +37,7 @@ benchmarks! {
     migrate_validation_failure {
         let destination = "cosmos12zddgw36trnvwm4s3x0etjd86r4lgqdthrzjdk".to_string();
         let caller: T::AccountId = whitelisted_caller();
-        let dock_amount = T::Currency::free_balance(&caller);
+        let dock_tokens_amount = T::Currency::free_balance(&caller);
 
     }: {
         Pallet::<T>::migrate(RawOrigin::Signed(caller.clone()).into(), destination.clone()).unwrap_err();
@@ -44,7 +45,7 @@ benchmarks! {
     }
     verify {
         assert_eq!(
-            T::Currency::free_balance(&caller), dock_amount
+            T::Currency::free_balance(&caller), dock_tokens_amount
         );
     }
 }
