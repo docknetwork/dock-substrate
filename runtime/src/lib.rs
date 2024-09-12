@@ -200,7 +200,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 63,
+    spec_version: 64,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -1743,15 +1743,22 @@ impl pallet_evm::Config for Runtime {
 
 parameter_types! {
     pub const MaxSymbolBytesLen: u32 = 10;
+    pub BurnDestination: AccountId = AccountId::from_slice(&[99u8; 32]).unwrap();
 }
 
 impl dock_price_feed::Config for Runtime {
-    type MaxSymbolBytesLen = MaxSymbolBytesLen;
+    type MaxSymbolBytesLen = ConstU32<10>;
     type Event = Event;
 }
 
 impl dock_agreement::Config for Runtime {
     type Event = Event;
+}
+
+impl dock_cheqd_migration::Config for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type BurnDestination = BurnDestination;
 }
 
 parameter_types! {
@@ -1809,7 +1816,8 @@ construct_runtime!(
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
         StatusListCredential: status_list_credential::{Pallet, Call, Storage, Event} = 42,
         TrustRegistry: trust_registry::{Pallet, Call, Storage, Event} = 43,
-        Agreement: dock_agreement::{Pallet, Call, Event} = 44
+        Agreement: dock_agreement::{Pallet, Call, Event} = 44,
+        CheqdMigration: dock_cheqd_migration::{Pallet, Call, Event<T>} = 45
     }
 );
 
@@ -2554,6 +2562,7 @@ impl_runtime_apis! {
             list_benchmark!(list, extra, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
             list_benchmark!(list, extra, pallet_grandpa, GrandpaFinality);
             list_benchmark!(list, extra, pallet_im_online, ImOnline);
+            list_benchmark!(list, extra, pallet_migration, CheqdMigration);
 
             macro_rules! storage_info {
                 ($($pallet: ty),+) => {
@@ -2668,6 +2677,7 @@ impl_runtime_apis! {
             add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
             add_benchmark!(params, batches, pallet_grandpa, GrandpaFinality);
             add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            add_benchmark!(params, batches, pallet_migration, CheqdMigration);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)
