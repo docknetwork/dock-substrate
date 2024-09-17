@@ -112,8 +112,8 @@ pub mod pallet {
     #[pallet::event]
     #[pallet::generate_deposit(pub(super) fn deposit_event)]
     pub enum Event<T: Config> {
-        /// The corresponding amount of `DOCK` tokens was burned on the `Dock` Chain side, and an equivalent amount
-        /// of `CHEQD` tokens will be issued to the specified address on the `cheqd` Chain side.
+        /// The corresponding amount of `DOCK` tokens were burned on the `Dock` Chain side,
+        /// and `CHEQD` tokens will be issued to the specified address on the `cheqd` Chain side.
         /// Terms and conditions were accepted by the sender.
         Migrated {
             /// The account whose funds were burnt on the `Dock` side.
