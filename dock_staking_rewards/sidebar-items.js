@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["MILLISECONDS_PER_YEAR"],"mod":["pallet","runtime_api","types"],"type":["BalanceOf"]};

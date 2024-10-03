@@ -1,0 +1,1 @@
+window.ALL_CRATES = ["dock_agreement","dock_cheqd_migration","dock_core","dock_core_rpc","dock_node","dock_poa","dock_poa_rpc","dock_runtime","dock_staking_rewards","dock_staking_rewards_rpc","dock_token_migration"];
