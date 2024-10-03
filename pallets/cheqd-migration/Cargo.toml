@@ -1,12 +1,26 @@
 [package]
-name = "dock-agreement"
-version = "0.5.0"
+name = "dock-cheqd-migration"
+version = "0.1.0"
 authors = ["Dock.io"]
 edition = "2021"
 license = "Apache-2.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
+
+[dependencies.bech32]
+version = "0.11.0"
+default-features = false
+features = ["alloc"]
+
+[dev-dependencies.pallet-balances]
+default-features = false
+git = "https://github.com/paritytech/substrate.git"
+branch = "polkadot-v0.9.29"
+
+[dependencies.scale-info-derive]
+git = "https://github.com/docknetwork/scale-info.git"
+branch = "master"
 
 [dependencies.scale-info]
 version = "2.1.2"
@@ -45,12 +59,6 @@ default-features = false
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
-[dependencies.frame-system-benchmarking]
-optional = true
-default-features = false
-git = "https://github.com/paritytech/substrate.git"
-branch = "polkadot-v0.9.29"
-
 [dev-dependencies.sp-io]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
@@ -61,7 +69,7 @@ default-features = false
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
-[dev-dependencies.sp-runtime]
+[dependencies.sp-runtime]
 default-features = false
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
@@ -71,8 +79,10 @@ default = ["std"]
 std = [
     "codec/std",
     "serde",
+    "bech32/std",
     "frame-support/std",
     "frame-system/std",
+    "pallet-balances/std",
     "sp-std/std",
     "frame-benchmarking/std",
     "sp-runtime/std",
