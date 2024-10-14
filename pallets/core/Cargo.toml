@@ -55,44 +55,37 @@ version = "3.1.5"
 
 [dependencies.sp-core]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 features = ["full_crypto"]
 
 [dependencies.sp-std]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.sp-runtime]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.sp-io]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.frame-system]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.frame-support]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.sp-api]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
@@ -102,7 +95,6 @@ optional = true
 
 [dependencies.sp-application-crypto]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 features = ["full_crypto"]
@@ -110,7 +102,6 @@ features = ["full_crypto"]
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
