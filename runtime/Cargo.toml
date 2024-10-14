@@ -456,10 +456,6 @@ path = "../pallets/token-migration"
 default-features = false
 path = "../pallets/core"
 
-[dependencies.dock-cheqd-migration]
-default-features = false
-path = "../pallets/cheqd-migration"
-
 [dependencies.dock-agreement]
 default-features = false
 path = "../pallets/agreement"
@@ -624,7 +620,6 @@ std = [
     "dock-poa/std",
     "dock-token-migration/std",
     "dock-core/std",
-    "dock-cheqd-migration/std",
     "dock-agreement/std",
     "dock-price-feed/std",
     "pallet-base-fee/std",
@@ -652,7 +647,6 @@ runtime-benchmarks = [
     "frame-system-benchmarking",
     "dock-token-migration/runtime-benchmarks",
     "dock-core/runtime-benchmarks",
-    "dock-cheqd-migration/runtime-benchmarks",
     "dock-agreement/runtime-benchmarks",
     "pallet-staking/runtime-benchmarks",
 ]

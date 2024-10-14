@@ -4,7 +4,6 @@ resolver = "2"
 members = [
     "node",
     "pallets/agreement",
-    "pallets/cheqd-migration",
     "pallets/poa",
     "pallets/poa/rpc",
     "pallets/token-migration",
