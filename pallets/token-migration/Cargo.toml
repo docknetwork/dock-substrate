@@ -26,22 +26,26 @@ version = "1.0.119"
 
 [dependencies.frame-support]
 default-features = false
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.frame-system]
 default-features = false
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.sp-std]
 default-features = false
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
@@ -53,17 +57,20 @@ branch = "polkadot-v0.9.29"
 
 [dev-dependencies.sp-io]
 default-features = false
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dev-dependencies.sp-core]
 default-features = false
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dev-dependencies.balances]
 default-features = false
 package = "pallet-balances"
+# version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
@@ -74,12 +81,12 @@ std = [
     "serde",
     "frame-support/std",
     "frame-system/std",
-    "sp-std/std",
+    "sp-std/std"
 ]
 test = ["std", "balances/std"]
 runtime-benchmarks = [
     "frame-system-benchmarking",
-    "frame-benchmarking",
+	"frame-benchmarking",
     "frame-system/runtime-benchmarks",
-    "frame-support/runtime-benchmarks",
+	"frame-support/runtime-benchmarks",
 ]
