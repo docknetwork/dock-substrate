@@ -377,20 +377,27 @@ parameter_types! {
     pub const SS58Prefix: u8 = 22;
 }
 
-#[cfg(not(feature = "mainnet"))]
 pub struct ChangeValidatorsConfiguration;
+
+#[cfg(feature = "mainnet")]
+impl ChangeValidatorsConfiguration {
+    pub const VALIDATOR_COUNT: u32 = 20;
+    pub const MIN_VALIDATOR_BOND: Balance = 1_000_000 * DOCK;
+}
+
 #[cfg(not(feature = "mainnet"))]
 impl ChangeValidatorsConfiguration {
     pub const VALIDATOR_COUNT: u32 = 2;
     pub const MIN_VALIDATOR_BOND: Balance = 1_000_000 * DOCK;
 }
 
-#[cfg(feature = "mainnet")]
-pub struct ChangeValidatorsConfiguration;
-#[cfg(feature = "mainnet")]
-impl ChangeValidatorsConfiguration {
-    pub const VALIDATOR_COUNT: u32 = 20;
-    pub const MIN_VALIDATOR_BOND: Balance = 1_000_000 * DOCK;
+impl OnRuntimeUpgrade for ChangeValidatorsConfiguration {
+    fn on_runtime_upgrade() -> Weight {
+        pallet_staking::ValidatorCount::<Runtime>::put(Self::VALIDATOR_COUNT);
+        pallet_staking::MinValidatorBond::<Runtime>::put(Self::MIN_VALIDATOR_BOND);
+
+        <Runtime as frame_system::Config>::DbWeight::get().writes(2)
+    }
 }
 
 #[cfg(not(any(feature = "testnet", feature = "mainnet", feature = "devnet")))]
@@ -1877,15 +1884,6 @@ type Executive = frame_executive::Executive<
     AllPalletsWithSystem,
     ChangeValidatorsConfiguration,
 >;
-
-impl OnRuntimeUpgrade for ChangeValidatorsConfiguration {
-    fn on_runtime_upgrade() -> Weight {
-        pallet_staking::ValidatorCount::<Runtime>::put(Self::VALIDATOR_COUNT);
-        pallet_staking::MinValidatorBond::<Runtime>::put(Self::MIN_VALIDATOR_BOND);
-
-        <Runtime as frame_system::Config>::DbWeight::get().writes(2)
-    }
-}
 
 /// The address format for describing accounts.
 pub type Address = sp_runtime::MultiAddress<AccountId, ()>;
