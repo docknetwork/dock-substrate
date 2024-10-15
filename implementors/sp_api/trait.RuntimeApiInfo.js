@@ -1,0 +1,5 @@
+(function() {var implementors = {
+"dock_core":[["impl&lt;Block: BlockT, T: <a class=\"trait\" href=\"dock_core/common/trait.TypesAndLimits.html\" title=\"trait dock_core::common::TypesAndLimits\">TypesAndLimits</a>&gt; RuntimeApiInfo for dyn <a class=\"trait\" href=\"dock_core/runtime_api/trait.CoreModsApi.html\" title=\"trait dock_core::runtime_api::CoreModsApi\">CoreModsApi</a>&lt;Block, T&gt;"]],
+"dock_poa":[["impl&lt;Block: BlockT, AccountId, Balance&gt; RuntimeApiInfo for dyn <a class=\"trait\" href=\"dock_poa/runtime_api/trait.PoAApi.html\" title=\"trait dock_poa::runtime_api::PoAApi\">PoAApi</a>&lt;Block, AccountId, Balance&gt;"]],
+"dock_staking_rewards":[["impl&lt;Block: BlockT, Balance&gt; RuntimeApiInfo for dyn <a class=\"trait\" href=\"dock_staking_rewards/runtime_api/trait.StakingRewardsApi.html\" title=\"trait dock_staking_rewards::runtime_api::StakingRewardsApi\">StakingRewardsApi</a>&lt;Block, Balance&gt;"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

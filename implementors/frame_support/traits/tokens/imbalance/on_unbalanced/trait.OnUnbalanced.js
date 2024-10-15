@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"dock_runtime":[["impl OnUnbalanced&lt;&lt;Pallet&lt;<a class=\"struct\" href=\"dock_runtime/struct.Runtime.html\" title=\"struct dock_runtime::Runtime\">Runtime</a>, <a class=\"primitive\" href=\"https://doc.rust-lang.org/nightly/std/primitive.unit.html\">()</a>&gt; as Currency&lt;&lt;&lt;MultiSignature as Verify&gt;::Signer as IdentifyAccount&gt;::AccountId&gt;&gt;::NegativeImbalance&gt; for <a class=\"struct\" href=\"dock_runtime/struct.DealWithFees.html\" title=\"struct dock_runtime::DealWithFees\">DealWithFees</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

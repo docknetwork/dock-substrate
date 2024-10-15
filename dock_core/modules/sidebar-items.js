@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["accumulator","anchor","attest","blob","did","master","offchain_signatures","revoke","status_list_credential","trust_registry"]};
