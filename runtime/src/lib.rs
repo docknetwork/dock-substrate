@@ -200,7 +200,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 64,
+    spec_version: 65,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -375,29 +375,6 @@ parameter_types! {
 #[cfg(feature = "mainnet")]
 parameter_types! {
     pub const SS58Prefix: u8 = 22;
-}
-
-pub struct ChangeValidatorsConfiguration;
-
-#[cfg(feature = "mainnet")]
-impl ChangeValidatorsConfiguration {
-    pub const VALIDATOR_COUNT: u32 = 20;
-    pub const MIN_VALIDATOR_BOND: Balance = 1_000_000 * DOCK;
-}
-
-#[cfg(not(feature = "mainnet"))]
-impl ChangeValidatorsConfiguration {
-    pub const VALIDATOR_COUNT: u32 = 2;
-    pub const MIN_VALIDATOR_BOND: Balance = 1_000_000 * DOCK;
-}
-
-impl OnRuntimeUpgrade for ChangeValidatorsConfiguration {
-    fn on_runtime_upgrade() -> Weight {
-        pallet_staking::ValidatorCount::<Runtime>::put(Self::VALIDATOR_COUNT);
-        pallet_staking::MinValidatorBond::<Runtime>::put(Self::MIN_VALIDATOR_BOND);
-
-        <Runtime as frame_system::Config>::DbWeight::get().writes(2)
-    }
 }
 
 #[cfg(not(any(feature = "testnet", feature = "mainnet", feature = "devnet")))]
@@ -1882,7 +1859,6 @@ type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
-    ChangeValidatorsConfiguration,
 >;
 
 /// The address format for describing accounts.
