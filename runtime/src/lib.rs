@@ -1778,11 +1778,11 @@ impl dock_agreement::Config for Runtime {
     type Event = Event;
 }
 
-/*impl dock_cheqd_migration::Config for Runtime {
+impl dock_cheqd_migration::Config for Runtime {
     type Event = Event;
     type Currency = Balances;
     type BurnDestination = BurnDestination;
-}*/
+}
 
 parameter_types! {
     pub PrecompilesValue: FrontierPrecompiles<Runtime> = FrontierPrecompiles::<_>::new();
@@ -1840,7 +1840,7 @@ construct_runtime!(
         StatusListCredential: status_list_credential::{Pallet, Call, Storage, Event} = 42,
         TrustRegistry: trust_registry::{Pallet, Call, Storage, Event} = 43,
         Agreement: dock_agreement::{Pallet, Call, Event} = 44,
-        // CheqdMigration: dock_cheqd_migration::{Pallet, Call, Event<T>} = 45
+        CheqdMigration: dock_cheqd_migration::{Pallet, Call, Event<T>} = 45
     }
 );
 
