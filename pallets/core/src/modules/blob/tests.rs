@@ -67,7 +67,7 @@ crate::did_or_did_method_key! {
                 Blobs::<Test>::get(id),
                 Some((BlobOwner(author.into()), noise.try_into().unwrap()))
             );
-            check_nonce(&author, block_no + 1);
+            check_nonce(&author, 1);
         }
 
         ext().execute_with(|| {
@@ -89,11 +89,11 @@ crate::did_or_did_method_key! {
             let noise = random_bytes(size);
             let id = BlobId(rand::random());
             assert_eq!(Blobs::<Test>::get(id), None);
-            check_nonce(&author, block_no);
+            check_nonce(&author, 0);
             assert!(
                 create_blob(id, noise, BlobOwner(author.into()), author_kp, block_no + 1).is_err()
             );
-            check_nonce(&author, block_no);
+            check_nonce(&author, 0);
         }
 
         ext().execute_with(|| {
@@ -111,26 +111,26 @@ crate::did_or_did_method_key! {
             let id = BlobId(rand::random());
             let (author, author_kp) = newdid();
             assert_eq!(Blobs::<Test>::get(id), None);
-            check_nonce(&author, 10);
+            check_nonce(&author, 0);
             create_blob(
                 id,
                 random_bytes(10),
                 BlobOwner(author.into()),
                 author_kp.clone(),
-                10 + 1,
+                1,
             )
             .unwrap();
-            check_nonce(&author, 10 + 1);
+            check_nonce(&author, 1);
             let err = create_blob(
                 id,
                 random_bytes(10),
                 BlobOwner(author.into()),
                 author_kp,
-                11 + 1,
+                1,
             )
             .unwrap_err();
             assert_eq!(err, Error::<Test>::BlobAlreadyExists.into());
-            check_nonce(&author, 10 + 1);
+            check_nonce(&author, 1);
         });
     }
 
@@ -142,7 +142,7 @@ crate::did_or_did_method_key! {
             // Adding a blob with an unregistered DID fails with error DidDoesNotExist.
             let author = BlobOwner(Did(rand::random()).into());
             let author_kp = gen_kp();
-            let err = create_blob(BlobId(rand::random()), random_bytes(10), author, author_kp, 10 + 1)
+            let err = create_blob(BlobId(rand::random()), random_bytes(10), author, author_kp, 1)
                 .unwrap_err();
             assert_eq!(err, did::Error::<Test>::NoKeyForDid.into());
         });
@@ -166,18 +166,18 @@ crate::did_or_did_method_key! {
                     },
                     nonce: 10 + 1,
                 };
-                check_nonce(&author, 10);
+                check_nonce(&author, 0);
                 let err = BlobMod::new(
                     Origin::signed(ABBA),
                     AddBlob {
                         blob: bl,
-                        nonce: 10 + 1,
+                        nonce: 1,
                     },
                     did_sig(&att, &author_kp, BlobOwner(author.into()), 1),
                 )
                 .unwrap_err();
                 assert_eq!(err, did::Error::<Test>::InvalidSignature.into());
-                check_nonce(&author, 10);
+                check_nonce(&author, 0);
             }
 
             {
@@ -190,17 +190,17 @@ crate::did_or_did_method_key! {
                     id: BlobId(rand::random()),
                     blob: random_bytes(10).try_into().unwrap(),
                 };
-                check_nonce(&author, 20);
+                check_nonce(&author, 0);
                 let err = BlobMod::new(
                     Origin::signed(ABBA),
                     AddBlob {
                         blob: bl.clone(),
-                        nonce: 20 + 1,
+                        nonce: 1,
                     },
                     did_sig::<Test, _, _, _>(
                         &AddBlob {
                             blob: bl,
-                            nonce: 20 + 1,
+                            nonce: 1,
                         },
                         &author_kp,
                         BlobOwner(author.into()),
@@ -209,7 +209,7 @@ crate::did_or_did_method_key! {
                 )
                 .unwrap_err();
                 assert_eq!(err, did::Error::<Test>::InvalidSignature.into());
-                check_nonce(&author, 20);
+                check_nonce(&author, 0);
             }
         })
     }

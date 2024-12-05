@@ -64,7 +64,7 @@ impl<T: Types, D> WithNonce<T, D> {
     where
         T: frame_system::Config<BlockNumber = <T as Types>::BlockNumber>,
     {
-        Self::new_with_nonce(data, <frame_system::Pallet<T>>::block_number())
+        Self::new_with_nonce(data, 0u8.into())
     }
 
     /// Adds supplied nonce to the given `data`.

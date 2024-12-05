@@ -77,13 +77,13 @@ with_each_scheme! {
                 run_to_block(5);
 
                 let (author, author_kp) = newdidordidmethodkey();
-                let mut next_nonce = 5 + 1;
+                let mut next_nonce = 1;
                 check_nonce(&author, next_nonce - 1);
 
                 run_to_block(6);
 
                 let (author_1, author_1_kp) = newdidordidmethodkey();
-                let mut next_nonce_1 = 6 + 1;
+                let mut next_nonce_1 = 1;
                 check_nonce(&author_1, next_nonce_1 - 1);
 
                 run_to_block(10);

@@ -30,14 +30,14 @@ crate::did_or_did_method_key! {
 
             let (author, author_kp) = newdid();
             let author = AccumulatorOwner(author.into());
-            let mut next_nonce = 10 + 1;
+            let mut next_nonce = 1;
             check_nonce(&author, next_nonce - 1);
 
             run_to_block(11);
 
             let (author_1, author_1_kp) = newdid();
             let author_1 = AccumulatorOwner(author_1.into());
-            let next_nonce_1 = 11 + 1;
+            let next_nonce_1 = 1;
             check_nonce(&author_1, next_nonce_1 - 1);
 
             run_to_block(30);
@@ -300,7 +300,7 @@ crate::did_or_did_method_key! {
 
             let (author, author_kp) = newdid();
             let author = AccumulatorOwner(author.into());
-            let mut next_nonce = 10 + 1;
+            let mut next_nonce = 1;
 
             run_to_block(20);
 
@@ -509,7 +509,7 @@ crate::did_or_did_method_key! {
                         vec![<Test as frame_system::Config>::Hashing::hash(&$id[..])]
                     )));
                     assert!(AccumMod::get_accumulator_with_public_key_and_params(&$id).is_none());
-                    next_nonce = next_nonce + 1;
+                    next_nonce += 1;
 
                     current_block += 10;
                     run_to_block(current_block);

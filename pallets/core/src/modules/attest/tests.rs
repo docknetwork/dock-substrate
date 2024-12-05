@@ -144,7 +144,7 @@ crate::did_or_did_method_key! {
 
             let (did, kp) = newdid();
             let did = Attester(did.into());
-            check_nonce(&did, 10);
+            check_nonce(&did, 0);
 
             // same iri
             set_claim(
@@ -157,7 +157,7 @@ crate::did_or_did_method_key! {
                 10 + 1,
             )
             .unwrap();
-            check_nonce(&did, 10 + 1);
+            check_nonce(&did, 1);
             assert_eq!(
                 set_claim(
                     &did,
@@ -183,7 +183,7 @@ crate::did_or_did_method_key! {
                 11 + 1,
             )
             .unwrap();
-            check_nonce(&did, 11 + 1);
+            check_nonce(&did, 2);
 
             assert_eq!(
                 set_claim(
@@ -245,7 +245,7 @@ crate::did_or_did_method_key! {
 
             let (did, kp) = newdid();
             let did = Attester(did.into());
-            check_nonce(&did, 10);
+            check_nonce(&did, 0);
 
             set_claim(
                 &did,
@@ -257,7 +257,7 @@ crate::did_or_did_method_key! {
                 10 + 1,
             )
             .unwrap();
-            check_nonce(&did, 10 + 1);
+            check_nonce(&did, 1);
             let err = set_claim(
                 &did,
                 &Attestation {
@@ -287,7 +287,7 @@ crate::did_or_did_method_key! {
                     iri: None,
                 }
             );
-            check_nonce(&did, 10);
+            check_nonce(&did, 0);
             set_claim(
                 &did,
                 &Attestation {
@@ -298,7 +298,7 @@ crate::did_or_did_method_key! {
                 10 + 1,
             )
             .unwrap();
-            check_nonce(&did, 10 + 1);
+            check_nonce(&did, 1);
             assert_eq!(
                 Attestations::<Test>::get(did),
                 Attestation {
@@ -318,7 +318,7 @@ crate::did_or_did_method_key! {
             let (did, kp) = newdid();
             let did = Attester(did.into());
             for (i, priority) in [1, 2, 4].iter().enumerate() {
-                let nonce = 10 + 1 + i as u64;
+                let nonce = 1 + i as u64;
                 check_nonce(&did, nonce - 1);
                 set_claim(
                     &did,

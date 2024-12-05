@@ -185,7 +185,7 @@ fn onchain_keyless_did_creation() {
         assert!(!DIDModule::is_controller(&did_1, &controller_2));
         assert!(DIDModule::is_controller(&did_1, &controller_1));
 
-        check_did_detail(&did_1, 0, 0, 1, 20);
+        check_did_detail(&did_1, 0, 0, 1, 0);
 
         assert_noop!(
             DIDModule::new_onchain(
@@ -215,7 +215,7 @@ fn onchain_keyless_did_creation() {
         assert!(DIDModule::is_controller(&did_2, &controller_1));
         assert!(DIDModule::is_controller(&did_2, &controller_2));
 
-        check_did_detail(&did_2, 0, 0, 3, 55);
+        check_did_detail(&did_2, 0, 0, 3, 0);
     });
 }
 
@@ -255,7 +255,7 @@ fn onchain_keyed_did_creation_with_self_control() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 1, 1, 1, 5);
+        check_did_detail(&did_1, 1, 1, 1, 0);
 
         let key_1 = DidKeys::<Test>::get(did_1, IncId::from(1u32)).unwrap();
         not_key_agreement(&key_1);
@@ -277,7 +277,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                 .collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 1, 1, 2, 6);
+        check_did_detail(&did_2, 1, 1, 2, 1);
 
         let key_2 = DidKeys::<Test>::get(did_2, IncId::from(1u32)).unwrap();
         not_key_agreement(&key_2);
@@ -296,7 +296,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                 .collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_3));
-        check_did_detail(&did_3, 1, 1, 3, 7);
+        check_did_detail(&did_3, 1, 1, 3, 2);
 
         let key_3 = DidKeys::<Test>::get(did_3, IncId::from(1u32)).unwrap();
         not_key_agreement(&key_3);
@@ -314,7 +314,7 @@ fn onchain_keyed_did_creation_with_self_control() {
             vec![Controller(did_3.into())].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_4));
-        check_did_detail(&did_4, 1, 0, 1, 8);
+        check_did_detail(&did_4, 1, 0, 1, 3);
 
         // x25519 key cannot be added for incompatible relationship types
         for add in [VerRelType::NONE, VerRelType::KEY_AGREEMENT] {
@@ -393,7 +393,7 @@ fn onchain_keyed_did_creation_with_self_control() {
             assert!(key.can_control());
             assert!(key.can_authenticate_or_control());
             assert!(!key.for_key_agreement());
-            check_did_detail(&did, 1, 1, 1, 10);
+            check_did_detail(&did, 1, 1, 1, 0);
         }
 
         run_to_block(13);
@@ -439,7 +439,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                 assert!(key.can_authenticate_or_control());
             }
             assert!(!key.for_key_agreement());
-            check_did_detail(&did, 1, 0, 1, 13);
+            check_did_detail(&did, 1, 0, 1, 0);
         }
 
         run_to_block(19);
@@ -459,7 +459,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_8.can_sign());
         assert!(key_8.can_authenticate());
         assert!(!key_8.can_control());
-        check_did_detail(&did_8, 1, 0, 1, 19);
+        check_did_detail(&did_8, 1, 0, 1, 0);
 
         run_to_block(20);
 
@@ -487,7 +487,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_9_3.can_sign());
         assert!(key_9_3.can_authenticate());
         assert!(!key_9_3.can_control());
-        check_did_detail(&did_9, 3, 0, 1, 20);
+        check_did_detail(&did_9, 3, 0, 1, 0);
 
         run_to_block(22);
 
@@ -518,7 +518,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_10_3.can_sign());
         assert!(!key_10_3.can_authenticate());
         assert!(key_10_3.can_control());
-        check_did_detail(&did_10, 3, 1, 1, 22);
+        check_did_detail(&did_10, 3, 1, 1, 0);
 
         run_to_block(23);
 
@@ -548,7 +548,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_11_2.can_sign());
         assert!(!key_11_2.can_authenticate());
         assert!(key_11_2.can_control());
-        check_did_detail(&did_11, 2, 1, 3, 23);
+        check_did_detail(&did_11, 2, 1, 3, 0);
     });
 }
 
@@ -589,7 +589,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_1));
         assert!(DIDModule::is_controller(&did_1, &controller_1));
-        check_did_detail(&did_1, 1, 0, 1, 10);
+        check_did_detail(&did_1, 1, 0, 1, 0);
 
         run_to_block(11);
 
@@ -605,7 +605,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
         assert!(DIDModule::is_controller(&did_2, &controller_2));
-        check_did_detail(&did_2, 1, 0, 1, 11);
+        check_did_detail(&did_2, 1, 0, 1, 1);
 
         run_to_block(12);
 
@@ -621,7 +621,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_3));
         assert!(DIDModule::is_controller(&did_3, &controller_3));
-        check_did_detail(&did_3, 1, 0, 1, 12);
+        check_did_detail(&did_3, 1, 0, 1, 2);
 
         run_to_block(13);
 
@@ -637,7 +637,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_4));
         assert!(DIDModule::is_controller(&did_4, &controller_4));
-        check_did_detail(&did_4, 2, 0, 1, 13);
+        check_did_detail(&did_4, 2, 0, 1, 3);
 
         run_to_block(14);
 
@@ -656,7 +656,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(DIDModule::is_self_controlled(&did_5));
         assert!(DIDModule::is_controller(&did_5, &controller_1));
-        check_did_detail(&did_5, 2, 1, 2, 14);
+        check_did_detail(&did_5, 2, 1, 2, 4);
 
         run_to_block(15);
 
@@ -678,7 +678,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(DIDModule::is_self_controlled(&did_6));
         assert!(DIDModule::is_controller(&did_6, &controller_1));
-        check_did_detail(&did_6, 2, 2, 2, 15);
+        check_did_detail(&did_6, 2, 2, 2, 5);
     });
 }
 
@@ -789,7 +789,7 @@ fn add_keys_to_did() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 3, 2, 1, 5);
+        check_did_detail(&did_1, 3, 2, 1, 0);
 
         run_to_block(7);
 
@@ -808,7 +808,7 @@ fn add_keys_to_did() {
                 .collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 1, 0, 1, 7);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         run_to_block(10);
 
@@ -989,7 +989,7 @@ fn add_keys_to_did() {
                 PublicKey::x25519(pk_ed_1),
                 VerRelType::KEY_AGREEMENT,
             )],
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
         assert_ok!(DIDModule::add_keys(
@@ -1003,8 +1003,8 @@ fn add_keys_to_did() {
             .into()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 2, 0, 1, 7);
-        check_did_detail(&did_1, 3, 2, 1, 6);
+        check_did_detail(&did_2, 2, 0, 1, 2);
+        check_did_detail(&did_1, 3, 2, 1, 1);
 
         only_key_agreement(&DidKeys::<Test>::get(did_2, IncId::from(2u32)).unwrap());
 
@@ -1051,8 +1051,8 @@ fn add_keys_to_did() {
             .into()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 5, 0, 1, 7);
-        check_did_detail(&did_1, 3, 2, 1, 7);
+        check_did_detail(&did_2, 5, 0, 1, 0);
+        check_did_detail(&did_1, 3, 2, 1, 0);
         DidKeys::<Test>::get(did_2, IncId::from(3u32)).unwrap();
         DidKeys::<Test>::get(did_2, IncId::from(4u32)).unwrap();
         DidKeys::<Test>::get(did_2, IncId::from(5u32)).unwrap();
