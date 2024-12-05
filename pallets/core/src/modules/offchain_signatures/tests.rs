@@ -466,13 +466,13 @@ with_each_scheme! {
                 run_to_block(10);
 
                 let (did, did_kp) = newdidordidmethodkey();
-                let mut next_nonce = 10 + 1;
+                let mut next_nonce = 1;
                 check_did_detail(&did, 1, 1, 1, next_nonce - 1);
 
                 run_to_block(20);
 
                 let (did_1, did_1_kp) = newdid();
-                let mut next_nonce_1 = 20 + 1;
+                let mut next_nonce_1 = 1;
                 check_nonce(&did_1, next_nonce_1 - 1);
                 check_did_detail(&did_1, 1, 1, 1, next_nonce_1 - 1);
 
@@ -540,7 +540,7 @@ with_each_scheme! {
             run_to_block(10);
 
             let (author, author_kp) = newdid();
-            let mut next_nonce = 10 + 1;
+            let mut next_nonce = 1;
             check_nonce(&author, next_nonce - 1);
 
             run_to_block(15);
@@ -625,7 +625,7 @@ with_each_scheme! {
             run_to_block(45);
 
             let (author_1, author_kp_1) = newdid();
-            let mut next_nonce_1 = 45 + 1;
+            let mut next_nonce_1 = 1;
 
             run_to_block(50);
 
@@ -958,7 +958,7 @@ with_each_scheme! {
         ext().execute_with(|| {
             run_to_block(10);
             let (author, _) = newdid();
-            let next_nonce = 10 + 1;
+            let next_nonce = 1;
 
             run_to_block(20);
             let (author_1, _) = newdid();

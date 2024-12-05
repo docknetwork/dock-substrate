@@ -59,7 +59,7 @@ crate::did_or_did_method_key! {
                 noise.clone(),
                 BlobOwner(author.into()),
                 author_kp,
-                block_no + 1,
+                1,
             )
             .unwrap();
             // Can retrieve a valid blob and the blob contents and author match the given ones.
@@ -91,7 +91,7 @@ crate::did_or_did_method_key! {
             assert_eq!(Blobs::<Test>::get(id), None);
             check_nonce(&author, 0);
             assert!(
-                create_blob(id, noise, BlobOwner(author.into()), author_kp, block_no + 1).is_err()
+                create_blob(id, noise, BlobOwner(author.into()), author_kp, 1).is_err()
             );
             check_nonce(&author, 0);
         }
@@ -126,7 +126,7 @@ crate::did_or_did_method_key! {
                 random_bytes(10),
                 BlobOwner(author.into()),
                 author_kp,
-                1,
+                2,
             )
             .unwrap_err();
             assert_eq!(err, Error::<Test>::BlobAlreadyExists.into());
