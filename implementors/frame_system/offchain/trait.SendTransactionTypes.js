@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"dock_runtime":[["impl&lt;C&gt; SendTransactionTypes&lt;C&gt; for <a class=\"struct\" href=\"dock_runtime/struct.Runtime.html\" title=\"struct dock_runtime::Runtime\">Runtime</a><span class=\"where fmt-newline\">where\n    <a class=\"enum\" href=\"dock_runtime/enum.Call.html\" title=\"enum dock_runtime::Call\">Call</a>: <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/convert/trait.From.html\" title=\"trait core::convert::From\">From</a>&lt;C&gt;,</span>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

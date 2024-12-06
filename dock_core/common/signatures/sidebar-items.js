@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ED25519_WEIGHT","SECP256K1_WEIGHT","SR25519_WEIGHT"],"enum":["DidMethodKeySigValue","SigValue"],"fn":["sign_with_secp256k1"],"struct":["SigTypes"],"trait":["ForSigType","GetKey"]};
