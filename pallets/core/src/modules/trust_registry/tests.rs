@@ -147,7 +147,7 @@ crate::did_or_did_method_key! {
                     .try_into()
                     .unwrap(),
                 gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
-                nonce: 2,
+                nonce: did_nonce::<Test, _>(convener).unwrap(),
             };
             let alice = 1u64;
 
@@ -201,7 +201,7 @@ crate::did_or_did_method_key! {
                     .try_into()
                     .unwrap(),
                 gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
-                nonce: 2,
+                nonce: did_nonce::<Test, _>(Convener(other.into())).unwrap(),
             };
             let other_did_sig = did_sig(
                 &init_or_update_trust_registry_already_exists,
@@ -226,7 +226,7 @@ crate::did_or_did_method_key! {
                     .try_into()
                     .unwrap(),
                 gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
-                nonce: 3,
+                nonce: did_nonce::<Test, _>(Convener(convener.into())).unwrap(),
             };
             let sig = did_sig(
                 &reinit_or_update_trust_registry,
@@ -471,7 +471,7 @@ crate::did_or_did_method_key! {
                     .try_into()
                     .unwrap(),
                 gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
-                nonce: 2,
+                nonce: did_nonce::<Test, _>(convener).unwrap(),
             };
             let alice = 1u64;
 
@@ -504,7 +504,7 @@ crate::did_or_did_method_key! {
             let update_delegated = UpdateDelegatedIssuers {
                 delegated: SetOrModify::Set(delegated.clone()),
                 registry_id: init_or_update_trust_registry.registry_id,
-                nonce: 2u32.into(),
+                nonce: did_nonce::<Test, _>(other).unwrap(),
             };
             let sig = did_sig(&update_delegated, &other_kp, other, 1u32);
 
@@ -593,7 +593,7 @@ crate::did_or_did_method_key! {
             let update_delegated = UpdateDelegatedIssuers {
                 delegated: SetOrModify::Set(delegated.clone()),
                 registry_id: init_or_update_trust_registry.registry_id,
-                nonce: 2u32.into(),
+                nonce: did_nonce::<Test, _>(other_1).unwrap(),
             };
             let sig = did_sig(&update_delegated, &other_kp_1, other_1, 1u32);
 
@@ -631,7 +631,7 @@ crate::did_or_did_method_key! {
             let update_delegated = UpdateDelegatedIssuers::<Test> {
                 delegated: SetOrModify::Set(Default::default()),
                 registry_id: init_or_update_trust_registry.registry_id,
-                nonce: 3u32.into(),
+                nonce: did_nonce::<Test, _>(other).unwrap(),
             };
             let sig = did_sig(&update_delegated, &other_kp, other, 1u32);
 
@@ -994,7 +994,7 @@ crate::did_or_did_method_key! {
                     .try_into()
                     .unwrap(),
                 gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
-                nonce: 2,
+                nonce: did_nonce::<Test, _>(convener).unwrap(),
             };
             let sig = did_sig(
                 &init_or_update_trust_registry,
@@ -1128,7 +1128,7 @@ crate::did_or_did_method_key! {
             let add_other_schema_metadata = SetSchemasMetadata {
                 registry_id: init_or_update_trust_registry.registry_id,
                 schemas: add_schema_metadata.schemas.clone(),
-                nonce: 2,
+                nonce: did_nonce::<Test, _>(Convener(other.into())).unwrap(),
             };
 
             let other_sig = did_sig(
@@ -1186,7 +1186,7 @@ crate::did_or_did_method_key! {
                     .try_into()
                     .unwrap(),
                 gov_framework: Bytes(vec![1; 100]).try_into().unwrap(),
-                nonce: 2,
+                nonce: did_nonce::<Test, _>(Convener(convener.into())).unwrap(),
             };
             let sig = did_sig(
                 &init_or_update_trust_registry,
