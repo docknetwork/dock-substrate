@@ -1,0 +1,615 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `CoreModsRuntimeApi` trait in crate `dock_core_rpc`."><title>CoreModsRuntimeApi in dock_core_rpc - Rust</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceSerif4-Bold-a2c9cd1067f8b328.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../static.files/rustdoc-c4dbdcde0fbd8430.css" id="mainThemeStyle"><link rel="stylesheet" id="themeStyle" href="../static.files/light-db279b6232be9c13.css"><link rel="stylesheet" disabled href="../static.files/dark-cf923f49f397b216.css"><link rel="stylesheet" disabled href="../static.files/ayu-be46fdc453a55015.css"><script src="../static.files/storage-3891ce972e3a2bf8.js"></script><script defer src="sidebar-items.js"></script><script defer src="../static.files/main-98a684e84ae5b08b.js"></script><noscript><link rel="stylesheet" href="../static.files/noscript-13285aec31fa243e.css"></noscript><link rel="alternate icon" type="image/png" href="../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc trait"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle">&#9776;</button><a class="logo-container" href="../dock_core_rpc/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2></h2></nav><nav class="sidebar"><a class="logo-container" href="../dock_core_rpc/index.html"><img class="rust-logo" src="../static.files/rust-logo-151179464ae7ed46.svg" alt="logo"></a><h2 class="location"><a href="#">CoreModsRuntimeApi</a></h2><div class="sidebar-elems"><section><h3><a href="#provided-methods">Provided Methods</a></h3><ul class="block"><li><a href="#method.accumulator_public_key_with_params">accumulator_public_key_with_params</a></li><li><a href="#method.accumulator_public_key_with_params_with_context">accumulator_public_key_with_params_with_context</a></li><li><a href="#method.accumulator_with_public_key_and_params">accumulator_with_public_key_and_params</a></li><li><a href="#method.accumulator_with_public_key_and_params_with_context">accumulator_with_public_key_and_params_with_context</a></li><li><a href="#method.all_registry_schema_issuers">all_registry_schema_issuers</a></li><li><a href="#method.all_registry_schema_issuers_with_context">all_registry_schema_issuers_with_context</a></li><li><a href="#method.all_registry_schema_metadata">all_registry_schema_metadata</a></li><li><a href="#method.all_registry_schema_metadata_with_context">all_registry_schema_metadata_with_context</a></li><li><a href="#method.all_registry_schema_verifiers">all_registry_schema_verifiers</a></li><li><a href="#method.all_registry_schema_verifiers_with_context">all_registry_schema_verifiers_with_context</a></li><li><a href="#method.bbdt16_params_by_did">bbdt16_params_by_did</a></li><li><a href="#method.bbdt16_params_by_did_with_context">bbdt16_params_by_did_with_context</a></li><li><a href="#method.bbdt16_public_key_with_params">bbdt16_public_key_with_params</a></li><li><a href="#method.bbdt16_public_key_with_params_with_context">bbdt16_public_key_with_params_with_context</a></li><li><a href="#method.bbdt16_public_keys_by_did">bbdt16_public_keys_by_did</a></li><li><a href="#method.bbdt16_public_keys_by_did_with_context">bbdt16_public_keys_by_did_with_context</a></li><li><a href="#method.bbs_params_by_did">bbs_params_by_did</a></li><li><a href="#method.bbs_params_by_did_with_context">bbs_params_by_did_with_context</a></li><li><a href="#method.bbs_plus_params_by_did">bbs_plus_params_by_did</a></li><li><a href="#method.bbs_plus_params_by_did_with_context">bbs_plus_params_by_did_with_context</a></li><li><a href="#method.bbs_plus_public_key_with_params">bbs_plus_public_key_with_params</a></li><li><a href="#method.bbs_plus_public_key_with_params_with_context">bbs_plus_public_key_with_params_with_context</a></li><li><a href="#method.bbs_plus_public_keys_by_did">bbs_plus_public_keys_by_did</a></li><li><a href="#method.bbs_plus_public_keys_by_did_with_context">bbs_plus_public_keys_by_did_with_context</a></li><li><a href="#method.bbs_public_key_with_params">bbs_public_key_with_params</a></li><li><a href="#method.bbs_public_key_with_params_with_context">bbs_public_key_with_params_with_context</a></li><li><a href="#method.bbs_public_keys_by_did">bbs_public_keys_by_did</a></li><li><a href="#method.bbs_public_keys_by_did_with_context">bbs_public_keys_by_did_with_context</a></li><li><a href="#method.did_details">did_details</a></li><li><a href="#method.did_details_with_context">did_details_with_context</a></li><li><a href="#method.did_list_details">did_list_details</a></li><li><a href="#method.did_list_details_with_context">did_list_details_with_context</a></li><li><a href="#method.ps_params_by_did">ps_params_by_did</a></li><li><a href="#method.ps_params_by_did_with_context">ps_params_by_did_with_context</a></li><li><a href="#method.ps_public_key_with_params">ps_public_key_with_params</a></li><li><a href="#method.ps_public_key_with_params_with_context">ps_public_key_with_params_with_context</a></li><li><a href="#method.ps_public_keys_by_did">ps_public_keys_by_did</a></li><li><a href="#method.ps_public_keys_by_did_with_context">ps_public_keys_by_did_with_context</a></li><li><a href="#method.registries_ids_by">registries_ids_by</a></li><li><a href="#method.registries_ids_by_with_context">registries_ids_by_with_context</a></li><li><a href="#method.registries_info_by">registries_info_by</a></li><li><a href="#method.registries_info_by_with_context">registries_info_by_with_context</a></li><li><a href="#method.registry_schemas_ids_by">registry_schemas_ids_by</a></li><li><a href="#method.registry_schemas_ids_by_with_context">registry_schemas_ids_by_with_context</a></li><li><a href="#method.registry_schemas_metadata_by">registry_schemas_metadata_by</a></li><li><a href="#method.registry_schemas_metadata_by_with_context">registry_schemas_metadata_by_with_context</a></li><li><a href="#method.schema_issuers">schema_issuers</a></li><li><a href="#method.schema_issuers_in_registry">schema_issuers_in_registry</a></li><li><a href="#method.schema_issuers_in_registry_with_context">schema_issuers_in_registry_with_context</a></li><li><a href="#method.schema_issuers_with_context">schema_issuers_with_context</a></li><li><a href="#method.schema_metadata">schema_metadata</a></li><li><a href="#method.schema_metadata_in_registry">schema_metadata_in_registry</a></li><li><a href="#method.schema_metadata_in_registry_with_context">schema_metadata_in_registry_with_context</a></li><li><a href="#method.schema_metadata_with_context">schema_metadata_with_context</a></li><li><a href="#method.schema_verifiers">schema_verifiers</a></li><li><a href="#method.schema_verifiers_in_registry">schema_verifiers_in_registry</a></li><li><a href="#method.schema_verifiers_in_registry_with_context">schema_verifiers_in_registry_with_context</a></li><li><a href="#method.schema_verifiers_with_context">schema_verifiers_with_context</a></li></ul><h3><a href="#trait-implementations">Trait Implementations</a></h3><ul class="block"><li><a href="#impl-RuntimeApiInfo-for-dyn+CoreModsApi%3CBlock,+T%3E+%2B+'static">RuntimeApiInfo</a></li></ul><h3><a href="#implementors">Implementors</a></h3></section><h2><a href="index.html">In dock_core_rpc</a></h2></div></nav><main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" title="help" tabindex="-1"><a href="../help.html">?</a></div><div id="settings-menu" tabindex="-1"><a href="../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Trait <a href="index.html">dock_core_rpc</a>::<wbr><a class="trait" href="#">CoreModsRuntimeApi</a><button id="copy-path" title="Copy item path to clipboard"><img src="../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><pre class="rust item-decl"><code>pub trait CoreModsRuntimeApi&lt;Block, T&gt;: Core&lt;Block&gt;<span class="where fmt-newline">where
+    Block: Block,
+    T: TypesAndLimits,</span>{
+<details class="toggle type-contents-toggle"><summary class="hideme"><span>Show 58 methods</span></summary>    // Provided methods
+    fn <a href="#method.did_details" class="fn">did_details</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>,
+        params: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsRequestParams.html" title="struct dock_core_rpc::did::AggregatedDidDetailsRequestParams">AggregatedDidDetailsRequestParams</a>&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsResponse.html" title="struct dock_core_rpc::did::AggregatedDidDetailsResponse">AggregatedDidDetailsResponse</a>&lt;T&gt;&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.did_details_with_context" class="fn">did_details_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>,
+        params: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsRequestParams.html" title="struct dock_core_rpc::did::AggregatedDidDetailsRequestParams">AggregatedDidDetailsRequestParams</a>&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsResponse.html" title="struct dock_core_rpc::did::AggregatedDidDetailsResponse">AggregatedDidDetailsResponse</a>&lt;T&gt;&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.did_list_details" class="fn">did_list_details</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        dids: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;,
+        params: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsRequestParams.html" title="struct dock_core_rpc::did::AggregatedDidDetailsRequestParams">AggregatedDidDetailsRequestParams</a>&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsResponse.html" title="struct dock_core_rpc::did::AggregatedDidDetailsResponse">AggregatedDidDetailsResponse</a>&lt;T&gt;&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.did_list_details_with_context" class="fn">did_list_details_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        dids: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;,
+        params: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsRequestParams.html" title="struct dock_core_rpc::did::AggregatedDidDetailsRequestParams">AggregatedDidDetailsRequestParams</a>&gt;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsResponse.html" title="struct dock_core_rpc::did::AggregatedDidDetailsResponse">AggregatedDidDetailsResponse</a>&lt;T&gt;&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_public_key_with_params" class="fn">bbs_public_key_with_params</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSParameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_public_key_with_params_with_context" class="fn">bbs_public_key_with_params_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSParameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_params_by_did" class="fn">bbs_params_by_did</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        owner: SignatureParamsOwner
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBSParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_params_by_did_with_context" class="fn">bbs_params_by_did_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        owner: SignatureParamsOwner
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBSParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_public_keys_by_did" class="fn">bbs_public_keys_by_did</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_public_keys_by_did_with_context" class="fn">bbs_public_keys_by_did_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_plus_public_key_with_params" class="fn">bbs_plus_public_key_with_params</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBSPlusPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSPlusParameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_plus_public_key_with_params_with_context" class="fn">bbs_plus_public_key_with_params_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBSPlusPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSPlusParameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_plus_params_by_did" class="fn">bbs_plus_params_by_did</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        owner: SignatureParamsOwner
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBSPlusParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_plus_params_by_did_with_context" class="fn">bbs_plus_params_by_did_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        owner: SignatureParamsOwner
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBSPlusParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_plus_public_keys_by_did" class="fn">bbs_plus_public_keys_by_did</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBSPlusPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSPlusParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbs_plus_public_keys_by_did_with_context" class="fn">bbs_plus_public_keys_by_did_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBSPlusPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSPlusParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ps_public_key_with_params" class="fn">ps_public_key_with_params</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(PSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PSParameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ps_public_key_with_params_with_context" class="fn">ps_public_key_with_params_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(PSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PSParameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ps_params_by_did" class="fn">ps_params_by_did</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        owner: SignatureParamsOwner
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, PSParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ps_params_by_did_with_context" class="fn">ps_params_by_did_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        owner: SignatureParamsOwner
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, PSParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ps_public_keys_by_did" class="fn">ps_public_keys_by_did</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (PSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PSParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.ps_public_keys_by_did_with_context" class="fn">ps_public_keys_by_did_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (PSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PSParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.accumulator_public_key_with_params" class="fn">accumulator_public_key_with_params</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: AccumPublicKeyStorageKey
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(AccumulatorPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccumulatorParameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.accumulator_public_key_with_params_with_context" class="fn">accumulator_public_key_with_params_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: AccumPublicKeyStorageKey
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(AccumulatorPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccumulatorParameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.accumulator_with_public_key_and_params" class="fn">accumulator_with_public_key_and_params</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: AccumulatorId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(AccumulatorPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccumulatorParameters&lt;T&gt;&gt;)&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.accumulator_with_public_key_and_params_with_context" class="fn">accumulator_with_public_key_and_params_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: AccumulatorId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(AccumulatorPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccumulatorParameters&lt;T&gt;&gt;)&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_metadata" class="fn">schema_metadata</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: TrustRegistrySchemaId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_metadata_with_context" class="fn">schema_metadata_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: TrustRegistrySchemaId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_issuers" class="fn">schema_issuers</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: TrustRegistrySchemaId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_issuers_with_context" class="fn">schema_issuers_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: TrustRegistrySchemaId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_verifiers" class="fn">schema_verifiers</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: TrustRegistrySchemaId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, TrustRegistrySchemaVerifiers&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_verifiers_with_context" class="fn">schema_verifiers_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: TrustRegistrySchemaId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, TrustRegistrySchemaVerifiers&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_metadata_in_registry" class="fn">schema_metadata_in_registry</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AggregatedTrustRegistrySchemaMetadata&lt;T&gt;&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_metadata_in_registry_with_context" class="fn">schema_metadata_in_registry_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AggregatedTrustRegistrySchemaMetadata&lt;T&gt;&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_issuers_in_registry" class="fn">schema_issuers_in_registry</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_issuers_in_registry_with_context" class="fn">schema_issuers_in_registry_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_verifiers_in_registry" class="fn">schema_verifiers_in_registry</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;TrustRegistrySchemaVerifiers&lt;T&gt;&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.schema_verifiers_in_registry_with_context" class="fn">schema_verifiers_in_registry_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: TrustRegistrySchemaId,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;TrustRegistrySchemaVerifiers&lt;T&gt;&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.all_registry_schema_metadata" class="fn">all_registry_schema_metadata</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.all_registry_schema_metadata_with_context" class="fn">all_registry_schema_metadata_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.all_registry_schema_issuers" class="fn">all_registry_schema_issuers</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.all_registry_schema_issuers_with_context" class="fn">all_registry_schema_issuers_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.all_registry_schema_verifiers" class="fn">all_registry_schema_verifiers</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, TrustRegistrySchemaVerifiers&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.all_registry_schema_verifiers_with_context" class="fn">all_registry_schema_verifiers_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        registry_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, TrustRegistrySchemaVerifiers&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.registries_info_by" class="fn">registries_info_by</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        by: QueryTrustRegistriesBy
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, TrustRegistryInfo&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.registries_info_by_with_context" class="fn">registries_info_by_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        by: QueryTrustRegistriesBy
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, TrustRegistryInfo&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.registry_schemas_metadata_by" class="fn">registry_schemas_metadata_by</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.registry_schemas_metadata_by_with_context" class="fn">registry_schemas_metadata_by_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.registries_ids_by" class="fn">registries_ids_by</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        by: QueryTrustRegistriesBy
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/set/struct.BTreeSet.html" title="struct alloc::collections::btree::set::BTreeSet">BTreeSet</a>&lt;TrustRegistryId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.registries_ids_by_with_context" class="fn">registries_ids_by_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        by: QueryTrustRegistriesBy
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/set/struct.BTreeSet.html" title="struct alloc::collections::btree::set::BTreeSet">BTreeSet</a>&lt;TrustRegistryId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.registry_schemas_ids_by" class="fn">registry_schemas_ids_by</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/set/struct.BTreeSet.html" title="struct alloc::collections::btree::set::BTreeSet">BTreeSet</a>&lt;TrustRegistrySchemaId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.registry_schemas_ids_by_with_context" class="fn">registry_schemas_ids_by_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        by: QueryTrustRegistryBy,
+        reg_id: TrustRegistryId
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/set/struct.BTreeSet.html" title="struct alloc::collections::btree::set::BTreeSet">BTreeSet</a>&lt;TrustRegistrySchemaId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbdt16_public_key_with_params" class="fn">bbdt16_public_key_with_params</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBDT16PublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBDT16Parameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbdt16_public_key_with_params_with_context" class="fn">bbdt16_public_key_with_params_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBDT16PublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBDT16Parameters&lt;T&gt;&gt;)&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbdt16_params_by_did" class="fn">bbdt16_params_by_did</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        owner: SignatureParamsOwner
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBDT16Parameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbdt16_params_by_did_with_context" class="fn">bbdt16_params_by_did_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        owner: SignatureParamsOwner
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBDT16Parameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbdt16_public_keys_by_did" class="fn">bbdt16_public_keys_by_did</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBDT16PublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBDT16Parameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+<span class="item-spacer"></span>    fn <a href="#method.bbdt16_public_keys_by_did_with_context" class="fn">bbdt16_public_keys_by_did_with_context</a>(
+        &amp;self,
+        __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+        context: ExecutionContext,
+        did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBDT16PublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBDT16Parameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt; { ... }
+</details>}</code></pre><h2 id="provided-methods" class="small-section-header">Provided Methods<a href="#provided-methods" class="anchor">§</a></h2><div class="methods"><section id="method.did_details" class="method"><h4 class="code-header">fn <a href="#method.did_details" class="fn">did_details</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>,
+    params: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsRequestParams.html" title="struct dock_core_rpc::did::AggregatedDidDetailsRequestParams">AggregatedDidDetailsRequestParams</a>&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsResponse.html" title="struct dock_core_rpc::did::AggregatedDidDetailsResponse">AggregatedDidDetailsResponse</a>&lt;T&gt;&gt;, ApiError&gt;</h4></section><section id="method.did_details_with_context" class="method"><h4 class="code-header">fn <a href="#method.did_details_with_context" class="fn">did_details_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>,
+    params: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsRequestParams.html" title="struct dock_core_rpc::did::AggregatedDidDetailsRequestParams">AggregatedDidDetailsRequestParams</a>&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsResponse.html" title="struct dock_core_rpc::did::AggregatedDidDetailsResponse">AggregatedDidDetailsResponse</a>&lt;T&gt;&gt;, ApiError&gt;</h4></section><section id="method.did_list_details" class="method"><h4 class="code-header">fn <a href="#method.did_list_details" class="fn">did_list_details</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    dids: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;,
+    params: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsRequestParams.html" title="struct dock_core_rpc::did::AggregatedDidDetailsRequestParams">AggregatedDidDetailsRequestParams</a>&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsResponse.html" title="struct dock_core_rpc::did::AggregatedDidDetailsResponse">AggregatedDidDetailsResponse</a>&lt;T&gt;&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.did_list_details_with_context" class="method"><h4 class="code-header">fn <a href="#method.did_list_details_with_context" class="fn">did_list_details_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    dids: <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;,
+    params: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsRequestParams.html" title="struct dock_core_rpc::did::AggregatedDidDetailsRequestParams">AggregatedDidDetailsRequestParams</a>&gt;
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="did/struct.AggregatedDidDetailsResponse.html" title="struct dock_core_rpc::did::AggregatedDidDetailsResponse">AggregatedDidDetailsResponse</a>&lt;T&gt;&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbs_public_key_with_params" class="method"><h4 class="code-header">fn <a href="#method.bbs_public_key_with_params" class="fn">bbs_public_key_with_params</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSParameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.bbs_public_key_with_params_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbs_public_key_with_params_with_context" class="fn">bbs_public_key_with_params_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSParameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.bbs_params_by_did" class="method"><h4 class="code-header">fn <a href="#method.bbs_params_by_did" class="fn">bbs_params_by_did</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    owner: SignatureParamsOwner
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBSParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbs_params_by_did_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbs_params_by_did_with_context" class="fn">bbs_params_by_did_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    owner: SignatureParamsOwner
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBSParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbs_public_keys_by_did" class="method"><h4 class="code-header">fn <a href="#method.bbs_public_keys_by_did" class="fn">bbs_public_keys_by_did</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbs_public_keys_by_did_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbs_public_keys_by_did_with_context" class="fn">bbs_public_keys_by_did_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbs_plus_public_key_with_params" class="method"><h4 class="code-header">fn <a href="#method.bbs_plus_public_key_with_params" class="fn">bbs_plus_public_key_with_params</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBSPlusPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSPlusParameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.bbs_plus_public_key_with_params_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbs_plus_public_key_with_params_with_context" class="fn">bbs_plus_public_key_with_params_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBSPlusPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSPlusParameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.bbs_plus_params_by_did" class="method"><h4 class="code-header">fn <a href="#method.bbs_plus_params_by_did" class="fn">bbs_plus_params_by_did</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    owner: SignatureParamsOwner
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBSPlusParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbs_plus_params_by_did_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbs_plus_params_by_did_with_context" class="fn">bbs_plus_params_by_did_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    owner: SignatureParamsOwner
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBSPlusParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbs_plus_public_keys_by_did" class="method"><h4 class="code-header">fn <a href="#method.bbs_plus_public_keys_by_did" class="fn">bbs_plus_public_keys_by_did</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBSPlusPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSPlusParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbs_plus_public_keys_by_did_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbs_plus_public_keys_by_did_with_context" class="fn">bbs_plus_public_keys_by_did_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBSPlusPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBSPlusParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.ps_public_key_with_params" class="method"><h4 class="code-header">fn <a href="#method.ps_public_key_with_params" class="fn">ps_public_key_with_params</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(PSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PSParameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.ps_public_key_with_params_with_context" class="method"><h4 class="code-header">fn <a href="#method.ps_public_key_with_params_with_context" class="fn">ps_public_key_with_params_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(PSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PSParameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.ps_params_by_did" class="method"><h4 class="code-header">fn <a href="#method.ps_params_by_did" class="fn">ps_params_by_did</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    owner: SignatureParamsOwner
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, PSParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.ps_params_by_did_with_context" class="method"><h4 class="code-header">fn <a href="#method.ps_params_by_did_with_context" class="fn">ps_params_by_did_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    owner: SignatureParamsOwner
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, PSParameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.ps_public_keys_by_did" class="method"><h4 class="code-header">fn <a href="#method.ps_public_keys_by_did" class="fn">ps_public_keys_by_did</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (PSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PSParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.ps_public_keys_by_did_with_context" class="method"><h4 class="code-header">fn <a href="#method.ps_public_keys_by_did_with_context" class="fn">ps_public_keys_by_did_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (PSPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;PSParameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.accumulator_public_key_with_params" class="method"><h4 class="code-header">fn <a href="#method.accumulator_public_key_with_params" class="fn">accumulator_public_key_with_params</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: AccumPublicKeyStorageKey
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(AccumulatorPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccumulatorParameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.accumulator_public_key_with_params_with_context" class="method"><h4 class="code-header">fn <a href="#method.accumulator_public_key_with_params_with_context" class="fn">accumulator_public_key_with_params_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: AccumPublicKeyStorageKey
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(AccumulatorPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccumulatorParameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.accumulator_with_public_key_and_params" class="method"><h4 class="code-header">fn <a href="#method.accumulator_with_public_key_and_params" class="fn">accumulator_with_public_key_and_params</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: AccumulatorId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(AccumulatorPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccumulatorParameters&lt;T&gt;&gt;)&gt;)&gt;, ApiError&gt;</h4></section><section id="method.accumulator_with_public_key_and_params_with_context" class="method"><h4 class="code-header">fn <a href="#method.accumulator_with_public_key_and_params_with_context" class="fn">accumulator_with_public_key_and_params_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: AccumulatorId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(AccumulatorPublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AccumulatorParameters&lt;T&gt;&gt;)&gt;)&gt;, ApiError&gt;</h4></section><section id="method.schema_metadata" class="method"><h4 class="code-header">fn <a href="#method.schema_metadata" class="fn">schema_metadata</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: TrustRegistrySchemaId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.schema_metadata_with_context" class="method"><h4 class="code-header">fn <a href="#method.schema_metadata_with_context" class="fn">schema_metadata_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: TrustRegistrySchemaId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.schema_issuers" class="method"><h4 class="code-header">fn <a href="#method.schema_issuers" class="fn">schema_issuers</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: TrustRegistrySchemaId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.schema_issuers_with_context" class="method"><h4 class="code-header">fn <a href="#method.schema_issuers_with_context" class="fn">schema_issuers_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: TrustRegistrySchemaId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.schema_verifiers" class="method"><h4 class="code-header">fn <a href="#method.schema_verifiers" class="fn">schema_verifiers</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: TrustRegistrySchemaId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, TrustRegistrySchemaVerifiers&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.schema_verifiers_with_context" class="method"><h4 class="code-header">fn <a href="#method.schema_verifiers_with_context" class="fn">schema_verifiers_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: TrustRegistrySchemaId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, TrustRegistrySchemaVerifiers&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.schema_metadata_in_registry" class="method"><h4 class="code-header">fn <a href="#method.schema_metadata_in_registry" class="fn">schema_metadata_in_registry</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: TrustRegistrySchemaId,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AggregatedTrustRegistrySchemaMetadata&lt;T&gt;&gt;, ApiError&gt;</h4></section><section id="method.schema_metadata_in_registry_with_context" class="method"><h4 class="code-header">fn <a href="#method.schema_metadata_in_registry_with_context" class="fn">schema_metadata_in_registry_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: TrustRegistrySchemaId,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;AggregatedTrustRegistrySchemaMetadata&lt;T&gt;&gt;, ApiError&gt;</h4></section><section id="method.schema_issuers_in_registry" class="method"><h4 class="code-header">fn <a href="#method.schema_issuers_in_registry" class="fn">schema_issuers_in_registry</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: TrustRegistrySchemaId,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;&gt;, ApiError&gt;</h4></section><section id="method.schema_issuers_in_registry_with_context" class="method"><h4 class="code-header">fn <a href="#method.schema_issuers_in_registry_with_context" class="fn">schema_issuers_in_registry_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: TrustRegistrySchemaId,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;&gt;, ApiError&gt;</h4></section><section id="method.schema_verifiers_in_registry" class="method"><h4 class="code-header">fn <a href="#method.schema_verifiers_in_registry" class="fn">schema_verifiers_in_registry</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: TrustRegistrySchemaId,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;TrustRegistrySchemaVerifiers&lt;T&gt;&gt;, ApiError&gt;</h4></section><section id="method.schema_verifiers_in_registry_with_context" class="method"><h4 class="code-header">fn <a href="#method.schema_verifiers_in_registry_with_context" class="fn">schema_verifiers_in_registry_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: TrustRegistrySchemaId,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;TrustRegistrySchemaVerifiers&lt;T&gt;&gt;, ApiError&gt;</h4></section><section id="method.all_registry_schema_metadata" class="method"><h4 class="code-header">fn <a href="#method.all_registry_schema_metadata" class="fn">all_registry_schema_metadata</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.all_registry_schema_metadata_with_context" class="method"><h4 class="code-header">fn <a href="#method.all_registry_schema_metadata_with_context" class="fn">all_registry_schema_metadata_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.all_registry_schema_issuers" class="method"><h4 class="code-header">fn <a href="#method.all_registry_schema_issuers" class="fn">all_registry_schema_issuers</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.all_registry_schema_issuers_with_context" class="method"><h4 class="code-header">fn <a href="#method.all_registry_schema_issuers_with_context" class="fn">all_registry_schema_issuers_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;(Issuer, AggregatedIssuerInfo&lt;T&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.all_registry_schema_verifiers" class="method"><h4 class="code-header">fn <a href="#method.all_registry_schema_verifiers" class="fn">all_registry_schema_verifiers</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, TrustRegistrySchemaVerifiers&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.all_registry_schema_verifiers_with_context" class="method"><h4 class="code-header">fn <a href="#method.all_registry_schema_verifiers_with_context" class="fn">all_registry_schema_verifiers_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    registry_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, TrustRegistrySchemaVerifiers&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.registries_info_by" class="method"><h4 class="code-header">fn <a href="#method.registries_info_by" class="fn">registries_info_by</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    by: QueryTrustRegistriesBy
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, TrustRegistryInfo&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.registries_info_by_with_context" class="method"><h4 class="code-header">fn <a href="#method.registries_info_by_with_context" class="fn">registries_info_by_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    by: QueryTrustRegistriesBy
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistryId, TrustRegistryInfo&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.registry_schemas_metadata_by" class="method"><h4 class="code-header">fn <a href="#method.registry_schemas_metadata_by" class="fn">registry_schemas_metadata_by</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    by: QueryTrustRegistryBy,
+    reg_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.registry_schemas_metadata_by_with_context" class="method"><h4 class="code-header">fn <a href="#method.registry_schemas_metadata_by_with_context" class="fn">registry_schemas_metadata_by_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    by: QueryTrustRegistryBy,
+    reg_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;TrustRegistrySchemaId, AggregatedTrustRegistrySchemaMetadata&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.registries_ids_by" class="method"><h4 class="code-header">fn <a href="#method.registries_ids_by" class="fn">registries_ids_by</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    by: QueryTrustRegistriesBy
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/set/struct.BTreeSet.html" title="struct alloc::collections::btree::set::BTreeSet">BTreeSet</a>&lt;TrustRegistryId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.registries_ids_by_with_context" class="method"><h4 class="code-header">fn <a href="#method.registries_ids_by_with_context" class="fn">registries_ids_by_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    by: QueryTrustRegistriesBy
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/set/struct.BTreeSet.html" title="struct alloc::collections::btree::set::BTreeSet">BTreeSet</a>&lt;TrustRegistryId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.registry_schemas_ids_by" class="method"><h4 class="code-header">fn <a href="#method.registry_schemas_ids_by" class="fn">registry_schemas_ids_by</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    by: QueryTrustRegistryBy,
+    reg_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/set/struct.BTreeSet.html" title="struct alloc::collections::btree::set::BTreeSet">BTreeSet</a>&lt;TrustRegistrySchemaId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.registry_schemas_ids_by_with_context" class="method"><h4 class="code-header">fn <a href="#method.registry_schemas_ids_by_with_context" class="fn">registry_schemas_ids_by_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    by: QueryTrustRegistryBy,
+    reg_id: TrustRegistryId
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/set/struct.BTreeSet.html" title="struct alloc::collections::btree::set::BTreeSet">BTreeSet</a>&lt;TrustRegistrySchemaId, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbdt16_public_key_with_params" class="method"><h4 class="code-header">fn <a href="#method.bbdt16_public_key_with_params" class="fn">bbdt16_public_key_with_params</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBDT16PublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBDT16Parameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.bbdt16_public_key_with_params_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbdt16_public_key_with_params_with_context" class="fn">bbdt16_public_key_with_params_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    id: (<a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>, IncId)
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;(BBDT16PublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBDT16Parameters&lt;T&gt;&gt;)&gt;, ApiError&gt;</h4></section><section id="method.bbdt16_params_by_did" class="method"><h4 class="code-header">fn <a href="#method.bbdt16_params_by_did" class="fn">bbdt16_params_by_did</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    owner: SignatureParamsOwner
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBDT16Parameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbdt16_params_by_did_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbdt16_params_by_did_with_context" class="fn">bbdt16_params_by_did_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    owner: SignatureParamsOwner
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, BBDT16Parameters&lt;T&gt;, <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbdt16_public_keys_by_did" class="method"><h4 class="code-header">fn <a href="#method.bbdt16_public_keys_by_did" class="fn">bbdt16_public_keys_by_did</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBDT16PublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBDT16Parameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section><section id="method.bbdt16_public_keys_by_did_with_context" class="method"><h4 class="code-header">fn <a href="#method.bbdt16_public_keys_by_did_with_context" class="fn">bbdt16_public_keys_by_did_with_context</a>(
+    &amp;self,
+    __runtime_api_at_param__: &amp;BlockId&lt;Block&gt;,
+    context: ExecutionContext,
+    did: <a class="struct" href="did/struct.Did.html" title="struct dock_core_rpc::did::Did">Did</a>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/alloc/collections/btree/map/struct.BTreeMap.html" title="struct alloc::collections::btree::map::BTreeMap">BTreeMap</a>&lt;IncId, (BBDT16PublicKey&lt;T&gt;, <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;BBDT16Parameters&lt;T&gt;&gt;), <a class="struct" href="https://doc.rust-lang.org/nightly/alloc/alloc/struct.Global.html" title="struct alloc::alloc::Global">Global</a>&gt;, ApiError&gt;</h4></section></div><h2 id="trait-implementations" class="small-section-header">Trait Implementations<a href="#trait-implementations" class="anchor">§</a></h2><div id="trait-implementations-list"><details class="toggle implementors-toggle" open><summary><section id="impl-RuntimeApiInfo-for-dyn+CoreModsApi%3CBlock,+T%3E+%2B+'static" class="impl"><a href="#impl-RuntimeApiInfo-for-dyn+CoreModsApi%3CBlock,+T%3E+%2B+'static" class="anchor">§</a><h3 class="code-header">impl&lt;Block, T&gt; RuntimeApiInfo for dyn <a class="trait" href="trait.CoreModsRuntimeApi.html" title="trait dock_core_rpc::CoreModsRuntimeApi">CoreModsApi</a>&lt;Block, T&gt; + 'static<span class="where fmt-newline">where
+    Block: Block,
+    T: TypesAndLimits,</span></h3></section></summary><div class="impl-items"><details class="toggle" open><summary><section id="associatedconstant.ID" class="associatedconstant trait-impl"><a href="#associatedconstant.ID" class="anchor">§</a><h4 class="code-header">const <a class="constant">ID</a>: [<a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u8.html">u8</a>; <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.array.html">8</a>] = [117u8, 205u8, 158u8, 130u8, 98u8, 91u8, 196u8, 97u8]</h4></section></summary><div class='docblock'>The identifier of the runtime api.</div></details><details class="toggle" open><summary><section id="associatedconstant.VERSION" class="associatedconstant trait-impl"><a href="#associatedconstant.VERSION" class="anchor">§</a><h4 class="code-header">const <a class="constant">VERSION</a>: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a> = 1u32</h4></section></summary><div class='docblock'>The version of the runtime api.</div></details></div></details></div><h2 id="implementors" class="small-section-header">Implementors<a href="#implementors" class="anchor">§</a></h2><div id="implementors-list"></div><script src="../implementors/dock_core/runtime_api/trait.CoreModsApi.js" async></script></section></div></main><div id="rustdoc-vars" data-root-path="../" data-static-root-path="../static.files/" data-current-crate="dock_core_rpc" data-themes="" data-resource-suffix="" data-rustdoc-version="1.70.0-nightly (900c35403 2023-03-08)" data-search-js="search-8a59a8356673ec1f.js" data-settings-js="settings-f0c5c39777a9a2f6.js" data-settings-css="settings-0bcba95ff279c1db.css" ></div></body></html>

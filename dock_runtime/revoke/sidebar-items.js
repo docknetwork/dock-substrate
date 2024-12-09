@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["Call","Error","Event"],"mod":["pallet"],"struct":["AddRegistry","GenesisConfig","Pallet","RemoveRegistryRaw","RevocationRegistry","RevocationRegistryId","RevokeId","RevokeRaw","UnRevokeRaw"],"trait":["Config"],"type":["Module","Registries","RemoveRegistry","Revocations","Revoke","UnRevoke","Version"]};

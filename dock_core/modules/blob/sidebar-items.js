@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ID_BYTE_SIZE"],"mod":["pallet"],"struct":["AddBlob","Blob","BlobId","BlobOwner"],"type":["StoredBlob"]};

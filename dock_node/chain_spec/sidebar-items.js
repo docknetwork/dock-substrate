@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["development_config","local_testnet_config","pos_devnet_config","pos_mainnet_config","pos_testnet_config"],"struct":["Extensions"],"type":["ChainSpec"]};

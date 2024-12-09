@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["create_extrinsic","fetch_nonce","frontier_database_dir","new_full","new_partial","open_frontier_backend"],"struct":["ExecutorDispatch","NativeElseWasmExecutor"],"type":["FullClient"]};

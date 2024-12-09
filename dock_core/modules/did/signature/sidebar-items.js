@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DidKeyOrDidMethodKey","DidOrDidMethodKeySignature"],"struct":["DidMethodKeySignature","DidSignature"]};

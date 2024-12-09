@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["ChangeParticipantsRaw","InitOrUpdateTrustRegistry","SetParticipantInformationRaw","SetSchemasMetadata","SuspendIssuers","UnsuspendIssuers","UpdateDelegatedIssuers"],"type":["ChangeParticipants","SetParticipantInformation"]};

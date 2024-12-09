@@ -1,0 +1,3 @@
+(function() {var implementors = {
+"dock_node":[["impl ExtrinsicBuilder for <a class=\"struct\" href=\"dock_node/bench/struct.RemarkBuilder.html\" title=\"struct dock_node::bench::RemarkBuilder\">RemarkBuilder</a>"],["impl ExtrinsicBuilder for <a class=\"struct\" href=\"dock_node/bench/struct.TransferKeepAliveBuilder.html\" title=\"struct dock_node::bench::TransferKeepAliveBuilder\">TransferKeepAliveBuilder</a>"]]
+};if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["authorization","keys","limits","policy","signatures","signed_action","state_change","storage_version","types"],"struct":["CombineTypesAndLimits"],"trait":["TypesAndLimits"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["did"],"struct":["CoreMods","SerializableConfigWrapper"],"trait":["Config","ConfigWrapper","CoreModsApiClient","CoreModsApiServer","CoreModsRuntimeApi"]};
