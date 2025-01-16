@@ -20,6 +20,8 @@ jobs:
         run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
       - name: Ensure docs are buildable
         run: cargo doc --no-deps
+      - name: Install rustfmt
+        run: rustup component add --toolchain nightly-2023-03-09 rustfmt
       - name: Run tests
         run: cargo test --release --all
 

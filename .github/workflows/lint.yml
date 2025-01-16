@@ -17,6 +17,8 @@ jobs:
           toolchain: nightly-2023-03-09
           override: true
           components: rustfmt
+      - name: Install rustfmt
+        run: rustup component add --toolchain nightly-2023-03-09 rustfmt
       - name: Ensure Standard Formatting
         run: cargo +nightly-2023-03-09 fmt --all -- --check
 
