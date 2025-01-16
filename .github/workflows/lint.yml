@@ -34,5 +34,7 @@ jobs:
           components: clippy
       - name: Install WASM
         run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
+      - name: Install rustfmt
+        run: rustup component add --toolchain nightly-2023-03-09 rustfmt
       - name: Ensure `clippy` is happy
         run: cargo +nightly-2023-03-09 clippy --all
