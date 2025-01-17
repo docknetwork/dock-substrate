@@ -17,7 +17,8 @@ jobs:
           toolchain: nightly-2023-03-09
           override: true
           components: rustfmt
-          targets: wasm32-unknown-unknown
+      - name: Install WASM
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
       - name: Ensure docs are buildable
         run: cargo doc --no-deps
       - name: Run tests
@@ -27,11 +28,12 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
-      - name: Install nightly-2023-03-09 and WASM target
+      - name: Install nightly-2023-03-09
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly-2023-03-09
           override: true
-          targets: wasm32-unknown-unknown
+      - name: Install WASM
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
       # Temporary solution: disk space is exceeded on the runner machine
       # - run: ./scripts/integration_tests

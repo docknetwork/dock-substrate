@@ -30,6 +30,7 @@ jobs:
           toolchain: nightly-2023-03-09
           override: true
           components: clippy
-          targets: wasm32-unknown-unknown
+      - name: Install WASM
+        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
       - name: Ensure `clippy` is happy
         run: cargo +nightly-2023-03-09 clippy --all
