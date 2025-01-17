@@ -8,7 +8,7 @@ on:
 
 jobs:
   fmt:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
       - name: Install rust toolchain
@@ -17,24 +17,19 @@ jobs:
           toolchain: nightly-2023-03-09
           override: true
           components: rustfmt
-      - name: Install rustfmt
-        run: rustup component add --toolchain nightly-2023-03-09 rustfmt
       - name: Ensure Standard Formatting
         run: cargo +nightly-2023-03-09 fmt --all -- --check
 
   clippy:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v2
-      - name: Install rust toolchain
+      - name: Install nightly-2023-03-09 and WASM target
         uses: actions-rs/toolchain@v1
         with:
           toolchain: nightly-2023-03-09
           override: true
           components: clippy
-      - name: Install WASM
-        run: rustup target add wasm32-unknown-unknown --toolchain nightly-2023-03-09
-      - name: Install rustfmt
-        run: rustup component add --toolchain nightly-2023-03-09 rustfmt
+          targets: wasm32-unknown-unknown
       - name: Ensure `clippy` is happy
         run: cargo +nightly-2023-03-09 clippy --all
