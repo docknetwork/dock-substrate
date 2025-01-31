@@ -341,10 +341,12 @@ where
     U: GetUpdateKind<Option<<C::Target as KeyValue>::Value>>,
     C::Target: KeyValue,
 {
-    type Targets<'a> = alloc::collections::btree_map::Keys<'a, <C::Target as KeyValue>::Key, U>  where
-    Self: 'a,
-    <C::Target as KeyValue>::Key: 'a,
-    C: 'a;
+    type Targets<'a>
+        = alloc::collections::btree_map::Keys<'a, <C::Target as KeyValue>::Key, U>
+    where
+        Self: 'a,
+        <C::Target as KeyValue>::Key: 'a,
+        C: 'a;
 
     fn targets<'targets>(&'targets self, _entity: &'targets C) -> Self::Targets<'targets> {
         self.keys()
@@ -549,7 +551,12 @@ where
     U: GetUpdateKind<Option<<C::Target as KeyValue>::Value>>,
     C::Target: KeyValue,
 {
-    type Targets<'a> = core::iter::Once<&'a <C::Target as KeyValue>::Key> where U: 'a, C: 'a, <C::Target as KeyValue>::Key: 'a;
+    type Targets<'a>
+        = core::iter::Once<&'a <C::Target as KeyValue>::Key>
+    where
+        U: 'a,
+        C: 'a,
+        <C::Target as KeyValue>::Key: 'a;
 
     fn targets<'targets>(&'targets self, _entity: &'targets C) -> Self::Targets<'targets> {
         once(&self.key)
@@ -909,16 +916,15 @@ where
     C::Target: KeyValue,
     U: KeyedUpdate<C>,
 {
-    type Targets<'a> = Either<
-        core::iter::Chain<
-            <C::Target as KeyValue>::Keys<'a>,
-            <C::Target as KeyValue>::Keys<'a>,
-        >,
-        U::Targets<'a>
-    >  where
-    Self: 'a,
-    <C::Target as KeyValue>::Key: 'a,
-    C: 'a;
+    type Targets<'a>
+        = Either<
+        core::iter::Chain<<C::Target as KeyValue>::Keys<'a>, <C::Target as KeyValue>::Keys<'a>>,
+        U::Targets<'a>,
+    >
+    where
+        Self: 'a,
+        <C::Target as KeyValue>::Key: 'a,
+        C: 'a;
 
     fn targets<'targets>(&'targets self, entity: &'targets C) -> Self::Targets<'targets> {
         match self {
