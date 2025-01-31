@@ -480,6 +480,7 @@ pub mod pallet {
             _qi: crate::trust_registry::QueryTrustRegistryBy,
             _qy: crate::trust_registry::QueryTrustRegistriesBy,
             _a: crate::trust_registry::AggregatedTrustRegistrySchemaMetadata<T>,
+            _u: crate::accumulator::UpdateAccumulator<T>,
         ) -> DispatchResult {
             Err(DispatchError::BadOrigin)
         }

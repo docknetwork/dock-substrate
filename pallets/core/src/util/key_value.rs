@@ -42,7 +42,11 @@ impl<K: Ord + Clone, V: Clone, S: Get<u32>> KeyValue for BoundedBTreeMap<K, V, S
     type Key = K;
     type Value = V;
 
-    type Keys<'keys> = alloc::collections::btree_map::Keys<'keys, K, V> where Self: 'keys, K: 'keys;
+    type Keys<'keys>
+        = alloc::collections::btree_map::Keys<'keys, K, V>
+    where
+        Self: 'keys,
+        K: 'keys;
 
     fn capacity(&self) -> Option<u32> {
         Some(S::get())
@@ -73,7 +77,11 @@ impl<V: Ord + Clone, S: Get<u32>> KeyValue for BoundedBTreeSet<V, S> {
     type Key = V;
     type Value = ();
 
-    type Keys<'keys> = alloc::collections::btree_set::Iter<'keys, V> where Self: 'keys, V: 'keys;
+    type Keys<'keys>
+        = alloc::collections::btree_set::Iter<'keys, V>
+    where
+        Self: 'keys,
+        V: 'keys;
 
     fn capacity(&self) -> Option<u32> {
         Some(S::get())
@@ -100,7 +108,11 @@ impl<K: Ord + Clone, V: Clone> KeyValue for BTreeMap<K, V> {
     type Key = K;
     type Value = V;
 
-    type Keys<'keys> = alloc::collections::btree_map::Keys<'keys, K, V> where Self: 'keys, K: 'keys;
+    type Keys<'keys>
+        = alloc::collections::btree_map::Keys<'keys, K, V>
+    where
+        Self: 'keys,
+        K: 'keys;
 
     fn capacity(&self) -> Option<u32> {
         None
@@ -133,7 +145,11 @@ impl<V: Ord + Clone> KeyValue for BTreeSet<V> {
     type Key = V;
     type Value = ();
 
-    type Keys<'keys> = alloc::collections::btree_set::Iter<'keys, V> where Self: 'keys, V: 'keys;
+    type Keys<'keys>
+        = alloc::collections::btree_set::Iter<'keys, V>
+    where
+        Self: 'keys,
+        V: 'keys;
 
     fn capacity(&self) -> Option<u32> {
         None
