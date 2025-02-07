@@ -25,6 +25,9 @@ jobs:
     environment: ${{inputs.network}}
     runs-on: ubuntu-latest
     steps:
+      - name: Install jq
+        run: sudo apt-get install -y jq
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -74,7 +77,8 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
           AWS_DEFAULT_REGION: ${{ inputs.aws_region }}
         run: |
-          echo "COMMAND_OUTPUT=$(aws ssm list-command-invocations --command-id ${{ steps.extend-file-system.outputs.command-id }} --details)" >> $GITHUB_ENV
+          COMMAND_OUTPUT=$(aws ssm list-command-invocations --command-id ${{ steps.extend-file-system.outputs.command-id }} --details | jq -c .)
+          echo "COMMAND_OUTPUT=$COMMAND_OUTPUT" >> $GITHUB_ENV
 
       - name: Check SSM output    
         if: steps.get-ssm-output.outcome == 'success' && contains(env.COMMAND_OUTPUT, 'error')
