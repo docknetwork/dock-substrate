@@ -3,7 +3,7 @@ authors = ["Dock.io"]
 build = "build.rs"
 edition = "2021"
 name = "dock-node"
-version = "0.34.0"
+version = "0.35.0"
 
 [package.metadata.docs.rs]
 targets = ["x86_64-unknown-linux-gnu"]
@@ -28,7 +28,7 @@ optional = true
 
 [dependencies.dock-runtime]
 path = "../runtime"
-version = "0.34.0"
+version = "0.35.0"
 
 [dependencies.beefy-primitives]
 git = "https://github.com/paritytech/substrate.git"
@@ -514,7 +514,7 @@ branch = "polkadot-v0.9.29"
 
 [dependencies.pallet-elections-phragmen]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-rev = "5735cdc0d4ad2cdc402043942a7c1ec2ad3bb1fb"
+rev = "bb6904dbbf984d2432dd741505b23b59f11679d1"
 
 [dependencies.dock-staking-rewards]
 path = "../pallets/staking-rewards"
@@ -528,7 +528,7 @@ rev = "dc50c3d973d1f53434c7a03e426faa9c20062f60"
 
 [dependencies.dock-price-feed-rpc]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-rev = "5735cdc0d4ad2cdc402043942a7c1ec2ad3bb1fb"
+rev = "bb6904dbbf984d2432dd741505b23b59f11679d1"
 
 [dependencies.dock-staking-rewards-rpc]
 path = "../pallets/staking-rewards/rpc"
@@ -538,7 +538,7 @@ path = "../pallets/core/rpc"
 
 [dependencies.pallet-staking]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
-rev = "5735cdc0d4ad2cdc402043942a7c1ec2ad3bb1fb"
+rev = "bb6904dbbf984d2432dd741505b23b59f11679d1"
 
 [dependencies.fp-consensus]
 git = "https://github.com/docknetwork/frontier.git"
