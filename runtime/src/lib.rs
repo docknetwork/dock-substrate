@@ -200,7 +200,7 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 68,
+    spec_version: 69,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
@@ -210,7 +210,7 @@ pub struct ChangeValidatorsConfiguration;
 
 #[cfg(feature = "mainnet")]
 impl ChangeValidatorsConfiguration {
-    pub const VALIDATOR_COUNT: u32 = 10;
+    pub const VALIDATOR_COUNT: u32 = 5;
 }
 
 #[cfg(not(feature = "mainnet"))]
@@ -253,8 +253,8 @@ mod small_durations {
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
     /// Bonding duration is in number of era
-    pub const BONDING_DURATION: u32 = 24 * 8;
-    pub const SLASH_DEFER_DURATION: u32 = 24 * 2; // 1/4 the bonding duration.
+    pub const BONDING_DURATION: u32 = 0;
+    pub const SLASH_DEFER_DURATION: u32 = 0; // 1/4 the bonding duration.
     /// Specifies the number of blocks for which the equivocation is valid.
     pub const REPORT_LONGEVITY: u64 =
         BONDING_DURATION as u64 * SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_SLOTS;
@@ -294,8 +294,8 @@ mod prod_durations {
 
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 4; // 12 hours
     /// Bonding duration is in number of era
-    pub const BONDING_DURATION: u32 = 2 * 7; // 7 days
-    pub const SLASH_DEFER_DURATION: u32 = 7; // 1/2 the bonding duration.
+    pub const BONDING_DURATION: u32 = 0; // 7 days
+    pub const SLASH_DEFER_DURATION: u32 = 0; // 1/2 the bonding duration.
     /// Specifies the number of blocks for which the equivocation is valid.
     pub const REPORT_LONGEVITY: u64 =
         BONDING_DURATION as u64 * SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_SLOTS;
