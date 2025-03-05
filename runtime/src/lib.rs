@@ -211,18 +211,36 @@ pub struct ChangeValidatorsConfiguration;
 #[cfg(feature = "mainnet")]
 impl ChangeValidatorsConfiguration {
     pub const VALIDATOR_COUNT: u32 = 5;
+
+    pub const VALIDATOR_WHITELIST: Option<&'static [[u8; 32]]> = Some(&[
+        hex_literal::hex!("bcd1fc659e3c14cd2f9d1f536b56741bdcdc59d93480336ad1462c02943a7f76"),
+        hex_literal::hex!("6e0e0d1f2cdc6bca8cb3067fb1dc86dc1a11484b3964cf1e3d901be74084fb14"),
+        hex_literal::hex!("a282aa17f7b44170f95cce56a83b7d1e631b53246b1164364b318435e8be511a"),
+        hex_literal::hex!("8c684ba2580c368d17c3a655c999b88d92fd2a96d3410b506c89080d0f09f42a"),
+        hex_literal::hex!("72df8db4c65b19ff108ebba989520caf1e30ca50288a931facba02259f8a8300"),
+    ]);
 }
 
 #[cfg(not(feature = "mainnet"))]
 impl ChangeValidatorsConfiguration {
     pub const VALIDATOR_COUNT: u32 = 2;
+
+    pub const VALIDATOR_WHITELIST: Option<&'static [[u8; 32]]> = None;
 }
 
 impl OnRuntimeUpgrade for ChangeValidatorsConfiguration {
     fn on_runtime_upgrade() -> Weight {
         pallet_staking::ValidatorCount::<Runtime>::put(Self::VALIDATOR_COUNT);
+        let whitelist = Self::VALIDATOR_WHITELIST
+            .as_ref()
+            .copied()
+            .map(<_>::into_iter)
+            .map(<_>::cloned)
+            .map(|whitelist| whitelist.map(<Runtime as frame_system::Config>::AccountId::from))
+            .map(BTreeSet::from_iter);
+        pallet_staking::CandidateWhitelist::<Runtime>::put(whitelist);
 
-        <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+        <Runtime as frame_system::Config>::DbWeight::get().writes(2)
     }
 }
 
