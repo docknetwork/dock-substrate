@@ -32,6 +32,7 @@ mod wasm {
     const _: Option<&[u8]> = WASM_BINARY_BLOATY;
 }
 
+use pallet_staking::BalanceOf;
 #[cfg(feature = "std")]
 pub use wasm::WASM_BINARY;
 
@@ -200,47 +201,18 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 69,
+    spec_version: 70,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
 };
 
 pub struct ChangeValidatorsConfiguration;
-
-#[cfg(feature = "mainnet")]
-impl ChangeValidatorsConfiguration {
-    pub const VALIDATOR_COUNT: u32 = 5;
-
-    pub const VALIDATOR_WHITELIST: Option<&'static [[u8; 32]]> = Some(&[
-        hex_literal::hex!("bcd1fc659e3c14cd2f9d1f536b56741bdcdc59d93480336ad1462c02943a7f76"),
-        hex_literal::hex!("6e0e0d1f2cdc6bca8cb3067fb1dc86dc1a11484b3964cf1e3d901be74084fb14"),
-        hex_literal::hex!("a282aa17f7b44170f95cce56a83b7d1e631b53246b1164364b318435e8be511a"),
-        hex_literal::hex!("8c684ba2580c368d17c3a655c999b88d92fd2a96d3410b506c89080d0f09f42a"),
-        hex_literal::hex!("72df8db4c65b19ff108ebba989520caf1e30ca50288a931facba02259f8a8300"),
-    ]);
-}
-
-#[cfg(not(feature = "mainnet"))]
-impl ChangeValidatorsConfiguration {
-    pub const VALIDATOR_COUNT: u32 = 2;
-
-    pub const VALIDATOR_WHITELIST: Option<&'static [[u8; 32]]> = None;
-}
-
 impl OnRuntimeUpgrade for ChangeValidatorsConfiguration {
     fn on_runtime_upgrade() -> Weight {
-        pallet_staking::ValidatorCount::<Runtime>::put(Self::VALIDATOR_COUNT);
-        let whitelist = Self::VALIDATOR_WHITELIST
-            .as_ref()
-            .copied()
-            .map(<_>::into_iter)
-            .map(<_>::cloned)
-            .map(|whitelist| whitelist.map(<Runtime as frame_system::Config>::AccountId::from))
-            .map(BTreeSet::from_iter);
-        pallet_staking::CandidateWhitelist::<Runtime>::put(whitelist);
+        pallet_staking::MinValidatorBond::<Runtime>::put(BalanceOf::<Runtime>::from(0u8));
 
-        <Runtime as frame_system::Config>::DbWeight::get().writes(2)
+        <Runtime as frame_system::Config>::DbWeight::get().writes(1)
     }
 }
 
@@ -646,10 +618,7 @@ impl pallet_staking::Config for Runtime {
     type BondingDuration = BondingDuration;
     type SlashDeferDuration = SlashDeferDuration;
     /// A super-majority of the council can cancel the slash.
-    type SlashCancelOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
-    >;
+    type SlashCancelOrigin = EnsureRoot<AccountId>;
     type SessionInterface = Self;
     type EraPayout = StakingRewards;
     type NextNewSession = Session;
@@ -764,10 +733,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
         AccountId,
         pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
     >;
-    type ForceOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
-    >;
+    type ForceOrigin = EnsureRoot<AccountId>;
 
     type Event = Event;
     type Currency = Balances;
@@ -1055,20 +1021,7 @@ impl anchor::Config for Runtime {
 
 impl attest::Config for Runtime {}
 
-/// This origin indicates that either >50% (simple majority) of Council members approved some dispatch (through a proposal)
-/// or the dispatch was done as `Root` (by sudo or master)
-type RootOrMoreThanHalfCouncil = EitherOfDiverse<
-    EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
->;
-
-/// This origin indicates that either >=66.66% of Council members approved some dispatch (through a proposal)
-/// or the dispatch was done as `Root` (by sudo or master)
-type RootOrTwoThirdCouncil = EitherOfDiverse<
-    EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 3>,
->;
-
+type RootSystemOrigin = EnsureRoot<AccountId>;
 type CouncilMember = pallet_collective::EnsureMember<AccountId, CouncilCollective>;
 
 const fn deposit(items: u32, bytes: u32) -> Balance {
@@ -1147,11 +1100,11 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
     type WeightInfo = ();
 
     type Event = Event;
-    type AddOrigin = RootOrMoreThanHalfCouncil;
-    type RemoveOrigin = RootOrMoreThanHalfCouncil;
-    type SwapOrigin = RootOrMoreThanHalfCouncil;
-    type ResetOrigin = RootOrMoreThanHalfCouncil;
-    type PrimeOrigin = RootOrMoreThanHalfCouncil;
+    type AddOrigin = RootSystemOrigin;
+    type RemoveOrigin = RootSystemOrigin;
+    type SwapOrigin = RootSystemOrigin;
+    type ResetOrigin = RootSystemOrigin;
+    type PrimeOrigin = RootSystemOrigin;
     type MembershipInitialized = TechnicalCommittee;
     type MembershipChanged = TechnicalCommittee;
 }
@@ -1260,7 +1213,7 @@ parameter_types! {
 }
 
 impl pallet_democracy::Config for Runtime {
-    type VoteLockingPeriod = EnactmentPeriod; // Same as EnactmentPeriod
+    type VoteLockingPeriod = ConstU32<0u32>; // Same as EnactmentPeriod
     type Proposal = Call;
     type Event = Event;
     type Currency = Balances;
@@ -1270,49 +1223,29 @@ impl pallet_democracy::Config for Runtime {
     type VotingPeriod = VotingPeriod;
     type CooloffPeriod = CooloffPeriod;
     type MinimumDeposit = MinimumDeposit;
-    /// A straight majority of the council can decide what their next motion is.
-    type ExternalOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>,
-    >;
-    /// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-    type ExternalMajorityOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
-    >;
-    /// A unanimous council can have the next scheduled referendum be a straight default-carries
+    /// Root can decide what their next motion is.
+    type ExternalOrigin = EnsureRoot<AccountId>;
+    /// Root can have the next scheduled referendum be a straight majority-carries vote.
+    type ExternalMajorityOrigin = EnsureRoot<AccountId>;
+    /// Root can have the next scheduled referendum be a straight default-carries
     /// (NTB) vote.
-    type ExternalDefaultOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>,
-    >;
-    /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
+    type ExternalDefaultOrigin = EnsureRoot<AccountId>;
+    /// Root can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
-    type FastTrackOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>,
-    >;
-    /// Root or the Technical committee unanimously agreeing can make a Council proposal a referendum instantly.
-    type InstantOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>,
-    >;
+    type FastTrackOrigin = EnsureRoot<AccountId>;
+    /// Root unanimously agreeing can make a Council proposal a referendum instantly.
+    type InstantOrigin = EnsureRoot<AccountId>;
     type InstantAllowed = InstantAllowed;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     /// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-    type CancellationOrigin = RootOrTwoThirdCouncil;
-    // To cancel a proposal before it has been passed, the technical committee must be unanimous or
-    // Root must agree.
-    type CancelProposalOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>,
-    >;
+    type CancellationOrigin = RootSystemOrigin;
+
+    type CancelProposalOrigin = EnsureRoot<AccountId>;
+
     type PreimageByteDeposit = PreimageByteDeposit;
     type Slash = Treasury;
     type OperationalPreimageOrigin = CouncilMember;
     type BlacklistOrigin = EnsureRoot<AccountId>;
-    // Any single technical committee member may veto a coming council proposal, however they can
-    // only do it once and it lasts only for the cool-off period.
     type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
     type Scheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
@@ -1387,14 +1320,9 @@ impl pallet_treasury::Config for Runtime {
 
     type PalletId = TreasuryPalletId;
     type Currency = Balances;
-    type ApproveOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 5>,
-    >;
-    type RejectOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
-    >;
+    type ApproveOrigin = EnsureRoot<AccountId>;
+    type RejectOrigin = EnsureRoot<AccountId>;
+
     type Event = Event;
     type OnSlash = ();
     type ProposalBond = ProposalBond;
@@ -1593,9 +1521,9 @@ impl pallet_identity::Config for Runtime {
     /// Slashed funds go to treasury
     type Slashed = Treasury;
     /// Root or >50% Council required to kill identity and slash
-    type ForceOrigin = RootOrMoreThanHalfCouncil;
+    type ForceOrigin = RootSystemOrigin;
     /// Root or >50% Council required to add new registrar
-    type RegistrarOrigin = RootOrMoreThanHalfCouncil;
+    type RegistrarOrigin = RootSystemOrigin;
     type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
