@@ -56,6 +56,18 @@ jobs:
       #   run: sleep 30m
       #   shell: bash
 
+      - name: SSM smoke test
+        uses: nohmad/aws-ssm-send-command-action@master
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          targets: |
+            [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
+          document-name: AWS-RunShellScript
+          parameters: |
+            {"commands":["echo SSM_OK && df -h / || true"]}
+
       - name: Extend file system
         id: extend-file-system
         uses: nohmad/aws-ssm-send-command-action@master
