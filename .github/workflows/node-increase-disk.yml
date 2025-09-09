@@ -43,7 +43,7 @@ jobs:
           aws_region: ${{vars.S3_REGION}}
 
       - name: Run playbook
-        uses: arillso/action.playbook@master
+        uses: arillso/action.playbook@main
         with:
           # Required, playbook filepath
           playbook: ./scripts/ansible/aws/ec2-modify-volume-size.yml
