@@ -31,30 +31,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get Hosts Config
-        id: get-hosts
-        uses: keithweaver/aws-s3-github-action@v1.0.0
-        with:
-          command: cp
-          source: ${{vars.S3_ANSIBLE_HOST_FILE}}
-          destination: ./ansible-hosts
-          aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws_secret_access_key: ${{ secrets.AWS_SECRET_KEY }}
-          aws_region: ${{vars.S3_REGION}}
+      # - name: Get Hosts Config
+      #   id: get-hosts
+      #   uses: keithweaver/aws-s3-github-action@v1.0.0
+      #   with:
+      #     command: cp
+      #     source: ${{vars.S3_ANSIBLE_HOST_FILE}}
+      #     destination: ./ansible-hosts
+      #     aws_access_key_id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws_secret_access_key: ${{ secrets.AWS_SECRET_KEY }}
+      #     aws_region: ${{vars.S3_REGION}}
 
-      - name: Run playbook
-        uses: arillso/action.playbook@main
-        with:
-          # Required, playbook filepath
-          playbook: ./scripts/ansible/aws/ec2-modify-volume-size.yml
-          inventory: ./ansible-hosts
-          galaxy_file: ./scripts/ansible/aws/requirements.yml
-          verbose: 3
-          extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
+      # - name: Run playbook
+      #   uses: arillso/action.playbook@main
+      #   with:
+      #     # Required, playbook filepath
+      #     playbook: ./scripts/ansible/aws/ec2-modify-volume-size.yml
+      #     inventory: ./ansible-hosts
+      #     galaxy_file: ./scripts/ansible/aws/requirements.yml
+      #     verbose: 3
+      #     extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
 
-      - name: Wait for AWS to finish provisioning the disk
-        run: sleep 30m
-        shell: bash
+      # - name: Wait for AWS to finish provisioning the disk
+      #   run: sleep 30m
+      #   shell: bash
 
       - name: Extend file system
         id: extend-file-system
