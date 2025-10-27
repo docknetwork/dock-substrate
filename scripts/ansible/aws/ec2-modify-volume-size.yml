@@ -6,17 +6,21 @@
     volume_type_default: "{{ volume_type | default('io1') }}"
 
   pre_tasks:
-  - name: Bootstrap packaging so Ansible's pip module can run
-    ansible.builtin.raw: '{{ ansible_python_interpreter }} -m ensurepip --upgrade || true'
+    - name: Ensure pip and packaging are installed via OS packages
+      ansible.builtin.shell: |
+        set -e
+        if command -v apt-get >/dev/null 2>&1; then
+          apt-get update -y
+          apt-get install -y python3-pip python3-packaging
+        else
+          echo "No supported package manager found"; exit 1
+        fi
 
-  - name: Ensure packaging is available
-    ansible.builtin.raw: '{{ ansible_python_interpreter }} -m pip install --quiet --upgrade packaging'
-
-  - name: Install dependencies
-    pip: name={{ item }}
-    with_items:
-      - boto3
-      - botocore
+    - name: Install dependencies
+      pip: name={{ item }}
+      with_items:
+        - boto3
+        - botocore
 
   tasks:
     - name: Get EC2 instance state
