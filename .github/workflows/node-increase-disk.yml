@@ -42,15 +42,37 @@ jobs:
           aws_secret_access_key: ${{ secrets.AWS_SECRET_KEY }}
           aws_region: ${{vars.S3_REGION}}
 
-      - name: Run playbook
-        uses: arillso/action.playbook@main
+      # - name: Run playbook
+      #   uses: arillso/action.playbook@main
+      #   with:
+      #     # Required, playbook filepath
+      #     playbook: ./scripts/ansible/aws/ec2-modify-volume-size.yml
+      #     inventory: ./ansible-hosts
+      #     galaxy_file: ./scripts/ansible/aws/requirements.yml
+      #     verbose: 3
+      #     extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
+
+      - uses: actions/setup-python@v5
         with:
-          # Required, playbook filepath
-          playbook: ./scripts/ansible/aws/ec2-modify-volume-size.yml
-          inventory: ./ansible-hosts
-          galaxy_file: ./scripts/ansible/aws/requirements.yml
-          verbose: 3
-          extra_vars: "aws_region=${{github.event.inputs.aws_region}} instance_id=${{inputs.instance_id}} aws_secret_key=${{secrets.AWS_SECRET_KEY}} aws_access_key_id=${{secrets.AWS_ACCESS_KEY_ID}} volume_size=${{github.event.inputs.disk_size}} ansible_python_interpreter='/usr/bin/python3'"
+          python-version: '3.11'
+
+      - name: Install Ansible + deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install "ansible-core>=2.16" boto3 botocore packaging
+
+      - name: Galaxy install
+        run: ansible-galaxy install -r ./scripts/ansible/aws/requirements.yml
+
+      - name: Run playbook
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+        run: |
+          ansible-playbook \
+            -i ./ansible-hosts \
+            --extra-vars "aws_region=${{ github.event.inputs.aws_region }} instance_id=${{ inputs.instance_id }} volume_size=${{ github.event.inputs.disk_size }} ansible_python_interpreter=/usr/bin/python3" \
+            ./scripts/ansible/aws/ec2-modify-volume-size.yml
 
       - name: Wait for AWS to finish provisioning the disk
         run: sleep 30m
