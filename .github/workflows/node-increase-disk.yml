@@ -82,6 +82,7 @@ jobs:
             {"commands":["sudo growpart /dev/nvme0n1 1", "sudo resize2fs /dev/nvme0n1p1"]}
 
       - name: Get SSM output
+        if: always()
         id: get-ssm-output
         env:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
