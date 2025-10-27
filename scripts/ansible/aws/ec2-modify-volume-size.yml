@@ -6,6 +6,10 @@
     volume_type_default: "{{ volume_type | default('io1') }}"
 
   pre_tasks:
+
+  - name: Install packaging so Ansible's pip module can run
+    ansible.builtin.command: /usr/bin/python3 -m pip install --upgrade pip setuptools wheel packaging
+
   - name: Install dependencies
     pip: name={{ item }}
     with_items:
