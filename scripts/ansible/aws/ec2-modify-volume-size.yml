@@ -6,6 +6,8 @@
     volume_type_default: "{{ volume_type | default('io1') }}"
 
   pre_tasks:
+  - name: Bootstrap packaging so Ansible's pip module can run
+    ansible.builtin.raw: '{{ ansible_python_interpreter }} -m ensurepip --upgrade || true'
 
   - name: Ensure packaging is available
     ansible.builtin.raw: '{{ ansible_python_interpreter }} -m pip install --quiet --upgrade packaging'
