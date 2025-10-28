@@ -109,15 +109,23 @@ pub struct UpdateAccumulator<T: TypesAndLimits> {
 
 crate::impl_action_with_nonce! {
     for AccumulatorId:
+        AddAccumulator with 1 as len, id as target,
         UpdateAccumulator with 1 as len, id as target,
         RemoveAccumulator with 1 as len, id as target
 }
 
 crate::impl_action_with_nonce! {
+    for AccumPublicKeyStorageKey:
+        RemoveAccumulatorPublicKey with 1 as len, key_ref as target
+}
+
+crate::impl_action_with_nonce! {
+    for AccumParametersStorageKey:
+        RemoveAccumulatorParams with 1 as len, params_ref as target
+}
+
+crate::impl_action_with_nonce! {
     for ():
-        AddAccumulator with 1 as len, () as target,
         AddAccumulatorParams with 1 as len, () as target,
-        AddAccumulatorPublicKey with 1 as len, () as target,
-        RemoveAccumulatorPublicKey with 1 as len, () as target,
-        RemoveAccumulatorParams with 1 as len, () as target
+        AddAccumulatorPublicKey with 1 as len, () as target
 }

@@ -7,7 +7,7 @@ use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{CloneNoBound, DebugNoBound, EqNoBound, PartialEqNoBound};
 use sp_runtime::traits::CheckedConversion;
 
-use super::{Config, OffchainSignatureParams, SignatureParamsOwner, SignatureParamsStorageKey};
+use super::{Config, OffchainSignatureParams, SignatureParamsStorageKey};
 use crate::offchain_signatures::OffchainPublicKey;
 
 /// Identifier of the participant used in the threshold issuance.
@@ -163,45 +163,6 @@ macro_rules! def_signature_scheme_key_and_params {
                 }
             }
         }
-
-        #[allow(non_snake_case)]
-       pub mod $scheme {
-            use super::*;
-            use crate::{did::Did, util::IncId};
-
-            type OldSignatureParamsStorageKey = (Did, IncId);
-
-            $(#[$key_meta])*
-            #[derive(scale_info_derive::TypeInfo, Encode, Decode, CloneNoBound, PartialEqNoBound, EqNoBound, DebugNoBound, MaxEncodedLen)]
-            #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-            #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-            #[cfg_attr(
-                feature = "serde",
-                serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-            )]
-            #[scale_info(skip_type_params(T))]
-            pub(crate) struct OldPublicKey<T: Limits> {
-                /// The public key should be for the same curve as the parameters but a public key might not have
-                /// parameters on chain
-                pub(crate) curve_type: CurveType,
-                pub(crate) bytes: BoundedBytes<T::$key_byte_size>,
-                /// The params used to generate the public key
-                pub(crate) params_ref: Option<OldSignatureParamsStorageKey>,
-                /// Optional participant id used in threshold issuance.
-                pub(crate) participant_id: Option<ParticipantId>,
-            }
-
-            impl<T: Limits> From<OldPublicKey<T>> for $key<T> {
-                fn from(OldPublicKey { curve_type, bytes, params_ref, participant_id }: OldPublicKey<T>) -> Self {
-                    Self {
-                        curve_type,
-                        bytes,
-                        params_ref: params_ref.map(|(did, params_id)| (SignatureParamsOwner(did.into()), params_id)),
-                        participant_id,
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -227,4 +188,12 @@ def_signature_scheme_key_and_params! {
         PSPublicKey<MaxPSPublicKeySize>,
         /// Signature parameters for the PS signature scheme.
         PSParameters<MaxOffchainParamsBytesSize>
+}
+
+def_signature_scheme_key_and_params! {
+    for BBDT16:
+        /// Public key for the BBDT16 signature scheme.
+        BBDT16PublicKey<MaxBBDT16PublicKeySize>,
+        /// Signature parameters for the BBDT16 signature scheme.
+        BBDT16Parameters<MaxOffchainParamsBytesSize>
 }

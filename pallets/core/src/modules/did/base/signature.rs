@@ -1,10 +1,7 @@
 use core::marker::PhantomData;
 
 use super::super::*;
-use crate::common::{
-    Authorization, AuthorizeSignedAction, AuthorizeTarget, DidMethodKeySigValue, ForSigType,
-    GetKey, SigValue, Signature, ToStateChange,
-};
+use crate::common::{signed_action::*, *};
 
 /// Either `DidKey` or `DidMethodKey`.
 #[derive(Encode, Decode, Clone, Debug, PartialEq, Eq, Copy, MaxEncodedLen)]
@@ -39,29 +36,32 @@ impl TryFrom<DidKeyOrDidMethodKey> for DidMethodKey {
     }
 }
 
-impl<Target, Authorizer> AuthorizeTarget<Target, DidKeyOrDidMethodKey> for Authorizer
+impl<T, Target, Authorizer> AuthorizeTarget<T, Target, DidKeyOrDidMethodKey> for Authorizer
 where
-    Authorizer: AuthorizeTarget<Target, DidKey> + AuthorizeTarget<Target, DidMethodKey>,
+    Authorizer: AuthorizeTarget<T, Target, DidKey> + AuthorizeTarget<T, Target, DidMethodKey>,
+    Target: Associated<T>,
 {
-    fn ensure_authorizes_target<T, A>(
+    fn ensure_authorizes_target<A>(
         &self,
         key: &DidKeyOrDidMethodKey,
         action: &A,
-    ) -> Result<(), super::Error<T>>
+        value: Option<&Target::Value>,
+    ) -> DispatchResult
     where
-        T: super::Config,
         A: Action<Target = Target>,
     {
         match key {
-            DidKeyOrDidMethodKey::DidKey(did_key) => self.ensure_authorizes_target(did_key, action),
+            DidKeyOrDidMethodKey::DidKey(did_key) => {
+                self.ensure_authorizes_target(did_key, action, value)
+            }
             DidKeyOrDidMethodKey::DidMethodKey(did_method_key) => {
-                self.ensure_authorizes_target(did_method_key, action)
+                self.ensure_authorizes_target(did_method_key, action, value)
             }
         }
     }
 }
 
-/// `DID`'s signature along with the used `DID`s key reference.
+/// `DID`'s signature along with the used `DID`s key reference or `DidMethodKey`'s signature.
 #[derive(Encode, Decode, Debug, Clone, PartialEq, Eq, MaxEncodedLen)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
@@ -279,58 +279,64 @@ impl<T: Config, A> SignedActionWithNonce<T, A, DidOrDidMethodKeySignature<Contro
 where
     A: ActionWithNonce<T, Target = Did> + ToStateChange<T>,
     DidOrDidMethodKeySignature<Controller>:
-        AuthorizeSignedAction<A, Key = DidKeyOrDidMethodKey, Signer = Controller>,
+        AuthorizeSignedAction<T, A, Key = DidKeyOrDidMethodKey, Signer = Controller>,
 {
-    pub fn execute_from_controller<F, R, E>(self, f: F) -> Result<R, E>
+    pub fn execute_from_controller<F, R, E>(self, f: F) -> Result<R, IntermediateError<T>>
     where
         F: FnOnce(A, &mut OnChainDidDetails) -> Result<R, E>,
-        E: From<ActionExecutionError> + From<NonceError> + From<Error<T>>,
+        E: Into<IntermediateError<T>>,
     {
-        self.execute_removable_from_controller(|action, reference| {
-            f(action, reference.as_mut().unwrap())
+        self.execute_removable_from_controller(|action, data_opt| {
+            let data_ref = data_opt.as_mut().ok_or(ActionExecutionError::NoEntity)?;
+
+            f(action, data_ref).map_err(Into::into)
         })
+        .map_err(Into::into)
     }
 
-    pub fn execute_removable_from_controller<F, R, E>(self, f: F) -> Result<R, E>
+    pub fn execute_removable_from_controller<F, R, E>(self, f: F) -> Result<R, IntermediateError<T>>
     where
         F: FnOnce(A, &mut Option<OnChainDidDetails>) -> Result<R, E>,
-        E: From<ActionExecutionError> + From<NonceError> + From<Error<T>>,
+        E: Into<IntermediateError<T>>,
     {
         let SignedActionWithNonce {
             action, signature, ..
         } = self;
 
         let Authorization { signer, .. } = signature
-            .authorizes_signed_action(&action)?
+            .authorizes_signed_action(&action, None)?
             .ok_or(Error::<T>::InvalidSignature)?;
 
         match signer.into() {
             DidOrDidMethodKey::Did(controller) => {
                 if controller == action.target() {
-                    ActionWrapper::<T, A, Did>::new(action.nonce(), controller, action)
-                        .execute_and_increase_nonce(|ActionWrapper { action, .. }, reference| {
-                            f(action, reference)
-                        })
-                        .map_err(Into::into)
+                    ActionWithNonceWrapper::<T, A, Did>::new(action.nonce(), controller, action)
+                        .execute_and_increase_nonce(
+                            |ActionWithNonceWrapper { action, .. }, reference| {
+                                f(action, reference).map_err(Into::into)
+                            },
+                        )
                 } else {
-                    ActionWrapper::<T, A, Did>::new(action.nonce(), controller, action)
-                        .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
+                    ActionWithNonceWrapper::<T, A, Did>::new(action.nonce(), controller, action)
+                        .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
                             action.execute_without_increasing_nonce(|action, reference| {
-                                f(action, reference)
+                                f(action, reference).map_err(Into::into)
                             })
                         })
-                        .map_err(Into::into)
                 }
             }
-            DidOrDidMethodKey::DidMethodKey(controller) => {
-                ActionWrapper::<T, A, DidMethodKey>::new(action.nonce(), controller, action)
-                    .execute_and_increase_nonce(|ActionWrapper { action, .. }, _| {
-                        action.execute_without_increasing_nonce(|action, reference| {
-                            f(action, reference)
-                        })
-                    })
-                    .map_err(Into::into)
-            }
+            DidOrDidMethodKey::DidMethodKey(controller) => ActionWithNonceWrapper::<
+                T,
+                A,
+                DidMethodKey,
+            >::new(
+                action.nonce(), controller, action
+            )
+            .execute_and_increase_nonce(|ActionWithNonceWrapper { action, .. }, _| {
+                action.execute_without_increasing_nonce(|action, reference| {
+                    f(action, reference).map_err(Into::into)
+                })
+            }),
         }
     }
 }

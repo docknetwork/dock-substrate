@@ -43,7 +43,7 @@ pub trait ForSigType: Sized {
         for_secp256k1: impl FnOnce() -> R,
     ) -> Option<R>;
 
-    /// Return counts of different signature types in given `DidSignatureWithNonce` as 3-Tuple as (no. of Sr22519 sigs,
+    /// Return counts of different signature types in given `SignatureWithNonce` as 3-Tuple as (no. of Sr22519 sigs,
     /// no. of Ed25519 Sigs, no. of Secp256k1 sigs). Useful for weight calculation and thus the return
     /// type is in `Weight` but realistically, it should fit in a u8
     fn count_sig_types(auths: impl IntoIterator<Item = impl Borrow<Self>>) -> SigTypes<u64> {
@@ -62,7 +62,7 @@ pub trait ForSigType: Sized {
         counts
     }
 
-    /// Computes weight of the given `DidSignatureWithNonce`. Considers the no. and types of signatures and no. of reads. Disregards
+    /// Computes weight of the given `SignatureWithNonce`. Considers the no. and types of signatures and no. of reads. Disregards
     /// message size as messages are hashed giving the same output size and hashing itself is very cheap.
     /// The extrinsic using it might decide to consider adding some weight proportional to the message size.
     fn auth_weight(

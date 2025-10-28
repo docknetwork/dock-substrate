@@ -1,12 +1,13 @@
 //! Dock Trust Registry.
 
 use crate::{
-    common::ForSigType,
+    common::{ForSigType, SignatureWithNonce},
     deposit_indexed_event,
     did::{self, DidOrDidMethodKeySignature},
     util::{
-        constants::ZeroDbWeight, ActionWithNonce, ActionWrapper, KeyValue, KeyedUpdate,
-        OnlyExistent, SetOrAddOrRemoveOrModify, SetOrModify, UpdateTranslationError,
+        batch_update::TranslateUpdate, constants::ZeroDbWeight, Action, ActionWithNonce,
+        ActionWrapper, KeyValue, KeyedUpdate, OnlyExistent, SetOrAddOrRemoveOrModify, SetOrModify,
+        UpdateTranslationError,
     },
 };
 use core::convert::Infallible;
@@ -15,7 +16,7 @@ use frame_support::{
     pallet_prelude::*,
     weights::{PostDispatchInfo, RuntimeDbWeight},
 };
-use r#impl::{StepError, StepStorageAccesses};
+use sp_std::vec::Vec;
 
 use frame_system::ensure_signed;
 
@@ -42,6 +43,11 @@ use weights::*;
 
 #[frame_support::pallet]
 pub mod pallet {
+    use crate::{
+        common::{IntermediateError, SignatureWithNonce},
+        util::{AddOrRemoveOrModify, DuplicateKey, InclusionRule, UpdateError},
+    };
+
     use super::*;
     use frame_system::pallet_prelude::*;
     use utils::BoundedStringConversionError;
@@ -81,12 +87,35 @@ pub mod pallet {
         }
     }
 
+    impl<T> From<UpdateError> for Error<T> {
+        fn from(update_error: UpdateError) -> Self {
+            match update_error {
+                UpdateError::DoesntExist => Error::<T>::EntityDoesntExist,
+                UpdateError::AlreadyExists => Error::<T>::EntityAlreadyExists,
+                UpdateError::InvalidActor => Error::<T>::SenderCantApplyThisUpdate,
+                UpdateError::Overflow => Error::<T>::TooManySchemasPerDelegatedIssuer,
+                UpdateError::Underflow => Error::<T>::Underflow,
+                UpdateError::CapacityOverflow => Error::<T>::TooManyEntities,
+                UpdateError::ValidationFailed => Error::<T>::UpdateValidationFailed,
+            }
+        }
+    }
+
+    impl<T> From<DuplicateKey> for Error<T> {
+        fn from(DuplicateKey: DuplicateKey) -> Self {
+            Error::<T>::DuplicateKey
+        }
+    }
+
     /// Error for the TrustRegistry module.
     #[pallet::error]
     pub enum Error<T> {
+        /// Too many registries per a `Convener`.
         TooManyRegistries,
         /// Not the `TrustRegistry`'s `Convener`.
         NotTheConvener,
+        /// `TrustRegistry` with supplied identifier doesn't exist
+        NoRegistry,
         /// Supplied `Issuer` doesn't exist.
         NoSuchIssuer,
         /// At least one of the supplied `Issuers` was suspended already.
@@ -109,6 +138,34 @@ pub mod pallet {
         PriceCurrencySymbolSizeExceeded,
         /// Too many schemas per a single Trust Registry.
         SchemasPerRegistrySizeExceeded,
+        /// `Issuer` attempts to set himself as a delegated `Issuer`.
+        IssuerCantDelegateToHimself,
+        /// Issuer cant' modify other `Issuer`.
+        InvalidIssuerTarget,
+        /// Attempt to decrease counter below zero.
+        Underflow,
+        /// Attempt to remove/update non-existing entity failed.
+        EntityDoesntExist,
+        /// Attempt to add an existing entity failed.
+        EntityAlreadyExists,
+        /// This update can't be executed by the provided sender.
+        SenderCantApplyThisUpdate,
+        /// Delegated `Issuer`'s schemas amount exceeded.
+        TooManySchemasPerDelegatedIssuer,
+        /// Can't add more entities.
+        TooManyEntities,
+        /// Failed to validate provided update.
+        UpdateValidationFailed,
+        /// Some of the keys were found twice in the update.
+        DuplicateKey,
+        /// One of the `Issuer`s or `Verifier`s is not a registry participant.
+        NotAParticipant,
+        /// `TrustRegistry` participant's org name exceeded its limit.
+        ParticipantOrgNameSizeExceededLimit,
+        /// `TrustRegistry` participant's logo exceeded its limit.
+        ParticipantLogoSizeExceededLimit,
+        /// `TrustRegistry` participant's description exceeded its limit.
+        ParticipantDescriptionSizeExceededLimit,
     }
 
     #[pallet::event]
@@ -126,8 +183,14 @@ pub mod pallet {
         IssuerSuspended(TrustRegistryId, Issuer),
         /// `TrustRegistry`'s `Issuer` was unsuspended.
         IssuerUnsuspended(TrustRegistryId, Issuer),
-        /// Delegated `Issuer`s were updated in the  `TrustRegistry` with the given id..
+        /// Delegated `Issuer`s were updated in the `TrustRegistry` with the given id.
         DelegatedIssuersUpdated(TrustRegistryId, Issuer),
+        /// `TrustRegistry` new participant was invited and confirmed his allowance.
+        TrustRegistryParticipantConfirmed(TrustRegistryId, IssuerOrVerifier),
+        /// The `TrustRegistry` participant was removed from the registry.
+        TrustRegistryParticipantRemoved(TrustRegistryId, IssuerOrVerifier),
+        /// `TrustRegistry` participant information was set.
+        TrustRegistryParticipantInformationSet(TrustRegistryId, IssuerOrVerifier),
     }
 
     #[pallet::pallet]
@@ -159,11 +222,35 @@ pub mod pallet {
         TrustRegistrySchemaMetadata<T>,
     >;
 
-    /// Schema ids corresponding to trust registries. Mapping of registry_id -> schema_id
+    /// Schema ids corresponding to trust registries. Mapping of `TrustRegistryId` -> set of schema ids.
     #[pallet::storage]
     #[pallet::getter(fn registry_stored_schemas)]
     pub type TrustRegistriesStoredSchemas<T: Config> =
         StorageMap<_, Blake2_128Concat, TrustRegistryId, TrustRegistryStoredSchemas<T>, ValueQuery>;
+
+    /// Trust Registry participants. Mapping of `TrustRegistryId` -> set of participants (`Verifier`s and `Issuer`s).
+    #[pallet::storage]
+    #[pallet::getter(fn registry_participants)]
+    pub type TrustRegistriesParticipants<T: Config> = StorageMap<
+        _,
+        Blake2_128Concat,
+        TrustRegistryIdForParticipants,
+        TrustRegistryStoredParticipants<T>,
+        ValueQuery,
+    >;
+
+    /// Trust Registry participants. Mapping of `TrustRegistryId` -> `Issuer` -> trust registry participant information.
+    #[pallet::storage]
+    #[pallet::getter(fn registry_participant_information)]
+    pub type TrustRegistryParticipantsInformation<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        TrustRegistryIdForParticipants,
+        Blake2_128Concat,
+        IssuerOrVerifier,
+        TrustRegistryStoredParticipantInformation<T>,
+        OptionQuery,
+    >;
 
     /// Stores `TrustRegistry`s owned by conveners as a mapping of the form convener_id -> Set<registry_id>
     #[pallet::storage]
@@ -194,6 +281,19 @@ pub mod pallet {
         Blake2_128Concat,
         Issuer,
         IssuerSchemas<T>,
+        ValueQuery,
+    >;
+
+    /// Stores `Trust Registry`'s delegated `Issuer`s schemas.
+    #[pallet::storage]
+    #[pallet::getter(fn registry_delegated_issuer_schemas)]
+    pub type TrustRegistryDelegatedIssuerSchemas<T: Config> = StorageDoubleMap<
+        _,
+        Blake2_128Concat,
+        TrustRegistryId,
+        Blake2_128Concat,
+        Issuer,
+        DelegatedIssuerSchemas<T>,
         ValueQuery,
     >;
 
@@ -235,8 +335,14 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             init_or_update_trust_registry
-                .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::init_or_update_trust_registry_))
+                .signed(signature)
+                .execute_removable(|action, info, signer| {
+                    ActionWrapper::new(signer, action).modify(|action, set| {
+                        Self::init_or_update_trust_registry_(action.action, set, info, signer)
+                            .map_err(IntermediateError::<T>::from)
+                    })
+                })
+                .map_err(Into::into)
         }
 
         /// Sets the schema metadata entry (entries) with the supplied identifier(s).
@@ -254,43 +360,33 @@ pub mod pallet {
         ) -> DispatchResultWithPostInfo {
             ensure_signed(origin)?;
 
-            let base_weight = T::DbWeight::get().reads_writes(4, 2).saturating_add(
+            let base_weight = T::DbWeight::get().reads_writes(4, 1).saturating_add(
                 SubstrateWeight::<ZeroDbWeight>::set_schemas_metadata(
                     &set_schemas_metadata,
                     &signature,
                 ),
             );
 
-            match set_schemas_metadata
+            set_schemas_metadata
                 .signed(signature)
-                .execute_readonly(Self::set_schemas_metadata_)
-            {
-                Ok(StepStorageAccesses {
-                    validation,
-                    execution,
-                }) => Ok(PostDispatchInfo {
-                    actual_weight: Some(
-                        base_weight
-                            .saturating_add(validation.reads::<T>())
-                            .saturating_add(execution.reads_writes::<T>()),
-                    ),
-                    pays_fee: Pays::Yes,
-                }),
-                Err(StepError::Conversion(error)) => Err(DispatchErrorWithPostInfo {
+                .execute_view(Self::set_schemas_metadata_)
+                .map(|info| PostDispatchInfo {
+                    actual_weight: info
+                        .actual_weight
+                        .map(|weight| weight.saturating_add(base_weight)),
+                    ..info
+                })
+                .map_err(IntermediateError::<T>::into_dispatch_with_post_info)
+                .map_err(|error| DispatchErrorWithPostInfo {
                     post_info: PostDispatchInfo {
-                        actual_weight: Some(base_weight),
-                        pays_fee: Pays::Yes,
+                        actual_weight: error
+                            .post_info
+                            .actual_weight
+                            .map(|weight| weight.saturating_add(base_weight)),
+                        ..error.post_info
                     },
-                    error,
-                }),
-                Err(StepError::Validation(error, validation)) => Err(DispatchErrorWithPostInfo {
-                    post_info: PostDispatchInfo {
-                        actual_weight: Some(base_weight.saturating_add(validation.reads::<T>())),
-                        pays_fee: Pays::Yes,
-                    },
-                    error,
-                }),
-            }
+                    ..error
+                })
         }
 
         /// Update delegated `Issuer`s of the given `Issuer`.
@@ -303,8 +399,9 @@ pub mod pallet {
             ensure_signed(origin)?;
 
             update_delegated_issuers
-                .signed(signature)
-                .execute_readonly(Self::update_delegated_issuers_)
+                .signed_with_combined_target(signature, |target, signer| (target, signer))?
+                .execute(Self::update_delegated_issuers_)
+                .map_err(Into::into)
         }
 
         /// Suspends given `Issuer`s.
@@ -318,7 +415,8 @@ pub mod pallet {
 
             suspend_issuers
                 .signed(signature)
-                .execute_readonly(Self::suspend_issuers_)
+                .execute_view(Self::suspend_issuers_)
+                .map_err(Into::into)
         }
 
         /// Unsuspends given `Issuer`s.
@@ -332,7 +430,96 @@ pub mod pallet {
 
             unsuspend_issuers
                 .signed(signature)
-                .execute_readonly(Self::unsuspend_issuers_)
+                .execute_view(Self::unsuspend_issuers_)
+                .map_err(Into::into)
+        }
+
+        /// Updates the participants of a registry identified by the given registry ID.
+        /// This method is used to add or remove `Verifier`s and `Issuer`s, allowing the `Convener` to include them in the schema metadata.
+        ///
+        /// To add participant(s), the action must be signed by both the `Convener` and all participants to be added.
+        /// To remove participant(s), the action must be signed by all participants who wish to be removed.
+        /// In summary, if at least one participant is being added, the `Convener`'s signature is required.
+        #[pallet::weight(SubstrateWeight::<T::DbWeight>::change_participants_::<T>(change_participants, signatures))]
+        pub fn change_participants(
+            origin: OriginFor<T>,
+            change_participants: ChangeParticipantsRaw<T>,
+            signatures: Vec<
+                SignatureWithNonce<
+                    T::BlockNumber,
+                    DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+                >,
+            >,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            let f = |action: ChangeParticipantsRaw<T>, registry_info: TrustRegistryInfo<T>| {
+                let participants = action
+                    .participants
+                    .keys()
+                    .map(|did| ConvenerOrIssuerOrVerifier(**did));
+                // Only require convener signature to add new participants, existing participants
+                // can remove themselves without involving the convener.
+                let maybe_convener = action
+                    .participants
+                    .values()
+                    .any(|update| matches!(update, AddOrRemoveOrModify::Add(())))
+                    .then(|| ConvenerOrIssuerOrVerifier(*registry_info.convener));
+
+                let signers = InclusionRule::all(participants.chain(maybe_convener));
+
+                action
+                    .multi_signed(signatures)
+                    .execute(Self::change_participants_, |_| signers)
+            };
+
+            ActionWrapper::new(*change_participants.registry_id, change_participants)
+                .view(ActionWrapper::wrap_fn(f))
+                .map_err(Into::into)
+        }
+
+        /// Updates participant details in the TrustRegistry, including their name, logo, and description.
+        /// The Convener ensures the accuracy of these updates.
+        /// This transaction requires signatures from both the Convener and the participant.
+        #[pallet::weight(SubstrateWeight::<T::DbWeight>::set_participant_information_::<T>(set_participant_information, signatures))]
+        pub fn set_participant_information(
+            origin: OriginFor<T>,
+            set_participant_information: SetParticipantInformationRaw<T>,
+            signatures: Vec<
+                SignatureWithNonce<
+                    T::BlockNumber,
+                    DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+                >,
+            >,
+        ) -> DispatchResult {
+            ensure_signed(origin)?;
+
+            let f = |action: SetParticipantInformationRaw<T>,
+                     registry_info: TrustRegistryInfo<T>| {
+                let (registry_id, participant) = action.target();
+
+                let signers = InclusionRule::all(
+                    [*participant, *registry_info.convener]
+                        .into_iter()
+                        .map(ConvenerOrIssuerOrVerifier),
+                );
+
+                ActionWrapper::new(registry_id, action).view(|action, participants| {
+                    action.action.multi_signed(signatures).execute_removable(
+                        |action, info, signers| {
+                            Self::set_participant_information_(action, info, participants, signers)
+                        },
+                        |_| signers,
+                    )
+                })
+            };
+
+            ActionWrapper::new(
+                *set_participant_information.registry_id,
+                set_participant_information,
+            )
+            .view(ActionWrapper::wrap_fn(f))
+            .map_err(Into::into)
         }
     }
 }
@@ -457,6 +644,40 @@ impl<W: Get<RuntimeDbWeight>> SubstrateWeight<W> {
             || Self::unsuspend_issuers_sr25519(issuers_len),
             || Self::unsuspend_issuers_ed25519(issuers_len),
             || Self::unsuspend_issuers_secp256k1(issuers_len),
+        )
+    }
+
+    fn change_participants_<T: Config>(
+        ChangeParticipantsRaw { participants, .. }: &ChangeParticipantsRaw<T>,
+        _signatures: &[SignatureWithNonce<
+            T::BlockNumber,
+            DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+        >],
+    ) -> Weight {
+        let len = participants.len() as u32;
+
+        Self::change_participants(len)
+    }
+
+    fn set_participant_information_<T: Config>(
+        SetParticipantInformationRaw {
+            participant_information:
+                UnboundedTrustRegistryParticipantInformation {
+                    org_name,
+                    logo,
+                    description,
+                },
+            ..
+        }: &SetParticipantInformationRaw<T>,
+        _signatures: &[SignatureWithNonce<
+            T::BlockNumber,
+            DidOrDidMethodKeySignature<ConvenerOrIssuerOrVerifier>,
+        >],
+    ) -> Weight {
+        Self::set_participant_information(
+            org_name.len() as u32,
+            logo.len() as u32,
+            description.len() as u32,
         )
     }
 }

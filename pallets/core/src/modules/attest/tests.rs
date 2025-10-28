@@ -23,12 +23,12 @@ crate::did_or_did_method_key! {
                 Origin::signed(0),
                 SetAttestationClaim {
                     attest: att.clone(),
-                    nonce: 10 + 1,
+                    nonce: 1,
                 },
                 did_sig::<Test, _, _, _>(
                     &SetAttestationClaim {
                         attest: att,
-                        nonce: 10 + 1,
+                        nonce: 1,
                     },
                     &kp,
                     did,
@@ -82,7 +82,7 @@ crate::did_or_did_method_key! {
             let sig = did_sig::<Test, _, _, _>(
                 &SetAttestationClaim {
                     attest: att.clone(),
-                    nonce: 10 + 1,
+                    nonce: 1,
                 },
                 &kpa,
                 Attester(dida.into()),
@@ -94,7 +94,7 @@ crate::did_or_did_method_key! {
                 Origin::signed(0),
                 SetAttestationClaim {
                     attest: att,
-                    nonce: 10 + 2,
+                    nonce: 2,
                 },
                 sig,
             )
@@ -119,12 +119,12 @@ crate::did_or_did_method_key! {
                 Origin::signed(0),
                 SetAttestationClaim {
                     attest: att.clone(),
-                    nonce: 10 + 1,
+                    nonce: 1,
                 },
                 did_sig::<Test, _, _, _>(
                     &SetAttestationClaim {
                         attest: att,
-                        nonce: 10 + 1,
+                        nonce: 1,
                     },
                     &kpb,
                     Attester(dida.into()),
@@ -144,7 +144,7 @@ crate::did_or_did_method_key! {
 
             let (did, kp) = newdid();
             let did = Attester(did.into());
-            check_nonce(&did, 10);
+            check_nonce(&did, 0);
 
             // same iri
             set_claim(
@@ -154,10 +154,10 @@ crate::did_or_did_method_key! {
                     iri: None,
                 },
                 &kp,
-                10 + 1,
+                1,
             )
             .unwrap();
-            check_nonce(&did, 10 + 1);
+            check_nonce(&did, 1);
             assert_eq!(
                 set_claim(
                     &did,
@@ -166,7 +166,7 @@ crate::did_or_did_method_key! {
                         iri: None,
                     },
                     &kp,
-                    11 + 1
+                    2
                 )
                 .unwrap_err(),
                 Er::PriorityTooLow.into()
@@ -180,10 +180,10 @@ crate::did_or_did_method_key! {
                     iri: Some(vec![0].try_into().unwrap()),
                 },
                 &kp,
-                11 + 1,
+                2,
             )
             .unwrap();
-            check_nonce(&did, 11 + 1);
+            check_nonce(&did, 2);
 
             assert_eq!(
                 set_claim(
@@ -193,7 +193,7 @@ crate::did_or_did_method_key! {
                         iri: Some(vec![0, 2, 3].try_into().unwrap()),
                     },
                     &kp,
-                    12 + 1
+                    3
                 )
                 .unwrap_err(),
                 Er::PriorityTooLow.into()
@@ -211,7 +211,7 @@ crate::did_or_did_method_key! {
             let (did, kp) = newdid();
             let did = Attester(did.into());
             let prios: Vec<u64> = (0..200).map(|_| rand::random::<u64>()).collect();
-            let mut nonce = 10 + 1;
+            let mut nonce = 1;
             for priority in &prios {
                 check_nonce(&did, nonce - 1);
 
@@ -245,7 +245,7 @@ crate::did_or_did_method_key! {
 
             let (did, kp) = newdid();
             let did = Attester(did.into());
-            check_nonce(&did, 10);
+            check_nonce(&did, 0);
 
             set_claim(
                 &did,
@@ -254,10 +254,10 @@ crate::did_or_did_method_key! {
                     iri: None,
                 },
                 &kp,
-                10 + 1,
+                1,
             )
             .unwrap();
-            check_nonce(&did, 10 + 1);
+            check_nonce(&did, 1);
             let err = set_claim(
                 &did,
                 &Attestation {
@@ -265,7 +265,7 @@ crate::did_or_did_method_key! {
                     iri: None,
                 },
                 &kp,
-                11 + 1,
+                2,
             )
             .unwrap_err();
             assert_eq!(err, Er::PriorityTooLow.into());
@@ -287,7 +287,7 @@ crate::did_or_did_method_key! {
                     iri: None,
                 }
             );
-            check_nonce(&did, 10);
+            check_nonce(&did, 0);
             set_claim(
                 &did,
                 &Attestation {
@@ -295,10 +295,10 @@ crate::did_or_did_method_key! {
                     iri: Some(vec![0, 1, 2].try_into().unwrap()),
                 },
                 &kp,
-                10 + 1,
+                1,
             )
             .unwrap();
-            check_nonce(&did, 10 + 1);
+            check_nonce(&did, 1);
             assert_eq!(
                 Attestations::<Test>::get(did),
                 Attestation {
@@ -318,7 +318,7 @@ crate::did_or_did_method_key! {
             let (did, kp) = newdid();
             let did = Attester(did.into());
             for (i, priority) in [1, 2, 4].iter().enumerate() {
-                let nonce = 10 + 1 + i as u64;
+                let nonce = 1 + i as u64;
                 check_nonce(&did, nonce - 1);
                 set_claim(
                     &did,

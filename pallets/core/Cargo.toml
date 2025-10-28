@@ -16,8 +16,13 @@ features = ["use_alloc"]
 [dependencies.bitflags]
 version = "1.3.2"
 
+[dependencies.hex]
+version = "0.4"
+default-features = false
+
 [dependencies.utils]
 git = "https://github.com/docknetwork/dock-substrate-common.git"
+rev = "791ba98f551bcc82debb95ad8a3f95c3b193f51a"
 default-features = false
 
 [dependencies.scale-info]
@@ -28,13 +33,6 @@ features = ["derive", "serde"]
 [dependencies.scale-info-derive]
 git = "https://github.com/docknetwork/scale-info.git"
 branch = "master"
-
-[dependencies.serde-hex]
-package = "hex"
-default-features = false
-version = "0.4.2"
-features = ["serde"]
-optional = true
 
 [dependencies.serde]
 features = ["derive"]
@@ -57,44 +55,37 @@ version = "3.1.5"
 
 [dependencies.sp-core]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 features = ["full_crypto"]
 
 [dependencies.sp-std]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.sp-runtime]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.sp-io]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.frame-system]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.frame-support]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
 [dependencies.sp-api]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
@@ -104,7 +95,6 @@ optional = true
 
 [dependencies.sp-application-crypto]
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 features = ["full_crypto"]
@@ -112,7 +102,6 @@ features = ["full_crypto"]
 [dependencies.frame-benchmarking]
 optional = true
 default-features = false
-#version = "3.0.0"
 git = "https://github.com/paritytech/substrate.git"
 branch = "polkadot-v0.9.29"
 
@@ -200,9 +189,9 @@ branch = "polkadot-v0.9.29"
 default = ["std"]
 std = [
     "serde_with/std",
-    "serde-hex/std",
     "codec/std",
     "frame-support/std",
+    "hex/std",
     "itertools/use_std",
     "frame-benchmarking/std",
     "sp-application-crypto/std",
@@ -211,7 +200,6 @@ std = [
     "serde_with",
     "serde-big-array",
     "getrandom/std",
-    "serde-hex",
     "utils/std",
     "serde-big-array",
     "sp-core/std",

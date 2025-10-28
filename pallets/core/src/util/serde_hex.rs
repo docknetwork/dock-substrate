@@ -1,8 +1,8 @@
+use hex::FromHex;
 use serde::{
     self,
     de::{Error, Visitor},
 };
-use serde_hex::FromHex;
 use sp_std::{fmt, marker::PhantomData};
 
 struct HexStrVisitor<T>(PhantomData<T>);
@@ -33,9 +33,9 @@ where
     }
 }
 
-fn parse_hex<T>(data: &str) -> Result<T, <T as serde_hex::FromHex>::Error>
+fn parse_hex<T>(data: &str) -> Result<T, <T as hex::FromHex>::Error>
 where
-    T: serde_hex::FromHex,
+    T: hex::FromHex,
 {
     FromHex::from_hex(data.strip_prefix("0x").unwrap_or(data))
 }
@@ -47,7 +47,7 @@ pub mod big_array {
     pub fn serialize<'a, T, S>(value: &'a T, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
-        T: util::BigArray<'a> + serde_hex::ToHex,
+        T: util::BigArray<'a> + hex::ToHex,
     {
         if serializer.is_human_readable() {
             let str: String = value.encode_hex();
@@ -60,8 +60,8 @@ pub mod big_array {
     pub fn deserialize<'de, D, T>(deserializer: D) -> Result<T, D::Error>
     where
         D: serde::Deserializer<'de>,
-        T: util::BigArray<'de> + serde_hex::FromHex,
-        <T as serde_hex::FromHex>::Error: sp_std::fmt::Display,
+        T: util::BigArray<'de> + hex::FromHex,
+        <T as hex::FromHex>::Error: sp_std::fmt::Display,
     {
         if deserializer.is_human_readable() {
             deserializer.deserialize_str(HexStrVisitor(PhantomData))
@@ -80,7 +80,7 @@ mod basic {
         T: serde::Serialize + AsRef<[u8]>,
     {
         if serializer.is_human_readable() {
-            let str = serde_hex::encode(value.as_ref());
+            let str = hex::encode(value.as_ref());
             serializer.serialize_str(&format!("0x{}", str))
         } else {
             T::serialize(value, serializer)

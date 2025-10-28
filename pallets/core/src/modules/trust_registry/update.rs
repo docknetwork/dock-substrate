@@ -1,6 +1,9 @@
 use super::*;
 use crate::{common::Limits, util::batch_update::*};
-use alloc::{collections::BTreeMap, string::String};
+use alloc::{
+    collections::{BTreeMap, BTreeSet},
+    string::String,
+};
 use core::{
     iter,
     iter::once,
@@ -51,6 +54,7 @@ pub type UnboundedSchemasUpdate = SetOrModify<
     UnboundedSchemas,
     MultiTargetUpdate<TrustRegistrySchemaId, UnboundedSchemaMetadataModification>,
 >;
+/// Either a complete overridden map of the whole registry schemas or a map of updates to be applied.
 pub type SchemasUpdate<T> = SetOrModify<Schemas<T>, SchemaIdUpdate<SchemaMetadataModification<T>>>;
 
 impl<T: Limits> TryFrom<UnboundedSchemas> for Schemas<T> {
@@ -60,7 +64,7 @@ impl<T: Limits> TryFrom<UnboundedSchemas> for Schemas<T> {
         let schemas: BTreeMap<_, _> = schemas
             .into_iter()
             .map(|(schema_id, schema_metadata)| Ok((schema_id, schema_metadata.try_into()?)))
-            .collect::<Result<_, _>>()?;
+            .collect::<Result<_, Error<T>>>()?;
 
         schemas
             .try_into()
@@ -143,6 +147,7 @@ pub type SchemaMetadataModification<T> = SetOrAddOrRemoveOrModify<
 >;
 
 impl<T: Limits> SchemaMetadataModification<T> {
+    /// Records differences for `Issuer`s/`Verifier`s/`SchemaId`s based on the underying update kind.
     pub(super) fn record_inner_diff(
         &self,
         schema_id: TrustRegistrySchemaId,
@@ -228,7 +233,11 @@ impl<T: Limits> ApplyUpdate<TrustRegistrySchemaMetadata<T>>
             update.apply_update(verifiers);
         }
     }
+}
 
+impl<T: Limits> GetUpdateKind<TrustRegistrySchemaMetadata<T>>
+    for TrustRegistrySchemaMetadataUpdate<T>
+{
     fn kind(
         &self,
         TrustRegistrySchemaMetadata { issuers, verifiers }: &TrustRegistrySchemaMetadata<T>,
@@ -292,7 +301,11 @@ impl ApplyUpdate<UnboundedTrustRegistrySchemaMetadata>
             update.apply_update(verifiers);
         }
     }
+}
 
+impl GetUpdateKind<UnboundedTrustRegistrySchemaMetadata>
+    for UnboundedTrustRegistrySchemaMetadataUpdate
+{
     fn kind(
         &self,
         UnboundedTrustRegistrySchemaMetadata { issuers, verifiers }: &UnboundedTrustRegistrySchemaMetadata,
@@ -327,7 +340,7 @@ pub trait ValidateTrustRegistryUpdate<T: Config> {
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         context: &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError>
+    ) -> Result<Validated<Self::Result>, Error<T>>
     where
         Validated<Self::Result>: ExecuteTrustRegistryUpdate<T>;
 }
@@ -344,15 +357,122 @@ pub trait ExecuteTrustRegistryUpdate<T: Config> {
 /// An update that passed validation.
 pub struct Validated<V>(V);
 
-pub type IssuersVerifiersSchemas = (
+/// Holds three maps (`Issuer`/`Verifier`/`SchemaId`) representing actions to be performed over the key entities:
+///
+/// - `SchemaId` => `Issuer` => `Add`/`Remove`
+/// - `SchemaId` => `Verifier` => `Add`/`Remove`
+/// - `SchemaId` => `Add`/`Remove`
+pub type IssuersVerifiersSchemas<
+    Issuers = MultiSchemaIdUpdate<Issuer>,
+    Verifiers = MultiSchemaIdUpdate<Verifier>,
+    Schemas = SchemaIdUpdate,
+> = (Issuers, Verifiers, Schemas);
+
+/// An update to be applied to `Issuer`s over different schema ids.
+/// - `SchemaId` => `Issuer` => `Add`/`Remove`
+pub struct IssuersSchemasUpdate(MultiSchemaIdUpdate<Issuer>);
+/// Update to be applied to `Issuer`s and delegated `Issuer` maps over different schema ids.
+///
+/// - `SchemaId` => `Issuer` => `Add`/`Remove`
+/// - `Issuer` => `SchemaId` => `Inc`/`Dec`
+pub struct IssuersAndDelegatedIssuersSchemasUpdate(
     MultiSchemaIdUpdate<Issuer>,
-    MultiSchemaIdUpdate<Verifier>,
-    SchemaIdUpdate,
+    MultiTargetUpdate<Issuer, SchemaIdUpdate<IncOrDec>>,
 );
 
-impl<T: Config, Target: HasSchemasAndRegistries<T> + Ord> ValidateTrustRegistryUpdate<T>
-    for MultiSchemaIdUpdate<Target>
+impl<T: Config> ValidateTrustRegistryUpdate<T> for IssuersSchemasUpdate {
+    /// Context required for validating issuer and delegated issuer schema updates.
+    ///
+    /// This includes a mutable reference to record storage accesses and a set of allowed `Issuer`s.
+    type Context<'ctx> = (&'ctx mut StorageAccesses, &'ctx BTreeSet<Issuer>);
+
+    /// The result type after validation is performed.
+    type Result = IssuersAndDelegatedIssuersSchemasUpdate;
+
+    /// Validates and the trust registry update for issuer and delegated issuer schemas.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: The `IssuersSchemasUpdate` instance containing the updates to be validated.
+    /// - `actor`: The actor performing the update, which can be a Convener, Issuer, or Verifier.
+    /// - `registry_id`: The ID of the trust registry.
+    /// - `registry_info`: Information about the trust registry.
+    /// - `context`: A mutable reference to the context required for validation - storage accesses and allowed issuers.
+    fn validate_and_record_diff(
+        self,
+        actor: ConvenerOrIssuerOrVerifier,
+        registry_id: TrustRegistryId,
+        registry_info: &TrustRegistryInfo<T>,
+        context: &mut Self::Context<'_>,
+    ) -> Result<Validated<Self::Result>, Error<T>> {
+        // Validate and record issuer schema updates.
+        let Validated(issuers_update) = self.0.validate_and_record_diff(
+            actor,
+            registry_id,
+            registry_info,
+            &mut (
+                &mut context.0.issuer_schemas,
+                &mut context.0.issuer_registries,
+                context.1,
+            ),
+        )?;
+
+        // Combine and validate updates for delegated issuers.
+        let combined_delegated_issuers_update = issuers_update
+            .iter()
+            .flat_map(|(issuer, updates)| {
+                context.0.issuer_configuration += 1;
+
+                TrustRegistryIssuerConfigurations::<T>::get(registry_id, issuer)
+                    .delegated
+                    .0
+                    .into_iter()
+                    .map(move |delegated_issuer| (delegated_issuer, updates.clone()))
+            })
+            .try_fold(
+                MultiTargetUpdate::<Issuer, SchemaIdUpdate<IncOrDec>>::default(),
+                |mut acc, (delegated_issuer, updates)| {
+                    let translated_updates = updates
+                        .translate_update()
+                        .map_err(IntoModuleError::into_module_error)?;
+                    let entry = acc.entry(delegated_issuer).or_default();
+                    let existing = core::mem::take(entry);
+                    *entry = existing.combine(translated_updates)?;
+
+                    Ok::<_, Error<T>>(acc)
+                },
+            )?;
+
+        // Validate and collect validated updates for delegated issuers.
+        let validated_delegated_issuers_update = combined_delegated_issuers_update
+            .into_iter()
+            .filter_map(|(delegated_issuer, combined_updates)| {
+                context.0.delegated_issuer_schemas += 1;
+
+                let schemas =
+                    TrustRegistryDelegatedIssuerSchemas::<T>::get(registry_id, delegated_issuer);
+
+                check_err!(actor.validate_update(registry_info, &combined_updates, &schemas));
+
+                if combined_updates.kind(&schemas) == UpdateKind::None {
+                    None?
+                }
+
+                Some(Ok((delegated_issuer, combined_updates)))
+            })
+            .collect::<Result<_, Error<T>>>()?;
+
+        // Return the validated issuer and delegated issuer schema updates.
+        Ok(Validated(IssuersAndDelegatedIssuersSchemasUpdate(
+            issuers_update,
+            validated_delegated_issuers_update,
+        )))
+    }
+}
+
+impl<T: Config, Target> ValidateTrustRegistryUpdate<T> for MultiSchemaIdUpdate<Target>
 where
+    Target: HasSchemasAndRegistries<T> + Ord + 'static,
     Target::Schemas: Deref,
     Target::Registries: Deref,
     <Target::Schemas as Deref>::Target: KeyValue,
@@ -362,29 +482,59 @@ where
     RegistryIdUpdate: ValidateUpdate<Convener, Target::Registries>
         + ValidateUpdate<IssuerOrVerifier, Target::Registries>,
 {
-    type Context<'ctx> = (&'ctx mut u32, &'ctx mut u32);
+    /// The context required for validating and recording schema and registry updates.
+    ///
+    /// # Context
+    ///
+    /// - The first element represents the schemas storage accesses.
+    /// - The second element represents the registry storage accesses.
+    /// - The third element is a set of allowed targets. Each new participant must be
+    ///   present in this set to be considered valid.
+    type Context<'ctx> = (&'ctx mut u32, &'ctx mut u32, &'ctx BTreeSet<Target>);
+    /// The result type after validation and recording of the differences.
     type Result = MultiSchemaIdUpdate<Target>;
 
+    /// Validates and records the differences in the trust registry update.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: The `MultiSchemaIdUpdate` instance containing the updates to be validated.
+    /// - `actor`: The actor performing the update, which can be a Convener, Issuer, or Verifier.
+    /// - `registry_id`: The ID of the trust registry.
+    /// - `registry_info`: Information about the trust registry.
+    /// - `context`: A mutable reference to the context required for validation, including schema
+    ///   and registry storage accesses and the set of allowed targets.
     fn validate_and_record_diff(
         self,
         actor: ConvenerOrIssuerOrVerifier,
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
-        (ref mut schemas, ref mut regs): &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
+        (ref mut schemas, ref mut regs, allowed): &mut Self::Context<'_>,
+    ) -> Result<Validated<Self::Result>, Error<T>> {
         self.into_iter()
             .inspect(|_| **schemas += 1)
             .filter_map(|(target, update)| {
                 let schemas = target.schemas(registry_id);
 
+                // Validate the update and ensure that the actor's able to execute it.
                 check_err!(actor.validate_update(registry_info, &update, &schemas));
 
-                if update.kind(&schemas) == UpdateKind::None {
-                    None?
+                match update.kind(&schemas) {
+                    UpdateKind::None => None?,
+                    UpdateKind::Add => {
+                        // Ensure the target is an allowed participant.
+                        if !allowed.contains(&target) {
+                            return Some(Err(Error::<T>::NotAParticipant));
+                        }
+                    }
+                    _ => {}
                 }
 
+                // If the target has no schemas, it means that it's not present in this registry, so
+                // we have to check if everything is fine with the registries update as we will add this registry
+                // to the target's registry set.
                 if schemas.is_empty() {
-                    let update_target_schemas = MultiTargetUpdate::from_iter(once((
+                    let update_target_registries = MultiTargetUpdate::from_iter(once((
                         registry_id,
                         AddOrRemoveOrModify::<_>::Add(()),
                     )));
@@ -393,124 +543,204 @@ where
 
                     check_err!(actor.validate_update(
                         registry_info,
-                        &update_target_schemas,
+                        &update_target_registries,
                         &target.registries()
                     ))
                 }
 
                 Some(Ok((target, update)))
             })
-            .collect::<Result<_, DispatchError>>()
+            .collect::<Result<_, _>>()
             .map(Validated)
     }
 }
 
+/// Holds `(`Issuer`/`Verifier`/`SchemaId`) maps along with the storage accesses.
 pub type IssuersVerifiersSchemasWithStorageAccesses<'a> =
     (&'a mut IssuersVerifiersSchemas, &'a mut StorageAccesses);
 
 impl<T: Config> ValidateTrustRegistryUpdate<T> for Schemas<T> {
+    /// The context required for validating and recording schema updates.
+    ///
+    /// The context includes accesses to issuers, verifiers, schemas, and their respective storage.
     type Context<'ctx> = IssuersVerifiersSchemasWithStorageAccesses<'ctx>;
+
+    /// The result type after validation and recording of the differences.
     type Result = SchemaIdUpdate<SchemaMetadataModification<T>>;
 
+    /// Validates and records the differences in the trust registry update for schemas.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: The `Schemas` instance containing the schema updates to be validated.
+    /// - `actor`: The actor performing the update, which can be a Convener, Issuer, or Verifier.
+    /// - `registry_id`: The ID of the trust registry.
+    /// - `registry_info`: Information about the trust registry.
+    /// - `ctx`: A mutable reference to the context required for validation, including storage accesses..
     fn validate_and_record_diff(
         self,
         actor: ConvenerOrIssuerOrVerifier,
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         ctx: &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
+    ) -> Result<Validated<Self::Result>, Error<T>> {
         let Self(updates) = self;
 
+        // Map the updates to a `Set` operation.
         let to_set = updates
             .into_iter()
             .map(|(schema_id, update)| (schema_id, SetOrAddOrRemoveOrModify::Set(update)));
+
+        // Prepare the existing stored schemas to be removed.
         let to_remove = super::TrustRegistriesStoredSchemas::<T>::get(registry_id)
             .0
             .into_iter()
             .zip(iter::repeat(SetOrAddOrRemoveOrModify::Remove));
 
+        // Merge the new updates with the existing ones to be removed.
         use EitherOrBoth::*;
         let updates: SchemaIdUpdate<SchemaMetadataModification<T>> = to_set
             .merge_join_by(to_remove, |(k1, _), (k2, _)| k1.cmp(k2))
             .map(|(Left(update) | Right(update) | Both(update, _))| update)
             .collect();
 
+        // Validate and record the differences for the combined updates.
         updates.validate_and_record_diff(actor, registry_id, registry_info, ctx)
     }
 }
 
 impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemaIdUpdate<SchemaMetadataModification<T>> {
+    /// The context required for validating and recording schema updates.
+    ///
+    /// The context includes accesses to issuers, verifiers, schemas, and their respective storage.
     type Context<'ctx> = IssuersVerifiersSchemasWithStorageAccesses<'ctx>;
+
+    /// The result type after validation and recording of the differences.
     type Result = Self;
 
+    /// Validates and records the differences in the trust registry update for schema metadata modifications.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: The `SchemaIdUpdate` instance containing the schema metadata modifications to be validated.
+    /// - `actor`: The actor performing the update, which can be a Convener, Issuer, or Verifier.
+    /// - `registry_id`: The ID of the trust registry.
+    /// - `registry_info`: Information about the trust registry.
+    /// - `ctx`: A mutable reference to the context required for validation, including storage accesses.
     fn validate_and_record_diff(
         self,
         actor: ConvenerOrIssuerOrVerifier,
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         (ref mut issuers_verifiers_schemas, ref mut storage_accesses): &mut Self::Context<'_>,
-    ) -> Result<Validated<Self>, DispatchError> {
+    ) -> Result<Validated<Self>, Error<T>> {
+        // Iterate over each schema update.
         self.into_iter()
+            // Increment the schema storage access count.
             .inspect(|_| storage_accesses.schemas += 1)
+            // Filter and validate each schema update.
             .filter_map(|(schema_id, update)| {
+                // Retrieve the current schema metadata.
                 let schema_metadata =
                     super::TrustRegistrySchemasMetadata::<T>::get(schema_id, registry_id);
 
+                // Validate the update against the current schema metadata.
                 check_err!(actor.validate_update(registry_info, &update, &schema_metadata));
 
+                // Skip updates that result in no change.
                 if update.kind(&schema_metadata) == UpdateKind::None {
                     None?
                 }
 
+                // Record the differences in the schema update.
                 check_err!(update.record_inner_diff(
                     schema_id,
                     &schema_metadata,
                     issuers_verifiers_schemas
                 ));
 
+                // Return the validated update.
                 Some(Ok((schema_id, update)))
             })
+            // Collect the results and wrap them in a `Validated` type.
             .collect::<Result<_, _>>()
             .map(Validated)
     }
 }
 
 impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemaIdUpdate {
+    /// The context required for validating schema updates.
+    ///
+    /// In this case, a boolean flag indicating whether storage was accessed.
     type Context<'ctx> = bool;
+
+    /// The result type after validation is performed.
     type Result = Self;
 
+    /// Validates and records the differences in the trust registry update for schema IDs.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: The `SchemaIdUpdate` instance containing the schema IDs to be validated.
+    /// - `actor`: The actor performing the update, which can be a Convener, Issuer, or Verifier.
+    /// - `registry_id`: The ID of the trust registry.
+    /// - `registry_info`: Information about the trust registry.
+    /// - `read_storage`: A mutable reference to a boolean flag indicating whether storage was accessed.
     fn validate_and_record_diff(
         self,
         actor: ConvenerOrIssuerOrVerifier,
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         read_storage: &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
+    ) -> Result<Validated<Self::Result>, Error<T>> {
+        // Check if there are any schema updates to validate.
         if !self.is_empty() {
+            // Retrieve the existing schema IDs for the given registry.
             let existing_schema_ids = super::TrustRegistriesStoredSchemas::<T>::get(registry_id);
+            // Mark that the storage was accessed.
             *read_storage = true;
 
+            // Validate the schema updates against the existing schema IDs.
             actor.validate_update(registry_info, &self, &existing_schema_ids)?;
         }
 
+        // Return the validated schema ID update.
         Ok(Validated(self))
     }
 }
 
 impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
+    /// Context required for validating schema updates.
+    ///
+    /// This includes storage accesses.
     type Context<'ctx> = StorageAccesses;
+
+    /// The result type after validation is performed.
+    ///
+    /// It includes:
+    /// - `SchemaIdUpdate<SchemaMetadataModification<T>>`: Update for schemas.
+    /// - `IssuersVerifiersSchemas<IssuersAndDelegatedIssuersSchemasUpdate>`: Update for issuers, verifiers, and schemas.
     type Result = (
         SchemaIdUpdate<SchemaMetadataModification<T>>,
-        IssuersVerifiersSchemas,
+        IssuersVerifiersSchemas<IssuersAndDelegatedIssuersSchemasUpdate>,
     );
 
+    /// Validates and records the differences in the trust registry update for schemas.
+    ///
+    /// # Parameters
+    ///
+    /// - `self`: The `SchemasUpdate` instance containing the updates to be validated.
+    /// - `actor`: The actor performing the update, which can be a Convener, Issuer, or Verifier.
+    /// - `registry_id`: The ID of the trust registry.
+    /// - `registry_info`: Information about the trust registry.
+    /// - `storage_accesses`: A mutable reference to the context required for validation, including storage accesses.
     fn validate_and_record_diff(
         self,
         actor: ConvenerOrIssuerOrVerifier,
         registry_id: TrustRegistryId,
         registry_info: &TrustRegistryInfo<T>,
         storage_accesses: &mut Self::Context<'_>,
-    ) -> Result<Validated<Self::Result>, DispatchError> {
+    ) -> Result<Validated<Self::Result>, Error<T>> {
         let mut issuers_verifiers_schemas = Default::default();
         let Validated(update) = match self {
             Self::Set(schemas) => schemas.validate_and_record_diff(
@@ -528,16 +758,19 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
         }?;
 
         let (issuers_update, verifiers_update, schema_ids_update) = issuers_verifiers_schemas;
+        let participants = IssuersOrVerifiers(
+            TrustRegistriesParticipants::<T>::get(TrustRegistryIdForParticipants(registry_id))
+                .0
+                .into(),
+        );
 
-        let Validated(issuers_update) = issuers_update.validate_and_record_diff(
-            actor,
-            registry_id,
-            registry_info,
-            &mut (
-                &mut storage_accesses.issuer_schemas,
-                &mut storage_accesses.issuer_registries,
-            ),
-        )?;
+        let Validated(issuers_and_delegated_issuers_update) = IssuersSchemasUpdate(issuers_update)
+            .validate_and_record_diff(
+                actor,
+                registry_id,
+                registry_info,
+                &mut (storage_accesses, &participants.issuers()),
+            )?;
 
         let Validated(verifiers_update) = verifiers_update.validate_and_record_diff(
             actor,
@@ -546,6 +779,7 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
             &mut (
                 &mut storage_accesses.verifier_schemas,
                 &mut storage_accesses.verifier_registries,
+                &participants.verifiers(),
             ),
         )?;
 
@@ -558,8 +792,47 @@ impl<T: Config> ValidateTrustRegistryUpdate<T> for SchemasUpdate<T> {
 
         Ok(Validated((
             update,
-            (issuers_update, verifiers_update, schema_ids_update),
+            (
+                issuers_and_delegated_issuers_update,
+                verifiers_update,
+                schema_ids_update,
+            ),
         )))
+    }
+}
+
+impl<T: Config> ExecuteTrustRegistryUpdate<T>
+    for Validated<IssuersAndDelegatedIssuersSchemasUpdate>
+{
+    /// Outputs amounts of
+    /// - schemas that were mutated
+    /// - delegated issuer schemas that were mutated
+    /// - registries that were rewritten
+    type Output = (u32, u32, u32);
+
+    fn execute(self, registry_id: TrustRegistryId) -> Self::Output {
+        let Validated(IssuersAndDelegatedIssuersSchemasUpdate(
+            issuers_update,
+            delegated_issuers_update,
+        )) = self;
+
+        let (iss_schemas, iss_regs) =
+            ExecuteTrustRegistryUpdate::<T>::execute(Validated(issuers_update), registry_id);
+
+        let mut delegated_issuer_schemas = 0;
+        delegated_issuers_update
+            .into_iter()
+            .for_each(|(delegated_issuer, updates)| {
+                delegated_issuer_schemas += 1;
+
+                TrustRegistryDelegatedIssuerSchemas::<T>::mutate(
+                    registry_id,
+                    delegated_issuer,
+                    |schemas| updates.apply_update(schemas),
+                )
+            });
+
+        (iss_regs, iss_schemas, delegated_issuer_schemas)
     }
 }
 
@@ -571,6 +844,9 @@ where
     <Target::Schemas as Deref>::Target: KeyValue<Key = TrustRegistrySchemaId, Value = ()>,
     <Target::Registries as Deref>::Target: KeyValue<Key = TrustRegistryId, Value = ()>,
 {
+    /// Outputs amounts of
+    /// - schemas that were modified
+    /// - registries that were modified
     type Output = (u32, u32);
 
     fn execute(self, registry_id: TrustRegistryId) -> (u32, u32) {
@@ -609,6 +885,7 @@ where
 impl<T: Config> ExecuteTrustRegistryUpdate<T>
     for Validated<SchemaIdUpdate<SchemaMetadataModification<T>>>
 {
+    /// Number of modified schema metadatas.
     type Output = u32;
 
     fn execute(self, registry_id: TrustRegistryId) -> u32 {
@@ -644,6 +921,7 @@ impl<T: Config> ExecuteTrustRegistryUpdate<T>
 }
 
 impl<T: Config> ExecuteTrustRegistryUpdate<T> for Validated<SchemaIdUpdate> {
+    /// Identifies where the trust registry stored schemas were modified.
     type Output = bool;
 
     fn execute(self, registry_id: TrustRegistryId) -> Self::Output {
@@ -664,16 +942,17 @@ impl<T: Config> ExecuteTrustRegistryUpdate<T> for Validated<SchemaIdUpdate> {
 impl<T: Config> ExecuteTrustRegistryUpdate<T>
     for Validated<(
         SchemaIdUpdate<SchemaMetadataModification<T>>,
-        IssuersVerifiersSchemas,
+        IssuersVerifiersSchemas<IssuersAndDelegatedIssuersSchemasUpdate>,
     )>
 {
+    /// Storage accesses that took place during the update execution.
     type Output = StorageAccesses;
 
     fn execute(self, registry_id: TrustRegistryId) -> StorageAccesses {
         let Self((schemas_update, (issuers_update, verifiers_update, schemas_ids_update))) = self;
 
         let schemas = Validated(schemas_update).execute(registry_id);
-        let (issuer_schemas, issuer_registries) =
+        let (issuer_registries, issuer_schemas, delegated_issuer_schemas) =
             ExecuteTrustRegistryUpdate::<T>::execute(Validated(issuers_update), registry_id);
         let (verifier_schemas, verifier_registries) =
             ExecuteTrustRegistryUpdate::<T>::execute(Validated(verifiers_update), registry_id);
@@ -683,6 +962,8 @@ impl<T: Config> ExecuteTrustRegistryUpdate<T>
         StorageAccesses {
             issuer_schemas,
             issuer_registries,
+            issuer_configuration: 0,
+            delegated_issuer_schemas,
             verifier_schemas,
             verifier_registries,
             schemas,

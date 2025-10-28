@@ -32,6 +32,7 @@ mod wasm {
     const _: Option<&[u8]> = WASM_BINARY_BLOATY;
 }
 
+use pallet_staking::BalanceOf;
 #[cfg(feature = "std")]
 pub use wasm::WASM_BINARY;
 
@@ -86,20 +87,17 @@ use sp_runtime::{
     create_runtime_str, generic, impl_opaque_keys,
     traits::{
         AccountIdLookup, BlakeTwo256, Block as BlockT, CheckedConversion, ConvertInto,
-        DispatchInfoOf, Dispatchable, Extrinsic, IdentifyAccount, Keccak256, NumberFor, OpaqueKeys,
+        Dispatchable, Extrinsic, IdentifyAccount, Keccak256, NumberFor, OpaqueKeys,
         PostDispatchInfoOf, StaticLookup, UniqueSaturatedInto, Verify,
     },
     transaction_validity::{
         TransactionPriority, TransactionSource, TransactionValidity, TransactionValidityError,
-        ValidTransaction,
     },
     ApplyExtrinsicResult, DispatchResult, FixedPointNumber, MultiSignature, Perbill, Percent,
     Permill, Perquintill, SaturatedConversion,
 };
-use sp_std::collections::btree_map::BTreeMap;
-use transaction_payment::{
-    CurrencyAdapter, Multiplier, OnChargeTransaction, TargetedFeeAdjustment,
-};
+use sp_std::collections::{btree_map::BTreeMap, btree_set::BTreeSet};
+use transaction_payment::{CurrencyAdapter, Multiplier, TargetedFeeAdjustment};
 
 use evm::Config as EvmConfig;
 use fp_rpc::TransactionStatus;
@@ -203,11 +201,20 @@ pub const VERSION: RuntimeVersion = RuntimeVersion {
     spec_name: create_runtime_str!("dock-pos-dev-runtime"),
     impl_name: create_runtime_str!("Dock"),
     authoring_version: 1,
-    spec_version: 53,
+    spec_version: 70,
     impl_version: 2,
     transaction_version: 2,
     apis: RUNTIME_API_VERSIONS,
 };
+
+pub struct ChangeValidatorsConfiguration;
+impl OnRuntimeUpgrade for ChangeValidatorsConfiguration {
+    fn on_runtime_upgrade() -> Weight {
+        pallet_staking::MinValidatorBond::<Runtime>::put(BalanceOf::<Runtime>::from(0u8));
+
+        <Runtime as frame_system::Config>::DbWeight::get().writes(1)
+    }
+}
 
 /// `fastblock` reduces the block time for faster testing. It isn't recommended for production.
 /// Also build the node in release mode to support small block times (< 1 sec)
@@ -236,8 +243,8 @@ mod small_durations {
     pub const EPOCH_DURATION_IN_SLOTS: u64 = EPOCH_DURATION_IN_BLOCKS as u64;
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 3;
     /// Bonding duration is in number of era
-    pub const BONDING_DURATION: u32 = 24 * 8;
-    pub const SLASH_DEFER_DURATION: u32 = 24 * 2; // 1/4 the bonding duration.
+    pub const BONDING_DURATION: u32 = 0;
+    pub const SLASH_DEFER_DURATION: u32 = 0; // 1/4 the bonding duration.
     /// Specifies the number of blocks for which the equivocation is valid.
     pub const REPORT_LONGEVITY: u64 =
         BONDING_DURATION as u64 * SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_SLOTS;
@@ -277,8 +284,8 @@ mod prod_durations {
 
     pub const SESSIONS_PER_ERA: sp_staking::SessionIndex = 4; // 12 hours
     /// Bonding duration is in number of era
-    pub const BONDING_DURATION: u32 = 2 * 7; // 7 days
-    pub const SLASH_DEFER_DURATION: u32 = 7; // 1/2 the bonding duration.
+    pub const BONDING_DURATION: u32 = 0; // 7 days
+    pub const SLASH_DEFER_DURATION: u32 = 0; // 1/2 the bonding duration.
     /// Specifies the number of blocks for which the equivocation is valid.
     pub const REPORT_LONGEVITY: u64 =
         BONDING_DURATION as u64 * SESSIONS_PER_ERA as u64 * EPOCH_DURATION_IN_SLOTS;
@@ -472,9 +479,7 @@ where
             frame_system::CheckEra::<Runtime>::from(era),
             frame_system::CheckNonce::<Runtime>::from(nonce),
             frame_system::CheckWeight::<Runtime>::new(),
-            CustomChargeTransactionPayment(transaction_payment::ChargeTransactionPayment::from(
-                tip,
-            )),
+            transaction_payment::ChargeTransactionPayment::from(tip),
             dock_token_migration::OnlyMigrator::<Runtime>::new(),
         );
         let raw_payload = SignedPayload::new(call, extra)
@@ -503,9 +508,9 @@ where
 }
 
 impl pallet_im_online::Config for Runtime {
-    type MaxKeys = MaxKeys;
-    type MaxPeerInHeartbeats = MaxAuthorities;
-    type MaxPeerDataEncodingSize = MaxAuthorities;
+    type MaxKeys = ConstU32<100>;
+    type MaxPeerInHeartbeats = ConstU32<100>;
+    type MaxPeerDataEncodingSize = ConstU32<100>;
 
     type AuthorityId = ImOnlineId;
     type Event = Event;
@@ -525,7 +530,7 @@ parameter_types! {
 
 impl pallet_babe::Config for Runtime {
     type DisabledValidators = ();
-    type MaxAuthorities = MaxAuthorities;
+    type MaxAuthorities = ConstU32<100>;
 
     type EpochDuration = EpochDuration;
     type ExpectedBlockTime = ExpectedBlockTime;
@@ -613,10 +618,7 @@ impl pallet_staking::Config for Runtime {
     type BondingDuration = BondingDuration;
     type SlashDeferDuration = SlashDeferDuration;
     /// A super-majority of the council can cancel the slash.
-    type SlashCancelOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>,
-    >;
+    type SlashCancelOrigin = EnsureRoot<AccountId>;
     type SessionInterface = Self;
     type EraPayout = StakingRewards;
     type NextNewSession = Session;
@@ -695,7 +697,6 @@ impl pallet_election_provider_multi_phase::BenchmarkingConfig for BenchmarkConfi
 }
 
 parameter_types! {
-    pub const SignedMaxSubmissions: u32 = 10;
     pub const SignedRewardBase: Balance = DOCK;
     pub const SignedDepositBase: Balance = 500 * DOCK;
     pub const SignedDepositByte: Balance = DOCK / 100;
@@ -720,7 +721,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
 
     type EstimateCallFee = TransactionPayment;
     type OffchainRepeat = OffchainRepeat;
-    type SignedMaxSubmissions = SignedMaxSubmissions;
+    type SignedMaxSubmissions = ConstU32<10>;
     type SignedMaxWeight = MinerMaxWeight;
     type SignedRewardBase = SignedRewardBase;
     type SignedDepositBase = SignedDepositBase;
@@ -732,10 +733,7 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
         AccountId,
         pallet_election_provider_multi_phase::SolutionAccuracyOf<Self>,
     >;
-    type ForceOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
-    >;
+    type ForceOrigin = EnsureRoot<AccountId>;
 
     type Event = Event;
     type Currency = Balances;
@@ -748,17 +746,12 @@ impl pallet_election_provider_multi_phase::Config for Runtime {
     type BenchmarkingConfig = BenchmarkConfig;
 }
 
-parameter_types! {
-    pub const MaxAuthorities: u32 = 100;
-    pub const MaxKeys: u32 = 100;
-}
-
 impl pallet_authority_discovery::Config for Runtime {
-    type MaxAuthorities = MaxAuthorities;
+    type MaxAuthorities = ConstU32<100>;
 }
 
 impl grandpa::Config for Runtime {
-    type MaxAuthorities = MaxAuthorities;
+    type MaxAuthorities = ConstU32<100>;
 
     type Event = Event;
 
@@ -794,12 +787,10 @@ impl timestamp::Config for Runtime {
 
 parameter_types! {
     pub const ExistentialDeposit: Balance = 500;
-    pub const MaxLocks: u32 = 50;
-    pub const MaxReserves: u32 = 50;
 }
 
 impl balances::Config for Runtime {
-    type MaxReserves = MaxReserves;
+    type MaxReserves = ConstU32<50>;
     type ReserveIdentifier = [u8; 8];
 
     /// The type for recording an account's balance.
@@ -810,207 +801,15 @@ impl balances::Config for Runtime {
     type ExistentialDeposit = ExistentialDeposit;
     type AccountStore = System;
     type WeightInfo = balances::weights::SubstrateWeight<Runtime>;
-    type MaxLocks = MaxLocks;
+    type MaxLocks = ConstU32<50>;
 }
 
 parameter_types! {
-    /// .01 token
-    pub const TransactionByteFee: Balance = DOCK / 100;
+    /// .0001 token
+    pub const TransactionByteFee: Balance = DOCK / 10000;
     pub const TargetBlockFullness: Perquintill = Perquintill::from_percent(25);
     pub AdjustmentVariable: Multiplier = Multiplier::saturating_from_rational(1, 100_000);
     pub MinimumMultiplier: Multiplier = Multiplier::saturating_from_rational(1, 1_000_000_000u128);
-}
-
-/// Custom transaction fee payments handler.
-/// Doesn't take a full length fee from successful `note_preimage`, `note_preimage_operational`
-/// (optionally wrapped in `council.execute`) transactions.
-#[derive(Encode, Decode, Clone, Eq, PartialEq, Debug, scale_info::TypeInfo)]
-pub struct CustomChargeTransactionPayment(
-    pub transaction_payment::ChargeTransactionPayment<Runtime>,
-);
-
-/// Denotes customizable length fee for a successful extrinsic to be paid by the caller.
-/// The final length to be used in the calculation is produced by `post_dispatch_overridden_length`.
-/// This method should be called after the extrinsic was dispatched (during `post_dispatch` phase).
-#[derive(Clone, Copy, Eq, PartialEq, Debug)]
-pub enum OverriddenLengthFee {
-    /// The caller should pay a *full* length fee.
-    Full,
-    /// The caller should pay a *partial* length fee for a successful extrinsic.
-    Partial(u32),
-    /// The caller should pay a *partial* length fee for a successful extrinsic if the given predicate
-    /// called during `post_dispatch` phase returns `true`.
-    PartialIf { len: u32, check: fn() -> bool },
-}
-
-impl OverriddenLengthFee {
-    /// Allow paying only for 25% of the extrinsic length for whitelist calls.
-    const BASE_LENGTH_DIVIDER: u32 = 4;
-
-    /// Checks whether the given call has a customized length fee or not.
-    pub fn new(call: &<Runtime as frame_system::Config>::Call, len: u32) -> OverriddenLengthFee {
-        Self::is_preimage_with_deposit(call)
-            .then_some(Self::Partial(len / Self::BASE_LENGTH_DIVIDER))
-            .or_else(|| match call {
-                Call::Council(pallet_collective::Call::execute { proposal, .. }) => {
-                    Self::is_preimage_with_deposit(proposal)
-                        .then_some(Self::last_council_execute_was_successful)
-                        .map(|check| Self::PartialIf {
-                            len: len / Self::BASE_LENGTH_DIVIDER,
-                            check,
-                        })
-                }
-                _ => None,
-            })
-            .unwrap_or(Self::Full)
-    }
-
-    /// Returns optional overriden length for a successful extrinsic to be paid by the caller.
-    /// **Should be called right after the extrinsic was dispatched (during `post_dispatch` phase).**
-    /// In case `None` is returned, the full extrinsic length must be paid.
-    pub fn post_dispatch_overridden_length(self) -> Option<u32> {
-        match self {
-            Self::Full => None,
-            Self::Partial(len) => Some(len),
-            Self::PartialIf { len, check } => (check)().then_some(len),
-        }
-    }
-
-    /// Returns `true` if the supplied call is a democracy note preimage call with a deposit:
-    /// either `note_preimage` or `note_preimage_operational`.
-    fn is_preimage_with_deposit(call: &<Runtime as frame_system::Config>::Call) -> bool {
-        matches!(
-            call,
-            Call::Democracy(
-                pallet_democracy::Call::note_preimage { .. }
-                    | pallet_democracy::Call::note_preimage_operational { .. }
-            )
-        )
-    }
-
-    /// Returns `true` if the last `council.execute` call was successful.
-    fn last_council_execute_was_successful() -> bool {
-        frame_system::Pallet::<Runtime>::read_events_no_consensus()
-            .into_iter()
-            .rev()
-            .find_map(|record| match record.event {
-                Event::Council(event) => Some(event),
-                _ => None,
-            })
-            .filter(|event| {
-                matches!(
-                    event,
-                    pallet_collective::Event::MemberExecuted { result: Ok(_), .. }
-                )
-            })
-            .is_some()
-    }
-}
-
-impl CustomChargeTransactionPayment {
-    fn withdraw_fee(
-		&self,
-		who: &<Runtime as frame_system::Config>::AccountId,
-		call: &<Runtime as frame_system::Config>::Call,
-		info: &DispatchInfoOf<<Runtime as frame_system::Config>::Call>,
-		len: usize,
-	) -> Result<
-		(
-			u64,
-			<<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::LiquidityInfo,
-		),
-		TransactionValidityError,
-    >{
-        let tip = self.0.tip();
-        let fee = transaction_payment::Pallet::<Runtime>::compute_fee(len as u32, info, tip);
-
-        <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<
-            Runtime,
-        >>::withdraw_fee(who, call, info, fee, tip)
-        .map(|i| (fee, i))
-    }
-}
-
-impl sp_runtime::traits::SignedExtension for CustomChargeTransactionPayment {
-    const IDENTIFIER: &'static str = "ChargeTransactionPayment";
-    type AccountId = <Runtime as frame_system::Config>::AccountId;
-    type Call = <Runtime as frame_system::Config>::Call;
-    type AdditionalSigned = ();
-    type Pre = (
-		// tip
-		u64,
-		// who paid the fee - this is an option to allow for a Default impl.
-		Self::AccountId,
-		// imbalance resulting from withdrawing the fee
-        <<Runtime as transaction_payment::Config>::OnChargeTransaction as transaction_payment::OnChargeTransaction<Runtime>>::LiquidityInfo,
-        // whether the caller should pay fee for the successful call or not
-        OverriddenLengthFee
-	);
-
-    fn additional_signed(&self) -> sp_std::result::Result<(), TransactionValidityError> {
-        Ok(())
-    }
-
-    fn validate(
-        &self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
-    ) -> TransactionValidity {
-        let (final_fee, _) = self.withdraw_fee(who, call, info, len)?;
-
-        let tip = self.0.tip();
-        Ok(ValidTransaction {
-            priority: transaction_payment::ChargeTransactionPayment::<Runtime>::get_priority(
-                info, len, tip, final_fee,
-            ),
-            ..Default::default()
-        })
-    }
-
-    fn pre_dispatch(
-        self,
-        who: &Self::AccountId,
-        call: &Self::Call,
-        info: &DispatchInfoOf<Self::Call>,
-        len: usize,
-    ) -> Result<Self::Pre, TransactionValidityError> {
-        let len_fee = OverriddenLengthFee::new(call, len as u32);
-        let (_fee, imbalance) = self.withdraw_fee(who, call, info, len)?;
-
-        Ok((self.0.tip(), who.clone(), imbalance, len_fee))
-    }
-
-    fn post_dispatch(
-        maybe_pre: Option<Self::Pre>,
-        info: &DispatchInfoOf<Self::Call>,
-        post_info: &PostDispatchInfoOf<Self::Call>,
-        len: usize,
-        result: &DispatchResult,
-    ) -> Result<(), TransactionValidityError> {
-        if let Some((tip, who, imbalance, len_fee)) = maybe_pre {
-            let final_len = result
-                .is_ok()
-                .then(|| len_fee.post_dispatch_overridden_length())
-                .flatten()
-                .unwrap_or(len as u32);
-
-            let actual_fee =
-                TransactionPayment::compute_actual_fee(final_len, info, post_info, tip);
-            <<Runtime as transaction_payment::Config>::OnChargeTransaction as OnChargeTransaction<Runtime>>::correct_and_deposit_fee(
-				&who, info, post_info, actual_fee, tip, imbalance,
-            )?;
-            frame_system::Pallet::<Runtime>::deposit_event(
-                transaction_payment::Event::<Runtime>::TransactionFeePaid {
-                    who,
-                    actual_fee,
-                    tip,
-                },
-            );
-        }
-        Ok(())
-    }
 }
 
 impl transaction_payment::Config for Runtime {
@@ -1022,39 +821,6 @@ impl transaction_payment::Config for Runtime {
     /// This would be useless after enabling fiat filter
     type FeeMultiplierUpdate =
         TargetedFeeAdjustment<Self, TargetBlockFullness, AdjustmentVariable, MinimumMultiplier>;
-}
-
-parameter_types! {
-    /// 8KB
-    pub const MaxBlobSize: u32 = 8192;
-    /// 1KB
-    pub const MaxIriSize: u32 = 1024;
-
-    /// 128 bytes, for large labels, hash of a label can be used
-    pub const MaxAccumulatorLabelSize: u32 = 128;
-
-    pub const MaxAccumulatorParamsSize: u32 = 512;
-
-    /// 128 bytes, for large labels, hash of a label can be used
-    pub const MaxOffchainParamsLabelSize: u32 = 128;
-    /// 16KB
-    pub const MaxOffchainParamsBytesSize: u32 = 65536;
-
-    pub const FixedPublicKeyMaxSize: u32 = 256;
-    pub const PSPublicKeyMaxSize: u32 = 65536;
-
-    pub const AccumulatedMaxSize: u32 = 128;
-
-    pub const MaxDidDocRefSize: u16 = 1024;
-    pub const MaxDidServiceEndpointIdSize: u16 = 1024;
-    pub const MaxDidServiceEndpointOrigins: u16 = 64;
-    pub const MaxDidServiceEndpointOriginSize: u16 = 1025;
-
-    pub const MaxPolicyControllers: u32 = 15;
-    pub const MinStatusListCredentialSize: u32 = 500;
-    pub const MaxStatusListCredentialSize: u32 = 40_000;
-
-    pub const MaxMasterMembers: u32 = 25;
 }
 
 impl did::Config for Runtime {
@@ -1071,32 +837,38 @@ impl revoke::Config for Runtime {
 }
 
 impl common::Limits for Runtime {
-    type MaxPolicyControllers = MaxPolicyControllers;
+    type MaxPolicyControllers = ConstU32<15>;
 
-    type MaxDidDocRefSize = MaxDidDocRefSize;
-    type MaxDidServiceEndpointIdSize = MaxDidServiceEndpointIdSize;
-    type MaxDidServiceEndpointOriginSize = MaxDidServiceEndpointOriginSize;
-    type MaxDidServiceEndpointOrigins = MaxDidServiceEndpointOrigins;
+    type MaxDidDocRefSize = ConstU32<1024>;
+    type MaxDidServiceEndpointIdSize = ConstU32<1024>;
+    type MaxDidServiceEndpointOriginSize = ConstU32<1025>;
+    type MaxDidServiceEndpointOrigins = ConstU32<64>;
 
-    type MinStatusListCredentialSize = MinStatusListCredentialSize;
-    type MaxStatusListCredentialSize = MaxStatusListCredentialSize;
+    type MinStatusListCredentialSize = ConstU32<500>;
+    type MaxStatusListCredentialSize = ConstU32<40_000>;
 
-    type MaxPSPublicKeySize = PSPublicKeyMaxSize;
-    type MaxBBSPublicKeySize = FixedPublicKeyMaxSize;
-    type MaxBBSPlusPublicKeySize = FixedPublicKeyMaxSize;
+    type MaxPSPublicKeySize = ConstU32<65536>;
+    type MaxBBSPublicKeySize = ConstU32<256>;
+    type MaxBBSPlusPublicKeySize = ConstU32<256>;
+    type MaxBBDT16PublicKeySize = ConstU32<256>;
 
-    type MaxOffchainParamsLabelSize = MaxOffchainParamsLabelSize;
-    type MaxOffchainParamsBytesSize = MaxOffchainParamsBytesSize;
+    /// 128 bytes, for large labels, hash of a label can be used
+    type MaxOffchainParamsLabelSize = ConstU32<128>;
+    /// 16KB
+    type MaxOffchainParamsBytesSize = ConstU32<65_536>;
 
-    type MaxAccumulatorLabelSize = MaxAccumulatorLabelSize;
-    type MaxAccumulatorParamsSize = MaxAccumulatorParamsSize;
-    type MaxAccumulatorPublicKeySize = FixedPublicKeyMaxSize;
-    type MaxAccumulatorAccumulatedSize = AccumulatedMaxSize;
+    /// 128 bytes, for large labels, hash of a label can be used
+    type MaxAccumulatorLabelSize = ConstU32<128>;
+    type MaxAccumulatorParamsSize = ConstU32<512>;
+    type MaxAccumulatorPublicKeySize = ConstU32<256>;
+    type MaxAccumulatorAccumulatedSize = ConstU32<128>;
 
-    type MaxBlobSize = MaxBlobSize;
-    type MaxIriSize = MaxIriSize;
+    /// 8KB
+    type MaxBlobSize = ConstU32<8192>;
+    /// 1KB
+    type MaxIriSize = ConstU32<1024>;
 
-    type MaxMasterMembers = MaxMasterMembers;
+    type MaxMasterMembers = ConstU32<25>;
 
     type MaxIssuerPriceCurrencySymbolSize = ConstU32<10>;
     type MaxIssuersPerSchema = ConstU32<100>;
@@ -1111,6 +883,11 @@ impl common::Limits for Runtime {
     type MaxSchemasPerIssuer = ConstU32<1_000>;
     type MaxSchemasPerVerifier = ConstU32<1_000>;
     type MaxTrustRegistryGovFrameworkSize = ConstU32<1_000>;
+    type MaxParticipantsPerRegistry = ConstU32<10_000>;
+
+    type MaxRegistryParticipantOrgNameSize = ConstU32<100>;
+    type MaxRegistryParticipantLogoSize = ConstU32<250>;
+    type MaxRegistryParticipantDescriptionSize = ConstU32<500>;
 }
 
 impl status_list_credential::Config for Runtime {
@@ -1244,20 +1021,7 @@ impl anchor::Config for Runtime {
 
 impl attest::Config for Runtime {}
 
-/// This origin indicates that either >50% (simple majority) of Council members approved some dispatch (through a proposal)
-/// or the dispatch was done as `Root` (by sudo or master)
-type RootOrMoreThanHalfCouncil = EitherOfDiverse<
-    EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
->;
-
-/// This origin indicates that either >=66.66% of Council members approved some dispatch (through a proposal)
-/// or the dispatch was done as `Root` (by sudo or master)
-type RootOrTwoThirdCouncil = EitherOfDiverse<
-    EnsureRoot<AccountId>,
-    pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 2, 3>,
->;
-
+type RootSystemOrigin = EnsureRoot<AccountId>;
 type CouncilMember = pallet_collective::EnsureMember<AccountId, CouncilCollective>;
 
 const fn deposit(items: u32, bytes: u32) -> Balance {
@@ -1303,6 +1067,7 @@ impl pallet_elections_phragmen::Config for Runtime {
     type DesiredMembers = DesiredMembers;
     type DesiredRunnersUp = DesiredRunnersUp;
     type TermDuration = TermDuration;
+    type CandidateIdentityProvider = identity_provider::PalletIdentityAsIdentityProvider<Self>;
     type WeightInfo = pallet_elections_phragmen::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1335,11 +1100,11 @@ impl pallet_membership::Config<pallet_membership::Instance1> for Runtime {
     type WeightInfo = ();
 
     type Event = Event;
-    type AddOrigin = RootOrMoreThanHalfCouncil;
-    type RemoveOrigin = RootOrMoreThanHalfCouncil;
-    type SwapOrigin = RootOrMoreThanHalfCouncil;
-    type ResetOrigin = RootOrMoreThanHalfCouncil;
-    type PrimeOrigin = RootOrMoreThanHalfCouncil;
+    type AddOrigin = RootSystemOrigin;
+    type RemoveOrigin = RootSystemOrigin;
+    type SwapOrigin = RootSystemOrigin;
+    type ResetOrigin = RootSystemOrigin;
+    type PrimeOrigin = RootSystemOrigin;
     type MembershipInitialized = TechnicalCommittee;
     type MembershipChanged = TechnicalCommittee;
 }
@@ -1448,7 +1213,7 @@ parameter_types! {
 }
 
 impl pallet_democracy::Config for Runtime {
-    type VoteLockingPeriod = EnactmentPeriod; // Same as EnactmentPeriod
+    type VoteLockingPeriod = ConstU32<0u32>; // Same as EnactmentPeriod
     type Proposal = Call;
     type Event = Event;
     type Currency = Balances;
@@ -1458,43 +1223,29 @@ impl pallet_democracy::Config for Runtime {
     type VotingPeriod = VotingPeriod;
     type CooloffPeriod = CooloffPeriod;
     type MinimumDeposit = MinimumDeposit;
-    /// A straight majority of the council can decide what their next motion is.
-    type ExternalOrigin =
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 2>;
-    /// A super-majority can have the next scheduled referendum be a straight majority-carries vote.
-    type ExternalMajorityOrigin =
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 4>;
-    /// A unanimous council can have the next scheduled referendum be a straight default-carries
+    /// Root can decide what their next motion is.
+    type ExternalOrigin = EnsureRoot<AccountId>;
+    /// Root can have the next scheduled referendum be a straight majority-carries vote.
+    type ExternalMajorityOrigin = EnsureRoot<AccountId>;
+    /// Root can have the next scheduled referendum be a straight default-carries
     /// (NTB) vote.
-    type ExternalDefaultOrigin =
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 1, 1>;
-    /// Two thirds of the technical committee can have an ExternalMajority/ExternalDefault vote
+    type ExternalDefaultOrigin = EnsureRoot<AccountId>;
+    /// Root can have an ExternalMajority/ExternalDefault vote
     /// be tabled immediately and with a shorter voting/enactment period.
-    type FastTrackOrigin = EitherOfDiverse<
-        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 2, 3>,
-        EnsureRoot<AccountId>,
-    >;
-    /// Root or the Technical committee unanimously agreeing can make a Council proposal a referendum instantly.
-    type InstantOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>,
-    >;
+    type FastTrackOrigin = EnsureRoot<AccountId>;
+    /// Root unanimously agreeing can make a Council proposal a referendum instantly.
+    type InstantOrigin = EnsureRoot<AccountId>;
     type InstantAllowed = InstantAllowed;
     type FastTrackVotingPeriod = FastTrackVotingPeriod;
     /// To cancel a proposal which has been passed, 2/3 of the council must agree to it.
-    type CancellationOrigin = RootOrTwoThirdCouncil;
-    // To cancel a proposal before it has been passed, the technical committee must be unanimous or
-    // Root must agree.
-    type CancelProposalOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, TechnicalCollective, 1, 1>,
-    >;
+    type CancellationOrigin = RootSystemOrigin;
+
+    type CancelProposalOrigin = EnsureRoot<AccountId>;
+
     type PreimageByteDeposit = PreimageByteDeposit;
     type Slash = Treasury;
     type OperationalPreimageOrigin = CouncilMember;
     type BlacklistOrigin = EnsureRoot<AccountId>;
-    // Any single technical committee member may veto a coming council proposal, however they can
-    // only do it once and it lasts only for the cool-off period.
     type VetoOrigin = pallet_collective::EnsureMember<AccountId, TechnicalCollective>;
     type Scheduler = Scheduler;
     type PalletsOrigin = OriginCaller;
@@ -1569,14 +1320,9 @@ impl pallet_treasury::Config for Runtime {
 
     type PalletId = TreasuryPalletId;
     type Currency = Balances;
-    type ApproveOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionAtLeast<AccountId, CouncilCollective, 3, 5>,
-    >;
-    type RejectOrigin = EitherOfDiverse<
-        EnsureRoot<AccountId>,
-        pallet_collective::EnsureProportionMoreThan<AccountId, CouncilCollective, 1, 2>,
-    >;
+    type ApproveOrigin = EnsureRoot<AccountId>;
+    type RejectOrigin = EnsureRoot<AccountId>;
+
     type Event = Event;
     type OnSlash = ();
     type ProposalBond = ProposalBond;
@@ -1624,6 +1370,145 @@ parameter_types! {
     pub const MaxRegistrars: u32 = 20;
 }
 
+mod identity_provider {
+    use super::*;
+    use utils::{Identity, IdentityProvider};
+
+    /// A wrapper that implements `IdentityProvider`/`IdentitySetter` traits for the `Identity` pallet.
+    pub struct PalletIdentityAsIdentityProvider<T: pallet_identity::Config>(
+        pub pallet_identity::Pallet<T>,
+    );
+
+    /// Registration for the identity.
+    #[derive(Clone, Debug)]
+    pub struct RegisteredIdentity<T: pallet_identity::Config>(pub Registration<T>);
+    dock_core::impl_wrapper!(RegisteredIdentity<T> where T: pallet_identity::Config => (Registration<T>));
+
+    /// Identity information.
+    #[derive(Clone, Debug)]
+    pub struct IdentityInfo<T: pallet_identity::Config>(
+        pub pallet_identity::IdentityInfo<<T as pallet_identity::Config>::MaxAdditionalFields>,
+    );
+    dock_core::impl_wrapper!(IdentityInfo<T> where T: pallet_identity::Config => (pallet_identity::IdentityInfo<<T as pallet_identity::Config>::MaxAdditionalFields>));
+
+    impl<T: pallet_identity::Config> Default for IdentityInfo<T> {
+        fn default() -> Self {
+            Self(pallet_identity::IdentityInfo {
+                additional: Default::default(),
+                display: Default::default(),
+                legal: Default::default(),
+                web: Default::default(),
+                riot: Default::default(),
+                email: Default::default(),
+                pgp_fingerprint: Default::default(),
+                image: Default::default(),
+                twitter: Default::default(),
+            })
+        }
+    }
+
+    impl<T: pallet_identity::Config> Identity for RegisteredIdentity<T> {
+        type Info = IdentityInfo<T>;
+        type Justification = Option<(u32, pallet_identity::Judgement<BalanceOf<T>>)>;
+
+        fn verified(&self) -> bool {
+            use pallet_identity::Judgement::*;
+
+            self.0
+                .judgements
+                .iter()
+                .any(|(_idx, judjement)| matches!(judjement, KnownGood | Reasonable))
+        }
+
+        fn info(&self) -> Self::Info {
+            IdentityInfo(self.0.info.clone())
+        }
+
+        fn verify(&mut self, justification: Self::Justification) -> DispatchResult {
+            self.0
+                .judgements
+                .try_push(justification.unwrap_or((0, pallet_identity::Judgement::KnownGood)))
+                .map_err(|_| pallet_identity::Error::<T>::TooManyRegistrars.into())
+        }
+    }
+
+    type BalanceOf<T> = <<T as pallet_identity::Config>::Currency as Currency<
+        <T as frame_system::Config>::AccountId,
+    >>::Balance;
+    type Registration<T> = pallet_identity::Registration<
+        BalanceOf<T>,
+        <T as pallet_identity::Config>::MaxRegistrars,
+        <T as pallet_identity::Config>::MaxAdditionalFields,
+    >;
+
+    impl<T: pallet_identity::Config> IdentityProvider<T> for PalletIdentityAsIdentityProvider<T> {
+        type Identity = RegisteredIdentity<T>;
+
+        fn identity(who: &T::AccountId) -> Option<Self::Identity> {
+            pallet_identity::Pallet::<T>::identity(who).map(RegisteredIdentity)
+        }
+    }
+
+    #[cfg(feature = "runtime-benchmarks")]
+    mod identity_setter {
+        use super::*;
+        use frame_support::storage_alias;
+        use utils::IdentitySetter;
+
+        #[storage_alias]
+        type IdentityOf<T: pallet_identity::Config> = StorageMap<
+            pallet_identity::Pallet<T>,
+            frame_support::Twox64Concat,
+            <T as frame_system::Config>::AccountId,
+            Registration<T>,
+            frame_support::pallet_prelude::OptionQuery,
+        >;
+
+        impl<T: pallet_identity::Config> IdentitySetter<T> for PalletIdentityAsIdentityProvider<T> {
+            fn set_identity(
+                account: T::AccountId,
+                info: <Self::Identity as Identity>::Info,
+            ) -> DispatchResult {
+                IdentityOf::<T>::insert(
+                    account,
+                    pallet_identity::Registration {
+                        judgements: Default::default(),
+                        deposit: Default::default(),
+                        info: info.into(),
+                    },
+                );
+
+                Ok(())
+            }
+
+            fn verify_identity(
+                account: &T::AccountId,
+                justification: <Self::Identity as Identity>::Justification,
+            ) -> DispatchResult {
+                IdentityOf::<T>::try_mutate(account, |identity_opt| {
+                    let mut identity = identity_opt
+                        .take()
+                        .map(RegisteredIdentity::<T>)
+                        .ok_or(pallet_identity::Error::<T>::NotFound)?;
+                    identity.verify(justification)?;
+                    identity_opt.replace(identity.into());
+
+                    Ok(())
+                })
+            }
+
+            fn remove_identity(account: &T::AccountId) -> DispatchResult {
+                frame_support::ensure!(
+                    IdentityOf::<T>::take(account).is_some(),
+                    pallet_identity::Error::<T>::NoIdentity
+                );
+
+                Ok(())
+            }
+        }
+    }
+}
+
 impl pallet_identity::Config for Runtime {
     type Event = Event;
     type Currency = Balances;
@@ -1636,9 +1521,9 @@ impl pallet_identity::Config for Runtime {
     /// Slashed funds go to treasury
     type Slashed = Treasury;
     /// Root or >50% Council required to kill identity and slash
-    type ForceOrigin = RootOrMoreThanHalfCouncil;
+    type ForceOrigin = RootSystemOrigin;
     /// Root or >50% Council required to add new registrar
-    type RegistrarOrigin = RootOrMoreThanHalfCouncil;
+    type RegistrarOrigin = RootSystemOrigin;
     type WeightInfo = pallet_identity::weights::SubstrateWeight<Runtime>;
 }
 
@@ -1653,12 +1538,21 @@ pallet_staking_reward_curve::build! {
     );
 }
 
+/// Pay high-rate rewards for 3 months (in eras) after the upgrade.
+/// At the moment, we still have 18 remaining eras of enabled high-rate rewards.
+const POST_UPGRADE_HIGH_RATE_DURATION: DurationInEras =
+    DurationInEras::new_non_zero((81 * DAY / EPOCH_DURATION_IN_BLOCKS / SESSIONS_PER_ERA) as u16);
+
+// 1 era lasts for 12h.
+#[cfg(not(feature = "small_durations"))]
+const_assert_eq!(POST_UPGRADE_HIGH_RATE_DURATION.0.get(), 81 * 2);
+
 parameter_types! {
     pub const RewardCurve: &'static PiecewiseLinear<'static> = &REWARD_CURVE;
     pub const HighRateRewardDecayPct: Percent = Percent::from_percent(50);
     pub const LowRateRewardDecayPct: Percent = Percent::from_percent(25);
     pub const TreasuryRewardsPct: Percent = Percent::from_percent(50);
-    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = None;
+    pub const PostUpgradeHighRateDuration: Option<DurationInEras> = Some(POST_UPGRADE_HIGH_RATE_DURATION);
 }
 
 impl dock_staking_rewards::Config for Runtime {
@@ -1815,11 +1709,22 @@ impl pallet_evm::Config for Runtime {
 
 parameter_types! {
     pub const MaxSymbolBytesLen: u32 = 10;
+    pub BurnDestination: AccountId = AccountId::from_slice(&[99u8; 32]).unwrap();
 }
 
 impl dock_price_feed::Config for Runtime {
-    type MaxSymbolBytesLen = MaxSymbolBytesLen;
+    type MaxSymbolBytesLen = ConstU32<10>;
     type Event = Event;
+}
+
+impl dock_agreement::Config for Runtime {
+    type Event = Event;
+}
+
+impl dock_cheqd_migration::Config for Runtime {
+    type Event = Event;
+    type Currency = Balances;
+    type BurnDestination = BurnDestination;
 }
 
 parameter_types! {
@@ -1842,15 +1747,15 @@ construct_runtime!(
         Authorship: pallet_authorship::{Pallet, Call, Storage} = 6,
         TransactionPayment: transaction_payment::{Pallet, Storage, Event<T>} = 7,
         Utility: pallet_utility::{Pallet, Call, Event} = 8,
-        OffchainSignatures: offchain_signatures::{Pallet, Call, Storage, Event} = 9,
-        DIDModule: did::{Pallet, Call, Storage, Event<T>, Config<T>} = 10,
-        Revoke: revoke::{Pallet, Call, Storage, Event} = 11,
-        BlobStore: blob::{Pallet, Call, Storage} = 12,
-        Master: master::{Pallet, Call, Storage, Event<T>, Config<T>} = 13,
+        OffchainSignatures: offchain_signatures::{Pallet, Storage, Event} = 9,
+        DIDModule: did::{Pallet, Storage, Event<T>, Config<T>} = 10,
+        Revoke: revoke::{Pallet, Storage, Event} = 11,
+        BlobStore: blob::{Pallet, Storage} = 12,
+        Master: master::{Pallet, Storage, Event<T>, Config<T>} = 13,
         Sudo: sudo::{Pallet, Call, Storage, Event<T>, Config<T>} = 14,
         MigrationModule: dock_token_migration::{Pallet, Call, Storage, Event<T>} = 15,
-        Anchor: anchor::{Pallet, Call, Storage, Event<T>} = 16,
-        Attest: attest::{Pallet, Call, Storage} = 17,
+        Anchor: anchor::{Pallet, Storage, Event<T>} = 16,
+        Attest: attest::{Pallet, Storage} = 17,
         Democracy: pallet_democracy::{Pallet, Call, Storage, Event<T>} = 18,
         Council: pallet_collective::<Instance1>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 19,
         TechnicalCommittee: pallet_collective::<Instance2>::{Pallet, Call, Storage, Origin<T>, Event<T>, Config<T>} = 20,
@@ -1873,10 +1778,12 @@ construct_runtime!(
         Elections: pallet_elections_phragmen::{Pallet, Call, Storage, Event<T>, Config<T>} = 37,
         Tips: pallet_tips::{Pallet, Call, Storage, Event<T>} = 38,
         Identity: pallet_identity::{Pallet, Call, Storage, Event<T>} = 39,
-        Accumulator: accumulator::{Pallet, Call, Storage, Event} = 40,
+        Accumulator: accumulator::{Pallet, Storage, Event} = 40,
         BaseFee: pallet_base_fee::{Pallet, Call, Storage, Config<T>, Event} = 41,
-        StatusListCredential: status_list_credential::{Pallet, Call, Storage, Event} = 42,
-        TrustRegistry: trust_registry::{Pallet, Call, Storage, Event} = 43
+        StatusListCredential: status_list_credential::{Pallet, Storage, Event} = 42,
+        TrustRegistry: trust_registry::{Pallet, Storage, Event} = 43,
+        Agreement: dock_agreement::{Pallet, Call, Event} = 44,
+        CheqdMigration: dock_cheqd_migration::{Pallet, Call, Event<T>} = 45
     }
 );
 
@@ -1918,6 +1825,7 @@ type Executive = frame_executive::Executive<
     frame_system::ChainContext<Runtime>,
     Runtime,
     AllPalletsWithSystem,
+    ChangeValidatorsConfiguration,
 >;
 
 /// The address format for describing accounts.
@@ -1938,7 +1846,7 @@ pub type SignedExtra = (
     frame_system::CheckEra<Runtime>,
     frame_system::CheckNonce<Runtime>,
     frame_system::CheckWeight<Runtime>,
-    CustomChargeTransactionPayment,
+    transaction_payment::ChargeTransactionPayment<Runtime>,
     dock_token_migration::OnlyMigrator<Runtime>,
 );
 
@@ -2551,6 +2459,36 @@ impl_runtime_apis! {
         ) -> BTreeMap<trust_registry::TrustRegistrySchemaId, trust_registry::AggregatedTrustRegistrySchemaMetadata<Runtime>> {
             by.resolve_to_schemas_metadata_in_registry(reg_id)
         }
+
+        fn registries_ids_by(
+            by: trust_registry::QueryTrustRegistriesBy
+        ) -> BTreeSet<trust_registry::TrustRegistryId> {
+            by.resolve_to_registry_ids::<Runtime>()
+        }
+
+        fn registry_schemas_ids_by(
+            by: trust_registry::QueryTrustRegistryBy,
+            reg_id: trust_registry::TrustRegistryId
+        ) -> BTreeSet<trust_registry::TrustRegistrySchemaId> {
+            by.resolve_to_schema_ids_in_registry::<Runtime>(reg_id)
+        }
+
+        fn bbdt16_public_key_with_params((did, key_id): offchain_signatures::SignaturePublicKeyStorageKey) -> Option<offchain_signatures::BBDT16PublicKeyWithParams<Runtime>> {
+            OffchainSignatures::did_public_key(did, key_id)
+                .and_then(CheckedConversion::checked_into)
+        }
+
+        fn bbdt16_params_by_did(owner: offchain_signatures::SignatureParamsOwner) -> BTreeMap<IncId, offchain_signatures::BBDT16Parameters<Runtime>> {
+            OffchainSignatures::did_params(&owner)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
+        }
+
+        fn bbdt16_public_keys_by_did(did: did::Did) -> BTreeMap<IncId, offchain_signatures::BBDT16PublicKeyWithParams<Runtime>> {
+            OffchainSignatures::did_public_keys(&did)
+                .filter_map(checked_convert_indexed_item)
+                .collect()
+        }
     }
 
     #[cfg(feature = "runtime-benchmarks")]
@@ -2559,20 +2497,39 @@ impl_runtime_apis! {
             Vec<frame_benchmarking::BenchmarkList>,
             Vec<frame_support::traits::StorageInfo>,
         ) {
+            // use frame_system_benchmarking::Pallet as SystemBench;
             use frame_benchmarking::{list_benchmark, Benchmarking, BenchmarkList};
             use frame_support::traits::StorageInfoTrait;
 
             let mut list = Vec::<BenchmarkList>::new();
 
+            // Core modules
+            list_benchmark!(list, extra, accumulator, Accumulator);
+            list_benchmark!(list, extra, attest, Anchor);
+            list_benchmark!(list, extra, anchor, Attest);
+            list_benchmark!(list, extra, blob, BlobStore);
             list_benchmark!(list, extra, did, DIDModule);
+            list_benchmark!(list, extra, offchain_signatures, OffchainSignatures);
             list_benchmark!(list, extra, revoke, Revoke);
             list_benchmark!(list, extra, status_list_credential, StatusListCredential);
             list_benchmark!(list, extra, trust_registry, TrustRegistry);
-            list_benchmark!(list, extra, blob, BlobStore);
+
+            // Substrate pallets
             list_benchmark!(list, extra, balances, Balances);
-            list_benchmark!(list, extra, dock_token_migration, MigrationModule);
-            list_benchmark!(list, extra, pallet_collective, Council);
             list_benchmark!(list, extra, pallet_staking, Staking);
+            list_benchmark!(list, extra, dock_token_migration, MigrationModule);
+            // list_benchmark!(list, extra, frame_system, SystemBench::<Runtime>);
+
+            list_benchmark!(list, extra, pallet_collective, Council);
+            list_benchmark!(list, extra, pallet_democracy, Democracy);
+            list_benchmark!(list, extra, pallet_elections_phragmen, Elections);
+            list_benchmark!(list, extra, pallet_scheduler, Scheduler);
+
+            list_benchmark!(list, extra, pallet_babe, Babe);
+            list_benchmark!(list, extra, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
+            list_benchmark!(list, extra, pallet_grandpa, GrandpaFinality);
+            list_benchmark!(list, extra, pallet_im_online, ImOnline);
+            list_benchmark!(list, extra, pallet_migration, CheqdMigration);
 
             macro_rules! storage_info {
                 ($($pallet: ty),+) => {
@@ -2625,15 +2582,8 @@ impl_runtime_apis! {
                 StatusListCredential,
                 TrustRegistry
             );
-            //list_benchmark!(list, extra, pallet_democracy, Democracy);
-            //list_benchmark!(list, extra, pallet_scheduler, Scheduler);
 
-            //list_benchmark!(list, extra, pallet_babe, Babe);
-            //list_benchmark!(list, extra, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
-            //list_benchmark!(list, extra, pallet_grandpa, Grandpa);
-            //list_benchmark!(list, extra, pallet_im_online, ImOnline);
-
-            return (list, storage_info)
+            (list, storage_info)
         }
 
         fn dispatch_benchmark(
@@ -2668,24 +2618,33 @@ impl_runtime_apis! {
             let mut batches = Vec::<BenchmarkBatch>::new();
             let params = (&config, &whitelist);
 
+            // Core modules
+            add_benchmark!(params, batches, accumulator, Accumulator);
+            add_benchmark!(params, batches, attest, Anchor);
+            add_benchmark!(params, batches, anchor, Attest);
+            add_benchmark!(params, batches, blob, BlobStore);
             add_benchmark!(params, batches, did, DIDModule);
+            add_benchmark!(params, batches, offchain_signatures, OffchainSignatures);
             add_benchmark!(params, batches, revoke, Revoke);
             add_benchmark!(params, batches, status_list_credential, StatusListCredential);
             add_benchmark!(params, batches, trust_registry, TrustRegistry);
-            add_benchmark!(params, batches, blob, BlobStore);
+
+            // Substrate pallets
             add_benchmark!(params, batches, balances, Balances);
             add_benchmark!(params, batches, pallet_staking, Staking);
             add_benchmark!(params, batches, dock_token_migration, MigrationModule);
             // add_benchmark!(params, batches, frame_system, SystemBench::<Runtime>);
 
-            //add_benchmark!(params, batches, pallet_collective, Council);
-            //add_benchmark!(params, batches, pallet_democracy, Democracy);
-            //add_benchmark!(params, batches, pallet_scheduler, Scheduler);
+            add_benchmark!(params, batches, pallet_collective, Council);
+            add_benchmark!(params, batches, pallet_democracy, Democracy);
+            add_benchmark!(params, batches, pallet_elections_phragmen, Elections);
+            add_benchmark!(params, batches, pallet_scheduler, Scheduler);
 
-            //add_benchmark!(params, batches, pallet_babe, Babe);
-            //add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
-            //add_benchmark!(params, batches, pallet_grandpa, Grandpa);
-            //add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            add_benchmark!(params, batches, pallet_babe, Babe);
+            add_benchmark!(params, batches, pallet_election_provider_multi_phase, ElectionProviderMultiPhase);
+            add_benchmark!(params, batches, pallet_grandpa, GrandpaFinality);
+            add_benchmark!(params, batches, pallet_im_online, ImOnline);
+            add_benchmark!(params, batches, pallet_migration, CheqdMigration);
 
             if batches.is_empty() { return Err("Benchmark not found for this pallet.".into()) }
             Ok(batches)

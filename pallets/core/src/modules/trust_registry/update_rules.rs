@@ -32,6 +32,16 @@ impl CanUpdate<VerificationPrice> for IssuerOrVerifier {
 impl<T: Limits> CanUpdate<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {}
 impl<T: Limits> CanUpdate<TrustRegistrySchemaVerifiers<T>> for IssuerOrVerifier {}
 
+impl<T: Limits> CanUpdateKeyed<TrustRegistryStoredParticipants<T>> for IssuersOrVerifiers {
+    fn can_update_keyed<U: KeyedUpdate<TrustRegistryStoredParticipants<T>>>(
+        &self,
+        entity: &TrustRegistryStoredParticipants<T>,
+        update: &U,
+    ) -> bool {
+        update.targets(entity).all(|target| self.contains(target))
+    }
+}
+
 impl<T: Limits> CanUpdateKeyed<TrustRegistrySchemaIssuers<T>> for IssuerOrVerifier {
     fn can_update_keyed<U: KeyedUpdate<TrustRegistrySchemaIssuers<T>>>(
         &self,
@@ -112,6 +122,16 @@ impl<T: Limits> CanUpdateKeyed<IssuerSchemas<T>> for IssuerOrVerifier {
     }
 }
 
+impl<T: Limits> CanUpdateKeyed<DelegatedIssuerSchemas<T>> for Issuer {
+    fn can_update_keyed<U: KeyedUpdate<DelegatedIssuerSchemas<T>>>(
+        &self,
+        _entity: &DelegatedIssuerSchemas<T>,
+        _update: &U,
+    ) -> bool {
+        true
+    }
+}
+
 impl<T: Limits> CanUpdateKeyed<VerifierSchemas<T>> for Verifier {
     fn can_update_keyed<U: KeyedUpdate<VerifierSchemas<T>>>(
         &self,
@@ -145,16 +165,16 @@ impl<T: Limits> CanUpdateKeyed<VerifierSchemas<T>> for IssuerOrVerifier {
 impl<T: Limits> CanUpdateKeyed<DelegatedIssuers<T>> for Issuer {
     fn can_update_keyed<U: KeyedUpdate<DelegatedIssuers<T>>>(
         &self,
-        _entity: &DelegatedIssuers<T>,
-        _update: &U,
+        entity: &DelegatedIssuers<T>,
+        update: &U,
     ) -> bool {
-        true
+        update.targets(entity).all(|delegated| delegated != self)
     }
 }
 
 impl<T: Limits> CanUpdate<DelegatedIssuers<T>> for Issuer {
-    fn can_replace(&self, _new: &DelegatedIssuers<T>, _existing: &DelegatedIssuers<T>) -> bool {
-        true
+    fn can_replace(&self, new: &DelegatedIssuers<T>, _existing: &DelegatedIssuers<T>) -> bool {
+        !new.contains(self)
     }
 }
 
@@ -310,6 +330,26 @@ impl<T: Limits> CanUpdateKeyed<VerificationPrices<T>> for Convener {
     }
 }
 
+impl<T: Limits> CanUpdateKeyed<DelegatedIssuerSchemas<T>> for Convener {
+    fn can_update_keyed<U: KeyedUpdate<DelegatedIssuerSchemas<T>>>(
+        &self,
+        _entity: &DelegatedIssuerSchemas<T>,
+        _update: &U,
+    ) -> bool {
+        true
+    }
+}
+
+impl<T: Limits> CanUpdateKeyed<DelegatedIssuerSchemas<T>> for IssuerOrVerifier {
+    fn can_update_keyed<U: KeyedUpdate<DelegatedIssuerSchemas<T>>>(
+        &self,
+        _entity: &DelegatedIssuerSchemas<T>,
+        _update: &U,
+    ) -> bool {
+        true
+    }
+}
+
 impl<T: Limits> CanUpdate<TrustRegistrySchemaVerifiers<T>> for Convener {
     fn can_add(&self, _entity: &TrustRegistrySchemaVerifiers<T>) -> bool {
         true
@@ -342,6 +382,48 @@ impl<T: Limits> CanUpdate<TrustRegistrySchemaMetadata<T>> for Convener {
         _new: &TrustRegistrySchemaMetadata<T>,
         _entity: &TrustRegistrySchemaMetadata<T>,
     ) -> bool {
+        true
+    }
+}
+
+impl CanUpdate<DelegatedSchemaCounter> for Convener {
+    fn can_add(&self, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+
+    fn can_remove(&self, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+
+    fn can_replace(&self, _new: &DelegatedSchemaCounter, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+}
+
+impl CanUpdate<DelegatedSchemaCounter> for IssuerOrVerifier {
+    fn can_add(&self, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+
+    fn can_remove(&self, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+
+    fn can_replace(&self, _new: &DelegatedSchemaCounter, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+}
+
+impl CanUpdate<DelegatedSchemaCounter> for Issuer {
+    fn can_add(&self, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+
+    fn can_remove(&self, _entity: &DelegatedSchemaCounter) -> bool {
+        true
+    }
+
+    fn can_replace(&self, _new: &DelegatedSchemaCounter, _entity: &DelegatedSchemaCounter) -> bool {
         true
     }
 }

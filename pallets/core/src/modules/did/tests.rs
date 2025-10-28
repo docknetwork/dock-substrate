@@ -4,6 +4,7 @@ use crate::common::ToStateChange;
 use crate::{
     common::{get_secp256k1_keypair, SigValue},
     did::{
+        self,
         keys::{DidKeyError, UncheckedDidKey},
         service_endpoints::{ServiceEndpointOrigin, ServiceEndpointType},
     },
@@ -184,7 +185,7 @@ fn onchain_keyless_did_creation() {
         assert!(!DIDModule::is_controller(&did_1, &controller_2));
         assert!(DIDModule::is_controller(&did_1, &controller_1));
 
-        check_did_detail(&did_1, 0, 0, 1, 20);
+        check_did_detail(&did_1, 0, 0, 1, 0);
 
         assert_noop!(
             DIDModule::new_onchain(
@@ -214,7 +215,7 @@ fn onchain_keyless_did_creation() {
         assert!(DIDModule::is_controller(&did_2, &controller_1));
         assert!(DIDModule::is_controller(&did_2, &controller_2));
 
-        check_did_detail(&did_2, 0, 0, 3, 55);
+        check_did_detail(&did_2, 0, 0, 3, 0);
     });
 }
 
@@ -254,7 +255,7 @@ fn onchain_keyed_did_creation_with_self_control() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 1, 1, 1, 5);
+        check_did_detail(&did_1, 1, 1, 1, 0);
 
         let key_1 = DidKeys::<Test>::get(did_1, IncId::from(1u32)).unwrap();
         not_key_agreement(&key_1);
@@ -276,7 +277,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                 .collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 1, 1, 2, 6);
+        check_did_detail(&did_2, 1, 1, 2, 0);
 
         let key_2 = DidKeys::<Test>::get(did_2, IncId::from(1u32)).unwrap();
         not_key_agreement(&key_2);
@@ -295,7 +296,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                 .collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_3));
-        check_did_detail(&did_3, 1, 1, 3, 7);
+        check_did_detail(&did_3, 1, 1, 3, 0);
 
         let key_3 = DidKeys::<Test>::get(did_3, IncId::from(1u32)).unwrap();
         not_key_agreement(&key_3);
@@ -313,7 +314,7 @@ fn onchain_keyed_did_creation_with_self_control() {
             vec![Controller(did_3.into())].into_iter().collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_4));
-        check_did_detail(&did_4, 1, 0, 1, 8);
+        check_did_detail(&did_4, 1, 0, 1, 0);
 
         // x25519 key cannot be added for incompatible relationship types
         for add in [VerRelType::NONE, VerRelType::KEY_AGREEMENT] {
@@ -392,7 +393,7 @@ fn onchain_keyed_did_creation_with_self_control() {
             assert!(key.can_control());
             assert!(key.can_authenticate_or_control());
             assert!(!key.for_key_agreement());
-            check_did_detail(&did, 1, 1, 1, 10);
+            check_did_detail(&did, 1, 1, 1, 0);
         }
 
         run_to_block(13);
@@ -438,7 +439,7 @@ fn onchain_keyed_did_creation_with_self_control() {
                 assert!(key.can_authenticate_or_control());
             }
             assert!(!key.for_key_agreement());
-            check_did_detail(&did, 1, 0, 1, 13);
+            check_did_detail(&did, 1, 0, 1, 0);
         }
 
         run_to_block(19);
@@ -458,7 +459,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_8.can_sign());
         assert!(key_8.can_authenticate());
         assert!(!key_8.can_control());
-        check_did_detail(&did_8, 1, 0, 1, 19);
+        check_did_detail(&did_8, 1, 0, 1, 0);
 
         run_to_block(20);
 
@@ -486,7 +487,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_9_3.can_sign());
         assert!(key_9_3.can_authenticate());
         assert!(!key_9_3.can_control());
-        check_did_detail(&did_9, 3, 0, 1, 20);
+        check_did_detail(&did_9, 3, 0, 1, 0);
 
         run_to_block(22);
 
@@ -517,7 +518,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_10_3.can_sign());
         assert!(!key_10_3.can_authenticate());
         assert!(key_10_3.can_control());
-        check_did_detail(&did_10, 3, 1, 1, 22);
+        check_did_detail(&did_10, 3, 1, 1, 0);
 
         run_to_block(23);
 
@@ -547,7 +548,7 @@ fn onchain_keyed_did_creation_with_self_control() {
         assert!(key_11_2.can_sign());
         assert!(!key_11_2.can_authenticate());
         assert!(key_11_2.can_control());
-        check_did_detail(&did_11, 2, 1, 3, 23);
+        check_did_detail(&did_11, 2, 1, 3, 0);
     });
 }
 
@@ -588,7 +589,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_1));
         assert!(DIDModule::is_controller(&did_1, &controller_1));
-        check_did_detail(&did_1, 1, 0, 1, 10);
+        check_did_detail(&did_1, 1, 0, 1, 0);
 
         run_to_block(11);
 
@@ -604,7 +605,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
         assert!(DIDModule::is_controller(&did_2, &controller_2));
-        check_did_detail(&did_2, 1, 0, 1, 11);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         run_to_block(12);
 
@@ -620,7 +621,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_3));
         assert!(DIDModule::is_controller(&did_3, &controller_3));
-        check_did_detail(&did_3, 1, 0, 1, 12);
+        check_did_detail(&did_3, 1, 0, 1, 0);
 
         run_to_block(13);
 
@@ -636,7 +637,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_4));
         assert!(DIDModule::is_controller(&did_4, &controller_4));
-        check_did_detail(&did_4, 2, 0, 1, 13);
+        check_did_detail(&did_4, 2, 0, 1, 0);
 
         run_to_block(14);
 
@@ -655,7 +656,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(DIDModule::is_self_controlled(&did_5));
         assert!(DIDModule::is_controller(&did_5, &controller_1));
-        check_did_detail(&did_5, 2, 1, 2, 14);
+        check_did_detail(&did_5, 2, 1, 2, 0);
 
         run_to_block(15);
 
@@ -677,7 +678,7 @@ fn onchain_keyed_did_creation_with_and_without_self_control() {
         ));
         assert!(DIDModule::is_self_controlled(&did_6));
         assert!(DIDModule::is_controller(&did_6, &controller_1));
-        check_did_detail(&did_6, 2, 2, 2, 15);
+        check_did_detail(&did_6, 2, 2, 2, 0);
     });
 }
 
@@ -708,7 +709,7 @@ fn add_keys_to_did() {
                 PublicKey::sr25519(pk_sr_1),
                 VerRelType::NONE,
             )],
-            nonce: 4,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
         assert_noop!(
@@ -731,7 +732,7 @@ fn add_keys_to_did() {
         let add_keys = AddKeys {
             did: did_1,
             keys: vec![],
-            nonce: 5,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
         assert_noop!(
@@ -760,7 +761,7 @@ fn add_keys_to_did() {
                 PublicKey::sr25519(pk_sr_1),
                 VerRelType::NONE,
             )],
-            nonce: 5,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
         assert_noop!(
@@ -788,7 +789,7 @@ fn add_keys_to_did() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 3, 2, 1, 5);
+        check_did_detail(&did_1, 3, 2, 1, 0);
 
         run_to_block(7);
 
@@ -807,7 +808,7 @@ fn add_keys_to_did() {
                 .collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 1, 0, 1, 7);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         run_to_block(10);
 
@@ -815,7 +816,7 @@ fn add_keys_to_did() {
         let add_keys = AddKeys {
             did: did_2,
             keys: vec![UncheckedDidKey::new(pk_secp_1, VerRelType::NONE)],
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&add_keys.to_state_change().encode(), &pair_ed_1);
         assert_noop!(
@@ -851,7 +852,7 @@ fn add_keys_to_did() {
                     }
                     .into()
                 ),
-                NonceError::IncorrectNonce
+                did::Error::<Test>::InvalidNonce
             );
         }
 
@@ -859,7 +860,7 @@ fn add_keys_to_did() {
         let add_keys = AddKeys {
             did: did_2,
             keys: vec![UncheckedDidKey::new(pk_secp_1, VerRelType::NONE)],
-            nonce: 5 + 1,
+            nonce: 1,
         };
         // Using some arbitrary bytes as signature
         let sig = SigValue::Sr25519([109; 64].into());
@@ -881,7 +882,7 @@ fn add_keys_to_did() {
         let add_keys = AddKeys {
             did: did_2,
             keys: vec![UncheckedDidKey::new(pk_secp_1, VerRelType::NONE)],
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
         assert_noop!(
@@ -926,7 +927,7 @@ fn add_keys_to_did() {
                 let add_keys = AddKeys {
                     did: did_2,
                     keys: vec![key],
-                    nonce: 5 + 1,
+                    nonce: 1,
                 };
                 let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
                 assert_noop!(
@@ -962,7 +963,7 @@ fn add_keys_to_did() {
                 let add_keys = AddKeys {
                     did: did_2,
                     keys: vec![key],
-                    nonce: 5 + 1,
+                    nonce: 1,
                 };
                 let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
                 assert_noop!(
@@ -988,7 +989,7 @@ fn add_keys_to_did() {
                 PublicKey::x25519(pk_ed_1),
                 VerRelType::KEY_AGREEMENT,
             )],
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
         assert_ok!(DIDModule::add_keys(
@@ -1002,8 +1003,8 @@ fn add_keys_to_did() {
             .into()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 2, 0, 1, 7);
-        check_did_detail(&did_1, 3, 2, 1, 6);
+        check_did_detail(&did_2, 2, 0, 1, 0);
+        check_did_detail(&did_1, 3, 2, 1, 1);
 
         only_key_agreement(&DidKeys::<Test>::get(did_2, IncId::from(2u32)).unwrap());
 
@@ -1018,7 +1019,7 @@ fn add_keys_to_did() {
                     VerRelType::AUTHENTICATION | VerRelType::ASSERTION,
                 ),
             ],
-            nonce: 6 + 1,
+            nonce: 2,
         };
 
         // Controller uses a key without the capability to update DID
@@ -1050,8 +1051,8 @@ fn add_keys_to_did() {
             .into()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 5, 0, 1, 7);
-        check_did_detail(&did_1, 3, 2, 1, 7);
+        check_did_detail(&did_2, 5, 0, 1, 0);
+        check_did_detail(&did_1, 3, 2, 1, 2);
         DidKeys::<Test>::get(did_2, IncId::from(3u32)).unwrap();
         DidKeys::<Test>::get(did_2, IncId::from(4u32)).unwrap();
         DidKeys::<Test>::get(did_2, IncId::from(5u32)).unwrap();
@@ -1062,7 +1063,7 @@ fn add_keys_to_did() {
                 PublicKey::ed25519(pk_ed_1),
                 VerRelType::NONE,
             )],
-            nonce: 7 + 1,
+            nonce: 3,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr_1);
         assert_ok!(DIDModule::add_keys(
@@ -1076,7 +1077,7 @@ fn add_keys_to_did() {
             .into()
         ));
 
-        check_did_detail(&did_1, 4, 3, 1, 8);
+        check_did_detail(&did_1, 4, 3, 1, 3);
         DidKeys::<Test>::get(did_1, IncId::from(4u32)).unwrap()
     });
 }
@@ -1110,7 +1111,7 @@ fn remove_keys_from_did() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 4, 2, 1, 2);
+        check_did_detail(&did_1, 4, 2, 1, 0);
 
         run_to_block(5);
 
@@ -1128,12 +1129,12 @@ fn remove_keys_from_did() {
                 .map(Controller)
                 .collect()
         ));
-        check_did_detail(&did_2, 1, 0, 1, 5);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         run_to_block(10);
 
         // Nonce should be 1 greater than existing 2, i.e. 3
-        for nonce in [1, 2, 4, 5, 6, 7, 8, 10, 10000] {
+        for nonce in [2, 4, 5, 6, 7, 8, 10, 10000] {
             let remove_keys = RemoveKeys {
                 did: did_2,
                 keys: vec![1u32.into()].into_iter().collect(),
@@ -1151,7 +1152,7 @@ fn remove_keys_from_did() {
                     }
                     .into()
                 ),
-                NonceError::IncorrectNonce
+                did::Error::<Test>::InvalidNonce
             );
         }
 
@@ -1159,7 +1160,7 @@ fn remove_keys_from_did() {
         let remove_keys = RemoveKeys {
             did: did_2,
             keys: vec![1u32.into()].into_iter().collect(),
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
         assert_noop!(
@@ -1179,7 +1180,43 @@ fn remove_keys_from_did() {
         let remove_keys = RemoveKeys {
             did: did_1,
             keys: vec![1u32.into()].into_iter().collect(),
-            nonce: 2 + 1,
+            nonce: 1,
+        };
+        let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
+        assert_ok!(DIDModule::remove_keys(
+            Origin::signed(alice),
+            remove_keys,
+            DidSignature {
+                did: did_1,
+                key_id: 2u32.into(),
+                sig
+            }
+            .into()
+        ));
+        check_did_detail(&did_1, 4, 1, 1, 1);
+
+        let remove_keys = RemoveKeys {
+            did: did_1,
+            keys: vec![3u32.into()].into_iter().collect(),
+            nonce: 2,
+        };
+        let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
+        assert_ok!(DIDModule::remove_keys(
+            Origin::signed(alice),
+            remove_keys,
+            DidSignature {
+                did: did_1,
+                key_id: 2u32.into(),
+                sig
+            }
+            .into()
+        ));
+        check_did_detail(&did_1, 4, 1, 1, 2);
+
+        let remove_keys = RemoveKeys {
+            did: did_2,
+            keys: vec![1u32.into()].into_iter().collect(),
+            nonce: 3,
         };
         let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
         assert_ok!(DIDModule::remove_keys(
@@ -1193,43 +1230,7 @@ fn remove_keys_from_did() {
             .into()
         ));
         check_did_detail(&did_1, 4, 1, 1, 3);
-
-        let remove_keys = RemoveKeys {
-            did: did_1,
-            keys: vec![3u32.into()].into_iter().collect(),
-            nonce: 3 + 1,
-        };
-        let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
-        assert_ok!(DIDModule::remove_keys(
-            Origin::signed(alice),
-            remove_keys,
-            DidSignature {
-                did: did_1,
-                key_id: 2u32.into(),
-                sig
-            }
-            .into()
-        ));
-        check_did_detail(&did_1, 4, 1, 1, 4);
-
-        let remove_keys = RemoveKeys {
-            did: did_2,
-            keys: vec![1u32.into()].into_iter().collect(),
-            nonce: 4 + 1,
-        };
-        let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
-        assert_ok!(DIDModule::remove_keys(
-            Origin::signed(alice),
-            remove_keys,
-            DidSignature {
-                did: did_1,
-                key_id: 2u32.into(),
-                sig
-            }
-            .into()
-        ));
-        check_did_detail(&did_1, 4, 1, 1, 5);
-        check_did_detail(&did_2, 1, 0, 1, 5);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         run_to_block(30);
 
@@ -1249,12 +1250,12 @@ fn remove_keys_from_did() {
                 .map(Controller)
                 .collect()
         ));
-        check_did_detail(&did_5, 1, 1, 2, 30);
+        check_did_detail(&did_5, 1, 1, 2, 0);
 
         let remove_keys = RemoveKeys {
             did: did_5,
             keys: vec![1u32.into()].into_iter().collect(),
-            nonce: 5 + 1,
+            nonce: 4,
         };
         let sig = SigValue::ed25519(&remove_keys.to_state_change().encode(), &pair_ed_1);
         assert_ok!(DIDModule::remove_keys(
@@ -1267,8 +1268,8 @@ fn remove_keys_from_did() {
             }
             .into()
         ));
-        check_did_detail(&did_5, 1, 0, 1, 30);
-        check_did_detail(&did_1, 4, 1, 1, 6);
+        check_did_detail(&did_5, 1, 0, 1, 0);
+        check_did_detail(&did_1, 4, 1, 1, 4);
 
         let remove_controllers = RemoveControllers {
             did: did_5,
@@ -1277,7 +1278,7 @@ fn remove_keys_from_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 6 + 1,
+            nonce: 5,
         };
         let sig = SigValue::ed25519(&remove_controllers.to_state_change().encode(), &pair_ed_1);
         assert_ok!(DIDModule::remove_controllers(
@@ -1290,8 +1291,8 @@ fn remove_keys_from_did() {
             }
             .into()
         ));
-        check_did_detail(&did_5, 1, 0, 0, 30);
-        check_did_detail(&did_1, 4, 1, 1, 7);
+        check_did_detail(&did_5, 1, 0, 0, 0);
+        check_did_detail(&did_1, 4, 1, 1, 5);
     });
 }
 
@@ -1326,7 +1327,7 @@ fn remove_controllers_from_did() {
             Default::default()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 4, 2, 1, 2);
+        check_did_detail(&did_1, 4, 2, 1, 0);
 
         run_to_block(5);
 
@@ -1344,7 +1345,7 @@ fn remove_controllers_from_did() {
                 .map(Controller)
                 .collect()
         ));
-        check_did_detail(&did_2, 1, 0, 1, 5);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         // This DID has no keys but controlled by other DIDs
         assert_ok!(DIDModule::new_onchain(
@@ -1357,12 +1358,12 @@ fn remove_controllers_from_did() {
                 .map(Controller)
                 .collect()
         ));
-        check_did_detail(&did_3, 0, 0, 2, 5);
+        check_did_detail(&did_3, 0, 0, 2, 0);
 
         run_to_block(10);
 
         // Nonce should be 1 greater than existing 2, i.e. 3
-        for nonce in [1, 2, 4, 5, 10, 10000] {
+        for nonce in [2, 4, 5, 10, 10000] {
             let remove_controllers = RemoveControllers {
                 did: did_2,
                 controllers: vec![did_1]
@@ -1384,7 +1385,7 @@ fn remove_controllers_from_did() {
                     }
                     .into()
                 ),
-                NonceError::IncorrectNonce
+                did::Error::<Test>::InvalidNonce
             );
         }
 
@@ -1396,7 +1397,7 @@ fn remove_controllers_from_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 3,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&remove_controllers.to_state_change().encode(), &pair_ed_1);
         assert_noop!(
@@ -1421,7 +1422,7 @@ fn remove_controllers_from_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&remove_controllers.to_state_change().encode(), &pair_ed_1);
         assert_noop!(
@@ -1445,7 +1446,7 @@ fn remove_controllers_from_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 3,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&remove_controllers.to_state_change().encode(), &pair_ed_1);
         assert_ok!(DIDModule::remove_controllers(
@@ -1459,7 +1460,7 @@ fn remove_controllers_from_did() {
             .into()
         ));
         assert!(!DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 4, 2, 0, 3);
+        check_did_detail(&did_1, 4, 2, 0, 1);
 
         assert!(DIDModule::is_controller(&did_3, &Controller(did_2.into())));
         let remove_controllers = RemoveControllers {
@@ -1469,7 +1470,7 @@ fn remove_controllers_from_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 3 + 1,
+            nonce: 2,
         };
         let sig = SigValue::sr25519(&remove_controllers.to_state_change().encode(), &pair_sr_1);
         assert_ok!(DIDModule::remove_controllers(
@@ -1483,8 +1484,8 @@ fn remove_controllers_from_did() {
             .into()
         ));
         assert!(!DIDModule::is_controller(&did_3, &Controller(did_2.into())));
-        check_did_detail(&did_1, 4, 2, 0, 4);
-        check_did_detail(&did_3, 0, 0, 1, 5);
+        check_did_detail(&did_1, 4, 2, 0, 2);
+        check_did_detail(&did_3, 0, 0, 1, 0);
     });
 }
 
@@ -1512,7 +1513,7 @@ fn add_controllers_to_did() {
         let add_controllers = AddControllers {
             did: did_1,
             controllers: vec![].into_iter().collect(),
-            nonce: 5,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_controllers.to_state_change().encode(), &pair_sr);
         assert_noop!(
@@ -1536,7 +1537,7 @@ fn add_controllers_to_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 5,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_controllers.to_state_change().encode(), &pair_sr);
         assert_noop!(
@@ -1564,7 +1565,7 @@ fn add_controllers_to_did() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 2, 1, 1, 5);
+        check_did_detail(&did_1, 2, 1, 1, 0);
 
         run_to_block(6);
 
@@ -1581,7 +1582,7 @@ fn add_controllers_to_did() {
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
 
-        check_did_detail(&did_3, 1, 1, 2, 6);
+        check_did_detail(&did_3, 1, 1, 2, 0);
 
         run_to_block(10);
         // This DID does not control itself
@@ -1600,7 +1601,7 @@ fn add_controllers_to_did() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
         assert!(DIDModule::is_controller(&did_2, &Controller(did_1.into())));
-        check_did_detail(&did_2, 1, 0, 1, 10);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         run_to_block(15);
 
@@ -1612,7 +1613,7 @@ fn add_controllers_to_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 10 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_controllers.to_state_change().encode(), &pair_sr);
         assert_noop!(
@@ -1652,7 +1653,7 @@ fn add_controllers_to_did() {
                     }
                     .into()
                 ),
-                NonceError::IncorrectNonce
+                did::Error::<Test>::InvalidNonce
             );
         }
 
@@ -1664,7 +1665,7 @@ fn add_controllers_to_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::Secp256k1([35; 65].into());
         assert_noop!(
@@ -1695,8 +1696,8 @@ fn add_controllers_to_did() {
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
         assert!(DIDModule::is_controller(&did_2, &Controller(did_3.into())));
-        check_did_detail(&did_1, 2, 1, 1, 6);
-        check_did_detail(&did_2, 1, 0, 2, 10);
+        check_did_detail(&did_1, 2, 1, 1, 1);
+        check_did_detail(&did_2, 1, 0, 2, 0);
 
         run_to_block(15);
 
@@ -1708,7 +1709,7 @@ fn add_controllers_to_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 6 + 1,
+            nonce: 1,
         };
         let sig = SigValue::secp256k1(&add_controllers.to_state_change().encode(), &sk_secp_2);
         assert_ok!(DIDModule::add_controllers(
@@ -1724,8 +1725,8 @@ fn add_controllers_to_did() {
         assert!(!DIDModule::is_self_controlled(&did_2));
         assert!(DIDModule::is_controller(&did_2, &Controller(did_4.into())));
         assert!(DIDModule::is_controller(&did_2, &Controller(did_5.into())));
-        check_did_detail(&did_3, 1, 1, 2, 7);
-        check_did_detail(&did_2, 1, 0, 4, 10);
+        check_did_detail(&did_3, 1, 1, 2, 1);
+        check_did_detail(&did_2, 1, 0, 4, 0);
 
         // Add controllers to self
         let add_controllers = AddControllers {
@@ -1735,7 +1736,7 @@ fn add_controllers_to_did() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 7 + 1,
+            nonce: 2,
         };
         let sig = SigValue::secp256k1(&add_controllers.to_state_change().encode(), &sk_secp_2);
         assert_ok!(DIDModule::add_controllers(
@@ -1750,7 +1751,7 @@ fn add_controllers_to_did() {
         ));
         assert!(DIDModule::is_controller(&did_3, &Controller(did_4.into())));
         assert!(DIDModule::is_controller(&did_3, &Controller(did_5.into())));
-        check_did_detail(&did_3, 1, 1, 4, 8);
+        check_did_detail(&did_3, 1, 1, 4, 2);
     });
 }
 
@@ -1780,7 +1781,7 @@ fn becoming_controller() {
             )],
             vec![].into_iter().collect()
         ));
-        check_did_detail(&did_1, 1, 1, 1, 5);
+        check_did_detail(&did_1, 1, 1, 1, 0);
 
         run_to_block(10);
 
@@ -1798,7 +1799,7 @@ fn becoming_controller() {
                 .collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 1, 0, 1, 10);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         run_to_block(15);
 
@@ -1808,7 +1809,7 @@ fn becoming_controller() {
                 PublicKey::ed25519(pk_ed),
                 VerRelType::ASSERTION,
             )],
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::add_keys(
@@ -1822,8 +1823,8 @@ fn becoming_controller() {
             .into()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 2, 0, 1, 10);
-        check_did_detail(&did_1, 1, 1, 1, 6);
+        check_did_detail(&did_2, 2, 0, 1, 0);
+        check_did_detail(&did_1, 1, 1, 1, 1);
 
         run_to_block(20);
 
@@ -1833,7 +1834,7 @@ fn becoming_controller() {
                 pk_secp,
                 VerRelType::CAPABILITY_INVOCATION,
             )],
-            nonce: 6 + 1,
+            nonce: 2,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::add_keys(
@@ -1847,8 +1848,8 @@ fn becoming_controller() {
             .into()
         ));
         assert!(DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 3, 1, 2, 10);
-        check_did_detail(&did_1, 1, 1, 1, 7);
+        check_did_detail(&did_2, 3, 1, 2, 0);
+        check_did_detail(&did_1, 1, 1, 1, 2);
     });
 }
 
@@ -1894,7 +1895,7 @@ fn any_controller_can_update() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 1, 1, 1, 3);
+        check_did_detail(&did_1, 1, 1, 1, 0);
 
         run_to_block(5);
 
@@ -1908,7 +1909,7 @@ fn any_controller_can_update() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 1, 1, 1, 5);
+        check_did_detail(&did_2, 1, 1, 1, 0);
 
         assert_ok!(DIDModule::new_onchain(
             Origin::signed(alice),
@@ -1917,7 +1918,7 @@ fn any_controller_can_update() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_3));
-        check_did_detail(&did_3, 1, 1, 1, 5);
+        check_did_detail(&did_3, 1, 1, 1, 0);
 
         run_to_block(7);
 
@@ -1932,7 +1933,7 @@ fn any_controller_can_update() {
                 .collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_4));
-        check_did_detail(&did_4, 1, 1, 2, 7);
+        check_did_detail(&did_4, 1, 1, 2, 0);
 
         run_to_block(14);
 
@@ -1943,7 +1944,7 @@ fn any_controller_can_update() {
                 .map(DidOrDidMethodKey::from)
                 .map(Controller)
                 .collect(),
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_controllers.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::add_controllers(
@@ -1956,8 +1957,8 @@ fn any_controller_can_update() {
             }
             .into()
         ));
-        check_did_detail(&did_4, 1, 1, 3, 7);
-        check_did_detail(&did_2, 1, 1, 1, 6);
+        check_did_detail(&did_4, 1, 1, 3, 0);
+        check_did_detail(&did_2, 1, 1, 1, 1);
 
         run_to_block(15);
 
@@ -1967,7 +1968,7 @@ fn any_controller_can_update() {
                 PublicKey::sr25519(pk_sr),
                 VerRelType::NONE,
             )],
-            nonce: 3 + 1,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&add_keys.to_state_change().encode(), &pair_ed);
         assert_ok!(DIDModule::add_keys(
@@ -1980,8 +1981,8 @@ fn any_controller_can_update() {
             }
             .into()
         ));
-        check_did_detail(&did_4, 2, 2, 3, 7);
-        check_did_detail(&did_1, 1, 1, 1, 4);
+        check_did_detail(&did_4, 2, 2, 3, 0);
+        check_did_detail(&did_1, 1, 1, 1, 1);
     });
 }
 
@@ -2017,7 +2018,7 @@ fn service_endpoints() {
                 types: ServiceEndpointType::LINKED_DOMAINS,
                 origins: origins_1.clone().try_into().unwrap(),
             },
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2049,7 +2050,7 @@ fn service_endpoints() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did));
-        check_did_detail(&did, 2, 1, 1, 5);
+        check_did_detail(&did, 2, 1, 1, 0);
 
         run_to_block(10);
 
@@ -2061,7 +2062,7 @@ fn service_endpoints() {
                 types: ServiceEndpointType::LINKED_DOMAINS,
                 origins: origins_1.clone().try_into().unwrap(),
             },
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&add_service_endpoint.to_state_change().encode(), &pair_ed);
 
@@ -2146,7 +2147,7 @@ fn service_endpoints() {
                 did,
                 id,
                 endpoint: ep,
-                nonce: 5 + 1,
+                nonce: 1,
             };
             let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2174,7 +2175,7 @@ fn service_endpoints() {
                 types: ServiceEndpointType::LINKED_DOMAINS,
                 origins: origins_1.clone().try_into().unwrap(),
             },
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2196,7 +2197,7 @@ fn service_endpoints() {
                 origins: origins_1.try_into().unwrap(),
             }
         );
-        check_did_detail(&did, 2, 1, 1, 6);
+        check_did_detail(&did, 2, 1, 1, 1);
 
         run_to_block(15);
 
@@ -2208,7 +2209,7 @@ fn service_endpoints() {
                 types: ServiceEndpointType::LINKED_DOMAINS,
                 origins: origins_2.clone().try_into().unwrap(),
             },
-            nonce: 6 + 1,
+            nonce: 2,
         };
         let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2233,7 +2234,7 @@ fn service_endpoints() {
                 types: ServiceEndpointType::LINKED_DOMAINS,
                 origins: origins_2.clone().try_into().unwrap(),
             },
-            nonce: 6 + 1,
+            nonce: 2,
         };
         let sig = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2255,7 +2256,7 @@ fn service_endpoints() {
                 origins: origins_2.try_into().unwrap(),
             }
         );
-        check_did_detail(&did, 2, 1, 1, 7);
+        check_did_detail(&did, 2, 1, 1, 2);
 
         run_to_block(16);
 
@@ -2263,7 +2264,7 @@ fn service_endpoints() {
         let rem_service_endpoint = RemoveServiceEndpoint {
             did,
             id: endpoint_1_id.clone(),
-            nonce: 7 + 1,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&rem_service_endpoint.to_state_change().encode(), &pair_ed);
 
@@ -2285,7 +2286,7 @@ fn service_endpoints() {
         let rem_service_endpoint = RemoveServiceEndpoint {
             did,
             id: ServiceEndpointId(vec![].try_into().unwrap()),
-            nonce: 7 + 1,
+            nonce: 3,
         };
         let sig = SigValue::sr25519(&rem_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2306,7 +2307,7 @@ fn service_endpoints() {
         let rem_service_endpoint = RemoveServiceEndpoint {
             did,
             id: endpoint_1_id.clone(),
-            nonce: 7 + 1,
+            nonce: 3,
         };
         let sig = SigValue::sr25519(&rem_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2321,13 +2322,13 @@ fn service_endpoints() {
             .into()
         ));
         assert!(DIDModule::did_service_endpoint(did, &endpoint_1_id).is_none());
-        check_did_detail(&did, 2, 1, 1, 8);
+        check_did_detail(&did, 2, 1, 1, 3);
 
         // id already removed, removing again fails
         let rem_service_endpoint = RemoveServiceEndpoint {
             did,
             id: endpoint_1_id,
-            nonce: 8 + 1,
+            nonce: 4,
         };
         let sig = SigValue::sr25519(&rem_service_endpoint.to_state_change().encode(), &pair_sr);
         assert_noop!(
@@ -2347,7 +2348,7 @@ fn service_endpoints() {
         let rem_service_endpoint = RemoveServiceEndpoint {
             did,
             id: endpoint_2_id.clone(),
-            nonce: 8 + 1,
+            nonce: 4,
         };
         let sig = SigValue::sr25519(&rem_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2362,9 +2363,9 @@ fn service_endpoints() {
             .into()
         ));
         assert!(DIDModule::did_service_endpoint(did, &endpoint_2_id).is_none());
-        check_did_detail(&did, 2, 1, 1, 9);
+        check_did_detail(&did, 2, 1, 1, 4);
 
-        let rem_did = DidRemoval { did, nonce: 9 + 1 };
+        let rem_did = DidRemoval { did, nonce: 5 };
         let sig = SigValue::ed25519(&rem_did.to_state_change().encode(), &pair_ed);
 
         assert_noop!(
@@ -2381,9 +2382,9 @@ fn service_endpoints() {
             Error::<Test>::InsufficientVerificationRelationship
         );
 
-        check_did_detail(&did, 2, 1, 1, 9);
+        check_did_detail(&did, 2, 1, 1, 4);
 
-        let rem_did = DidRemoval { did, nonce: 9 + 1 };
+        let rem_did = DidRemoval { did, nonce: 5 };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
 
         assert_ok!(DIDModule::remove_onchain_did(
@@ -2428,7 +2429,7 @@ fn did_removal() {
             vec![].into_iter().collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_1));
-        check_did_detail(&did_1, 1, 1, 1, 5);
+        check_did_detail(&did_1, 1, 1, 1, 0);
 
         run_to_block(10);
 
@@ -2447,7 +2448,7 @@ fn did_removal() {
                 .collect()
         ));
         assert!(!DIDModule::is_self_controlled(&did_2));
-        check_did_detail(&did_2, 1, 0, 1, 10);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         run_to_block(15);
 
@@ -2466,7 +2467,7 @@ fn did_removal() {
                 .collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_3));
-        check_did_detail(&did_3, 1, 1, 2, 15);
+        check_did_detail(&did_3, 1, 1, 2, 0);
 
         run_to_block(20);
 
@@ -2485,12 +2486,12 @@ fn did_removal() {
                 .collect()
         ));
         assert!(DIDModule::is_self_controlled(&did_4));
-        check_did_detail(&did_4, 1, 1, 2, 20);
+        check_did_detail(&did_4, 1, 1, 2, 0);
 
         // did_2 does not control itself so it cannot remove itself
         let rem_did = DidRemoval {
             did: did_2,
-            nonce: 10 + 1,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&rem_did.to_state_change().encode(), &pair_ed);
         assert_noop!(
@@ -2506,12 +2507,12 @@ fn did_removal() {
             ),
             Error::<Test>::InsufficientVerificationRelationship
         );
-        check_did_detail(&did_2, 1, 0, 1, 10);
+        check_did_detail(&did_2, 1, 0, 1, 0);
 
         // did_2 is controlled by did_1 so it can be removed by did_1
         let rem_did = DidRemoval {
             did: did_2,
-            nonce: 5 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::remove_onchain_did(
@@ -2525,12 +2526,12 @@ fn did_removal() {
             .into()
         ));
         ensure_onchain_did_gone(&did_2);
-        check_did_detail(&did_1, 1, 1, 1, 6);
+        check_did_detail(&did_1, 1, 1, 1, 1);
 
         // Nonce should be correct when its deleted
         let rem_did = DidRemoval {
             did: did_3,
-            nonce: 5,
+            nonce: 0,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_noop!(
@@ -2544,15 +2545,15 @@ fn did_removal() {
                 }
                 .into()
             ),
-            NonceError::IncorrectNonce
+            did::Error::<Test>::InvalidNonce
         );
-        check_did_detail(&did_1, 1, 1, 1, 6);
-        check_did_detail(&did_3, 1, 1, 2, 15);
+        check_did_detail(&did_1, 1, 1, 1, 1);
+        check_did_detail(&did_3, 1, 1, 2, 0);
 
         // did_3 is controlled by itself and did_1 and thus did_1 can remove it
         let rem_did = DidRemoval {
             did: did_3,
-            nonce: 6 + 1,
+            nonce: 2,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::remove_onchain_did(
@@ -2566,13 +2567,13 @@ fn did_removal() {
             .into()
         ));
         ensure_onchain_did_gone(&did_3);
-        check_did_detail(&did_1, 1, 1, 1, 7);
+        check_did_detail(&did_1, 1, 1, 1, 2);
 
         // did_4 is controlled by itself and did_3 but did_3 has been removed so it can no
         // longer remove did_4
         let rem_did = DidRemoval {
             did: did_4,
-            nonce: 15 + 1,
+            nonce: 1,
         };
         let sig = SigValue::ed25519(&rem_did.to_state_change().encode(), &pair_ed);
         assert_noop!(
@@ -2588,12 +2589,12 @@ fn did_removal() {
             ),
             Error::<Test>::NoKeyForDid
         );
-        check_did_detail(&did_4, 1, 1, 2, 20);
+        check_did_detail(&did_4, 1, 1, 2, 0);
 
         // did_4 removes itself
         let rem_did = DidRemoval {
             did: did_4,
-            nonce: 20 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::remove_onchain_did(
@@ -2611,7 +2612,7 @@ fn did_removal() {
         // did_1 removes itself
         let rem_did = DidRemoval {
             did: did_1,
-            nonce: 7 + 1,
+            nonce: 3,
         };
         let sig = SigValue::sr25519(&rem_did.to_state_change().encode(), &pair_sr);
         assert_ok!(DIDModule::remove_onchain_did(
@@ -2662,7 +2663,7 @@ fn batched_did_changes() {
             )],
             vec![].into_iter().collect()
         ));
-        check_did_detail(&did_1, 1, 1, 1, 10);
+        check_did_detail(&did_1, 1, 1, 1, 0);
 
         run_to_block(11);
 
@@ -2673,7 +2674,7 @@ fn batched_did_changes() {
                 PublicKey::x25519(pk_ed),
                 VerRelType::KEY_AGREEMENT,
             )],
-            nonce: 10 + 1,
+            nonce: 1,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
 
@@ -2684,7 +2685,7 @@ fn batched_did_changes() {
                 types: ServiceEndpointType::LINKED_DOMAINS,
                 origins: origins_1.clone().try_into().unwrap(),
             },
-            nonce: 10 + 2,
+            nonce: 2,
         };
         let sig_1 = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2709,7 +2710,7 @@ fn batched_did_changes() {
             .into()
         ));
 
-        check_did_detail(&did_1, 2, 1, 1, 12);
+        check_did_detail(&did_1, 2, 1, 1, 2);
         assert_eq!(
             DIDModule::did_service_endpoint(did_1, &endpoint_1_id).unwrap(),
             ServiceEndpoint {
@@ -2729,7 +2730,7 @@ fn batched_did_changes() {
                 PublicKey::x25519(pk_ed),
                 VerRelType::KEY_AGREEMENT,
             )],
-            nonce: 12 + 1,
+            nonce: 3,
         };
         let sig = SigValue::sr25519(&add_keys.to_state_change().encode(), &pair_sr);
 
@@ -2739,7 +2740,7 @@ fn batched_did_changes() {
                 PublicKey::ed25519(pk_ed),
                 VerRelType::ASSERTION,
             )],
-            nonce: 12 + 2,
+            nonce: 4,
         };
         let sig_2 = SigValue::sr25519(&add_keys_2.to_state_change().encode(), &pair_sr);
 
@@ -2750,7 +2751,7 @@ fn batched_did_changes() {
                 types: ServiceEndpointType::LINKED_DOMAINS,
                 origins: origins_2.clone().try_into().unwrap(),
             },
-            nonce: 12 + 3,
+            nonce: 5,
         };
         let sig_3 = SigValue::sr25519(&add_service_endpoint.to_state_change().encode(), &pair_sr);
 
@@ -2798,8 +2799,8 @@ fn batched_did_changes() {
             .into()
         ));
 
-        check_did_detail(&did_2, 3, 0, 1, 13);
-        check_did_detail(&did_1, 2, 1, 1, 15);
+        check_did_detail(&did_2, 3, 0, 1, 0);
+        check_did_detail(&did_1, 2, 1, 1, 5);
         assert_eq!(
             DIDModule::did_service_endpoint(did_2, &endpoint_2_id).unwrap(),
             ServiceEndpoint {

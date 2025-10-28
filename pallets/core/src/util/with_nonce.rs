@@ -1,5 +1,5 @@
 use codec::{Decode, Encode, MaxEncodedLen};
-use sp_runtime::{traits::CheckedAdd, DispatchError};
+use sp_runtime::traits::CheckedAdd;
 use sp_std::fmt::Debug;
 
 use crate::common::Types;
@@ -50,9 +50,10 @@ pub enum NonceError {
     IncorrectNonce,
 }
 
-impl From<NonceError> for DispatchError {
-    fn from(NonceError::IncorrectNonce: NonceError) -> Self {
-        DispatchError::Other("Incorrect nonce")
+#[cfg(test)]
+impl From<NonceError> for sp_runtime::DispatchError {
+    fn from(_: NonceError) -> Self {
+        sp_runtime::DispatchError::Other("Invalid nonce")
     }
 }
 
@@ -63,7 +64,7 @@ impl<T: Types, D> WithNonce<T, D> {
     where
         T: frame_system::Config<BlockNumber = <T as Types>::BlockNumber>,
     {
-        Self::new_with_nonce(data, <frame_system::Pallet<T>>::block_number())
+        Self::new_with_nonce(data, 0u8.into())
     }
 
     /// Adds supplied nonce to the given `data`.

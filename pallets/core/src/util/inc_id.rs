@@ -21,6 +21,10 @@ impl IncId {
         self.0 += 1;
         self
     }
+
+    pub fn is_zero(&self) -> bool {
+        self.0 == 0
+    }
 }
 
 impl Iterator for &'_ mut IncId {

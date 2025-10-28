@@ -15,7 +15,7 @@ use super::{
 
 pub type SignaturePublicKeyStorageKey = (Did, IncId);
 
-/// Public key for different signature schemes. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
+/// Public key for different signature schemes. Currently, can be either `BBS`, `BBS+`, `Pointcheval-Sanders` or `BBDT16`.
 #[derive(
     scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen,
 )]
@@ -33,35 +33,9 @@ pub enum OffchainPublicKey<T: Limits> {
     BBSPlus(BBSPlusPublicKey<T>),
     /// Public key for the Pointcheval-Sanders signature scheme.
     PS(PSPublicKey<T>),
-}
-
-/// Old public key for different signature schemes. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
-#[derive(
-    scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, DebugNoBound, MaxEncodedLen,
-)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[cfg_attr(
-    feature = "serde",
-    serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-)]
-#[scale_info(skip_type_params(T))]
-pub(super) enum OldOffchainPublicKey<T: Limits> {
-    /// Public key for the BBS signature scheme.
-    BBS(super::schemes::BBS::OldPublicKey<T>),
-    /// Public key for the BBS+ signature scheme.
-    BBSPlus(super::schemes::BBSPlus::OldPublicKey<T>),
-    /// Public key for the Pointcheval-Sanders signature scheme.
-    PS(super::schemes::PS::OldPublicKey<T>),
-}
-
-impl<T: Limits> From<OldOffchainPublicKey<T>> for OffchainPublicKey<T> {
-    fn from(key: OldOffchainPublicKey<T>) -> Self {
-        match key {
-            OldOffchainPublicKey::BBS(key) => Self::BBS(key.into()),
-            OldOffchainPublicKey::BBSPlus(key) => Self::BBSPlus(key.into()),
-            OldOffchainPublicKey::PS(key) => Self::PS(key.into()),
-        }
-    }
+    /// Public key for the BBDT16 signature scheme. This will be in group G1 and will be used to verify
+    /// the validity proof of the MAC and not the MAC itself.
+    BBDT16(BBDT16PublicKey<T>),
 }
 
 impl<T: Limits> OffchainPublicKey<T> {
@@ -80,12 +54,18 @@ impl<T: Limits> OffchainPublicKey<T> {
         self.try_into().ok()
     }
 
+    /// Returns underlying public key if it corresponds to the BBDT16 scheme.
+    pub fn into_bbdt16(self) -> Option<BBDT16PublicKey<T>> {
+        self.try_into().ok()
+    }
+
     /// Returns underlying **unchecked** bytes representation for a key corresponding to either signature scheme.
     pub fn bytes(&self) -> &[u8] {
         match self {
             Self::BBS(key) => &key.bytes[..],
             Self::BBSPlus(key) => &key.bytes[..],
             Self::PS(key) => &key.bytes[..],
+            Self::BBDT16(key) => &key.bytes[..],
         }
     }
 
@@ -95,6 +75,7 @@ impl<T: Limits> OffchainPublicKey<T> {
             Self::BBS(bbs_key) => &bbs_key.params_ref,
             Self::BBSPlus(bbs_plus_key) => &bbs_plus_key.params_ref,
             Self::PS(ps_key) => &ps_key.params_ref,
+            Self::BBDT16(key) => &key.params_ref,
         };
 
         opt.as_ref()
@@ -106,6 +87,7 @@ impl<T: Limits> OffchainPublicKey<T> {
             Self::BBS(_) => matches!(params, OffchainSignatureParams::BBS(_)),
             Self::BBSPlus(_) => matches!(params, OffchainSignatureParams::BBSPlus(_)),
             Self::PS(_) => matches!(params, OffchainSignatureParams::PS(_)),
+            Self::BBDT16(_) => matches!(params, OffchainSignatureParams::BBDT16(_)),
         }
     }
 

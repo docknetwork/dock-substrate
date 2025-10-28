@@ -58,6 +58,7 @@ impl<T: Types, L: Limits> Limits for CombineTypesAndLimits<T, L> {
     type MaxBBSPublicKeySize = L::MaxBBSPublicKeySize;
     type MaxBBSPlusPublicKeySize = L::MaxBBSPlusPublicKeySize;
     type MaxPSPublicKeySize = L::MaxPSPublicKeySize;
+    type MaxBBDT16PublicKeySize = L::MaxBBDT16PublicKeySize;
 
     type MaxMasterMembers = L::MaxMasterMembers;
     type MaxPolicyControllers = L::MaxPolicyControllers;
@@ -75,4 +76,8 @@ impl<T: Types, L: Limits> Limits for CombineTypesAndLimits<T, L> {
     type MaxRegistriesPerIssuer = L::MaxRegistriesPerIssuer;
     type MaxRegistriesPerVerifier = L::MaxRegistriesPerVerifier;
     type MaxTrustRegistryGovFrameworkSize = L::MaxTrustRegistryGovFrameworkSize;
+    type MaxParticipantsPerRegistry = L::MaxParticipantsPerRegistry;
+    type MaxRegistryParticipantOrgNameSize = L::MaxRegistryParticipantOrgNameSize;
+    type MaxRegistryParticipantLogoSize = L::MaxRegistryParticipantLogoSize;
+    type MaxRegistryParticipantDescriptionSize = L::MaxRegistryParticipantDescriptionSize;
 }

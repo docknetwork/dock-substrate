@@ -4,7 +4,13 @@ use sp_std::marker::PhantomData;
 use crate::{common::Limits, util::WithNonce};
 use codec::{Decode, Encode};
 
-use super::{StatusListCredential, StatusListCredentialId};
+use super::{StatusListCredential, StatusListCredentialId, StatusListCredentialWithPolicy};
+
+#[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
+pub struct AddStatusListCredential<T: Limits> {
+    pub id: StatusListCredentialId,
+    pub credential: StatusListCredentialWithPolicy<T>,
+}
 
 #[derive(Encode, Decode, scale_info_derive::TypeInfo, DebugNoBound, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -38,6 +44,8 @@ pub struct RemoveStatusListCredentialRaw<T> {
     #[cfg_attr(feature = "serde", serde(skip))]
     pub _marker: PhantomData<T>,
 }
+
+crate::impl_action!(for StatusListCredentialId: AddStatusListCredential with 1 as len, id as target no_state_change);
 
 crate::impl_action! {
     for StatusListCredentialId:

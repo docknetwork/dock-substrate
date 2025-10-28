@@ -1,16 +1,12 @@
 use crate::{
-    common::{self, signatures::ForSigType, CurveType},
+    common::{self, CurveType, ForSigType},
     did,
-    did::{Did, DidOrDidMethodKeySignature},
-    util::{ActionWithNonce, ActionWrapper, Bytes, IncId},
+    did::DidOrDidMethodKeySignature,
+    util::{ActionWithNonce, ActionWithNonceWrapper, Bytes, IncId},
 };
 pub use actions::*;
 use codec::{Decode, Encode, MaxEncodedLen};
-use frame_support::{
-    dispatch::{DispatchResult, Weight},
-    ensure, storage_alias,
-    traits::Get,
-};
+use frame_support::{dispatch::DispatchResult, ensure, weights::Weight};
 use sp_std::{fmt::Debug, prelude::*};
 use utils::CheckedDivCeil;
 
@@ -56,12 +52,23 @@ pub mod pallet {
 
     #[pallet::error]
     pub enum Error<T> {
+        /// The specified parameters do not exist.
         ParamsDontExist,
+        /// The specified public key does not exist.
         PublicKeyDoesntExist,
+        /// The accumulated value is too large to be processed.
         AccumulatedTooBig,
+        /// The accumulator already exists.
         AccumulatorAlreadyExists,
+        /// The specified accumulator does not exist.
+        AccumulatorDoesntExist,
+        /// The caller is not the owner of the public key.
         NotPublicKeyOwner,
+        /// The caller is not the owner of the parameters.
+        NotParamsOwner,
+        /// The caller is not the owner of the accumulator.
         NotAccumulatorOwner,
+        /// The nonce provided is incorrect.
         IncorrectNonce,
     }
 
@@ -156,7 +163,8 @@ pub mod pallet {
 
             params
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::add_params_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::add_params_))
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::add_public(public_key, signature))]
@@ -169,7 +177,8 @@ pub mod pallet {
 
             public_key
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::add_public_key_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::add_public_key_))
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
@@ -182,7 +191,8 @@ pub mod pallet {
 
             remove
                 .signed(signature)
-                .execute_readonly(Self::remove_params_)
+                .execute_removable(Self::remove_params_)
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_public(remove, signature))]
@@ -195,7 +205,8 @@ pub mod pallet {
 
             remove
                 .signed(signature)
-                .execute_readonly(Self::remove_public_key_)
+                .execute_removable(Self::remove_public_key_)
+                .map_err(Into::into)
         }
 
         /// Add a new accumulator with the initial accumulated value. Each accumulator has a unique id and it
@@ -213,7 +224,8 @@ pub mod pallet {
 
             add_accumulator
                 .signed(signature)
-                .execute(Self::add_accumulator_)
+                .execute_removable(Self::add_accumulator_)
+                .map_err(Into::into)
         }
 
         /// Update an existing accumulator. The update contains the new accumulated value, the updates themselves
@@ -229,7 +241,10 @@ pub mod pallet {
         ) -> DispatchResult {
             ensure_signed(origin)?;
 
-            update.signed(signature).execute(Self::update_accumulator_)
+            update
+                .signed(signature)
+                .execute(Self::update_accumulator_)
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_accumulator(remove, signature))]
@@ -243,263 +258,8 @@ pub mod pallet {
             remove
                 .signed(signature)
                 .execute_removable(Self::remove_accumulator_)
+                .map_err(Into::into)
         }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            migration::migrate::<T>()
-        }
-    }
-}
-
-mod migration {
-    use super::*;
-    use crate::{
-        common::{Limits, TypesAndLimits},
-        util::*,
-    };
-    use frame_support::pallet_prelude::*;
-
-    #[storage_alias]
-    pub type AccumulatorOwnerCounters<T: Config> =
-        StorageMap<Pallet<T>, Blake2_128Concat, Did, StoredAccumulatorOwnerCounters, ValueQuery>;
-
-    #[storage_alias]
-    pub type AccumulatorParams<T: Config> = StorageDoubleMap<
-        Pallet<T>,
-        Blake2_128Concat,
-        Did,
-        Identity,
-        IncId,
-        AccumulatorParameters<T>,
-    >;
-
-    #[derive(
-        scale_info_derive::TypeInfo,
-        Encode,
-        Decode,
-        CloneNoBound,
-        PartialEqNoBound,
-        EqNoBound,
-        DebugNoBound,
-        MaxEncodedLen,
-    )]
-    #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-    #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-    #[cfg_attr(
-        feature = "serde",
-        serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-    )]
-    #[scale_info(skip_type_params(T))]
-    pub struct AccumulatorPublicKey<T: Limits> {
-        pub curve_type: CurveType,
-        pub bytes: BoundedBytes<T::MaxAccumulatorPublicKeySize>,
-        /// The params used to generate the public key (`P_tilde` comes from params)
-        pub params_ref: Option<(Did, IncId)>,
-    }
-
-    #[storage_alias]
-    pub type AccumulatorKeys<T: Config> = StorageDoubleMap<
-        Pallet<T>,
-        Blake2_128Concat,
-        Did,
-        Identity,
-        IncId,
-        AccumulatorPublicKey<T>,
-    >;
-
-    pub fn migrate<T: Config>() -> Weight {
-        let mut reads_writes = 0;
-
-        let counters: Vec<_> = {
-            AccumulatorOwnerCounters::<T>::drain()
-                .map(|(did, counters): (Did, _)| (AccumulatorOwner(did.into()), counters))
-                .collect()
-        };
-
-        reads_writes += counters.len() as u64;
-        frame_support::log::info!("Migrated {} accumulator counters", counters.len());
-        for (did, counters) in counters {
-            super::pallet::AccumulatorOwnerCounters::<T>::insert(did, counters);
-        }
-
-        let params: Vec<_> = {
-            AccumulatorParams::<T>::drain()
-                .map(|(did, id, params): (Did, _, _)| (AccumulatorOwner(did.into()), id, params))
-                .collect()
-        };
-
-        reads_writes += params.len() as u64;
-        frame_support::log::info!("Migrated {} accumulator params", params.len());
-        for (did, id, params) in params {
-            super::pallet::AccumulatorParams::<T>::insert(did, id, params);
-        }
-
-        let keys: Vec<_> = {
-            AccumulatorKeys::<T>::drain()
-                .map(|(did, id, key): (Did, _, _)| {
-                    (
-                        AccumulatorOwner(did.into()),
-                        id,
-                        super::AccumulatorPublicKey {
-                            curve_type: key.curve_type,
-                            bytes: key.bytes,
-                            params_ref: key
-                                .params_ref
-                                .map(|(did, key_id)| (AccumulatorOwner(did.into()), key_id.into())),
-                        },
-                    )
-                })
-                .collect()
-        };
-
-        reads_writes += keys.len() as u64;
-        frame_support::log::info!("Migrated {} accumulator keys", keys.len());
-        for (did, id, params) in keys {
-            super::pallet::AccumulatorKeys::<T>::insert(did, id, params);
-        }
-
-        #[derive(
-            Encode,
-            Decode,
-            scale_info_derive::TypeInfo,
-            CloneNoBound,
-            PartialEqNoBound,
-            EqNoBound,
-            DebugNoBound,
-            MaxEncodedLen,
-        )]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-        #[cfg_attr(
-            feature = "serde",
-            serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-        )]
-        #[scale_info(skip_type_params(T))]
-        pub struct AccumulatorCommon<T: Limits> {
-            pub accumulated: BoundedBytes<T::MaxAccumulatorAccumulatedSize>,
-            pub key_ref: (Did, IncId),
-        }
-
-        impl<T: Limits> From<AccumulatorCommon<T>> for super::AccumulatorCommon<T> {
-            fn from(
-                AccumulatorCommon {
-                    accumulated,
-                    key_ref: (did, key_id),
-                }: AccumulatorCommon<T>,
-            ) -> Self {
-                super::AccumulatorCommon {
-                    accumulated,
-                    key_ref: (AccumulatorOwner(did.into()), key_id),
-                }
-            }
-        }
-
-        impl<T: Limits> From<UniversalAccumulator<T>> for super::UniversalAccumulator<T> {
-            fn from(UniversalAccumulator { common, max_size }: UniversalAccumulator<T>) -> Self {
-                super::UniversalAccumulator {
-                    common: common.into(),
-                    max_size,
-                }
-            }
-        }
-
-        #[derive(
-            Encode,
-            Decode,
-            scale_info_derive::TypeInfo,
-            CloneNoBound,
-            PartialEqNoBound,
-            EqNoBound,
-            DebugNoBound,
-            MaxEncodedLen,
-        )]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-        #[cfg_attr(
-            feature = "serde",
-            serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-        )]
-        #[scale_info(skip_type_params(T))]
-        pub struct UniversalAccumulator<T: Limits> {
-            pub common: AccumulatorCommon<T>,
-            /// This is not enforced on chain and serves as metadata only
-            pub max_size: u64,
-        }
-
-        #[derive(
-            Encode,
-            Decode,
-            scale_info_derive::TypeInfo,
-            Clone,
-            PartialEq,
-            Eq,
-            DebugNoBound,
-            MaxEncodedLen,
-        )]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-        #[cfg_attr(
-            feature = "serde",
-            serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-        )]
-        #[scale_info(skip_type_params(T))]
-        pub enum Accumulator<T: Limits> {
-            Positive(AccumulatorCommon<T>),
-            Universal(UniversalAccumulator<T>),
-        }
-
-        impl<T: Limits> From<Accumulator<T>> for super::Accumulator<T> {
-            fn from(acc: Accumulator<T>) -> Self {
-                match acc {
-                    Accumulator::Positive(acc) => super::Accumulator::Positive(acc.into()),
-                    Accumulator::Universal(acc) => super::Accumulator::Universal(acc.into()),
-                }
-            }
-        }
-
-        #[derive(
-            scale_info_derive::TypeInfo, Encode, Decode, Clone, PartialEq, Eq, Debug, MaxEncodedLen,
-        )]
-        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-        #[cfg_attr(feature = "serde", serde(rename_all = "camelCase"))]
-        #[cfg_attr(
-            feature = "serde",
-            serde(bound(serialize = "T: Sized", deserialize = "T: Sized"))
-        )]
-        #[scale_info(skip_type_params(T))]
-        pub struct AccumulatorWithUpdateInfo<T>
-        where
-            T: TypesAndLimits,
-        {
-            pub created_at: T::BlockNumber,
-            pub last_updated_at: T::BlockNumber,
-            pub accumulator: Accumulator<T>,
-        }
-
-        let mut accs = 0;
-        Accumulators::<T>::translate_values(
-            |AccumulatorWithUpdateInfo {
-                 created_at,
-                 last_updated_at,
-                 accumulator,
-             }| {
-                accs += 1;
-
-                Some(super::AccumulatorWithUpdateInfo {
-                    created_at,
-                    last_updated_at,
-                    accumulator: accumulator.into(),
-                })
-            },
-        );
-
-        frame_support::log::info!("Migrated {} accumulators", accs);
-        reads_writes += accs;
-
-        T::DbWeight::get().reads_writes(reads_writes, reads_writes)
     }
 }
 

@@ -209,7 +209,7 @@ pub fn development_config() -> ChainSpec {
                     ["Charlie", "Dave", "Eve"].to_vec(),
                 ),
                 stash: 100 * DOCK,
-                validator_count: 1,
+                validator_count: 4,
                 // TODO: Fix
                 poa_last_block: Hash::repeat_byte(42),
                 babe_epoch_config: BABE_GENESIS_EPOCH_CONFIG,

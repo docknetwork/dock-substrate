@@ -1,18 +1,19 @@
 //! Module to store offchain signature keys and parameters for different signature schemes.
-//! Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
+//! Currently, can be either `BBS`, `BBS+`, `Pointcheval-Sanders` or `BBDT16`.
+//! For `BBS`, `BBS+` and `Pointcheval-Sanders`, the public key is in group G2 but for `BBDT16`, it's
+//! in group G1 and used to verify the proof of validity of MAC (and related proofs) but not the MAC itself.
 
 use crate::{
     common::{self, signatures::ForSigType},
     did,
-    did::{Controller, Did, DidOrDidMethodKeySignature, OnDidRemoval},
-    util::{ActionWithNonce, ActionWrapper, IncId},
+    did::{Controller, Did, DidOrDidMethodKeySignature, HandleDidRemoval},
+    util::{ActionWithNonce, ActionWithNonceWrapper, IncId},
 };
 use codec::{Decode, Encode};
 use sp_std::prelude::*;
 
 use frame_support::{
     dispatch::{DispatchResult, Weight},
-    storage_alias,
     traits::Get,
 };
 use frame_system::ensure_signed;
@@ -134,7 +135,8 @@ pub mod pallet {
 
             params
                 .signed_with_signer_target(signature)?
-                .execute(ActionWrapper::wrap_fn(Self::add_params_))
+                .execute(ActionWithNonceWrapper::wrap_fn(Self::add_params_))
+                .map_err(Into::into)
         }
 
         /// Add new offchain signature public key. Only the DID controller can add key and it should use the nonce from the DID module.
@@ -150,6 +152,7 @@ pub mod pallet {
             public_key
                 .signed(signature)
                 .execute_from_controller(Self::add_public_key_)
+                .map_err(Into::into)
         }
 
         #[pallet::weight(SubstrateWeight::<T>::remove_params(remove, signature))]
@@ -162,7 +165,8 @@ pub mod pallet {
 
             remove
                 .signed(signature)
-                .execute_readonly(Self::remove_params_)
+                .execute_view(Self::remove_params_)
+                .map_err(Into::into)
         }
 
         /// Remove existing offchain signature public key. Only the DID controller can remove key and it should use the nonce from the DID module.
@@ -178,73 +182,13 @@ pub mod pallet {
             remove
                 .signed(signature)
                 .execute_from_controller(Self::remove_public_key_)
-        }
-    }
-
-    #[pallet::hooks]
-    impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
-        fn on_runtime_upgrade() -> Weight {
-            let mut reads_writes = 0;
-
-            let params: Vec<_> = {
-                #[storage_alias]
-                pub type SignatureParams<T: Config> = StorageDoubleMap<
-                    Pallet<T>,
-                    Blake2_128Concat,
-                    Did,
-                    Identity,
-                    IncId,
-                    OffchainSignatureParams<T>,
-                >;
-
-                SignatureParams::<T>::drain()
-                    .map(|(did, id, params): (Did, _, _)| {
-                        (SignatureParamsOwner(did.into()), id, params)
-                    })
-                    .collect()
-            };
-
-            reads_writes += params.len() as u64;
-            frame_support::log::info!("Migrated {} offchain signature params", params.len());
-            for (owner, id, params) in params {
-                SignatureParams::<T>::insert(owner, id, params);
-            }
-
-            let params_counters: Vec<_> = {
-                #[storage_alias]
-                pub type ParamsCounter<T: Config> =
-                    StorageMap<Pallet<T>, Blake2_128Concat, Did, IncId, ValueQuery>;
-
-                ParamsCounter::<T>::drain()
-                    .map(|(did, counter): (Did, _)| (SignatureParamsOwner(did.into()), counter))
-                    .collect()
-            };
-
-            reads_writes += params_counters.len() as u64;
-            frame_support::log::info!(
-                "Migrated {} offchain signature params counters",
-                params_counters.len()
-            );
-            for (did, counter) in params_counters {
-                ParamsCounter::<T>::insert(did, counter);
-            }
-
-            let mut pks = 0;
-            PublicKeys::<T>::translate_values(|key: super::public_key::OldOffchainPublicKey<T>| {
-                pks += 1;
-
-                Some(key.into())
-            });
-            frame_support::log::info!("Migrated {} offchain signature public keys", pks);
-            reads_writes += pks;
-
-            T::DbWeight::get().reads_writes(reads_writes, reads_writes)
+                .map_err(Into::into)
         }
     }
 }
 
-impl<T: Config> OnDidRemoval for Pallet<T> {
-    fn on_remove_did(did: Did) -> Weight {
+impl<T: Config> HandleDidRemoval for Pallet<T> {
+    fn on_did_removal(did: Did) -> Weight {
         use sp_io::MultiRemovalResults;
         // TODO: limit and cursor
         let MultiRemovalResults { backend, .. } =

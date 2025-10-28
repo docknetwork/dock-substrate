@@ -1,8 +1,8 @@
 use crate::{
-    common::{AuthorizeTarget, Limits},
+    common::{AuthorizeTarget, Limits, TypesAndLimits},
     did::{DidKey, DidMethodKey, DidOrDidMethodKey},
     offchain_signatures::schemes::*,
-    util::{IncId, OptionExt, StorageRef},
+    util::{Associated, IncId, OptionExt, StorageRef},
 };
 use codec::{Decode, Encode, MaxEncodedLen};
 use frame_support::{ensure, DebugNoBound};
@@ -24,14 +24,16 @@ pub struct SignatureParamsOwner(pub DidOrDidMethodKey);
 
 crate::impl_wrapper!(SignatureParamsOwner(DidOrDidMethodKey));
 
-impl AuthorizeTarget<Self, DidKey> for SignatureParamsOwner {}
-impl AuthorizeTarget<Self, DidMethodKey> for SignatureParamsOwner {}
-impl AuthorizeTarget<(), DidKey> for SignatureParamsOwner {}
-impl AuthorizeTarget<(), DidMethodKey> for SignatureParamsOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidKey> for SignatureParamsOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, Self, DidMethodKey> for SignatureParamsOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, (), DidKey> for SignatureParamsOwner {}
+impl<T: TypesAndLimits> AuthorizeTarget<T, (), DidMethodKey> for SignatureParamsOwner {}
+
+impl<T: TypesAndLimits> Associated<T> for SignatureParamsOwner {
+    type Value = IncId;
+}
 
 impl<T: Config> StorageRef<T> for SignatureParamsOwner {
-    type Value = IncId;
-
     fn try_mutate_associated<F, R, E>(self, f: F) -> Result<R, E>
     where
         F: FnOnce(&mut Option<IncId>) -> Result<R, E>,
@@ -51,6 +53,7 @@ pub type SignatureParamsStorageKey = (SignatureParamsOwner, IncId);
 pub type BBSPublicKeyWithParams<T> = (BBSPublicKey<T>, Option<BBSParameters<T>>);
 pub type BBSPlusPublicKeyWithParams<T> = (BBSPlusPublicKey<T>, Option<BBSPlusParameters<T>>);
 pub type PSPublicKeyWithParams<T> = (PSPublicKey<T>, Option<PSParameters<T>>);
+pub type BBDT16PublicKeyWithParams<T> = (BBDT16PublicKey<T>, Option<BBDT16Parameters<T>>);
 
 /// Signature parameters. Currently can be either `BBS`, `BBS+` or `Pointcheval-Sanders`.
 #[derive(
@@ -70,6 +73,8 @@ pub enum OffchainSignatureParams<T: Limits> {
     BBSPlus(BBSPlusParameters<T>),
     /// Signature parameters for the Pointcheval-Sanders signature scheme.
     PS(PSParameters<T>),
+    /// Signature parameters for the BBDT16 signature scheme.
+    BBDT16(BBDT16Parameters<T>),
 }
 
 impl<T: Limits> OffchainSignatureParams<T> {
@@ -88,12 +93,18 @@ impl<T: Limits> OffchainSignatureParams<T> {
         self.try_into().ok()
     }
 
+    /// Returns underlying parameters if it corresponds to the BBDT16 scheme.
+    pub fn into_bbdt16(self) -> Option<BBDT16Parameters<T>> {
+        self.try_into().ok()
+    }
+
     /// Returns underlying **unchecked** bytes representation for parameters corresponding to either signature scheme.
     pub fn bytes(&self) -> &[u8] {
         match self {
             Self::BBS(params) => &params.bytes[..],
             Self::BBSPlus(params) => &params.bytes[..],
             Self::PS(params) => &params.bytes[..],
+            Self::BBDT16(params) => &params.bytes[..],
         }
     }
 
@@ -103,6 +114,7 @@ impl<T: Limits> OffchainSignatureParams<T> {
             Self::BBS(params) => params.label.as_ref().map(|slice| &slice[..]),
             Self::BBSPlus(params) => params.label.as_ref().map(|slice| &slice[..]),
             Self::PS(params) => params.label.as_ref().map(|slice| &slice[..]),
+            Self::BBDT16(params) => params.label.as_ref().map(|slice| &slice[..]),
         }
     }
 }

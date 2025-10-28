@@ -36,6 +36,14 @@ macro_rules! with_each_scheme {
 
             $($tt)+
         }
+
+        mod bbdt16 {
+            use super::*;
+            use BBDT16PublicKey as $key;
+            use BBDT16Parameters as $params;
+
+            $($tt)+
+        }
     }
 }
 
@@ -69,13 +77,13 @@ with_each_scheme! {
                 run_to_block(5);
 
                 let (author, author_kp) = newdidordidmethodkey();
-                let mut next_nonce = 5 + 1;
+                let mut next_nonce = 1;
                 check_nonce(&author, next_nonce - 1);
 
                 run_to_block(6);
 
                 let (author_1, author_1_kp) = newdidordidmethodkey();
-                let mut next_nonce_1 = 6 + 1;
+                let mut next_nonce_1 = 1;
                 check_nonce(&author_1, next_nonce_1 - 1);
 
                 run_to_block(10);
@@ -458,13 +466,13 @@ with_each_scheme! {
                 run_to_block(10);
 
                 let (did, did_kp) = newdidordidmethodkey();
-                let mut next_nonce = 10 + 1;
+                let mut next_nonce = 1;
                 check_did_detail(&did, 1, 1, 1, next_nonce - 1);
 
                 run_to_block(20);
 
                 let (did_1, did_1_kp) = newdid();
-                let mut next_nonce_1 = 20 + 1;
+                let mut next_nonce_1 = 1;
                 check_nonce(&did_1, next_nonce_1 - 1);
                 check_did_detail(&did_1, 1, 1, 1, next_nonce_1 - 1);
 
@@ -532,7 +540,7 @@ with_each_scheme! {
             run_to_block(10);
 
             let (author, author_kp) = newdid();
-            let mut next_nonce = 10 + 1;
+            let mut next_nonce = 1;
             check_nonce(&author, next_nonce - 1);
 
             run_to_block(15);
@@ -617,7 +625,7 @@ with_each_scheme! {
             run_to_block(45);
 
             let (author_1, author_kp_1) = newdid();
-            let mut next_nonce_1 = 45 + 1;
+            let mut next_nonce_1 = 1;
 
             run_to_block(50);
 
@@ -950,7 +958,7 @@ with_each_scheme! {
         ext().execute_with(|| {
             run_to_block(10);
             let (author, _) = newdid();
-            let next_nonce = 10 + 1;
+            let next_nonce = 1;
 
             run_to_block(20);
             let (author_1, _) = newdid();
@@ -1071,10 +1079,10 @@ with_each_scheme! {
             run_to_block(70);
 
             let did_detail = DIDModule::onchain_did_details(&author).unwrap();
-            ActionWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author.into()),  AddOffchainSignatureParams {
+            ActionWithNonceWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author.into()),  AddOffchainSignatureParams {
                 params: params_1.clone().into(),
                 nonce: did_detail.next_nonce().unwrap()
-            }).execute::<Test, _, _, _, _>(
+            }).modify::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author.into()))
             )
             .unwrap();
@@ -1225,24 +1233,24 @@ with_each_scheme! {
                 None
             );
 
-            ActionWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author.into()), AddOffchainSignatureParams {
+            ActionWithNonceWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author.into()), AddOffchainSignatureParams {
                 params: params.clone().into(),
                 nonce: 0, // Doesn't matter
-            }).execute::<Test, _, _, _, _>(
+            }).modify::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author.into()))
             )
             .unwrap();
-            ActionWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
+            ActionWithNonceWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
                 params: params_1.clone().into(),
                 nonce: 0, // Doesn't matter
-            }).execute::<Test, _, _, _, _>(
+            }).modify::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author_1.into()))
             ).unwrap();
 
-            ActionWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
+            ActionWithNonceWrapper::<Test, _, _>::new(0, SignatureParamsOwner(author_1.into()), AddOffchainSignatureParams {
                 params: params_2.clone().into(),
                 nonce: 0, // Doesn't matter
-            }).execute::<Test, _, _, _, _>(
+            }).modify::<Test, _, _, _, _>(
                 |action, counter| SignatureMod::add_params_(action.action, counter, SignatureParamsOwner(author_1.into()))
             ).unwrap();
 

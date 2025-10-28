@@ -118,7 +118,7 @@ pub struct Master(pub Did);
 
 crate::impl_wrapper!(Master(Did));
 
-impl AuthorizeTarget<(), DidKey> for Master {}
+impl<T> AuthorizeTarget<T, (), DidKey> for Master {}
 
 impl<T: Limits> Default for Membership<T> {
     fn default() -> Self {
@@ -358,7 +358,7 @@ pub mod pallet {
                 let action = WithNonce::new_with_nonce(new_payload, nonce);
                 let Authorization { signer, .. } = a
                     .data()
-                    .authorizes_signed_action(&action)?
+                    .authorizes_signed_action(&action, Some(&()))?
                     .ok_or(Error::<T>::BadSig)?;
 
                 // Check if nonce is valid and increase it

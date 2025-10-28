@@ -3,7 +3,7 @@
   "id": "dock_pos_testnet",
   "chainType": "Live",
   "bootNodes": [
-    "/ip4/35.82.42.113/tcp/30333/p2p/12D3KooWFWhaZ8DxgwN7KJyFBPuQTL838amWqNKPTFtJJ8ZtZpPQ"
+    "/dns4/knox-1.dock.io/tcp/30333/p2p/12D3KooWFWhaZ8DxgwN7KJyFBPuQTL838amWqNKPTFtJJ8ZtZpPQ"
   ],
   "telemetryEndpoints": null,
   "protocolId": null,

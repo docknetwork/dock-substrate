@@ -420,6 +420,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "35636a1494ede3b646cc98f74f8e62c773a38a659ebc777a2cf26b9b74171df9"
 
 [[package]]
+name = "bech32"
+version = "0.11.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d965446196e3b7decd44aa7ee49e31d630118f90ef12f97900f262eb915c951d"
+
+[[package]]
 name = "beef"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1483,6 +1489,42 @@ dependencies = [
 ]
 
 [[package]]
+name = "dock-agreement"
+version = "0.5.0"
+dependencies = [
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "frame-system-benchmarking",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "dock-cheqd-migration"
+version = "0.1.0"
+dependencies = [
+ "bech32",
+ "frame-benchmarking",
+ "frame-support",
+ "frame-system",
+ "pallet-balances",
+ "parity-scale-codec",
+ "scale-info",
+ "scale-info-derive 2.3.0",
+ "serde",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
 name = "dock-core"
 version = "0.5.0"
 dependencies = [
@@ -1520,7 +1562,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "utils",
+ "utils 0.5.0 (git+https://github.com/docknetwork/dock-substrate-common.git?rev=791ba98f551bcc82debb95ad8a3f95c3b193f51a)",
 ]
 
 [[package]]
@@ -1540,7 +1582,7 @@ dependencies = [
 
 [[package]]
 name = "dock-node"
-version = "0.25.0"
+version = "0.36.0"
 dependencies = [
  "async-trait",
  "beefy-gadget",
@@ -1735,7 +1777,7 @@ dependencies = [
 [[package]]
 name = "dock-price-feed"
 version = "0.2.1"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#dac1b560891fae189bf0c9c1a0cbc4af90166b02"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1#bb6904dbbf984d2432dd741505b23b59f11679d1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -1753,7 +1795,7 @@ dependencies = [
 [[package]]
 name = "dock-price-feed-rpc"
 version = "0.2.1"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#dac1b560891fae189bf0c9c1a0cbc4af90166b02"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1#bb6904dbbf984d2432dd741505b23b59f11679d1"
 dependencies = [
  "dock-price-feed",
  "jsonrpsee",
@@ -1766,10 +1808,12 @@ dependencies = [
 
 [[package]]
 name = "dock-runtime"
-version = "0.25.0"
+version = "0.36.0"
 dependencies = [
  "beefy-merkle-tree",
  "beefy-primitives",
+ "dock-agreement",
+ "dock-cheqd-migration",
  "dock-core",
  "dock-poa",
  "dock-price-feed",
@@ -1878,7 +1922,7 @@ dependencies = [
  "sp-version",
  "static_assertions",
  "substrate-wasm-builder",
- "utils",
+ "utils 0.5.0 (git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1)",
 ]
 
 [[package]]
@@ -3262,9 +3306,6 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "hex-literal"
@@ -5307,7 +5348,7 @@ dependencies = [
 [[package]]
 name = "pallet-collective"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#dac1b560891fae189bf0c9c1a0cbc4af90166b02"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1#bb6904dbbf984d2432dd741505b23b59f11679d1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5324,7 +5365,7 @@ dependencies = [
 [[package]]
 name = "pallet-democracy"
 version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#dac1b560891fae189bf0c9c1a0cbc4af90166b02"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1#bb6904dbbf984d2432dd741505b23b59f11679d1"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
@@ -5382,8 +5423,9 @@ dependencies = [
 [[package]]
 name = "pallet-elections-phragmen"
 version = "5.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#dac1b560891fae189bf0c9c1a0cbc4af90166b02"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1#bb6904dbbf984d2432dd741505b23b59f11679d1"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -5394,6 +5436,7 @@ dependencies = [
  "sp-npos-elections",
  "sp-runtime",
  "sp-std",
+ "utils 0.5.0 (git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1)",
 ]
 
 [[package]]
@@ -5585,6 +5628,7 @@ name = "pallet-im-online"
 version = "4.0.0-dev"
 source = "git+https://github.com/paritytech/substrate.git?branch=polkadot-v0.9.29#cc370aa61e15c18d23a2f686b812fd576a630afe"
 dependencies = [
+ "frame-benchmarking",
  "frame-support",
  "frame-system",
  "log",
@@ -5705,8 +5749,8 @@ dependencies = [
 
 [[package]]
 name = "pallet-staking"
-version = "4.0.0-dev"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#dac1b560891fae189bf0c9c1a0cbc4af90166b02"
+version = "4.1.0-dev"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1#bb6904dbbf984d2432dd741505b23b59f11679d1"
 dependencies = [
  "frame-benchmarking",
  "frame-election-provider-support",
@@ -6237,8 +6281,8 @@ dependencies = [
 
 [[package]]
 name = "price-provider"
-version = "0.4.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#dac1b560891fae189bf0c9c1a0cbc4af90166b02"
+version = "0.4.1"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1#bb6904dbbf984d2432dd741505b23b59f11679d1"
 dependencies = [
  "frame-support",
  "frame-system",
@@ -6249,7 +6293,7 @@ dependencies = [
  "sp-io",
  "sp-runtime",
  "sp-std",
- "utils",
+ "utils 0.5.0 (git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1)",
 ]
 
 [[package]]
@@ -9982,10 +10026,27 @@ dependencies = [
 
 [[package]]
 name = "utils"
-version = "0.4.0"
-source = "git+https://github.com/docknetwork/dock-substrate-common.git#dac1b560891fae189bf0c9c1a0cbc4af90166b02"
+version = "0.5.0"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=791ba98f551bcc82debb95ad8a3f95c3b193f51a#791ba98f551bcc82debb95ad8a3f95c3b193f51a"
 dependencies = [
  "frame-support",
+ "frame-system",
+ "num-traits",
+ "parity-scale-codec",
+ "scale-info",
+ "serde",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
+]
+
+[[package]]
+name = "utils"
+version = "0.5.0"
+source = "git+https://github.com/docknetwork/dock-substrate-common.git?rev=bb6904dbbf984d2432dd741505b23b59f11679d1#bb6904dbbf984d2432dd741505b23b59f11679d1"
+dependencies = [
+ "frame-support",
+ "frame-system",
  "num-traits",
  "parity-scale-codec",
  "scale-info",

@@ -1,16 +1,18 @@
 use super::*;
-use crate::deposit_indexed_event;
+use crate::{common::IntermediateError, deposit_indexed_event};
 
 impl<T: Config> Pallet<T> {
     pub(super) fn new_registry_(
         AddRegistry { new_registry, id }: AddRegistry<T>,
-    ) -> DispatchResult {
+        registry_opt: &mut Option<RevocationRegistry<T>>,
+    ) -> Result<(), IntermediateError<T>> {
         // check
         new_registry.policy.ensure_valid()?;
-        ensure!(!Registries::<T>::contains_key(id), Error::<T>::RegExists);
 
-        // execute
-        Registries::<T>::insert(id, new_registry);
+        ensure!(
+            registry_opt.replace(new_registry).is_none(),
+            IntermediateError::<T>::dispatch(Error::<T>::RegExists)
+        );
 
         deposit_indexed_event!(RegistryAdded(id));
         Ok(())
@@ -23,6 +25,7 @@ impl<T: Config> Pallet<T> {
             ..
         }: RevokeRaw<T>,
         _: RevocationRegistry<T>,
+        _: BTreeSet<PolicyExecutor>,
     ) -> DispatchResult {
         // execute
         for cred_id in &revoke_ids {
@@ -40,6 +43,7 @@ impl<T: Config> Pallet<T> {
             ..
         }: UnRevokeRaw<T>,
         registry: RevocationRegistry<T>,
+        _: BTreeSet<PolicyExecutor>,
     ) -> DispatchResult {
         ensure!(!registry.add_only, Error::<T>::AddOnly);
 
@@ -55,8 +59,9 @@ impl<T: Config> Pallet<T> {
     pub(super) fn remove_registry_(
         RemoveRegistryRaw { registry_id, .. }: RemoveRegistryRaw<T>,
         registry: &mut Option<RevocationRegistry<T>>,
+        _: BTreeSet<PolicyExecutor>,
     ) -> DispatchResult {
-        let registry = registry.take().unwrap();
+        let registry = registry.take().ok_or(Error::<T>::RegistryDoesntExist)?;
         ensure!(!registry.add_only, Error::<T>::AddOnly);
 
         // execute

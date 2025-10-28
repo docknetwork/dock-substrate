@@ -3,17 +3,16 @@
   gather_facts: False
   vars:
     instance_name: "{{ name }} (created by ansible)"
-    restricted_https: "{{ restricted_cidr_ip is defined }}"
-    unrestricted_http_and_https: "{{ not(restricted_https) }}"
-    group_name: "{{ 'HTTP & HTTPS (created by ansible)' if unrestricted_http_and_https else 'HTTP (created by ansible)' }}"
+    group_name: "{{ 'HTTP & HTTPS (created by ansible)' if https_bool else 'Restricted HTTP (created by ansible)' }}"
   tasks:
-
+  - set_fact: 
+      https_bool: "{{ https | default('true') | bool }}"
   - name: Create HTTP & HTTPS security group
-    when: unrestricted_http_and_https
+    when: https_bool
     amazon.aws.ec2_security_group:
       region: "{{ aws_region }}"
       profile: "{{ aws_profile }}"
-      name: HTTP & HTTPS (created by ansible)
+      name: "{{ group_name }}"
       description: Allows http and https connection (created by ansible)
       rules:
         - proto: tcp
@@ -24,19 +23,19 @@
           from_port: 443
           to_port: 443
           cidr_ip: 0.0.0.0/0
-  
-  - name: Create HTTP security group
-    when: restricted_https
+
+  - name: Create restricted HTTP security group
+    when: not https_bool
     amazon.aws.ec2_security_group:
       region: "{{ aws_region }}"
       profile: "{{ aws_profile }}"
-      name: HTTP (created by ansible)
+      name: "{{ group_name }}"
       description: Allows http connection (created by ansible)
       rules:
         - proto: tcp
           from_port: 80
           to_port: 80
-          cidr_ip: 0.0.0.0/0
+          group_name: "{{ group_name }}"
 
   - name: Get EC2 instance state
     amazon.aws.ec2_instance:
@@ -49,7 +48,7 @@
     ansible.builtin.debug:
       msg: Existing security groups {{ instances['instances'][0] | json_query('security_groups[*].group_id') }}
 
-  - name: Add HTTP & HTTPS open ports group to the EC2 instance
+  - name: Add {{ group_name }} to the EC2 instance
     amazon.aws.ec2_instance:
       profile: "{{ aws_profile }}"
       region: "{{ aws_region }}"
@@ -64,56 +63,18 @@
 
 - name: Open SSH port
   ansible.builtin.import_playbook: ./ec2-enable-ssh.yml
+
+- name: Setup http nginx
+  when: not hostvars['localhost']['https_bool']
+  ansible.builtin.import_playbook: ../setup-nginx-http.yml
+  vars:
+    overriden_host: "{{ hostvars['localhost']['instances']['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
     
-- name: Setup nginx and issue certs
-  ansible.builtin.import_playbook: ../setup-nginx.yml
+- name: Setup https nginx and issue certs
+  when: hostvars['localhost']['https_bool']
+  ansible.builtin.import_playbook: ../setup-nginx-https.yml
   vars:
     overriden_host: "{{ hostvars['localhost']['instances']['instances'][0]['network_interfaces'][0]['association']['public_ip'] }}"
 
 - name: Close SSH port
   ansible.builtin.import_playbook: ./ec2-disable-ssh.yml
-
-- hosts: localhost
-  connection: local
-  gather_facts: False
-  vars:
-    instance_name: "{{ name }} (created by ansible)"
-    restricted_https: "{{ restricted_cidr_ip is defined }}"
-    unrestricted_http_and_https: "{{ not(restricted_https) }}"
-    group_name: "{{ 'HTTP & HTTPS (created by ansible)' if unrestricted_http_and_https else 'HTTP (created by ansible)' }}"
-    restricted_group_name: "{{ 'Restricted HTTPS (' + restricted_cidr_ip + ') (created by ansible)' }}"
-  tasks:
-
-  - name: Create restricted HTTPS security group
-    when: restricted_https
-    amazon.aws.ec2_security_group:
-      region: "{{ aws_region }}"
-      profile: "{{ aws_profile }}"
-      name: "{{ restricted_group_name }}"
-      description: Allows restricted https connection (created by ansible)
-      rules:
-        - proto: tcp
-          from_port: 443
-          to_port: 443
-          cidr_ip: "{{ restricted_cidr_ip }}"
-
-  - name: Get EC2 instance state
-    when: restricted_https
-    amazon.aws.ec2_instance:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ instance_name }}"
-    register: instances
-
-  - name: EC2 instance info
-    when: restricted_https
-    ansible.builtin.debug:
-      msg: Existing security groups {{ instances['instances'][0] | json_query('security_groups[*].group_id') }}
-
-  - name: Add HTTP & HTTPS open ports group to the EC2 instance
-    when: restricted_https
-    amazon.aws.ec2_instance:
-      profile: "{{ aws_profile }}"
-      region: "{{ aws_region }}"
-      name: "{{ instance_name }}"
-      security_groups: "{{ instances['instances'][0] | json_query('security_groups[*].group_id') + [restricted_group_name] | difference([group_name])  }}"

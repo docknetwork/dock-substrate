@@ -1,7 +1,7 @@
 use super::*;
 use crate::{
-    common::state_change::ToStateChange,
-    did::{DidSignature, UncheckedDidKey},
+    common::{state_change::ToStateChange, IntermediateError},
+    did::{Did, DidSignature, UncheckedDidKey},
     util::{Action, IncId},
 };
 use frame_benchmarking::{benchmarks, whitelisted_caller};
@@ -62,17 +62,17 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
+        ActionWithNonceWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
             params: AccumulatorParameters {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
                 label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
             },
             nonce: 1u8.into()
-        }).execute::<T, _, _, _, _>(|action, counter| Pallet::<T>::add_params_(action.action, counter, AccumulatorOwner(did.into()))).unwrap();
+        }).modify::<T, _, _, _, _>(|action, counter| Pallet::<T>::add_params_(action.action, counter, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         let rem_params = RemoveAccumulatorParams {
-            params_ref: (AccumulatorOwner(did.into()), 1u8.try_into().unwrap()),
+            params_ref: AccumParametersStorageKey(AccumulatorOwner(did.into()), 1u8.try_into().unwrap()),
             nonce: 1u8.into()
         };
 
@@ -98,20 +98,20 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
+        ActionWithNonceWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
             params: AccumulatorParameters {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
                 label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
             },
             nonce: 1u8.into()
-        },).execute::<T, _, _, _, _>(|action, counter| Pallet::<T>::add_params_(action.action, counter, AccumulatorOwner(did.into()))).unwrap();
+        },).modify::<T, _, _, _, _>(|action, counter| Pallet::<T>::add_params_(action.action, counter, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         let public_key = AccumulatorPublicKey {
             curve_type: CurveType::Bls12381,
             bytes: vec![3; b as usize].try_into().unwrap(),
             /// The params used to generate the public key (`P_tilde` comes from params)
-            params_ref: Some((AccumulatorOwner(did.into()), IncId::from(1u8)))
+            params_ref: Some(AccumParametersStorageKey(AccumulatorOwner(did.into()), IncId::from(1u8)))
         };
 
         let add_key = AddAccumulatorPublicKey {
@@ -138,20 +138,20 @@ crate::bench_with_all_pairs! {
             Default::default(),
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
+        ActionWithNonceWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
             params: AccumulatorParameters {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
                 label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
             },
             nonce: 1u8.into()
-        }).execute::<T, _, _, _, _>(
-            |ActionWrapper { action, .. }, accumulator| {
-                Pallet::<T>::add_params_(action, accumulator, AccumulatorOwner(did.into()))
+        }).modify::<T, _, _, _, _>(
+            |ActionWithNonceWrapper { action, .. }, accumulator| {
+                Pallet::<T>::add_params_(action, accumulator, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)
             },
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorPublicKey {
@@ -159,17 +159,17 @@ crate::bench_with_all_pairs! {
                     curve_type: CurveType::Bls12381,
                     bytes: vec![3; MAX_KEY as usize].try_into().unwrap(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
-                    params_ref: Some((AccumulatorOwner(did.into()), IncId::from(1u8)))
+                    params_ref: Some(AccumParametersStorageKey(AccumulatorOwner(did.into()), IncId::from(1u8)))
                 },
                 nonce: 1u8.into()
-            }).execute::<T, _, _, _, _>(
-            |ActionWrapper { action, .. }, accumulator| {
-                Pallet::<T>::add_public_key_(action, accumulator, AccumulatorOwner(did.into()))
+            }).modify::<T, _, _, _, _>(
+            |ActionWithNonceWrapper { action, .. }, accumulator| {
+                Pallet::<T>::add_public_key_(action, accumulator, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)
             }
         ).unwrap();
 
         let rem_key = RemoveAccumulatorPublicKey {
-            key_ref: (AccumulatorOwner(did.into()), 1u8.try_into().unwrap()),
+            key_ref: AccumPublicKeyStorageKey(AccumulatorOwner(did.into()), 1u8.try_into().unwrap()),
             nonce: 1u8.into()
         };
 
@@ -191,7 +191,7 @@ crate::bench_with_all_pairs! {
         let public = pair.public();
         let accumulator = Accumulator::Positive(AccumulatorCommon {
             accumulated: vec![3; b as usize].try_into().unwrap(),
-            key_ref: (AccumulatorOwner(did.into()), 1u8.into()),
+            key_ref: AccumPublicKeyStorageKey(AccumulatorOwner(did.into()), 1u8.into()),
         });
 
         crate::did::Pallet::<T>::new_onchain_(
@@ -202,20 +202,20 @@ crate::bench_with_all_pairs! {
 
         let acc_id: AccumulatorId = AccumulatorId([1; 32]);
 
-        ActionWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
+        ActionWithNonceWrapper::<T, _, _>::new(1u8.into(), AccumulatorOwner(did.into()), AddAccumulatorParams {
             params: AccumulatorParameters {
                 curve_type: CurveType::Bls12381,
                 bytes: vec![3; MAX_PARAMS as usize].try_into().unwrap(),
                 label: Some(vec![1; MAX_LABEL as usize].try_into().unwrap()),
             },
             nonce: 1u8.into()
-        }).execute::<T, _, _, _, _>(
-            |ActionWrapper { action, .. }, accumulator| {
-                Pallet::<T>::add_params_(action, accumulator, AccumulatorOwner(did.into()))
+        }).modify::<T, _, _, _, _>(
+            |ActionWithNonceWrapper { action, .. }, accumulator| {
+                Pallet::<T>::add_params_(action, accumulator, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)
             },
         ).unwrap();
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorPublicKey {
@@ -223,12 +223,12 @@ crate::bench_with_all_pairs! {
                     curve_type: CurveType::Bls12381,
                     bytes: vec![3; MAX_KEY as usize].try_into().unwrap(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
-                    params_ref: Some((AccumulatorOwner(did.into()), IncId::from(1u8)))
+                    params_ref: Some(AccumParametersStorageKey(AccumulatorOwner(did.into()), IncId::from(1u8)))
                 },
                 nonce: 1u8.into()
-            }).execute::<T, _, _, _, _>(
-            |ActionWrapper { action, .. }, accumulator| {
-                Pallet::<T>::add_public_key_(action, accumulator, AccumulatorOwner(did.into()))
+            }).modify::<T, _, _, _, _>(
+            |ActionWithNonceWrapper { action, .. }, accumulator| {
+                Pallet::<T>::add_public_key_(action, accumulator, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)
             }
         ).unwrap();
 
@@ -261,7 +261,7 @@ crate::bench_with_all_pairs! {
         let public = pair.public();
         let accumulator = Accumulator::Positive(AccumulatorCommon {
             accumulated: vec![3; MAX_ACC as usize].try_into().unwrap(),
-            key_ref: (AccumulatorOwner(did.into()), 1u8.try_into().unwrap()),
+            key_ref: AccumPublicKeyStorageKey(AccumulatorOwner(did.into()), 1u8.try_into().unwrap()),
         });
 
         crate::did::Pallet::<T>::new_onchain_(
@@ -272,7 +272,7 @@ crate::bench_with_all_pairs! {
 
         let acc_id: AccumulatorId = AccumulatorId([1; 32]);
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorParams {
@@ -283,10 +283,10 @@ crate::bench_with_all_pairs! {
                 },
                 nonce: 1u8.into()
             }
-        ).execute::<T, _, _, _, _>(|action, counters|  Pallet::<T>::add_params_(action.action, counters, AccumulatorOwner(did.into()))).unwrap();
+        ).modify::<T, _, _, _, _>(|action, counters|  Pallet::<T>::add_params_(action.action, counters, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorPublicKey {
@@ -294,17 +294,17 @@ crate::bench_with_all_pairs! {
                     curve_type: CurveType::Bls12381,
                     bytes: vec![3; MAX_KEY as usize].try_into().unwrap(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
-                    params_ref: Some((AccumulatorOwner(did.into()), IncId::from(1u8)))
+                    params_ref: Some(AccumParametersStorageKey(AccumulatorOwner(did.into()), IncId::from(1u8)))
                 },
                 nonce: 1u8.into()
             }
-        ).execute::<T, _, _, _, _>(|action, counters| Pallet::<T>::add_public_key_(action.action, counters, AccumulatorOwner(did.into()))).unwrap();
+        ).modify::<T, _, _, _, _>(|action, counters| Pallet::<T>::add_public_key_(action.action, counters, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         AddAccumulator {
             id: acc_id,
             accumulator,
             nonce: 1u8.into()
-        }.execute::<T, _, _, _, _>(|action, counters| Pallet::<T>::add_accumulator_(action, counters, AccumulatorOwner(did.into()))).unwrap();
+        }.modify_removable::<T, _, _, _, _>(|action, acc| Pallet::<T>::add_accumulator_(action, acc, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         let new_accumulated = vec![3; a as usize];
         let up_acc = UpdateAccumulator {
@@ -331,7 +331,7 @@ crate::bench_with_all_pairs! {
 
         let accumulator = Accumulator::Positive(AccumulatorCommon {
             accumulated: vec![3; MAX_ACC as usize].try_into().unwrap(),
-            key_ref: (AccumulatorOwner(did.into()), 1u8.try_into().unwrap()),
+            key_ref: AccumPublicKeyStorageKey(AccumulatorOwner(did.into()), 1u8.try_into().unwrap()),
         });
 
         crate::did::Pallet::<T>::new_onchain_(
@@ -342,8 +342,7 @@ crate::bench_with_all_pairs! {
 
         let acc_id: AccumulatorId = AccumulatorId([2; 32]);
 
-
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorParams {
@@ -354,10 +353,10 @@ crate::bench_with_all_pairs! {
                 },
                 nonce: 1u8.into()
             }
-        ).execute::<T, _, _, _, _>(|action, counters|  Pallet::<T>::add_params_(action.action, counters, AccumulatorOwner(did.into()))).unwrap();
+        ).modify::<T, _, _, _, _>(|action, counters|  Pallet::<T>::add_params_(action.action, counters, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
 
-        ActionWrapper::<T, _, _>::new(
+        ActionWithNonceWrapper::<T, _, _>::new(
             1u8.into(),
             AccumulatorOwner(did.into()),
             AddAccumulatorPublicKey {
@@ -365,17 +364,17 @@ crate::bench_with_all_pairs! {
                     curve_type: CurveType::Bls12381,
                     bytes: vec![3; MAX_KEY as usize].try_into().unwrap(),
                     /// The params used to generate the public key (`P_tilde` comes from params)
-                    params_ref: Some((AccumulatorOwner(did.into()), IncId::from(1u8)))
+                    params_ref: Some(AccumParametersStorageKey(AccumulatorOwner(did.into()), IncId::from(1u8)))
                 },
                 nonce: 1u8.into()
             }
-        ).execute::<T, _, _, _, _>(|action, counters| Pallet::<T>::add_public_key_(action.action, counters, AccumulatorOwner(did.into()))).unwrap();
+        ).modify::<T, _, _, _, _>(|action, counters| Pallet::<T>::add_public_key_(action.action, counters, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         AddAccumulator {
             id: acc_id,
             accumulator,
             nonce: 1u8.into()
-        }.execute::<T, _, _, _, _>(|action, counters| Pallet::<T>::add_accumulator_(action, counters, AccumulatorOwner(did.into()))).unwrap();
+        }.modify_removable::<T, _, _, _, _>(|action, counters| Pallet::<T>::add_accumulator_(action, counters, AccumulatorOwner(did.into())).map_err(IntermediateError::<T>::from)).unwrap();
 
         let remove_acc = RemoveAccumulator {
             id: acc_id,
