@@ -79,19 +79,19 @@ jobs:
             [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
           document-name: AWS-RunShellScript
           parameters: |
-            {"commands":["sudo growpart /dev/xvda 1", "sudo resize2fs /dev/xvda1"]}
-      # - name: Log disk info
-      #   id: log-disk-info
-      #   uses: nohmad/aws-ssm-send-command-action@master
-      #   with:
-      #     aws-region: ${{ inputs.aws_region }}
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-      #     targets: |
-      #       [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
-      #     document-name: AWS-RunShellScript
-      #     parameters: |
-      #       {"commands": ["echo '--- Disk layout ---'", "lsblk -f", "echo '--- Root mount ---'", "findmnt /"]}
+            {"commands":["sudo resize2fs /dev/xvda1"]}
+      - name: Log disk info
+        id: log-disk-info
+        uses: nohmad/aws-ssm-send-command-action@master
+        with:
+          aws-region: ${{ inputs.aws_region }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+          targets: |
+            [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
+          document-name: AWS-RunShellScript
+          parameters: |
+            {"commands": ["file -s /dev/xvd*", "df -h"]}
 
       - name: Get SSM output
         if: always()
@@ -105,6 +105,16 @@ jobs:
           echo "COMMAND_OUTPUT=$COMMAND_OUTPUT" >> $GITHUB_ENV
           echo "Command Output: $COMMAND_OUTPUT"
 
+      - name: Get SSM log info output
+        if: always()
+        id: get-ssm-log-info-output
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ inputs.aws_region }}
+        run: |
+          COMMAND_OUTPUT=$(aws ssm list-command-invocations --command-id ${{ steps.log-disk-info.outputs.command-id }} --details | jq -c .)
+          echo "Command Output: $COMMAND_OUTPUT"
       - name: Check SSM output
         if: steps.get-ssm-output.outcome == 'success' && contains(env.COMMAND_OUTPUT, 'error')
         run: |
