@@ -68,20 +68,8 @@ jobs:
       #   run: sleep 30m
       #   shell: bash
 
-      # - name: Extend file system
-      #   id: extend-file-system
-      #   uses: nohmad/aws-ssm-send-command-action@master
-      #   with:
-      #     aws-region: ${{ inputs.aws_region }}
-      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-      #     targets: |
-      #       [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
-      #     document-name: AWS-RunShellScript
-      #     parameters: |
-      #       {"commands":["sudo growpart /dev/nvme0n1 1", "sudo resize2fs /dev/nvme0n1p1"]}
-      - name: Log disk info
-        id: log-disk-info
+      - name: Extend file system
+        id: extend-file-system
         uses: nohmad/aws-ssm-send-command-action@master
         with:
           aws-region: ${{ inputs.aws_region }}
@@ -91,7 +79,19 @@ jobs:
             [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
           document-name: AWS-RunShellScript
           parameters: |
-            {"commands": ["echo '--- Disk layout ---'", "lsblk -f", "echo '--- Root mount ---'", "findmnt /"]}
+            {"commands":["sudo growpart /dev/xvda 1", "sudo resize2fs /dev/xvda1"]}
+      # - name: Log disk info
+      #   id: log-disk-info
+      #   uses: nohmad/aws-ssm-send-command-action@master
+      #   with:
+      #     aws-region: ${{ inputs.aws_region }}
+      #     aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      #     aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+      #     targets: |
+      #       [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
+      #     document-name: AWS-RunShellScript
+      #     parameters: |
+      #       {"commands": ["echo '--- Disk layout ---'", "lsblk -f", "echo '--- Root mount ---'", "findmnt /"]}
 
       - name: Get SSM output
         if: always()
@@ -101,7 +101,7 @@ jobs:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_KEY }}
           AWS_DEFAULT_REGION: ${{ inputs.aws_region }}
         run: |
-          COMMAND_OUTPUT=$(aws ssm list-command-invocations --command-id ${{ steps.log-disk-info.outputs.command-id }} --details | jq -c .)
+          COMMAND_OUTPUT=$(aws ssm list-command-invocations --command-id ${{ steps.extend-file-system.outputs.command-id }} --details | jq -c .)
           echo "COMMAND_OUTPUT=$COMMAND_OUTPUT" >> $GITHUB_ENV
           echo "Command Output: $COMMAND_OUTPUT"
 
