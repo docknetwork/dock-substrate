@@ -93,7 +93,7 @@ jobs:
           echo "COMMAND_OUTPUT=$COMMAND_OUTPUT" >> $GITHUB_ENV
 
       - name: Check SSM output
-        if: steps.get-ssm-output.outcome == 'success' && contains(env.COMMAND_OUTPUT, 'error')
+        if: steps.get-ssm-output.outcome == 'success' && !contains(env.COMMAND_OUTPUT, 'Status:Success')
         run: |
           echo "Error detected trying to extend the partition."
           echo ${{env.COMMAND_OUTPUT}}
