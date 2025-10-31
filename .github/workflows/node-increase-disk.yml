@@ -18,6 +18,18 @@ on:
         description: "The amount of diskspace to add (GB)"
         default: "50"
         required: true
+      disk:
+        description: "The disk to increase using growpart (e.g., /dev/xvda)"
+        default: "/dev/xvda"
+        required: true
+      partition_number:
+        description: "The partition number to extend using growpart (e.g., 1)"
+        default: "1"
+        required: true
+      partition_device:
+        description: "The partition device to extend using resize2fs (e.g., /dev/xvda1)"
+        default: "/dev/xvda1"
+        required: true
 
 
 jobs:
@@ -79,7 +91,12 @@ jobs:
             [{"Key":"InstanceIds","Values":["${{ inputs.instance_id }}"]}]
           document-name: AWS-RunShellScript
           parameters: |
-            {"commands":["sudo growpart /dev/xvda 1", "sudo resize2fs /dev/xvda1"]}
+            {
+              "commands":[
+                "sudo growpart ${{ inputs.disk }} ${{ inputs.partition_number }}",
+                "sudo resize2fs ${{ inputs.partition_device }}"
+              ]
+            }
 
       - name: Get SSM output
         if: always()
